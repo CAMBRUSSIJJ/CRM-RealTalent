@@ -1,0 +1,52 @@
+{
+  "name": "realtalent-crm-v100-27",
+  "private": true,
+  "version": "100.27.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite --host 0.0.0.0",
+    "build": "node scripts/validate-env.mjs && tsc -b && vite build",
+    "preview": "vite preview --host 0.0.0.0",
+    "typecheck": "tsc -b --pretty false",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:smoke": "python scripts/smoke_test.py",
+    "check": "npm run typecheck && npm run test && npm run build && npm run audit:release && npm run preflight",
+    "standalone": "tsc -b && vite build --mode standalone && node scripts/build-standalone.mjs",
+    "audit:release": "node scripts/release_audit.mjs",
+    "dev:local": "vite --host 0.0.0.0 --mode demo",
+    "dev:supabase": "vite --host 0.0.0.0 --mode supabase-local",
+    "env:check": "node scripts/validate-env.mjs",
+    "env:supabase-local": "node scripts/write-local-supabase-env.mjs",
+    "preflight": "node scripts/preflight.mjs",
+    "check:ci": "npm run typecheck && npm run test && npm run build && npm run audit:release && npm run preflight",
+    "supabase:start": "supabase start",
+    "supabase:stop": "supabase stop",
+    "supabase:status": "supabase status",
+    "supabase:reset": "supabase db reset --local",
+    "supabase:lint": "supabase db lint --local --level warning",
+    "supabase:functions": "supabase functions serve --env-file supabase/functions/.env.local",
+    "supabase:deploy": "node scripts/deploy-supabase.mjs",
+    "start:demo": "npm run dev:local",
+    "start:stack": "node scripts/start-stack.mjs"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.110.7",
+    "lucide-react": "^1.24.0",
+    "react": "^19.2.7",
+    "react-dom": "^19.2.7"
+  },
+  "devDependencies": {
+    "@testing-library/jest-dom": "^6.9.1",
+    "@testing-library/react": "^16.3.2",
+    "@types/node": "^24.10.11",
+    "@types/react": "^19.2.14",
+    "@types/react-dom": "^19.2.3",
+    "@vitejs/plugin-react": "^6.0.3",
+    "jsdom": "^28.1.0",
+    "supabase": "^2.109.1",
+    "typescript": "^7.0.2",
+    "vite": "^8.1.5",
+    "vitest": "^4.1.10"
+  }
+}

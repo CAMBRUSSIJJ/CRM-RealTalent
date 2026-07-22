@@ -10,7 +10,7 @@ Pelo terminal:
 git init
 git branch -M main
 git add .
-git commit -m "RealTalent CRM V100.27"
+git commit -m "RealTalent CRM V100.29"
 gh repo create realtalent-crm --private --source=. --remote=origin --push
 ```
 

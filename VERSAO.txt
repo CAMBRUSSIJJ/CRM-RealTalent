@@ -1,1 +1,1 @@
-RealTalent CRM V100.27 — Inicialização, Deploy e Operação
+RealTalent CRM V100.29 — Playbook Outbound Interativo

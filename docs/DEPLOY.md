@@ -1,4 +1,4 @@
-# Publicação do RealTalent CRM V100.27
+# Publicação do RealTalent CRM V100.29
 
 ## 1. Validar o pacote
 
@@ -69,7 +69,7 @@ Após alterar variáveis, faça um novo deploy.
 
 ## 7. Teste de produção
 
-- `/health.json` responde com a versão 100.27;
+- `/health.json` responde com a versão 100.29;
 - owner cria e administra a equipe;
 - admin administra sem remover o owner;
 - member trabalha nos dados comerciais;

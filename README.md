@@ -1,4 +1,4 @@
-# RealTalent CRM V100.27 — Inicialização, Deploy e Operação
+# RealTalent CRM V100.29 — Playbook Outbound Interativo
 
 CRM comercial em React, TypeScript, Vite e Supabase. Esta versão transforma a base V100.26 em um pacote reproduzível para GitHub, desenvolvimento local, staging e produção.
 
@@ -58,8 +58,8 @@ Nunca coloque `service_role`, `sb_secret_` ou outra chave administrativa no fron
 
 ## Relatórios desta versão
 
-- `CHANGELOG-V100-27.md`;
-- `RELATORIO-TESTES-V100-27.md`;
-- `RELATORIO-PRONTIDAO-REALTALENT-CRM-V100-27.md`;
-- `TESTE-SMOKE-V100-27.json`;
-- `PRE-FLIGHT-V100-27.json`.
+- `CHANGELOG-V100-29.md`;
+- `RELATORIO-TESTES-V100-29.md`;
+- `RELATORIO-PRONTIDAO-REALTALENT-CRM-V100-29.md`;
+- `TESTE-SMOKE-V100-29.json`;
+- `PRE-FLIGHT-V100-29.json`.

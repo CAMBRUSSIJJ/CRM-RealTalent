@@ -117,19 +117,43 @@ export const DEMO_GOALS: Goal[] = [
 
 export const DEMO_PLAYBOOKS: Playbook[] = [
   {
-    id: 'playbook-first-contact', workspaceId: DEMO_WORKSPACE.id, kind: 'script', title: 'Primeiro contato — dor invisível', category: 'Prospecção',
-    content: 'Vou ser bem direto: analisando a operação de vocês, percebi um ponto na forma como os clientes chegam e garantem horário que pode estar fazendo a barbearia perder agendamentos sem perceber.',
-    tags: ['barbearia','primeiro contato'], active: true, createdAt: isoInDays(-8), updatedAt: isoInDays(-2),
+    id: 'playbook-first-contact', workspaceId: DEMO_WORKSPACE.id, kind: 'script', title: 'Outbound consultivo — barbearias e salões', category: 'Prospecção',
+    content: `Olá, {{nome}}, tudo bem? Aqui é o Marcelo. Posso te explicar em 30 segundos o motivo da ligação e você me diz se vale a pena continuarmos?
+
+Eu trabalho exclusivamente com barbearias e salões de beleza. Ajudamos negócios do setor a reduzir faltas, cancelamentos e horários vazios, além de recuperar clientes que demoram para retornar.
+
+Hoje vocês utilizam algum sistema de agendamento ou concentram a maior parte dos contatos no WhatsApp?`,
+    tags: ['barbearia','salão','outbound','primeiro contato'], active: true, createdAt: isoInDays(-8), updatedAt: isoInDays(-1),
   },
   {
-    id: 'playbook-no-time', workspaceId: DEMO_WORKSPACE.id, kind: 'objection', title: '“Agora não tenho tempo”', category: 'Objeções',
-    content: 'Perfeito, por isso mesmo proponho algo objetivo: dez minutos para eu te mostrar onde os agendamentos estão escapando. Se não fizer sentido, encerramos ali.',
-    tags: ['tempo','reunião'], active: true, createdAt: isoInDays(-7), updatedAt: isoInDays(-2),
+    id: 'playbook-no-time', workspaceId: DEMO_WORKSPACE.id, kind: 'objection', title: 'Não tenho tempo agora', category: 'Tempo',
+    content: 'Sem problema. Não quero atrapalhar sua operação. Posso ser objetivo e combinar um horário melhor para uma conversa de 15 minutos. Para você costuma ser mais tranquilo no começo ou no fim do dia?',
+    tags: ['tempo','retorno'], active: true, createdAt: isoInDays(-7), updatedAt: isoInDays(-1),
   },
   {
-    id: 'playbook-already-system', workspaceId: DEMO_WORKSPACE.id, kind: 'objection', title: '“Já tenho sistema”', category: 'Objeções',
-    content: 'Ter sistema é comum. A pergunta é se ele está ajudando a vender mais e reduzir desistências ou apenas registrando horários. É justamente essa diferença que quero te mostrar.',
-    tags: ['sistema','valor'], active: true, createdAt: isoInDays(-6), updatedAt: isoInDays(-2),
+    id: 'playbook-already-system', workspaceId: DEMO_WORKSPACE.id, kind: 'objection', title: 'Já tenho sistema', category: 'Solução atual',
+    content: 'Perfeito. Eu não estou entrando em contato para dizer que você precisa trocar de sistema. Quero entender se, mesmo usando essa ferramenta, ainda existem faltas, clientes que não retornam ou horários difíceis de preencher. Qual é o principal problema que ainda permanece?',
+    tags: ['sistema','diagnóstico'], active: true, createdAt: isoInDays(-6), updatedAt: isoInDays(-1),
+  },
+  {
+    id: 'playbook-no-interest', workspaceId: DEMO_WORKSPACE.id, kind: 'objection', title: 'Não tenho interesse', category: 'Interesse',
+    content: 'Tranquilo. Só para eu não insistir em algo que não faça sentido: você não tem interesse porque já está satisfeito com o processo atual ou porque esse assunto não é prioridade agora?',
+    tags: ['interesse','qualificação'], active: true, createdAt: isoInDays(-6), updatedAt: isoInDays(-1),
+  },
+  {
+    id: 'playbook-whatsapp', workspaceId: DEMO_WORKSPACE.id, kind: 'objection', title: 'Me manda no WhatsApp', category: 'Canal',
+    content: 'Envio sim. Para eu não te mandar uma mensagem genérica, me diga só uma coisa: hoje o maior desafio está em faltas, horários vazios ou retorno dos clientes?',
+    tags: ['whatsapp','diagnóstico'], active: true, createdAt: isoInDays(-5), updatedAt: isoInDays(-1),
+  },
+  {
+    id: 'playbook-selling', workspaceId: DEMO_WORKSPACE.id, kind: 'objection', title: 'Vocês querem me vender algo?', category: 'Confiança',
+    content: 'Existe uma solução comercial, sim, mas esta ligação não é para forçar uma venda. Primeiro precisamos entender se existe um problema real que justifique uma conversa. Caso não exista, encerramos por ali.',
+    tags: ['confiança','transparência'], active: true, createdAt: isoInDays(-5), updatedAt: isoInDays(-1),
+  },
+  {
+    id: 'playbook-partner', workspaceId: DEMO_WORKSPACE.id, kind: 'objection', title: 'Preciso falar com meu sócio', category: 'Decisão',
+    content: 'Faz sentido envolver quem participa da decisão. Podemos marcar a conversa em um horário em que vocês dois estejam disponíveis, assim ninguém precisa repassar as informações depois. Qual período costuma funcionar melhor para os dois?',
+    tags: ['sócio','decisão'], active: true, createdAt: isoInDays(-4), updatedAt: isoInDays(-1),
   },
 ]
 

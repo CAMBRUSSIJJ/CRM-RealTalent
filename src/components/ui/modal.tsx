@@ -6,11 +6,12 @@ interface ModalProps {
   title: string
   subtitle?: string
   footer?: ReactNode
+  headerActions?: ReactNode
   onClose(): void
-  size?: 'sm' | 'md' | 'lg' | 'xl'
+  size?: 'sm' | 'md' | 'lg' | 'xl' | 'full'
 }
 
-export function Modal({ open, title, subtitle, footer, onClose, size = 'md', children }: PropsWithChildren<ModalProps>) {
+export function Modal({ open, title, subtitle, footer, headerActions, onClose, size = 'md', children }: PropsWithChildren<ModalProps>) {
   const titleId = useId()
   const subtitleId = useId()
   const dialogRef = useRef<HTMLElement>(null)
@@ -51,7 +52,10 @@ export function Modal({ open, title, subtitle, footer, onClose, size = 'md', chi
             <h2 id={titleId}>{title}</h2>
             {subtitle ? <p id={subtitleId}>{subtitle}</p> : null}
           </div>
-          <button className="icon-button" type="button" onClick={onClose} aria-label="Fechar"><X size={20} /></button>
+          <div className="modal__header-actions">
+            {headerActions}
+            <button className="icon-button" type="button" onClick={onClose} aria-label="Fechar"><X size={20} /></button>
+          </div>
         </header>
         <div className="modal__body">{children}</div>
         {footer ? <footer className="modal__footer">{footer}</footer> : null}

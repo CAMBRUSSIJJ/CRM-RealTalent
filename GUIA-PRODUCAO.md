@@ -1,4 +1,4 @@
-# Guia de produção — RealTalent CRM V100.27
+# Guia de produção — RealTalent CRM V100.29
 
 A publicação deve passar por GitHub privado, Supabase staging, testes e somente então produção.
 

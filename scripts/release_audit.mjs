@@ -33,9 +33,9 @@ for (const header of ['Content-Security-Policy', 'X-Content-Type-Options', 'Refe
 }
 
 const packageJson = JSON.parse(await readFile(join(root, 'package.json'), 'utf8'))
-if (packageJson.version !== '100.27.0') failures.push(`package.json: versão ${packageJson.version} diferente de 100.27.0`)
+if (packageJson.version !== '100.29.0') failures.push(`package.json: versão ${packageJson.version} diferente de 100.29.0`)
 const indexHtml = await readFile(join(root, 'index.html'), 'utf8')
-if (!indexHtml.includes('RealTalent CRM V100.27')) failures.push('index.html: título da versão V100.27 ausente')
+if (!indexHtml.includes('RealTalent CRM V100.29')) failures.push('index.html: título da versão V100.29 ausente')
 
 for (const required of [
   'src/features/settings/integration-center.tsx',

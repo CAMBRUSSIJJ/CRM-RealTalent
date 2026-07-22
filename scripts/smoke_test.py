@@ -8,8 +8,8 @@ from pathlib import Path
 from playwright.sync_api import sync_playwright
 
 ROOT = Path(__file__).resolve().parents[1]
-STANDALONE = (ROOT / 'REALTALENT-CRM-V100-27-standalone.html').read_text(encoding='utf-8')
-OUTPUT = ROOT / 'TESTE-SMOKE-V100-27.json'
+STANDALONE = (ROOT / 'REALTALENT-CRM-V100-29-standalone.html').read_text(encoding='utf-8')
+OUTPUT = ROOT / 'TESTE-SMOKE-V100-29.json'
 results: dict[str, object] = {'passed': False, 'checks': [], 'console_errors': [], 'page_errors': [], 'error': None}
 
 ROUTES = ['Meu Dia', 'Leads', 'Pipeline', 'Follow-ups', 'Ligações', 'Agenda', 'Playbooks', 'Metas', 'Automações', 'Garimpo', 'Métricas', 'Configurações']
@@ -85,6 +85,25 @@ try:
         page.get_by_role('button', name='Previsão', exact=True).click()
         page.get_by_text('Fechamento esperado', exact=True).first.wait_for()
         results['checks'].append('Pipeline abriu visão de equipe, cadência, contato assistido e forecast por fechamento')
+
+        page.get_by_role('button', name='Kanban', exact=True).click()
+        page.locator('.pipeline-call-status').first.wait_for()
+        if page.locator('.pipeline-call-status').count() < 1:
+            raise AssertionError('cards do Pipeline não exibiram o status de ligação')
+        results['checks'].append('cards do Pipeline exibem indicador de ligação pendente, agendada ou realizada')
+
+        page.locator('.sidebar__item', has_text='Ligações').click()
+        page.get_by_role('button', name='Começar rotina').click()
+        page.get_by_role('heading', name='Modo Ligação em Foco').wait_for()
+        page.get_by_text('Diga agora', exact=True).wait_for()
+        page.get_by_role('heading', name='Ganhe permissão para continuar', exact=True).wait_for()
+        page.locator('.modal--full').wait_for()
+        if not no_global_overflow(page):
+            raise AssertionError('Modo Ligação em tela cheia criou overflow global')
+        page.get_by_role('button', name='Sair da tela cheia').click()
+        page.get_by_role('button', name='Tela cheia').wait_for()
+        page.get_by_role('button', name='Fechar').last.click()
+        results['checks'].append('Modo Ligação mantém o roteiro central e alterna tela cheia sem overflow')
 
         page.locator('.sidebar__item', has_text='Configurações').click()
         page.get_by_role('heading', name='Configurações, segurança e diagnóstico').wait_for()

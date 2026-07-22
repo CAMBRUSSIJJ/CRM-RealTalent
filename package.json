@@ -1,7 +1,7 @@
 {
-  "name": "realtalent-crm-v100-27",
+  "name": "realtalent-crm-v100-29",
   "private": true,
-  "version": "100.27.0",
+  "version": "100.29.0",
   "type": "module",
   "scripts": {
     "dev": "vite --host 0.0.0.0",

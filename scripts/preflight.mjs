@@ -25,7 +25,7 @@ check('Agendador de automações', exists('supabase/cron/CONFIGURAR-AUTOMATION-R
 check('Validador de ambiente', exists('scripts/validate-env.mjs'), 'bloqueio de deploy local na hospedagem')
 const deployScript = exists('scripts/deploy-supabase.mjs') ? fs.readFileSync(path.join(root, 'scripts/deploy-supabase.mjs'), 'utf8') : ''
 check('Segredo estável do runner', /cronSecret\.length < 32/.test(deployScript), 'redeploy exige o mesmo segredo protegido')
-check('Health check', exists('public/health.json') && fs.readFileSync(path.join(root, 'public/health.json'), 'utf8').includes('100.27'), '/health.json versionado')
+check('Health check', exists('public/health.json') && fs.readFileSync(path.join(root, 'public/health.json'), 'utf8').includes('100.29'), '/health.json versionado')
 check('Inicializador Windows', exists('INICIAR-CRM-LOCAL.bat') && exists('INICIAR-CRM-COM-SUPABASE.bat'), 'atalhos de inicialização')
 
 const suspicious = []
@@ -46,7 +46,7 @@ const manifest = {
     .filter(exists)
     .map((file) => ({ file, sha256: crypto.createHash('sha256').update(fs.readFileSync(path.join(root, file))).digest('hex') })),
 }
-fs.writeFileSync(path.join(root, 'PRE-FLIGHT-V100-27.json'), JSON.stringify(manifest, null, 2) + '\n')
+fs.writeFileSync(path.join(root, 'PRE-FLIGHT-V100-29.json'), JSON.stringify(manifest, null, 2) + '\n')
 
 for (const item of checks) console.log(`${item.ok ? 'OK' : 'FALHA'} — ${item.name}: ${item.detail}`)
 const failed = checks.filter((item) => !item.ok)

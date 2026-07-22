@@ -241,7 +241,7 @@ describe('operações V100.4', () => {
     const repository = new LocalCrmRepository()
     await repository.initialize()
     const backup = await repository.exportWorkspace(DEMO_WORKSPACE.id)
-    expect(backup.version).toBe('100.27')
+    expect(backup.version).toBe('100.29')
     expect((backup.snapshot as { leads: unknown[] }).leads.length).toBeGreaterThan(0)
     expect(Array.isArray(backup.members)).toBe(true)
   })

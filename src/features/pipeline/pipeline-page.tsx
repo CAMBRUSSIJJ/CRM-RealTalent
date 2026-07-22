@@ -24,6 +24,7 @@ import { StageModal } from './stage-modal'
 import { usePreferences } from '../settings/preferences-context'
 import { buildPipelineSignal, effectiveStagePolicy, forecastMonthKey, recommendedStagePolicy, type PipelineSignal } from '../../services/pipeline-intelligence'
 import { SalesMessageModal } from './sales-message-modal'
+import { buildPipelineCallStatus } from '../../services/pipeline-call-status'
 
 const INITIAL_CARDS = 30
 const DEFAULT_FILTERS: PipelineFiltersState = { query: '', temperature: 'all', priority: 'all', source: 'all', due: 'all', owner: 'all', health: 'all' }
@@ -270,6 +271,12 @@ export function PipelinePage() {
   const renderCard = (lead: Lead) => {
     const signal = signals.get(lead.id)
     const selected = selectedIds.includes(lead.id)
+    const callStatus = buildPipelineCallStatus(lead.id, snapshot?.calls ?? [], snapshot?.activities ?? [])
+    const callStatusTitle = [
+      callStatus.detail,
+      callStatus.lastCallAt ? `Última ligação: ${formatDateTime(callStatus.lastCallAt)}` : '',
+      callStatus.nextCallAt ? `Próxima ligação: ${formatDateTime(callStatus.nextCallAt)}` : '',
+    ].filter(Boolean).join(' · ')
     return <article
       draggable={canWrite} className={`pipeline-card-v1008 ${draggingId === lead.id ? 'is-dragging' : ''} ${selected ? 'is-selected' : ''}`} key={lead.id}
       onDragStart={(event) => { if (!canWrite) { event.preventDefault(); return }; setDraggingId(lead.id); event.dataTransfer.setData('text/lead-id', lead.id); event.dataTransfer.effectAllowed = 'move' }}
@@ -286,6 +293,11 @@ export function PipelinePage() {
         {cardField('company') && lead.company ? <p>{lead.company}</p> : null}
         {cardField('city') && lead.city ? <p className="pipeline-card-v1008__muted">{lead.city}</p> : null}
         {cardField('owner') ? <span className="pipeline-card-v1008__owner">Responsável: {lead.ownerName || 'Não atribuído'}</span> : null}
+        <span className={`pipeline-call-status pipeline-call-status--${callStatus.tone}`} title={callStatusTitle}>
+          <i aria-hidden="true" />
+          <strong>{callStatus.label}</strong>
+          {callStatus.nextCallAt ? <small>{formatDateTime(callStatus.nextCallAt)}</small> : null}
+        </span>
         {cardField('health') && signal ? <span className={`pipeline-health pipeline-health--${signal.health}`} title={signal.healthReason}>{healthLabels[signal.health]}</span> : null}
         {cardField('tags') && lead.tags.length ? <div className="pipeline-card-v1008__tags">{lead.tags.slice(0, compact ? 1 : 3).map((tag) => <span key={tag}>{tag}</span>)}</div> : null}
         <div className="pipeline-card-v1008__facts">

@@ -17,7 +17,7 @@ const html = `<!doctype html>
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <meta name="theme-color" content="#17264a" />
 <meta name="referrer" content="strict-origin-when-cross-origin" />
-<title>RealTalent CRM V100.27 — Inicialização, Deploy e Operação</title>
+<title>RealTalent CRM V100.29 — Playbook Outbound Interativo</title>
 <style>${css}</style>
 </head>
 <body>
@@ -25,6 +25,6 @@ const html = `<!doctype html>
 <script type="module">${js.replaceAll('</script>', '<\/script>')}</script>
 </body>
 </html>`
-await writeFile(join(root, 'REALTALENT-CRM-V100-27-standalone.html'), html)
-await writeFile(join(root, 'REALTALENT-CRM-V100-27.html'), html)
-console.log('Standalone RealTalent CRM V100.27 criado.')
+await writeFile(join(root, 'REALTALENT-CRM-V100-29-standalone.html'), html)
+await writeFile(join(root, 'REALTALENT-CRM-V100-29.html'), html)
+console.log('Standalone RealTalent CRM V100.29 criado.')

@@ -132,11 +132,11 @@
     if (window.__rtMapLeaflet) return window.__rtMapLeaflet;
     window.__rtMapLeaflet = new Promise((resolve,reject)=>{
       if (!document.querySelector('link[data-rt-map-leaflet]')) {
-        const link=document.createElement('link'); link.rel='stylesheet'; link.href='https://unpkg.com/leaflet@1.9.4/dist/leaflet.css'; link.dataset.rtMapLeaflet='1'; document.head.appendChild(link);
+        const link=document.createElement('link'); link.rel='stylesheet'; link.href='https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.css'; link.dataset.rtMapLeaflet='1'; document.head.appendChild(link);
       }
       const existing=document.querySelector('script[data-rt-map-leaflet]');
       if(existing){existing.addEventListener('load',()=>resolve(window.L));existing.addEventListener('error',reject);return;}
-      const script=document.createElement('script'); script.src='https://unpkg.com/leaflet@1.9.4/dist/leaflet.js'; script.async=true; script.dataset.rtMapLeaflet='1'; script.onload=()=>resolve(window.L); script.onerror=reject; document.head.appendChild(script);
+      const script=document.createElement('script'); script.src='https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js'; script.async=true; script.dataset.rtMapLeaflet='1'; script.onload=()=>resolve(window.L); script.onerror=reject; document.head.appendChild(script);
     });
     return window.__rtMapLeaflet;
   };
@@ -144,61 +144,79 @@
   const navigate = label => findNav(label)?.click();
 
   const mount = root => {
-    if (!root || root.dataset.mounted === '462') return;
-    root.dataset.mounted='462';
+    if (!root || root.dataset.mounted === '463') return;
+    root.dataset.mounted='463';
     const db=readDatabase();
     const state={
       search:'', city:'all', stage:'all', owner:'all', priority:'all', geoStatus:'all', overdue:false,
-      markerMode:'stage', view:'markers', heatMetric:'count', showProspects:false, tab:'leads',
+      markerMode:'stage', view:'markers', heatMetric:'count', showProspects:false, tab:'leads', baseMap:'light', expanded:false,
       selected:null, selectedKind:'lead', selectedIds:new Set(), radiusKm:0, radiusCenter:null,
-      areaMode:false, areaStart:null, rectangle:null, map:null, ready:false, fallback:false,
+      areaMode:false, areaStart:null, rectangle:null, map:null, ready:false, fallback:false, baseLayer:null,
       leadLayer:null, heatLayer:null, prospectLayer:null, radiusLayer:null, selectionLayer:null,
       filtered:[], locations:[], mappedProspects:[], regionRows:[], processing:false
     };
     root.innerHTML = `
-      <div class="page-stack commercial-map-page commercial-map-runtime-page commercial-map-v100462">
+      <div class="page-stack commercial-map-page commercial-map-runtime-page commercial-map-v100462 commercial-map-v100463">
+        <section class="commercial-map-hero panel">
+          <div class="commercial-map-hero__copy">
+            <span class="eyebrow">Operação geográfica · V100.46.3</span>
+            <h2>Mapa de Leads</h2>
+            <p>Visualize sua carteira por território, encontre concentrações e execute ações comerciais sem sair do mapa.</p>
+          </div>
+          <div class="commercial-map-hero__actions">
+            <span class="commercial-map-mode" data-map-mode><i></i><span>Preparando mapa</span></span>
+            <button class="button button--secondary button--sm" data-map-diagnostics type="button">Diagnóstico</button>
+            <button class="button button--primary button--sm" data-geocode-visible type="button">Processar localizações</button>
+          </div>
+        </section>
+
         <section class="commercial-map-summary" data-summary></section>
+
         <section class="commercial-map-toolbar panel">
-          <div class="commercial-map-toolbar__primary">
-            <label class="commercial-map-search"><span aria-hidden="true">⌕</span><input data-filter="search" placeholder="Buscar lead, empresa, cidade ou telefone"></label>
+          <div class="commercial-map-toolbar__top">
+            <label class="commercial-map-search"><span aria-hidden="true">⌕</span><input data-filter="search" placeholder="Buscar lead, empresa, cidade, telefone ou endereço"></label>
+            <div class="commercial-map-layer"><span>Exibição</span><button data-view="markers" class="is-active" type="button">Pontos</button><button data-view="heat" type="button">Calor</button><button data-view="hybrid" type="button">Mista</button></div>
+            <div class="commercial-map-layer"><span>Cor por</span><button data-marker-mode="stage" class="is-active" type="button">Etapa</button><button data-marker-mode="priority" type="button">Prioridade</button></div>
+            <label class="commercial-map-inline-select" data-heat-control hidden><span>Métrica</span><select data-filter="heatMetric"><option value="count">Quantidade</option><option value="value">Valor de pipeline</option><option value="overdue">Ações atrasadas</option></select></label>
+            <button class="button button--ghost button--sm rt-clear-map-filters" type="button">Limpar filtros</button>
+          </div>
+          <div class="commercial-map-toolbar__filters">
             <label><span>Cidade</span><select data-filter="city"></select></label>
             <label><span>Etapa</span><select data-filter="stage"></select></label>
             <label><span>Responsável</span><select data-filter="owner"></select></label>
             <label><span>Prioridade</span><select data-filter="priority"><option value="all">Todas</option><option value="urgent">Urgente</option><option value="high">Alta</option><option value="medium">Média</option><option value="low">Baixa</option></select></label>
             <label><span>Localização</span><select data-filter="geoStatus"><option value="all">Todos os status</option><option value="exact">Exata</option><option value="manual">Corrigida</option><option value="approximate">Aproximada</option><option value="pending">Aguardando</option><option value="incomplete">Incompleta</option><option value="not_found">Não encontrada</option></select></label>
-          </div>
-          <div class="commercial-map-toolbar__secondary">
             <label class="commercial-map-check"><input data-filter="overdue" type="checkbox"><span>Somente atrasados</span></label>
-            <div class="commercial-map-layer"><span>Visualização</span><button data-view="markers" class="is-active" type="button">Marcadores</button><button data-view="heat" type="button">Calor</button><button data-view="hybrid" type="button">Mista</button></div>
-            <label class="commercial-map-inline-select" data-heat-control hidden><span>Calor por</span><select data-filter="heatMetric"><option value="count">Quantidade</option><option value="value">Valor de pipeline</option><option value="overdue">Ações atrasadas</option></select></label>
             <label class="commercial-map-check"><input data-filter="showProspects" type="checkbox"><span>Mostrar Garimpo</span></label>
-            <button class="button button--secondary button--sm" data-geocode-visible type="button">Processar localização</button>
-            <button class="button button--secondary button--sm" data-map-diagnostics type="button">Diagnóstico do Maps</button>
-            <button class="button button--ghost button--sm rt-clear-map-filters" type="button">Limpar filtros</button>
           </div>
         </section>
+
         <section class="commercial-map-workspace">
           <div class="commercial-map-canvas panel">
-            <header class="commercial-map-canvas__header">
-              <div><span class="eyebrow">Mapa de Leads · V100.46.2</span><h2>Território comercial</h2><p>Localize cada lead, filtre a operação e aja diretamente pelo mapa.</p></div>
-              <div class="commercial-map-legend" data-legend></div>
-            </header>
             <div class="commercial-intelligence-bar">
-              <div class="commercial-radius-control"><span>Raio</span><select data-radius><option value="0">Sem raio</option><option value="2">2 km</option><option value="5">5 km</option><option value="10">10 km</option><option value="20">20 km</option><option value="50">50 km</option></select><button data-radius-apply type="button">Usar lead selecionado</button><button data-radius-clear type="button" hidden>Limpar</button></div>
-              <div class="commercial-area-actions"><button data-area type="button">Selecionar área</button><button data-visible type="button">Selecionar área visível</button><button data-location-queue type="button">Ver pendências</button><span data-selection-count>Nenhum lead selecionado</span></div>
+              <div class="commercial-radius-control"><span>Raio comercial</span><select data-radius><option value="0">Sem raio</option><option value="2">2 km</option><option value="5">5 km</option><option value="10">10 km</option><option value="20">20 km</option><option value="50">50 km</option></select><button data-radius-apply type="button">Usar lead selecionado</button><button data-radius-clear type="button" hidden>Limpar raio</button></div>
+              <div class="commercial-area-actions"><button data-area type="button">Selecionar área</button><button data-visible type="button">Selecionar visíveis</button><button data-location-queue type="button">Pendências</button><span data-selection-count>Nenhum lead selecionado</span></div>
             </div>
             <div class="commercial-map-frame">
               <div class="commercial-map-element" data-map></div>
-              <div class="commercial-map-state" data-map-state><strong>Carregando inteligência geográfica</strong><span>Preparando as camadas comerciais.</span></div>
-              <div class="commercial-map-precision" data-precision-note><span>●</span><span>Localização real: coordenadas salvas têm prioridade. O modo local usa estimativas; com Supabase e Google Geocoding, o endereço pode ser localizado com precisão real.</span></div>
-              <button class="commercial-map-center" data-center type="button" hidden>◎ Centralizar selecionado</button>
+              <div class="commercial-map-state" data-map-state><span class="commercial-map-loader"></span><strong>Carregando mapa comercial</strong><span>Preparando territórios e pontos da carteira.</span></div>
+              <div class="commercial-map-floating-legend" data-legend></div>
+              <div class="commercial-map-control-stack">
+                <div class="commercial-map-basemap" aria-label="Estilo do mapa"><button data-basemap="light" class="is-active" type="button">Claro</button><button data-basemap="streets" type="button">Ruas</button><button data-basemap="dark" type="button">Escuro</button></div>
+                <button class="commercial-map-control" data-fit-all type="button" title="Ajustar todos os pontos">Ajustar visão</button>
+                <button class="commercial-map-control" data-fullscreen type="button" title="Expandir mapa">Tela cheia</button>
+                <button class="commercial-map-control" data-center type="button" hidden>Centralizar lead</button>
+              </div>
+              <div class="commercial-map-precision" data-precision-note><span>●</span><span>Coordenadas salvas têm prioridade; estimativas ficam identificadas no mapa.</span></div>
               <div class="commercial-map-selection-bar" data-selection-bar hidden></div>
             </div>
           </div>
+
           <aside class="commercial-map-side panel">
+            <header class="commercial-map-side__header"><div><span class="eyebrow">Carteira territorial</span><h3>Explorar leads</h3></div><span class="commercial-map-side__count" data-count></span></header>
             <div data-selected></div>
             <div class="commercial-map-tabs" role="tablist"><button data-tab="leads" class="is-active" type="button">Leads</button><button data-tab="location" type="button">Localização</button><button data-tab="regions" type="button">Regiões</button><button data-tab="prospects" type="button">Garimpo</button></div>
-            <div class="commercial-map-list-heading"><div><strong data-list-title>Leads nesta visão</strong><span data-count></span></div><span>☰</span></div>
+            <div class="commercial-map-list-heading"><div><strong data-list-title>Leads nesta visão</strong><span>Selecione um item para centralizar no mapa</span></div><span>☰</span></div>
             <div class="commercial-map-list" data-list></div>
             <div data-unmapped></div>
           </aside>
@@ -274,7 +292,7 @@
     };
     const runDiagnostics = async () => {
       const activeBridge=bridge();
-      if(!activeBridge?.diagnoseMaps){notify('Diagnóstico disponível somente no módulo V100.46.2.');return;}
+      if(!activeBridge?.diagnoseMaps){notify('Diagnóstico disponível somente no módulo V100.46.3.');return;}
       const button=q('[data-map-diagnostics]');
       try {
         if(button){button.disabled=true;button.textContent='Diagnosticando…';}
@@ -341,20 +359,20 @@
       const approximate=state.filtered.filter(lead=>geoStatusOf(lead)==='approximate'||(locate(lead)?.estimated&&!['incomplete'].includes(geoStatusOf(lead)))).length;
       const pending=state.filtered.filter(lead=>['pending','incomplete','not_found'].includes(geoStatusOf(lead))).length;
       q('[data-summary]').innerHTML=`
-        <div><span>Leads na visão</span><strong>${state.filtered.length}</strong><small>${state.locations.length} posicionados · ${state.selectedIds.size} selecionados</small></div>
-        <div class="is-success"><span>Localização confiável</span><strong>${exact}</strong><small>${approximate} em posição aproximada</small></div>
-        <div class="${pending?'is-warning':''}"><span>Pendências geográficas</span><strong>${pending}</strong><small>${pending?`${pending} ${pending===1?'registro exige':'registros exigem'} revisão`:'Endereços processados'}</small></div>
-        <div><span>Pipeline territorial</span><strong>${currency(pipeline)}</strong><small>${late} ${late===1?'ação atrasada':'ações atrasadas'}</small></div>`;
+        <article class="commercial-map-kpi"><span class="commercial-map-kpi__icon">◎</span><div><span>Leads na visão</span><strong>${state.filtered.length}</strong><small>${state.locations.length} posicionados · ${state.selectedIds.size} selecionados</small></div></article>
+        <article class="commercial-map-kpi is-success"><span class="commercial-map-kpi__icon">✓</span><div><span>Localização confiável</span><strong>${exact}</strong><small>${approximate} em posição aproximada</small></div></article>
+        <article class="commercial-map-kpi ${pending?'is-warning':''}"><span class="commercial-map-kpi__icon">!</span><div><span>Pendências geográficas</span><strong>${pending}</strong><small>${pending?`${pending} ${pending===1?'registro exige':'registros exigem'} revisão`:'Endereços processados'}</small></div></article>
+        <article class="commercial-map-kpi"><span class="commercial-map-kpi__icon">R$</span><div><span>Pipeline territorial</span><strong>${currency(pipeline)}</strong><small>${late} ${late===1?'ação atrasada':'ações atrasadas'}</small></div></article>`;
     };
     const renderLegend = () => {
       const box=q('[data-legend]');
-      if(state.view==='heat') { box.innerHTML=`<span><i class="legend-heat legend-heat--low"></i>Baixa</span><span><i class="legend-heat legend-heat--high"></i>Alta concentração</span>`; return; }
+      if(state.view==='heat') { box.innerHTML=`<strong>Concentração</strong><span><i class="legend-heat legend-heat--low"></i>Baixa</span><span><i class="legend-heat legend-heat--high"></i>Alta</span>`; return; }
       const stages=db.stages.filter(stage=>state.filtered.some(lead=>lead.stageId===stage.id));
-      box.innerHTML=(state.markerMode==='stage'?stages.map(stage=>`<span><i style="background:${safeColor(stage.color)}"></i>${esc(stage.name)}</span>`):Object.keys(PRIORITY_LABEL).map(key=>`<span><i style="background:${PRIORITY_COLOR[key]}"></i>${PRIORITY_LABEL[key]}</span>`)).join('')+'<span><i class="legend-geo legend-geo--exact"></i>Coordenada salva</span><span><i class="legend-geo legend-geo--estimated"></i>Estimativa</span>'+(state.showProspects?'<span><i class="legend-prospect"></i>Garimpo</span>':'');
+      box.innerHTML='<strong>Legenda</strong>'+(state.markerMode==='stage'?stages.map(stage=>`<span><i style="background:${safeColor(stage.color)}"></i>${esc(stage.name)}</span>`):Object.keys(PRIORITY_LABEL).map(key=>`<span><i style="background:${PRIORITY_COLOR[key]}"></i>${PRIORITY_LABEL[key]}</span>`)).join('')+'<span><i class="legend-geo legend-geo--exact"></i>Coordenada salva</span><span><i class="legend-geo legend-geo--estimated"></i>Estimativa</span>'+(state.showProspects?'<span><i class="legend-prospect"></i>Garimpo</span>':'');
     };
     const drawSelected = () => {
       const box=q('[data-selected]'), center=q('[data-center]');
-      if(!state.selected){center.hidden=true;box.innerHTML='<div class="commercial-map-empty-selection"><strong>Selecione um ponto do mapa</strong><p>Veja dados do lead ou do prospect e use as ações comerciais.</p></div>';return;}
+      if(!state.selected){center.hidden=true;box.innerHTML='<div class="commercial-map-empty-selection"><span class="commercial-map-empty-selection__icon">◎</span><strong>Selecione um lead no mapa</strong><p>Os detalhes, a situação geográfica e as ações comerciais aparecerão aqui.</p></div>';return;}
       const location=selectedLocation(); center.hidden=!location;
       if(state.selectedKind==='prospect'){
         const prospect=selectedProspect(); if(!prospect){state.selected=null;drawSelected();return;}
@@ -366,7 +384,7 @@
       }
       const lead=selectedLead(); if(!lead){state.selected=null;drawSelected();return;} const stage=stageFor(lead.stageId);
       const geoStatus=geoStatusOf(lead), precision=lead.geocodePrecision||'unknown', address=fullAddress(lead)||'Endereço não informado';
-      box.innerHTML=`<div class="commercial-map-lead-card"><header><span class="lead-avatar">${esc(initials(lead.name))}</span><div><span class="eyebrow">Lead selecionado</span><h3>${esc(lead.name)}</h3><p>${esc(lead.company||'Empresa não informada')}</p></div><button class="icon-button" data-close-selected type="button">×</button></header><div class="commercial-geocode-badge commercial-geocode-badge--${esc(GEO_STATUS_TONE[geoStatus]||'info')}"><strong>${esc(GEO_STATUS_LABEL[geoStatus]||geoStatus)}</strong><span>${esc(GEO_PRECISION_LABEL[precision]||precision)}${lead.geocodedAt?` · ${dateTime(lead.geocodedAt)}`:''}</span></div><div class="commercial-map-lead-meta"><span>📍 ${esc(address)}</span><span>👤 ${esc(lead.ownerName||'Não atribuído')}</span><span>◉ ${esc(stage.name)}</span></div>${lead.geocodeError?`<div class="commercial-geocode-error">${esc(lead.geocodeError)}</div>`:''}<div class="commercial-map-lead-value"><span>Valor estimado</span><strong>${currency(lead.value)}</strong></div><div class="commercial-map-next-action"><span>Próxima ação</span><strong>${dateTime(lead.nextActionAt)}</strong></div><div class="commercial-map-geocode-actions"><button class="button button--secondary button--sm" data-geocode-one type="button">Geocodificar</button><button class="button button--secondary button--sm" data-correct-location type="button">Corrigir posição</button></div><div class="commercial-map-lead-actions"><button class="button button--primary button--sm" data-call type="button" ${lead.phone?'':'disabled'}>Ligar</button><button class="button button--secondary button--sm" data-whatsapp type="button" ${lead.phone?'':'disabled'}>WhatsApp</button><button class="button button--secondary button--sm" data-route type="button">Rota</button></div><button class="commercial-map-open-lead" data-open-leads type="button">Abrir na base de Leads <span>›</span></button></div>`;
+      box.innerHTML=`<div class="commercial-map-lead-card"><header><span class="lead-avatar">${esc(initials(lead.name))}</span><div><span class="eyebrow">Lead no território</span><h3>${esc(lead.name)}</h3><p>${esc(lead.company||'Empresa não informada')}</p></div><button class="icon-button" data-close-selected type="button">×</button></header><div class="commercial-geocode-badge commercial-geocode-badge--${esc(GEO_STATUS_TONE[geoStatus]||'info')}"><strong>${esc(GEO_STATUS_LABEL[geoStatus]||geoStatus)}</strong><span>${esc(GEO_PRECISION_LABEL[precision]||precision)}${lead.geocodedAt?` · ${dateTime(lead.geocodedAt)}`:''}</span></div><div class="commercial-map-lead-meta"><span>📍 ${esc(address)}</span><span>👤 ${esc(lead.ownerName||'Não atribuído')}</span><span>◉ ${esc(stage.name)}</span></div>${lead.geocodeError?`<div class="commercial-geocode-error">${esc(lead.geocodeError)}</div>`:''}<div class="commercial-map-lead-value"><span>Valor estimado</span><strong>${currency(lead.value)}</strong></div><div class="commercial-map-next-action"><span>Próxima ação</span><strong>${dateTime(lead.nextActionAt)}</strong></div><div class="commercial-map-geocode-actions"><button class="button button--secondary button--sm" data-geocode-one type="button">Geocodificar</button><button class="button button--secondary button--sm" data-correct-location type="button">Corrigir posição</button></div><div class="commercial-map-lead-actions"><button class="button button--primary button--sm" data-call type="button" ${lead.phone?'':'disabled'}>Ligar</button><button class="button button--secondary button--sm" data-whatsapp type="button" ${lead.phone?'':'disabled'}>WhatsApp</button><button class="button button--secondary button--sm" data-route type="button">Rota</button></div><button class="commercial-map-open-lead" data-open-leads type="button">Abrir na base de Leads <span>›</span></button></div>`;
       box.querySelector('[data-close-selected]').addEventListener('click',()=>{state.selected=null;drawAll(false)});
       box.querySelector('[data-call]').addEventListener('click',()=>{window.location.href=`tel:${lead.phone}`});
       box.querySelector('[data-whatsapp]').addEventListener('click',()=>{const digits=String(lead.phone).replace(/\D/g,'');window.open(`https://wa.me/${digits.startsWith('55')?digits:`55${digits}`}`,'_blank','noopener,noreferrer')});
@@ -389,7 +407,7 @@
     };
     const transfer = target => {
       const leads=state.filtered.filter(lead=>state.selectedIds.has(lead.id));
-      const context={source:'commercial-map-v100462',leadIds:leads.map(l=>l.id),cities:[...new Set(leads.map(l=>l.city).filter(Boolean))],radiusKm:state.radiusKm,createdAt:new Date().toISOString()};
+      const context={source:'commercial-map-v100463',leadIds:leads.map(l=>l.id),cities:[...new Set(leads.map(l=>l.city).filter(Boolean))],radiusKm:state.radiusKm,createdAt:new Date().toISOString()};
       storageSet(`realtalent-map-${target}-context:${db.workspace}`,JSON.stringify(context));
       navigate(target==='prospecting'?'Garimpo':target==='calls'?'Ligações':'Leads');
     };
@@ -397,7 +415,7 @@
       const leads=state.filtered.filter(lead=>state.selectedIds.has(lead.id));
       const quote=value=>`"${String(value??'').replaceAll('"','""')}"`;
       const rows=[['Nome','Empresa','Telefone','Endereço','Cidade','Bairro','Etapa','Responsável','Prioridade','Valor','Status geográfico','Latitude','Longitude'],...leads.map(lead=>[lead.name,lead.company,lead.phone,fullAddress(lead),lead.city,districtOf(lead),stageFor(lead.stageId).name,lead.ownerName,PRIORITY_LABEL[lead.priority]||lead.priority,lead.value,GEO_STATUS_LABEL[geoStatusOf(lead)]||geoStatusOf(lead),lead.latitude??'',lead.longitude??''])];
-      download('leads-selecionados-mapa-v100462.csv','\uFEFF'+rows.map(row=>row.map(quote).join(';')).join('\r\n'));
+      download('leads-selecionados-mapa-v100463.csv','\uFEFF'+rows.map(row=>row.map(quote).join(';')).join('\r\n'));
       notify('CSV exportado com os leads selecionados.');
     };
     const renderList = () => {
@@ -451,13 +469,13 @@
     const syncTabs = () => qa('[data-tab]').forEach(button=>button.classList.toggle('is-active',button.dataset.tab===state.tab));
     const renderFallback = () => {
       state.fallback=true; const box=q('[data-map]'); const locations=[...state.locations,...(state.showProspects?state.mappedProspects:[])];
-      if(!locations.length){box.innerHTML='<div class="commercial-map-offline"><div class="offline-map-badge">Mapa local · nenhum ponto nesta visão</div></div>';q('[data-map-state]')?.remove();return;}
+      if(!locations.length){box.innerHTML='<div class="commercial-map-offline"><div class="offline-map-badge">Visualização simplificada · nenhum ponto nesta visão</div></div>';q('[data-map-state]')?.remove();return;}
       const lats=locations.map(x=>x.lat),lngs=locations.map(x=>x.lng),minLat=Math.min(...lats),maxLat=Math.max(...lats)+(Math.max(...lats)===Math.min(...lats)?.01:0),minLng=Math.min(...lngs),maxLng=Math.max(...lngs)+(Math.max(...lngs)===Math.min(...lngs)?.01:0);
       const point = loc => ({top:10+((maxLat-loc.lat)/(maxLat-minLat))*78,left:10+((loc.lng-minLng)/(maxLng-minLng))*78});
       const heat = state.view!=='markers'?state.regionRows.map(row=>{const items=state.locations.filter(loc=>loc.item.city===row.city);if(!items.length)return'';const lat=items.reduce((s,x)=>s+x.lat,0)/items.length,lng=items.reduce((s,x)=>s+x.lng,0)/items.length,p=point({lat,lng}),max=state.regionRows[0]?.count||1,size=48+row.count/max*82;return `<span class="offline-heat" style="--pin-top:${p.top}%;--pin-left:${p.left}%;--heat-size:${size}px"></span>`}).join(''):'';
       const leadPins=state.view!=='heat'?state.locations.map(loc=>{const p=point(loc),stage=stageFor(loc.item.stageId),color=state.markerMode==='priority'?PRIORITY_COLOR[loc.item.priority]||'#64748b':safeColor(stage.color);return `<button class="offline-map-pin${state.selectedKind==='lead'&&state.selected===loc.item.id?' is-selected':''}${state.selectedIds.has(loc.item.id)?' is-bulk-selected':''}${loc.estimated?' is-estimated':''}" data-offline-lead="${esc(loc.item.id)}" style="--pin-top:${p.top}%;--pin-left:${p.left}%;--pin-color:${color}" title="${esc(loc.estimated?'Posição aproximada':'Coordenada salva')}" type="button"><span>${esc(initials(loc.item.name))}</span></button>`}).join(''):'';
       const prospectPins=state.showProspects?state.mappedProspects.map(loc=>{const p=point(loc);return `<button class="offline-prospect-pin${state.selectedKind==='prospect'&&state.selected===loc.item.id?' is-selected':''}" data-offline-prospect="${esc(loc.item.id)}" style="--pin-top:${p.top}%;--pin-left:${p.left}%" type="button">◆</button>`}).join(''):'';
-      box.innerHTML=`<div class="commercial-map-offline" role="img" aria-label="Mapa comercial simplificado"><div class="offline-road offline-road--one"></div><div class="offline-road offline-road--two"></div><div class="offline-road offline-road--three"></div>${heat}${leadPins}${prospectPins}<div class="offline-map-badge">Mapa local · inteligência geográfica sem internet</div></div>`;
+      box.innerHTML=`<div class="commercial-map-offline" role="img" aria-label="Mapa comercial simplificado"><div class="offline-road offline-road--one"></div><div class="offline-road offline-road--two"></div><div class="offline-road offline-road--three"></div>${heat}${leadPins}${prospectPins}<div class="offline-map-badge">Visualização simplificada · mapa interativo indisponível</div></div>`;
       box.querySelectorAll('[data-offline-lead]').forEach(button=>button.addEventListener('click',()=>{state.selected=button.dataset.offlineLead;state.selectedKind='lead';drawAll(false)}));
       box.querySelectorAll('[data-offline-prospect]').forEach(button=>button.addEventListener('click',()=>{state.selected=button.dataset.offlineProspect;state.selectedKind='prospect';drawAll(false)}));
       q('[data-map-state]')?.remove();
@@ -477,7 +495,7 @@
         groups.forEach(items=>{
           if(items.length>1&&zoom<12){const lat=items.reduce((s,x)=>s+x.lat,0)/items.length,lng=items.reduce((s,x)=>s+x.lng,0)/items.length;const selected=items.some(x=>state.selectedIds.has(x.item.id));const icon=L.divIcon({className:'commercial-map-marker-shell',html:`<button class="commercial-map-cluster${selected?' is-bulk-selected':''}"><strong>${items.length}</strong><span>${esc(items[0].item.city)}</span></button>`,iconSize:[72,52],iconAnchor:[36,26]});L.marker([lat,lng],{icon}).on('click',()=>state.map.setView([lat,lng],13)).addTo(state.leadLayer);return;}
           const loc=items[0],stage=stageFor(loc.item.stageId),color=state.markerMode==='priority'?PRIORITY_COLOR[loc.item.priority]||'#64748b':safeColor(stage.color),selected=state.selectedKind==='lead'&&loc.item.id===state.selected,bulk=state.selectedIds.has(loc.item.id),late=isOverdue(loc.item);
-          const icon=L.divIcon({className:'commercial-map-marker-shell',html:`<button class="commercial-map-marker${selected?' is-selected':''}${bulk?' is-bulk-selected':''}${loc.estimated?' is-estimated':''}" style="--marker-color:${color}" title="${esc(loc.estimated?'Posição aproximada':'Coordenada salva')}"><span>${esc(initials(loc.item.name))}</span>${late?'<i></i>':''}</button>`,iconSize:[42,48],iconAnchor:[21,44]});L.marker([loc.lat,loc.lng],{icon}).on('click',()=>{state.selected=loc.item.id;state.selectedKind='lead';drawAll(false)}).addTo(state.leadLayer);
+          const icon=L.divIcon({className:'commercial-map-marker-shell',html:`<button class="commercial-map-marker${selected?' is-selected':''}${bulk?' is-bulk-selected':''}${loc.estimated?' is-estimated':''}" style="--marker-color:${color}" title="${esc(loc.estimated?'Posição aproximada':'Coordenada salva')}"><span>${esc(initials(loc.item.name))}</span>${late?'<i></i>':''}</button>`,iconSize:[46,50],iconAnchor:[23,46]});L.marker([loc.lat,loc.lng],{icon}).bindTooltip(`<div class="commercial-map-tooltip"><strong>${esc(loc.item.name)}</strong><span>${esc(loc.item.city||'Sem cidade')} · ${esc(stage.name)}</span></div>`,{direction:'top',offset:[0,-38],opacity:.96}).on('click',()=>{state.selected=loc.item.id;state.selectedKind='lead';drawAll(false)}).addTo(state.leadLayer);
         });
       }
       if(state.showProspects){state.mappedProspects.forEach(loc=>{const selected=state.selectedKind==='prospect'&&loc.item.id===state.selected;const icon=L.divIcon({className:'commercial-map-marker-shell',html:`<button class="commercial-map-prospect-marker${selected?' is-selected':''}" title="Prospect do Garimpo">◆</button>`,iconSize:[34,40],iconAnchor:[17,34]});L.marker([loc.lat,loc.lng],{icon}).on('click',()=>{state.selected=loc.item.id;state.selectedKind='prospect';state.tab='prospects';syncTabs();drawAll(false)}).addTo(state.prospectLayer)});}
@@ -485,6 +503,25 @@
       if(fit&&state.locations.length){const bounds=L.latLngBounds(state.locations.map(x=>[x.lat,x.lng]));state.map.fitBounds(bounds,{padding:[48,48],maxZoom:state.locations.length===1?14:12});}
     };
     const drawAll = fit => {applyFilters();renderSummary();renderLegend();drawSelected();renderSelection();renderList();renderUnmapped();renderMap(fit);};
+
+    const fitAll = () => {
+      if(state.ready&&state.map&&state.locations.length){const L=window.L;state.map.fitBounds(L.latLngBounds(state.locations.map(x=>[x.lat,x.lng])),{padding:[64,64],maxZoom:state.locations.length===1?15:13});return;}
+      drawAll(true);
+    };
+    const toggleFullscreen = () => {
+      state.expanded=!state.expanded;root.classList.toggle('is-map-expanded',state.expanded);
+      const button=q('[data-fullscreen]');if(button)button.textContent=state.expanded?'Sair da tela cheia':'Tela cheia';
+      setTimeout(()=>{state.map?.invalidateSize?.();if(state.expanded)fitAll();},220);
+    };
+    const BASEMAPS={
+      light:{url:'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png',options:{maxZoom:20,subdomains:'abcd',attribution:'&copy; OpenStreetMap &copy; CARTO'}},
+      streets:{url:'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',options:{maxZoom:19,attribution:'&copy; OpenStreetMap'}},
+      dark:{url:'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',options:{maxZoom:20,subdomains:'abcd',attribution:'&copy; OpenStreetMap &copy; CARTO'}}
+    };
+    const applyBaseMap = key => {
+      state.baseMap=BASEMAPS[key]?key:'light';qa('[data-basemap]').forEach(button=>button.classList.toggle('is-active',button.dataset.basemap===state.baseMap));
+      if(!state.ready||!state.map)return;const L=window.L;if(state.baseLayer)state.map.removeLayer(state.baseLayer);const config=BASEMAPS[state.baseMap];state.baseLayer=L.tileLayer(config.url,config.options).addTo(state.map);state.baseLayer.bringToBack?.();
+    };
 
     const applyRadius = () => {
       const loc=selectedLocation(); const km=Number(q('[data-radius]').value)||0;
@@ -510,15 +547,18 @@
       drawAll(true);
     }));
     qa('[data-view]').forEach(button=>button.addEventListener('click',()=>{state.view=button.dataset.view;qa('[data-view]').forEach(b=>b.classList.toggle('is-active',b===button));q('[data-heat-control]').hidden=state.view==='markers';drawAll(false)}));
+    qa('[data-marker-mode]').forEach(button=>button.addEventListener('click',()=>{state.markerMode=button.dataset.markerMode;qa('[data-marker-mode]').forEach(b=>b.classList.toggle('is-active',b===button));drawAll(false)}));
+    qa('[data-basemap]').forEach(button=>button.addEventListener('click',()=>applyBaseMap(button.dataset.basemap)));
     qa('[data-tab]').forEach(button=>button.addEventListener('click',()=>{state.tab=button.dataset.tab;syncTabs();renderList()}));
     q('.rt-clear-map-filters').addEventListener('click',()=>{state.search='';state.city='all';state.stage='all';state.owner='all';state.priority='all';state.geoStatus='all';state.overdue=false;['search','city','stage','owner','priority','geoStatus'].forEach(key=>q(`[data-filter="${key}"]`).value=key==='search'?'':'all');q('[data-filter="overdue"]').checked=false;clearRadius();});
     q('[data-radius-apply]').addEventListener('click',applyRadius);q('[data-radius-clear]').addEventListener('click',clearRadius);q('[data-visible]').addEventListener('click',selectVisible);q('[data-area]').addEventListener('click',()=>setAreaMode(!state.areaMode));
     q('[data-geocode-visible]').addEventListener('click',()=>void geocodeVisible());q('[data-map-diagnostics]').addEventListener('click',()=>void runDiagnostics());
     q('[data-location-queue]').addEventListener('click',()=>{state.tab='location';syncTabs();renderList()});
-    q('[data-center]').addEventListener('click',()=>{const loc=selectedLocation();if(loc&&state.map)state.map.setView([loc.lat,loc.lng],15)});
+    q('[data-center]').addEventListener('click',()=>{const loc=selectedLocation();if(loc&&state.map)state.map.setView([loc.lat,loc.lng],15)});q('[data-fit-all]').addEventListener('click',fitAll);q('[data-fullscreen]').addEventListener('click',toggleFullscreen);
     const onDataUpdated=()=>{refreshBridgeLeads();drawAll(false)};
-    window.addEventListener('realtalent-map-data-updated',onDataUpdated);
+    window.addEventListener('realtalent-map-data-updated',onDataUpdated);window.addEventListener('keydown',event=>{if(event.key==='Escape'&&state.expanded)toggleFullscreen()});
 
+    const modeBadge=q('[data-map-mode]');if(modeBadge){const activeBridge=bridge();modeBadge.classList.toggle('is-demo',activeBridge?.mode!=='supabase');modeBadge.querySelector('span').textContent=activeBridge?.mode==='supabase'?'Mapa conectado':'Modo demonstração';}
     const precisionNote=q('[data-precision-note] span:last-child');
     if(precisionNote){const activeBridge=bridge();precisionNote.textContent=activeBridge?.mode==='supabase'?'Modo conectado: Google Geocoding, fila persistente, histórico e coordenadas salvas no Supabase.':'Modo demonstração: posições locais são estimativas e ficam identificadas como aproximadas.';}
     if(!canWrite()){q('[data-geocode-visible]').disabled=true;q('[data-geocode-visible]').title='Perfil somente leitura';}
@@ -527,8 +567,8 @@
     loadLeaflet().then(L=>{
       if(!root.isConnected)return;
       clearTimeout(fallbackTimer);const mapBox=q('[data-map]');mapBox.innerHTML='';state.fallback=false;
-      const map=L.map(mapBox,{zoomControl:true,attributionControl:true,boxZoom:false}).setView([-29.92,-51.18],10);L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,attribution:'&copy; OpenStreetMap'}).addTo(map);
-      state.map=map;state.leadLayer=L.layerGroup().addTo(map);state.heatLayer=L.layerGroup().addTo(map);state.prospectLayer=L.layerGroup().addTo(map);state.radiusLayer=L.layerGroup().addTo(map);state.selectionLayer=L.layerGroup().addTo(map);state.ready=true;q('[data-map-state]')?.remove();
+      const map=L.map(mapBox,{zoomControl:true,attributionControl:true,boxZoom:false,preferCanvas:true}).setView([-29.92,-51.18],10);
+      state.map=map;state.ready=true;applyBaseMap(state.baseMap);state.leadLayer=L.layerGroup().addTo(map);state.heatLayer=L.layerGroup().addTo(map);state.prospectLayer=L.layerGroup().addTo(map);state.radiusLayer=L.layerGroup().addTo(map);state.selectionLayer=L.layerGroup().addTo(map);q('[data-map-state]')?.remove();
       map.on('zoomend',()=>renderMap(false));
       map.on('mousedown',event=>{if(!state.areaMode)return;state.areaStart=event.latlng;state.selectionLayer.clearLayers();state.rectangle=L.rectangle([event.latlng,event.latlng],{color:'#2563eb',weight:2,dashArray:'6 5',fillColor:'#2563eb',fillOpacity:.1}).addTo(state.selectionLayer)});
       map.on('mousemove',event=>{if(!state.areaMode||!state.areaStart||!state.rectangle)return;state.rectangle.setBounds(L.latLngBounds(state.areaStart,event.latlng))});

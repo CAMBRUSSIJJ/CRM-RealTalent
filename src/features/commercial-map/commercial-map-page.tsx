@@ -5,7 +5,7 @@ import type { UpdateLeadInput } from '../../repositories/crm-repository'
 import { getSupabaseClient } from '../../lib/supabase'
 import { estimateLeadGeocode } from '../../services/geocoding'
 
-const RUNTIME_ID = 'realtalent-lead-map-v100462-runtime'
+const RUNTIME_ID = 'realtalent-lead-map-v100463-runtime'
 
 type GeocodeBatchResult = {
   queued?: number
@@ -28,7 +28,7 @@ type MapsDiagnostic = {
 }
 
 type LeadMapBridge = {
-  version: '100.46.2'
+  version: '100.46.3'
   mode: 'local' | 'supabase'
   workspaceId: string | null
   providerLabel: string
@@ -129,7 +129,7 @@ export function CommercialMapPage() {
 
   useEffect(() => {
     window.__REALTALENT_LEAD_MAP_BRIDGE__ = {
-      version: '100.46.2',
+      version: '100.46.3',
       mode: repositoryMode,
       workspaceId: currentWorkspace?.id ?? null,
       providerLabel: repositoryMode === 'supabase' ? 'Google Geocoding + mapa interativo' : 'Mapa demonstrativo com estimativas locais',

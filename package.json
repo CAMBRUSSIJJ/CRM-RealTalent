@@ -1,7 +1,7 @@
 {
-  "name": "realtalent-crm-v100-46-2-vercel-sem-npm",
+  "name": "realtalent-crm-v100-46-3-mapa-profissional",
   "private": true,
-  "version": "100.46.2",
+  "version": "100.46.3",
   "type": "module",
   "scripts": {
     "dev": "vite --host 0.0.0.0",

@@ -1,0 +1,5 @@
+REALTALENT CRM V100.46.5 — PACOTE PARA GITHUB/VERCEL
+
+Copie todos os arquivos desta pasta diretamente para a raiz do repositório.
+Não copie o ZIP fechado e não coloque o projeto dentro de outra subpasta.
+Preserve a pasta oculta .git e depois faça Commit to main → Push origin.

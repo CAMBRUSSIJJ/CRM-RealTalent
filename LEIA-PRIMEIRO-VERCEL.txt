@@ -1,0 +1,8 @@
+REALTALENT CRM V100.46.5 — PUBLICAÇÃO NO VERCEL
+
+1. Copie o conteúdo desta pasta para a raiz do repositório.
+2. Preserve somente a pasta .git do repositório atual.
+3. Faça Commit to main e Push origin.
+4. O vercel.json dispensa npm install e executa o build independente do registro.
+5. Configure VITE_DATA_MODE=supabase, VITE_SUPABASE_URL e VITE_SUPABASE_PUBLISHABLE_KEY.
+6. Publique a migration V100.46.5 no Supabase para ativar comandos do RealTalent Connect.

@@ -1,0 +1,12 @@
+{
+  "passed": true,
+  "checks": [
+    "Regras mantidas com proteção de cadeia e anti-loop; Receitas renomeadas para Templates",
+    "Webhook cadastrado e teste local registrado sem envio externo",
+    "Pausa, ativação e teste auditável funcionam sem duplicar endpoints",
+    "Central de automações e Webhooks funcionam em 390 px sem overflow global"
+  ],
+  "console_errors": [],
+  "page_errors": [],
+  "error": null
+}

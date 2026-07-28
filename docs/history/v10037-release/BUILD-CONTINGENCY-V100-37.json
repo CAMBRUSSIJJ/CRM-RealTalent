@@ -1,0 +1,10 @@
+{
+  "version": "100.37.0",
+  "generatedAt": "2026-07-23T01:03:27.134915+00:00",
+  "status": "contingency-runtime-equivalence",
+  "officialSourceBuild": false,
+  "reason": "O registro de dependências retornou HTTP 503 em duas tentativas de npm ci.",
+  "basis": "A V100.37 não altera a interface ou a lógica de runtime da V100.36; o HTML de demonstração foi derivado do runtime V100.36 validado e recebeu somente metadados da release.",
+  "requiredNextStep": "Executar npm ci && npm run homologate em um ambiente com registro disponível para substituir o HTML de contingência por um artefato GENERATED_FROM_TYPESCRIPT_SOURCE.",
+  "sha256": "732130b73821bae6fdf8e56b67de663f6cf0c4ebb33cbfef68a542c835a55063"
+}

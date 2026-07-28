@@ -1,0 +1,48 @@
+name: Validar RealTalent CRM V100.42
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+
+concurrency:
+  group: crm-ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  homologate-source:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - run: npm ci
+      - run: python -m pip install -r requirements-smoke.txt
+      - run: python -m playwright install --with-deps chromium
+      - run: npm run homologate
+        env:
+          VITE_DATA_MODE: local
+          VITE_RELEASE_CHANNEL: ci
+          VITE_COMMIT_SHA: ${{ github.sha }}
+      - run: npm audit --audit-level=high
+      - uses: actions/upload-artifact@v4
+        with:
+          name: realtalent-crm-v100-41-candidate
+          path: |
+            dist
+            REALTALENT-CRM-V100-42.html
+            REALTALENT-CRM-V100-42-standalone.html
+            HOMOLOGATION-REPORT-V100-42.json
+            TESTE-SMOKE-V100-42.json
+            PRE-FLIGHT-V100-42.json
+            DATABASE-AUDIT-V100-42.json
+            PRODUCTION-READINESS-V100-42.json
+            RELEASE-MANIFEST-V100-42.json
+          if-no-files-found: error
+          retention-days: 14

@@ -1,0 +1,77 @@
+{
+  "version": "100.46.5",
+  "generatedAt": "2026-07-28T18:24:30.408Z",
+  "passed": true,
+  "checks": [
+    {
+      "name": "Aba Comunicações removida da navegação",
+      "passed": true,
+      "detail": "menu e título removidos"
+    },
+    {
+      "name": "Rota Comunicações removida",
+      "passed": true,
+      "detail": "lazy import e AppRoute removidos"
+    },
+    {
+      "name": "Módulo de tela excluído",
+      "passed": true,
+      "detail": "arquivos operacionais excluídos"
+    },
+    {
+      "name": "Agenda isolada da aba removida",
+      "passed": true,
+      "detail": "sincronização de calendário preservada"
+    },
+    {
+      "name": "Snapshot normalizado antes do render",
+      "passed": true,
+      "detail": "carga inicial e refresh protegidos"
+    },
+    {
+      "name": "Campos legados protegidos",
+      "passed": true,
+      "detail": "strings, arrays, números e datas tratados"
+    },
+    {
+      "name": "Teste de lead incompleto",
+      "passed": true,
+      "detail": "cenário de dados nulos incluído"
+    },
+    {
+      "name": "Leads continuam com ações principais",
+      "passed": true,
+      "detail": "ficha, ligação e ações em massa"
+    },
+    {
+      "name": "Timeline sem dependência de Comunicações",
+      "passed": true,
+      "detail": "histórico usa Ligações, Agenda e Atividades"
+    },
+    {
+      "name": "Página de Ligações compacta",
+      "passed": true,
+      "detail": "resumo, filtros progressivos e largura total"
+    },
+    {
+      "name": "Fluxo de ligação progressivo",
+      "passed": true,
+      "detail": "encerramento sob demanda e painel em abas"
+    },
+    {
+      "name": "Gravação recolhível",
+      "passed": true,
+      "detail": "controles exibidos sob demanda"
+    },
+    {
+      "name": "CSS responsivo novo",
+      "passed": true,
+      "detail": "desktop, tablet e celular"
+    },
+    {
+      "name": "Build gerado",
+      "passed": true,
+      "detail": "dist e bundle presentes"
+    }
+  ]
+}

@@ -18,7 +18,8 @@ import { goalProgress } from '../services/metrics'
 import { recordDiagnostic } from '../lib/diagnostics'
 import { recordContactDraft, recordSellerNotification } from '../services/automation-operations'
 import { dispatchAutomationWebhook } from '../services/automation-webhooks'
-import { queueCalendarMutation } from '../services/communications'
+import { queueCalendarMutation } from '../services/calendar-integration'
+import { normalizeSnapshotForRender } from '../services/snapshot-safety'
 
 interface ToastMessage { id: number; type: 'success' | 'error' | 'info'; message: string }
 
@@ -150,7 +151,7 @@ export function AppProvider({ children }: PropsWithChildren) {
     setLoading(true); setError(null)
     try {
       const nextSnapshot = await repository.getSnapshot(workspace.id)
-      setCurrentWorkspaceState(workspace); setSnapshot(nextSnapshot); safeStorage.setItem(ACTIVE_WORKSPACE_KEY, workspace.id)
+      setCurrentWorkspaceState(workspace); setSnapshot(normalizeSnapshotForRender(nextSnapshot)); safeStorage.setItem(ACTIVE_WORKSPACE_KEY, workspace.id)
     } catch (loadError) {
       const message = loadError instanceof Error ? loadError.message : 'Falha ao carregar o workspace.'
       recordDiagnostic({ severity: 'error', source: 'workspace', message, route: window.location.hash || 'dashboard', workspaceId: workspace.id })
@@ -191,7 +192,7 @@ export function AppProvider({ children }: PropsWithChildren) {
   const refreshData = useCallback(async () => {
     if (!currentWorkspace) return
     const nextSnapshot = await repository.getSnapshot(currentWorkspace.id)
-    setSnapshot(nextSnapshot); setHealth(await repository.health())
+    setSnapshot(normalizeSnapshotForRender(nextSnapshot)); setHealth(await repository.health())
   }, [currentWorkspace, repository])
 
   useEffect(() => {

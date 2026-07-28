@@ -1,33 +1,28 @@
-# RealTalent CRM V100.45
+# RealTalent CRM V100.46.4
 
-Release de **Fundação de Integrações**. A V100.45 transforma o framework novo na única central oficial e consolida segurança, permissões, workers, filas e diagnóstico.
+Release de **estabilidade operacional**, com foco na correção da aba Leads, simplificação do fluxo de Ligações e remoção da Central de Comunicações da interface.
 
 ## Entregas principais
 
-- central antiga removida da interface e histórico migrado para auditoria;
-- modo local identificado como demonstração, sem simular conexão real;
-- contas pessoais, compartilhadas, organizacionais e restritas;
-- OAuth com PKCE S256 e estado persistido de uso único;
-- renovação, rotação e revogação de tokens no cofre;
-- workers separados para Google, Microsoft, Meta, WhatsApp, saúde e credenciais;
-- allowlist de trabalhos por provedor;
-- leases e recuperação automática de filas travadas;
-- validação completa de secrets no deploy;
-- teste real de conexão e diagnóstico por integração;
-- painel de capacidades e auditoria operacional persistente;
-- revogação no provedor, callback OAuth correto no gateway e webhook do WhatsApp com validação HMAC;
-- escrita direta do frontend em contas conectadas bloqueada;
-- ingestão da extensão sem dependência das tabelas antigas.
+- normalização defensiva de snapshots e registros antigos antes do render;
+- proteção contra coleções nulas, datas inválidas, tags incompatíveis e campos legados;
+- aba Leads preservada mesmo quando existirem cadastros incompletos no Supabase;
+- fila de Ligações com indicadores compactos, filtros progressivos e largura integral;
+- Modo Ligação em Foco com script central, painel lateral por abas e encerramento progressivo;
+- resultado, próxima ação e salvamento exibidos somente após finalizar a chamada;
+- controles de gravação e transcrição recolhíveis;
+- Central de Comunicações removida da navegação, rotas, componentes e serviços de tela;
+- integração de calendário da Agenda isolada em serviço próprio;
+- Mapa de Leads profissional preservado;
+- build independente do registro npm para publicação no Vercel;
+- auditorias de renderização, arquitetura, banco, migrations, segurança e release.
 
-## Validação
+## Validação portátil
 
 ```bash
-npm ci
-npm run homologate
+node scripts/run-portable-homologation.mjs
 ```
 
-Sem acesso ao registro npm:
+## Publicação
 
-```bash
-npm run homologate:portable
-```
+Copie o conteúdo desta pasta para a raiz do repositório. O `vercel.json` já define o build e a pasta `dist` sem executar `npm install` no deployment.

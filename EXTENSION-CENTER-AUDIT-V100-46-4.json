@@ -1,0 +1,142 @@
+{
+  "passed": true,
+  "version": "100.46.4",
+  "checks": [
+    {
+      "label": "Tabela extension_installations",
+      "ok": true,
+      "detail": "aprovado"
+    },
+    {
+      "label": "RLS extension_installations",
+      "ok": true,
+      "detail": "aprovado"
+    },
+    {
+      "label": "Tabela extension_product_settings",
+      "ok": true,
+      "detail": "aprovado"
+    },
+    {
+      "label": "RLS extension_product_settings",
+      "ok": true,
+      "detail": "aprovado"
+    },
+    {
+      "label": "Tabela extension_capture_jobs",
+      "ok": true,
+      "detail": "aprovado"
+    },
+    {
+      "label": "RLS extension_capture_jobs",
+      "ok": true,
+      "detail": "aprovado"
+    },
+    {
+      "label": "Tabela extension_events",
+      "ok": true,
+      "detail": "aprovado"
+    },
+    {
+      "label": "RLS extension_events",
+      "ok": true,
+      "detail": "aprovado"
+    },
+    {
+      "label": "RPC register_extension_installation",
+      "ok": true,
+      "detail": "aprovado"
+    },
+    {
+      "label": "RPC heartbeat_extension_installation",
+      "ok": true,
+      "detail": "aprovado"
+    },
+    {
+      "label": "RPC update_extension_installation_status",
+      "ok": true,
+      "detail": "aprovado"
+    },
+    {
+      "label": "RPC save_extension_product_settings",
+      "ok": true,
+      "detail": "aprovado"
+    },
+    {
+      "label": "RPC retry_extension_capture_job",
+      "ok": true,
+      "detail": "aprovado"
+    },
+    {
+      "label": "Central na interface",
+      "ok": true,
+      "detail": "aprovado"
+    },
+    {
+      "label": "Controle de instalações",
+      "ok": true,
+      "detail": "aprovado"
+    },
+    {
+      "label": "Configuração remota",
+      "ok": true,
+      "detail": "aprovado"
+    },
+    {
+      "label": "Aba Extensões",
+      "ok": true,
+      "detail": "aprovado"
+    },
+    {
+      "label": "Serviço de extensões",
+      "ok": true,
+      "detail": "aprovado"
+    },
+    {
+      "label": "Identidade da instalação",
+      "ok": true,
+      "detail": "aprovado"
+    },
+    {
+      "label": "Fila idempotente",
+      "ok": true,
+      "detail": "aprovado"
+    },
+    {
+      "label": "Compatibilidade de versão",
+      "ok": true,
+      "detail": "aprovado"
+    },
+    {
+      "label": "Registro autenticado",
+      "ok": true,
+      "detail": "aprovado"
+    },
+    {
+      "label": "SDK TypeScript",
+      "ok": true,
+      "detail": "aprovado"
+    },
+    {
+      "label": "SDK JavaScript",
+      "ok": true,
+      "detail": "aprovado"
+    },
+    {
+      "label": "Sem segredo em src/features/settings/extension-center-panel.tsx",
+      "ok": true,
+      "detail": "aprovado"
+    },
+    {
+      "label": "Sem segredo em src/services/integration-framework.ts",
+      "ok": true,
+      "detail": "aprovado"
+    },
+    {
+      "label": "Sem segredo em extension-sdk/realtalent-extension-client.ts",
+      "ok": true,
+      "detail": "aprovado"
+    }
+  ],
+  "failures": []
+}

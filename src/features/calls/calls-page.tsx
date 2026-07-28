@@ -21,6 +21,7 @@ export function CallsPage() {
   const { preferences } = usePreferences()
   const [view, setView] = useState<CallsView>('queue')
   const [query, setQuery] = useState('')
+  const [moreFiltersOpen, setMoreFiltersOpen] = useState(false)
   const [bucket, setBucket] = useState<CallQueueBucket>('all')
   const [priority, setPriority] = useState<'all' | LeadPriority>('all')
   const [outcomeFilter, setOutcomeFilter] = useState<'all' | CallOutcome>('all')
@@ -87,11 +88,12 @@ export function CallsPage() {
       </div>
     </section>
 
-    <section className="metric-grid metric-grid--compact">
-      <article className="metric-card"><span className="metric-card__icon"><PhoneCall /></span><div><small>Ligações hoje</small><strong>{stats.today}</strong><span>{queue.filter((item) => item.bucket === 'today' || item.bucket === 'overdue').length} aguardando</span></div></article>
-      <article className="metric-card"><span className="metric-card__icon metric-card__icon--green"><Headphones /></span><div><small>Taxa de atendimento</small><strong>{stats.answerRate}%</strong><span>{stats.conversations} conversas</span></div></article>
-      <article className="metric-card"><span className="metric-card__icon metric-card__icon--orange"><Target /></span><div><small>Reuniões marcadas</small><strong>{stats.meetings}</strong><span>{stats.meetingRate}% das conversas</span></div></article>
-      <article className="metric-card"><span className="metric-card__icon metric-card__icon--purple"><Clock3 /></span><div><small>Tempo em chamada</small><strong>{formatDuration(stats.totalDuration)}</strong><span>Média {formatDuration(stats.averageDuration)}</span></div></article>
+    <section className="calls-summary-strip" aria-label="Resumo das ligações">
+      <span><PhoneCall size={16} /><strong>{stats.today}</strong> realizadas hoje</span>
+      <span><CalendarClock size={16} /><strong>{queue.filter((item) => item.bucket === 'today' || item.bucket === 'overdue').length}</strong> aguardando</span>
+      <span><Headphones size={16} /><strong>{stats.answerRate}%</strong> atendidas</span>
+      <span><Target size={16} /><strong>{stats.meetings}</strong> reuniões</span>
+      <span><Clock3 size={16} /><strong>{formatDuration(stats.averageDuration)}</strong> média</span>
     </section>
 
     <section className="calls-view-tabs" aria-label="Visualizações de ligações">
@@ -105,15 +107,16 @@ export function CallsPage() {
         <label className="search-field"><Search size={18} /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder={view === 'queue' ? 'Buscar lead, empresa, cidade ou etapa...' : 'Buscar no histórico...'} /></label>
         {view === 'queue' ? <>
           <label className="compact-select"><span>Fila</span><select value={bucket} onChange={(event) => setBucket(event.target.value as CallQueueBucket)}>{Object.entries(bucketLabel).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label>
-          <label className="compact-select"><span>Prioridade</span><select value={priority} onChange={(event) => setPriority(event.target.value as 'all' | LeadPriority)}><option value="all">Todas</option><option value="urgent">Urgente</option><option value="high">Alta</option><option value="medium">Média</option><option value="low">Baixa</option></select></label>
+          {moreFiltersOpen ? <label className="compact-select"><span>Prioridade</span><select value={priority} onChange={(event) => setPriority(event.target.value as 'all' | LeadPriority)}><option value="all">Todas</option><option value="urgent">Urgente</option><option value="high">Alta</option><option value="medium">Média</option><option value="low">Baixa</option></select></label> : null}
         </> : <label className="compact-select"><span>Resultado</span><select value={outcomeFilter} onChange={(event) => setOutcomeFilter(event.target.value as 'all' | CallOutcome)}><option value="all">Todos</option>{Object.values(snapshot?.calls.reduce((acc, call) => ({ ...acc, [call.outcome]: call.outcome }), {} as Record<string, CallOutcome>) ?? {}).map((value) => <option key={value} value={value}>{outcomeLabel(value)}</option>)}</select></label>}
       </div>
       <div className="toolbar-card__actions">
+        {view === 'queue' ? <Button variant="ghost" size="sm" onClick={() => setMoreFiltersOpen((value) => !value)}>{moreFiltersOpen ? 'Menos filtros' : 'Mais filtros'}</Button> : null}
         {view === 'queue' && canWrite ? <Button variant="secondary" size="sm" onClick={selectVisible}>{selectedQueueIds.length && selectedQueueIds.length === filteredQueue.length ? <Square size={15} /> : <CheckSquare size={15} />} {selectedQueueIds.length ? selectedQueueIds.length === 1 ? '1 selecionado' : `${selectedQueueIds.length} selecionados` : 'Selecionar fila'}</Button> : null}
       </div>
     </section> : null}
 
-    {view === 'queue' ? <section className="calls-operations-layout">
+    {view === 'queue' ? <section className="calls-operations-layout calls-operations-layout--single">
       <div className="panel call-queue-panel call-queue-panel--professional">
         <div className="panel__heading"><div><span className="eyebrow">Prioridade automática</span><h3>Fila de ligação</h3><p>{filteredQueue.length === 1 ? '1 contato nesta visualização' : `${filteredQueue.length} contatos nesta visualização`}</p></div>{canWrite && selectedQueueIds.length ? <Button size="sm" onClick={() => startCall(selectedQueueIds[0], selectedQueueIds)}><Play size={15} /> Ligar para selecionados</Button> : null}</div>
         {filteredQueue.length ? <div className="call-queue call-queue--professional">{filteredQueue.map((entry, index) => {
@@ -131,10 +134,6 @@ export function CallsPage() {
         })}</div> : <EmptyState icon={PhoneCall} title="Nenhum lead nesta fila" description="Ajuste os filtros ou cadastre uma próxima ação para os leads ativos." />}
       </div>
 
-      <aside className="calls-side-stack">
-        <section className="panel calls-routine-card"><Headphones size={30} /><span className="eyebrow">Modo focado</span><h3>Rotina de ligações</h3><p>Trabalhe um lead por vez com contexto, script, objeções, gravação, transcrição e próximo passo.</p><ul><li>Timer somente após “Atendeu”</li><li>Pausa, retomada e recuperação da sessão</li><li>Salvar e avançar para o próximo lead</li></ul>{canWrite ? <Button onClick={() => startCall('', selectedQueueIds.length ? selectedQueueIds : filteredQueue.map((entry) => entry.lead.id))} disabled={!filteredQueue.length}><Play size={17} /> Iniciar com {selectedQueueIds.length || filteredQueue.length} {(selectedQueueIds.length || filteredQueue.length) === 1 ? 'lead' : 'leads'}</Button> : null}</section>
-        <section className="panel calls-alerts-card"><div className="panel__heading"><div><span className="eyebrow">Atenção</span><h3>Riscos da fila</h3></div></div><div><span><Flame size={16} /> Atrasadas <strong>{queue.filter((item) => item.bucket === 'overdue').length}</strong></span><span><Target size={16} /> Quentes <strong>{queue.filter((item) => item.lead.temperature === 'hot').length}</strong></span><span><CalendarClock size={16} /> Sem próxima ação <strong>{queue.filter((item) => item.bucket === 'without_action').length}</strong></span></div></section>
-      </aside>
     </section> : null}
 
     {view === 'history' ? <section className="panel data-panel"><div className="data-panel__header"><div><h3>Histórico de ligações</h3><p>{history.length === 1 ? '1 registro' : `${history.length} registros`}</p></div></div>{history.length ? <div className="call-history">{history.map((call) => {

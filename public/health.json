@@ -1,7 +1,7 @@
 {
   "status": "ok",
   "application": "RealTalent CRM",
-  "version": "100.46.3",
+  "version": "100.46.4",
   "release": "Produção e Homologação Real",
   "channel": "development",
   "commit": "local",

@@ -1,0 +1,95 @@
+{
+  "version": "100.46.4",
+  "generatedAt": "2026-07-28T17:46:33.523Z",
+  "scope": "Infraestrutura Google/Microsoft preservada; Central de Comunicações removida da interface.",
+  "checks": 17,
+  "passed": 17,
+  "failed": 0,
+  "results": [
+    {
+      "id": "gmail_incremental",
+      "pass": true,
+      "detail": "Gmail usa historyId e recuperação por sincronização completa."
+    },
+    {
+      "id": "outlook_delta",
+      "pass": true,
+      "detail": "Outlook usa deltaLink e paginação."
+    },
+    {
+      "id": "google_calendar_incremental",
+      "pass": true,
+      "detail": "Google Calendar usa syncToken com reset controlado."
+    },
+    {
+      "id": "microsoft_calendar_delta",
+      "pass": true,
+      "detail": "Microsoft Calendar usa delta e paginação."
+    },
+    {
+      "id": "subscriptions",
+      "pass": true,
+      "detail": "Gmail, Google Calendar e Graph possuem subscriptions reais."
+    },
+    {
+      "id": "automatic_renewal",
+      "pass": true,
+      "detail": "Manutenção renova e-mail e calendário por conta."
+    },
+    {
+      "id": "oauth_bootstrap",
+      "pass": true,
+      "detail": "OAuth cria defaults e inicia sync/subscriptions."
+    },
+    {
+      "id": "default_account",
+      "pass": true,
+      "detail": "Conta padrão existe no banco e continua sendo usada pela Agenda."
+    },
+    {
+      "id": "communications_ui_removed",
+      "pass": true,
+      "detail": "A Central de Comunicações foi removida da interface sem apagar a infraestrutura técnica histórica."
+    },
+    {
+      "id": "calendar_bridge_preserved",
+      "pass": true,
+      "detail": "Agenda continua enfileirando alterações para Google e Microsoft sem depender da tela removida."
+    },
+    {
+      "id": "conflicts_backend",
+      "pass": true,
+      "detail": "Conflitos de calendário continuam detectados e persistidos no backend."
+    },
+    {
+      "id": "html_email_backend",
+      "pass": true,
+      "detail": "Infraestrutura de e-mail HTML permanece disponível no backend, embora a tela de Comunicações tenha sido removida."
+    },
+    {
+      "id": "templates_backend",
+      "pass": true,
+      "detail": "Templates de e-mail permanecem versionados no banco para compatibilidade e uso futuro."
+    },
+    {
+      "id": "attachments_backend",
+      "pass": true,
+      "detail": "Infraestrutura de anexos permanece protegida por limites e transporte nos dois provedores."
+    },
+    {
+      "id": "gmail_pubsub",
+      "pass": true,
+      "detail": "Gmail Pub/Sub valida segredo e enfileira historyId."
+    },
+    {
+      "id": "microsoft_lifecycle",
+      "pass": true,
+      "detail": "Lifecycle do Graph recupera subscription e notificações perdidas."
+    },
+    {
+      "id": "account_capabilities",
+      "pass": true,
+      "detail": "Capacidades de sincronização são explícitas."
+    }
+  ]
+}

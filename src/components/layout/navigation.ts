@@ -1,5 +1,5 @@
 import {
-  BarChart3, CalendarDays, ContactRound, Goal, LayoutDashboard, ListChecks, MapPinned, Phone, MessageSquareMore, ReceiptText,
+  BarChart3, CalendarDays, ContactRound, Goal, LayoutDashboard, ListChecks, MapPinned, Phone, ReceiptText,
   Settings, Sparkles, Workflow, BookOpenText, Pickaxe,
 } from 'lucide-react'
 import type { AppRoute } from '../../domain/types'
@@ -19,7 +19,6 @@ export const navigationItems: Array<{
   { route: 'pipeline', label: 'Pipeline', icon: Workflow, phase: 'ready', group: 'Operação' },
   { route: 'followups', label: 'Follow-ups', icon: ListChecks, phase: 'ready', group: 'Operação' },
   { route: 'calls', label: 'Ligações', icon: Phone, phase: 'ready', group: 'Operação' },
-  { route: 'communications', label: 'Comunicações', icon: MessageSquareMore, phase: 'ready', group: 'Operação' },
   { route: 'proposals', label: 'Propostas', icon: ReceiptText, phase: 'ready', group: 'Operação' },
   { route: 'agenda', label: 'Agenda', icon: CalendarDays, phase: 'ready', group: 'Operação' },
   { route: 'playbooks', label: 'Playbooks', icon: BookOpenText, phase: 'foundation', group: 'Estratégia' },
@@ -37,7 +36,6 @@ export const routeTitles: Record<AppRoute, { title: string; subtitle: string }> 
   pipeline: { title: 'Pipeline', subtitle: 'Negócios, etapas e riscos da operação' },
   followups: { title: 'Follow-ups', subtitle: 'Cadências, fila diária e próximos contatos' },
   calls: { title: 'Ligações', subtitle: 'Fila, roteiro e histórico de chamadas' },
-  communications: { title: 'Comunicações', subtitle: 'E-mail, WhatsApp, calendário e timeline unificada' },
   proposals: { title: 'Propostas e Forecast', subtitle: 'Produtos, propostas, receita e previsão comercial' },
   agenda: { title: 'Agenda', subtitle: 'Reuniões, tarefas e compromissos comerciais' },
   playbooks: { title: 'Playbooks', subtitle: 'Scripts, objeções e padrões de atendimento' },

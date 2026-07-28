@@ -35,7 +35,7 @@ check('Prontidão de produção', exists(`PRODUCTION-READINESS-${releaseLabel}.j
 check('Testes E2E de staging', exists('scripts/e2e_staging.py') && exists('scripts/tenant_isolation_test.py'), 'navegador e isolamento multiempresa')
 check('Backup e restauração', exists('scripts/backup_database.mjs') && exists('scripts/restore_database.mjs'), 'checksum e proteção de destino')
 check('Propostas e Forecast', exists('supabase/migrations/202607270004_v100_43_proposals_forecast.sql') && exists('src/features/proposals/proposals-page.tsx') && exists('src/services/revenue-forecast.ts'), 'produtos, propostas, receita e previsão')
-check('Comunicações oficiais', exists('supabase/migrations/202607270003_v100_42_official_communications.sql') && exists('src/features/communications/communications-page.tsx') && exists('supabase/functions/official-communication-send/index.ts') && exists('supabase/functions/communication-dispatch-worker/index.ts'), 'Gmail, Outlook, Calendar, WhatsApp e timeline')
+check('Comunicações removidas da interface', !exists('src/features/communications/communications-page.tsx') && !exists('src/services/communications.ts') && !fs.readFileSync(path.join(root, 'src/components/layout/navigation.ts'), 'utf8').includes("route: 'communications'"), 'aba, rota e serviço de tela removidos')
 check('Observabilidade por organização', exists('supabase/migrations/202607270002_v100_41_production_observability.sql') && exists('supabase/functions/client-diagnostics/index.ts'), 'eventos autenticados com RLS')
 check('Workflow de staging', exists('.github/workflows/deploy-staging.yml'), 'deploy + E2E + RLS')
 check('Promoção protegida', exists('.github/workflows/promote-production.yml'), 'backup e health antes/depois')

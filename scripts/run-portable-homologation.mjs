@@ -18,6 +18,7 @@ const commands = [
   ['node', ['scripts/integration_foundation_audit.mjs']],
   ['node', ['scripts/google_microsoft_audit.mjs']],
   ['node', ['scripts/lead_map_audit.mjs']],
+  ['node', ['scripts/render_stability_audit.mjs']],
   ['node', ['scripts/test-registry-independent.mjs']],
   ['node', ['scripts/build-registry-independent.mjs']],
   ['node', ['scripts/build-standalone.mjs']],

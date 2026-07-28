@@ -83,7 +83,6 @@ for (const required of [
   'docs/GOOGLE-MICROSOFT-V100-46.md',
   'docs/OPERACAO-PRODUCAO-V100-46.md',
   'docs/PLANO-HOMOLOGACAO-V100-46.md',
-  'src/services/communications-v10046.test.ts',
   'src/features/proposals/proposals-page.tsx',
   'src/services/revenue-forecast.ts',
   'supabase/migrations/202607270004_v100_43_proposals_forecast.sql',
@@ -94,8 +93,6 @@ for (const required of [
   'docs/BACKUP-SEGURO-V100-44.md',
   'docs/FONTE-OFICIAL-V100-44.md',
   'supabase/migrations/202607280001_v100_44_commercial_consolidation.sql',
-  'src/features/communications/communications-page.tsx',
-  'src/services/communications.ts',
   'supabase/migrations/202607270003_v100_42_official_communications.sql',
   'supabase/functions/official-communication-send/index.ts',
   'supabase/functions/communication-dispatch-worker/index.ts',
@@ -115,6 +112,12 @@ for (const required of [
   'docs/OPERACAO-PRODUCAO-V100-42.md',
   'docs/COMUNICACOES-OFICIAIS-V100-42.md',
   'docs/PLANO-HOMOLOGACAO-V100-42.md',
+  'src/services/calendar-integration.ts',
+  'src/services/snapshot-safety.ts',
+  'src/services/snapshot-safety.test.ts',
+  'scripts/render_stability_audit.mjs',
+  'docs/FONTE-OFICIAL-V100-46-4.md',
+  'docs/PLANO-HOMOLOGACAO-V100-46-4.md',
   'supabase/tests/homologation_contracts.sql',
 ]) {
   try { await stat(join(root, required)) } catch { failures.push(`${required}: arquivo obrigatório ausente`) }
@@ -124,6 +127,23 @@ for (const file of sourceFiles) {
   const text = await readFile(file, 'utf8')
   if (/SUPABASE_SERVICE_ROLE_KEY|rt_live_[a-zA-Z0-9]/.test(text)) failures.push(`${file.slice(root.length + 1)}: segredo de servidor exposto no frontend`)
 }
+
+for (const removed of [
+  'src/features/communications/communications-page.tsx',
+  'src/services/communications.ts',
+  'src/services/communications-v10046.test.ts',
+]) {
+  try {
+    await stat(join(root, removed))
+    failures.push(`${removed}: arquivo removido reapareceu no release`)
+  } catch {
+    // Ausência esperada: a Central de Comunicações foi retirada da interface.
+  }
+}
+const navigationSource = await readFile(join(root, 'src/components/layout/navigation.ts'), 'utf8')
+const appSource = await readFile(join(root, 'src/app/app.tsx'), 'utf8')
+if (navigationSource.includes("route: 'communications'")) failures.push('navigation.ts: rota Communications reapareceu')
+if (appSource.includes("route === 'communications'")) failures.push('app.tsx: tela Communications reapareceu')
 
 const distAssets = join(root, 'dist', 'assets')
 try {

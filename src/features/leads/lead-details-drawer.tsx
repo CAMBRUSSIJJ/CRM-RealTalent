@@ -2,7 +2,7 @@ import {
   AlertTriangle, Archive, Building2, CalendarClock, CalendarPlus, CheckCircle2, ChevronRight, Clock3, Edit3, ExternalLink,
   FileText, Globe2, History, Mail, MapPin, MessageCircle, PhoneCall, RefreshCw, ShieldCheck, Tag, UserRound, X,
 } from 'lucide-react'
-import { useEffect, useMemo, useState } from 'react'
+import { useMemo, useState } from 'react'
 import { useApp } from '../../app/app-context'
 import { Button } from '../../components/ui/button'
 import { StatusPill } from '../../components/ui/status-pill'
@@ -10,8 +10,6 @@ import { formatCurrency, formatDateTime, initials } from '../../domain/formatter
 import type { ActivityType, Lead } from '../../domain/types'
 import { leadDataIssues, type DuplicateMatch } from '../../services/lead-intelligence'
 import { leadScoreInsight } from '../../services/lead-scoring'
-import { buildUnifiedTimeline, loadCommunicationEvents } from '../../services/communications'
-import type { CommunicationEvent } from '../../domain/types'
 import { usePreferences } from '../settings/preferences-context'
 
 const callOutcomeLabel: Record<string, string> = {
@@ -20,7 +18,7 @@ const callOutcomeLabel: Record<string, string> = {
   not_interested: 'Sem interesse', sale_completed: 'Venda concluída', other: 'Outro',
 }
 
-type HistoryFilter = 'all' | 'activities' | 'calls' | 'events' | 'email' | 'whatsapp'
+type HistoryFilter = 'all' | 'activities' | 'calls' | 'events'
 
 interface Props {
   readOnly?: boolean
@@ -38,22 +36,29 @@ export function LeadDetailsDrawer({ readOnly = false, lead, duplicateMatches, on
   const { snapshot, moveLead, updateLead, setRoute, notify } = useApp()
   const { preferences } = usePreferences()
   const [historyFilter, setHistoryFilter] = useState<HistoryFilter>('all')
-  const [communicationEvents, setCommunicationEvents] = useState<CommunicationEvent[]>([])
   const [busy, setBusy] = useState(false)
-
-  useEffect(() => {
-    if (!lead || !snapshot) { setCommunicationEvents([]); return }
-    void loadCommunicationEvents(snapshot.workspace.id, lead.id).then(setCommunicationEvents).catch(() => setCommunicationEvents([]))
-  }, [lead?.id, snapshot?.workspace.id])
 
   const timeline = useMemo(() => {
     if (!lead || !snapshot) return []
-    return buildUnifiedTimeline(snapshot, communicationEvents, lead.id).map((entry) => ({
-      ...entry,
-      kind: entry.channel === 'email' ? 'email' as const : entry.channel === 'whatsapp' ? 'whatsapp' as const : entry.source === 'call' ? 'calls' as const : entry.source === 'calendar' ? 'events' as const : 'activities' as const,
-      tone: entry.status === 'failed' || entry.status === 'cancelled' ? 'danger' : entry.status === 'queued' || entry.status === 'pending' ? 'warning' : entry.direction === 'inbound' ? 'info' : 'success',
-    })).filter((entry) => historyFilter === 'all' || entry.kind === historyFilter)
-  }, [communicationEvents, historyFilter, lead, snapshot])
+    const activities = snapshot.activities.filter((item) => item.leadId === lead.id).map((item) => ({
+      id: `activity-${item.id}`, kind: 'activities' as const, date: item.completedAt ?? item.dueAt ?? item.createdAt,
+      title: item.title, description: item.description || (item.completedAt ? 'Atividade concluída.' : 'Atividade pendente.'),
+      detail: item.completedAt ? 'Concluída' : item.dueAt ? 'Programada' : 'Registrada', tone: item.completedAt ? 'success' : 'warning',
+    }))
+    const calls = snapshot.calls.filter((item) => item.leadId === lead.id).map((item) => ({
+      id: `call-${item.id}`, kind: 'calls' as const, date: item.endedAt ?? item.startedAt,
+      title: `Ligação — ${callOutcomeLabel[item.outcome] ?? item.outcome}`, description: item.notes || 'Ligação registrada sem observações.',
+      detail: `${Math.max(0, Math.round(item.durationSeconds / 60))} min`, tone: item.outcome === 'not_interested' || item.outcome === 'invalid_number' ? 'danger' : 'success',
+    }))
+    const events = snapshot.events.filter((item) => item.leadId === lead.id).map((item) => ({
+      id: `event-${item.id}`, kind: 'events' as const, date: item.startsAt, title: item.title,
+      description: item.description || item.location || 'Compromisso comercial.', detail: item.status === 'cancelled' ? 'Cancelado' : item.status === 'completed' ? 'Concluído' : 'Agenda',
+      tone: item.status === 'cancelled' ? 'danger' : item.status === 'completed' ? 'success' : 'info',
+    }))
+    return [...calls, ...events, ...activities]
+      .filter((entry) => historyFilter === 'all' || entry.kind === historyFilter)
+      .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+  }, [historyFilter, lead, snapshot])
 
   if (!lead || !snapshot) return null
   const stage = snapshot.stages.find((item) => item.id === lead.stageId)
@@ -173,12 +178,12 @@ export function LeadDetailsDrawer({ readOnly = false, lead, duplicateMatches, on
         <section className="lead-drawer__section">
           <div className="lead-drawer__section-title"><div><span className="eyebrow">Histórico</span><h3>Linha do tempo</h3></div><History size={20} /></div>
           <div className="lead-history-filters">
-            {([['all', 'Tudo'], ['email', 'E-mails'], ['whatsapp', 'WhatsApp'], ['calls', 'Ligações'], ['events', 'Agenda'], ['activities', 'Atividades']] as const).map(([value, label]) => <button key={value} type="button" className={historyFilter === value ? 'is-active' : ''} onClick={() => setHistoryFilter(value)}>{label}</button>)}
+            {([['all', 'Tudo'], ['calls', 'Ligações'], ['events', 'Agenda'], ['activities', 'Atividades']] as const).map(([value, label]) => <button key={value} type="button" className={historyFilter === value ? 'is-active' : ''} onClick={() => setHistoryFilter(value)}>{label}</button>)}
           </div>
           {timeline.length ? <div className="lead-timeline">{timeline.slice(0, 30).map((entry) => <article key={entry.id}>
             <span className={`lead-timeline__dot lead-timeline__dot--${entry.tone}`} />
             <div><span>{formatDateTime(entry.date)}</span><strong>{entry.title}</strong><p>{entry.description}</p><small>{entry.detail}</small></div>
-          </article>)}</div> : <div className="lead-history-empty"><Clock3 size={20} /><strong>Nenhuma interação encontrada</strong><span>Conecte um canal oficial ou registre uma atividade para iniciar o histórico.</span></div>}
+          </article>)}</div> : <div className="lead-history-empty"><Clock3 size={20} /><strong>Nenhuma interação encontrada</strong><span>Registre uma ligação, compromisso ou atividade para iniciar o histórico.</span></div>}
         </section>
       </div>
 

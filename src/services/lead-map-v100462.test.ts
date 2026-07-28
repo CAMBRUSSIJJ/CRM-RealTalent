@@ -8,7 +8,7 @@ const makeLead = (overrides: Partial<Lead> = {}): Lead => ({
   value: 1000, nextActionAt: null, notes: '', tags: [], createdAt: '2026-07-28T00:00:00.000Z', updatedAt: '2026-07-28T00:00:00.000Z', ...overrides,
 })
 
-describe('Mapa de Leads V100.46.3', () => {
+describe('Mapa de Leads V100.46.4', () => {
   it('reconhece coordenadas válidas para posicionar o marcador', () => {
     expect(hasLeadCoordinates(makeLead({ latitude: -30.03, longitude: -51.22 }))).toBe(true)
   })

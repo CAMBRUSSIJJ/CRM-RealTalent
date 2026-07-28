@@ -18,7 +18,7 @@ const worker = read('supabase/functions/lead-geocode-worker/index.ts')
 const diagnostics = read('supabase/functions/maps-diagnostics/index.ts')
 
 check('Aba Mapa de Leads', navigation.includes("label: 'Mapa de Leads'") && navigation.includes("title: 'Mapa de Leads'"), 'menu e título oficial')
-check('Bridge V100.46.3', page.includes("version: '100.46.3'") && page.includes('__REALTALENT_LEAD_MAP_BRIDGE__'), 'ponte React/runtime')
+check('Bridge V100.46.4', page.includes("version: '100.46.4'") && page.includes('__REALTALENT_LEAD_MAP_BRIDGE__'), 'ponte React/runtime')
 check('Modo demonstração identificado', page.includes("mode: 'demo'") && runtime.includes('Modo demonstração'), 'estimativa local não aparece como conexão real')
 check('Filtros e ações', ['data-filter="city"','data-filter="stage"','data-filter="owner"','data-filter="priority"','data-call','data-whatsapp','data-route'].every((token) => runtime.includes(token)), 'filtros e ações rápidas')
 check('Clustering', runtime.includes('commercial-map-cluster') && runtime.includes('zoom<12'), 'agrupamento por cidade em zoom baixo')
@@ -32,7 +32,7 @@ check('Geocodificação backend', geocode.includes('GOOGLE_MAPS_API_KEY') && !pa
 check('Diagnóstico por workspace', diagnostics.includes('coverage') && diagnostics.includes('lead_geocode_jobs') && runtime.includes('Diagnóstico do Maps'), 'cobertura e fila')
 check('Configuração Supabase', read('supabase/config.toml').includes('[functions.maps-diagnostics]') && read('supabase/config.toml').includes('[functions.lead-geocode-worker]'), 'JWT por endpoint')
 check('Cron de geocodificação', read('supabase/cron/CONFIGURAR-INTEGRATION-RUNNERS.sql').includes('realtalent-lead-geocoding'), 'worker agendado')
-check('Documentação do módulo', exists('docs/MAPA-DE-LEADS-V100-46-3.md'), 'implantação e operação')
+check('Documentação do módulo', exists('docs/MAPA-DE-LEADS-V100-46-4.md'), 'implantação e operação')
 
 const failures = checks.filter((item) => !item.ok)
 const report = { version: pkg.version, generatedAt: new Date().toISOString(), passed: failures.length === 0, checks, failures }

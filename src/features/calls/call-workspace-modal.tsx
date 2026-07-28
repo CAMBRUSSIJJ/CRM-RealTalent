@@ -65,6 +65,7 @@ interface SpeechRecognitionLike {
 }
 type SpeechRecognitionConstructor = new () => SpeechRecognitionLike
 type SessionState = 'idle' | 'dialing' | 'running' | 'paused' | 'finished'
+type GuidanceTab = 'objections' | 'notes' | 'lead' | 'history'
 
 interface DiscoveryFields {
   decisionMaker: string
@@ -149,6 +150,7 @@ export function CallWorkspaceModal({ open, initialLeadId = '', queueLeadIds = []
   const [visitedStepIds, setVisitedStepIds] = useState<OutboundStepId[]>(['opening'])
   const [discovery, setDiscovery] = useState<DiscoveryFields>(EMPTY_DISCOVERY)
   const [activeObjectionId, setActiveObjectionId] = useState('')
+  const [guidanceTab, setGuidanceTab] = useState<GuidanceTab>('objections')
   const mediaRecorderRef = useRef<MediaRecorder | null>(null)
   const mediaStreamRef = useRef<MediaStream | null>(null)
   const chunksRef = useRef<Blob[]>([])
@@ -234,7 +236,7 @@ export function CallWorkspaceModal({ open, initialLeadId = '', queueLeadIds = []
     cleanupMedia()
     setLeadId(nextLeadId); setQueueIndex(nextIndex); setSession('idle'); setStartedAt(null); setSeconds(0); setOutcome('answered')
     setNotes(''); setTranscript(''); setInterim(''); setConsent(false); setRecording(false); setRecordingBlob(null); recordingBlobRef.current = null; setListening(false)
-    setScheduleNext(true); setNextAt(nextHourInput()); setCurrentStepId('opening'); setVisitedStepIds(['opening']); setDiscovery(EMPTY_DISCOVERY); setActiveObjectionId('')
+    setScheduleNext(true); setNextAt(nextHourInput()); setCurrentStepId('opening'); setVisitedStepIds(['opening']); setDiscovery(EMPTY_DISCOVERY); setActiveObjectionId(''); setGuidanceTab('objections')
     if (recordingUrl) URL.revokeObjectURL(recordingUrl)
     setRecordingUrl(null)
     void clearDraftRecording()
@@ -249,7 +251,7 @@ export function CallWorkspaceModal({ open, initialLeadId = '', queueLeadIds = []
     setLeadId(startingId); setQueueIndex(startingIndex); setSession('idle'); setStartedAt(null); setSeconds(0); setOutcome('answered'); setNotes(''); setTranscript(''); setInterim('')
     setConsent(false); setRecording(false); setRecordingBlob(null); recordingBlobRef.current = null; setListening(false); setScheduleNext(true); setNextAt(nextHourInput())
     setPlaybookId(snapshot?.playbooks.find((item) => item.kind === 'script' && item.active)?.id ?? '')
-    setFullScreen(true); setCurrentStepId('opening'); setVisitedStepIds(['opening']); setDiscovery(EMPTY_DISCOVERY); setActiveObjectionId('')
+    setFullScreen(true); setCurrentStepId('opening'); setVisitedStepIds(['opening']); setDiscovery(EMPTY_DISCOVERY); setActiveObjectionId(''); setGuidanceTab('objections')
     if (recordingUrl) URL.revokeObjectURL(recordingUrl); setRecordingUrl(null)
     const stored = safeStorageGet(STORAGE_KEY) ?? safeStorageGet(LEGACY_STORAGE_KEY)
     setShowRecovery(Boolean(stored))
@@ -477,9 +479,10 @@ export function CallWorkspaceModal({ open, initialLeadId = '', queueLeadIds = []
     footer={<>
       <Button variant="ghost" disabled={!hasPrevious || busy} onClick={() => moveInQueue(-1)}><ArrowLeft size={16} /> Anterior</Button>
       <span className="modal__footer-spacer" />
-      <Button variant="secondary" disabled={!hasNext || busy} onClick={() => moveInQueue(1)}><SkipForward size={16} /> Pular</Button>
-      <Button variant="secondary" loading={busy} onClick={() => void save(false)}><Save size={16} /> Salvar ligação</Button>
-      <Button loading={busy} disabled={!hasNext} onClick={() => void save(true)}><ArrowRight size={16} /> Salvar e próximo</Button>
+      {session === 'finished' ? <>
+        <Button variant="secondary" loading={busy} onClick={() => void save(false)}><Save size={16} /> Salvar</Button>
+        <Button loading={busy} disabled={!hasNext} onClick={() => void save(true)}><ArrowRight size={16} /> Salvar e próximo</Button>
+      </> : <Button variant="secondary" disabled={!hasNext || busy} onClick={() => moveInQueue(1)}><SkipForward size={16} /> Pular lead</Button>}
     </>}
   >
     <div className="call-focus-workspace call-focus-workspace--v29">
@@ -538,17 +541,26 @@ export function CallWorkspaceModal({ open, initialLeadId = '', queueLeadIds = []
               {session === 'running' ? <><Button variant="secondary" onClick={() => setSession('paused')}><Pause size={16} /> Pausar</Button><Button variant="danger" onClick={finishSession}><Square size={16} /> Finalizar conversa</Button></> : null}
               {session === 'paused' ? <><Button onClick={() => setSession('running')}><Play size={16} /> Retomar</Button><Button variant="danger" onClick={finishSession}><Square size={16} /> Finalizar</Button></> : null}
               {session === 'finished' ? <Button variant="secondary" onClick={() => { setSession('dialing'); setStartedAt(new Date().toISOString()); setSeconds(0) }}><RotateCcw size={16} /> Nova tentativa</Button> : null}
-              <Button variant={recording ? 'danger' : 'secondary'} disabled={!recordingSupported || !['running', 'paused'].includes(session)} onClick={() => recording ? mediaRecorderRef.current?.stop() : void startRecording()}>{recording ? <CircleStop size={17} /> : <Mic size={17} />} {recording ? 'Parar gravação' : 'Gravar áudio'}</Button>
-              <Button variant={listening ? 'danger' : 'secondary'} disabled={!speechSupported || !['running', 'paused'].includes(session)} onClick={toggleTranscription}>{listening ? <MicOff size={17} /> : <Volume2 size={17} />} {listening ? 'Parar transcrição' : 'Transcrever'}</Button>
             </div>
-            <label className="consent-check"><input type="checkbox" checked={consent} disabled={recording || Boolean(recordingBlob)} onChange={(event) => setConsent(event.target.checked)} /><span>O participante foi informado e consentiu com a gravação.</span></label>{recordingBlob ? <Button size="sm" variant="ghost" onClick={() => void discardRecording()}>Descartar áudio</Button> : null}
-            {!recordingSupported ? <p className="support-note">O microfone exige navegador compatível e página hospedada em HTTPS.</p> : null}
-            {repositoryMode === 'local' && recordingBlob ? <p className="support-note">No modo local, o áudio é salvo no armazenamento privado deste navegador e continua disponível após recarregar.</p> : null}
-            {recordingUrl ? <audio className="call-audio" src={recordingUrl} controls /> : null}
+            <details className="call-recording-tools">
+              <summary><Mic size={16} /> Gravação e transcrição <ChevronRight size={15} /></summary>
+              <div>
+                <label className="consent-check"><input type="checkbox" checked={consent} disabled={recording || Boolean(recordingBlob)} onChange={(event) => setConsent(event.target.checked)} /><span>O participante foi informado e consentiu com a gravação.</span></label>
+                <div className="call-recording-tools__actions">
+                  <Button variant={recording ? 'danger' : 'secondary'} disabled={!recordingSupported || !['running', 'paused'].includes(session)} onClick={() => recording ? mediaRecorderRef.current?.stop() : void startRecording()}>{recording ? <CircleStop size={17} /> : <Mic size={17} />} {recording ? 'Parar gravação' : 'Gravar áudio'}</Button>
+                  <Button variant={listening ? 'danger' : 'secondary'} disabled={!speechSupported || !['running', 'paused'].includes(session)} onClick={toggleTranscription}>{listening ? <MicOff size={17} /> : <Volume2 size={17} />} {listening ? 'Parar transcrição' : 'Transcrever'}</Button>
+                  {recordingBlob ? <Button size="sm" variant="ghost" onClick={() => void discardRecording()}>Descartar áudio</Button> : null}
+                </div>
+                {!recordingSupported ? <p className="support-note">O microfone exige navegador compatível e página hospedada em HTTPS.</p> : null}
+                {repositoryMode === 'local' && recordingBlob ? <p className="support-note">No modo local, o áudio fica salvo neste navegador.</p> : null}
+                {recordingUrl ? <audio className="call-audio" src={recordingUrl} controls /> : null}
+              </div>
+            </details>
           </section>
 
           <details className="call-complementary-playbook" open={Boolean(renderedTeamPlaybook)}><summary><span><BookOpenText size={17} /><strong>Material complementar da equipe</strong></span><ChevronRight size={16} /></summary><div><label><span>Playbook ativo</span><select aria-label="Material complementar da ligação" value={playbookId} onChange={(event) => setPlaybookId(event.target.value)}><option value="">Sem material complementar</option>{snapshot?.playbooks.filter((item) => item.kind === 'script' && item.active).map((item) => <option key={item.id} value={item.id}>{item.title}</option>)}</select></label>{renderedTeamPlaybook ? <><p>{renderedTeamPlaybook}</p><Button size="sm" variant="secondary" onClick={() => void copyTeamPlaybook()}><Copy size={15} /> Copiar material</Button></> : <span className="activity-empty">Selecione um script cadastrado em Playbooks.</span>}</div></details>
 
+          {session === 'finished' ? <>
           <section className="call-result-panel"><div className="call-result-panel__heading"><div><span className="eyebrow">Resultado obrigatório</span><h3>O que aconteceu nesta tentativa?</h3></div><StatusPill tone={currentDefinition.tone === 'neutral' ? 'neutral' : currentDefinition.tone}>{currentDefinition.label}</StatusPill></div><div className="call-outcome-grid">{CALL_OUTCOMES.map((item) => <button key={item.value} type="button" className={outcome === item.value ? 'is-active' : ''} onClick={() => selectOutcome(item.value)}>{item.label}</button>)}</div></section>
 
           <section className="call-notes-grid">
@@ -557,30 +569,41 @@ export function CallWorkspaceModal({ open, initialLeadId = '', queueLeadIds = []
           </section>
 
           <section className="call-next-step"><label className="consent-check"><input type="checkbox" checked={scheduleNext} onChange={(event) => setScheduleNext(event.target.checked)} disabled={Boolean(currentDefinition.closesLead)} /><span>{outcome === 'meeting_scheduled' ? 'Criar compromisso na Agenda' : 'Criar próxima ligação no Follow-up'}</span></label><label className="field"><span>Data e horário</span><input type="datetime-local" value={nextAt} onChange={(event) => setNextAt(event.target.value)} disabled={!scheduleNext || Boolean(currentDefinition.closesLead)} /></label><div className="call-next-step__summary"><CalendarPlus size={18} /><div><strong>{currentDefinition.closesLead ? `Lead será marcado como ${currentDefinition.closesLead === 'won' ? 'ganho' : 'perdido'}` : scheduleNext && nextAt ? `Próximo passo em ${formatDateTime(new Date(nextAt).toISOString())}` : 'Sem próximo passo automático'}</strong><span>O Pipeline, a Agenda e o Follow-up serão atualizados ao salvar.</span></div></div></section>
+          </> : null}
         </main>
 
-        <aside className="call-focus-column call-focus-guidance call-focus-guidance--v29">
-          <section className="call-focus-panel call-lead-intelligence">
-            <div className="call-panel-title"><div><span className="eyebrow">Contexto do lead</span><h3>{selectedLead?.company || selectedLead?.name || 'Selecione um lead'}</h3></div><UserRoundCheck size={19} /></div>
-            <div className="call-context-list"><div><small>Temperatura</small><strong>{selectedLead?.temperature === 'hot' ? 'Quente' : selectedLead?.temperature === 'warm' ? 'Morno' : 'Frio'}</strong></div><div><small>Tentativas</small><strong>{leadCalls.length}</strong></div><div><small>Próxima ação</small><strong>{selectedLead?.nextActionAt ? formatDateTime(selectedLead.nextActionAt) : 'Não definida'}</strong></div><div><small>Responsável</small><strong>{selectedLead?.ownerName || 'Não definido'}</strong></div></div>
-            {selectedLead?.tags.length ? <div className="call-context-tags">{selectedLead.tags.map((tag) => <span key={tag}>{tag}</span>)}</div> : null}
-          </section>
+        <aside className="call-focus-column call-focus-guidance call-focus-guidance--v29 call-guidance-tabs">
+          <nav className="call-guidance-tabs__nav" aria-label="Apoio da ligação">
+            <button type="button" className={guidanceTab === 'objections' ? 'is-active' : ''} onClick={() => setGuidanceTab('objections')}>Objeções</button>
+            <button type="button" className={guidanceTab === 'notes' ? 'is-active' : ''} onClick={() => setGuidanceTab('notes')}>Notas</button>
+            <button type="button" className={guidanceTab === 'lead' ? 'is-active' : ''} onClick={() => setGuidanceTab('lead')}>Lead</button>
+            <button type="button" className={guidanceTab === 'history' ? 'is-active' : ''} onClick={() => setGuidanceTab('history')}>Histórico</button>
+          </nav>
 
-          <section className="call-focus-panel call-discovery-panel">
-            <div className="call-panel-title"><div><span className="eyebrow">Descoberta comercial</span><h3>Registre enquanto escuta</h3></div><Clipboard size={19} /></div>
+          {guidanceTab === 'objections' ? <section className="call-focus-panel call-objection-library">
+            <div className="call-panel-title"><div><span className="eyebrow">Respostas rápidas</span><h3>Objeções</h3></div><AlertCircle size={19} /></div>
+            <div className="call-objection-chips">{objections.slice(0, 8).map((item) => <button type="button" key={item.id} className={activeObjectionId === item.id ? 'is-active' : ''} onClick={() => setActiveObjectionId(item.id)}>{item.title}</button>)}</div>
+            {activeObjection ? <article className="call-objection-detail"><header><div><small>{activeObjection.category}</small><strong>{activeObjection.title}</strong></div>{activeObjection.source === 'team' ? <StatusPill tone="info">Equipe</StatusPill> : <StatusPill tone="neutral">Padrão</StatusPill>}</header><div><span>Resposta sugerida</span><p>{activeObjection.response}</p></div><div className="call-objection-question"><span>Pergunta para diagnosticar</span><p>{activeObjection.diagnosticQuestion}</p></div><footer><Button size="sm" variant="secondary" onClick={() => void writeClipboard(`${activeObjection.response}
+
+${activeObjection.diagnosticQuestion}`).then(() => notify('success', 'Resposta copiada.'))}><Copy size={14} /> Copiar</Button><Button size="sm" onClick={() => useObjection(activeObjection)}><Check size={14} /> Registrar uso</Button></footer></article> : <p className="activity-empty">Selecione uma objeção para abrir a resposta.</p>}
+          </section> : null}
+
+          {guidanceTab === 'notes' ? <section className="call-focus-panel call-discovery-panel">
+            <div className="call-panel-title"><div><span className="eyebrow">Notas e descoberta</span><h3>Registre enquanto escuta</h3></div><Clipboard size={19} /></div>
+            <label><span>Anotações livres</span><textarea rows={5} value={notes} onChange={(event) => setNotes(event.target.value)} placeholder="Detalhes importantes da conversa" /></label>
             <label><span>Decisor responsável</span><input value={discovery.decisionMaker} onChange={(event) => setDiscovery((current) => ({ ...current, decisionMaker: event.target.value }))} placeholder="Nome e cargo" /></label>
             <label><span>Sistema ou processo atual</span><input value={discovery.currentSystem} onChange={(event) => setDiscovery((current) => ({ ...current, currentSystem: event.target.value }))} placeholder="Sistema, WhatsApp ou agenda" /></label>
             <label><span>Dor principal</span><textarea rows={3} value={discovery.mainPain} onChange={(event) => setDiscovery((current) => ({ ...current, mainPain: event.target.value }))} placeholder="Use as palavras do lead" /></label>
             <label><span>Melhor horário</span><input value={discovery.bestTime} onChange={(event) => setDiscovery((current) => ({ ...current, bestTime: event.target.value }))} placeholder="Ex.: terça às 15h" /></label>
-          </section>
+          </section> : null}
 
-          <section className="call-focus-panel call-objection-library">
-            <div className="call-panel-title"><div><span className="eyebrow">Respostas rápidas</span><h3>Objeções</h3></div><AlertCircle size={19} /></div>
-            <div className="call-objection-chips">{objections.slice(0, 8).map((item) => <button type="button" key={item.id} className={activeObjectionId === item.id ? 'is-active' : ''} onClick={() => setActiveObjectionId(item.id)}>{item.title}</button>)}</div>
-            {activeObjection ? <article className="call-objection-detail"><header><div><small>{activeObjection.category}</small><strong>{activeObjection.title}</strong></div>{activeObjection.source === 'team' ? <StatusPill tone="info">Equipe</StatusPill> : <StatusPill tone="neutral">Padrão</StatusPill>}</header><div><span>Resposta sugerida</span><p>{activeObjection.response}</p></div><div className="call-objection-question"><span>Pergunta para diagnosticar</span><p>{activeObjection.diagnosticQuestion}</p></div><footer><Button size="sm" variant="secondary" onClick={() => void writeClipboard(`${activeObjection.response}\n\n${activeObjection.diagnosticQuestion}`).then(() => notify('success', 'Resposta copiada.'))}><Copy size={14} /> Copiar</Button><Button size="sm" onClick={() => useObjection(activeObjection)}><Check size={14} /> Registrar uso</Button></footer></article> : <p className="activity-empty">Selecione uma objeção para abrir a resposta completa.</p>}
-          </section>
+          {guidanceTab === 'lead' ? <section className="call-focus-panel call-lead-intelligence">
+            <div className="call-panel-title"><div><span className="eyebrow">Contexto do lead</span><h3>{selectedLead?.company || selectedLead?.name || 'Selecione um lead'}</h3></div><UserRoundCheck size={19} /></div>
+            <div className="call-context-list"><div><small>Temperatura</small><strong>{selectedLead?.temperature === 'hot' ? 'Quente' : selectedLead?.temperature === 'warm' ? 'Morno' : 'Frio'}</strong></div><div><small>Tentativas</small><strong>{leadCalls.length}</strong></div><div><small>Próxima ação</small><strong>{selectedLead?.nextActionAt ? formatDateTime(selectedLead.nextActionAt) : 'Não definida'}</strong></div><div><small>Responsável</small><strong>{selectedLead?.ownerName || 'Não definido'}</strong></div></div>
+            {selectedLead?.tags?.length ? <div className="call-context-tags">{selectedLead.tags.map((tag) => <span key={tag}>{tag}</span>)}</div> : null}
+          </section> : null}
 
-          <section className="call-focus-panel"><span className="eyebrow">Histórico recente</span><div className="call-mini-history">{leadCalls.slice(0, 3).map((call) => <article key={call.id}><PhoneCall size={14} /><div><strong>{outcomeLabel(call.outcome)}</strong><span>{formatDateTime(call.startedAt)} · {call.durationSeconds}s</span>{call.notes ? <p>{call.notes}</p> : null}</div></article>)}{!leadCalls.length ? <p className="activity-empty">Nenhuma ligação anterior.</p> : null}{leadActivities.slice(0, 2).map((activity) => <article key={activity.id}><CalendarPlus size={14} /><div><strong>{activity.title}</strong><span>{activity.dueAt ? formatDateTime(activity.dueAt) : 'Sem data'}</span></div></article>)}</div></section>
+          {guidanceTab === 'history' ? <section className="call-focus-panel"><span className="eyebrow">Histórico recente</span><div className="call-mini-history">{leadCalls.slice(0, 5).map((call) => <article key={call.id}><PhoneCall size={14} /><div><strong>{outcomeLabel(call.outcome)}</strong><span>{formatDateTime(call.startedAt)} · {call.durationSeconds}s</span>{call.notes ? <p>{call.notes}</p> : null}</div></article>)}{!leadCalls.length ? <p className="activity-empty">Nenhuma ligação anterior.</p> : null}{leadActivities.slice(0, 3).map((activity) => <article key={activity.id}><CalendarPlus size={14} /><div><strong>{activity.title}</strong><span>{activity.dueAt ? formatDateTime(activity.dueAt) : 'Sem data'}</span></div></article>)}</div></section> : null}
         </aside>
       </div>
     </div>

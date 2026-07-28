@@ -94,7 +94,7 @@ export const DEMO_SOCIAL_PROFILES: SocialProfile[] = [
 
 export const DEMO_PRODUCTS: ProductRecord[] = [
   { id: 'product-setup', workspaceId: DEMO_WORKSPACE.id, name: 'Implantação RealTalent', sku: 'RT-SETUP', description: 'Configuração inicial, Pipeline, cadências e treinamento da equipe.', category: 'Implantação', active: true, unitPrice: 1800, billingType: 'one_time', billingInterval: null, taxRate: 0, createdAt: isoInDays(-30), updatedAt: isoInDays(-4) },
-  { id: 'product-crm', workspaceId: DEMO_WORKSPACE.id, name: 'RealTalent CRM Pro', sku: 'RT-CRM-PRO', description: 'Licença mensal do CRM com automações, mapa e comunicações.', category: 'Software', active: true, unitPrice: 499, billingType: 'recurring', billingInterval: 'month', taxRate: 0, createdAt: isoInDays(-30), updatedAt: isoInDays(-2) },
+  { id: 'product-crm', workspaceId: DEMO_WORKSPACE.id, name: 'RealTalent CRM Pro', sku: 'RT-CRM-PRO', description: 'Licença mensal do CRM com automações, mapa e execução comercial.', category: 'Software', active: true, unitPrice: 499, billingType: 'recurring', billingInterval: 'month', taxRate: 0, createdAt: isoInDays(-30), updatedAt: isoInDays(-2) },
   { id: 'product-connect', workspaceId: DEMO_WORKSPACE.id, name: 'RealTalent Connect', sku: 'RT-CONNECT', description: 'Aplicativo de ligações integrado ao CRM.', category: 'Add-on', active: true, unitPrice: 149, billingType: 'recurring', billingInterval: 'month', taxRate: 0, createdAt: isoInDays(-20), updatedAt: isoInDays(-2) },
 ]
 

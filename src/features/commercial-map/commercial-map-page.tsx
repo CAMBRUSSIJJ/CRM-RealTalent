@@ -28,7 +28,7 @@ type MapsDiagnostic = {
 }
 
 type LeadMapBridge = {
-  version: '100.46.3'
+  version: '100.46.4'
   mode: 'local' | 'supabase'
   workspaceId: string | null
   providerLabel: string
@@ -129,7 +129,7 @@ export function CommercialMapPage() {
 
   useEffect(() => {
     window.__REALTALENT_LEAD_MAP_BRIDGE__ = {
-      version: '100.46.3',
+      version: '100.46.4',
       mode: repositoryMode,
       workspaceId: currentWorkspace?.id ?? null,
       providerLabel: repositoryMode === 'supabase' ? 'Google Geocoding + mapa interativo' : 'Mapa demonstrativo com estimativas locais',

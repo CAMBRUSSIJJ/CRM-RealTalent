@@ -1,13 +1,14 @@
 {
-  "name": "realtalent-crm-v100-46-3-mapa-profissional",
+  "name": "realtalent-crm-v100-46-4-ligacoes-leads-estavel",
   "private": true,
-  "version": "100.46.3",
+  "version": "100.46.4",
   "type": "module",
   "scripts": {
     "dev": "vite --host 0.0.0.0",
     "build": "node scripts/build-registry-independent.mjs",
     "preview": "vite preview --host 0.0.0.0",
-    "typecheck": "node scripts/source_syntax_audit.mjs"
+    "typecheck": "node scripts/source_syntax_audit.mjs",
+    "audit:render": "node scripts/render_stability_audit.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "2.110.7",

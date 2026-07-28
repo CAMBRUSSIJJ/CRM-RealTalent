@@ -159,7 +159,7 @@
       <div class="page-stack commercial-map-page commercial-map-runtime-page commercial-map-v100462 commercial-map-v100463">
         <section class="commercial-map-hero panel">
           <div class="commercial-map-hero__copy">
-            <span class="eyebrow">Operação geográfica · V100.46.3</span>
+            <span class="eyebrow">Operação geográfica · V100.46.4</span>
             <h2>Mapa de Leads</h2>
             <p>Visualize sua carteira por território, encontre concentrações e execute ações comerciais sem sair do mapa.</p>
           </div>
@@ -292,7 +292,7 @@
     };
     const runDiagnostics = async () => {
       const activeBridge=bridge();
-      if(!activeBridge?.diagnoseMaps){notify('Diagnóstico disponível somente no módulo V100.46.3.');return;}
+      if(!activeBridge?.diagnoseMaps){notify('Diagnóstico disponível somente no módulo V100.46.4.');return;}
       const button=q('[data-map-diagnostics]');
       try {
         if(button){button.disabled=true;button.textContent='Diagnosticando…';}

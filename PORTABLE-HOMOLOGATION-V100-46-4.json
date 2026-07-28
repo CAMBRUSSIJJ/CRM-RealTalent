@@ -1,0 +1,96 @@
+{
+  "passed": true,
+  "generatedAt": "2026-07-28T17:46:37.561Z",
+  "results": [
+    {
+      "command": "node scripts/source_of_truth_guard.mjs",
+      "status": 0,
+      "durationMs": 23
+    },
+    {
+      "command": "node scripts/architecture_guard.mjs",
+      "status": 0,
+      "durationMs": 30
+    },
+    {
+      "command": "node scripts/source_syntax_audit.mjs",
+      "status": 0,
+      "durationMs": 717
+    },
+    {
+      "command": "node scripts/database_contract_audit.mjs",
+      "status": 0,
+      "durationMs": 270
+    },
+    {
+      "command": "node scripts/production_readiness.mjs",
+      "status": 0,
+      "durationMs": 25
+    },
+    {
+      "command": "node scripts/backup_restore_dry_run.mjs",
+      "status": 0,
+      "durationMs": 83
+    },
+    {
+      "command": "node scripts/connect_integration_audit.mjs",
+      "status": 0,
+      "durationMs": 23
+    },
+    {
+      "command": "node scripts/extension_center_audit.mjs",
+      "status": 0,
+      "durationMs": 23
+    },
+    {
+      "command": "node scripts/integration_foundation_audit.mjs",
+      "status": 0,
+      "durationMs": 25
+    },
+    {
+      "command": "node scripts/google_microsoft_audit.mjs",
+      "status": 0,
+      "durationMs": 26
+    },
+    {
+      "command": "node scripts/lead_map_audit.mjs",
+      "status": 0,
+      "durationMs": 24
+    },
+    {
+      "command": "node scripts/render_stability_audit.mjs",
+      "status": 0,
+      "durationMs": 24
+    },
+    {
+      "command": "node scripts/test-registry-independent.mjs",
+      "status": 0,
+      "durationMs": 1946
+    },
+    {
+      "command": "node scripts/build-registry-independent.mjs",
+      "status": 0,
+      "durationMs": 1835
+    },
+    {
+      "command": "node scripts/build-standalone.mjs",
+      "status": 0,
+      "durationMs": 45
+    },
+    {
+      "command": "node scripts/release_audit.mjs",
+      "status": 0,
+      "durationMs": 81
+    },
+    {
+      "command": "node scripts/preflight.mjs",
+      "status": 0,
+      "durationMs": 35
+    },
+    {
+      "command": "node scripts/release_manifest.mjs",
+      "status": 0,
+      "durationMs": 42
+    }
+  ]
+}

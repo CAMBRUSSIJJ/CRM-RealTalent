@@ -1,0 +1,134 @@
+{
+  "version": "100.46.2",
+  "generatedAt": "2026-07-28T04:23:54.326Z",
+  "checks": 25,
+  "passed": 25,
+  "failed": 0,
+  "results": [
+    {
+      "id": "single_ui_source",
+      "pass": true,
+      "detail": "A central antiga não é renderizada."
+    },
+    {
+      "id": "legacy_frontend_removed",
+      "pass": true,
+      "detail": "O serviço frontend legado foi removido."
+    },
+    {
+      "id": "demo_status",
+      "pass": true,
+      "detail": "Demonstração não aparece como conta conectada."
+    },
+    {
+      "id": "account_access",
+      "pass": true,
+      "detail": "Contas pessoais e compartilhadas estão protegidas sem bypass de uso pelo administrador."
+    },
+    {
+      "id": "account_dml_guard",
+      "pass": true,
+      "detail": "Alterações de contas conectadas passam somente por RPCs e Edge Functions auditáveis."
+    },
+    {
+      "id": "pkce",
+      "pass": true,
+      "detail": "PKCE S256 está aplicado."
+    },
+    {
+      "id": "single_use_state",
+      "pass": true,
+      "detail": "Estado OAuth é persistido e consumido mesmo quando o provedor devolve erro."
+    },
+    {
+      "id": "token_rotation",
+      "pass": true,
+      "detail": "Renovação e rotação de token possuem worker dedicado e enfileiramento service-role."
+    },
+    {
+      "id": "worker_google",
+      "pass": true,
+      "detail": "Worker google existe."
+    },
+    {
+      "id": "worker_microsoft",
+      "pass": true,
+      "detail": "Worker microsoft existe."
+    },
+    {
+      "id": "worker_meta",
+      "pass": true,
+      "detail": "Worker meta existe."
+    },
+    {
+      "id": "worker_whatsapp",
+      "pass": true,
+      "detail": "Worker whatsapp existe."
+    },
+    {
+      "id": "generic_workers_retired",
+      "pass": true,
+      "detail": "Workers genéricos não capturam filas."
+    },
+    {
+      "id": "allowlist",
+      "pass": true,
+      "detail": "Allowlist existe no banco e no cliente."
+    },
+    {
+      "id": "lease_recovery",
+      "pass": true,
+      "detail": "Locks expirados são recuperáveis."
+    },
+    {
+      "id": "complete_secrets",
+      "pass": true,
+      "detail": "Deploy valida secrets e ignora _shared."
+    },
+    {
+      "id": "gateway_contract",
+      "pass": true,
+      "detail": "Gateway diferencia callbacks/workers de endpoints autenticados."
+    },
+    {
+      "id": "diagnostics",
+      "pass": true,
+      "detail": "Diagnóstico executável e persistente existe."
+    },
+    {
+      "id": "connection_test",
+      "pass": true,
+      "detail": "Teste de conta realiza chamada de rede ao recurso configurado."
+    },
+    {
+      "id": "provider_revocation",
+      "pass": true,
+      "detail": "Revogação remove o cofre e tenta revogar no provedor quando suportado."
+    },
+    {
+      "id": "signed_whatsapp_webhook",
+      "pass": true,
+      "detail": "Webhook do WhatsApp valida assinatura HMAC."
+    },
+    {
+      "id": "capabilities",
+      "pass": true,
+      "detail": "Capacidades são exibidas por provedor."
+    },
+    {
+      "id": "real_audit",
+      "pass": true,
+      "detail": "Auditoria usa eventos operacionais persistidos."
+    },
+    {
+      "id": "extension_new_source",
+      "pass": true,
+      "detail": "Ingestão da extensão não depende das tabelas legadas."
+    },
+    {
+      "id": "allowlist_simulation",
+      "pass": true,
+      "detail": "Simulação executável de roteamento não cruza provedores."
+    }
+  ]
+}

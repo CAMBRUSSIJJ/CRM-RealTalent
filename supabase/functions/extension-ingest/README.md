@@ -8,7 +8,7 @@ Endpoint autenticado para lotes da Extensão RealTalent. O cliente envia `POST` 
 - destino, etapa, responsável, duplicidade e próxima ação vêm da Central de Integrações;
 - o fluxo pós-captura pode enfileirar cadência, aviso interno e mensagens assistidas com prioridade;
 - a resposta informa quantos registros foram criados, atualizados, ignorados ou enviados para revisão;
-- falhas e entradas ficam em `integration_events`.
+- falhas operacionais e eventos de segurança ficam em `integration_audit_events`; eventos próprios da extensão permanecem em `extension_events`.
 - `type: connection_test` valida a conexão sem criar lead;
 - `X-RT-Connection-Name` e `X-RT-Extension-Version` identificam a instalação no CRM.
 

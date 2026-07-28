@@ -50,7 +50,7 @@ const mapLead = (row: LeadRow, ownerName = 'Equipe'): Lead => {
 
 const mapCompany = (row: Record<string, any>): CompanyRecord => ({ id: row.id, workspaceId: row.organization_id, name: row.name, legalName: row.legal_name ?? '', cnpj: row.cnpj ?? '', domain: row.domain ?? '', website: row.website ?? '', segment: row.segment ?? '', phone: row.phone ?? '', city: row.city ?? '', state: row.state ?? '', status: row.status ?? 'prospect', leadIds: row.lead_ids ?? [], createdAt: row.created_at, updatedAt: row.updated_at })
 const mapContact = (row: Record<string, any>): ContactRecord => ({ id: row.id, workspaceId: row.organization_id, companyId: row.company_id, name: row.name, jobTitle: row.job_title ?? '', phone: row.phone ?? '', email: row.email ?? '', decisionRole: row.decision_role ?? 'unknown', influenceLevel: Number(row.influence_level ?? 0), consentStatus: row.consent_status ?? 'unknown', doNotContact: Boolean(row.do_not_contact), doNotContactReason: row.do_not_contact_reason ?? '', leadIds: row.lead_ids ?? [], createdAt: row.created_at, updatedAt: row.updated_at })
-const mapOpportunity = (row: Record<string, any>): OpportunityRecord => ({ id: row.id, workspaceId: row.organization_id, companyId: row.company_id, primaryContactId: row.primary_contact_id, leadId: row.lead_id, title: row.title, stageId: row.stage_id, status: row.status, value: Number(row.value), ownerId: row.owner_id, expectedCloseAt: row.expected_close_at, createdAt: row.created_at, updatedAt: row.updated_at })
+const mapOpportunity = (row: Record<string, any>): OpportunityRecord => ({ id: row.id, workspaceId: row.organization_id, companyId: row.company_id, primaryContactId: row.primary_contact_id, leadId: row.lead_id, title: row.title, stageId: row.stage_id, status: row.status, value: Number(row.value), ownerId: row.owner_id, expectedCloseAt: row.expected_close_at, forecastCategory: row.forecast_category ?? 'pipeline', probability: Number(row.probability ?? 0), officialProposalId: row.official_proposal_id ?? null, closedWonAt: row.closed_won_at ?? null, createdAt: row.created_at, updatedAt: row.updated_at })
 const mapSocialProfile = (row: Record<string, any>): SocialProfile => ({ id: row.id, workspaceId: row.organization_id, entityType: row.entity_type, entityId: row.entity_id, network: row.network, username: row.username ?? '', url: row.url, externalId: row.external_id, verified: Boolean(row.verified), source: row.source ?? '', confidence: Number(row.confidence ?? 0), lastCheckedAt: row.last_checked_at, createdAt: row.created_at, updatedAt: row.updated_at })
 
 const mapStage = (row: StageRow): PipelineStage => ({
@@ -122,6 +122,11 @@ const mapProposal = (row: ProposalRow, items: ProposalLineItem[]): ProposalRecor
   contactId: row.contact_id, title: row.title, status: row.status, forecastCategory: row.forecast_category,
   probability: Number(row.probability), currency: row.currency, subtotal: Number(row.subtotal), discountTotal: Number(row.discount_total),
   taxTotal: Number(row.tax_total), total: Number(row.total), recurringMonthlyTotal: Number(row.recurring_monthly_total),
+  oneTimeTotal: Number(row.one_time_total ?? 0), annualRecurringTotal: Number(row.annual_recurring_total ?? 0), totalContractValue: Number(row.total_contract_value ?? row.total ?? 0),
+  isOfficial: Boolean(row.is_official), isCurrentVersion: row.is_current_version !== false, supersededById: row.superseded_by_id ?? null,
+  expectedCloseAt: row.expected_close_at ?? null, contractStartAt: row.contract_start_at ?? null, contractEndAt: row.contract_end_at ?? null,
+  contractTermMonths: Number(row.contract_term_months ?? 12), autoRenew: Boolean(row.auto_renew), postSaleStartAt: row.post_sale_start_at ?? null,
+  postSaleCadenceName: row.post_sale_cadence_name ?? 'Onboarding padrão', closedWonAt: row.closed_won_at ?? null,
   validUntil: row.valid_until, sentAt: row.sent_at, viewedAt: row.viewed_at, acceptedAt: row.accepted_at,
   rejectedAt: row.rejected_at, ownerId: row.owner_id, notes: row.notes, terms: row.terms, items,
   createdAt: row.created_at, updatedAt: row.updated_at,
@@ -130,7 +135,8 @@ const mapProposal = (row: ProposalRow, items: ProposalLineItem[]): ProposalRecor
 const mapRevenueEntry = (row: RevenueRow): RevenueEntry => ({
   id: row.id, workspaceId: row.organization_id, proposalId: row.proposal_id, leadId: row.lead_id,
   opportunityId: row.opportunity_id, revenueType: row.revenue_type, status: row.status, amount: Number(row.amount),
-  recurringMonthlyAmount: Number(row.recurring_monthly_amount), recognizedAt: row.recognized_at, description: row.description,
+  recurringMonthlyAmount: Number(row.recurring_monthly_amount), recognizedAt: row.recognized_at, competenceDate: row.competence_date ?? row.recognized_at.slice(0, 10),
+  servicePeriodStart: row.service_period_start ?? null, servicePeriodEnd: row.service_period_end ?? null, adjustmentReason: row.adjustment_reason ?? '', description: row.description,
   ownerId: row.owner_id, createdAt: row.created_at, updatedAt: row.updated_at,
 })
 
@@ -674,7 +680,7 @@ export class SupabaseCrmRepository implements CrmRepository {
     return mapProduct(data)
   }
 
-  async deleteProduct(productId: string) { const client = requireClient(); const { error } = await client.from('products').delete().eq('id', productId); if (error) throw error }
+  async deleteProduct(productId: string) { const client = requireClient(); const usage = await client.from('sales_proposal_items').select('id', { count: 'exact', head: true }).eq('product_id', productId); if (usage.error) throw usage.error; if ((usage.count ?? 0) > 0) { const { error } = await client.from('products').update({ active: false }).eq('id', productId); if (error) throw error; return } const { error } = await client.from('products').delete().eq('id', productId); if (error) throw error }
 
   private async loadProposal(proposalId: string) {
     const client = requireClient(); const [{ data, error }, itemsResult] = await Promise.all([client.from('sales_proposals').select('*').eq('id', proposalId).single(), client.from('sales_proposal_items').select('*').eq('proposal_id', proposalId).order('item_order')]); if (error) throw error; if (itemsResult.error) throw itemsResult.error
@@ -688,23 +694,67 @@ export class SupabaseCrmRepository implements CrmRepository {
   }
 
   async createProposal(input: NewProposalInput) {
-    const client = requireClient() as any; const { data, error } = await client.rpc('save_sales_proposal', { p_organization_id: input.workspaceId, p_proposal_id: null, p_lead_id: input.leadId, p_title: input.title, p_forecast_category: input.forecastCategory, p_probability: input.probability, p_valid_until: input.validUntil, p_notes: input.notes, p_terms: input.terms, p_items: input.items.map((item, index) => ({ product_id: item.productId, item_order: index + 1, name: item.name, description: item.description, quantity: item.quantity, unit_price: item.unitPrice, discount_percent: item.discountPercent, tax_rate: item.taxRate, billing_type: item.billingType, billing_interval: item.billingInterval })) }); if (error) throw error
-    return this.loadProposal(data as string)
+    const client = requireClient() as any
+    const { data, error } = await client.rpc('save_sales_proposal', {
+      p_organization_id: input.workspaceId,
+      p_proposal_id: null,
+      p_lead_id: input.leadId,
+      p_title: input.title,
+      p_forecast_category: input.forecastCategory,
+      p_probability: input.probability,
+      p_valid_until: input.validUntil,
+      p_expected_close_at: input.expectedCloseAt,
+      p_contract_start_at: input.contractStartAt,
+      p_contract_end_at: input.contractEndAt,
+      p_contract_term_months: input.contractTermMonths,
+      p_auto_renew: input.autoRenew,
+      p_post_sale_start_at: input.postSaleStartAt,
+      p_post_sale_cadence_name: input.postSaleCadenceName,
+      p_notes: input.notes,
+      p_terms: input.terms,
+      p_items: input.items.map((item, index) => ({ product_id: item.productId, item_order: index + 1, name: item.name, description: item.description, quantity: item.quantity, unit_price: item.unitPrice, discount_percent: item.discountPercent, tax_rate: item.taxRate, billing_type: item.billingType, billing_interval: item.billingInterval })),
+    })
+    if (error) throw error
+    const proposal = await this.loadProposal(data as string)
+    if (input.isOfficial && !proposal.isOfficial) return this.setOfficialProposal(proposal.id)
+    return proposal
   }
 
   async updateProposal(proposalId: string, input: UpdateProposalInput) {
-    const current = await this.loadProposal(proposalId); const client = requireClient() as any
-    const { data, error } = await client.rpc('save_sales_proposal', { p_organization_id: current.workspaceId, p_proposal_id: proposalId, p_lead_id: current.leadId, p_title: input.title ?? current.title, p_forecast_category: input.forecastCategory ?? current.forecastCategory, p_probability: input.probability ?? current.probability, p_valid_until: input.validUntil === undefined ? current.validUntil : input.validUntil, p_notes: input.notes ?? current.notes, p_terms: input.terms ?? current.terms, p_items: (input.items ?? current.items).map((item, index) => ({ product_id: item.productId, item_order: index + 1, name: item.name, description: item.description, quantity: item.quantity, unit_price: item.unitPrice, discount_percent: item.discountPercent, tax_rate: item.taxRate, billing_type: item.billingType, billing_interval: item.billingInterval })) }); if (error) throw error
+    const current = await this.loadProposal(proposalId)
+    const client = requireClient() as any
+    const { data, error } = await client.rpc('save_sales_proposal', {
+      p_organization_id: current.workspaceId,
+      p_proposal_id: proposalId,
+      p_lead_id: current.leadId,
+      p_title: input.title ?? current.title,
+      p_forecast_category: input.forecastCategory ?? current.forecastCategory,
+      p_probability: input.probability ?? current.probability,
+      p_valid_until: input.validUntil === undefined ? current.validUntil : input.validUntil,
+      p_expected_close_at: input.expectedCloseAt === undefined ? current.expectedCloseAt : input.expectedCloseAt,
+      p_contract_start_at: input.contractStartAt === undefined ? current.contractStartAt : input.contractStartAt,
+      p_contract_end_at: input.contractEndAt === undefined ? current.contractEndAt : input.contractEndAt,
+      p_contract_term_months: input.contractTermMonths ?? current.contractTermMonths,
+      p_auto_renew: input.autoRenew ?? current.autoRenew,
+      p_post_sale_start_at: input.postSaleStartAt === undefined ? current.postSaleStartAt : input.postSaleStartAt,
+      p_post_sale_cadence_name: input.postSaleCadenceName ?? current.postSaleCadenceName,
+      p_notes: input.notes ?? current.notes,
+      p_terms: input.terms ?? current.terms,
+      p_items: (input.items ?? current.items).map((item, index) => ({ product_id: item.productId, item_order: index + 1, name: item.name, description: item.description, quantity: item.quantity, unit_price: item.unitPrice, discount_percent: item.discountPercent, tax_rate: item.taxRate, billing_type: item.billingType, billing_interval: item.billingInterval })),
+    })
+    if (error) throw error
     if (input.status && input.status !== current.status) await this.updateProposalStatus(data as string, input.status)
     return this.loadProposal(data as string)
   }
 
   async createProposalRevision(proposalId: string) { const current = await this.loadProposal(proposalId); const client = requireClient() as any; const { data, error } = await client.rpc('create_sales_proposal_revision', { p_organization_id: current.workspaceId, p_proposal_id: proposalId }); if (error) throw error; return this.loadProposal(data as string) }
   async updateProposalStatus(proposalId: string, status: ProposalStatus) { const current = await this.loadProposal(proposalId); const client = requireClient() as any; const { data, error } = await client.rpc('set_sales_proposal_status', { p_organization_id: current.workspaceId, p_proposal_id: proposalId, p_status: status }); if (error) throw error; return this.loadProposal(data as string) }
-  async deleteProposal(proposalId: string) { const client = requireClient(); const { error } = await client.from('sales_proposals').delete().eq('id', proposalId); if (error) throw error }
+  async setOfficialProposal(proposalId: string) { const current = await this.loadProposal(proposalId); const client = requireClient() as any; const { data, error } = await client.rpc('set_official_sales_proposal', { p_organization_id: current.workspaceId, p_proposal_id: proposalId }); if (error) throw error; return this.loadProposal(data as string) }
+  async closeOpportunityFromProposal(proposalId: string) { const current = await this.loadProposal(proposalId); const client = requireClient() as any; const { data, error } = await client.rpc('close_opportunity_from_proposal', { p_organization_id: current.workspaceId, p_proposal_id: proposalId }); if (error) throw error; return this.loadProposal(data as string) }
+  async deleteProposal(proposalId: string) { const current = await this.loadProposal(proposalId); if (current.isOfficial) throw new Error('A proposta oficial não pode ser excluída. Defina outra proposta como oficial ou cancele-a primeiro.'); if (current.status === 'accepted' || current.closedWonAt) throw new Error('Proposta aceita ou vinculada a negócio ganho não pode ser excluída.'); const client = requireClient(); const { error } = await client.from('sales_proposals').delete().eq('id', proposalId); if (error) throw error }
 
-  async listRevenueEntries(workspaceId: string) { const client = requireClient(); const { data, error } = await client.from('revenue_entries').select('*').eq('organization_id', workspaceId).order('recognized_at', { ascending: false }); if (error) throw error; return (data ?? []).map(mapRevenueEntry) }
-  async createRevenueEntry(input: NewRevenueEntryInput) { const client = requireClient(); const { data, error } = await client.from('revenue_entries').insert({ organization_id: input.workspaceId, proposal_id: input.proposalId, lead_id: input.leadId, opportunity_id: input.opportunityId, revenue_type: input.revenueType, status: input.status, amount: input.amount, recurring_monthly_amount: input.recurringMonthlyAmount, recognized_at: input.recognizedAt, description: input.description.trim(), owner_id: input.ownerId }).select().single(); if (error) throw error; return mapRevenueEntry(data) }
+  async listRevenueEntries(workspaceId: string) { const client = requireClient(); const { data, error } = await client.from('revenue_entries').select('*').eq('organization_id', workspaceId).order('competence_date', { ascending: false }); if (error) throw error; return (data ?? []).map(mapRevenueEntry) }
+  async createRevenueEntry(input: NewRevenueEntryInput) { const client = requireClient(); const { data, error } = await client.from('revenue_entries').insert({ organization_id: input.workspaceId, proposal_id: input.proposalId, lead_id: input.leadId, opportunity_id: input.opportunityId, revenue_type: input.revenueType, status: input.status, amount: input.amount, recurring_monthly_amount: input.recurringMonthlyAmount, recognized_at: input.recognizedAt, competence_date: input.competenceDate, service_period_start: input.servicePeriodStart, service_period_end: input.servicePeriodEnd, adjustment_reason: input.adjustmentReason.trim(), description: input.description.trim(), owner_id: input.ownerId }).select().single(); if (error) throw error; return mapRevenueEntry(data) }
   async updateRevenueEntryStatus(entryId: string, status: RevenueEntry['status']) { const client = requireClient(); const { data, error } = await client.from('revenue_entries').update({ status }).eq('id', entryId).select().single(); if (error) throw error; return mapRevenueEntry(data) }
 
   async listGoals(workspaceId: string) {

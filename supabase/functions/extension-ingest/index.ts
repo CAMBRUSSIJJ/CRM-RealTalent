@@ -67,7 +67,7 @@ const nonEmptyPatch = (values: Record<string, unknown>) => Object.fromEntries(Ob
 const mergedText = (...values: unknown[]) => [...new Set(values.map((value) => text(value, 5000)).filter(Boolean))].join('\n\n').slice(0, 5000)
 
 const connectionFailure = async (organizationId: string, message: string) => {
-  await supabase.from('integration_connections').update({ status: 'error', last_error: message.slice(0, 500) }).eq('organization_id', organizationId).eq('provider', 'extension')
+  await supabase.from('integration_audit_events').insert({ organization_id: organizationId, provider: 'extension', event_type: 'extension_ingest_failed', severity: 'error', message: message.slice(0, 500) })
 }
 
 const versionParts = (value: string) => value.split(/[^0-9]+/).filter(Boolean).slice(0, 4).map((part) => Number(part) || 0)
@@ -108,13 +108,12 @@ Deno.serve(async (request) => {
   try { body = JSON.parse(rawBody) }
   catch { return json({ error: 'invalid_json' }, 400) }
 
-  const { data: connection, error: connectionError } = await supabase.from('integration_connections').select('*').eq('organization_id', organizationId).eq('provider', 'extension').maybeSingle()
-  if (connectionError || !connection || !connection.enabled) return json({ error: 'integration_disabled' }, 409)
-  const legacySettings = isRecord(connection.settings) ? connection.settings : {}
+  const legacySettings: Record<string, unknown> = {}
   const clientVersion = text(request.headers.get('x-rt-extension-version'), 40) || (isRecord(body) ? text(body.version ?? body.appVersion ?? body.app_version, 40) : '')
   const connectionName = text(request.headers.get('x-rt-connection-name'), 120) || (isRecord(body) ? text(body.connectionName ?? body.connection_name, 120) : '') || 'Extensão RealTalent'
   const productKey = text(request.headers.get('x-rt-product-key'), 80) || (isRecord(body) ? text(body.productKey ?? body.product_key, 80) : '') || 'realtalent_capture'
-  const installationKey = text(request.headers.get('x-rt-installation-id'), 180) || (isRecord(body) ? text(body.installationId ?? body.installation_id, 180) : '') || await sha256(`${connection.id}|${connectionName}|${request.headers.get('user-agent') ?? ''}`)
+  const installationKey = text(request.headers.get('x-rt-installation-id'), 180) || (isRecord(body) ? text(body.installationId ?? body.installation_id, 180) : '') || await sha256(`${organizationId}|${productKey}|${connectionName}|${request.headers.get('user-agent') ?? ''}`)
+  const connection = { id: String(organizationId) }
   const browser = text(request.headers.get('x-rt-browser'), 60) || 'Chrome'
   const browserVersion = text(request.headers.get('x-rt-browser-version'), 40)
   const platform = text(request.headers.get('x-rt-platform'), 80) || text(request.headers.get('user-agent'), 80)
@@ -151,14 +150,10 @@ Deno.serve(async (request) => {
   if (isRecord(body) && body.type === 'connection_test') {
     const testedAt = new Date().toISOString()
     const metadata = { clientVersion, connectionName, destination, installationId: installation.id, productKey, maximumItems: centralSettings.max_batch_size, maximumBytes: 1_000_000 }
-    const { data: event } = await supabase.from('integration_events').insert({
-      organization_id: organizationId, connection_id: connection.id, provider: 'extension', direction: 'inbound',
-      event_type: 'connection_test', status: 'processed', item_count: 0, metadata, processed_at: testedAt,
+    const { data: event } = await supabase.from('integration_audit_events').insert({
+      organization_id: organizationId, provider: 'extension', event_type: 'connection_test', severity: 'info',
+      message: 'Extensão validou a credencial de ingestão', correlation_id: installationKey, metadata,
     }).select('id').single()
-    await supabase.from('integration_connections').update({
-      status: 'connected', last_tested_at: testedAt, last_error: null, client_version: clientVersion || null,
-      connection_name: connectionName, last_latency_ms: null,
-    }).eq('id', connection.id)
     await supabase.from('extension_events').insert({ organization_id: organizationId, installation_id: installation.id, event_type: 'connection_test', status: 'processed', correlation_id: installationKey, payload: metadata })
     await supabase.from('extension_installations').update({ last_seen_at: testedAt, last_sync_at: testedAt, last_error: null }).eq('id', installation.id)
     return json({ ok: true, connection: true, eventId: event?.id ?? null, installationId: installation.id, workspaceId: organizationId, destination, settings: centralSettings, limits: { maximumItems: centralSettings.max_batch_size, maximumBytes: 1_000_000 }, serverTime: testedAt })
@@ -204,23 +199,13 @@ Deno.serve(async (request) => {
     return json({ error: 'capture_job_reservation_failed' }, 503)
   }
 
-  // Reserva idempotente antes de qualquer efeito colateral. O status "skipped" é temporário;
-  // metadata.state diferencia lote em processamento de lote concluído.
-  const { data: reservedEvent, error: reserveError } = await supabase.from('integration_events').insert({
-    organization_id: organizationId, connection_id: connection.id, provider: 'extension', direction: 'inbound', event_type: 'extension_batch',
-    status: 'skipped', external_id: batchId, item_count: inputItems.length,
-    metadata: { state: 'processing', clientVersion, connectionName, destination, reservedAt },
-  }).select('id,status,metadata').single()
-  if (reserveError) {
-    if (reserveError.code === '23505') {
-      const { data: existingEvent } = await supabase.from('integration_events').select('id,status,metadata').eq('organization_id', organizationId).eq('provider', 'extension').eq('external_id', batchId).maybeSingle()
-      await supabase.from('extension_capture_jobs').update({ status: 'cancelled', last_error: 'Lote já reservado pelo histórico legado.', completed_at: new Date().toISOString() }).eq('id', captureJob.id)
-      return json({ accepted: false, duplicateBatch: true, inProgress: existingEvent?.metadata?.state === 'processing', eventId: existingEvent?.id ?? null, status: existingEvent?.status ?? 'skipped', result: existingEvent?.metadata ?? null }, 200)
-    }
-    await connectionFailure(String(organizationId), 'Não foi possível reservar o lote de integração.')
-    await supabase.from('extension_capture_jobs').update({ status: 'failed', last_error: 'Não foi possível reservar o lote de integração.', completed_at: new Date().toISOString() }).eq('id', captureJob.id)
-    return json({ error: 'batch_reservation_failed' }, 503)
-  }
+  // A própria reserva em extension_capture_jobs é a fonte idempotente do lote.
+  const reservedEvent = { id: captureJob.id }
+  await supabase.from('extension_events').insert({
+    organization_id: organizationId, installation_id: installation.id, job_id: captureJob.id,
+    event_type: 'capture_reserved', status: 'processed', correlation_id: batchId,
+    payload: { state: 'processing', clientVersion, connectionName, destination, reservedAt },
+  })
 
   try {
     if (destination === 'crm' && stage) {
@@ -334,14 +319,11 @@ Deno.serve(async (request) => {
   const errorMessage = result.errors ? `${result.errors} registro(s) inválido(s) ou com falha.` : null
   const finishedAt = new Date().toISOString()
   const metadata = { ...result, state: 'completed', clientVersion, connectionName, destination, finishedAt }
-  const { error: eventUpdateError } = await supabase.from('integration_events').update({
-    status, error_message: errorMessage, metadata, processed_at: finishedAt,
-  }).eq('id', reservedEvent.id)
-  await supabase.from('integration_connections').update({
-    status: result.errors ? (processed ? 'attention' : 'error') : 'connected', last_received_at: finishedAt,
-    last_error: errorMessage, received_count: Number(connection.received_count ?? 0) + processed, error_count: Number(connection.error_count ?? 0) + result.errors,
-    client_version: clientVersion || null, connection_name: connectionName, last_batch_id: batchId,
-  }).eq('id', connection.id)
+  const { error: eventUpdateError } = await supabase.from('integration_audit_events').insert({
+    organization_id: organizationId, provider: 'extension', event_type: 'capture_batch_completed',
+    severity: result.errors ? (processed ? 'warning' : 'error') : 'info', correlation_id: batchId,
+    message: errorMessage || `Lote processado com ${processed} registro(s)`, metadata,
+  })
   const jobStatus = result.errors && !processed ? 'failed' : destination === 'crm' ? 'sent' : 'review'
   await supabase.from('extension_capture_jobs').update({ status: jobStatus, result: metadata, last_error: errorMessage, completed_at: finishedAt }).eq('id', captureJob.id)
   await supabase.from('extension_installations').update({

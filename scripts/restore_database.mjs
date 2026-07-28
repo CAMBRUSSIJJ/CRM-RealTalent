@@ -18,9 +18,10 @@ const port = parsed.port || '5432'
 const manifestPath = `${backup}.json`
 if (!fs.existsSync(manifestPath)) throw new Error('Manifesto de checksum não encontrado ao lado do backup.')
 const manifest = JSON.parse(fs.readFileSync(manifestPath,'utf8'))
+if (manifest.containsSensitiveCredentials && process.env.ALLOW_SENSITIVE_RESTORE !== 'true') throw new Error('Este backup técnico contém credenciais. Defina ALLOW_SENSITIVE_RESTORE=true somente em ambiente controlado.')
 const actual = crypto.createHash('sha256').update(fs.readFileSync(backup)).digest('hex')
 if (actual !== manifest.sha256) throw new Error('Checksum do backup não confere; restauração cancelada.')
-const escapePgpass = (value) => value.replaceAll('\\', '\\').replaceAll(':', '\:')
+const escapePgpass = (value) => value.replaceAll('\\', '\\\\').replaceAll(':', '\\:')
 const pgpass = path.join(os.tmpdir(), `realtalent-pgpass-${process.pid}-${Date.now()}`)
 fs.writeFileSync(pgpass, `${escapePgpass(parsed.hostname)}:${escapePgpass(port)}:${escapePgpass(database)}:${escapePgpass(user)}:${escapePgpass(password)}\n`, { mode: 0o600 })
 const env = { ...process.env, PGPASSFILE: pgpass, PGSSLMODE: parsed.searchParams.get('sslmode') || process.env.PGSSLMODE || 'require' }

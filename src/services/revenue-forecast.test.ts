@@ -23,6 +23,6 @@ describe('propostas e forecast', () => {
     const snapshot = { workspace: DEMO_WORKSPACE, stages: [], leads: [], activities: [], calls: [], events: [], playbooks: [], goals: [], automationRules: [], automationRuns: [], companies: [], contacts: [], opportunities: [], socialProfiles: [], products: DEMO_PRODUCTS, proposals: DEMO_PROPOSALS, revenueEntries: DEMO_REVENUE_ENTRIES } as WorkspaceSnapshot
     const forecast = calculateRevenueForecast(snapshot, new Date('2026-07-16T12:00:00.000Z'))
     expect(forecast.closedRevenue).toBeGreaterThan(0)
-    expect(forecast.weightedForecast).toBeGreaterThanOrEqual(forecast.closedRevenue)
+    expect(forecast.weightedForecast).toBeGreaterThanOrEqual(forecast.closedBookings)
   })
 })

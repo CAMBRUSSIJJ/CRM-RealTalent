@@ -31,7 +31,7 @@ check('CI GitHub', exists('.github/workflows/ci.yml'), 'validação em push e pu
 check('Release candidate', exists('.github/workflows/release-candidate.yml'), 'homologação manual protegida')
 check('Deploy Supabase manual', exists('.github/workflows/deploy-supabase.yml'), 'workflow protegido por environment')
 check('Health check', exists('public/health.json') && fs.readFileSync(path.join(root, 'public/health.json'), 'utf8').includes(shortVersion), `/health.json ${shortVersion}`)
-check('Prontidão de produção', exists(`PRODUCTION-READINESS-${releaseLabel}.json`), 'gate operacional V100.43')
+check('Prontidão de produção', exists(`PRODUCTION-READINESS-${releaseLabel}.json`), `gate operacional ${releaseLabel}`)
 check('Testes E2E de staging', exists('scripts/e2e_staging.py') && exists('scripts/tenant_isolation_test.py'), 'navegador e isolamento multiempresa')
 check('Backup e restauração', exists('scripts/backup_database.mjs') && exists('scripts/restore_database.mjs'), 'checksum e proteção de destino')
 check('Propostas e Forecast', exists('supabase/migrations/202607270004_v100_43_proposals_forecast.sql') && exists('src/features/proposals/proposals-page.tsx') && exists('src/services/revenue-forecast.ts'), 'produtos, propostas, receita e previsão')

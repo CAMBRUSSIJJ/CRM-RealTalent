@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-07-27T22:57:59.708Z",
+  "generatedAt": "2026-07-28T04:21:06.887Z",
   "migrations": [
     {
       "name": "202607160001_v100_foundation.sql",
@@ -100,6 +100,22 @@
     {
       "name": "202607270004_v100_43_proposals_forecast.sql",
       "sha256": "0997527001b28848cc14641f4e1453fb153f4cd1be8dbada078324ba8c93a624"
+    },
+    {
+      "name": "202607280001_v100_44_commercial_consolidation.sql",
+      "sha256": "b4db037fce5a1636f76c300acf0a6057caf6d0c35c0e13e54c3f29a1dc12ab46"
+    },
+    {
+      "name": "202607280002_v100_45_integration_foundation.sql",
+      "sha256": "2141a09053453d5557fa850cac1af0594ee2772ca5cf81433577b0bce6dac17a"
+    },
+    {
+      "name": "202607280003_v100_46_google_microsoft.sql",
+      "sha256": "27ae686648d983a3b40d23f425a52eea838ed06a65926368ce94d2090c4af842"
+    },
+    {
+      "name": "202607280004_v100_46_2_lead_map.sql",
+      "sha256": "0ef2ab1a7f611e5d0fcdd1726bdd6043667dfba3c3d16553e80090022cfd5bf5"
     }
   ]
 }

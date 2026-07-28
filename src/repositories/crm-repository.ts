@@ -52,8 +52,8 @@ export type UpdatePlaybookInput = Partial<Pick<Playbook, 'kind' | 'title' | 'cat
 
 export type NewProductInput = Omit<ProductRecord, 'id' | 'createdAt' | 'updatedAt'>
 export type UpdateProductInput = Partial<Omit<ProductRecord, 'id' | 'workspaceId' | 'createdAt' | 'updatedAt'>>
-export type NewProposalInput = Omit<ProposalRecord, 'id' | 'proposalGroupId' | 'version' | 'proposalNumber' | 'createdAt' | 'updatedAt' | 'sentAt' | 'viewedAt' | 'acceptedAt' | 'rejectedAt'> & { proposalGroupId?: string; version?: number; proposalNumber?: string }
-export type UpdateProposalInput = Partial<Pick<ProposalRecord, 'title' | 'status' | 'forecastCategory' | 'probability' | 'validUntil' | 'notes' | 'terms' | 'items'>>
+export type NewProposalInput = Omit<ProposalRecord, 'id' | 'proposalGroupId' | 'version' | 'proposalNumber' | 'createdAt' | 'updatedAt' | 'sentAt' | 'viewedAt' | 'acceptedAt' | 'rejectedAt' | 'closedWonAt' | 'supersededById'> & { proposalGroupId?: string; version?: number; proposalNumber?: string; closedWonAt?: string | null; supersededById?: string | null }
+export type UpdateProposalInput = Partial<Pick<ProposalRecord, 'title' | 'status' | 'forecastCategory' | 'probability' | 'validUntil' | 'expectedCloseAt' | 'contractStartAt' | 'contractEndAt' | 'contractTermMonths' | 'autoRenew' | 'postSaleStartAt' | 'postSaleCadenceName' | 'notes' | 'terms' | 'items'>>
 export type NewRevenueEntryInput = Omit<RevenueEntry, 'id' | 'createdAt' | 'updatedAt'>
 
 export type NewGoalInput = Omit<Goal, 'id' | 'createdAt' | 'updatedAt'>
@@ -127,6 +127,8 @@ export interface CrmRepository {
   updateProposal(proposalId: string, input: UpdateProposalInput): Promise<ProposalRecord>
   createProposalRevision(proposalId: string): Promise<ProposalRecord>
   updateProposalStatus(proposalId: string, status: ProposalStatus): Promise<ProposalRecord>
+  setOfficialProposal(proposalId: string): Promise<ProposalRecord>
+  closeOpportunityFromProposal(proposalId: string): Promise<ProposalRecord>
   deleteProposal(proposalId: string): Promise<void>
   listRevenueEntries(workspaceId: string): Promise<RevenueEntry[]>
   createRevenueEntry(input: NewRevenueEntryInput): Promise<RevenueEntry>

@@ -15,7 +15,7 @@ export const navigationItems: Array<{
 }> = [
   { route: 'dashboard', label: 'Meu Dia', icon: LayoutDashboard, phase: 'ready', group: 'Operação' },
   { route: 'leads', label: 'Leads', icon: ContactRound, phase: 'ready', group: 'Operação' },
-  { route: 'commercial-map', label: 'Mapa Comercial', icon: MapPinned, phase: 'ready', group: 'Operação' },
+  { route: 'commercial-map', label: 'Mapa de Leads', icon: MapPinned, phase: 'ready', group: 'Operação' },
   { route: 'pipeline', label: 'Pipeline', icon: Workflow, phase: 'ready', group: 'Operação' },
   { route: 'followups', label: 'Follow-ups', icon: ListChecks, phase: 'ready', group: 'Operação' },
   { route: 'calls', label: 'Ligações', icon: Phone, phase: 'ready', group: 'Operação' },
@@ -33,7 +33,7 @@ export const navigationItems: Array<{
 export const routeTitles: Record<AppRoute, { title: string; subtitle: string }> = {
   dashboard: { title: 'Meu Dia', subtitle: 'Prioridades, próximos contatos e ritmo comercial' },
   leads: { title: 'Leads', subtitle: 'Contatos, responsáveis e próximas ações' },
-  'commercial-map': { title: 'Mapa Comercial', subtitle: 'Localização real, precisão de endereço e inteligência territorial' },
+  'commercial-map': { title: 'Mapa de Leads', subtitle: 'Localização, filtros, geocodificação e inteligência territorial' },
   pipeline: { title: 'Pipeline', subtitle: 'Negócios, etapas e riscos da operação' },
   followups: { title: 'Follow-ups', subtitle: 'Cadências, fila diária e próximos contatos' },
   calls: { title: 'Ligações', subtitle: 'Fila, roteiro e histórico de chamadas' },

@@ -69,7 +69,9 @@ export function PipelinePage() {
   const [bulkBusy, setBulkBusy] = useState(false)
   const [lossRequest, setLossRequest] = useState<{ leadName: string; resolve(value: string | null): void } | null>(null)
   const [lossReason, setLossReason] = useState('')
-  const [scope, setScope] = useState<'mine' | 'team'>('mine')
+  const [scope, setScope] = useState<'mine' | 'team'>('team')
+  const [listPage, setListPage] = useState(1)
+  const [listPageSize, setListPageSize] = useState(20)
   const [cadenceLeadIds, setCadenceLeadIds] = useState<string[]>([])
   const [messageLead, setMessageLead] = useState<Lead | null>(null)
 
@@ -77,7 +79,7 @@ export function PipelinePage() {
     if (!workspaceId) return
     setPreferences(loadPipelinePreferences(workspaceId))
     setSelectedIds([])
-    setScope(snapshot?.workspace.role === 'owner' || snapshot?.workspace.role === 'admin' ? 'team' : 'mine')
+    setScope('team')
   }, [snapshot?.workspace.role, workspaceId])
 
   const persistPreferences = (updater: (current: PipelinePreferences) => PipelinePreferences) => {
@@ -89,11 +91,25 @@ export function PipelinePage() {
   }
 
   const canManageStages = snapshot?.workspace.role === 'owner' || snapshot?.workspace.role === 'admin'
-  const canSeeTeam = canManageStages
+  const canSeeTeam = true
   const sources = useMemo(() => [...new Set((snapshot?.leads ?? []).map((lead) => lead.source).filter(Boolean))].sort(), [snapshot?.leads])
   const owners = useMemo(() => [...new Set((snapshot?.leads ?? []).map((lead) => lead.ownerName).filter(Boolean))].sort(), [snapshot?.leads])
 
   const stagePolicies = useMemo(() => new Map((snapshot?.stages ?? []).map((stage, index) => [stage.id, effectiveStagePolicy(recommendedStagePolicy(stage, index, snapshot?.stages.length ?? 1), preferences.stageConfigs[stage.id], crmPreferences.commercial.pipelineStagePolicies[stage.id])])), [crmPreferences.commercial.pipelineStagePolicies, preferences.stageConfigs, snapshot?.stages])
+
+  const opportunityByLead = useMemo(() => new Map((snapshot?.opportunities ?? []).map((opportunity) => [opportunity.leadId, opportunity])), [snapshot?.opportunities])
+  const officialProposalByLead = useMemo(() => {
+    const result = new Map<string, NonNullable<typeof snapshot>['proposals'][number]>()
+    for (const proposal of snapshot?.proposals ?? []) {
+      if (!proposal.isOfficial || !proposal.isCurrentVersion || ['rejected', 'cancelled', 'expired'].includes(proposal.status)) continue
+      result.set(proposal.leadId, proposal)
+    }
+    return result
+  }, [snapshot?.proposals])
+  const commercialValue = (lead: Lead) => officialProposalByLead.get(lead.id)?.totalContractValue ?? opportunityByLead.get(lead.id)?.value ?? lead.value
+  const commercialMrr = (lead: Lead) => officialProposalByLead.get(lead.id)?.recurringMonthlyTotal ?? 0
+  const commercialProbability = (lead: Lead) => Math.min(100, Math.max(0, opportunityByLead.get(lead.id)?.probability ?? snapshot?.stages.find((stage) => stage.id === lead.stageId)?.probability ?? 0))
+  const commercialCloseAt = (lead: Lead) => opportunityByLead.get(lead.id)?.expectedCloseAt ?? officialProposalByLead.get(lead.id)?.expectedCloseAt ?? lead.expectedCloseAt
 
   const signals = useMemo(() => {
     const result = new Map<string, PipelineSignal>()
@@ -121,12 +137,14 @@ export function PipelinePage() {
         && (filters.health === 'all' || signal?.health === filters.health)
     })
     return [...items].sort((a, b) => {
-      if (sort === 'value_desc') return b.value - a.value
+      if (sort === 'value_desc') return commercialValue(b) - commercialValue(a)
+      if (sort === 'close_date') return (commercialCloseAt(a) ? new Date(commercialCloseAt(a)!).getTime() : Number.MAX_SAFE_INTEGER) - (commercialCloseAt(b) ? new Date(commercialCloseAt(b)!).getTime() : Number.MAX_SAFE_INTEGER)
+      if (sort === 'probability_desc') return commercialProbability(b) - commercialProbability(a)
       if (sort === 'name') return a.name.localeCompare(b.name, 'pt-BR')
       if (sort === 'next_action') return (a.nextActionAt ? new Date(a.nextActionAt).getTime() : Number.MAX_SAFE_INTEGER) - (b.nextActionAt ? new Date(b.nextActionAt).getTime() : Number.MAX_SAFE_INTEGER)
       return new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()
     })
-  }, [filters, scope, signals, snapshot?.leads, sort, user])
+  }, [filters, scope, signals, snapshot?.leads, sort, user, officialProposalByLead, opportunityByLead, snapshot?.stages])
 
   const totals = useMemo(() => {
     const active = filtered.filter((lead) => lead.status === 'active')
@@ -140,20 +158,24 @@ export function PipelinePage() {
       const signal = signals.get(lead.id)
       return Boolean(signal && /proposta|orçamento/i.test(stage?.name ?? '') && signal.stageAge > (stagePolicies.get(lead.stageId)?.maxDays ?? 3))
     }).length
-    const forecastCoverage = active.length ? Math.round(active.filter((lead) => lead.expectedCloseAt).length / active.length * 100) : 0
-    const ticket = won.length ? won.reduce((sum, lead) => sum + lead.value, 0) / won.length : active.length ? active.reduce((sum, lead) => sum + lead.value, 0) / active.length : 0
+    const forecastCoverage = active.length ? Math.round(active.filter((lead) => commercialCloseAt(lead)).length / active.length * 100) : 0
+    const ticket = won.length ? won.reduce((sum, lead) => sum + commercialValue(lead), 0) / won.length : active.length ? active.reduce((sum, lead) => sum + commercialValue(lead), 0) / active.length : 0
     return {
       count: active.length,
-      value: active.reduce((sum, lead) => sum + lead.value, 0),
-      weighted: active.reduce((sum, lead) => sum + lead.value * (((snapshot?.stages.find((stage) => stage.id === lead.stageId)?.probability) ?? 0) / 100), 0),
+      value: active.reduce((sum, lead) => sum + commercialValue(lead), 0),
+      weighted: active.reduce((sum, lead) => sum + commercialValue(lead) * commercialProbability(lead) / 100, 0),
       attention, critical, noAction, proposalStale, forecastCoverage, ticket,
       conversion: won.length + lost.length ? Math.round((won.length / (won.length + lost.length)) * 100) : 0,
     }
-  }, [filtered, signals, snapshot?.stages, stagePolicies])
+  }, [filtered, signals, snapshot?.stages, stagePolicies, officialProposalByLead, opportunityByLead])
 
   const hasFilters = filters.query !== '' || Object.entries(filters).some(([key, value]) => key !== 'query' && value !== 'all')
   const resetFilters = () => setFilters(DEFAULT_FILTERS)
   const selectedLeads = useMemo(() => (snapshot?.leads ?? []).filter((lead) => selectedIds.includes(lead.id)), [selectedIds, snapshot?.leads])
+  const listTotalPages = Math.max(1, Math.ceil(filtered.length / listPageSize))
+  const listSafePage = Math.min(listPage, listTotalPages)
+  const pagedFiltered = filtered.slice((listSafePage - 1) * listPageSize, listSafePage * listPageSize)
+  useEffect(() => { setListPage(1) }, [filters, scope, sort, listPageSize])
 
   const validateMove = (lead: Lead, target: PipelineStage): boolean => {
     const config = stagePolicies.get(target.id) ?? recommendedStagePolicy(target)
@@ -306,7 +328,7 @@ export function PipelinePage() {
           {cardField('lastInteraction') && signal ? <span>Último contato: {formatDateTime(signal.lastInteractionAt)}</span> : null}
         </div>
         {(cardField('value') || cardField('nextAction')) ? <div className="pipeline-card-v1008__meta">
-          {cardField('value') ? <strong>{formatCurrency(lead.value)}</strong> : <span />}
+          {cardField('value') ? <strong>{formatCurrency(commercialValue(lead))}</strong> : <span />}
           {cardField('nextAction') ? <span className={isDue(lead.nextActionAt) ? 'text-danger pipeline-card-v1008__due' : ''}>{isDue(lead.nextActionAt) ? 'Ação vencida · ' : ''}{formatDateTime(lead.nextActionAt)}</span> : null}
         </div> : null}
       </button>
@@ -323,7 +345,7 @@ export function PipelinePage() {
   const renderBoard = () => <section className="pipeline-board pipeline-board-v1008" aria-label="Pipeline de vendas">
     {snapshot?.stages.map((stage) => {
       const stageLeads = filtered.filter((lead) => lead.stageId === stage.id)
-      const stageValue = stageLeads.reduce((sum, lead) => sum + lead.value, 0)
+      const stageValue = stageLeads.reduce((sum, lead) => sum + commercialValue(lead), 0)
       const visible = visibleCounts[stage.id] ?? INITIAL_CARDS
       const visibleLeads = stageLeads.slice(0, visible)
       const collapsed = preferences.collapsedStageIds.includes(stage.id)
@@ -351,43 +373,55 @@ export function PipelinePage() {
   </section>
 
   const renderList = () => <section className="panel pipeline-list-view">
-    <div className="pipeline-table-wrap"><table className="pipeline-table"><thead><tr>
-      <th><button type="button" className={`pipeline-select ${filtered.length && filtered.every((lead) => selectedIds.includes(lead.id)) ? 'is-selected' : ''}`} onClick={toggleAllVisible}>{filtered.length && filtered.every((lead) => selectedIds.includes(lead.id)) ? <Check size={13} /> : null}</button></th>
-      <th>Oportunidade</th><th>Etapa</th><th>Saúde</th><th>Responsável</th><th>Valor</th><th>Próxima ação</th><th>Tempo parado</th><th />
-    </tr></thead><tbody>{filtered.map((lead) => {
+    <div className="pipeline-table-wrap"><table className="pipeline-table pipeline-table--commercial"><thead><tr>
+      <th><button type="button" className={`pipeline-select ${pagedFiltered.length && pagedFiltered.every((lead) => selectedIds.includes(lead.id)) ? 'is-selected' : ''}`} onClick={() => setSelectedIds((current) => pagedFiltered.every((lead) => current.includes(lead.id)) ? current.filter((id) => !pagedFiltered.some((lead) => lead.id === id)) : [...new Set([...current, ...pagedFiltered.map((lead) => lead.id)])])}>{pagedFiltered.length && pagedFiltered.every((lead) => selectedIds.includes(lead.id)) ? <Check size={13} /> : null}</button></th>
+      <th>Oportunidade</th><th>Etapa</th><th>Proposta oficial</th><th>Saúde</th><th>Responsável</th><th>Fechamento</th><th>Prob.</th><th>TCV</th><th>MRR</th><th>Ponderado</th><th>Próxima ação</th><th>Tempo</th><th />
+    </tr></thead><tbody>{pagedFiltered.map((lead) => {
       const stage = snapshot?.stages.find((item) => item.id === lead.stageId)
       const signal = signals.get(lead.id)
+      const proposal = officialProposalByLead.get(lead.id)
+      const probability = commercialProbability(lead)
+      const value = commercialValue(lead)
       return <tr key={lead.id} className={selectedIds.includes(lead.id) ? 'is-selected' : ''}>
         <td><button type="button" className={`pipeline-select ${selectedIds.includes(lead.id) ? 'is-selected' : ''}`} onClick={() => toggleSelected(lead.id)}>{selectedIds.includes(lead.id) ? <Check size={13} /> : null}</button></td>
         <td><button type="button" className="pipeline-table__lead" onClick={() => setEditing(lead)}><strong>{lead.name}</strong><small>{lead.company || lead.city || 'Sem empresa'}</small></button></td>
         <td><span className="pipeline-stage-chip"><i style={{ background: stage?.color }} />{stage?.name ?? 'Sem etapa'}</span></td>
+        <td>{proposal ? <span className="pipeline-proposal-cell"><strong>{proposal.proposalNumber} · v{proposal.version}</strong><small>{proposal.status === 'accepted' ? 'Aceite registrado' : proposal.status === 'sent' ? 'Enviada' : proposal.status === 'viewed' ? 'Visualizada' : 'Em elaboração'}</small></span> : <span className="pipeline-table-muted">Sem proposta oficial</span>}</td>
         <td>{signal ? <span className={`pipeline-health pipeline-health--${signal.health}`}>{healthLabels[signal.health]}</span> : null}</td>
-        <td>{lead.ownerName || 'Não atribuído'}</td><td><strong>{formatCurrency(lead.value)}</strong></td><td className={isDue(lead.nextActionAt) ? 'text-danger' : ''}>{formatDateTime(lead.nextActionAt)}</td><td>{signal?.stageAge ?? 0} dias</td>
+        <td>{lead.ownerName || 'Não atribuído'}</td>
+        <td>{formatDateOnly(commercialCloseAt(lead))}</td>
+        <td><strong>{probability}%</strong></td>
+        <td><strong>{formatCurrency(value)}</strong></td>
+        <td><strong>{formatCurrency(commercialMrr(lead))}</strong></td>
+        <td><strong>{formatCurrency(value * probability / 100)}</strong></td>
+        <td className={isDue(lead.nextActionAt) ? 'text-danger' : ''}>{formatDateTime(lead.nextActionAt)}</td><td>{signal?.stageAge ?? 0}d</td>
         <td><Button size="sm" variant="ghost" onClick={() => setEditing(lead)}>Abrir</Button></td>
       </tr>
     })}</tbody></table></div>
     {!filtered.length ? <div className="pipeline-empty-view"><Search size={26} /><strong>Nenhuma oportunidade encontrada</strong><span>Ajuste os filtros ou crie um novo lead.</span></div> : null}
+    {filtered.length ? <footer className="pipeline-list-pagination"><span>{filtered.length} oportunidade(s)</span><label>Por página <select value={listPageSize} onChange={(event) => setListPageSize(Number(event.target.value))}><option value="10">10</option><option value="20">20</option><option value="50">50</option></select></label><Button size="sm" variant="secondary" disabled={listSafePage <= 1} onClick={() => setListPage((value) => Math.max(1, value - 1))}>Anterior</Button><strong>{listSafePage} / {listTotalPages}</strong><Button size="sm" variant="secondary" disabled={listSafePage >= listTotalPages} onClick={() => setListPage((value) => Math.min(listTotalPages, value + 1))}>Próxima</Button></footer> : null}
   </section>
 
   const forecastGroups = useMemo(() => {
     const groups = new Map<string, { label: string; leads: Lead[] }>()
     for (const lead of filtered.filter((item) => item.status === 'active')) {
-      const key = lead.expectedCloseAt?.slice(0, 7) ?? 'missing'
-      const current = groups.get(key) ?? { label: forecastMonthKey(lead.expectedCloseAt), leads: [] }
+      const closeAt = commercialCloseAt(lead)
+      const key = closeAt?.slice(0, 7) ?? 'missing'
+      const current = groups.get(key) ?? { label: forecastMonthKey(closeAt), leads: [] }
       groups.set(key, { ...current, leads: [...current.leads, lead] })
     }
     return [...groups.entries()].sort(([a], [b]) => a === 'missing' ? 1 : b === 'missing' ? -1 : a.localeCompare(b))
-  }, [filtered])
+  }, [filtered, officialProposalByLead, opportunityByLead])
 
   const renderForecast = () => <section className="pipeline-forecast-view">
     {forecastGroups.map(([key, group]) => {
       const { label, leads } = group
-      const total = leads.reduce((sum, lead) => sum + lead.value, 0)
-      const weighted = leads.reduce((sum, lead) => sum + lead.value * (((snapshot?.stages.find((stage) => stage.id === lead.stageId)?.probability) ?? 0) / 100), 0)
+      const total = leads.reduce((sum, lead) => sum + commercialValue(lead), 0)
+      const weighted = leads.reduce((sum, lead) => sum + commercialValue(lead) * commercialProbability(lead) / 100, 0)
       return <article className="panel pipeline-forecast-group" key={key}><header><div><span>Fechamento esperado</span><h3>{label}</h3></div><div><small>Valor aberto</small><strong>{formatCurrency(total)}</strong></div><div><small>Previsão ponderada</small><strong>{formatCurrency(weighted)}</strong></div><span className="pipeline-forecast-count">{leads.length}</span></header><div className="pipeline-forecast-items">{leads.map((lead) => {
         const stage = snapshot?.stages.find((item) => item.id === lead.stageId)
         const signal = signals.get(lead.id)
-        return <button type="button" key={lead.id} onClick={() => setEditing(lead)}><span className="pipeline-stage-chip"><i style={{ background: stage?.color }} />{stage?.name}</span><span><strong>{lead.name}</strong><small>{lead.company || lead.ownerName}</small></span>{signal ? <span className={`pipeline-health pipeline-health--${signal.health}`}>{healthLabels[signal.health]}</span> : null}<strong>{formatCurrency(lead.value)}</strong><small>{formatDateOnly(lead.expectedCloseAt)}</small></button>
+        return <button type="button" key={lead.id} onClick={() => setEditing(lead)}><span className="pipeline-stage-chip"><i style={{ background: stage?.color }} />{stage?.name}</span><span><strong>{lead.name}</strong><small>{lead.company || lead.ownerName}</small></span>{signal ? <span className={`pipeline-health pipeline-health--${signal.health}`}>{healthLabels[signal.health]}</span> : null}<strong>{formatCurrency(commercialValue(lead))}</strong><small>{commercialProbability(lead)}% · {formatDateOnly(commercialCloseAt(lead))}</small></button>
       })}</div></article>
     })}
     {!forecastGroups.length ? <div className="panel pipeline-empty-view"><TrendingUp size={28} /><strong>Sem oportunidades para previsão</strong><span>Defina a previsão de fechamento nos negócios ativos.</span></div> : null}
@@ -421,8 +455,8 @@ export function PipelinePage() {
       const leads = filtered.filter((lead) => lead.stageId === stage.id)
       const previousCount = index ? filtered.filter((lead) => lead.stageId === stages[index - 1]?.id).length : leads.length
       const conversion = previousCount ? Math.min(100, Math.round((leads.length / previousCount) * 100)) : 0
-      const value = leads.reduce((sum, lead) => sum + lead.value, 0)
-      return <article key={stage.id}><div className="pipeline-funnel-label"><span><i style={{ background: stage.color }} /><strong>{stage.name}</strong></span><small>{leads.length} oportunidades · {formatCurrency(value)}</small></div><div className="pipeline-funnel-bar"><span style={{ width: `${Math.max(8, (leads.length / maxCount) * 100)}%`, background: stage.color }} /></div><div className="pipeline-funnel-metrics"><strong>{stage.probability}% prob.</strong>{index ? <span>{conversion}% da etapa anterior</span> : <span>Entrada do funil</span>}</div></article>
+      const value = leads.reduce((sum, lead) => sum + commercialValue(lead), 0)
+      return <article key={stage.id}><div className="pipeline-funnel-label"><span><i style={{ background: stage.color }} /><strong>{stage.name}</strong></span><small>{leads.length} oportunidades · {formatCurrency(value)}</small></div><div className="pipeline-funnel-bar"><span style={{ width: `${Math.max(8, (leads.length / maxCount) * 100)}%`, background: stage.color }} /></div><div className="pipeline-funnel-metrics"><strong>{leads.length ? Math.round(leads.reduce((sum, lead) => sum + commercialProbability(lead), 0) / leads.length) : stage.probability}% prob. média</strong>{index ? <span>{conversion}% da etapa anterior</span> : <span>Entrada do funil</span>}</div></article>
     })}</div></section>
   }
 
@@ -465,8 +499,8 @@ export function PipelinePage() {
     <section className="pipeline-view-switcher">
       {([['board', LayoutGrid], ['list', List], ['forecast', TrendingUp], ['calendar', CalendarDays], ['funnel', BarChart3]] as const).map(([mode, Icon]) => <button type="button" key={mode} className={viewMode === mode ? 'is-active' : ''} onClick={() => setViewMode(mode)}><Icon size={16} />{viewLabels[mode]}</button>)}
       <span className="pipeline-view-switcher__spacer" />
-      <div className="pipeline-scope-switcher"><button type="button" className={scope === 'mine' ? 'is-active' : ''} onClick={() => setScope('mine')}><UserRound size={15} /> Meus negócios</button>{canSeeTeam ? <button type="button" className={scope === 'team' ? 'is-active' : ''} onClick={() => setScope('team')}><UsersRound size={15} /> Equipe</button> : null}</div>
-      <label>Ordenar<select value={sort} onChange={(event) => setSort(event.target.value as PipelineSort)}><option value="updated_desc">Atualização recente</option><option value="next_action">Próxima ação</option><option value="value_desc">Maior valor</option><option value="name">Nome</option></select></label>
+      <div className="pipeline-scope-switcher"><button type="button" className={scope === 'mine' ? 'is-active' : ''} onClick={() => setScope('mine')}><UserRound size={15} /> Meus negócios</button>{canSeeTeam ? <button type="button" className={scope === 'team' ? 'is-active' : ''} onClick={() => setScope('team')}><UsersRound size={15} /> Todos os negócios</button> : null}</div>
+      <label>Ordenar<select value={sort} onChange={(event) => setSort(event.target.value as PipelineSort)}><option value="updated_desc">Atualização recente</option><option value="next_action">Próxima ação</option><option value="value_desc">Maior TCV</option><option value="probability_desc">Maior probabilidade</option><option value="close_date">Fechamento mais próximo</option><option value="name">Nome</option></select></label>
     </section>
 
     {filtersOpen ? <section className="panel advanced-filters advanced-filters--pipeline advanced-filters-v1008">

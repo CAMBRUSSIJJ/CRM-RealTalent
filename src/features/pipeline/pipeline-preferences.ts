@@ -2,7 +2,7 @@ import { safeStorage } from '../../lib/storage'
 import type { PipelineStagePolicy } from '../../services/pipeline-intelligence'
 
 export type PipelineViewMode = 'board' | 'list' | 'forecast' | 'calendar' | 'funnel'
-export type PipelineSort = 'updated_desc' | 'next_action' | 'value_desc' | 'name'
+export type PipelineSort = 'updated_desc' | 'next_action' | 'value_desc' | 'probability_desc' | 'close_date' | 'name'
 export type PipelineHealthFilter = 'all' | 'healthy' | 'attention' | 'critical' | 'no_action' | 'proposal_stale'
 export type PipelineCardField = 'company' | 'city' | 'owner' | 'priority' | 'value' | 'source' | 'tags' | 'nextAction' | 'stageAge' | 'lastInteraction' | 'attempts' | 'health'
 

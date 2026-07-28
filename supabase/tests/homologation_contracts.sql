@@ -152,3 +152,36 @@ BEGIN
     RAISE EXCEPTION 'RLS incompleto em Propostas e Forecast V100.43';
   END IF;
 END $$;
+
+-- V100.44 — Consolidação comercial
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_proc WHERE proname='set_official_sales_proposal')
+     OR NOT EXISTS (SELECT 1 FROM pg_proc WHERE proname='close_opportunity_from_proposal')
+     OR NOT EXISTS (SELECT 1 FROM pg_proc WHERE proname='can_write_organization')
+     OR NOT EXISTS (SELECT 1 FROM pg_proc WHERE proname='protect_sales_proposal_history_v10044') THEN
+    RAISE EXCEPTION 'RPCs e proteção comercial V100.44 incompletas';
+  END IF;
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_schema='public' AND table_name='sales_proposals' AND column_name='total_contract_value'
+  ) OR NOT EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_schema='public' AND table_name='sales_proposals' AND column_name='is_official'
+  ) OR NOT EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_schema='public' AND table_name='sales_proposals' AND column_name='is_current_version'
+  ) OR NOT EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_schema='public' AND table_name='revenue_entries' AND column_name='competence_date'
+  ) OR NOT EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_schema='public' AND table_name='opportunities' AND column_name='official_proposal_id'
+  ) THEN
+    RAISE EXCEPTION 'Colunas de consolidação comercial V100.44 incompletas';
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_indexes WHERE schemaname='public' AND indexname='sales_proposals_one_current_group_uq')
+     OR NOT EXISTS (SELECT 1 FROM pg_indexes WHERE schemaname='public' AND indexname='sales_proposals_one_official_opportunity_uq') THEN
+    RAISE EXCEPTION 'Unicidade de revisão e proposta oficial V100.44 ausente';
+  END IF;
+END $$;

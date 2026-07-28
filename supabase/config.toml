@@ -73,6 +73,12 @@ verify_jwt = false
 [functions.geocode-lead]
 verify_jwt = true
 
+[functions.maps-diagnostics]
+verify_jwt = true
+
+[functions.lead-geocode-worker]
+verify_jwt = false
+
 [functions.automation-webhook-dispatch]
 verify_jwt = true
 
@@ -98,4 +104,45 @@ verify_jwt = false
 verify_jwt = false
 
 [functions.whatsapp-webhook]
+verify_jwt = false
+
+# V100.45 — endpoints autenticados pelo usuário
+[functions.integration-oauth-start]
+verify_jwt = true
+
+[functions.integration-account-test]
+verify_jwt = true
+
+[functions.integration-diagnostics]
+verify_jwt = true
+
+[functions.integration-account-revoke]
+verify_jwt = true
+
+# V100.45 — callbacks e workers protegidos por estado, assinatura ou segredo próprio
+[functions.integration-oauth-callback]
+verify_jwt = false
+
+[functions.gmail-pubsub-webhook]
+verify_jwt = false
+
+[functions.integration-google-worker]
+verify_jwt = false
+
+[functions.integration-microsoft-worker]
+verify_jwt = false
+
+[functions.integration-meta-worker]
+verify_jwt = false
+
+[functions.integration-whatsapp-worker]
+verify_jwt = false
+
+[functions.integration-token-worker]
+verify_jwt = false
+
+[functions.integration-health-worker]
+verify_jwt = false
+
+[functions.integration-maintenance-worker]
 verify_jwt = false

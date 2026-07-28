@@ -5,7 +5,7 @@ import { Button } from '../../components/ui/button'
 import { StatusPill } from '../../components/ui/status-pill'
 import { formatDateTime } from '../../domain/formatters'
 import {
-  defaultExtensionProductSettings, extensionProductLabel, retryExtensionCaptureJob, saveExtensionProductSettings,
+  defaultExtensionProductSettings, extensionIngestEndpoint, extensionProductLabel, retryExtensionCaptureJob, revokeExtensionToken, rotateExtensionToken, saveExtensionProductSettings,
   updateExtensionInstallation, type ExtensionCaptureJobStatus, type ExtensionInstallationStatus,
   type ExtensionProductSettings, type IntegrationFrameworkState,
 } from '../../services/integration-framework'
@@ -42,6 +42,7 @@ export function ExtensionCenterPanel({ state, loading, canManage, onRefresh }: E
   const { currentWorkspace, repositoryMode, notify } = useApp()
   const [tab, setTab] = useState<ExtensionTab>('installations')
   const [busy, setBusy] = useState('')
+  const [revealedToken, setRevealedToken] = useState('')
   const savedSettings = state.extensionSettings.find((item) => item.productKey === 'realtalent_capture')
   const [settings, setSettings] = useState<ExtensionProductSettings>(() => savedSettings ?? defaultExtensionProductSettings(currentWorkspace?.id ?? 'local'))
 
@@ -85,6 +86,21 @@ export function ExtensionCenterPanel({ state, loading, canManage, onRefresh }: E
       await onRefresh()
       notify('success', 'Configuração remota da extensão salva.')
     } catch (error) { notify('error', error instanceof Error ? error.message : 'Não foi possível salvar a configuração.') }
+    finally { setBusy('') }
+  }
+
+  const rotateToken = async () => {
+    if (!currentWorkspace || !canManage) return
+    setBusy('rotate-token')
+    try { setRevealedToken(await rotateExtensionToken(currentWorkspace.id)); notify('success', 'Novo token gerado. Copie agora; ele não será exibido novamente.') }
+    catch (error) { notify('error', error instanceof Error ? error.message : 'Não foi possível rotacionar o token.') }
+    finally { setBusy('') }
+  }
+  const revokeToken = async () => {
+    if (!currentWorkspace || !canManage || !confirm('Revogar o token de ingestão da extensão?')) return
+    setBusy('revoke-token')
+    try { await revokeExtensionToken(currentWorkspace.id); setRevealedToken(''); notify('success', 'Token revogado.') }
+    catch (error) { notify('error', error instanceof Error ? error.message : 'Não foi possível revogar o token.') }
     finally { setBusy('') }
   }
 
@@ -136,6 +152,7 @@ export function ExtensionCenterPanel({ state, loading, canManage, onRefresh }: E
         <div className="settings-actions"><Button disabled={!canManage} loading={busy === 'save-settings'} onClick={() => void saveSettings()}><Save size={16} /> Salvar configuração</Button><StatusPill tone={repositoryMode === 'local' ? 'info' : 'success'}>{repositoryMode === 'local' ? 'Salvo neste navegador' : `Configuração ${settings.configVersion}`}</StatusPill></div>
       </article>
       <article className="panel extension-security-card"><ShieldCheck size={22} /><h4>Configuração remota segura</h4><p>A extensão recebe apenas regras operacionais. Tokens de serviço e credenciais administrativas não são enviados ao navegador.</p><ul><li>Identificação única da instalação</li><li>Bloqueio de versões antigas</li><li>Revogação por organização</li><li>Idempotência por lote</li></ul></article>
+      <article className="panel extension-security-card"><ShieldCheck size={22} /><h4>Credencial de ingestão</h4><p>Endpoint: <code>{extensionIngestEndpoint() || 'Disponível após conectar o Supabase'}</code></p>{revealedToken ? <div className="warning-box"><strong>Copie o novo token agora</strong><code>{revealedToken}</code></div> : null}<div className="settings-actions"><Button size="sm" variant="secondary" disabled={!canManage || repositoryMode === 'local'} loading={busy === 'rotate-token'} onClick={() => void rotateToken()}><RotateCw size={14} /> Rotacionar token</Button><Button size="sm" variant="ghost" disabled={!canManage || repositoryMode === 'local'} loading={busy === 'revoke-token'} onClick={() => void revokeToken()}><Unplug size={14} /> Revogar token</Button></div></article>
     </div> : null}
 
     {tab === 'queue' ? <article className="panel integration-framework__table-card">

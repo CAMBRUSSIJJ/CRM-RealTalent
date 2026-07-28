@@ -40,6 +40,7 @@ export type ProposalStatus = 'draft' | 'sent' | 'viewed' | 'accepted' | 'rejecte
 export type ForecastCategory = 'pipeline' | 'best_case' | 'commit' | 'closed' | 'omitted'
 export type RevenueType = 'one_time' | 'recurring'
 export type RevenueStatus = 'forecast' | 'recognized' | 'cancelled'
+export type ProposalRole = 'official' | 'alternative'
 
 export type GoalMetric = 'calls' | 'contacts' | 'followups' | 'meetings' | 'proposals' | 'wins' | 'revenue' | 'new_leads'
 export type AutomationTriggerType =
@@ -262,6 +263,10 @@ export interface OpportunityRecord {
   value: number
   ownerId: string | null
   expectedCloseAt: string | null
+  forecastCategory?: ForecastCategory
+  probability?: number
+  officialProposalId?: string | null
+  closedWonAt?: string | null
   createdAt: string
   updatedAt: string
 }
@@ -360,6 +365,20 @@ export interface ProposalRecord {
   taxTotal: number
   total: number
   recurringMonthlyTotal: number
+  oneTimeTotal: number
+  annualRecurringTotal: number
+  totalContractValue: number
+  isOfficial: boolean
+  isCurrentVersion: boolean
+  supersededById: string | null
+  expectedCloseAt: string | null
+  contractStartAt: string | null
+  contractEndAt: string | null
+  contractTermMonths: number
+  autoRenew: boolean
+  postSaleStartAt: string | null
+  postSaleCadenceName: string
+  closedWonAt: string | null
   validUntil: string | null
   sentAt: string | null
   viewedAt: string | null
@@ -384,6 +403,10 @@ export interface RevenueEntry {
   amount: number
   recurringMonthlyAmount: number
   recognizedAt: string
+  competenceDate: string
+  servicePeriodStart: string | null
+  servicePeriodEnd: string | null
+  adjustmentReason: string
   description: string
   ownerId: string | null
   createdAt: string
@@ -419,6 +442,10 @@ export interface CommunicationEvent {
   recipientAddresses: string[]
   subject: string
   bodyText: string
+  bodyHtml: string
+  internetMessageId: string | null
+  replyToExternalMessageId: string | null
+  hasAttachments: boolean
   occurredAt: string
   metadata: Record<string, unknown>
   createdAt: string

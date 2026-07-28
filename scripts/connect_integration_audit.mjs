@@ -17,8 +17,8 @@ const markers = [
   [migration, 'status not in (\'paused\',\'revoked\')'],
   [service, "from('realtalent_connect_devices')"],
   [service, 'updateConnectDevice'],
-  [panel, "['devices','RealTalent Connect']"],
-  [panel, "deviceAction(device.id, 'revoke')"],
+  [panel, "['devices','Connect']"],
+  [panel, "deviceAction(device.id,'revoke')"],
 ]
 const missing = markers.filter(([content, marker]) => !content.includes(marker)).map(([, marker]) => marker)
 if (missing.length) throw new Error(`Integração Connect incompleta: ${missing.join(', ')}`)

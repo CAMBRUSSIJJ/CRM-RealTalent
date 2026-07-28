@@ -1,21 +1,23 @@
-# RealTalent CRM V100.43
+# RealTalent CRM V100.45
 
-Release de **Propostas e Forecast**. A V100.43 conecta produtos, propostas, receita e previsão comercial ao Lead, Pipeline, Motor Comercial, automações e métricas, preservando Comunicações Oficiais, Connect Desktop e Central de Extensões.
-
-## Fonte oficial
-
-React + TypeScript + Vite + Supabase. O HTML e `dist/` são artefatos gerados exclusivamente dessa fonte.
+Release de **Fundação de Integrações**. A V100.45 transforma o framework novo na única central oficial e consolida segurança, permissões, workers, filas e diagnóstico.
 
 ## Entregas principais
 
-- catálogo de produtos e serviços;
-- cobrança única e recorrente;
-- propostas versionadas com itens, desconto e imposto;
-- aceite e recusa vinculados à oportunidade;
-- receita única e MRR;
-- categorias Pipeline, Melhor cenário, Comprometido e Fechado;
-- forecast ponderado por proposta;
-- RPCs transacionais e isolamento por organização.
+- central antiga removida da interface e histórico migrado para auditoria;
+- modo local identificado como demonstração, sem simular conexão real;
+- contas pessoais, compartilhadas, organizacionais e restritas;
+- OAuth com PKCE S256 e estado persistido de uso único;
+- renovação, rotação e revogação de tokens no cofre;
+- workers separados para Google, Microsoft, Meta, WhatsApp, saúde e credenciais;
+- allowlist de trabalhos por provedor;
+- leases e recuperação automática de filas travadas;
+- validação completa de secrets no deploy;
+- teste real de conexão e diagnóstico por integração;
+- painel de capacidades e auditoria operacional persistente;
+- revogação no provedor, callback OAuth correto no gateway e webhook do WhatsApp com validação HMAC;
+- escrita direta do frontend em contas conectadas bloqueada;
+- ingestão da extensão sem dependência das tabelas antigas.
 
 ## Validação
 

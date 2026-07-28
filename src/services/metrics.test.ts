@@ -42,7 +42,7 @@ const snapshot: WorkspaceSnapshot = {
       createdAt: '2026-07-05T10:00:00.000Z', updatedAt: '2026-07-06T10:30:00.000Z',
     },
   ],
-  playbooks: [], goals: [], automationRules: [], automationRuns: [], companies: [], contacts: [], opportunities: [], socialProfiles: [],
+  playbooks: [], goals: [], automationRules: [], automationRuns: [], companies: [], contacts: [], opportunities: [], socialProfiles: [], products: [], proposals: [], revenueEntries: [],
 }
 
 describe('métricas comerciais V100.3', () => {

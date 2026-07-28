@@ -145,7 +145,7 @@ const index = `<!doctype html>
   <link rel="manifest" href="./manifest.webmanifest" />
   <link rel="stylesheet" href="./assets/${cssName}" />
   <script type="importmap">{"imports":{"react":"https://esm.sh/react@19.2.7","react/jsx-runtime":"https://esm.sh/react@19.2.7/jsx-runtime","react-dom/client":"https://esm.sh/react-dom@19.2.7/client?external=react","lucide-react":"https://esm.sh/lucide-react@1.24.0?external=react","@supabase/supabase-js":"https://esm.sh/@supabase/supabase-js@2.110.7"}}</script>
-  <title>RealTalent CRM V${shortVersion} — Comunicações Oficiais</title>
+  <title>RealTalent CRM V${shortVersion} — Mapa de Leads</title>
 </head>
 <body>
   <div id="root"><div style="padding:24px;font:14px system-ui;color:#526078">Carregando RealTalent CRM…</div></div>

@@ -1,7 +1,7 @@
 {
-  "name": "realtalent-crm-v100-43",
+  "name": "realtalent-crm-v100-46-2",
   "private": true,
-  "version": "100.43.0",
+  "version": "100.46.2",
   "type": "module",
   "scripts": {
     "dev": "vite --host 0.0.0.0",
@@ -34,7 +34,7 @@
     "migrations:lock": "node scripts/migration_lock.mjs",
     "audit:database": "node scripts/database_contract_audit.mjs",
     "manifest:release": "node scripts/release_manifest.mjs",
-    "homologation:static": "npm run guard:source && npm run guard:architecture && npm run audit:syntax && npm run audit:database && npm run audit:production && npm run test:backup",
+    "homologation:static": "npm run guard:source && npm run guard:architecture && npm run audit:syntax && npm run audit:database && npm run audit:production && npm run audit:integrations && npm run test:backup",
     "homologate": "node scripts/run_homologation.mjs",
     "audit:connect": "node scripts/connect_integration_audit.mjs",
     "audit:extensions": "node scripts/extension_center_audit.mjs",
@@ -50,7 +50,10 @@
     "build:portable": "node scripts/build-registry-independent.mjs",
     "test:portable": "node scripts/test-registry-independent.mjs",
     "standalone:portable": "node scripts/build-registry-independent.mjs && node scripts/build-standalone.mjs",
-    "homologate:portable": "node scripts/run-portable-homologation.mjs"
+    "homologate:portable": "node scripts/run-portable-homologation.mjs",
+    "audit:integrations": "node scripts/integration_foundation_audit.mjs && node scripts/google_microsoft_audit.mjs && node scripts/lead_map_audit.mjs",
+    "audit:google-microsoft": "node scripts/google_microsoft_audit.mjs",
+    "audit:maps": "node scripts/lead_map_audit.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.110.7",

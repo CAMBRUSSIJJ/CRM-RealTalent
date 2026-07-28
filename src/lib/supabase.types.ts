@@ -87,8 +87,8 @@ export interface Database {
         Relationships: []
       }
       sales_proposals: {
-        Row: { id: string; organization_id: string; proposal_group_id: string; version: number; proposal_number: string; lead_id: string; opportunity_id: string | null; company_id: string | null; contact_id: string | null; title: string; status: 'draft' | 'sent' | 'viewed' | 'accepted' | 'rejected' | 'expired' | 'cancelled'; forecast_category: 'pipeline' | 'best_case' | 'commit' | 'closed' | 'omitted'; probability: number; currency: 'BRL'; subtotal: number; discount_total: number; tax_total: number; total: number; recurring_monthly_total: number; valid_until: string | null; sent_at: string | null; viewed_at: string | null; accepted_at: string | null; rejected_at: string | null; owner_id: string | null; notes: string; terms: string; created_at: string; updated_at: string }
-        Insert: { id?: string; organization_id: string; proposal_group_id?: string; version?: number; proposal_number: string; lead_id: string; opportunity_id?: string | null; company_id?: string | null; contact_id?: string | null; title: string; status?: 'draft' | 'sent' | 'viewed' | 'accepted' | 'rejected' | 'expired' | 'cancelled'; forecast_category?: 'pipeline' | 'best_case' | 'commit' | 'closed' | 'omitted'; probability?: number; currency?: 'BRL'; subtotal?: number; discount_total?: number; tax_total?: number; total?: number; recurring_monthly_total?: number; valid_until?: string | null; sent_at?: string | null; viewed_at?: string | null; accepted_at?: string | null; rejected_at?: string | null; owner_id?: string | null; notes?: string; terms?: string; created_at?: string; updated_at?: string }
+        Row: { id: string; organization_id: string; proposal_group_id: string; version: number; proposal_number: string; lead_id: string; opportunity_id: string | null; company_id: string | null; contact_id: string | null; title: string; status: 'draft' | 'sent' | 'viewed' | 'accepted' | 'rejected' | 'expired' | 'cancelled'; forecast_category: 'pipeline' | 'best_case' | 'commit' | 'closed' | 'omitted'; probability: number; currency: 'BRL'; subtotal: number; discount_total: number; tax_total: number; total: number; recurring_monthly_total: number; one_time_total: number; annual_recurring_total: number; total_contract_value: number; is_official: boolean; is_current_version: boolean; superseded_by_id: string | null; expected_close_at: string | null; contract_start_at: string | null; contract_end_at: string | null; contract_term_months: number; auto_renew: boolean; post_sale_start_at: string | null; post_sale_cadence_name: string; closed_won_at: string | null; valid_until: string | null; sent_at: string | null; viewed_at: string | null; accepted_at: string | null; rejected_at: string | null; owner_id: string | null; notes: string; terms: string; created_at: string; updated_at: string }
+        Insert: { id?: string; organization_id: string; proposal_group_id?: string; version?: number; proposal_number: string; lead_id: string; opportunity_id?: string | null; company_id?: string | null; contact_id?: string | null; title: string; status?: 'draft' | 'sent' | 'viewed' | 'accepted' | 'rejected' | 'expired' | 'cancelled'; forecast_category?: 'pipeline' | 'best_case' | 'commit' | 'closed' | 'omitted'; probability?: number; currency?: 'BRL'; subtotal?: number; discount_total?: number; tax_total?: number; total?: number; recurring_monthly_total?: number; one_time_total?: number; annual_recurring_total?: number; total_contract_value?: number; is_official?: boolean; is_current_version?: boolean; superseded_by_id?: string | null; expected_close_at?: string | null; contract_start_at?: string | null; contract_end_at?: string | null; contract_term_months?: number; auto_renew?: boolean; post_sale_start_at?: string | null; post_sale_cadence_name?: string; closed_won_at?: string | null; valid_until?: string | null; sent_at?: string | null; viewed_at?: string | null; accepted_at?: string | null; rejected_at?: string | null; owner_id?: string | null; notes?: string; terms?: string; created_at?: string; updated_at?: string }
         Update: Partial<Database['public']['Tables']['sales_proposals']['Insert']>
         Relationships: []
       }
@@ -99,8 +99,8 @@ export interface Database {
         Relationships: []
       }
       revenue_entries: {
-        Row: { id: string; organization_id: string; proposal_id: string | null; lead_id: string | null; opportunity_id: string | null; revenue_type: 'one_time' | 'recurring'; status: 'forecast' | 'recognized' | 'cancelled'; amount: number; recurring_monthly_amount: number; recognized_at: string; description: string; owner_id: string | null; created_at: string; updated_at: string }
-        Insert: { id?: string; organization_id: string; proposal_id?: string | null; lead_id?: string | null; opportunity_id?: string | null; revenue_type: 'one_time' | 'recurring'; status?: 'forecast' | 'recognized' | 'cancelled'; amount?: number; recurring_monthly_amount?: number; recognized_at?: string; description?: string; owner_id?: string | null; created_at?: string; updated_at?: string }
+        Row: { id: string; organization_id: string; proposal_id: string | null; lead_id: string | null; opportunity_id: string | null; revenue_type: 'one_time' | 'recurring'; status: 'forecast' | 'recognized' | 'cancelled'; amount: number; recurring_monthly_amount: number; recognized_at: string; competence_date: string; service_period_start: string | null; service_period_end: string | null; adjustment_reason: string; description: string; owner_id: string | null; created_at: string; updated_at: string }
+        Insert: { id?: string; organization_id: string; proposal_id?: string | null; lead_id?: string | null; opportunity_id?: string | null; revenue_type: 'one_time' | 'recurring'; status?: 'forecast' | 'recognized' | 'cancelled'; amount?: number; recurring_monthly_amount?: number; recognized_at?: string; competence_date: string; service_period_start?: string | null; service_period_end?: string | null; adjustment_reason?: string; description?: string; owner_id?: string | null; created_at?: string; updated_at?: string }
         Update: Partial<Database['public']['Tables']['revenue_entries']['Insert']>
         Relationships: []
       }
@@ -197,14 +197,14 @@ export interface Database {
         Relationships: []
       }
       integration_connected_accounts: {
-        Row: { id: string; organization_id: string; provider: string; external_account_id: string; display_name: string; status: string; scopes: string[]; has_credential: boolean; token_expires_at: string | null; last_sync_at: string | null; next_sync_at: string | null; sync_cursor: string | null; last_error: string | null; created_at: string; updated_at: string }
-        Insert: { id?: string; organization_id: string; provider: string; external_account_id: string; display_name: string; status?: string; scopes?: string[]; has_credential?: boolean; token_expires_at?: string | null; last_sync_at?: string | null; next_sync_at?: string | null; sync_cursor?: string | null; last_error?: string | null; created_at?: string; updated_at?: string }
+        Row: { id: string; organization_id: string; provider: string; external_account_id: string; display_name: string; status: string; scopes: string[]; has_credential: boolean; token_expires_at: string | null; last_sync_at: string | null; next_sync_at: string | null; sync_cursor: string | null; last_error: string | null; connected_by_user_id: string | null; metadata: Json; access_mode: string; allowed_user_ids: string[]; allowed_roles: string[]; capabilities: Json; connection_mode: string; credential_version: number; token_refreshed_at: string | null; revoked_at: string | null; last_tested_at: string | null; last_test_status: string | null; last_test_latency_ms: number | null; created_at: string; updated_at: string }
+        Insert: { id?: string; organization_id: string; provider: string; external_account_id: string; display_name: string; status?: string; scopes?: string[]; has_credential?: boolean; token_expires_at?: string | null; last_sync_at?: string | null; next_sync_at?: string | null; sync_cursor?: string | null; last_error?: string | null; connected_by_user_id?: string | null; metadata?: Json; access_mode?: string; allowed_user_ids?: string[]; allowed_roles?: string[]; capabilities?: Json; connection_mode?: string; credential_version?: number; token_refreshed_at?: string | null; revoked_at?: string | null; last_tested_at?: string | null; last_test_status?: string | null; last_test_latency_ms?: number | null; created_at?: string; updated_at?: string }
         Update: Partial<Database['public']['Tables']['integration_connected_accounts']['Insert']>
         Relationships: []
       }
       integration_sync_jobs: {
-        Row: { id: string; organization_id: string; account_id: string | null; provider: string; job_type: string; status: string; priority: number; attempts: number; max_attempts: number; available_at: string; locked_at: string | null; completed_at: string | null; idempotency_key: string; payload: Json; last_error: string | null; created_at: string; updated_at: string }
-        Insert: { id?: string; organization_id: string; account_id?: string | null; provider: string; job_type: string; status?: string; priority?: number; attempts?: number; max_attempts?: number; available_at?: string; locked_at?: string | null; completed_at?: string | null; idempotency_key: string; payload?: Json; last_error?: string | null; created_at?: string; updated_at?: string }
+        Row: { id: string; organization_id: string; account_id: string | null; provider: string; job_type: string; worker_key: string | null; status: string; priority: number; attempts: number; max_attempts: number; available_at: string; locked_at: string | null; locked_by: string | null; lease_expires_at: string | null; recovered_count: number; completed_at: string | null; idempotency_key: string; payload: Json; last_error: string | null; created_at: string; updated_at: string }
+        Insert: { id?: string; organization_id: string; account_id?: string | null; provider: string; job_type: string; worker_key?: string | null; status?: string; priority?: number; attempts?: number; max_attempts?: number; available_at?: string; locked_at?: string | null; locked_by?: string | null; lease_expires_at?: string | null; recovered_count?: number; completed_at?: string | null; idempotency_key: string; payload?: Json; last_error?: string | null; created_at?: string; updated_at?: string }
         Update: Partial<Database['public']['Tables']['integration_sync_jobs']['Insert']>
         Relationships: []
       }
@@ -212,6 +212,18 @@ export interface Database {
         Row: { id: string; organization_id: string; job_id: string; attempt_number: number; status: string; response_code: number | null; duration_ms: number | null; error_message: string | null; created_at: string }
         Insert: { id?: string; organization_id: string; job_id: string; attempt_number: number; status: string; response_code?: number | null; duration_ms?: number | null; error_message?: string | null; created_at?: string }
         Update: Partial<Database['public']['Tables']['integration_sync_attempts']['Insert']>
+        Relationships: []
+      }
+      integration_diagnostics: {
+        Row: { id: string; organization_id: string; account_id: string | null; provider: string; run_id: string; check_key: string; status: string; message: string; latency_ms: number | null; details: Json; created_at: string }
+        Insert: { id?: string; organization_id: string; account_id?: string | null; provider: string; run_id: string; check_key: string; status: string; message: string; latency_ms?: number | null; details?: Json; created_at?: string }
+        Update: Partial<Database['public']['Tables']['integration_diagnostics']['Insert']>
+        Relationships: []
+      }
+      integration_audit_events: {
+        Row: { id: string; organization_id: string; account_id: string | null; provider: string; event_type: string; severity: string; actor_user_id: string | null; correlation_id: string | null; message: string; metadata: Json; source_table: string | null; source_id: string | null; created_at: string }
+        Insert: { id?: string; organization_id: string; account_id?: string | null; provider: string; event_type: string; severity?: string; actor_user_id?: string | null; correlation_id?: string | null; message?: string; metadata?: Json; source_table?: string | null; source_id?: string | null; created_at?: string }
+        Update: Partial<Database['public']['Tables']['integration_audit_events']['Insert']>
         Relationships: []
       }
       integration_connections: {
@@ -249,9 +261,11 @@ export interface Database {
     Functions: {
 
       next_sales_proposal_number: { Args: { p_organization_id: string }; Returns: string }
-      save_sales_proposal: { Args: { p_organization_id: string; p_proposal_id: string | null; p_lead_id: string; p_title: string; p_forecast_category: string; p_probability: number; p_valid_until: string | null; p_notes: string; p_terms: string; p_items: Json }; Returns: string }
+      save_sales_proposal: { Args: { p_organization_id: string; p_proposal_id: string | null; p_lead_id: string; p_title: string; p_forecast_category: string; p_probability: number; p_valid_until: string | null; p_expected_close_at: string | null; p_contract_start_at: string | null; p_contract_end_at: string | null; p_contract_term_months: number; p_auto_renew: boolean; p_post_sale_start_at: string | null; p_post_sale_cadence_name: string; p_notes: string; p_terms: string; p_items: Json }; Returns: string }
       create_sales_proposal_revision: { Args: { p_organization_id: string; p_proposal_id: string }; Returns: string }
+      set_official_sales_proposal: { Args: { p_organization_id: string; p_proposal_id: string }; Returns: string }
       set_sales_proposal_status: { Args: { p_organization_id: string; p_proposal_id: string; p_status: string }; Returns: string }
+      close_opportunity_from_proposal: { Args: { p_organization_id: string; p_proposal_id: string }; Returns: string }
       create_organization_with_defaults: { Args: { p_name: string }; Returns: string }
       create_organization_invite: { Args: { p_organization_id: string; p_email: string; p_role: 'admin' | 'member' | 'viewer' }; Returns: Json }
       accept_organization_invite: { Args: { p_token: string }; Returns: string }
@@ -260,9 +274,12 @@ export interface Database {
       remove_organization_member: { Args: { p_organization_id: string; p_user_id: string }; Returns: boolean }
       production_readiness: { Args: { p_organization_id: string }; Returns: Json }
       merge_duplicate_leads: { Args: { p_organization_id: string; p_primary_lead_id: string; p_duplicate_lead_id: string }; Returns: string }
-      enqueue_integration_sync_job: { Args: { p_organization_id: string; p_account_id: string | null; p_job_type: string; p_idempotency_key: string; p_payload: Json }; Returns: string }
+      enqueue_integration_sync_job: { Args: { p_organization_id: string; p_account_id: string; p_job_type: string; p_idempotency_key: string; p_payload: Json }; Returns: string }
       retry_integration_sync_job: { Args: { p_job_id: string }; Returns: boolean }
       update_integration_account_status: { Args: { p_account_id: string; p_action: 'pause' | 'resume' | 'disconnect' }; Returns: boolean }
+      update_integration_account_access: { Args: { p_account_id: string; p_access_mode: string; p_allowed_user_ids: string[]; p_allowed_roles: string[] }; Returns: boolean }
+      can_use_integration_account: { Args: { p_account_id: string }; Returns: boolean }
+      integration_foundation_health: { Args: { p_organization_id: string }; Returns: Json }
       ensure_extension_product_settings: { Args: { p_organization_id: string; p_product_key: string }; Returns: Json }
       register_extension_installation: { Args: { p_organization_id: string; p_product_key: string; p_installation_key: string; p_display_name: string; p_browser: string; p_browser_version: string; p_platform: string; p_app_version: string; p_manifest_version?: number; p_permissions?: string[]; p_capabilities?: string[]; p_metadata?: Json }; Returns: Json }
       heartbeat_extension_installation: { Args: { p_organization_id: string; p_installation_id: string; p_pending_items?: number; p_captured_delta?: number; p_last_error?: string | null }; Returns: Json }

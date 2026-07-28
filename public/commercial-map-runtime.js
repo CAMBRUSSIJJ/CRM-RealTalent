@@ -1,6 +1,6 @@
 (() => {
-  if (window.__REALTALENT_MAP_V10033_RUNTIME__) return;
-  window.__REALTALENT_MAP_V10033_RUNTIME__ = true;
+  if (window.__REALTALENT_LEAD_MAP_RUNTIME__) return;
+  window.__REALTALENT_LEAD_MAP_RUNTIME__ = true;
   const CITY_COORDINATES = {
     canoas: [-29.9177, -51.1834], 'porto alegre': [-30.0346, -51.2177], esteio: [-29.8614, -51.1793],
     sapucaia: [-29.8333, -51.15], 'sapucaia do sul': [-29.8333, -51.15], 'sao leopoldo': [-29.7604, -51.1472],
@@ -114,7 +114,7 @@
         if (savedStages.length) stages = savedStages;
       }
     } catch { /* usa demonstração */ }
-    const bridge = window.__REALTALENT_MAP_V10033_BRIDGE__;
+    const bridge = window.__REALTALENT_LEAD_MAP_BRIDGE__;
     try {
       const bridgedLeads = bridge?.getLeads?.();
       if (Array.isArray(bridgedLeads)) leads = bridgedLeads;
@@ -144,8 +144,8 @@
   const navigate = label => findNav(label)?.click();
 
   const mount = root => {
-    if (!root || root.dataset.mounted === '33') return;
-    root.dataset.mounted='33';
+    if (!root || root.dataset.mounted === '462') return;
+    root.dataset.mounted='462';
     const db=readDatabase();
     const state={
       search:'', city:'all', stage:'all', owner:'all', priority:'all', geoStatus:'all', overdue:false,
@@ -156,7 +156,7 @@
       filtered:[], locations:[], mappedProspects:[], regionRows:[], processing:false
     };
     root.innerHTML = `
-      <div class="page-stack commercial-map-page commercial-map-runtime-page commercial-map-v10033">
+      <div class="page-stack commercial-map-page commercial-map-runtime-page commercial-map-v100462">
         <section class="commercial-map-summary" data-summary></section>
         <section class="commercial-map-toolbar panel">
           <div class="commercial-map-toolbar__primary">
@@ -173,13 +173,14 @@
             <label class="commercial-map-inline-select" data-heat-control hidden><span>Calor por</span><select data-filter="heatMetric"><option value="count">Quantidade</option><option value="value">Valor de pipeline</option><option value="overdue">Ações atrasadas</option></select></label>
             <label class="commercial-map-check"><input data-filter="showProspects" type="checkbox"><span>Mostrar Garimpo</span></label>
             <button class="button button--secondary button--sm" data-geocode-visible type="button">Processar localização</button>
+            <button class="button button--secondary button--sm" data-map-diagnostics type="button">Diagnóstico do Maps</button>
             <button class="button button--ghost button--sm rt-clear-map-filters" type="button">Limpar filtros</button>
           </div>
         </section>
         <section class="commercial-map-workspace">
           <div class="commercial-map-canvas panel">
             <header class="commercial-map-canvas__header">
-              <div><span class="eyebrow">Localização real</span><h2>Território comercial</h2><p>Veja a posição salva, a precisão do endereço e as pendências de geocodificação.</p></div>
+              <div><span class="eyebrow">Mapa de Leads · V100.46.2</span><h2>Território comercial</h2><p>Localize cada lead, filtre a operação e aja diretamente pelo mapa.</p></div>
               <div class="commercial-map-legend" data-legend></div>
             </header>
             <div class="commercial-intelligence-bar">
@@ -222,7 +223,8 @@
       if (!toast) { toast=document.createElement('div'); toast.className='commercial-map-toast'; root.appendChild(toast); }
       toast.textContent=message; toast.classList.add('is-visible'); clearTimeout(toast._timer); toast._timer=setTimeout(()=>toast.classList.remove('is-visible'),2600);
     };
-    const bridge = () => window.__REALTALENT_MAP_V10033_BRIDGE__;
+    const bridge = () => window.__REALTALENT_LEAD_MAP_BRIDGE__;
+    const canWrite = () => bridge()?.canWrite !== false;
     const replaceLead = lead => {
       const index=db.leads.findIndex(item=>item.id===lead.id);
       if(index>=0) db.leads[index]=lead; else db.leads.unshift(lead);
@@ -237,6 +239,7 @@
       return next;
     };
     const persistLeadPatch = async (leadId,input) => {
+      if(!canWrite()) throw new Error('Seu perfil está em modo somente leitura.');
       const activeBridge=bridge();
       const lead=activeBridge?.updateLead ? await activeBridge.updateLead(leadId,input) : patchLocalLead(leadId,input);
       if(lead) replaceLead(lead);
@@ -249,9 +252,10 @@
     const setProcessing = active => {
       state.processing=active;
       const button=q('[data-geocode-visible]');
-      if(button){button.disabled=active;button.textContent=active?'Processando…':'Processar localização';}
+      if(button){button.disabled=active||!canWrite();button.textContent=active?'Processando…':'Processar localização';}
     };
     const geocodeLead = async leadId => {
+      if(!canWrite()){notify('Seu perfil está em modo somente leitura.');return null;}
       const lead=db.leads.find(item=>item.id===leadId); if(!lead) return null;
       try {
         setProcessing(true);
@@ -268,7 +272,22 @@
         return null;
       } finally { setProcessing(false); }
     };
+    const runDiagnostics = async () => {
+      const activeBridge=bridge();
+      if(!activeBridge?.diagnoseMaps){notify('Diagnóstico disponível somente no módulo V100.46.2.');return;}
+      const button=q('[data-map-diagnostics]');
+      try {
+        if(button){button.disabled=true;button.textContent='Diagnosticando…';}
+        const diagnostic=await activeBridge.diagnoseMaps();
+        const coverage=diagnostic?.coverage||{};
+        const queue=diagnostic?.queue||{};
+        const queueTotal=Object.values(queue).reduce((sum,value)=>sum+(Number(value)||0),0);
+        notify(`${diagnostic.mode==='connected'?'Maps conectado':'Modo demonstração'} · ${coverage.mapped||0}/${coverage.total||0} localizados · ${coverage.percentage||0}% de cobertura${queueTotal?` · ${queueTotal} na fila`:''}.`);
+      } catch(error) { notify(error instanceof Error?error.message:'Falha ao executar o diagnóstico do Maps.'); }
+      finally { if(button){button.disabled=false;button.textContent='Diagnóstico do Maps';} }
+    };
     const geocodeVisible = async () => {
+      if(!canWrite()){notify('Seu perfil está em modo somente leitura.');return;}
       const ids=queueLeads().map(lead=>lead.id).slice(0,100);
       if(!ids.length){notify('Nenhuma pendência geográfica nesta visão.');return;}
       try {
@@ -277,7 +296,7 @@
         if(activeBridge?.geocodeMany) {
           const result=await activeBridge.geocodeMany(ids);
           refreshBridgeLeads();
-          notify(`${result.processed||0} localizações processadas · ${result.exact||0} exatas · ${result.approximate||0} aproximadas.`);
+          notify(`${result.processed||0} processadas · ${result.queued||0} enfileiradas · ${result.exact||0} exatas · ${result.approximate||0} aproximadas.`);
         } else {
           for(const id of ids) await geocodeLead(id);
         }
@@ -361,7 +380,7 @@
       const bar=q('[data-selection-bar]'); bar.hidden=!state.selectedIds.size;
       if(!state.selectedIds.size){bar.innerHTML='';return;}
       bar.innerHTML=`<strong>${state.selectedIds.size} selecionado${state.selectedIds.size===1?'':'s'}</strong><button data-selection-geocode type="button">Geocodificar</button><button data-selection-leads type="button">Abrir em Leads</button><button data-selection-calls type="button">Criar fila de ligação</button><button data-selection-garimpo type="button">Pesquisar região no Garimpo</button><button data-selection-export type="button">Exportar CSV</button><button data-selection-clear type="button">Limpar</button>`;
-      bar.querySelector('[data-selection-geocode]').addEventListener('click',async()=>{const ids=[...state.selectedIds];if(!ids.length)return;try{setProcessing(true);const activeBridge=bridge();if(activeBridge?.geocodeMany){const result=await activeBridge.geocodeMany(ids);refreshBridgeLeads();notify(`${result.processed||0} localizações processadas.`);}else{for(const id of ids)await geocodeLead(id);notify(`${ids.length} localizações atualizadas no modo local.`);}drawAll(true);}catch(error){notify(error instanceof Error?error.message:'Falha ao geocodificar a seleção.')}finally{setProcessing(false)}});
+      bar.querySelector('[data-selection-geocode]').addEventListener('click',async()=>{const ids=[...state.selectedIds];if(!ids.length)return;try{setProcessing(true);const activeBridge=bridge();if(activeBridge?.geocodeMany){const result=await activeBridge.geocodeMany(ids);refreshBridgeLeads();notify(`${result.processed||0} processadas · ${result.queued||0} enfileiradas.`);}else{for(const id of ids)await geocodeLead(id);notify(`${ids.length} localizações atualizadas no modo local.`);}drawAll(true);}catch(error){notify(error instanceof Error?error.message:'Falha ao geocodificar a seleção.')}finally{setProcessing(false)}});
       bar.querySelector('[data-selection-leads]').addEventListener('click',()=>transfer('leads'));
       bar.querySelector('[data-selection-calls]').addEventListener('click',()=>transfer('calls'));
       bar.querySelector('[data-selection-garimpo]').addEventListener('click',()=>transfer('prospecting'));
@@ -370,7 +389,7 @@
     };
     const transfer = target => {
       const leads=state.filtered.filter(lead=>state.selectedIds.has(lead.id));
-      const context={source:'commercial-map-v10033',leadIds:leads.map(l=>l.id),cities:[...new Set(leads.map(l=>l.city).filter(Boolean))],radiusKm:state.radiusKm,createdAt:new Date().toISOString()};
+      const context={source:'commercial-map-v100462',leadIds:leads.map(l=>l.id),cities:[...new Set(leads.map(l=>l.city).filter(Boolean))],radiusKm:state.radiusKm,createdAt:new Date().toISOString()};
       storageSet(`realtalent-map-${target}-context:${db.workspace}`,JSON.stringify(context));
       navigate(target==='prospecting'?'Garimpo':target==='calls'?'Ligações':'Leads');
     };
@@ -378,7 +397,7 @@
       const leads=state.filtered.filter(lead=>state.selectedIds.has(lead.id));
       const quote=value=>`"${String(value??'').replaceAll('"','""')}"`;
       const rows=[['Nome','Empresa','Telefone','Endereço','Cidade','Bairro','Etapa','Responsável','Prioridade','Valor','Status geográfico','Latitude','Longitude'],...leads.map(lead=>[lead.name,lead.company,lead.phone,fullAddress(lead),lead.city,districtOf(lead),stageFor(lead.stageId).name,lead.ownerName,PRIORITY_LABEL[lead.priority]||lead.priority,lead.value,GEO_STATUS_LABEL[geoStatusOf(lead)]||geoStatusOf(lead),lead.latitude??'',lead.longitude??''])];
-      download('leads-selecionados-mapa-v10033.csv','\uFEFF'+rows.map(row=>row.map(quote).join(';')).join('\r\n'));
+      download('leads-selecionados-mapa-v100462.csv','\uFEFF'+rows.map(row=>row.map(quote).join(';')).join('\r\n'));
       notify('CSV exportado com os leads selecionados.');
     };
     const renderList = () => {
@@ -418,6 +437,7 @@
     };
     const closeGeocodeModal = () => { const modal=q('[data-geocode-modal]');modal.hidden=true;modal.innerHTML=''; };
     const openGeocodeModal = lead => {
+      if(!canWrite()){notify('Seu perfil está em modo somente leitura.');return;}
       const modal=q('[data-geocode-modal]'); const location=locate(lead);
       modal.hidden=false;
       modal.innerHTML=`<div class="commercial-geocode-backdrop" data-modal-close></div><section class="commercial-geocode-dialog" role="dialog" aria-modal="true" aria-label="Corrigir localização de ${esc(lead.name)}"><header><div><span class="eyebrow">Localização real</span><h3>Corrigir endereço e posição</h3><p>${esc(lead.name)} · ${esc(lead.company||'Empresa não informada')}</p></div><button class="icon-button" data-modal-close type="button">×</button></header><div class="commercial-geocode-form"><label><span>CEP</span><input name="postalCode" value="${esc(lead.postalCode||'')}" placeholder="92000-000"></label><label class="span-2"><span>Rua</span><input name="street" value="${esc(lead.street||'')}" placeholder="Rua ou avenida"></label><label><span>Número</span><input name="addressNumber" value="${esc(lead.addressNumber||'')}" placeholder="123"></label><label><span>Complemento</span><input name="complement" value="${esc(lead.complement||'')}" placeholder="Sala ou loja"></label><label><span>Bairro</span><input name="district" value="${esc(lead.district||districtOf(lead)||'')}" placeholder="Centro"></label><label><span>Cidade</span><input name="city" value="${esc(lead.city||'')}" placeholder="Canoas"></label><label><span>Estado</span><input name="state" maxlength="2" value="${esc(lead.state||'RS')}" placeholder="RS"></label><label><span>País</span><input name="country" value="${esc(lead.country||'Brasil')}" placeholder="Brasil"></label><div class="commercial-coordinate-divider span-2"><span>Posição manual</span><small>Use apenas quando quiser substituir a geocodificação automática.</small></div><label><span>Latitude</span><input name="latitude" inputmode="decimal" value="${hasCoordinates(lead)?esc(lead.latitude):location?String(location.lat.toFixed(6)):''}" placeholder="-29.917700"></label><label><span>Longitude</span><input name="longitude" inputmode="decimal" value="${hasCoordinates(lead)?esc(lead.longitude):location?String(location.lng.toFixed(6)):''}" placeholder="-51.183400"></label></div><div class="commercial-geocode-modal-note"><strong>Modo ${bridge()?.mode==='supabase'?'conectado':'local'}</strong><span>${bridge()?.mode==='supabase'?'Salvar o endereço permite consultar a Edge Function protegida.':'Sem Supabase, o CRM salva ajustes manuais e utiliza estimativas por cidade.'}</span></div><footer><button class="button button--ghost" data-modal-close type="button">Cancelar</button><button class="button button--secondary" data-use-map-center type="button">Usar centro do mapa</button><button class="button button--secondary" data-save-address type="button">Salvar e geocodificar</button><button class="button button--primary" data-save-manual type="button">Salvar posição manual</button></footer></section>`;
@@ -493,14 +513,15 @@
     qa('[data-tab]').forEach(button=>button.addEventListener('click',()=>{state.tab=button.dataset.tab;syncTabs();renderList()}));
     q('.rt-clear-map-filters').addEventListener('click',()=>{state.search='';state.city='all';state.stage='all';state.owner='all';state.priority='all';state.geoStatus='all';state.overdue=false;['search','city','stage','owner','priority','geoStatus'].forEach(key=>q(`[data-filter="${key}"]`).value=key==='search'?'':'all');q('[data-filter="overdue"]').checked=false;clearRadius();});
     q('[data-radius-apply]').addEventListener('click',applyRadius);q('[data-radius-clear]').addEventListener('click',clearRadius);q('[data-visible]').addEventListener('click',selectVisible);q('[data-area]').addEventListener('click',()=>setAreaMode(!state.areaMode));
-    q('[data-geocode-visible]').addEventListener('click',()=>void geocodeVisible());
+    q('[data-geocode-visible]').addEventListener('click',()=>void geocodeVisible());q('[data-map-diagnostics]').addEventListener('click',()=>void runDiagnostics());
     q('[data-location-queue]').addEventListener('click',()=>{state.tab='location';syncTabs();renderList()});
     q('[data-center]').addEventListener('click',()=>{const loc=selectedLocation();if(loc&&state.map)state.map.setView([loc.lat,loc.lng],15)});
     const onDataUpdated=()=>{refreshBridgeLeads();drawAll(false)};
     window.addEventListener('realtalent-map-data-updated',onDataUpdated);
 
     const precisionNote=q('[data-precision-note] span:last-child');
-    if(precisionNote&&bridge()?.mode==='supabase') precisionNote.textContent='Modo conectado: endereços são processados pela Edge Function e as coordenadas ficam salvas no Supabase. Ajustes manuais continuam disponíveis.';
+    if(precisionNote){const activeBridge=bridge();precisionNote.textContent=activeBridge?.mode==='supabase'?'Modo conectado: Google Geocoding, fila persistente, histórico e coordenadas salvas no Supabase.':'Modo demonstração: posições locais são estimativas e ficam identificadas como aproximadas.';}
+    if(!canWrite()){q('[data-geocode-visible]').disabled=true;q('[data-geocode-visible]').title='Perfil somente leitura';}
     drawAll(false);
     const fallbackTimer=setTimeout(()=>{if(!state.ready)renderFallback()},2200);
     loadLeaflet().then(L=>{
@@ -521,7 +542,7 @@
     const page=document.querySelector('.prospecting-page'); if(!page||page.querySelector('.map-transfer-banner'))return;
     let context=null;try{context=JSON.parse(storageGet(`realtalent-map-prospecting-context:${workspace}`)||'null')}catch{context=null}
     if(!context?.leadIds?.length)return;
-    const banner=document.createElement('section');banner.className='map-transfer-banner panel';banner.innerHTML=`<div><strong>Contexto recebido do Mapa Comercial</strong><span>${context.leadIds.length} leads em ${context.cities?.join(', ')||'região selecionada'}${context.radiusKm?` · raio de ${context.radiusKm} km`:''}</span></div><button type="button">Dispensar</button>`;banner.querySelector('button').addEventListener('click',()=>{storageRemove(`realtalent-map-prospecting-context:${workspace}`);banner.remove()});page.prepend(banner);
+    const banner=document.createElement('section');banner.className='map-transfer-banner panel';banner.innerHTML=`<div><strong>Contexto recebido do Mapa de Leads</strong><span>${context.leadIds.length} leads em ${context.cities?.join(', ')||'região selecionada'}${context.radiusKm?` · raio de ${context.radiusKm} km`:''}</span></div><button type="button">Dispensar</button>`;banner.querySelector('button').addEventListener('click',()=>{storageRemove(`realtalent-map-prospecting-context:${workspace}`);banner.remove()});page.prepend(banner);
   };
   const scan = () => {document.querySelectorAll('#commercial-map-root').forEach(mount);injectTransferBanner()};
   new MutationObserver(scan).observe(document.documentElement,{childList:true,subtree:true});

@@ -11,7 +11,7 @@ results={'passed':False,'version':version,'checks':[],'console_errors':[],'page_
 shim="""() => { const store={}; const local={getItem:k=>Object.prototype.hasOwnProperty.call(store,k)?store[k]:null,setItem:(k,v)=>store[k]=String(v),removeItem:k=>delete store[k],clear:()=>Object.keys(store).forEach(k=>delete store[k]),key:i=>Object.keys(store)[i]||null,get length(){return Object.keys(store).length}};Object.defineProperty(window,'localStorage',{value:local,configurable:true});}"""
 def onboard(page):
  page.evaluate(shim); page.set_content(html,wait_until='load'); page.get_by_role('heading',name='Como você quer começar?').wait_for()
- page.get_by_label('Seu nome').fill('Homologação V100.43'); page.get_by_label('Nome da empresa').fill('RealTalent Homologação'); page.get_by_role('button',name='Entrar no CRM').evaluate('el => el.click()'); page.get_by_role('heading',name='Meu Dia').wait_for(); page.wait_for_timeout(700)
+ page.get_by_label('Seu nome').fill('Homologação V100.45'); page.get_by_label('Nome da empresa').fill('RealTalent Homologação'); page.get_by_role('button',name='Entrar no CRM').evaluate('el => el.click()'); page.get_by_role('heading',name='Meu Dia').wait_for(); page.wait_for_timeout(700)
 def no_overflow(page,label): assert page.locator('body').evaluate('el=>el.scrollWidth<=innerWidth+3'),f'overflow em {label}'
 try:
  with sync_playwright() as p:

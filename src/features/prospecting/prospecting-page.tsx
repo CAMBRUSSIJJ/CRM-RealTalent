@@ -19,7 +19,7 @@ import {
   readProspectingState, readRemoteProspectingState, refreshProspectAnalysis, writeProspectingState,
   type CaptureDraft, type ProspectRecord, type ProspectSource, type ProspectStatus, type ProspectingState,
 } from '../../services/prospecting-workspace'
-import { recordLocalIntegrationEvent } from '../../services/integration-workspace'
+import { recordLocalIntegrationEvent } from '../../services/integration-framework'
 import { usePreferences } from '../settings/preferences-context'
 
  type ProspectingTab = 'search' | 'processing' | 'results' | 'kanban' | 'history'

@@ -193,8 +193,8 @@ const readDatabase = (): LocalDatabase => {
       opportunities: Array.isArray(parsed.opportunities) ? parsed.opportunities : [],
       socialProfiles: Array.isArray(parsed.socialProfiles) ? parsed.socialProfiles : [],
       products: Array.isArray(parsed.products) ? parsed.products : [],
-      proposals: Array.isArray(parsed.proposals) ? parsed.proposals : [],
-      revenueEntries: Array.isArray(parsed.revenueEntries) ? parsed.revenueEntries : [],
+      proposals: Array.isArray(parsed.proposals) ? parsed.proposals.map((item) => normalizeProposal(item as ProposalRecord)) : [],
+      revenueEntries: Array.isArray(parsed.revenueEntries) ? parsed.revenueEntries.map((item) => ({ ...item, competenceDate: item.competenceDate ?? item.recognizedAt?.slice(0, 10) ?? new Date().toISOString().slice(0, 10), servicePeriodStart: item.servicePeriodStart ?? null, servicePeriodEnd: item.servicePeriodEnd ?? null, adjustmentReason: item.adjustmentReason ?? '' })) : [],
       members: Array.isArray(parsed.members) ? parsed.members : [],
       invites: Array.isArray(parsed.invites) ? parsed.invites : [],
       auditLogs: Array.isArray(parsed.auditLogs) ? parsed.auditLogs : [],
@@ -228,28 +228,65 @@ const proposalItemTotals = (item: ProposalLineItem): ProposalLineItem => {
 
 const normalizeProposal = (proposal: ProposalRecord): ProposalRecord => {
   const items = proposal.items.map(proposalItemTotals)
+  const oneTimeTotal = items.filter((item) => item.billingType === 'one_time').reduce((sum, item) => sum + item.lineTotal, 0)
+  const recurringMonthlyTotal = items.reduce((sum, item) => sum + item.recurringMonthlyTotal, 0)
+  const contractTermMonths = Math.max(1, Number(proposal.contractTermMonths || 12))
+  const annualRecurringTotal = recurringMonthlyTotal * 12
+  const totalContractValue = oneTimeTotal + recurringMonthlyTotal * contractTermMonths
   return {
-    ...proposal, items,
+    ...proposal,
+    items,
     subtotal: items.reduce((sum, item) => sum + item.lineSubtotal, 0),
     discountTotal: items.reduce((sum, item) => sum + item.lineDiscount, 0),
     taxTotal: items.reduce((sum, item) => sum + item.lineTax, 0),
     total: items.reduce((sum, item) => sum + item.lineTotal, 0),
-    recurringMonthlyTotal: items.reduce((sum, item) => sum + item.recurringMonthlyTotal, 0),
+    recurringMonthlyTotal,
+    oneTimeTotal,
+    annualRecurringTotal,
+    totalContractValue,
+    isOfficial: Boolean(proposal.isOfficial),
+    isCurrentVersion: proposal.isCurrentVersion !== false,
+    supersededById: proposal.supersededById ?? null,
+    expectedCloseAt: proposal.expectedCloseAt ?? null,
+    contractStartAt: proposal.contractStartAt ?? null,
+    contractEndAt: proposal.contractEndAt ?? null,
+    contractTermMonths,
+    autoRenew: Boolean(proposal.autoRenew),
+    postSaleStartAt: proposal.postSaleStartAt ?? null,
+    postSaleCadenceName: proposal.postSaleCadenceName ?? 'Onboarding padrão',
+    closedWonAt: proposal.closedWonAt ?? null,
   }
 }
 
 const proposalSequence = (db: LocalDatabase, workspaceId: string) => {
   const year = new Date().getFullYear()
-  const count = db.proposals.filter((item) => item.workspaceId === workspaceId && item.proposalNumber.startsWith(`PROP-${year}-`)).length + 1
-  return `PROP-${year}-${String(count).padStart(3, '0')}`
+  const numbers = new Set(db.proposals.filter((item) => item.workspaceId === workspaceId && item.proposalNumber.startsWith(`PROP-${year}-`)).map((item) => item.proposalNumber))
+  return `PROP-${year}-${String(numbers.size + 1).padStart(3, '0')}`
 }
 
-const syncAcceptedProposalRevenue = (db: LocalDatabase, proposal: ProposalRecord) => {
-  const now = proposal.acceptedAt ?? new Date().toISOString()
-  db.revenueEntries = db.revenueEntries.filter((entry) => entry.proposalId !== proposal.id)
-  const oneTimeAmount = proposal.items.filter((item) => item.billingType === 'one_time').reduce((sum, item) => sum + item.lineTotal, 0)
-  if (oneTimeAmount > 0) db.revenueEntries.unshift({ id: createId('revenue'), workspaceId: proposal.workspaceId, proposalId: proposal.id, leadId: proposal.leadId, opportunityId: proposal.opportunityId, revenueType: 'one_time', status: 'recognized', amount: oneTimeAmount, recurringMonthlyAmount: 0, recognizedAt: now, description: `${proposal.proposalNumber} · receita única`, ownerId: proposal.ownerId, createdAt: now, updatedAt: now })
-  if (proposal.recurringMonthlyTotal > 0) db.revenueEntries.unshift({ id: createId('revenue'), workspaceId: proposal.workspaceId, proposalId: proposal.id, leadId: proposal.leadId, opportunityId: proposal.opportunityId, revenueType: 'recurring', status: 'recognized', amount: 0, recurringMonthlyAmount: proposal.recurringMonthlyTotal, recognizedAt: now, description: `${proposal.proposalNumber} · receita recorrente mensal`, ownerId: proposal.ownerId, createdAt: now, updatedAt: now })
+const syncCommercialFromOfficialProposal = (db: LocalDatabase, leadId: string, now = new Date().toISOString()) => {
+  const lead = db.leads.find((item) => item.id === leadId)
+  const opportunity = db.opportunities.find((item) => item.id === lead?.opportunityId || item.leadId === leadId)
+  const priority: Record<ProposalStatus, number> = { accepted: 5, viewed: 4, sent: 3, draft: 2, rejected: 0, expired: 0, cancelled: 0 }
+  const candidate = db.proposals
+    .filter((item) => item.leadId === leadId && item.isCurrentVersion && !['rejected', 'expired', 'cancelled'].includes(item.status) && !item.closedWonAt)
+    .sort((a, b) => priority[b.status] - priority[a.status] || new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime())[0]
+  for (const item of db.proposals) if (item.leadId === leadId) item.isOfficial = item.id === candidate?.id
+  if (candidate) {
+    if (lead) { lead.value = candidate.totalContractValue; lead.expectedCloseAt = candidate.expectedCloseAt; lead.updatedAt = now }
+    if (opportunity) { opportunity.officialProposalId = candidate.id; opportunity.value = candidate.totalContractValue; opportunity.expectedCloseAt = candidate.expectedCloseAt; opportunity.forecastCategory = candidate.forecastCategory; opportunity.probability = candidate.probability; opportunity.updatedAt = now }
+    return candidate
+  }
+  if (lead) { lead.value = 0; lead.updatedAt = now }
+  if (opportunity) {
+    const stage = db.stages.find((item) => item.id === opportunity.stageId)
+    opportunity.officialProposalId = null
+    opportunity.value = 0
+    opportunity.forecastCategory = 'pipeline'
+    opportunity.probability = stage?.probability ?? 0
+    opportunity.updatedAt = now
+  }
+  return null
 }
 
 const syncLeadNextAction = (db: LocalDatabase, leadId: string | null) => {
@@ -966,74 +1003,316 @@ export class LocalCrmRepository implements CrmRepository {
   async listProposals(workspaceId: string) { return clone(readDatabase().proposals.filter((item) => item.workspaceId === workspaceId).sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime())) }
 
   async createProposal(input: NewProposalInput) {
-    const db = readDatabase(); const lead = db.leads.find((item) => item.id === input.leadId && item.workspaceId === input.workspaceId)
+    const db = readDatabase()
+    const lead = db.leads.find((item) => item.id === input.leadId && item.workspaceId === input.workspaceId)
     if (!lead) throw new Error('Selecione um lead válido para a proposta.')
+    const linkedOpportunity = db.opportunities.find((item) => item.id === input.opportunityId || item.id === lead.opportunityId || item.leadId === lead.id)
+    if (lead.status === 'won' || linkedOpportunity?.status === 'won' || linkedOpportunity?.closedWonAt) throw new Error('Negócio ganho não aceita novas propostas. Crie um aditivo ou uma nova oportunidade.')
     if (!input.items.length) throw new Error('Adicione pelo menos um item à proposta.')
-    const now = new Date().toISOString(); const groupId = input.proposalGroupId || createId('proposal-group')
-    const proposal = normalizeProposal({ ...input, id: createId('proposal'), proposalGroupId: groupId, version: input.version ?? 1, proposalNumber: input.proposalNumber || proposalSequence(db, input.workspaceId), sentAt: null, viewedAt: null, acceptedAt: null, rejectedAt: null, createdAt: now, updatedAt: now })
-    db.proposals.unshift(proposal); lead.value = proposal.total; lead.expectedCloseAt = proposal.validUntil ?? lead.expectedCloseAt; lead.updatedAt = now
-    writeDatabase(db); return clone(proposal)
+    const now = new Date().toISOString()
+    const groupId = input.proposalGroupId || createId('proposal-group')
+    const proposalId = createId('proposal')
+    const hasOfficial = db.proposals.some((item) => item.workspaceId === input.workspaceId && item.leadId === input.leadId && item.isOfficial && item.isCurrentVersion && !['rejected', 'expired', 'cancelled'].includes(item.status))
+    const proposal = normalizeProposal({
+      ...input,
+      id: proposalId,
+      proposalGroupId: groupId,
+      version: input.version ?? 1,
+      proposalNumber: input.proposalNumber || proposalSequence(db, input.workspaceId),
+      isOfficial: !hasOfficial || Boolean(input.isOfficial),
+      isCurrentVersion: true,
+      supersededById: null,
+      sentAt: null,
+      viewedAt: null,
+      acceptedAt: null,
+      rejectedAt: null,
+      closedWonAt: null,
+      createdAt: now,
+      updatedAt: now,
+    })
+    if (proposal.isOfficial) {
+      for (const item of db.proposals) if (item.leadId === proposal.leadId && item.isOfficial) item.isOfficial = false
+    }
+    db.proposals.unshift(proposal)
+    if (proposal.isOfficial) {
+      lead.value = proposal.totalContractValue
+      lead.expectedCloseAt = proposal.expectedCloseAt
+      lead.updatedAt = now
+      const opportunity = db.opportunities.find((item) => item.id === proposal.opportunityId || item.leadId === proposal.leadId)
+      if (opportunity) {
+        opportunity.value = proposal.totalContractValue
+        opportunity.expectedCloseAt = proposal.expectedCloseAt
+        opportunity.forecastCategory = proposal.forecastCategory
+        opportunity.probability = proposal.probability
+        opportunity.officialProposalId = proposal.id
+        opportunity.updatedAt = now
+      }
+    }
+    writeDatabase(db)
+    return clone(proposal)
   }
 
   async updateProposal(proposalId: string, input: UpdateProposalInput) {
-    const db = readDatabase(); const index = db.proposals.findIndex((item) => item.id === proposalId)
+    const db = readDatabase()
+    const index = db.proposals.findIndex((item) => item.id === proposalId)
     if (index < 0) throw new Error('Proposta não encontrada.')
     const current = db.proposals[index]
-    if (['accepted', 'cancelled'].includes(current.status) && input.items) throw new Error('Crie uma revisão para alterar itens de uma proposta encerrada.')
-    const next = normalizeProposal({ ...current, ...input, probability: input.probability !== undefined ? Math.min(100, Math.max(0, Number(input.probability))) : current.probability, updatedAt: new Date().toISOString() })
+    const linkedOpportunity = db.opportunities.find((item) => item.id === current.opportunityId || item.leadId === current.leadId)
+    if (current.closedWonAt || linkedOpportunity?.status === 'won' || linkedOpportunity?.closedWonAt) throw new Error('Propostas de negócio ganho são imutáveis. Crie um aditivo ou uma nova oportunidade.')
+    if (!current.isCurrentVersion) throw new Error('Edite somente a revisão vigente da proposta.')
+    if (current.status !== 'draft') throw new Error('Propostas enviadas ou encerradas são imutáveis. Crie uma nova revisão.')
+    if (input.status !== undefined && input.status !== current.status) throw new Error('Altere o status pelos comandos da proposta.')
+    const now = new Date().toISOString()
+    const next = normalizeProposal({
+      ...current,
+      ...input,
+      probability: input.probability !== undefined ? Math.min(100, Math.max(0, Number(input.probability))) : current.probability,
+      updatedAt: now,
+    })
     db.proposals[index] = next
-    const lead = db.leads.find((item) => item.id === next.leadId); if (lead) { lead.value = next.total; lead.expectedCloseAt = next.validUntil ?? lead.expectedCloseAt; lead.updatedAt = next.updatedAt }
-    writeDatabase(db); return clone(next)
+    if (next.isOfficial) {
+      const lead = db.leads.find((item) => item.id === next.leadId)
+      if (lead) {
+        lead.value = next.totalContractValue
+        lead.expectedCloseAt = next.expectedCloseAt
+        lead.updatedAt = now
+      }
+      const opportunity = db.opportunities.find((item) => item.id === next.opportunityId || item.leadId === next.leadId)
+      if (opportunity) {
+        opportunity.value = next.totalContractValue
+        opportunity.expectedCloseAt = next.expectedCloseAt
+        opportunity.forecastCategory = next.forecastCategory
+        opportunity.probability = next.probability
+        opportunity.officialProposalId = next.id
+        opportunity.updatedAt = now
+      }
+    }
+    writeDatabase(db)
+    return clone(next)
   }
 
   async createProposalRevision(proposalId: string) {
-    const db = readDatabase(); const source = db.proposals.find((item) => item.id === proposalId)
+    const db = readDatabase()
+    const source = db.proposals.find((item) => item.id === proposalId)
     if (!source) throw new Error('Proposta não encontrada.')
-    const now = new Date().toISOString(); const version = Math.max(...db.proposals.filter((item) => item.proposalGroupId === source.proposalGroupId).map((item) => item.version), 0) + 1
-    const revision = normalizeProposal({ ...clone(source), id: createId('proposal'), version, status: 'draft', forecastCategory: source.forecastCategory === 'closed' ? 'best_case' : source.forecastCategory, sentAt: null, viewedAt: null, acceptedAt: null, rejectedAt: null, items: source.items.map((item) => ({ ...item, id: createId('proposal-item') })), createdAt: now, updatedAt: now })
-    db.proposals.unshift(revision); writeDatabase(db); return clone(revision)
+    const linkedOpportunity = db.opportunities.find((item) => item.id === source.opportunityId || item.leadId === source.leadId)
+    if (!source.isCurrentVersion) throw new Error('Crie a revisão a partir da versão vigente.')
+    if (source.closedWonAt || linkedOpportunity?.status === 'won' || linkedOpportunity?.closedWonAt) throw new Error('Negócio ganho não pode ser revisado. Crie um aditivo ou uma nova oportunidade.')
+    const now = new Date().toISOString()
+    const wasOfficial = source.isOfficial
+    const version = Math.max(...db.proposals.filter((item) => item.proposalGroupId === source.proposalGroupId).map((item) => item.version), 0) + 1
+    const revisionId = createId('proposal')
+    for (const item of db.proposals.filter((item) => item.proposalGroupId === source.proposalGroupId && item.isCurrentVersion)) {
+      item.isCurrentVersion = false
+      item.isOfficial = false
+      item.supersededById = revisionId
+      item.updatedAt = now
+    }
+    const revision = normalizeProposal({
+      ...clone(source),
+      id: revisionId,
+      version,
+      status: 'draft',
+      forecastCategory: source.forecastCategory === 'closed' ? 'best_case' : source.forecastCategory,
+      probability: source.probability === 100 ? 60 : source.probability,
+      isOfficial: wasOfficial,
+      isCurrentVersion: true,
+      supersededById: null,
+      sentAt: null,
+      viewedAt: null,
+      acceptedAt: null,
+      rejectedAt: null,
+      closedWonAt: null,
+      items: source.items.map((item) => ({ ...item, id: createId('proposal-item') })),
+      createdAt: now,
+      updatedAt: now,
+    })
+    db.proposals.unshift(revision)
+    if (wasOfficial) {
+      revision.isOfficial = true
+      const lead = db.leads.find((item) => item.id === revision.leadId)
+      if (lead) {
+        lead.value = revision.totalContractValue
+        lead.expectedCloseAt = revision.expectedCloseAt
+        lead.updatedAt = now
+      }
+      const opportunity = db.opportunities.find((item) => item.id === revision.opportunityId || item.leadId === revision.leadId)
+      if (opportunity) {
+        opportunity.officialProposalId = revision.id
+        opportunity.value = revision.totalContractValue
+        opportunity.expectedCloseAt = revision.expectedCloseAt
+        opportunity.forecastCategory = revision.forecastCategory
+        opportunity.probability = revision.probability
+        opportunity.updatedAt = now
+      }
+    }
+    writeDatabase(db)
+    return clone(revision)
+  }
+
+  async setOfficialProposal(proposalId: string) {
+    const db = readDatabase()
+    const proposal = db.proposals.find((item) => item.id === proposalId)
+    if (!proposal) throw new Error('Proposta não encontrada.')
+    if (!proposal.isCurrentVersion) throw new Error('Somente a revisão vigente pode ser oficial.')
+    if (['rejected', 'expired', 'cancelled'].includes(proposal.status)) throw new Error('Uma proposta encerrada não pode ser oficial.')
+    const linkedOpportunity = db.opportunities.find((item) => item.id === proposal.opportunityId || item.leadId === proposal.leadId)
+    if (linkedOpportunity?.status === 'won' || linkedOpportunity?.closedWonAt) throw new Error('A proposta oficial de um negócio ganho não pode ser substituída.')
+    const now = new Date().toISOString()
+    for (const item of db.proposals) {
+      if (item.workspaceId === proposal.workspaceId && item.leadId === proposal.leadId && item.isOfficial) {
+        item.isOfficial = false
+        item.updatedAt = now
+      }
+    }
+    proposal.isOfficial = true
+    proposal.updatedAt = now
+    const lead = db.leads.find((item) => item.id === proposal.leadId)
+    if (lead) {
+      lead.value = proposal.totalContractValue
+      lead.expectedCloseAt = proposal.expectedCloseAt
+      lead.updatedAt = now
+    }
+    const opportunity = linkedOpportunity
+    if (opportunity) {
+      opportunity.officialProposalId = proposal.id
+      opportunity.value = proposal.totalContractValue
+      opportunity.expectedCloseAt = proposal.expectedCloseAt
+      opportunity.forecastCategory = proposal.forecastCategory
+      opportunity.probability = proposal.probability
+      opportunity.updatedAt = now
+    }
+    writeDatabase(db)
+    return clone(proposal)
   }
 
   async updateProposalStatus(proposalId: string, status: ProposalStatus) {
-    const db = readDatabase(); const proposal = db.proposals.find((item) => item.id === proposalId)
+    const db = readDatabase()
+    const proposal = db.proposals.find((item) => item.id === proposalId)
     if (!proposal) throw new Error('Proposta não encontrada.')
-    const now = new Date().toISOString(); proposal.status = status; proposal.updatedAt = now
+    if (!proposal.isCurrentVersion) throw new Error('Altere apenas a revisão vigente.')
+    const linkedOpportunity = db.opportunities.find((item) => item.id === proposal.opportunityId || item.leadId === proposal.leadId)
+    if (proposal.closedWonAt || linkedOpportunity?.status === 'won' || linkedOpportunity?.closedWonAt) throw new Error('O status de uma proposta vinculada a negócio ganho não pode ser alterado.')
+    if (proposal.status === status) return clone(proposal)
+    const wasOfficial = proposal.isOfficial
+    const transitions: Record<ProposalStatus, ProposalStatus[]> = {
+      draft: ['sent', 'cancelled'],
+      sent: ['viewed', 'accepted', 'rejected', 'expired', 'cancelled'],
+      viewed: ['accepted', 'rejected', 'expired', 'cancelled'],
+      accepted: ['cancelled'],
+      rejected: [],
+      expired: [],
+      cancelled: [],
+    }
+    if (!transitions[proposal.status].includes(status)) throw new Error(`Transição inválida: ${proposal.status} → ${status}.`)
+    const now = new Date().toISOString()
+    proposal.status = status
+    proposal.updatedAt = now
     if (status === 'sent') proposal.sentAt = proposal.sentAt ?? now
     if (status === 'viewed') { proposal.sentAt = proposal.sentAt ?? now; proposal.viewedAt = now }
-    if (status === 'accepted') { proposal.acceptedAt = now; proposal.forecastCategory = 'closed'; proposal.probability = 100 }
-    if (status === 'rejected') { proposal.rejectedAt = now; proposal.forecastCategory = 'omitted'; proposal.probability = 0 }
-    if (status === 'cancelled' || status === 'expired') { proposal.forecastCategory = 'omitted'; proposal.probability = 0 }
+    if (status === 'accepted') {
+      for (const item of db.proposals) if (item.leadId === proposal.leadId && item.isOfficial) item.isOfficial = false
+      proposal.isOfficial = true
+      proposal.acceptedAt = now
+      proposal.forecastCategory = 'commit'
+      proposal.probability = 100
+    }
+    if (status === 'rejected') { proposal.rejectedAt = now; proposal.forecastCategory = 'omitted'; proposal.probability = 0; proposal.isOfficial = false }
+    if (status === 'cancelled' || status === 'expired') { proposal.forecastCategory = 'omitted'; proposal.probability = 0; proposal.isOfficial = false }
+    const lead = db.leads.find((item) => item.id === proposal.leadId)
+    const opportunity = linkedOpportunity
+    if (status === 'sent' && lead) {
+      const proposalStage = db.stages.find((stage) => stage.workspaceId === proposal.workspaceId && /proposta/i.test(stage.name))
+      if (proposalStage && lead.status === 'active') lead.stageId = proposalStage.id
+      db.activities.unshift(normalizeActivity({ id: createId('activity'), workspaceId: proposal.workspaceId, leadId: lead.id, type: 'note', title: `Proposta enviada — ${proposal.proposalNumber}`, description: proposal.title, dueAt: null, completedAt: now, assignedTo: proposal.ownerId, sourceType: 'system', sourceId: proposal.id, createdAt: now, updatedAt: now }))
+    }
+    if (status === 'accepted' && lead) {
+      lead.value = proposal.totalContractValue
+      lead.expectedCloseAt = proposal.expectedCloseAt
+      lead.updatedAt = now
+      if (opportunity) {
+        opportunity.officialProposalId = proposal.id
+        opportunity.value = proposal.totalContractValue
+        opportunity.expectedCloseAt = proposal.expectedCloseAt
+        opportunity.forecastCategory = 'commit'
+        opportunity.probability = 100
+        opportunity.updatedAt = now
+      }
+      db.activities.unshift(normalizeActivity({ id: createId('activity'), workspaceId: proposal.workspaceId, leadId: lead.id, type: 'note', title: `Aceite registrado — ${proposal.proposalNumber}`, description: `TCV: ${proposal.totalContractValue.toFixed(2)} · MRR: ${proposal.recurringMonthlyTotal.toFixed(2)}. Aguardando fechamento comercial e reconhecimento por competência.`, dueAt: null, completedAt: now, assignedTo: proposal.ownerId, sourceType: 'system', sourceId: proposal.id, createdAt: now, updatedAt: now }))
+    }
+    if (wasOfficial && ['rejected', 'expired', 'cancelled'].includes(status)) syncCommercialFromOfficialProposal(db, proposal.leadId, now)
+    writeDatabase(db)
+    return clone(proposal)
+  }
+
+  async closeOpportunityFromProposal(proposalId: string) {
+    const db = readDatabase()
+    const proposal = db.proposals.find((item) => item.id === proposalId)
+    if (!proposal) throw new Error('Proposta não encontrada.')
+    if (!proposal.isCurrentVersion || !proposal.isOfficial || proposal.status !== 'accepted') throw new Error('Aceite e oficialize a revisão vigente antes de fechar a oportunidade.')
+    if (proposal.closedWonAt) return clone(proposal)
+    const now = new Date().toISOString()
+    const won = db.stages.find((stage) => stage.workspaceId === proposal.workspaceId && stage.isWon)
     const lead = db.leads.find((item) => item.id === proposal.leadId)
     if (lead) {
-      lead.value = proposal.total; lead.updatedAt = now
-      if (status === 'accepted') {
-        const won = db.stages.find((stage) => stage.workspaceId === proposal.workspaceId && stage.isWon)
-        if (won) lead.stageId = won.id
-        lead.status = 'won'
-        db.activities.unshift(normalizeActivity({ id: createId('activity'), workspaceId: proposal.workspaceId, leadId: lead.id, type: 'note', title: `Proposta aceita — ${proposal.proposalNumber}`, description: `Valor fechado: ${proposal.total.toFixed(2)} · MRR: ${proposal.recurringMonthlyTotal.toFixed(2)}`, dueAt: null, completedAt: now, assignedTo: proposal.ownerId, sourceType: 'system', sourceId: proposal.id, createdAt: now, updatedAt: now }))
-        syncAcceptedProposalRevenue(db, proposal)
-      } else if (status === 'sent') {
-        const proposalStage = db.stages.find((stage) => stage.workspaceId === proposal.workspaceId && /proposta/i.test(stage.name))
-        if (proposalStage && lead.status === 'active') lead.stageId = proposalStage.id
-        db.activities.unshift(normalizeActivity({ id: createId('activity'), workspaceId: proposal.workspaceId, leadId: lead.id, type: 'note', title: `Proposta enviada — ${proposal.proposalNumber}`, description: proposal.title, dueAt: null, completedAt: now, assignedTo: proposal.ownerId, sourceType: 'system', sourceId: proposal.id, createdAt: now, updatedAt: now }))
-      }
+      if (won) lead.stageId = won.id
+      lead.status = 'won'
+      lead.value = proposal.totalContractValue
+      lead.updatedAt = now
     }
-    writeDatabase(db); return clone(proposal)
+    const opportunity = db.opportunities.find((item) => item.id === proposal.opportunityId || item.leadId === proposal.leadId)
+    if (opportunity) {
+      if (won) opportunity.stageId = won.id
+      opportunity.status = 'won'
+      opportunity.value = proposal.totalContractValue
+      opportunity.forecastCategory = 'closed'
+      opportunity.probability = 100
+      opportunity.officialProposalId = proposal.id
+      opportunity.closedWonAt = now
+      opportunity.updatedAt = now
+    }
+    proposal.closedWonAt = now
+    proposal.forecastCategory = 'closed'
+    proposal.probability = 100
+    proposal.updatedAt = now
+    db.activities.unshift(normalizeActivity({ id: createId('activity'), workspaceId: proposal.workspaceId, leadId: proposal.leadId, type: 'note', title: `Oportunidade ganha — ${proposal.proposalNumber}`, description: `Contrato confirmado em ${proposal.totalContractValue.toFixed(2)}. Receita permanece pendente de reconhecimento.`, dueAt: null, completedAt: now, assignedTo: proposal.ownerId, sourceType: 'system', sourceId: proposal.id, createdAt: now, updatedAt: now }))
+    const postSaleDue = proposal.postSaleStartAt ? new Date(`${proposal.postSaleStartAt}T12:00:00`).toISOString() : now
+    db.activities.unshift(normalizeActivity({ id: createId('activity'), workspaceId: proposal.workspaceId, leadId: proposal.leadId, type: 'followup', title: `Iniciar pós-venda — ${proposal.postSaleCadenceName || 'Onboarding padrão'}`, description: 'Cadência criada após o fechamento. Ajuste a data ou o responsável quando necessário.', dueAt: postSaleDue, completedAt: null, assignedTo: proposal.ownerId, sourceType: 'system', sourceId: proposal.id, createdAt: now, updatedAt: now }))
+    writeDatabase(db)
+    return clone(proposal)
   }
 
   async deleteProposal(proposalId: string) {
-    const db = readDatabase(); const proposal = db.proposals.find((item) => item.id === proposalId)
+    const db = readDatabase()
+    const proposal = db.proposals.find((item) => item.id === proposalId)
     if (!proposal) return
-    if (proposal.status === 'accepted') throw new Error('Proposta aceita não pode ser excluída. Cancele o lançamento de receita com auditoria.')
-    db.proposals = db.proposals.filter((item) => item.id !== proposalId); writeDatabase(db)
+    const linkedOpportunity = db.opportunities.find((item) => item.id === proposal.opportunityId || item.leadId === proposal.leadId)
+    if (proposal.isOfficial) throw new Error('A proposta oficial não pode ser excluída. Defina outra proposta como oficial ou cancele-a primeiro.')
+    if (proposal.status === 'accepted' || proposal.closedWonAt || linkedOpportunity?.status === 'won' || linkedOpportunity?.closedWonAt) throw new Error('Proposta aceita ou vinculada a negócio ganho não pode ser excluída. Preserve a auditoria e crie um aditivo quando necessário.')
+    db.proposals = db.proposals.filter((item) => item.id !== proposalId)
+    writeDatabase(db)
   }
 
   async listRevenueEntries(workspaceId: string) { return clone(readDatabase().revenueEntries.filter((item) => item.workspaceId === workspaceId).sort((a, b) => new Date(b.recognizedAt).getTime() - new Date(a.recognizedAt).getTime())) }
 
   async createRevenueEntry(input: NewRevenueEntryInput) {
-    const db = readDatabase(); const now = new Date().toISOString()
-    const entry: RevenueEntry = { ...input, id: createId('revenue'), amount: Math.max(0, Number(input.amount || 0)), recurringMonthlyAmount: Math.max(0, Number(input.recurringMonthlyAmount || 0)), createdAt: now, updatedAt: now }
-    db.revenueEntries.unshift(entry); writeDatabase(db); return clone(entry)
+    const db = readDatabase()
+    const now = new Date().toISOString()
+    const entry: RevenueEntry = {
+      ...input,
+      id: createId('revenue'),
+      amount: Math.max(0, Number(input.amount || 0)),
+      recurringMonthlyAmount: Math.max(0, Number(input.recurringMonthlyAmount || 0)),
+      competenceDate: input.competenceDate || input.recognizedAt.slice(0, 10),
+      servicePeriodStart: input.servicePeriodStart ?? null,
+      servicePeriodEnd: input.servicePeriodEnd ?? null,
+      adjustmentReason: input.adjustmentReason?.trim() ?? '',
+      createdAt: now,
+      updatedAt: now,
+    }
+    db.revenueEntries.unshift(entry)
+    writeDatabase(db)
+    return clone(entry)
   }
 
   async updateRevenueEntryStatus(entryId: string, status: RevenueEntry['status']) {

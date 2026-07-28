@@ -98,6 +98,8 @@ interface AppContextValue {
   updateProposal(proposalId: string, input: UpdateProposalInput): Promise<ProposalRecord>
   createProposalRevision(proposalId: string): Promise<ProposalRecord>
   updateProposalStatus(proposalId: string, status: ProposalStatus): Promise<ProposalRecord>
+  setOfficialProposal(proposalId: string): Promise<ProposalRecord>
+  closeOpportunityFromProposal(proposalId: string): Promise<ProposalRecord>
   deleteProposal(proposalId: string): Promise<void>
   createRevenueEntry(input: RevenueCreatePayload): Promise<RevenueEntry>
   updateRevenueEntryStatus(entryId: string, status: RevenueEntry['status']): Promise<RevenueEntry>
@@ -476,7 +478,7 @@ export function AppProvider({ children }: PropsWithChildren) {
             warnings: [...warnings], webhookDeliveryIds, durationMs: Date.now() - runStartedAt,
           })
         } catch {
-          notify('warning', 'A automação foi concluída, mas o vínculo final com o log de webhook precisa ser revisado.')
+          notify('info', 'A automação foi concluída, mas o vínculo final com o log de webhook precisa ser revisado.')
         }
       }
     }
@@ -704,7 +706,9 @@ export function AppProvider({ children }: PropsWithChildren) {
     async createProposal(input) { assertWritable(); if (!currentWorkspace) throw new Error('Selecione um workspace.'); const proposal = await repository.createProposal({ ...input, workspaceId: currentWorkspace.id }); await refreshData(); notify('success', 'Proposta criada.'); return proposal },
     async updateProposal(proposalId, input) { assertWritable(); const proposal = await repository.updateProposal(proposalId, input); await refreshData(); notify('success', 'Proposta atualizada.'); return proposal },
     async createProposalRevision(proposalId) { assertWritable(); const proposal = await repository.createProposalRevision(proposalId); await refreshData(); notify('success', `Revisão v${proposal.version} criada.`); return proposal },
-    async updateProposalStatus(proposalId, status) { assertWritable(); const proposal = await repository.updateProposalStatus(proposalId, status); const lead = snapshot?.leads.find((item) => item.id === proposal.leadId); if (lead && status === 'sent') await executeAutomationEvent({ triggerType: 'proposal_sent', entityId: `${proposal.id}:${proposal.updatedAt}`, lead }, { refreshAfter: false }); if (lead && status === 'accepted') await executeAutomationEvent({ triggerType: 'opportunity_won', entityId: `${proposal.id}:${proposal.updatedAt}`, lead }, { refreshAfter: false }); if (lead && status === 'rejected') await executeAutomationEvent({ triggerType: 'opportunity_lost', entityId: `${proposal.id}:${proposal.updatedAt}`, lead }, { refreshAfter: false }); await refreshData(); notify('success', status === 'accepted' ? 'Proposta aceita e receita reconhecida.' : 'Status da proposta atualizado.'); return proposal },
+    async updateProposalStatus(proposalId, status) { assertWritable(); const proposal = await repository.updateProposalStatus(proposalId, status); const lead = snapshot?.leads.find((item) => item.id === proposal.leadId); if (lead && status === 'sent') await executeAutomationEvent({ triggerType: 'proposal_sent', entityId: `${proposal.id}:${proposal.updatedAt}`, lead }, { refreshAfter: false }); await refreshData(); notify('success', status === 'accepted' ? 'Aceite registrado. Fechamento e receita continuam separados.' : 'Status da proposta atualizado.'); return proposal },
+    async setOfficialProposal(proposalId) { assertWritable(); const proposal = await repository.setOfficialProposal(proposalId); await refreshData(); notify('success', 'Proposta definida como oficial do forecast.'); return proposal },
+    async closeOpportunityFromProposal(proposalId) { assertWritable(); const proposal = await repository.closeOpportunityFromProposal(proposalId); const lead = snapshot?.leads.find((item) => item.id === proposal.leadId); if (lead) await executeAutomationEvent({ triggerType: 'opportunity_won', entityId: `${proposal.id}:${proposal.updatedAt}`, lead }, { refreshAfter: false }); await refreshData(); notify('success', 'Oportunidade fechada como ganha. Receita ainda deve ser reconhecida na competência correta.'); return proposal },
     async deleteProposal(proposalId) { assertWritable(); await repository.deleteProposal(proposalId); await refreshData(); notify('success', 'Proposta removida.') },
     async createRevenueEntry(input) { assertWritable(); if (!currentWorkspace) throw new Error('Selecione um workspace.'); const entry = await repository.createRevenueEntry({ ...input, workspaceId: currentWorkspace.id }); await refreshData(); notify('success', 'Receita registrada.'); return entry },
     async updateRevenueEntryStatus(entryId, status) { assertWritable(); const entry = await repository.updateRevenueEntryStatus(entryId, status); await refreshData(); notify('success', 'Receita atualizada.'); return entry },

@@ -1,0 +1,22 @@
+{
+  "version": "100.46.2",
+  "generatedAt": "2026-07-28T04:23:58.411Z",
+  "source": "TypeScript/TSX official source",
+  "buildMode": "registry-independent",
+  "externalRuntime": {
+    "provider": "esm.sh",
+    "pinned": true,
+    "packages": [
+      "react@19.2.7",
+      "react-dom@19.2.7",
+      "lucide-react@1.24.0",
+      "@supabase/supabase-js@2.110.7"
+    ]
+  },
+  "modules": 103,
+  "files": {
+    "javascript": "realtalent-crm-v100-46-2.js",
+    "css": "realtalent-crm-v100-46-2.css",
+    "sha256": "092499b971b3cb20e8ac19dd265a0b9a85a649709f7bf412ba397a91d7c2971b"
+  }
+}

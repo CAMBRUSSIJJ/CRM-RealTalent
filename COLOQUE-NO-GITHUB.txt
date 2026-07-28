@@ -1,0 +1,19 @@
+REALTALENT CRM V100.46.2 — PACOTE LIMPO PARA GITHUB/VERCEL
+
+1. No GitHub Desktop, abra o repositório CRM-RealTalent.
+2. Repository > Show in Explorer.
+3. Na pasta do repositório, preserve SOMENTE a pasta oculta .git.
+4. Apague os outros arquivos antigos.
+5. Copie TODO o conteúdo desta pasta para a raiz do repositório.
+6. Commit to main e Push origin.
+
+No Vercel, cadastre em Environment Variables:
+VITE_DATA_MODE=supabase
+VITE_SUPABASE_URL=https://SEU-PROJETO.supabase.co
+VITE_SUPABASE_PUBLISHABLE_KEY=SUA_CHAVE_PUBLICAVEL
+
+O arquivo vercel.json já fixa:
+- npm público
+- Framework Vite
+- npm run build
+- saída dist

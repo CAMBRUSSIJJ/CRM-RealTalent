@@ -1,0 +1,17 @@
+REALTALENT CRM V100.46.2 — PUBLICAÇÃO SIMPLES NO VERCEL
+
+1. Copie TODO o conteúdo desta pasta para a raiz do repositório no GitHub Desktop.
+2. Faça Commit to main e Push origin.
+3. No Vercel, deixe Root Directory como ./ e Output Directory como dist.
+4. Não altere Install Command nem Build Command: o arquivo vercel.json já configura tudo.
+5. Aguarde um NOVO deployment.
+
+Esta versão não usa npm install durante o deployment.
+O build usa o compilador TypeScript incluído na pasta vendor.
+
+Para usar o Supabase com dados reais, mantenha no Vercel:
+VITE_DATA_MODE=supabase
+VITE_SUPABASE_URL=https://SEU-PROJETO.supabase.co
+VITE_SUPABASE_PUBLISHABLE_KEY=SUA-CHAVE-PUBLICA
+
+Nunca use a chave service_role no Vercel/frontend.

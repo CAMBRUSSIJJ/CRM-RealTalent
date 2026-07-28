@@ -8,7 +8,7 @@ where node >nul 2>nul || (
   exit /b 1
 )
 if not exist node_modules call npm ci || goto :erro
-call npm run check || goto :erro
+call npm run homologate || goto :erro
 echo.
 echo CRM aprovado nas validacoes disponiveis neste computador.
 pause

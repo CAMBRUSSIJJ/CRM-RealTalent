@@ -23,6 +23,8 @@ export const DEFAULT_AUTOMATION_GUARD: AutomationGuard = {
   maxActionsPerRun: 8,
   stopOnError: true,
   preventDuplicates: true,
+  maxChainDepth: 4,
+  loopWindowMinutes: 10,
 }
 
 export const triggerLabels: Record<AutomationTriggerType, string> = {
@@ -89,6 +91,7 @@ export const actionLabels: Record<AutomationActionType, string> = {
   mark_lost: 'Marcar como perdido',
   assisted_whatsapp: 'Preparar WhatsApp assistido',
   assisted_email: 'Preparar e-mail assistido',
+  send_webhook: 'Enviar webhook',
 }
 
 const safeNumber = (value: unknown, fallback: number) => {
@@ -108,6 +111,8 @@ export function readAutomationGuard(conditions: AutomationCondition[]): Automati
       maxActionsPerRun: Math.max(1, safeNumber(parsed.maxActionsPerRun, DEFAULT_AUTOMATION_GUARD.maxActionsPerRun)),
       stopOnError: parsed.stopOnError !== false,
       preventDuplicates: parsed.preventDuplicates !== false,
+      maxChainDepth: Math.max(1, safeNumber(parsed.maxChainDepth, DEFAULT_AUTOMATION_GUARD.maxChainDepth)),
+      loopWindowMinutes: Math.max(1, safeNumber(parsed.loopWindowMinutes, DEFAULT_AUTOMATION_GUARD.loopWindowMinutes)),
     }
   } catch {
     return { ...DEFAULT_AUTOMATION_GUARD, mode: 'simulation' }
@@ -130,7 +135,7 @@ export function automationRuleRisk(rule: Pick<AutomationRule, 'triggerType' | 'c
   let score = 0
   if (rule.actions.length >= 5) score += 2
   if (['lead_created', 'stage_changed', 'call_outcome', 'activity_completed'].includes(rule.triggerType)) score += 1
-  if (rule.actions.some((action) => ['move_stage', 'mark_lost', 'end_cadence'].includes(action.type))) score += 2
+  if (rule.actions.some((action) => ['move_stage', 'mark_lost', 'end_cadence', 'send_webhook'].includes(action.type))) score += 2
   if (!visibleAutomationConditions(rule.conditions).length) score += 2
   if (guard.mode === 'simulation') score -= 2
   if (guard.cooldownHours >= 12) score -= 1
@@ -154,10 +159,16 @@ export function validateAutomationRule(rule: Pick<AutomationRule, 'name' | 'trig
   if (!conditions.length) warnings.push('A regra não possui condições e poderá atingir todos os leads do gatilho.')
   for (const action of rule.actions) {
     if (['move_stage'].includes(action.type) && !stages.some((stage) => stage.id === action.value)) errors.push('Uma ação aponta para uma etapa que não existe mais.')
-    if (['add_tag', 'remove_tag', 'create_followup', 'create_call', 'create_meeting', 'create_note', 'internal_alert', 'start_cadence', 'assisted_whatsapp', 'assisted_email'].includes(action.type) && !action.value.trim()) errors.push(`${actionLabels[action.type]} precisa de um título ou valor.`)
+    if (['add_tag', 'remove_tag', 'create_followup', 'create_call', 'create_meeting', 'create_note', 'internal_alert', 'start_cadence', 'assisted_whatsapp', 'assisted_email', 'send_webhook'].includes(action.type) && !action.value.trim()) errors.push(`${actionLabels[action.type]} precisa de um título ou valor.`)
   }
   if (rule.triggerType === 'stage_changed' && rule.actions.some((action) => action.type === 'move_stage') && !conditions.some((condition) => condition.field === 'stage_id')) warnings.push('Mover etapa após qualquer mudança pode criar um fluxo difícil de controlar. Adicione uma condição de etapa.')
   if (rule.triggerType === 'opportunity_lost' && rule.actions.some((action) => action.type === 'mark_lost')) warnings.push('A oportunidade já estará perdida quando este gatilho ocorrer.')
+  const webhookIndex = rule.actions.findIndex((action) => action.type === 'send_webhook')
+  if (webhookIndex >= 0 && webhookIndex !== rule.actions.length - 1) errors.push('O webhook deve ser a última ação da regra para evitar envios externos antes da conclusão das alterações internas.')
+  if (rule.actions.filter((action) => action.type === 'send_webhook').length > 1) errors.push('Use apenas um webhook por regra. Crie regras separadas para destinos diferentes.')
+  if (rule.triggerType === 'stage_changed' && rule.actions.some((action) => action.type === 'move_stage')) warnings.push('Esta combinação pode reativar a própria regra. A profundidade e a janela anti-loop serão aplicadas.')
+  if (guard.maxChainDepth > 8) warnings.push('Profundidade de cadeia acima de 8 pode dificultar a auditoria.')
+  if (guard.loopWindowMinutes < 2) warnings.push('A janela anti-loop abaixo de 2 minutos oferece pouca proteção contra ciclos rápidos.')
   if (guard.mode === 'live' && guard.cooldownHours === 0) warnings.push('A automação está ativa sem intervalo de segurança entre execuções.')
   if (!guard.preventDuplicates) warnings.push('A prevenção de tarefas duplicadas está desativada.')
   return { errors: Array.from(new Set(errors)), warnings: Array.from(new Set(warnings)), risk: automationRuleRisk(rule) }
@@ -175,6 +186,7 @@ export function describeAutomationAction(action: AutomationAction, stages: Pipel
   if (action.type === 'start_cadence') return `Iniciar cadência “${action.value}” com três contatos estruturados`
   if (action.type === 'end_cadence') return 'Concluir atividades pendentes da cadência atual'
   if (action.type === 'assisted_whatsapp' || action.type === 'assisted_email') return `${actionLabels[action.type]} com a mensagem “${action.value}”`
+  if (action.type === 'send_webhook') return `Enviar evento para o webhook configurado`
   return `${actionLabels[action.type]}${action.value ? `: ${action.value}` : ''}`
 }
 

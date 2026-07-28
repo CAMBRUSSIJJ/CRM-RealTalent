@@ -1,26 +1,10 @@
-# GitHub e Vercel
+# Publicação — RealTalent CRM V100.42
 
-## GitHub
+1. Execute `npm ci` e `npm run homologate`.
+2. Envie a alteração por branch e Pull Request.
+3. Configure os GitHub Environments `staging` e `production`.
+4. Execute **Publicar e homologar staging V100.42**.
+5. Confirme os relatórios E2E e de isolamento multiempresa.
+6. Promova somente pelo workflow protegido **Promover V100.42 para produção**.
 
-No Windows, execute `PREPARAR-GITHUB.bat`. O repositório deve ser privado, sem licença e sem arquivos `.env`.
-
-Pelo terminal:
-
-```bash
-git init
-git branch -M main
-git add .
-git commit -m "RealTalent CRM V100.29"
-gh repo create realtalent-crm --private --source=. --remote=origin --push
-```
-
-## Vercel
-
-1. importe o repositório;
-2. selecione Vite;
-3. use `npm run build` e saída `dist`;
-4. configure Node 22;
-5. cadastre as variáveis de `.env.production.example`;
-6. publique;
-7. adicione o domínio nas URLs do Supabase Auth;
-8. abra `/health.json` para confirmar a versão.
+O Vercel publica o build Vite. O HTML standalone é apenas um artefato derivado da mesma fonte TypeScript.

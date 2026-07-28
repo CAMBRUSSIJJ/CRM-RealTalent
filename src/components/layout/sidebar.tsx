@@ -1,4 +1,4 @@
-import { ChevronsLeft, ChevronsRight, LogOut, Zap } from 'lucide-react'
+import { ChevronsLeft, ChevronsRight, LogOut } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 import { useApp } from '../../app/app-context'
 import { useAuth } from '../../features/auth/auth-context'
@@ -31,7 +31,7 @@ export function Sidebar() {
   return (
     <aside className={`sidebar ${collapsed ? 'sidebar--collapsed' : ''}`}>
       <div className="sidebar__brand">
-        <div className="sidebar__logo">{preferences.company.logoDataUrl ? <img src={preferences.company.logoDataUrl} alt="Logo" /> : <Zap size={20} fill="currentColor" />}</div>
+        <div className="sidebar__logo">{preferences.company.logoDataUrl ? <img src={preferences.company.logoDataUrl} alt="Logo" /> : <span aria-hidden="true">RT</span>}</div>
         <div className="sidebar__brand-copy"><strong>{preferences.company.name || 'RealTalent'}</strong><span>CRM {APP_VERSION_LABEL}</span></div>
       </div>
       <nav className="sidebar__nav" aria-label="Navegação principal">

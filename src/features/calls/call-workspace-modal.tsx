@@ -35,7 +35,7 @@ import { Button } from '../../components/ui/button'
 import { Modal } from '../../components/ui/modal'
 import { StatusPill } from '../../components/ui/status-pill'
 import { formatDateTime } from '../../domain/formatters'
-import type { CallOutcome } from '../../domain/types'
+import type { CallOutcome, Lead } from '../../domain/types'
 import { deleteLocalRecording, readLocalRecording, saveLocalRecording } from '../../lib/local-recordings'
 import { CALL_OUTCOMES, defaultNextDate, outcomeDefinition, outcomeLabel } from '../../services/call-workspace'
 import {
@@ -101,6 +101,7 @@ const STORAGE_KEY = 'crm-v100-29-call-session'
 const LEGACY_STORAGE_KEY = 'crm-v100-10-call-session'
 const DRAFT_RECORDING_KEY = 'draft:crm-v100-call-session'
 const EMPTY_DISCOVERY: DiscoveryFields = { decisionMaker: '', currentSystem: '', mainPain: '', bestTime: '' }
+const priorityLabel: Record<Lead['priority'], string> = { urgent: 'urgente', high: 'alta', medium: 'média', low: 'baixa' }
 
 const safeStorageGet = (key: string) => { try { return window.localStorage.getItem(key) } catch { return null } }
 const safeStorageSet = (key: string, value: string) => { try { window.localStorage.setItem(key, value) } catch { /* armazenamento indisponível */ } }
@@ -119,7 +120,7 @@ const writeClipboard = async (content: string) => {
 }
 
 export function CallWorkspaceModal({ open, initialLeadId = '', queueLeadIds = [], onClose }: { open: boolean; initialLeadId?: string; queueLeadIds?: string[]; onClose(): void }) {
-  const { snapshot, repositoryMode, createCall, createActivity, createCalendarEvent, updateLead, notify } = useApp()
+  const { snapshot, repositoryMode, registerCallOutcome, notify } = useApp()
   const { preferences } = usePreferences()
   const [leadId, setLeadId] = useState('')
   const [routineIds, setRoutineIds] = useState<string[]>([])
@@ -168,10 +169,11 @@ export function CallWorkspaceModal({ open, initialLeadId = '', queueLeadIds = []
   const tokenValues = useMemo(() => ({
     'Nome do Lead': selectedLead?.name || 'nome do contato',
     'Nome do Estabelecimento': selectedLead?.company || 'estabelecimento',
+    'Responsável': selectedLead?.ownerName || 'consultor da RealTalent',
     'Dor principal': discovery.mainPain || 'o problema identificado',
     'Opção de horário 1': discovery.bestTime || 'terça-feira às 15h',
     'Opção de horário 2': 'quarta-feira às 10h',
-  }), [discovery.bestTime, discovery.mainPain, selectedLead?.company, selectedLead?.name])
+  }), [discovery.bestTime, discovery.mainPain, selectedLead?.company, selectedLead?.name, selectedLead?.ownerName])
 
   const renderedStep = useMemo(() => ({
     say: renderOutboundText(currentStep.say, tokenValues),
@@ -182,6 +184,7 @@ export function CallWorkspaceModal({ open, initialLeadId = '', queueLeadIds = []
     .replaceAll('{{nome}}', selectedLead?.name ?? 'lead')
     .replaceAll('{{empresa}}', selectedLead?.company || 'empresa')
     .replaceAll('{{cidade}}', selectedLead?.city || 'sua cidade')
+    .replaceAll('{{responsavel}}', selectedLead?.ownerName || 'consultor da RealTalent')
     .replaceAll('[Nome]', selectedLead?.name ?? 'lead')
     .replaceAll('[Empresa]', selectedLead?.company || 'empresa'), [selectedLead, selectedPlaybook?.content])
 
@@ -348,36 +351,6 @@ export function CallWorkspaceModal({ open, initialLeadId = '', queueLeadIds = []
     recognitionRef.current = recognition; recognition.start(); setListening(true)
   }
 
-  const applyLeadConsequences = async () => {
-    if (!selectedLead) return
-    const update: Parameters<typeof updateLead>[1] = {}
-    if (outcome === 'invalid_number') update.tags = [...new Set([...selectedLead.tags, 'telefone-invalido'])]
-    if (outcome === 'wrong_person') update.tags = [...new Set([...selectedLead.tags, 'buscar-decisor'])]
-    if (currentDefinition.closesLead) {
-      update.status = currentDefinition.closesLead
-      const finalStage = snapshot?.stages.find((stage) => currentDefinition.closesLead === 'won' ? stage.isWon : stage.isLost)
-      if (finalStage) update.stageId = finalStage.id
-      update.nextActionAt = null
-    } else if (outcome === 'proposal_requested' || outcome === 'proposal_sent') {
-      const proposalStage = snapshot?.stages.find((stage) => stage.name.toLowerCase().includes('proposta'))
-      if (proposalStage) update.stageId = proposalStage.id
-      if (scheduleNext && nextAt) update.nextActionAt = new Date(nextAt).toISOString()
-    } else if (scheduleNext && nextAt) update.nextActionAt = new Date(nextAt).toISOString()
-    if (Object.keys(update).length) await updateLead(selectedLead.id, update)
-  }
-
-  const createNextStep = async () => {
-    if (!scheduleNext || !nextAt || currentDefinition.closesLead) return
-    const nextIso = new Date(nextAt).toISOString()
-    if (outcome === 'meeting_scheduled') {
-      const end = new Date(nextIso); end.setMinutes(end.getMinutes() + 30)
-      await createCalendarEvent({ leadId, title: `Reunião — ${selectedLead?.name ?? 'Lead'}`, description: notes.trim(), startsAt: nextIso, endsAt: end.toISOString(), allDay: false, location: '', status: 'confirmed', assignedTo: null })
-      return
-    }
-    const duplicate = snapshot?.activities.some((activity) => activity.leadId === leadId && !activity.completedAt && activity.dueAt && Math.abs(new Date(activity.dueAt).getTime() - new Date(nextIso).getTime()) < 60_000 && ['call', 'followup'].includes(activity.type))
-    if (!duplicate) await createActivity({ leadId, type: 'call', title: `Ligação — ${selectedLead?.name ?? 'Lead'}`, description: `${outcomeLabel(outcome)}. ${notes.trim()}`.trim(), dueAt: nextIso, completedAt: null, assignedTo: null })
-  }
-
   const moveInQueue = (direction: 1 | -1) => {
     if (!confirmDiscardAttempt(direction > 0 ? 'Avançar para o próximo lead' : 'Voltar ao lead anterior')) return
     const nextIndex = queueIndex + direction
@@ -411,13 +384,20 @@ export function CallWorkspaceModal({ open, initialLeadId = '', queueLeadIds = []
         discoverySummary,
         notes.trim(),
       ].filter(Boolean).join(' ')
-      await createCall({ leadId, outcome, durationSeconds: seconds, notes: contextualNotes, transcript: `${transcript}${interim ? ` ${interim}` : ''}`.trim(), recordingPath: null, consentAt: blob && consent ? ended : null, startedAt: start, endedAt: ended }, blob)
-      try {
-        await createNextStep()
-        await applyLeadConsequences()
-      } catch (followupError) {
-        notify('info', `A ligação foi salva, mas o próximo passo precisa ser revisado: ${followupError instanceof Error ? followupError.message : 'falha no agendamento.'}`)
-      }
+      await registerCallOutcome({
+        leadId,
+        outcome,
+        durationSeconds: seconds,
+        notes: contextualNotes,
+        transcript: `${transcript}${interim ? ` ${interim}` : ''}`.trim(),
+        recordingPath: null,
+        consentAt: blob && consent ? ended : null,
+        startedAt: start,
+        endedAt: ended,
+        scheduleNext,
+        nextAt: scheduleNext && nextAt ? new Date(nextAt).toISOString() : null,
+        meetingDurationMinutes: 30,
+      }, blob)
       safeStorageRemove(STORAGE_KEY); safeStorageRemove(LEGACY_STORAGE_KEY)
       await clearDraftRecording()
       if (advance && routineIds[queueIndex + 1]) resetAttempt(routineIds[queueIndex + 1], queueIndex + 1)
@@ -491,9 +471,9 @@ export function CallWorkspaceModal({ open, initialLeadId = '', queueLeadIds = []
     open={open}
     onClose={requestClose}
     title="Modo Ligação em Foco"
-    subtitle={`${routineIds.length ? `${queueIndex + 1} de ${routineIds.length} na fila` : 'Ligação avulsa'} · playbook guiado, diagnóstico e execução no mesmo ambiente.`}
+    subtitle={`${routineIds.length ? `${queueIndex + 1} de ${routineIds.length} na fila` : 'Ligação avulsa'} · roteiro, diagnóstico e registro em uma única tela.`}
     size={fullScreen ? 'full' : 'xl'}
-    headerActions={<button className="button button--secondary button--sm call-focus-fullscreen" type="button" onClick={() => setFullScreen((value) => !value)}>{fullScreen ? <Minimize2 size={16} /> : <Maximize2 size={16} />}{fullScreen ? 'Sair da tela cheia' : 'Tela cheia'}</button>}
+    headerActions={<button className="button button--secondary button--sm call-focus-fullscreen" type="button" onClick={() => setFullScreen((value) => !value)}>{fullScreen ? <Minimize2 size={16} /> : <Maximize2 size={16} />}{fullScreen ? 'Restaurar janela' : 'Expandir área'}</button>}
     footer={<>
       <Button variant="ghost" disabled={!hasPrevious || busy} onClick={() => moveInQueue(-1)}><ArrowLeft size={16} /> Anterior</Button>
       <span className="modal__footer-spacer" />
@@ -507,7 +487,7 @@ export function CallWorkspaceModal({ open, initialLeadId = '', queueLeadIds = []
 
       <section className="call-focus-leadbar call-focus-leadbar--v29">
         <label className="compact-select"><span>Lead da ligação</span><select value={leadId} onChange={(event) => { if (!confirmDiscardAttempt('Trocar de lead')) return; const index = routineIds.indexOf(event.target.value); resetAttempt(event.target.value, Math.max(0, index)) }} disabled={recording}><option value="">Selecione</option>{snapshot?.leads.filter((lead) => lead.status === 'active').map((lead) => <option key={lead.id} value={lead.id}>{lead.name} · {lead.phone || 'sem telefone'}</option>)}</select></label>
-        {selectedLead ? <div className="call-focus-leadbar__identity"><span className="lead-cell__avatar">{selectedLead.name.slice(0, 2).toUpperCase()}</span><div><strong>{selectedLead.name}</strong><small>{selectedLead.company || 'Empresa não informada'} · {selectedStage?.name ?? 'Sem etapa'} · prioridade {selectedLead.priority}</small></div></div> : null}
+        {selectedLead ? <div className="call-focus-leadbar__identity"><span className="lead-cell__avatar">{selectedLead.name.slice(0, 2).toUpperCase()}</span><div><strong>{selectedLead.name}</strong><small>{selectedLead.company || 'Empresa não informada'} · {selectedStage?.name ?? 'Sem etapa'} · prioridade {priorityLabel[selectedLead.priority]}</small></div></div> : null}
         <div className="call-live-summary"><span className={`call-live-summary__dot ${session === 'running' ? 'is-live' : ''}`} /><div><strong>{formattedTime}</strong><small>{session === 'running' ? 'Conversa em andamento' : session === 'paused' ? 'Ligação pausada' : session === 'dialing' ? 'Discando' : session === 'finished' ? 'Tentativa finalizada' : 'Pronto para iniciar'}</small></div></div>
         <div className="call-focus-leadbar__actions">{selectedLead?.phone ? <><button className="button button--secondary button--sm" type="button" onClick={() => void copyPhone()}><Copy size={15} /> Copiar</button><a className="button button--primary button--sm" href={`tel:${selectedLead.phone.replace(/[^\d+]/g, '')}`} onClick={markDialing}><PhoneCall size={15} /> Ligar {selectedLead.phone}</a></> : null}</div>
       </section>
@@ -537,14 +517,14 @@ export function CallWorkspaceModal({ open, initialLeadId = '', queueLeadIds = []
           <section className="call-guided-script">
             <header className="call-guided-script__header">
               <div className="call-guided-script__identity"><span><BookOpenText size={21} /></span><div><small>Etapa {currentStep.order} · {currentStep.phase}</small><h2>{currentStep.title}</h2></div></div>
-              <div className="call-guided-script__tools"><StatusPill tone="info">Outbound V2</StatusPill><button className="icon-button" type="button" aria-label="Copiar etapa do roteiro" onClick={() => void copyCurrentStep()}><Copy size={17} /></button></div>
+              <div className="call-guided-script__tools"><StatusPill tone="info">Roteiro outbound</StatusPill><button className="icon-button" type="button" aria-label="Copiar etapa do roteiro" onClick={() => void copyCurrentStep()}><Copy size={17} /></button></div>
             </header>
 
             <div className="call-guided-objective"><Target size={18} /><div><span>Objetivo desta etapa</span><strong>{currentStep.objective}</strong></div></div>
 
             <div className="call-guided-script__body">
-              <section className="call-say-card"><span><Sparkles size={16} /> Diga agora</span><p>{renderedStep.say}</p></section>
-              {renderedStep.ask ? <section className="call-ask-card"><span><MessageCircleQuestion size={16} /> Pergunte depois</span><p>{renderedStep.ask}</p></section> : null}
+              <section className="call-say-card"><span><Sparkles size={16} /> Fala sugerida</span><p>{renderedStep.say}</p></section>
+              {renderedStep.ask ? <section className="call-ask-card"><span><MessageCircleQuestion size={16} /> Pergunta sugerida</span><p>{renderedStep.ask}</p></section> : null}
               <section className="call-coaching-line"><Lightbulb size={17} /><p><strong>Orientação:</strong> {currentStep.coaching}</p></section>
             </div>
 

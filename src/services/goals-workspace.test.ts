@@ -13,7 +13,7 @@ const snapshot: WorkspaceSnapshot = {
   playbooks: [],
   goals: DEMO_GOALS,
   automationRules: [],
-  automationRuns: [],
+  automationRuns: [], companies: [], contacts: [], opportunities: [], socialProfiles: [],
 }
 
 describe('goals workspace', () => {

@@ -1,5 +1,5 @@
 import {
-  AlertCircle, Archive, CalendarClock, CheckSquare, Columns3, Download, Filter, Flame, LayoutGrid, List, MoreHorizontal,
+  AlertCircle, Archive, CalendarClock, CheckSquare, Columns3, Download, Filter, Flame, Gauge, LayoutGrid, List, MoreHorizontal,
   MessageCircle, PhoneCall, Plus, RefreshCw, Save, Search, SlidersHorizontal, Tag, Trash2, Upload, UsersRound, X,
 } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState, type CSSProperties, type MouseEvent } from 'react'
@@ -10,7 +10,8 @@ import { StatusPill } from '../../components/ui/status-pill'
 import { formatCurrency, formatDateTime, initials } from '../../domain/formatters'
 import type { ActivityType, Lead, LeadPriority, LeadStatus, LeadTemperature } from '../../domain/types'
 import { safeStorage } from '../../lib/storage'
-import { findDuplicateMatches, findDuplicatePairs, latestLeadInteractionAt, leadDataIssues, leadPriorityInsight } from '../../services/lead-intelligence'
+import { findDuplicateMatches, latestLeadInteractionAt } from '../../services/lead-intelligence'
+import { leadScoreInsight } from '../../services/lead-scoring'
 import { leadsToCsv } from '../../services/lead-csv'
 import { EventModal } from '../agenda/event-modal'
 import { CallWorkspaceModal } from '../calls/call-workspace-modal'
@@ -18,7 +19,7 @@ import { ActivityModal } from '../followups/activity-modal'
 import { CreateLeadModal } from './create-lead-modal'
 import { EditLeadModal } from './edit-lead-modal'
 import { LeadDetailsDrawer } from './lead-details-drawer'
-import { DuplicateMergeModal } from './duplicate-merge-modal'
+import { usePreferences } from '../settings/preferences-context'
 
 const temperatureLabel = { cold: 'Frio', warm: 'Morno', hot: 'Quente' }
 const priorityLabel = { low: 'Baixa', medium: 'Média', high: 'Alta', urgent: 'Urgente' }
@@ -34,9 +35,9 @@ const recentDays = (value: string, days: number) => new Date(value).getTime() >=
 
 type ViewMode = 'table' | 'cards'
 type Density = 'comfortable' | 'compact'
-type LeadColumn = 'contact' | 'stage' | 'status' | 'temperature' | 'owner' | 'nextAction' | 'value' | 'source' | 'lastActivity'
+type LeadColumn = 'contact' | 'score' | 'stage' | 'status' | 'temperature' | 'owner' | 'nextAction' | 'value' | 'source' | 'lastActivity'
 type DueFilter = 'all' | 'due' | 'overdue' | 'today' | 'none'
-type QualityFilter = 'all' | 'incomplete' | 'duplicates' | 'stale' | 'new'
+type QualityFilter = 'all' | 'stale' | 'new'
 
 interface LeadFilters {
   stage: string
@@ -61,9 +62,9 @@ interface SavedView {
 const defaultFilters: LeadFilters = {
   stage: 'all', temperature: 'all', priority: 'all', status: 'all', source: 'all', city: 'all', owner: 'all', due: 'all', quality: 'all', tag: 'all', sort: 'updated-desc',
 }
-const defaultColumns: LeadColumn[] = ['contact', 'stage', 'temperature', 'owner', 'nextAction', 'value']
+const defaultColumns: LeadColumn[] = ['contact', 'score', 'stage', 'temperature', 'owner', 'nextAction', 'value']
 const columnLabels: Record<LeadColumn, string> = {
-  contact: 'Contato', stage: 'Etapa', status: 'Status', temperature: 'Temperatura', owner: 'Responsável', nextAction: 'Próxima ação', value: 'Valor', source: 'Origem', lastActivity: 'Última atividade',
+  contact: 'Contato', score: 'Lead Score', stage: 'Etapa', status: 'Status', temperature: 'Temperatura', owner: 'Responsável', nextAction: 'Próxima ação', value: 'Valor', source: 'Origem', lastActivity: 'Última atividade',
 }
 
 const readPreferences = (workspaceId: string): { view: ViewMode; density: Density; columns: LeadColumn[] } => {
@@ -85,6 +86,7 @@ const readSavedViews = (workspaceId: string): SavedView[] => {
 
 export function LeadsPage() {
   const { snapshot, canWrite, importLeadFile, bulkUpdateLeads, bulkDeleteLeads, updateLead, createActivity, notify } = useApp()
+  const { preferences: crmPreferences } = usePreferences()
   const workspaceId = snapshot?.workspace.id ?? 'default'
   const preferences = useMemo(() => readPreferences(workspaceId), [workspaceId])
   const [query, setQuery] = useState('')
@@ -107,13 +109,10 @@ export function LeadsPage() {
   const [activityType, setActivityType] = useState<ActivityType>('followup')
   const [eventLead, setEventLead] = useState<Lead | null>(null)
   const [callLead, setCallLead] = useState<Lead | null>(null)
-  const [mergeOpen, setMergeOpen] = useState(false)
   const fileRef = useRef<HTMLInputElement>(null)
 
   const allLeads = snapshot?.leads ?? []
   const duplicateMatches = useMemo(() => findDuplicateMatches(allLeads), [allLeads])
-  const duplicatePairs = useMemo(() => findDuplicatePairs(allLeads), [allLeads])
-  const duplicateIds = useMemo(() => new Set(duplicateMatches.map((item) => item.leadId)), [duplicateMatches])
   const sources = useMemo(() => [...new Set(allLeads.map((lead) => lead.source).filter(Boolean))].sort(), [allLeads])
   const cities = useMemo(() => [...new Set(allLeads.map((lead) => lead.city).filter(Boolean))].sort(), [allLeads])
   const owners = useMemo(() => [...new Set(allLeads.map((lead) => lead.ownerName).filter(Boolean))].sort(), [allLeads])
@@ -121,20 +120,19 @@ export function LeadsPage() {
   const drawerLead = drawerLeadId ? allLeads.find((lead) => lead.id === drawerLeadId) ?? null : null
 
   const lastInteraction = useMemo(() => new Map(allLeads.map((lead) => [lead.id, latestLeadInteractionAt(lead, snapshot?.activities ?? [], snapshot?.calls ?? [], snapshot?.events ?? [])])), [allLeads, snapshot])
+  const scoreByLead = useMemo(() => new Map(snapshot ? snapshot.leads.map((lead) => [lead.id, leadScoreInsight(lead, snapshot, crmPreferences.commercial.leadScoring)]) : []), [crmPreferences.commercial.leadScoring, snapshot])
 
   const stats = useMemo(() => ({
     total: allLeads.filter((lead) => lead.status === 'active').length,
     newLeads: allLeads.filter((lead) => recentDays(lead.createdAt, 7)).length,
     due: allLeads.filter((lead) => lead.status === 'active' && isTodayOrOverdue(lead.nextActionAt)).length,
     noAction: allLeads.filter((lead) => lead.status === 'active' && !lead.nextActionAt).length,
-    duplicates: duplicateIds.size,
-  }), [allLeads, duplicateIds])
+  }), [allLeads])
 
   const leads = useMemo(() => {
     const normalizedQuery = query.trim().toLowerCase()
     const filtered = allLeads.filter((lead) => {
       const haystack = `${lead.name} ${lead.company} ${lead.phone} ${lead.email} ${lead.city} ${lead.source} ${lead.ownerName} ${lead.notes} ${lead.tags.join(' ')}`.toLowerCase()
-      const issues = leadDataIssues(lead)
       const interactionAt = lastInteraction.get(lead.id) ?? lead.updatedAt
       return (!normalizedQuery || haystack.includes(normalizedQuery))
         && (filters.stage === 'all' || lead.stageId === filters.stage)
@@ -151,8 +149,6 @@ export function LeadsPage() {
           || (filters.due === 'today' && lead.nextActionAt && new Date(lead.nextActionAt).toDateString() === new Date().toDateString())
           || (filters.due === 'none' && !lead.nextActionAt))
         && (filters.quality === 'all'
-          || (filters.quality === 'incomplete' && issues.length > 0)
-          || (filters.quality === 'duplicates' && duplicateIds.has(lead.id))
           || (filters.quality === 'stale' && !recentDays(interactionAt, 7))
           || (filters.quality === 'new' && recentDays(lead.createdAt, 7)))
     })
@@ -161,10 +157,10 @@ export function LeadsPage() {
       if (filters.sort === 'value-desc') return b.value - a.value
       if (filters.sort === 'next-action') return (a.nextActionAt ?? '9999').localeCompare(b.nextActionAt ?? '9999')
       if (filters.sort === 'created-desc') return b.createdAt.localeCompare(a.createdAt)
-      if (filters.sort === 'priority') return leadPriorityInsight(b).score - leadPriorityInsight(a).score
+      if (filters.sort === 'priority') return (scoreByLead.get(b.id)?.score ?? 0) - (scoreByLead.get(a.id)?.score ?? 0)
       return b.updatedAt.localeCompare(a.updatedAt)
     })
-  }, [allLeads, duplicateIds, filters, lastInteraction, query])
+  }, [allLeads, duplicateIds, filters, lastInteraction, query, scoreByLead])
 
   const totalPages = Math.max(1, Math.ceil(leads.length / PAGE_SIZE))
   const pageLeads = leads.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE)
@@ -199,8 +195,6 @@ export function LeadsPage() {
     if (id === 'hot') setFilters({ ...defaultFilters, status: 'active', temperature: 'hot', sort: 'priority' })
     else if (id === 'due') setFilters({ ...defaultFilters, status: 'active', due: 'due', sort: 'next-action' })
     else if (id === 'no-action') setFilters({ ...defaultFilters, status: 'active', due: 'none' })
-    else if (id === 'incomplete') setFilters({ ...defaultFilters, quality: 'incomplete' })
-    else if (id === 'duplicates') setFilters({ ...defaultFilters, quality: 'duplicates' })
     else setFilters(defaultFilters)
     setActiveView(id)
   }
@@ -298,16 +292,10 @@ export function LeadsPage() {
     if (filters.owner !== 'all') chips.push({ key: 'owner', label: filters.owner === 'none' ? 'Sem responsável' : filters.owner, clear: () => updateFilters({ owner: 'all' }) })
     if (filters.tag !== 'all') chips.push({ key: 'tag', label: `#${filters.tag}`, clear: () => updateFilters({ tag: 'all' }) })
     if (filters.due !== 'all') chips.push({ key: 'due', label: filters.due === 'none' ? 'Sem próxima ação' : filters.due === 'overdue' ? 'Atrasados' : filters.due === 'today' ? 'Hoje' : 'Vencidos ou hoje', clear: () => updateFilters({ due: 'all' }) })
-    if (filters.quality !== 'all') chips.push({ key: 'quality', label: filters.quality === 'duplicates' ? 'Possíveis duplicados' : filters.quality === 'incomplete' ? 'Dados incompletos' : filters.quality === 'stale' ? 'Sem interação há 7 dias' : 'Novos na semana', clear: () => updateFilters({ quality: 'all' }) })
+    if (filters.quality !== 'all') chips.push({ key: 'quality', label: filters.quality === 'stale' ? 'Sem interação há 7 dias' : 'Novos na semana', clear: () => updateFilters({ quality: 'all' }) })
     return chips
   }, [filters, snapshot])
 
-  const renderLeadAlerts = (lead: Lead) => {
-    const issues = leadDataIssues(lead)
-    const hasDuplicate = duplicateIds.has(lead.id)
-    if (!issues.length && !hasDuplicate) return null
-    return <span className="lead-alert-badge" title={[...issues.map((item) => item.label), hasDuplicate ? 'Possível duplicado' : ''].filter(Boolean).join(' · ')}><AlertCircle size={13} /> {issues.length + (hasDuplicate ? 1 : 0)}</span>
-  }
 
   return (
     <div className={`page-stack leads-v107 leads-v107--${density}`}>
@@ -315,16 +303,14 @@ export function LeadsPage() {
         <button type="button" className={activeView === 'all' ? 'is-active' : ''} onClick={() => applyBuiltInView('all')}><span><UsersRound /></span><div><small>Leads ativos</small><strong>{stats.total}</strong><em>Base comercial</em></div></button>
         <button type="button" className={activeView === 'due' ? 'is-active' : ''} onClick={() => applyBuiltInView('due')}><span className="is-orange"><CalendarClock /></span><div><small>Precisam de ação</small><strong>{stats.due}</strong><em>Vencidos ou hoje</em></div></button>
         <button type="button" className={activeView === 'no-action' ? 'is-active' : ''} onClick={() => applyBuiltInView('no-action')}><span className="is-red"><AlertCircle /></span><div><small>Sem próxima ação</small><strong>{stats.noAction}</strong><em>Risco de esquecimento</em></div></button>
-        <button type="button" className={activeView === 'duplicates' ? 'is-active' : ''} onClick={() => applyBuiltInView('duplicates')}><span className="is-purple"><RefreshCw /></span><div><small>Possíveis duplicados</small><strong>{stats.duplicates}</strong><em>Revisão recomendada</em></div></button>
         <button type="button" className={activeView === 'new' ? 'is-active' : ''} onClick={() => { setFilters({ ...defaultFilters, quality: 'new', sort: 'created-desc' }); setActiveView('new') }}><span className="is-green"><Plus /></span><div><small>Novos em 7 dias</small><strong>{stats.newLeads}</strong><em>Entradas recentes</em></div></button>
       </section>
 
-      {canWrite && duplicatePairs.length ? <section className="duplicate-review-banner"><div><RefreshCw size={21} /><span><strong>{duplicatePairs.length} par(es) de cadastros pedem revisão</strong><small>Compare os dados e mescle sem perder ligações, atividades ou compromissos.</small></span></div><Button variant="secondary" onClick={() => setMergeOpen(true)}>Revisar primeiro par</Button></section> : null}
 
       <section className="lead-view-tabs" aria-label="Visualizações de leads">
         <div className="lead-view-tabs__scroll">
           {[
-            ['all', 'Todos'], ['hot', 'Leads quentes'], ['due', 'Retornos pendentes'], ['no-action', 'Sem próxima ação'], ['incomplete', 'Dados incompletos'], ['duplicates', 'Duplicados'],
+            ['all', 'Todos'], ['hot', 'Leads quentes'], ['due', 'Retornos pendentes'], ['no-action', 'Sem próxima ação'],
           ].map(([id, label]) => <button key={id} type="button" className={activeView === id ? 'is-active' : ''} onClick={() => applyBuiltInView(id)}>{label}</button>)}
           {savedViews.map((view) => <button key={view.id} type="button" className={activeView === view.id ? 'is-active lead-view-tabs__saved' : 'lead-view-tabs__saved'} onClick={() => applySavedView(view)}>{view.name}<X size={13} onClick={(event) => removeSavedView(event, view.id)} /></button>)}
         </div>
@@ -362,7 +348,7 @@ export function LeadsPage() {
         <label className="field"><span>Cidade</span><select value={filters.city} onChange={(event) => updateFilters({ city: event.target.value })}><option value="all">Todas</option>{cities.map((item) => <option key={item}>{item}</option>)}</select></label>
         <label className="field"><span>Tag</span><select value={filters.tag} onChange={(event) => updateFilters({ tag: event.target.value })}><option value="all">Todas</option>{tags.map((item) => <option key={item}>{item}</option>)}</select></label>
         <label className="field"><span>Próxima ação</span><select value={filters.due} onChange={(event) => updateFilters({ due: event.target.value as DueFilter })}><option value="all">Qualquer data</option><option value="overdue">Somente atrasados</option><option value="today">Hoje</option><option value="due">Atrasados ou hoje</option><option value="none">Sem próxima ação</option></select></label>
-        <label className="field"><span>Qualidade</span><select value={filters.quality} onChange={(event) => updateFilters({ quality: event.target.value as QualityFilter })}><option value="all">Todos os cadastros</option><option value="incomplete">Dados incompletos</option><option value="duplicates">Possíveis duplicados</option><option value="stale">Sem interação há 7 dias</option><option value="new">Novos na semana</option></select></label>
+        <label className="field"><span>Recência</span><select value={filters.quality} onChange={(event) => updateFilters({ quality: event.target.value as QualityFilter })}><option value="all">Todos os cadastros</option><option value="stale">Sem interação há 7 dias</option><option value="new">Novos na semana</option></select></label>
         <label className="field"><span>Ordenar</span><select value={filters.sort} onChange={(event) => updateFilters({ sort: event.target.value })}><option value="updated-desc">Atualizados recentemente</option><option value="priority">Maior prioridade comercial</option><option value="created-desc">Mais novos</option><option value="name">Nome A–Z</option><option value="value-desc">Maior valor</option><option value="next-action">Próxima ação</option></select></label>
       </section> : null}
 
@@ -381,18 +367,19 @@ export function LeadsPage() {
       </section> : null}
 
       <section className="panel data-panel leads-data-panel">
-        <div className="data-panel__header"><div><h3>Base de leads</h3><p>{leads.length} de {allLeads.length} registros • página {page} de {totalPages}</p></div><div className="leads-data-panel__summary"><span><Flame size={14} /> {leads.filter((lead) => lead.temperature === 'hot').length} quentes</span><span><AlertCircle size={14} /> {leads.filter((lead) => leadDataIssues(lead).length).length} incompletos</span></div></div>
+        <div className="data-panel__header"><div><h3>Base de leads</h3><p>{leads.length} de {allLeads.length} registros • página {page} de {totalPages}</p></div><div className="leads-data-panel__summary"><span><Gauge size={14} /> {leads.filter((lead) => (scoreByLead.get(lead.id)?.score ?? 0) >= crmPreferences.commercial.leadScoring.thresholds.high).length} prioritários</span><span><Flame size={14} /> {leads.filter((lead) => lead.temperature === 'hot').length} quentes</span></div></div>
         {leads.length ? <>
           {(mobileView ? 'cards' : viewMode) === 'table' ? <div className="table-scroll leads-table-scroll">
             <table className="data-table leads-table">
               <thead><tr>{canWrite ? <th className="selection-cell"><input type="checkbox" checked={pageSelected} onChange={togglePage} aria-label="Selecionar página" /></th> : null}{visibleColumns.map((column) => <th key={column} className={`lead-column lead-column--${column}`}>{columnLabels[column]}</th>)}<th aria-label="Ações" /></tr></thead>
               <tbody>{pageLeads.map((lead) => {
                 const leadStage = snapshot?.stages.find((item) => item.id === lead.stageId)
-                const insight = leadPriorityInsight(lead)
+                const insight = scoreByLead.get(lead.id)!
                 const lastAt = lastInteraction.get(lead.id) ?? lead.updatedAt
                 return <tr key={lead.id} className={`${selected.has(lead.id) ? 'is-selected' : ''} ${isOverdue(lead.nextActionAt) ? 'is-overdue' : ''}`} onClick={() => setDrawerLeadId(lead.id)}>
                   {canWrite ? <td className="selection-cell" onClick={(event) => event.stopPropagation()}><input type="checkbox" checked={selected.has(lead.id)} onChange={() => setSelected((current) => { const next = new Set(current); next.has(lead.id) ? next.delete(lead.id) : next.add(lead.id); return next })} aria-label={`Selecionar ${lead.name}`} /></td> : null}
-                  {visibleColumns.includes('contact') ? <td className="lead-column lead-column--contact"><div className="lead-cell lead-cell--professional"><span className="lead-cell__avatar">{initials(lead.name)}</span><div><span className="lead-name-line"><strong>{lead.name}</strong>{renderLeadAlerts(lead)}</span><small>{lead.company || lead.city || 'Sem empresa informada'}</small><span className={`lead-priority-inline lead-priority-inline--${insight.level}`}>{insight.label}</span></div></div></td> : null}
+                  {visibleColumns.includes('contact') ? <td className="lead-column lead-column--contact"><div className="lead-cell lead-cell--professional"><span className="lead-cell__avatar">{initials(lead.name)}</span><div><span className="lead-name-line"><strong>{lead.name}</strong></span><small>{lead.company || lead.city || 'Sem empresa informada'}</small><span className={`lead-priority-inline lead-priority-inline--${insight.level}`}>{insight.label}</span></div></div></td> : null}
+                  {visibleColumns.includes('score') ? <td className="lead-column lead-column--score"><span className={`lead-score-badge lead-score-badge--${insight.level}`}><strong>{insight.score}</strong><small>/100</small></span><small>{insight.categories.map((item) => `${item.label} ${item.score}`).join(' · ')}</small></td> : null}
                   {visibleColumns.includes('stage') ? <td className="lead-column lead-column--stage"><span className="stage-chip" style={{ '--stage-color': leadStage?.color ?? '#64748b' } as CSSProperties}>{leadStage?.name ?? 'Sem etapa'}</span></td> : null}
                   {visibleColumns.includes('status') ? <td className="lead-column lead-column--status"><StatusPill tone={lead.status === 'won' ? 'success' : lead.status === 'lost' ? 'danger' : lead.status === 'archived' ? 'neutral' : 'info'}>{statusLabel[lead.status]}</StatusPill></td> : null}
                   {visibleColumns.includes('temperature') ? <td className="lead-column lead-column--temperature"><StatusPill tone={lead.temperature === 'hot' ? 'danger' : lead.temperature === 'warm' ? 'warning' : 'neutral'}>{temperatureLabel[lead.temperature]}</StatusPill><small>{priorityLabel[lead.priority]}</small></td> : null}
@@ -407,10 +394,10 @@ export function LeadsPage() {
             </table>
           </div> : <div className="lead-card-grid">{pageLeads.map((lead) => {
             const stageItem = snapshot?.stages.find((item) => item.id === lead.stageId)
-            const insight = leadPriorityInsight(lead)
+            const insight = scoreByLead.get(lead.id)!
             return <article key={lead.id} className={`lead-base-card ${selected.has(lead.id) ? 'is-selected' : ''}`} onClick={() => setDrawerLeadId(lead.id)}>
-              <div className="lead-base-card__top">{canWrite ? <input type="checkbox" checked={selected.has(lead.id)} onClick={(event) => event.stopPropagation()} onChange={() => setSelected((current) => { const next = new Set(current); next.has(lead.id) ? next.delete(lead.id) : next.add(lead.id); return next })} aria-label={`Selecionar ${lead.name}`} /> : null}<span className="lead-cell__avatar">{initials(lead.name)}</span><div><span><strong>{lead.name}</strong>{renderLeadAlerts(lead)}</span><small>{lead.company || lead.city || 'Sem empresa'}</small></div><button type="button" onClick={(event) => { event.stopPropagation(); setDrawerLeadId(lead.id) }} aria-label="Abrir ficha"><MoreHorizontal size={18} /></button></div>
-              <div className="lead-base-card__status"><span className="stage-chip" style={{ '--stage-color': stageItem?.color ?? '#64748b' } as CSSProperties}>{stageItem?.name ?? 'Sem etapa'}</span><StatusPill tone={lead.temperature === 'hot' ? 'danger' : lead.temperature === 'warm' ? 'warning' : 'neutral'}>{temperatureLabel[lead.temperature]}</StatusPill><span className={`lead-priority-inline lead-priority-inline--${insight.level}`}>{insight.label}</span></div>
+              <div className="lead-base-card__top">{canWrite ? <input type="checkbox" checked={selected.has(lead.id)} onClick={(event) => event.stopPropagation()} onChange={() => setSelected((current) => { const next = new Set(current); next.has(lead.id) ? next.delete(lead.id) : next.add(lead.id); return next })} aria-label={`Selecionar ${lead.name}`} /> : null}<span className="lead-cell__avatar">{initials(lead.name)}</span><div><span><strong>{lead.name}</strong></span><small>{lead.company || lead.city || 'Sem empresa'}</small></div><button type="button" onClick={(event) => { event.stopPropagation(); setDrawerLeadId(lead.id) }} aria-label="Abrir ficha"><MoreHorizontal size={18} /></button></div>
+              <div className="lead-base-card__status"><span className="stage-chip" style={{ '--stage-color': stageItem?.color ?? '#64748b' } as CSSProperties}>{stageItem?.name ?? 'Sem etapa'}</span><StatusPill tone={lead.temperature === 'hot' ? 'danger' : lead.temperature === 'warm' ? 'warning' : 'neutral'}>{temperatureLabel[lead.temperature]}</StatusPill><span className={`lead-priority-inline lead-priority-inline--${insight.level}`}>{insight.label}</span><span className={`lead-score-badge lead-score-badge--${insight.level}`}><strong>{insight.score}</strong><small>/100</small></span></div>
               <div className="lead-base-card__details"><div><small>Telefone</small><strong>{lead.phone || 'Não informado'}</strong></div><div><small>Responsável</small><strong>{lead.ownerName || 'Não atribuído'}</strong></div><div><small>Próxima ação</small><strong className={isTodayOrOverdue(lead.nextActionAt) ? 'text-danger' : ''}>{formatDateTime(lead.nextActionAt)}</strong></div><div><small>Valor</small><strong>{formatCurrency(lead.value)}</strong></div></div>
               {canWrite ? <div className="lead-base-card__actions"><Button size="sm" disabled={!lead.phone} onClick={(event) => { event.stopPropagation(); setCallLead(lead) }}><PhoneCall size={15} /> Ligar</Button><Button size="sm" variant="secondary" disabled={!lead.phone} onClick={(event) => { event.stopPropagation(); openWhatsApp(lead) }}>WhatsApp</Button><Button size="sm" variant="ghost" onClick={(event) => { event.stopPropagation(); openActivity(lead) }}>Follow-up</Button></div> : null}
             </article>
@@ -425,7 +412,6 @@ export function LeadsPage() {
       <ActivityModal open={canWrite && Boolean(activityLead)} initialLeadId={activityLead?.id} initialType={activityType} initialTitle={activityLead ? `${activityType === 'note' ? 'Nota' : activityType === 'meeting' ? 'Reunião' : activityType === 'call' ? 'Ligação' : 'Retomar contato'} — ${activityLead.name}` : ''} onClose={() => setActivityLead(null)} />
       <EventModal open={canWrite && Boolean(eventLead)} initialLeadId={eventLead?.id} onClose={() => setEventLead(null)} />
       <CallWorkspaceModal open={canWrite && Boolean(callLead)} initialLeadId={callLead?.id ?? ''} onClose={() => setCallLead(null)} />
-      <DuplicateMergeModal pair={duplicatePairs[0] ?? null} open={canWrite && mergeOpen} onClose={() => setMergeOpen(false)} />
     </div>
   )
 }

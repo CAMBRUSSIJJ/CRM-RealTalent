@@ -12,9 +12,12 @@ import { configurationError } from '../lib/env'
 
 const DashboardPage = lazy(() => import('../features/dashboard/dashboard-page').then((module) => ({ default: module.DashboardPage })))
 const LeadsPage = lazy(() => import('../features/leads/leads-page').then((module) => ({ default: module.LeadsPage })))
+const CommercialMapPage = lazy(() => import('../features/commercial-map/commercial-map-page').then((module) => ({ default: module.CommercialMapPage })))
 const PipelinePage = lazy(() => import('../features/pipeline/pipeline-page').then((module) => ({ default: module.PipelinePage })))
 const FollowupsPage = lazy(() => import('../features/followups/followups-page').then((module) => ({ default: module.FollowupsPage })))
 const CallsPage = lazy(() => import('../features/calls/calls-page').then((module) => ({ default: module.CallsPage })))
+const CommunicationsPage = lazy(() => import('../features/communications/communications-page').then((module) => ({ default: module.CommunicationsPage })))
+const ProposalsPage = lazy(() => import('../features/proposals/proposals-page').then((module) => ({ default: module.ProposalsPage })))
 const AgendaPage = lazy(() => import('../features/agenda/agenda-page').then((module) => ({ default: module.AgendaPage })))
 const PlaybooksPage = lazy(() => import('../features/playbooks/playbooks-page').then((module) => ({ default: module.PlaybooksPage })))
 const GoalsPage = lazy(() => import('../features/goals/goals-page').then((module) => ({ default: module.GoalsPage })))
@@ -28,9 +31,12 @@ function RouteContent() {
   const { route } = useApp()
   if (route === 'dashboard') return <DashboardPage />
   if (route === 'leads') return <LeadsPage />
+  if (route === 'commercial-map') return <CommercialMapPage />
   if (route === 'pipeline') return <PipelinePage />
   if (route === 'followups') return <FollowupsPage />
   if (route === 'calls') return <CallsPage />
+  if (route === 'communications') return <CommunicationsPage />
+  if (route === 'proposals') return <ProposalsPage />
   if (route === 'agenda') return <AgendaPage />
   if (route === 'playbooks') return <PlaybooksPage />
   if (route === 'goals') return <GoalsPage />

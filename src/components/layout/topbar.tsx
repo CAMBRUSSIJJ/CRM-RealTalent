@@ -55,7 +55,7 @@ export function Topbar() {
             {repositoryMode === 'local' ? <span className="local-mode-badge" title="Os dados ficam salvos apenas neste navegador"><HardDrive size={14} /> <span>Modo local</span></span> : null}
             <button className="icon-button topbar__help" type="button" aria-label="Abrir guia rápido" onClick={() => setHelpOpen(true)}><CircleHelp size={19} /></button>
             <Button variant="secondary" className="topbar__refresh" onClick={() => void refresh()} aria-label="Atualizar dados"><RefreshCw size={17} /></Button>
-            {currentWorkspace?.role !== 'viewer' ? <Button onClick={() => { setRoute('leads'); setLeadModalOpen(true) }}><Plus size={18} /> Novo lead</Button> : null}
+            {currentWorkspace?.role !== 'viewer' && route !== 'leads' ? <Button onClick={() => { setRoute('leads'); setLeadModalOpen(true) }}><Plus size={18} /> Novo lead</Button> : null}
             <button className="icon-button icon-button--notification" type="button" aria-label="Notificações" onClick={() => setRoute('followups')}><Bell size={20} />{notificationCount ? <span>{notificationCount > 99 ? '99+' : notificationCount}</span> : null}</button>
           </div>
         </div>

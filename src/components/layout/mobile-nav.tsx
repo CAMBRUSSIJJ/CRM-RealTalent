@@ -4,7 +4,7 @@ import { navigationItems } from './navigation'
 import { useApp } from '../../app/app-context'
 import { usePreferences } from '../../features/settings/preferences-context'
 
-const preferredPrimaryRoutes = ['dashboard', 'leads', 'pipeline', 'agenda']
+const preferredPrimaryRoutes = ['dashboard', 'leads', 'commercial-map', 'pipeline']
 
 export function MobileNav() {
   const { route, setRoute } = useApp()

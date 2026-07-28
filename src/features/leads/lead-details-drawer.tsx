@@ -1,25 +1,26 @@
 import {
   AlertTriangle, Archive, Building2, CalendarClock, CalendarPlus, CheckCircle2, ChevronRight, Clock3, Edit3, ExternalLink,
-  FileText, History, Mail, MapPin, MessageCircle, PhoneCall, RefreshCw, Tag, UserRound, X,
+  FileText, Globe2, History, Mail, MapPin, MessageCircle, PhoneCall, RefreshCw, ShieldCheck, Tag, UserRound, X,
 } from 'lucide-react'
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useApp } from '../../app/app-context'
 import { Button } from '../../components/ui/button'
 import { StatusPill } from '../../components/ui/status-pill'
 import { formatCurrency, formatDateTime, initials } from '../../domain/formatters'
 import type { ActivityType, Lead } from '../../domain/types'
-import { leadDataIssues, leadPriorityInsight, type DuplicateMatch } from '../../services/lead-intelligence'
+import { leadDataIssues, type DuplicateMatch } from '../../services/lead-intelligence'
+import { leadScoreInsight } from '../../services/lead-scoring'
+import { buildUnifiedTimeline, loadCommunicationEvents } from '../../services/communications'
+import type { CommunicationEvent } from '../../domain/types'
+import { usePreferences } from '../settings/preferences-context'
 
-const activityLabel: Record<ActivityType, string> = {
-  call: 'Ligação programada', followup: 'Follow-up', meeting: 'Reunião', note: 'Nota', stage_change: 'Mudança de etapa',
-}
 const callOutcomeLabel: Record<string, string> = {
   answered: 'Atendeu', no_answer: 'Não atendeu', busy: 'Ocupado', voicemail: 'Caixa postal', callback_requested: 'Pediu retorno', interested: 'Demonstrou interesse',
   meeting_scheduled: 'Reunião marcada', proposal_requested: 'Solicitou proposta', proposal_sent: 'Proposta enviada', wrong_person: 'Pessoa errada', invalid_number: 'Número inválido',
   not_interested: 'Sem interesse', sale_completed: 'Venda concluída', other: 'Outro',
 }
 
-type HistoryFilter = 'all' | 'activities' | 'calls' | 'events'
+type HistoryFilter = 'all' | 'activities' | 'calls' | 'events' | 'email' | 'whatsapp'
 
 interface Props {
   readOnly?: boolean
@@ -35,37 +36,30 @@ interface Props {
 
 export function LeadDetailsDrawer({ readOnly = false, lead, duplicateMatches, onClose, onEdit, onActivity, onEvent, onCall, onOpenDuplicate }: Props) {
   const { snapshot, moveLead, updateLead, setRoute, notify } = useApp()
+  const { preferences } = usePreferences()
   const [historyFilter, setHistoryFilter] = useState<HistoryFilter>('all')
+  const [communicationEvents, setCommunicationEvents] = useState<CommunicationEvent[]>([])
   const [busy, setBusy] = useState(false)
+
+  useEffect(() => {
+    if (!lead || !snapshot) { setCommunicationEvents([]); return }
+    void loadCommunicationEvents(snapshot.workspace.id, lead.id).then(setCommunicationEvents).catch(() => setCommunicationEvents([]))
+  }, [lead?.id, snapshot?.workspace.id])
 
   const timeline = useMemo(() => {
     if (!lead || !snapshot) return []
-    const activityEntries = snapshot.activities.filter((item) => item.leadId === lead.id).map((item) => ({
-      id: `activity-${item.id}`, kind: 'activities' as const, date: item.completedAt ?? item.dueAt ?? item.createdAt,
-      title: activityLabel[item.type], description: item.title, detail: item.description || (item.completedAt ? 'Concluída' : 'Pendente'),
-      tone: item.completedAt ? 'success' : item.dueAt && new Date(item.dueAt).getTime() < Date.now() ? 'danger' : 'info',
-    }))
-    const callEntries = snapshot.calls.filter((item) => item.leadId === lead.id).map((item) => ({
-      id: `call-${item.id}`, kind: 'calls' as const, date: item.endedAt ?? item.startedAt,
-      title: `Ligação — ${callOutcomeLabel[item.outcome] ?? item.outcome}`, description: item.notes || 'Ligação registrada sem anotações.',
-      detail: item.durationSeconds ? `${Math.floor(item.durationSeconds / 60)}m ${String(item.durationSeconds % 60).padStart(2, '0')}s` : 'Sem duração',
-      tone: ['not_interested', 'invalid_number'].includes(item.outcome) ? 'danger' : ['no_answer', 'busy', 'voicemail', 'wrong_person'].includes(item.outcome) ? 'warning' : 'success',
-    }))
-    const eventEntries = snapshot.events.filter((item) => item.leadId === lead.id).map((item) => ({
-      id: `event-${item.id}`, kind: 'events' as const, date: item.startsAt, title: item.title,
-      description: item.description || item.location || 'Compromisso da agenda', detail: item.status === 'completed' ? 'Concluído' : item.status === 'cancelled' ? 'Cancelado' : 'Agenda',
-      tone: item.status === 'completed' ? 'success' : item.status === 'cancelled' ? 'danger' : 'info',
-    }))
-    return [...activityEntries, ...callEntries, ...eventEntries]
-      .filter((entry) => historyFilter === 'all' || entry.kind === historyFilter)
-      .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
-  }, [historyFilter, lead, snapshot])
+    return buildUnifiedTimeline(snapshot, communicationEvents, lead.id).map((entry) => ({
+      ...entry,
+      kind: entry.channel === 'email' ? 'email' as const : entry.channel === 'whatsapp' ? 'whatsapp' as const : entry.source === 'call' ? 'calls' as const : entry.source === 'calendar' ? 'events' as const : 'activities' as const,
+      tone: entry.status === 'failed' || entry.status === 'cancelled' ? 'danger' : entry.status === 'queued' || entry.status === 'pending' ? 'warning' : entry.direction === 'inbound' ? 'info' : 'success',
+    })).filter((entry) => historyFilter === 'all' || entry.kind === historyFilter)
+  }, [communicationEvents, historyFilter, lead, snapshot])
 
-  if (!lead) return null
-  const stage = snapshot?.stages.find((item) => item.id === lead.stageId)
+  if (!lead || !snapshot) return null
+  const stage = snapshot.stages.find((item) => item.id === lead.stageId)
   const issues = leadDataIssues(lead)
-  const priority = leadPriorityInsight(lead)
-  const duplicates = duplicateMatches.filter((item) => item.leadId === lead.id).map((item) => ({ ...item, lead: snapshot?.leads.find((candidate) => candidate.id === item.matchId) })).filter((item) => item.lead)
+  const priority = leadScoreInsight(lead, snapshot, preferences.commercial.leadScoring)
+  const duplicates = duplicateMatches.filter((item) => item.leadId === lead.id).map((item) => ({ ...item, lead: snapshot.leads.find((candidate) => candidate.id === item.matchId) })).filter((item) => item.lead)
   const phoneDigits = lead.phone.replace(/\D/g, '')
   const whatsappPhone = phoneDigits.startsWith('55') ? phoneDigits : `55${phoneDigits}`
 
@@ -83,6 +77,21 @@ export function LeadDetailsDrawer({ readOnly = false, lead, duplicateMatches, on
     try { await updateLead(lead.id, { status: 'archived' }); onClose() }
     catch (error) { notify('error', error instanceof Error ? error.message : 'Não foi possível arquivar.') }
     finally { setBusy(false) }
+  }
+
+  const runNextBestAction = () => {
+    const action = priority.nextBestAction
+    if (action.kind === 'call') { onCall(lead); return }
+    if (action.kind === 'whatsapp') {
+      if (!lead.phone) { notify('info', 'Este lead não possui telefone cadastrado.'); return }
+      window.open(`https://wa.me/${whatsappPhone}?text=${encodeURIComponent(`Olá, ${lead.name}! Tudo bem?`)}`, '_blank', 'noopener,noreferrer')
+      return
+    }
+    if (action.kind === 'meeting') { onEvent(lead); return }
+    if (action.kind === 'followup') { onActivity(lead, 'followup'); return }
+    if (action.kind === 'data') { onEdit(lead); return }
+    setRoute(action.route)
+    onClose()
   }
 
   return <div className="lead-drawer-layer" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose() }}>
@@ -109,6 +118,21 @@ export function LeadDetailsDrawer({ readOnly = false, lead, duplicateMatches, on
           <span className="lead-priority-card__score">{priority.score}<small>/100</small></span>
         </section>
 
+        <section className="lead-score-explanation">
+          <div className="lead-score-categories">
+            {priority.categories.map((item) => <div key={item.key} className="lead-score-category">
+              <div><span>{item.label}</span><strong>{item.score}</strong></div>
+              <span className="lead-score-category__track"><i style={{ width: `${item.score}%` }} /></span>
+              <small>{item.reasons[0] || 'Sem sinal relevante nesta categoria.'} · peso {item.weight}%</small>
+            </div>)}
+          </div>
+          <div className="lead-next-best-action">
+            <div><span>Próxima melhor ação</span><strong>{priority.nextBestAction.title}</strong><p>{priority.nextBestAction.explanation}</p></div>
+            {!readOnly ? <Button size="sm" onClick={runNextBestAction}>Executar agora <ChevronRight size={16} /></Button> : null}
+          </div>
+          {priority.alerts.length ? <div className="lead-score-alerts">{priority.alerts.map((alert) => <div key={alert.key} className={`lead-score-alert lead-score-alert--${alert.tone}`}><AlertTriangle size={15} /><span><strong>{alert.label}</strong><small>{alert.detail}</small></span></div>)}</div> : null}
+        </section>
+
         <section className="lead-drawer__section">
           <div className="lead-drawer__section-title"><div><span className="eyebrow">Resumo</span><h3>Informações comerciais</h3></div><StatusPill tone={lead.status === 'won' ? 'success' : lead.status === 'lost' ? 'danger' : lead.status === 'archived' ? 'neutral' : 'info'}>{lead.status === 'active' ? 'Ativo' : lead.status === 'won' ? 'Ganho' : lead.status === 'lost' ? 'Perdido' : 'Arquivado'}</StatusPill></div>
           <div className="lead-detail-grid">
@@ -119,11 +143,23 @@ export function LeadDetailsDrawer({ readOnly = false, lead, duplicateMatches, on
             <div><FileText size={16} /><span>Valor</span><strong>{formatCurrency(lead.value)}</strong></div>
             <div><Tag size={16} /><span>Origem</span><strong>{lead.source || 'Não informada'}</strong></div>
           </div>
-          <label className="field lead-stage-field"><span>Etapa do Pipeline</span><select value={lead.stageId} disabled={busy || readOnly} onChange={(event) => void changeStage(event.target.value)}>{snapshot?.stages.map((item) => <option key={item.id} value={item.id}>{item.name} · {item.probability}%</option>)}</select><small>{stage ? `Etapa atual: ${stage.name}` : 'Etapa não encontrada'}</small></label>
+          <label className="field lead-stage-field"><span>Etapa do Pipeline</span><select value={lead.stageId} disabled={busy || readOnly} onChange={(event) => void changeStage(event.target.value)}>{snapshot.stages.map((item) => <option key={item.id} value={item.id}>{item.name} · {item.probability}%</option>)}</select><small>{stage ? `Etapa atual: ${stage.name}` : 'Etapa não encontrada'}</small></label>
           <div className="lead-contact-list">
             <a href={lead.phone ? `tel:${phoneDigits}` : undefined} className={!lead.phone ? 'is-disabled' : ''}><PhoneCall size={16} /><span><small>Telefone</small><strong>{lead.phone || 'Não informado'}</strong></span><ExternalLink size={14} /></a>
             <a href={lead.email ? `mailto:${lead.email}` : undefined} className={!lead.email ? 'is-disabled' : ''}><Mail size={16} /><span><small>E-mail</small><strong>{lead.email || 'Não informado'}</strong></span><ExternalLink size={14} /></a>
           </div>
+          <div className="lead-identity-summary">
+            <div><Building2 size={16} /><span><small>Empresa estruturada</small><strong>{snapshot.companies.find((item) => item.id === lead.companyId)?.name || 'Sincronização pendente'}</strong></span></div>
+            <div><UserRound size={16} /><span><small>Papel na decisão</small><strong>{lead.decisionRole === 'decision_maker' ? 'Decisor' : lead.decisionRole === 'influencer' ? 'Influenciador' : lead.decisionRole === 'user' ? 'Usuário' : 'Não identificado'}</strong></span></div>
+            <div><ShieldCheck size={16} /><span><small>Base de contato</small><strong>{lead.doNotContact ? 'Contato bloqueado' : lead.consentStatus === 'consented' ? 'Consentimento registrado' : lead.consentStatus === 'legitimate_interest' ? 'Interesse legítimo revisado' : 'Não revisada'}</strong></span></div>
+            <div><Globe2 size={16} /><span><small>Identidade social</small><strong>{[lead.instagramUrl, lead.linkedinUrl, lead.facebookUrl, lead.website].filter(Boolean).length} perfil(is) associado(s)</strong></span></div>
+          </div>
+          {[lead.instagramUrl, lead.linkedinUrl, lead.facebookUrl, lead.website].some(Boolean) ? <div className="lead-social-links">
+            {lead.instagramUrl ? <a href={lead.instagramUrl} target="_blank" rel="noreferrer">Instagram <ExternalLink size={13} /></a> : null}
+            {lead.linkedinUrl ? <a href={lead.linkedinUrl} target="_blank" rel="noreferrer">LinkedIn <ExternalLink size={13} /></a> : null}
+            {lead.facebookUrl ? <a href={lead.facebookUrl} target="_blank" rel="noreferrer">Facebook <ExternalLink size={13} /></a> : null}
+            {lead.website ? <a href={lead.website} target="_blank" rel="noreferrer">Site <ExternalLink size={13} /></a> : null}
+          </div> : null}
           {lead.tags.length ? <div className="lead-tag-list">{lead.tags.map((tag) => <span key={tag}>{tag}</span>)}</div> : null}
           {lead.notes ? <div className="lead-notes"><strong>Observações</strong><p>{lead.notes}</p></div> : null}
         </section>
@@ -137,12 +173,12 @@ export function LeadDetailsDrawer({ readOnly = false, lead, duplicateMatches, on
         <section className="lead-drawer__section">
           <div className="lead-drawer__section-title"><div><span className="eyebrow">Histórico</span><h3>Linha do tempo</h3></div><History size={20} /></div>
           <div className="lead-history-filters">
-            {([['all', 'Tudo'], ['activities', 'Atividades'], ['calls', 'Ligações'], ['events', 'Agenda']] as const).map(([value, label]) => <button key={value} type="button" className={historyFilter === value ? 'is-active' : ''} onClick={() => setHistoryFilter(value)}>{label}</button>)}
+            {([['all', 'Tudo'], ['email', 'E-mails'], ['whatsapp', 'WhatsApp'], ['calls', 'Ligações'], ['events', 'Agenda'], ['activities', 'Atividades']] as const).map(([value, label]) => <button key={value} type="button" className={historyFilter === value ? 'is-active' : ''} onClick={() => setHistoryFilter(value)}>{label}</button>)}
           </div>
           {timeline.length ? <div className="lead-timeline">{timeline.slice(0, 30).map((entry) => <article key={entry.id}>
             <span className={`lead-timeline__dot lead-timeline__dot--${entry.tone}`} />
             <div><span>{formatDateTime(entry.date)}</span><strong>{entry.title}</strong><p>{entry.description}</p><small>{entry.detail}</small></div>
-          </article>)}</div> : <div className="lead-history-empty"><Clock3 size={20} /><strong>Nenhuma interação encontrada</strong><span>Crie um follow-up, ligação, nota ou reunião para iniciar o histórico.</span></div>}
+          </article>)}</div> : <div className="lead-history-empty"><Clock3 size={20} /><strong>Nenhuma interação encontrada</strong><span>Conecte um canal oficial ou registre uma atividade para iniciar o histórico.</span></div>}
         </section>
       </div>
 

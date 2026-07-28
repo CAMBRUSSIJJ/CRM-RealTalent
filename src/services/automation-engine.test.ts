@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { DEMO_LEADS } from '../domain/defaults'
 import type { AutomationCondition } from '../domain/types'
-import { automationEventKey, conditionMatches, ruleMatches, type AutomationEvent } from './automation-engine'
+import { automationCorrelationId, automationEventKey, automationLoopDetected, conditionMatches, ruleMatches, type AutomationEvent } from './automation-engine'
 import { withAutomationGuard, DEFAULT_AUTOMATION_GUARD } from './automation-workspace'
 
 const hotLead = DEMO_LEADS.find((lead) => lead.temperature === 'hot')!
@@ -28,6 +28,15 @@ describe('automation engine', () => {
       actions: [], createdBy: null, createdAt: '', updatedAt: '',
     }
     expect(ruleMatches(rule, event)).toBe(true)
+  })
+
+
+  it('mantém correlação estável e bloqueia ciclos de regras', () => {
+    const correlated = { ...event, correlationId: 'corr-custom', chainDepth: 1, originRuleIds: ['rule-a'] }
+    expect(automationCorrelationId(correlated)).toBe('corr-custom')
+    expect(automationLoopDetected('rule-a', correlated, 4)).toBe('rule_cycle')
+    expect(automationLoopDetected('rule-b', { ...correlated, chainDepth: 4 }, 4)).toBe('max_chain_depth')
+    expect(automationLoopDetected('rule-b', correlated, 4)).toBeNull()
   })
 
   it('gera uma chave idempotente estável', () => {

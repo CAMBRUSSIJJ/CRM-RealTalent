@@ -31,7 +31,7 @@ interface Props {
 }
 
 export function OutcomeModal({ activity, onClose, onFinished }: Props) {
-  const { snapshot, completeActivity, createActivity, moveLead, notify } = useApp()
+  const { snapshot, registerActivityOutcome, notify } = useApp()
   const [outcome, setOutcome] = useState<FollowupOutcome>('answered')
   const [note, setNote] = useState('')
   const [createNext, setCreateNext] = useState(true)
@@ -71,34 +71,27 @@ export function OutcomeModal({ activity, onClose, onFinished }: Props) {
     if (createNext && !nextAt) { notify('error', 'Informe quando será o próximo contato.'); return }
     setBusy(true)
     try {
-      await completeActivity(activity.id, true)
-      await createActivity({
-        leadId: activity.leadId,
-        type: 'note',
-        title: `Resultado: ${outcomeLabel[outcome]}`,
-        description: appendFollowupMetadata(note.trim() || `Resultado registrado a partir de ${activity.title}.`, {
-          version: 1, kind: 'result', outcome, outcomeLabel: outcomeLabel[outcome], resultNote: note.trim(), recordedAt: new Date().toISOString(),
-        }),
-        dueAt: null,
-        completedAt: new Date().toISOString(),
-        assignedTo: activity.assignedTo,
+      const recordedAt = new Date().toISOString()
+      const resultDescription = appendFollowupMetadata(note.trim() || `Resultado registrado a partir de ${activity.title}.`, {
+        version: 1, kind: 'result', outcome, outcomeLabel: outcomeLabel[outcome], resultNote: note.trim(), recordedAt,
       })
-      if (createNext && nextAt) {
-        const previousMeta = readFollowupMetadata(activity)
-        await createActivity({
-          leadId: activity.leadId,
-          type: channelActivityType(nextChannel),
-          title: nextTitle.trim() || 'Próximo contato',
-          description: appendFollowupMetadata(`Próxima ação criada após o resultado “${outcomeLabel[outcome]}”.`, {
-            version: 1, kind: 'cadence-step', cadenceId: previousMeta?.cadenceId, cadenceName: previousMeta?.cadenceName ?? 'Próximos passos',
-            cadenceCategory: previousMeta?.cadenceCategory ?? 'Acompanhamento', channel: nextChannel, objective: nextTitle.trim(), script: '',
-          }),
-          dueAt: new Date(nextAt).toISOString(),
-          completedAt: null,
-          assignedTo: activity.assignedTo,
-        })
-      }
-      if (stageId && lead && stageId !== lead.stageId) await moveLead(lead.id, stageId)
+      const previousMeta = readFollowupMetadata(activity)
+      const nextDescription = createNext ? appendFollowupMetadata(`Próxima ação criada após o resultado “${outcomeLabel[outcome]}”.`, {
+        version: 1, kind: 'cadence-step', cadenceId: previousMeta?.cadenceId, cadenceName: previousMeta?.cadenceName ?? 'Próximos passos',
+        cadenceCategory: previousMeta?.cadenceCategory ?? 'Acompanhamento', channel: nextChannel, objective: nextTitle.trim(), script: '',
+      }) : null
+      await registerActivityOutcome({
+        activityId: activity.id,
+        outcome,
+        resultTitle: `Resultado: ${outcomeLabel[outcome]}`,
+        resultDescription,
+        createNext,
+        nextType: createNext ? channelActivityType(nextChannel) : null,
+        nextTitle: createNext ? (nextTitle.trim() || 'Próximo contato') : null,
+        nextDescription,
+        nextAt: createNext && nextAt ? new Date(nextAt).toISOString() : null,
+        stageId: stageId || null,
+      })
       onClose(); onFinished?.()
     } catch (error) { notify('error', error instanceof Error ? error.message : 'Não foi possível registrar o resultado.') }
     finally { setBusy(false) }

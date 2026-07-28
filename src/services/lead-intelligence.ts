@@ -27,6 +27,9 @@ export interface DuplicatePair {
 const normalizeText = (value: string) => value.trim().toLocaleLowerCase('pt-BR').replace(/\s+/g, ' ')
 const normalizePhone = (value: string) => value.replace(/\D/g, '').replace(/^55(?=\d{10,11}$)/, '')
 const normalizeEmail = (value: string) => value.trim().toLowerCase()
+const normalizeDocument = (value = '') => value.replace(/\D/g, '')
+const normalizeUrl = (value = '') => value.trim().toLocaleLowerCase('pt-BR').replace(/^https?:\/\//, '').replace(/^www\./, '').replace(/\/$/, '')
+const domainFromUrl = (value = '') => normalizeUrl(value).split('/')[0]
 
 export const leadDataIssues = (lead: Lead): LeadDataIssue[] => {
   const issues: LeadDataIssue[] = []
@@ -89,9 +92,21 @@ export const findDuplicateMatches = (leads: Lead[]): DuplicateMatch[] => {
       const reasons: string[] = []
       const otherPhone = normalizePhone(other.phone)
       const otherEmail = normalizeEmail(other.email)
-      if (phone.length >= 10 && phone === otherPhone) reasons.push('mesmo telefone')
-      if (email && email === otherEmail) reasons.push('mesmo e-mail')
-      if (company.length >= 4 && city && company === normalizeText(other.company) && city === normalizeText(other.city)) reasons.push('mesma empresa e cidade')
+      const personReasons: string[] = []
+      const companyReasons: string[] = []
+      if (phone.length >= 10 && phone === otherPhone) personReasons.push('mesmo telefone')
+      if (email && email === otherEmail) personReasons.push('mesmo e-mail')
+      const cnpj = normalizeDocument(lead.cnpj); const otherCnpj = normalizeDocument(other.cnpj)
+      if (cnpj.length === 14 && cnpj === otherCnpj) companyReasons.push('mesmo CNPJ')
+      const domain = domainFromUrl(lead.website); const otherDomain = domainFromUrl(other.website)
+      if (domain && domain === otherDomain) companyReasons.push('mesmo domínio')
+      const socialUrls = [lead.instagramUrl, lead.linkedinUrl, lead.facebookUrl].map(normalizeUrl).filter(Boolean)
+      const otherSocialUrls = new Set([other.instagramUrl, other.linkedinUrl, other.facebookUrl].map(normalizeUrl).filter(Boolean))
+      if (socialUrls.some((url) => otherSocialUrls.has(url))) companyReasons.push('mesmo perfil social')
+      if (company.length >= 4 && city && company === normalizeText(other.company) && city === normalizeText(other.city)) companyReasons.push('mesma empresa e cidade')
+      const samePersonName = normalizeText(lead.name) && normalizeText(lead.name) === normalizeText(other.name)
+      reasons.push(...personReasons)
+      if (samePersonName) reasons.push(...companyReasons)
       if (!reasons.length) continue
       matches.push({ leadId: lead.id, matchId: other.id, reasons })
       matches.push({ leadId: other.id, matchId: lead.id, reasons })
@@ -127,6 +142,11 @@ export const mergeLeadRecords = (primary: Lead, duplicate: Lead, now = new Date(
     email: primary.email || duplicate.email,
     city: primary.city || duplicate.city,
     source: primary.source || duplicate.source,
+    sourceDetail: primary.sourceDetail || duplicate.sourceDetail, sourceUrl: primary.sourceUrl || duplicate.sourceUrl, capturedAt: [primary.capturedAt, duplicate.capturedAt].filter((value): value is string => Boolean(value)).sort()[0] ?? primary.createdAt,
+    consentStatus: primary.consentStatus && primary.consentStatus !== 'unknown' ? primary.consentStatus : duplicate.consentStatus, doNotContact: Boolean(primary.doNotContact || duplicate.doNotContact), doNotContactReason: primary.doNotContactReason || duplicate.doNotContactReason,
+    companyId: primary.companyId || duplicate.companyId, primaryContactId: primary.primaryContactId || duplicate.primaryContactId, opportunityId: primary.opportunityId || duplicate.opportunityId,
+    cnpj: primary.cnpj || duplicate.cnpj, website: primary.website || duplicate.website, instagramUrl: primary.instagramUrl || duplicate.instagramUrl, linkedinUrl: primary.linkedinUrl || duplicate.linkedinUrl, facebookUrl: primary.facebookUrl || duplicate.facebookUrl,
+    jobTitle: primary.jobTitle || duplicate.jobTitle, decisionRole: primary.decisionRole && primary.decisionRole !== 'unknown' ? primary.decisionRole : duplicate.decisionRole, influenceLevel: Math.max(primary.influenceLevel ?? 0, duplicate.influenceLevel ?? 0),
     ownerId: primary.ownerId || duplicate.ownerId,
     ownerName: primary.ownerName || duplicate.ownerName,
     value: Math.max(primary.value, duplicate.value),

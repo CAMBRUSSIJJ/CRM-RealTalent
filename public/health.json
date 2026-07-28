@@ -1,6 +1,9 @@
 {
   "status": "ok",
   "application": "RealTalent CRM",
-  "version": "100.29",
-  "release": "Playbook Outbound Interativo"
+  "version": "100.43",
+  "release": "Propostas e Forecast",
+  "channel": "development",
+  "commit": "local",
+  "builtAt": null
 }

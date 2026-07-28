@@ -1,29 +1,38 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type PropsWithChildren } from 'react'
-import type { ActivityItem, AppRoute, AuditLog, AutomationRule, AutomationRun, CalendarEvent, CallRecord, Goal, Lead, PipelineStage, Playbook, RepositoryHealth, Workspace, WorkspaceInvite, WorkspaceMember, WorkspaceRole, WorkspaceSnapshot } from '../domain/types'
+import type { ActivityItem, AppRoute, AuditLog, AutomationRule, AutomationRun, CalendarEvent, CallRecord, CommercialStructureSyncResult, Goal, Lead, PipelineStage, Playbook, ProductRecord, ProposalRecord, ProposalStatus, RevenueEntry, RepositoryHealth, Workspace, WorkspaceInvite, WorkspaceMember, WorkspaceRole, WorkspaceSnapshot } from '../domain/types'
 import { createRepository } from '../repositories/create-repository'
 import type {
-  NewActivityInput, NewAutomationRuleInput, NewCalendarEventInput, NewCallInput, NewGoalInput, NewLeadInput, NewPlaybookInput, NewStageInput, UpdateActivityInput,
-  UpdateAutomationRuleInput, UpdateCalendarEventInput, UpdateGoalInput, UpdateLeadInput, UpdatePlaybookInput, UpdateStageInput,
+  CommercialActionResult, CommercialActivityResult, NewActivityInput, NewAutomationRuleInput, NewCalendarEventInput, NewCallInput, NewGoalInput, NewLeadInput, NewPlaybookInput, NewProductInput, NewProposalInput, NewRevenueEntryInput, NewStageInput, RegisterActivityOutcomeInput, RegisterCallOutcomeInput, UpdateActivityInput,
+  UpdateAutomationRuleInput, UpdateCalendarEventInput, UpdateGoalInput, UpdateLeadInput, UpdatePlaybookInput, UpdateProductInput, UpdateProposalInput, UpdateStageInput,
 } from '../repositories/crm-repository'
 import { importV99Backup } from '../services/v99-importer'
 import { parseLeadCsv } from '../services/lead-csv'
 import { safeStorage } from '../lib/storage'
 import { useAuth } from '../features/auth/auth-context'
 import { getSupabaseClient } from '../lib/supabase'
-import { automationEventKey, conditionMatches, ruleMatches, type AutomationEvent } from '../services/automation-engine'
+import { automationCorrelationId, automationEventKey, automationLoopDetected, conditionMatches, ruleMatches, type AutomationEvent } from '../services/automation-engine'
 import { actionLabels, automationRunForLeadToday, conditionFieldLabels, describeAutomationAction, latestAutomationRunForLead, operatorLabels, readAutomationGuard, triggerLabels, validateAutomationRule, visibleAutomationConditions, type AutomationSimulationResult } from '../services/automation-workspace'
 import { addBusinessDays, appendFollowupMetadata, readFollowupMetadata, type CadenceTemplateInput } from '../services/followup-workspace'
 import { createId } from '../lib/id'
 import { goalProgress } from '../services/metrics'
 import { recordDiagnostic } from '../lib/diagnostics'
 import { recordContactDraft, recordSellerNotification } from '../services/automation-operations'
+import { dispatchAutomationWebhook } from '../services/automation-webhooks'
+import { queueCalendarMutation } from '../services/communications'
 
 interface ToastMessage { id: number; type: 'success' | 'error' | 'info'; message: string }
 
+interface LeadClassificationInput { leadId: string; priority: Lead['priority']; temperature: Lead['temperature']; score?: number }
+
 type ActivityCreatePayload = Omit<NewActivityInput, 'workspaceId' | 'sourceType' | 'sourceId'>
 type CallCreatePayload = Omit<NewCallInput, 'workspaceId' | 'userId'>
+type RegisterCallOutcomePayload = Omit<RegisterCallOutcomeInput, 'workspaceId' | 'userId'>
+type RegisterActivityOutcomePayload = Omit<RegisterActivityOutcomeInput, 'workspaceId' | 'userId'>
 type EventCreatePayload = Omit<NewCalendarEventInput, 'workspaceId'>
 type PlaybookCreatePayload = Omit<NewPlaybookInput, 'workspaceId'>
+type ProductCreatePayload = Omit<NewProductInput, 'workspaceId'>
+type ProposalCreatePayload = Omit<NewProposalInput, 'workspaceId'>
+type RevenueCreatePayload = Omit<NewRevenueEntryInput, 'workspaceId'>
 type GoalCreatePayload = Omit<NewGoalInput, 'workspaceId'>
 type AutomationRuleCreatePayload = Omit<NewAutomationRuleInput, 'workspaceId' | 'createdBy'>
 
@@ -51,6 +60,7 @@ interface AppContextValue {
   exportWorkspace(): Promise<Record<string, unknown>>
   refresh(): Promise<void>
   reinitialize(): Promise<void>
+  synchronizeCommercialStructure(): Promise<CommercialStructureSyncResult>
   createLead(input: Omit<NewLeadInput, 'workspaceId'>): Promise<Lead>
   updateLead(leadId: string, input: UpdateLeadInput): Promise<Lead>
   moveLead(leadId: string, stageId: string, lossReason?: string | null): Promise<Lead>
@@ -58,6 +68,7 @@ interface AppContextValue {
   mergeLeads(primaryLeadId: string, duplicateLeadId: string): Promise<Lead>
   deleteLead(leadId: string): Promise<void>
   bulkUpdateLeads(leadIds: string[], input: UpdateLeadInput): Promise<number>
+  reclassifyLeads(updates: LeadClassificationInput[], silent?: boolean): Promise<number>
   bulkAddLeadTag(leadIds: string[], tag: string): Promise<number>
   bulkDeleteLeads(leadIds: string[]): Promise<number>
   createStage(input: Omit<NewStageInput, 'workspaceId'>): Promise<PipelineStage>
@@ -67,9 +78,11 @@ interface AppContextValue {
   createActivities(inputs: ActivityCreatePayload[]): Promise<ActivityItem[]>
   updateActivity(activityId: string, input: UpdateActivityInput): Promise<ActivityItem>
   completeActivity(activityId: string, completed: boolean): Promise<ActivityItem>
+  registerActivityOutcome(input: RegisterActivityOutcomePayload): Promise<CommercialActivityResult>
   deleteActivity(activityId: string): Promise<void>
   createCadence(leadIds: string[], firstDueAt: string, template: CadenceTemplateInput): Promise<number>
   createCall(input: CallCreatePayload, recording?: Blob | null): Promise<CallRecord>
+  registerCallOutcome(input: RegisterCallOutcomePayload, recording?: Blob | null): Promise<CommercialActionResult>
   deleteCall(callId: string): Promise<void>
   createCalendarEvent(input: EventCreatePayload): Promise<CalendarEvent>
   createCalendarEvents(inputs: EventCreatePayload[]): Promise<CalendarEvent[]>
@@ -78,6 +91,16 @@ interface AppContextValue {
   createPlaybook(input: PlaybookCreatePayload): Promise<Playbook>
   updatePlaybook(playbookId: string, input: UpdatePlaybookInput): Promise<Playbook>
   deletePlaybook(playbookId: string): Promise<void>
+  createProduct(input: ProductCreatePayload): Promise<ProductRecord>
+  updateProduct(productId: string, input: UpdateProductInput): Promise<ProductRecord>
+  deleteProduct(productId: string): Promise<void>
+  createProposal(input: ProposalCreatePayload): Promise<ProposalRecord>
+  updateProposal(proposalId: string, input: UpdateProposalInput): Promise<ProposalRecord>
+  createProposalRevision(proposalId: string): Promise<ProposalRecord>
+  updateProposalStatus(proposalId: string, status: ProposalStatus): Promise<ProposalRecord>
+  deleteProposal(proposalId: string): Promise<void>
+  createRevenueEntry(input: RevenueCreatePayload): Promise<RevenueEntry>
+  updateRevenueEntryStatus(entryId: string, status: RevenueEntry['status']): Promise<RevenueEntry>
   createGoal(input: GoalCreatePayload): Promise<Goal>
   updateGoal(goalId: string, input: UpdateGoalInput): Promise<Goal>
   deleteGoal(goalId: string): Promise<void>
@@ -184,6 +207,9 @@ export function AppProvider({ children }: PropsWithChildren) {
       .on('postgres_changes', { event: '*', schema: 'public', table: 'calls', filter: `organization_id=eq.${currentWorkspace.id}` }, scheduleRefresh)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'calendar_events', filter: `organization_id=eq.${currentWorkspace.id}` }, scheduleRefresh)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'playbooks', filter: `organization_id=eq.${currentWorkspace.id}` }, scheduleRefresh)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'products', filter: `organization_id=eq.${currentWorkspace.id}` }, scheduleRefresh)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'sales_proposals', filter: `organization_id=eq.${currentWorkspace.id}` }, scheduleRefresh)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'revenue_entries', filter: `organization_id=eq.${currentWorkspace.id}` }, scheduleRefresh)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'goals', filter: `organization_id=eq.${currentWorkspace.id}` }, scheduleRefresh)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'automation_rules', filter: `organization_id=eq.${currentWorkspace.id}` }, scheduleRefresh)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'automation_runs', filter: `organization_id=eq.${currentWorkspace.id}` }, scheduleRefresh)
@@ -206,6 +232,8 @@ export function AppProvider({ children }: PropsWithChildren) {
     for (const rule of rules) {
       const guard = readAutomationGuard(rule.conditions)
       const validation = validateAutomationRule(rule, base.stages)
+      const correlationId = automationCorrelationId(event)
+      const chainDepth = Math.max(0, Number(event.chainDepth ?? 0))
       const eventKey = options.forceRule
         ? `${automationEventKey(rule.id, event)}:manual:${Date.now()}:${Math.random().toString(36).slice(2, 7)}`
         : automationEventKey(rule.id, event)
@@ -214,31 +242,49 @@ export function AppProvider({ children }: PropsWithChildren) {
         input: {
           triggerType: event.triggerType, entityId: event.entityId, leadId: event.lead?.id ?? null,
           callOutcome: event.callOutcome ?? null, stageId: event.stageId ?? null, activityType: event.activityType ?? null,
-          eventStatus: event.eventStatus ?? null, mode: guard.mode,
+          eventStatus: event.eventStatus ?? null, mode: guard.mode, correlationId, chainDepth, originRuleIds: event.originRuleIds ?? [],
         },
       })
       if (!run) continue
+      const runStartedAt = Date.now()
       const preview = rule.actions.slice(0, guard.maxActionsPerRun).map((action) => describeAutomationAction(action, base.stages))
+      const loopReason = automationLoopDetected(rule.id, event, guard.maxChainDepth)
+      if (!options.forceRule && loopReason) {
+        await repository.finishAutomationRun(run.id, 'success', {
+          message: loopReason === 'rule_cycle' ? 'Execução bloqueada: a regra já participou desta cadeia.' : 'Execução bloqueada: profundidade máxima da cadeia atingida.',
+          skippedReason: loopReason, actionPreview: preview, correlationId, chainDepth, durationMs: Date.now() - runStartedAt,
+        })
+        continue
+      }
       if (validation.errors.length) {
         const message = validation.errors.join(' ')
-        await repository.finishAutomationRun(run.id, 'failed', { message, actionPreview: preview, warnings: validation.warnings }, message)
+        await repository.finishAutomationRun(run.id, 'failed', { message, actionPreview: preview, warnings: validation.warnings, correlationId, chainDepth, durationMs: Date.now() - runStartedAt }, message)
         continue
       }
       if (guard.mode === 'simulation' && !options.forceRule) {
         await repository.finishAutomationRun(run.id, 'success', {
           message: `Simulação concluída: ${preview.length} ação(ões) seriam executadas.`, simulated: true,
-          actionPreview: preview, matchedLeadIds: event.lead ? [event.lead.id] : [], warnings: validation.warnings,
+          actionPreview: preview, matchedLeadIds: event.lead ? [event.lead.id] : [], warnings: validation.warnings, correlationId, chainDepth, durationMs: Date.now() - runStartedAt,
         })
         executed += 1
         continue
       }
       if (event.lead) {
         const currentRuns = (await repository.listAutomationRuns(currentWorkspace.id)).filter((item) => item.id !== run.id)
+        const loopWindowStart = Date.now() - guard.loopWindowMinutes * 60_000
+        const repeatedInChain = currentRuns.some((item) => item.ruleId === rule.id && item.input.correlationId === correlationId && new Date(item.startedAt).getTime() >= loopWindowStart && item.status !== 'undone')
+        if (!options.forceRule && repeatedInChain) {
+          await repository.finishAutomationRun(run.id, 'success', {
+            message: 'Execução ignorada pela janela anti-loop.', skippedReason: 'loop_window', actionPreview: preview,
+            matchedLeadIds: [event.lead.id], warnings: validation.warnings, correlationId, chainDepth, durationMs: Date.now() - runStartedAt,
+          })
+          continue
+        }
         const todayRuns = automationRunForLeadToday(currentRuns, rule.id, event.lead.id)
         if (!options.forceRule && todayRuns.length >= guard.maxRunsPerLeadPerDay) {
           await repository.finishAutomationRun(run.id, 'success', {
             message: 'Execução ignorada pelo limite diário de segurança.', skippedReason: 'daily_limit', actionPreview: preview,
-            matchedLeadIds: [event.lead.id], warnings: validation.warnings,
+            matchedLeadIds: [event.lead.id], warnings: validation.warnings, correlationId, chainDepth, durationMs: Date.now() - runStartedAt,
           })
           continue
         }
@@ -246,7 +292,7 @@ export function AppProvider({ children }: PropsWithChildren) {
         if (!options.forceRule && latest && guard.cooldownHours > 0 && Date.now() - new Date(latest.startedAt).getTime() < guard.cooldownHours * 3_600_000) {
           await repository.finishAutomationRun(run.id, 'success', {
             message: 'Execução ignorada pelo intervalo de segurança.', skippedReason: 'cooldown', actionPreview: preview,
-            matchedLeadIds: [event.lead.id], warnings: validation.warnings,
+            matchedLeadIds: [event.lead.id], warnings: validation.warnings, correlationId, chainDepth, durationMs: Date.now() - runStartedAt,
           })
           continue
         }
@@ -254,6 +300,8 @@ export function AppProvider({ children }: PropsWithChildren) {
       const mutations: NonNullable<AutomationRun['output']['mutations']> = []
       const warnings = [...validation.warnings]
       const actionMessages: string[] = []
+      const webhookDeliveryIds: string[] = []
+      const webhookRequests: string[] = []
       const workingActivities = await repository.listActivities(currentWorkspace.id)
       const workingEvents = await repository.listCalendarEvents(currentWorkspace.id)
       let currentLead = event.lead ? { ...event.lead, tags: [...event.lead.tags] } : null
@@ -288,7 +336,7 @@ export function AppProvider({ children }: PropsWithChildren) {
       }
       const executeAction = async (action: AutomationRule['actions'][number]) => {
         const lead = currentLead
-        if (!lead && !['internal_alert', 'create_note'].includes(action.type)) throw new Error('A automação exige um lead relacionado.')
+        if (!lead && !['internal_alert', 'create_note', 'send_webhook'].includes(action.type)) throw new Error('A automação exige um lead relacionado.')
         if (action.type === 'create_followup' || action.type === 'create_call') {
           const title = action.value.trim() || `${actionLabels[action.type]} — ${rule.name}`
           await createActivityAction(action.type === 'create_call' ? 'call' : 'followup', title, dueFor(action).toISOString())
@@ -325,6 +373,9 @@ export function AppProvider({ children }: PropsWithChildren) {
             sourceType: 'automation_run', sourceId: run.id,
           })
           await createActivityAction('followup', `${channel} preparado — ${rule.name}`, new Date().toISOString())
+        } else if (action.type === 'send_webhook') {
+          webhookRequests.push(action.value)
+          actionMessages.push('Webhook preparado para despacho após a confirmação da execução')
         } else if (action.type === 'add_tag' || action.type === 'remove_tag') {
           const before = { tags: [...lead!.tags] }
           const tag = action.value.trim(); if (!tag) throw new Error('A tag da automação está vazia.')
@@ -374,6 +425,7 @@ export function AppProvider({ children }: PropsWithChildren) {
           actionMessages.push(`${pending.length} atividade(s) pendente(s) encerrada(s)`)
         }
       }
+      let completedOutput: AutomationRun['output'] | null = null
       try {
         for (const action of rule.actions.slice(0, guard.maxActionsPerRun)) {
           try { await executeAction(action) }
@@ -383,10 +435,11 @@ export function AppProvider({ children }: PropsWithChildren) {
             if (guard.stopOnError) throw actionError
           }
         }
-        await repository.finishAutomationRun(run.id, 'success', {
+        completedOutput = {
           message: `${actionMessages.length} ação(ões) processada(s).`, mutations, matchedLeadIds: currentLead ? [currentLead.id] : [],
-          actionPreview: actionMessages, warnings,
-        })
+          actionPreview: actionMessages, warnings: [...warnings], correlationId, chainDepth, durationMs: Date.now() - runStartedAt, webhookDeliveryIds,
+        }
+        await repository.finishAutomationRun(run.id, 'success', completedOutput)
         executed += 1
       } catch (automationError) {
         const message = automationError instanceof Error ? automationError.message : 'Falha ao executar automação.'
@@ -402,16 +455,39 @@ export function AppProvider({ children }: PropsWithChildren) {
           }
         }
         const rollbackMessage = rollbackWarnings.length ? 'Algumas alterações parciais não puderam ser restauradas.' : 'Alterações parciais restauradas automaticamente.'
-        await repository.finishAutomationRun(run.id, 'failed', { message: `${message} ${rollbackMessage}`, mutations: rollbackWarnings.length ? mutations : [], matchedLeadIds: currentLead ? [currentLead.id] : [], actionPreview: actionMessages, warnings: [...warnings, ...rollbackWarnings] }, message)
+        await repository.finishAutomationRun(run.id, 'failed', { message: `${message} ${rollbackMessage}`, mutations: rollbackWarnings.length ? mutations : [], matchedLeadIds: currentLead ? [currentLead.id] : [], actionPreview: actionMessages, warnings: [...warnings, ...rollbackWarnings], correlationId, chainDepth, durationMs: Date.now() - runStartedAt, webhookDeliveryIds }, message)
+      }
+      if (completedOutput && webhookRequests.length) {
+        for (const webhookId of webhookRequests) {
+          try {
+            const delivery = await dispatchAutomationWebhook({
+              workspaceId: currentWorkspace.id, webhookId, runId: run.id, rule, lead: currentLead,
+              eventType: event.triggerType, correlationId,
+            })
+            webhookDeliveryIds.push(delivery.id)
+          } catch (webhookError) {
+            warnings.push(`Webhook: ${webhookError instanceof Error ? webhookError.message : 'Não foi possível criar a entrega.'}`)
+          }
+        }
+        try {
+          await repository.finishAutomationRun(run.id, 'success', {
+            ...completedOutput,
+            message: `${actionMessages.length} ação(ões) processada(s); ${webhookDeliveryIds.length} webhook(s) enfileirado(s).`,
+            warnings: [...warnings], webhookDeliveryIds, durationMs: Date.now() - runStartedAt,
+          })
+        } catch {
+          notify('warning', 'A automação foi concluída, mas o vínculo final com o log de webhook precisa ser revisado.')
+        }
       }
     }
     if (executed && options.refreshAfter !== false) await refreshData()
     return executed
-  }, [currentWorkspace, refreshData, repository])
+  }, [currentWorkspace, notify, refreshData, repository])
 
   const value = useMemo<AppContextValue>(() => ({
     route, setRoute, repositoryMode: repository.mode, health, workspaces, currentWorkspace, canWrite, snapshot, loading, error, toasts,
     reinitialize: bootstrap,
+    async synchronizeCommercialStructure() { assertWritable(); if (!currentWorkspace) throw new Error('Selecione um workspace.'); const result = await repository.synchronizeCommercialStructure(currentWorkspace.id); await refreshData(); notify('success', `Estrutura sincronizada: ${result.leadsLinked} lead(s) vinculados.`); return result },
     async setCurrentWorkspace(id) {
       const workspace = workspaces.find((item) => item.id === id); if (!workspace) throw new Error('Workspace não encontrado.'); await loadWorkspace(workspace)
     },
@@ -462,6 +538,20 @@ export function AppProvider({ children }: PropsWithChildren) {
       if (!currentWorkspace) throw new Error('Selecione um workspace.')
       const count = await repository.bulkUpdateLeads(currentWorkspace.id, leadIds, input); await refreshData(); notify('success', `${count} lead(s) atualizado(s).`); return count
     },
+    async reclassifyLeads(updates, silent = false) { assertWritable();
+      if (!currentWorkspace) throw new Error('Selecione um workspace.')
+      const unique = Array.from(new Map(updates.map((item) => [item.leadId, item])).values())
+      let count = 0
+      for (const item of unique) {
+        const current = snapshot?.leads.find((lead) => lead.id === item.leadId)
+        if (!current || current.status !== 'active' || (current.priority === item.priority && current.temperature === item.temperature)) continue
+        await repository.updateLead(item.leadId, { priority: item.priority, temperature: item.temperature })
+        count += 1
+      }
+      if (count) await refreshData()
+      if (count && !silent) notify('success', `${count} lead(s) reclassificado(s) pelo Lead Score.`)
+      return count
+    },
     async bulkAddLeadTag(leadIds, tag) { assertWritable();
       if (!currentWorkspace) throw new Error('Selecione um workspace.')
       const count = await repository.bulkAddLeadTag(currentWorkspace.id, leadIds, tag); await refreshData(); notify('success', `Tag adicionada em ${count} lead(s).`); return count
@@ -494,6 +584,18 @@ export function AppProvider({ children }: PropsWithChildren) {
         await executeAutomationEvent({ triggerType: 'activity_completed', entityId: `${activity.id}:${activity.updatedAt}`, lead, activityId: activity.id, activityType: activity.type }, { refreshAfter: false })
       }
       await refreshData(); notify('success', completed ? 'Atividade concluída.' : 'Atividade reaberta.'); return activity
+    },
+    async registerActivityOutcome(input) { assertWritable();
+      if (!currentWorkspace) throw new Error('Selecione um workspace.')
+      const result = await repository.registerActivityOutcome({ ...input, workspaceId: currentWorkspace.id, userId: user?.id ?? null })
+      const base = await repository.getSnapshot(currentWorkspace.id)
+      const lead = base.leads.find((item) => item.id === result.lead.id) ?? result.lead
+      await executeAutomationEvent({ triggerType: 'activity_completed', entityId: `${result.activity.id}:${result.activity.updatedAt}`, lead, activityId: result.activity.id, activityType: result.activity.type }, { refreshAfter: false, baseSnapshot: base })
+      if (lead.status === 'won') await executeAutomationEvent({ triggerType: 'opportunity_won', entityId: result.resultActivityId, lead }, { refreshAfter: false, baseSnapshot: base })
+      if (lead.status === 'lost') await executeAutomationEvent({ triggerType: 'opportunity_lost', entityId: result.resultActivityId, lead }, { refreshAfter: false, baseSnapshot: base })
+      await refreshData()
+      notify(result.idempotent ? 'info' : 'success', result.idempotent ? 'Este resultado já havia sido registrado; nenhum dado foi duplicado.' : 'Resultado salvo e rotina comercial sincronizada.')
+      return result
     },
     async deleteActivity(activityId) { assertWritable(); await repository.deleteActivity(activityId); await refreshData(); notify('success', 'Atividade removida.') },
     async createCadence(leadIds, firstDueAt, template) { assertWritable();
@@ -538,12 +640,28 @@ export function AppProvider({ children }: PropsWithChildren) {
       if (call.outcome === 'proposal_sent') await executeAutomationEvent({ triggerType: 'proposal_sent', entityId: call.id, lead, callOutcome: call.outcome, attemptCount }, { refreshAfter: false, baseSnapshot: base })
       await refreshData(); notify('success', 'Ligação salva no histórico.'); return call
     },
+    async registerCallOutcome(input, recording) { assertWritable();
+      if (!currentWorkspace) throw new Error('Selecione um workspace.')
+      const result = await repository.registerCallOutcome({ ...input, workspaceId: currentWorkspace.id, userId: user?.id ?? null }, recording)
+      const base = await repository.getSnapshot(currentWorkspace.id)
+      const lead = base.leads.find((item) => item.id === result.lead.id) ?? result.lead
+      const attemptCount = base.calls.filter((item) => item.leadId === result.call.leadId).length
+      await executeAutomationEvent({ triggerType: 'call_outcome', entityId: result.call.id, lead, callOutcome: result.call.outcome, attemptCount }, { refreshAfter: false, baseSnapshot: base })
+      if (result.call.outcome === 'proposal_sent') await executeAutomationEvent({ triggerType: 'proposal_sent', entityId: result.call.id, lead, callOutcome: result.call.outcome, attemptCount }, { refreshAfter: false, baseSnapshot: base })
+      if (result.calendarEventId) await executeAutomationEvent({ triggerType: 'meeting_scheduled', entityId: result.calendarEventId, lead, eventStatus: 'confirmed' }, { refreshAfter: false, baseSnapshot: base })
+      if (lead.status === 'won') await executeAutomationEvent({ triggerType: 'opportunity_won', entityId: result.call.id, lead }, { refreshAfter: false, baseSnapshot: base })
+      if (lead.status === 'lost') await executeAutomationEvent({ triggerType: 'opportunity_lost', entityId: result.call.id, lead }, { refreshAfter: false, baseSnapshot: base })
+      await refreshData()
+      notify(result.idempotent ? 'info' : 'success', result.idempotent ? 'Este resultado já havia sido registrado; nenhum dado foi duplicado.' : 'Resultado salvo e CRM sincronizado.')
+      return result
+    },
     async deleteCall(callId) { assertWritable(); await repository.deleteCall(callId); await refreshData(); notify('success', 'Ligação removida.') },
     async createCalendarEvent(input) { assertWritable();
       if (!currentWorkspace) throw new Error('Selecione um workspace.')
       const event = await repository.createCalendarEvent({ ...input, workspaceId: currentWorkspace.id })
       const lead = event.leadId ? (await repository.listLeads(currentWorkspace.id)).find((item) => item.id === event.leadId) ?? null : null
       await executeAutomationEvent({ triggerType: 'meeting_scheduled', entityId: event.id, lead, eventStatus: event.status }, { refreshAfter: false })
+      void queueCalendarMutation(currentWorkspace.id, event.id, 'create', event).catch(() => undefined)
       await refreshData(); notify('success', 'Compromisso criado na Agenda.'); return event
     },
     async createCalendarEvents(inputs) { assertWritable();
@@ -558,6 +676,7 @@ export function AppProvider({ children }: PropsWithChildren) {
         await Promise.allSettled([...events].reverse().map((event) => repository.deleteCalendarEvent(event.id)))
         throw error
       }
+      for (const event of events) void queueCalendarMutation(currentWorkspace.id, event.id, 'create', event).catch(() => undefined)
       await refreshData(); notify('success', `${events.length} compromisso(s) criado(s) na Agenda.`); return events
     },
     async updateCalendarEvent(eventId, input) { assertWritable();
@@ -568,9 +687,10 @@ export function AppProvider({ children }: PropsWithChildren) {
         const lead = event.leadId ? (await repository.listLeads(currentWorkspace.id)).find((item) => item.id === event.leadId) ?? null : null
         await executeAutomationEvent({ triggerType: 'meeting_cancelled', entityId: `${event.id}:${event.updatedAt}`, lead, eventStatus: event.status }, { refreshAfter: false })
       }
+      void queueCalendarMutation(currentWorkspace.id, event.id, 'update', event).catch(() => undefined)
       await refreshData(); notify('success', 'Compromisso atualizado.'); return event
     },
-    async deleteCalendarEvent(eventId) { assertWritable(); await repository.deleteCalendarEvent(eventId); await refreshData(); notify('success', 'Compromisso removido.') },
+    async deleteCalendarEvent(eventId) { assertWritable(); if (!currentWorkspace) throw new Error('Selecione um workspace.'); const before = (await repository.listCalendarEvents(currentWorkspace.id)).find((item) => item.id === eventId) ?? null; await queueCalendarMutation(currentWorkspace.id, eventId, 'delete', before).catch(() => undefined); await repository.deleteCalendarEvent(eventId); await refreshData(); notify('success', 'Compromisso removido.') },
 
     async createPlaybook(input) { assertWritable();
       if (!currentWorkspace) throw new Error('Selecione um workspace.')
@@ -578,6 +698,16 @@ export function AppProvider({ children }: PropsWithChildren) {
     },
     async updatePlaybook(playbookId, input) { assertWritable(); const playbook = await repository.updatePlaybook(playbookId, input); await refreshData(); notify('success', 'Playbook atualizado.'); return playbook },
     async deletePlaybook(playbookId) { assertWritable(); await repository.deletePlaybook(playbookId); await refreshData(); notify('success', 'Playbook removido.') },
+    async createProduct(input) { assertWritable(); if (!currentWorkspace) throw new Error('Selecione um workspace.'); const product = await repository.createProduct({ ...input, workspaceId: currentWorkspace.id }); await refreshData(); notify('success', 'Produto ou serviço cadastrado.'); return product },
+    async updateProduct(productId, input) { assertWritable(); const product = await repository.updateProduct(productId, input); await refreshData(); notify('success', 'Produto atualizado.'); return product },
+    async deleteProduct(productId) { assertWritable(); await repository.deleteProduct(productId); await refreshData(); notify('success', 'Produto removido.') },
+    async createProposal(input) { assertWritable(); if (!currentWorkspace) throw new Error('Selecione um workspace.'); const proposal = await repository.createProposal({ ...input, workspaceId: currentWorkspace.id }); await refreshData(); notify('success', 'Proposta criada.'); return proposal },
+    async updateProposal(proposalId, input) { assertWritable(); const proposal = await repository.updateProposal(proposalId, input); await refreshData(); notify('success', 'Proposta atualizada.'); return proposal },
+    async createProposalRevision(proposalId) { assertWritable(); const proposal = await repository.createProposalRevision(proposalId); await refreshData(); notify('success', `Revisão v${proposal.version} criada.`); return proposal },
+    async updateProposalStatus(proposalId, status) { assertWritable(); const proposal = await repository.updateProposalStatus(proposalId, status); const lead = snapshot?.leads.find((item) => item.id === proposal.leadId); if (lead && status === 'sent') await executeAutomationEvent({ triggerType: 'proposal_sent', entityId: `${proposal.id}:${proposal.updatedAt}`, lead }, { refreshAfter: false }); if (lead && status === 'accepted') await executeAutomationEvent({ triggerType: 'opportunity_won', entityId: `${proposal.id}:${proposal.updatedAt}`, lead }, { refreshAfter: false }); if (lead && status === 'rejected') await executeAutomationEvent({ triggerType: 'opportunity_lost', entityId: `${proposal.id}:${proposal.updatedAt}`, lead }, { refreshAfter: false }); await refreshData(); notify('success', status === 'accepted' ? 'Proposta aceita e receita reconhecida.' : 'Status da proposta atualizado.'); return proposal },
+    async deleteProposal(proposalId) { assertWritable(); await repository.deleteProposal(proposalId); await refreshData(); notify('success', 'Proposta removida.') },
+    async createRevenueEntry(input) { assertWritable(); if (!currentWorkspace) throw new Error('Selecione um workspace.'); const entry = await repository.createRevenueEntry({ ...input, workspaceId: currentWorkspace.id }); await refreshData(); notify('success', 'Receita registrada.'); return entry },
+    async updateRevenueEntryStatus(entryId, status) { assertWritable(); const entry = await repository.updateRevenueEntryStatus(entryId, status); await refreshData(); notify('success', 'Receita atualizada.'); return entry },
     async createGoal(input) { assertWritable();
       if (!currentWorkspace) throw new Error('Selecione um workspace.')
       const goal = await repository.createGoal({ ...input, workspaceId: currentWorkspace.id }); await refreshData(); notify('success', 'Meta criada.'); return goal

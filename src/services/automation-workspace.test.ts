@@ -41,6 +41,30 @@ describe('automation workspace', () => {
     expect(readAutomationGuard(recipe.conditions).mode).toBe('simulation')
   })
 
+
+  it('persiste profundidade e janela anti-loop', () => {
+    const conditions = withAutomationGuard([], { ...DEFAULT_AUTOMATION_GUARD, maxChainDepth: 6, loopWindowMinutes: 20 })
+    const guard = readAutomationGuard(conditions)
+    expect(guard.maxChainDepth).toBe(6)
+    expect(guard.loopWindowMinutes).toBe(20)
+  })
+
+  it('exige webhook como última ação e limita um destino por regra', () => {
+    const recipe = createAutomationRecipe('new-lead-first-action')
+    const invalid = {
+      ...recipe,
+      name: 'Webhook inválido',
+      actions: [
+        { id: 'hook-1', type: 'send_webhook' as const, value: 'endpoint-1' },
+        { id: 'tag', type: 'add_tag' as const, value: 'processado' },
+        { id: 'hook-2', type: 'send_webhook' as const, value: 'endpoint-2' },
+      ],
+    }
+    const validation = validateAutomationRule(invalid, DEFAULT_STAGES)
+    expect(validation.errors.some((message) => message.includes('última ação'))).toBe(true)
+    expect(validation.errors.some((message) => message.includes('apenas um webhook'))).toBe(true)
+  })
+
   it('bloqueia etapas removidas e excesso de ações', () => {
     const recipe = createAutomationRecipe('new-lead-first-action')
     const invalid = {

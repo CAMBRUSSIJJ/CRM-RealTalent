@@ -1,0 +1,29 @@
+{
+  "version": "100.37.0",
+  "generatedAt": "2026-07-23T01:05:19.655274+00:00",
+  "status": "implemented-build-blocked",
+  "releaseApproved": false,
+  "implementation": {
+    "sourceOfTruthGuard": true,
+    "architectureGuard": true,
+    "databaseAudit": true,
+    "typescriptSyntaxAudit": true,
+    "runtimeSmokeContingency": true,
+    "preflightApproved": false
+  },
+  "evidence": {
+    "typescriptFilesParsed": 128,
+    "sourceFilesReleaseAudited": 126,
+    "migrations": 18,
+    "publicTablesWithRls": 28,
+    "preflightChecksApproved": 21,
+    "preflightChecksTotal": 22,
+    "runtimeSmokeChecks": 4
+  },
+  "blocker": {
+    "type": "external-dependency-registry",
+    "error": "HTTP 503 ao baixar xmlchars-2.2.0.tgz em duas tentativas de npm ci.",
+    "impact": "Typecheck completo, testes Vitest e build Vite não puderam ser executados neste ambiente.",
+    "requiredAction": "Em ambiente com registro disponível, executar npm ci && npm run homologate. O pipeline substituirá automaticamente o HTML de contingência."
+  }
+}

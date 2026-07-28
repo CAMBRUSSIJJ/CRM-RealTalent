@@ -1,0 +1,24 @@
+OK — Node definido: Node 22
+OK — Lockfile presente: npm ci reproduzível
+OK — Fonte oficial documentada: React + TypeScript + Vite
+OK — Guard de fonte oficial: HTML não pode virar fonte
+OK — Guard de arquitetura: limites entre camadas
+OK — Lock de migrations: checksums históricos
+OK — Auditoria do banco: RLS, migrations e SECURITY DEFINER
+OK — Contratos SQL: smoke do schema local
+OK — Configuração Supabase: config.toml versionado
+OK — Seed local: seed.sql presente
+OK — Migrations: 18 migration(s) encontrada(s)
+OK — Motor comercial transacional: RPCs e serviço central
+OK — Webhooks profissionais: fila e auditoria
+OK — Configuração Vercel: SPA e headers de segurança
+OK — Ambientes separados: demo, staging e production
+OK — CI GitHub: validação em push e pull request
+OK — Release candidate: homologação manual protegida
+OK — Deploy Supabase manual: workflow protegido por environment
+OK — Health check: /health.json 100.37
+FALHA — Standalone derivado da fonte: V100-37
+OK — Inicializador Windows: atalhos de inicialização
+OK — Nenhum segredo conhecido: nenhum segredo detectado
+
+21/22 verificações aprovadas.

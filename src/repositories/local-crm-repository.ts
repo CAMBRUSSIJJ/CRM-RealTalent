@@ -1,6 +1,6 @@
-import { DEMO_ACTIVITIES, DEMO_AUTOMATION_RULES, DEMO_AUTOMATION_RUNS, DEMO_CALLS, DEMO_EVENTS, DEMO_GOALS, DEMO_LEADS, DEMO_PLAYBOOKS, DEMO_WORKSPACE, DEFAULT_STAGES } from '../domain/defaults'
+import { DEMO_ACTIVITIES, DEMO_AUTOMATION_RULES, DEMO_AUTOMATION_RUNS, DEMO_CALLS, DEMO_COMPANIES, DEMO_CONTACTS, DEMO_EVENTS, DEMO_GOALS, DEMO_LEADS, DEMO_OPPORTUNITIES, DEMO_PLAYBOOKS, DEMO_PRODUCTS, DEMO_PROPOSALS, DEMO_REVENUE_ENTRIES, DEMO_SOCIAL_PROFILES, DEMO_WORKSPACE, DEFAULT_STAGES } from '../domain/defaults'
 import type {
-  ActivityItem, AuditLog, AutomationRule, AutomationRun, AutomationRunOutput, AutomationRunStatus, CalendarEvent, CallRecord, DashboardStats, Goal, Lead, PipelineStage, Playbook, RepositoryHealth, Workspace, WorkspaceInvite, WorkspaceMember, WorkspaceSnapshot,
+  ActivityItem, AuditLog, AutomationRule, AutomationRun, AutomationRunOutput, AutomationRunStatus, CalendarEvent, CallRecord, CommercialStructureSyncResult, CompanyRecord, ContactRecord, DashboardStats, Goal, Lead, OpportunityRecord, PipelineStage, Playbook, ProductRecord, ProposalLineItem, ProposalRecord, ProposalStatus, RevenueEntry, RepositoryHealth, SocialProfile, Workspace, WorkspaceInvite, WorkspaceMember, WorkspaceSnapshot,
 } from '../domain/types'
 import { createId } from '../lib/id'
 import { safeStorage } from '../lib/storage'
@@ -8,9 +8,11 @@ import { BACKUP_SCHEMA_VERSION } from '../lib/app-version'
 import { deleteLocalRecording, readLocalRecording, saveLocalRecording } from '../lib/local-recordings'
 import { completeLocalSetup, LOCAL_ACTIVE_WORKSPACE_KEY, markLocalSetupPending, writeLocalProfile, type LocalExperienceInput } from '../lib/local-experience'
 import { mergeLeadRecords } from '../services/lead-intelligence'
+import { deriveCommercialStructure } from '../services/commercial-structure'
+import { buildCommercialCallPlan, resolveCommercialStage, shouldClosePendingActivity } from '../services/commercial-action-engine'
 import type {
-  CrmRepository, NewActivityInput, NewAutomationRuleInput, NewAutomationRunInput, NewCalendarEventInput, NewCallInput, NewGoalInput, NewLeadInput, NewPlaybookInput, NewStageInput,
-  UpdateActivityInput, UpdateAutomationRuleInput, UpdateCalendarEventInput, UpdateGoalInput, UpdateLeadInput, UpdatePlaybookInput, UpdateStageInput,
+  CommercialActionResult, CommercialActivityResult, CrmRepository, NewActivityInput, NewAutomationRuleInput, NewAutomationRunInput, NewCalendarEventInput, NewCallInput, NewGoalInput, NewLeadInput, NewPlaybookInput, NewProductInput, NewProposalInput, NewRevenueEntryInput, NewStageInput, RegisterActivityOutcomeInput, RegisterCallOutcomeInput,
+  UpdateActivityInput, UpdateAutomationRuleInput, UpdateCalendarEventInput, UpdateGoalInput, UpdateLeadInput, UpdatePlaybookInput, UpdateProductInput, UpdateProposalInput, UpdateStageInput,
 } from './crm-repository'
 
 export const LOCAL_DATABASE_STORAGE_KEY = 'realtalent-crm-v100-local'
@@ -29,6 +31,13 @@ interface LocalDatabase {
   goals: Goal[]
   automationRules: AutomationRule[]
   automationRuns: AutomationRun[]
+  companies: CompanyRecord[]
+  contacts: ContactRecord[]
+  opportunities: OpportunityRecord[]
+  socialProfiles: SocialProfile[]
+  products: ProductRecord[]
+  proposals: ProposalRecord[]
+  revenueEntries: RevenueEntry[]
   members: WorkspaceMember[]
   invites: WorkspaceInvite[]
   auditLogs: AuditLog[]
@@ -72,6 +81,13 @@ const rebaseDemoDates = (db: LocalDatabase, reference = new Date()): LocalDataba
   db.playbooks.forEach((item) => { item.createdAt = shiftIso(item.createdAt, offsetMs)!; item.updatedAt = shiftIso(item.updatedAt, offsetMs)! })
   db.automationRules.forEach((item) => { item.createdAt = shiftIso(item.createdAt, offsetMs)!; item.updatedAt = shiftIso(item.updatedAt, offsetMs)! })
   db.automationRuns.forEach((item) => { item.startedAt = shiftIso(item.startedAt, offsetMs)!; item.finishedAt = shiftIso(item.finishedAt, offsetMs) })
+  db.companies.forEach((item) => { item.createdAt = shiftIso(item.createdAt, offsetMs)!; item.updatedAt = shiftIso(item.updatedAt, offsetMs)! })
+  db.contacts.forEach((item) => { item.createdAt = shiftIso(item.createdAt, offsetMs)!; item.updatedAt = shiftIso(item.updatedAt, offsetMs)! })
+  db.opportunities.forEach((item) => { item.createdAt = shiftIso(item.createdAt, offsetMs)!; item.updatedAt = shiftIso(item.updatedAt, offsetMs)! })
+  db.socialProfiles.forEach((item) => { item.createdAt = shiftIso(item.createdAt, offsetMs)!; item.updatedAt = shiftIso(item.updatedAt, offsetMs)!; item.lastCheckedAt = shiftIso(item.lastCheckedAt, offsetMs) })
+  db.products.forEach((item) => { item.createdAt = shiftIso(item.createdAt, offsetMs)!; item.updatedAt = shiftIso(item.updatedAt, offsetMs)! })
+  db.proposals.forEach((item) => { item.validUntil = shiftIso(item.validUntil ? `${item.validUntil}T12:00:00.000Z` : null, offsetMs)?.slice(0, 10) ?? null; item.sentAt = shiftIso(item.sentAt, offsetMs); item.viewedAt = shiftIso(item.viewedAt, offsetMs); item.acceptedAt = shiftIso(item.acceptedAt, offsetMs); item.rejectedAt = shiftIso(item.rejectedAt, offsetMs); item.createdAt = shiftIso(item.createdAt, offsetMs)!; item.updatedAt = shiftIso(item.updatedAt, offsetMs)! })
+  db.revenueEntries.forEach((item) => { item.recognizedAt = shiftIso(item.recognizedAt, offsetMs)!; item.createdAt = shiftIso(item.createdAt, offsetMs)!; item.updatedAt = shiftIso(item.updatedAt, offsetMs)! })
   db.members.forEach((item) => { item.joinedAt = shiftIso(item.joinedAt, offsetMs)! })
   const monthStart = new Date(reference.getFullYear(), reference.getMonth(), 1)
   const monthEnd = new Date(reference.getFullYear(), reference.getMonth() + 1, 0)
@@ -89,6 +105,8 @@ const seedDatabase = (): LocalDatabase => rebaseDemoDates({
   workspaces: [clone(DEMO_WORKSPACE)], stages: clone(DEFAULT_STAGES), leads: clone(DEMO_LEADS),
   activities: clone(DEMO_ACTIVITIES), calls: clone(DEMO_CALLS), events: clone(DEMO_EVENTS), playbooks: clone(DEMO_PLAYBOOKS),
   goals: clone(DEMO_GOALS), automationRules: clone(DEMO_AUTOMATION_RULES), automationRuns: clone(DEMO_AUTOMATION_RUNS),
+  companies: clone(DEMO_COMPANIES), contacts: clone(DEMO_CONTACTS), opportunities: clone(DEMO_OPPORTUNITIES), socialProfiles: clone(DEMO_SOCIAL_PROFILES),
+  products: clone(DEMO_PRODUCTS), proposals: clone(DEMO_PROPOSALS), revenueEntries: clone(DEMO_REVENUE_ENTRIES),
   members: [{ workspaceId: DEMO_WORKSPACE.id, userId: 'demo-user', displayName: 'Usuário Demo', email: 'demo@realtalent.local', avatarUrl: null, role: 'owner', joinedAt: DEMO_WORKSPACE.createdAt }],
   invites: [], auditLogs: [],
 })
@@ -111,7 +129,7 @@ export const configureLocalExperience = (input: LocalExperienceInput) => {
     db = {
       workspaces: [workspace],
       stages: clone(DEFAULT_STAGES).map((stage) => ({ ...stage, id: createId('stage'), workspaceId })),
-      leads: [], activities: [], calls: [], events: [], playbooks: [], goals: [], automationRules: [], automationRuns: [],
+      leads: [], activities: [], calls: [], events: [], playbooks: [], goals: [], automationRules: [], automationRuns: [], companies: [], contacts: [], opportunities: [], socialProfiles: [], products: [], proposals: [], revenueEntries: [],
       members: [member], invites: [], auditLogs: [],
     }
   } else {
@@ -126,6 +144,13 @@ export const configureLocalExperience = (input: LocalExperienceInput) => {
     db.goals.forEach((item) => { item.workspaceId = workspaceId })
     db.automationRules.forEach((item) => { item.workspaceId = workspaceId; item.createdBy = userId })
     db.automationRuns.forEach((item) => { item.workspaceId = workspaceId })
+    db.companies.forEach((item) => { item.workspaceId = workspaceId })
+    db.contacts.forEach((item) => { item.workspaceId = workspaceId })
+    db.opportunities.forEach((item) => { item.workspaceId = workspaceId })
+    db.socialProfiles.forEach((item) => { item.workspaceId = workspaceId })
+    db.products.forEach((item) => { item.workspaceId = workspaceId })
+    db.proposals.forEach((item) => { item.workspaceId = workspaceId; item.ownerId = userId })
+    db.revenueEntries.forEach((item) => { item.workspaceId = workspaceId; item.ownerId = userId })
     db.invites.forEach((item) => { if (item.workspaceId === oldWorkspaceId) item.workspaceId = workspaceId })
     db.auditLogs.forEach((item) => { if (item.workspaceId === oldWorkspaceId) item.workspaceId = workspaceId })
     db.members = [member]
@@ -163,6 +188,13 @@ const readDatabase = (): LocalDatabase => {
       goals: Array.isArray(parsed.goals) ? parsed.goals : [],
       automationRules: Array.isArray(parsed.automationRules) ? parsed.automationRules : [],
       automationRuns: Array.isArray(parsed.automationRuns) ? parsed.automationRuns : [],
+      companies: Array.isArray(parsed.companies) ? parsed.companies : [],
+      contacts: Array.isArray(parsed.contacts) ? parsed.contacts : [],
+      opportunities: Array.isArray(parsed.opportunities) ? parsed.opportunities : [],
+      socialProfiles: Array.isArray(parsed.socialProfiles) ? parsed.socialProfiles : [],
+      products: Array.isArray(parsed.products) ? parsed.products : [],
+      proposals: Array.isArray(parsed.proposals) ? parsed.proposals : [],
+      revenueEntries: Array.isArray(parsed.revenueEntries) ? parsed.revenueEntries : [],
       members: Array.isArray(parsed.members) ? parsed.members : [],
       invites: Array.isArray(parsed.invites) ? parsed.invites : [],
       auditLogs: Array.isArray(parsed.auditLogs) ? parsed.auditLogs : [],
@@ -179,6 +211,47 @@ const writeDatabase = (db: LocalDatabase) => safeStorage.setItem(STORAGE_KEY, JS
 const todayKey = (value: Date) => `${value.getFullYear()}-${value.getMonth()}-${value.getDate()}`
 const stageStatus = (stage: PipelineStage): Lead['status'] => stage.isWon ? 'won' : stage.isLost ? 'lost' : 'active'
 
+
+const proposalItemTotals = (item: ProposalLineItem): ProposalLineItem => {
+  const quantity = Math.max(0.01, Number(item.quantity || 1))
+  const unitPrice = Math.max(0, Number(item.unitPrice || 0))
+  const discountPercent = Math.min(100, Math.max(0, Number(item.discountPercent || 0)))
+  const taxRate = Math.max(0, Number(item.taxRate || 0))
+  const lineSubtotal = quantity * unitPrice
+  const lineDiscount = lineSubtotal * discountPercent / 100
+  const taxable = lineSubtotal - lineDiscount
+  const lineTax = taxable * taxRate / 100
+  const lineTotal = taxable + lineTax
+  const recurringMonthlyTotal = item.billingType === 'recurring' ? lineTotal * (item.billingInterval === 'year' ? 1 / 12 : item.billingInterval === 'quarter' ? 1 / 3 : 1) : 0
+  return { ...item, quantity, unitPrice, discountPercent, taxRate, lineSubtotal, lineDiscount, lineTax, lineTotal, recurringMonthlyTotal }
+}
+
+const normalizeProposal = (proposal: ProposalRecord): ProposalRecord => {
+  const items = proposal.items.map(proposalItemTotals)
+  return {
+    ...proposal, items,
+    subtotal: items.reduce((sum, item) => sum + item.lineSubtotal, 0),
+    discountTotal: items.reduce((sum, item) => sum + item.lineDiscount, 0),
+    taxTotal: items.reduce((sum, item) => sum + item.lineTax, 0),
+    total: items.reduce((sum, item) => sum + item.lineTotal, 0),
+    recurringMonthlyTotal: items.reduce((sum, item) => sum + item.recurringMonthlyTotal, 0),
+  }
+}
+
+const proposalSequence = (db: LocalDatabase, workspaceId: string) => {
+  const year = new Date().getFullYear()
+  const count = db.proposals.filter((item) => item.workspaceId === workspaceId && item.proposalNumber.startsWith(`PROP-${year}-`)).length + 1
+  return `PROP-${year}-${String(count).padStart(3, '0')}`
+}
+
+const syncAcceptedProposalRevenue = (db: LocalDatabase, proposal: ProposalRecord) => {
+  const now = proposal.acceptedAt ?? new Date().toISOString()
+  db.revenueEntries = db.revenueEntries.filter((entry) => entry.proposalId !== proposal.id)
+  const oneTimeAmount = proposal.items.filter((item) => item.billingType === 'one_time').reduce((sum, item) => sum + item.lineTotal, 0)
+  if (oneTimeAmount > 0) db.revenueEntries.unshift({ id: createId('revenue'), workspaceId: proposal.workspaceId, proposalId: proposal.id, leadId: proposal.leadId, opportunityId: proposal.opportunityId, revenueType: 'one_time', status: 'recognized', amount: oneTimeAmount, recurringMonthlyAmount: 0, recognizedAt: now, description: `${proposal.proposalNumber} · receita única`, ownerId: proposal.ownerId, createdAt: now, updatedAt: now })
+  if (proposal.recurringMonthlyTotal > 0) db.revenueEntries.unshift({ id: createId('revenue'), workspaceId: proposal.workspaceId, proposalId: proposal.id, leadId: proposal.leadId, opportunityId: proposal.opportunityId, revenueType: 'recurring', status: 'recognized', amount: 0, recurringMonthlyAmount: proposal.recurringMonthlyTotal, recognizedAt: now, description: `${proposal.proposalNumber} · receita recorrente mensal`, ownerId: proposal.ownerId, createdAt: now, updatedAt: now })
+}
+
 const syncLeadNextAction = (db: LocalDatabase, leadId: string | null) => {
   if (!leadId) return
   const lead = db.leads.find((item) => item.id === leadId)
@@ -190,14 +263,54 @@ const syncLeadNextAction = (db: LocalDatabase, leadId: string | null) => {
   lead.updatedAt = new Date().toISOString()
 }
 
+
+const synchronizeStructureInDatabase = (db: LocalDatabase, workspaceId: string): CommercialStructureSyncResult => {
+  const validLeadIds = new Set(db.leads.filter((lead) => lead.workspaceId === workspaceId).map((lead) => lead.id))
+  db.companies = db.companies.map((item) => item.workspaceId === workspaceId ? { ...item, leadIds: item.leadIds.filter((id) => validLeadIds.has(id)) } : item)
+  db.contacts = db.contacts.map((item) => item.workspaceId === workspaceId ? { ...item, leadIds: item.leadIds.filter((id) => validLeadIds.has(id)) } : item)
+  db.opportunities = db.opportunities.filter((item) => item.workspaceId !== workspaceId || validLeadIds.has(item.leadId))
+  const activeCompanyIds = new Set(db.companies.filter((item) => item.workspaceId === workspaceId && (item.leadIds.length || db.contacts.some((contact) => contact.companyId === item.id) || db.opportunities.some((opportunity) => opportunity.companyId === item.id))).map((item) => item.id))
+  const activeContactIds = new Set(db.contacts.filter((item) => item.workspaceId === workspaceId && (item.leadIds.length || db.opportunities.some((opportunity) => opportunity.primaryContactId === item.id))).map((item) => item.id))
+  db.companies = db.companies.filter((item) => item.workspaceId !== workspaceId || activeCompanyIds.has(item.id))
+  db.contacts = db.contacts.filter((item) => item.workspaceId !== workspaceId || activeContactIds.has(item.id))
+  db.socialProfiles = db.socialProfiles.filter((item) => item.workspaceId !== workspaceId || (item.entityType === 'company' ? activeCompanyIds.has(item.entityId) : activeContactIds.has(item.entityId)))
+  const before = { companies: db.companies.length, contacts: db.contacts.length, opportunities: db.opportunities.length, socialProfiles: db.socialProfiles.length }
+  const leads = db.leads.filter((lead) => lead.workspaceId === workspaceId)
+  const derived = deriveCommercialStructure(leads, {
+    companies: db.companies.filter((item) => item.workspaceId === workspaceId), contacts: db.contacts.filter((item) => item.workspaceId === workspaceId),
+    opportunities: db.opportunities.filter((item) => item.workspaceId === workspaceId), socialProfiles: db.socialProfiles.filter((item) => item.workspaceId === workspaceId),
+  })
+  db.companies = [...db.companies.filter((item) => item.workspaceId !== workspaceId), ...derived.companies]
+  db.contacts = [...db.contacts.filter((item) => item.workspaceId !== workspaceId), ...derived.contacts]
+  db.opportunities = [...db.opportunities.filter((item) => item.workspaceId !== workspaceId), ...derived.opportunities]
+  db.socialProfiles = [...db.socialProfiles.filter((item) => item.workspaceId !== workspaceId), ...derived.socialProfiles]
+  let leadsLinked = 0
+  for (const link of derived.leadLinks) {
+    const lead = db.leads.find((item) => item.id === link.leadId && item.workspaceId === workspaceId)
+    if (!lead) continue
+    if (lead.companyId !== link.companyId || lead.primaryContactId !== link.contactId || lead.opportunityId !== link.opportunityId) leadsLinked += 1
+    lead.companyId = link.companyId; lead.primaryContactId = link.contactId; lead.opportunityId = link.opportunityId
+  }
+  return {
+    companiesCreated: Math.max(0, db.companies.length - before.companies), contactsCreated: Math.max(0, db.contacts.length - before.contacts),
+    opportunitiesCreated: Math.max(0, db.opportunities.length - before.opportunities), socialProfilesCreated: Math.max(0, db.socialProfiles.length - before.socialProfiles), leadsLinked,
+  }
+}
+
 export class LocalCrmRepository implements CrmRepository {
   readonly mode = 'local' as const
 
   async initialize() {
     if (!safeStorage.getItem(STORAGE_KEY)) {
-      writeDatabase(seedDatabase())
+      const db = seedDatabase()
+      for (const workspace of db.workspaces) synchronizeStructureInDatabase(db, workspace.id)
+      writeDatabase(db)
       markLocalSetupPending()
+      return
     }
+    const db = readDatabase()
+    for (const workspace of db.workspaces) synchronizeStructureInDatabase(db, workspace.id)
+    writeDatabase(db)
   }
 
   async health(): Promise<RepositoryHealth> {
@@ -297,7 +410,18 @@ export class LocalCrmRepository implements CrmRepository {
       goals: clone(db.goals.filter((item) => item.workspaceId === workspaceId).sort((a, b) => new Date(b.periodStart).getTime() - new Date(a.periodStart).getTime())),
       automationRules: clone(db.automationRules.filter((item) => item.workspaceId === workspaceId).sort((a, b) => a.name.localeCompare(b.name, 'pt-BR'))),
       automationRuns: clone(db.automationRuns.filter((item) => item.workspaceId === workspaceId).sort((a, b) => new Date(b.startedAt).getTime() - new Date(a.startedAt).getTime()).slice(0, 300)),
+      companies: clone(db.companies.filter((item) => item.workspaceId === workspaceId).sort((a, b) => a.name.localeCompare(b.name, 'pt-BR'))),
+      contacts: clone(db.contacts.filter((item) => item.workspaceId === workspaceId).sort((a, b) => a.name.localeCompare(b.name, 'pt-BR'))),
+      opportunities: clone(db.opportunities.filter((item) => item.workspaceId === workspaceId).sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime())),
+      socialProfiles: clone(db.socialProfiles.filter((item) => item.workspaceId === workspaceId).sort((a, b) => a.network.localeCompare(b.network, 'pt-BR'))),
+      products: clone(db.products.filter((item) => item.workspaceId === workspaceId).sort((a, b) => a.name.localeCompare(b.name, 'pt-BR'))),
+      proposals: clone(db.proposals.filter((item) => item.workspaceId === workspaceId).sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime())),
+      revenueEntries: clone(db.revenueEntries.filter((item) => item.workspaceId === workspaceId).sort((a, b) => new Date(b.recognizedAt).getTime() - new Date(a.recognizedAt).getTime())),
     }
+  }
+
+  async synchronizeCommercialStructure(workspaceId: string) {
+    const db = readDatabase(); const result = synchronizeStructureInDatabase(db, workspaceId); writeDatabase(db); return clone(result)
   }
 
   async listLeads(workspaceId: string) { return clone(readDatabase().leads.filter((lead) => lead.workspaceId === workspaceId)) }
@@ -310,6 +434,7 @@ export class LocalCrmRepository implements CrmRepository {
     const now = new Date().toISOString()
     const lead: Lead = { ...input, status: stageStatus(stage), id: createId('lead'), name: input.name.trim(), createdAt: now, updatedAt: now }
     db.leads.unshift(lead)
+    synchronizeStructureInDatabase(db, input.workspaceId)
     writeDatabase(db)
     return clone(lead)
   }
@@ -326,6 +451,7 @@ export class LocalCrmRepository implements CrmRepository {
       name: input.name?.trim() || current.name, updatedAt: new Date().toISOString(),
     }
     db.leads[index] = next
+    synchronizeStructureInDatabase(db, current.workspaceId)
     writeDatabase(db)
     return clone(next)
   }
@@ -381,6 +507,9 @@ export class LocalCrmRepository implements CrmRepository {
     db.activities = db.activities.filter((activity) => activity.leadId !== leadId)
     db.calls = db.calls.filter((call) => call.leadId !== leadId)
     db.events = db.events.map((event) => event.leadId === leadId ? { ...event, leadId: null } : event)
+    db.companies = db.companies.map((item) => ({ ...item, leadIds: item.leadIds.filter((id) => id !== leadId) })).filter((item) => item.leadIds.length)
+    db.contacts = db.contacts.map((item) => ({ ...item, leadIds: item.leadIds.filter((id) => id !== leadId) })).filter((item) => item.leadIds.length)
+    db.opportunities = db.opportunities.filter((item) => item.leadId !== leadId)
     writeDatabase(db)
   }
 
@@ -399,6 +528,7 @@ export class LocalCrmRepository implements CrmRepository {
     const earliestPending = db.activities.filter((activity) => activity.leadId === primaryLeadId && !activity.completedAt && activity.dueAt).map((activity) => activity.dueAt!).sort()[0] ?? null
     merged.nextActionAt = [merged.nextActionAt, earliestPending].filter((value): value is string => Boolean(value)).sort()[0] ?? null
     db.leads[db.leads.findIndex((lead) => lead.id === primaryLeadId)] = merged
+    synchronizeStructureInDatabase(db, workspaceId)
     db.auditLogs.unshift({
       id: createId('audit'), workspaceId, userId: null, userName: 'Sistema local', action: 'lead_merged',
       entityType: 'lead', entityId: primaryLeadId, createdAt: new Date().toISOString(),
@@ -535,6 +665,78 @@ export class LocalCrmRepository implements CrmRepository {
     return this.updateActivity(activityId, { completedAt: completed ? new Date().toISOString() : null })
   }
 
+  async registerActivityOutcome(input: RegisterActivityOutcomeInput): Promise<CommercialActivityResult> {
+    const db = readDatabase()
+    const activity = db.activities.find((item) => item.id === input.activityId && item.workspaceId === input.workspaceId)
+    if (!activity) throw new Error('Atividade não encontrada para registrar o resultado.')
+    if (!activity.leadId) throw new Error('A atividade precisa estar vinculada a um lead.')
+    const lead = db.leads.find((item) => item.id === activity.leadId && item.workspaceId === input.workspaceId)
+    if (!lead) throw new Error('Lead não encontrado para esta atividade.')
+    if (input.createNext && (!input.nextType || !input.nextTitle?.trim() || !input.nextAt)) throw new Error('Informe o próximo passo completo.')
+    const resultSourceId = `commercial:${activity.id}:result`
+    const previousResult = db.activities.find((item) => item.sourceType === 'system' && item.sourceId === resultSourceId)
+    if (previousResult) {
+      const next = db.activities.find((item) => item.sourceType === 'system' && item.sourceId === `commercial:${activity.id}:next`)
+      return { activity: clone(activity), lead: clone(lead), resultActivityId: previousResult.id, nextActivityId: next?.id ?? null, idempotent: true }
+    }
+
+    const now = new Date().toISOString()
+    activity.completedAt = now
+    activity.updatedAt = now
+    if (!lead.lastContactAt || now > lead.lastContactAt) lead.lastContactAt = now
+
+    const closesProspecting = ['meeting_scheduled', 'not_interested', 'won', 'lost'].includes(input.outcome)
+    const closesCalls = input.outcome === 'invalid_contact'
+    if (closesProspecting || closesCalls) {
+      for (const pending of db.activities) {
+        if (pending.leadId !== lead.id || pending.completedAt || pending.id === activity.id) continue
+        if ((closesProspecting && ['call', 'followup'].includes(pending.type)) || (closesCalls && pending.type === 'call')) {
+          pending.completedAt = now
+          pending.updatedAt = now
+        }
+      }
+    }
+
+    const resultActivity = normalizeActivity({
+      id: createId('activity'), workspaceId: input.workspaceId, leadId: lead.id, type: 'note', title: input.resultTitle.trim(),
+      description: input.resultDescription, dueAt: null, completedAt: now, assignedTo: input.userId ?? activity.assignedTo,
+      sourceType: 'system', sourceId: resultSourceId, createdAt: now, updatedAt: now,
+    })
+    db.activities.unshift(resultActivity)
+
+    if (input.stageId && input.stageId !== lead.stageId) {
+      const stage = db.stages.find((item) => item.id === input.stageId && item.workspaceId === input.workspaceId)
+      if (!stage) throw new Error('Etapa inválida para este workspace.')
+      lead.stageId = stage.id
+      lead.status = stageStatus(stage)
+      db.activities.unshift(normalizeActivity({
+        id: createId('activity'), workspaceId: input.workspaceId, leadId: lead.id, type: 'stage_change', title: `Lead movido para ${stage.name}`,
+        description: `Movimentação automática após “${input.resultTitle.trim()}”.`, dueAt: null, completedAt: now, assignedTo: input.userId,
+        sourceType: 'system', sourceId: `commercial:${activity.id}:stage`, createdAt: now, updatedAt: now,
+      }))
+    } else if (input.outcome === 'won') lead.status = 'won'
+    else if (input.outcome === 'lost' || input.outcome === 'not_interested') lead.status = 'lost'
+
+    if (input.outcome === 'invalid_contact') lead.tags = [...new Set([...lead.tags, 'telefone-invalido'])]
+    if (input.outcome === 'not_decision_maker') lead.tags = [...new Set([...lead.tags, 'buscar-decisor'])]
+    lead.updatedAt = now
+
+    let nextActivityId: string | null = null
+    if (input.createNext && input.nextType && input.nextTitle && input.nextAt) {
+      const next = normalizeActivity({
+        id: createId('activity'), workspaceId: input.workspaceId, leadId: lead.id, type: input.nextType, title: input.nextTitle.trim(),
+        description: input.nextDescription ?? '', dueAt: input.nextAt, completedAt: null, assignedTo: input.userId ?? activity.assignedTo,
+        sourceType: 'system', sourceId: `commercial:${activity.id}:next`, createdAt: now, updatedAt: now,
+      })
+      db.activities.unshift(next); nextActivityId = next.id
+    }
+
+    syncLeadNextAction(db, lead.id)
+    db.auditLogs.unshift({ id: createId('audit'), workspaceId: input.workspaceId, userId: input.userId, userName: lead.ownerName || 'Vendedor', action: 'commercial_activity_result_registered', entityType: 'activity', entityId: activity.id, createdAt: now })
+    writeDatabase(db)
+    return { activity: clone(activity), lead: clone(lead), resultActivityId: resultActivity.id, nextActivityId, idempotent: false }
+  }
+
   async listCalls(workspaceId: string) {
     const calls = clone(readDatabase().calls.filter((call) => call.workspaceId === workspaceId).sort((a, b) => new Date(b.startedAt).getTime() - new Date(a.startedAt).getTime()))
     return Promise.all(calls.map(async (call) => {
@@ -567,6 +769,97 @@ export class LocalCrmRepository implements CrmRepository {
       sourceType: 'call', sourceId: call.id, createdAt: call.createdAt, updatedAt: call.createdAt,
     }))
     writeDatabase(db); return clone(call)
+  }
+
+  async registerCallOutcome(input: RegisterCallOutcomeInput, recording?: Blob | null): Promise<CommercialActionResult> {
+    const db = readDatabase()
+    const lead = db.leads.find((item) => item.id === input.leadId && item.workspaceId === input.workspaceId)
+    if (!lead) throw new Error('Lead inválido para esta ação comercial.')
+    if (recording?.size && !input.consentAt) throw new Error('Registre o consentimento antes de salvar uma gravação.')
+    const plan = buildCommercialCallPlan({ outcome: input.outcome, scheduleNext: input.scheduleNext, nextAt: input.nextAt })
+    const duplicate = db.calls.find((call) => call.workspaceId === input.workspaceId && call.leadId === input.leadId && call.startedAt === input.startedAt)
+    if (duplicate) {
+      const completed = db.activities.find((activity) => activity.sourceType === 'call' && activity.sourceId === duplicate.id)
+      const next = db.activities.find((activity) => activity.sourceType === 'system' && activity.sourceId === `commercial:${duplicate.id}:next`)
+      const event = db.events.find((item) => item.description.includes(`[[CRM_COMMERCIAL_ACTION:${duplicate.id}]]`))
+      return { call: clone(duplicate), lead: clone(lead), activityId: completed?.id ?? '', nextActivityId: next?.id ?? null, calendarEventId: event?.id ?? null, idempotent: true }
+    }
+
+    const now = new Date().toISOString()
+    const callId = createId('call')
+    let recordingSaved = false
+    try {
+      if (recording?.size) { await saveLocalRecording(callId, recording); recordingSaved = true }
+      const { scheduleNext: _scheduleNext, nextAt: _nextAt, meetingDurationMinutes: _meetingDurationMinutes, ...callInput } = input
+      const call: CallRecord = { ...callInput, id: callId, createdAt: now, recordingPath: recording?.size ? `indexeddb:${callId}` : null, recordingUrl: null }
+      db.calls.unshift(call)
+
+      const completedActivity = normalizeActivity({
+        id: createId('activity'), workspaceId: call.workspaceId, leadId: call.leadId, type: 'call', title: `Ligação — ${plan.label}`,
+        description: call.notes, dueAt: call.startedAt, completedAt: call.endedAt ?? call.startedAt, assignedTo: call.userId,
+        sourceType: 'call', sourceId: call.id, createdAt: now, updatedAt: now,
+      })
+      db.activities.unshift(completedActivity)
+
+      for (const activity of db.activities) {
+        if (activity.leadId === lead.id && !activity.completedAt && shouldClosePendingActivity(activity.type, plan.pendingActivityPolicy)) {
+          activity.completedAt = now
+          activity.updatedAt = now
+        }
+      }
+
+      const stage = resolveCommercialStage(db.stages, input.workspaceId, plan.stageIntent)
+      const previousStageId = lead.stageId
+      if (stage) { lead.stageId = stage.id; lead.status = stageStatus(stage) }
+      else if (plan.leadStatus) lead.status = plan.leadStatus
+      if (plan.addTags.length) lead.tags = [...new Set([...lead.tags, ...plan.addTags])]
+      const contactedAt = call.endedAt ?? call.startedAt
+      if (!lead.lastContactAt || contactedAt > lead.lastContactAt) lead.lastContactAt = contactedAt
+      lead.updatedAt = now
+
+      if (stage && previousStageId !== stage.id) {
+        db.activities.unshift(normalizeActivity({
+          id: createId('activity'), workspaceId: input.workspaceId, leadId: lead.id, type: 'stage_change', title: `Lead movido para ${stage.name}`,
+          description: `Movimentação automática pelo resultado “${plan.label}”.`, dueAt: null, completedAt: now, assignedTo: input.userId,
+          sourceType: 'system', sourceId: `commercial:${callId}:stage`, createdAt: now, updatedAt: now,
+        }))
+      }
+
+      let nextActivityId: string | null = null
+      let calendarEventId: string | null = null
+      if (plan.nextStepKind === 'meeting' && input.nextAt) {
+        const endsAt = new Date(input.nextAt)
+        endsAt.setMinutes(endsAt.getMinutes() + Math.max(15, input.meetingDurationMinutes ?? 30))
+        const event: CalendarEvent = {
+          id: createId('event'), workspaceId: input.workspaceId, leadId: lead.id, title: `Reunião — ${lead.name}`,
+          description: `${input.notes}
+[[CRM_COMMERCIAL_ACTION:${callId}]]`.trim(), startsAt: input.nextAt, endsAt: endsAt.toISOString(), allDay: false,
+          location: '', status: 'confirmed', assignedTo: input.userId, createdAt: now, updatedAt: now,
+        }
+        db.events.push(event); calendarEventId = event.id
+        const activity = normalizeActivity({
+          id: createId('activity'), workspaceId: input.workspaceId, leadId: lead.id, type: 'meeting', title: event.title,
+          description: event.description, dueAt: event.startsAt, completedAt: null, assignedTo: input.userId,
+          sourceType: 'calendar', sourceId: event.id, createdAt: now, updatedAt: now,
+        })
+        db.activities.unshift(activity); nextActivityId = activity.id
+      } else if (plan.nextStepKind === 'call' && input.nextAt) {
+        const activity = normalizeActivity({
+          id: createId('activity'), workspaceId: input.workspaceId, leadId: lead.id, type: 'call', title: `Próxima ligação — ${lead.name}`,
+          description: `${plan.label}. ${input.notes}`.trim(), dueAt: input.nextAt, completedAt: null, assignedTo: input.userId,
+          sourceType: 'system', sourceId: `commercial:${callId}:next`, createdAt: now, updatedAt: now,
+        })
+        db.activities.unshift(activity); nextActivityId = activity.id
+      }
+
+      syncLeadNextAction(db, lead.id)
+      db.auditLogs.unshift({ id: createId('audit'), workspaceId: input.workspaceId, userId: input.userId, userName: lead.ownerName || 'Vendedor', action: 'commercial_call_registered', entityType: 'call', entityId: call.id, createdAt: now })
+      writeDatabase(db)
+      return { call: clone(call), lead: clone(lead), activityId: completedActivity.id, nextActivityId, calendarEventId, idempotent: false }
+    } catch (error) {
+      if (recordingSaved) await deleteLocalRecording(callId)
+      throw error
+    }
   }
 
   async deleteCall(callId: string) {
@@ -644,6 +937,109 @@ export class LocalCrmRepository implements CrmRepository {
     const db = readDatabase(); const before = db.playbooks.length; db.playbooks = db.playbooks.filter((playbook) => playbook.id !== playbookId)
     if (before === db.playbooks.length) throw new Error('Playbook não encontrado.')
     writeDatabase(db)
+  }
+
+
+  async listProducts(workspaceId: string) { return clone(readDatabase().products.filter((item) => item.workspaceId === workspaceId).sort((a, b) => a.name.localeCompare(b.name, 'pt-BR'))) }
+
+  async createProduct(input: NewProductInput) {
+    if (!input.name.trim()) throw new Error('Informe o nome do produto ou serviço.')
+    const db = readDatabase(); const now = new Date().toISOString()
+    const product: ProductRecord = { ...input, id: createId('product'), name: input.name.trim(), sku: input.sku.trim(), unitPrice: Math.max(0, Number(input.unitPrice || 0)), taxRate: Math.max(0, Number(input.taxRate || 0)), createdAt: now, updatedAt: now }
+    db.products.unshift(product); writeDatabase(db); return clone(product)
+  }
+
+  async updateProduct(productId: string, input: UpdateProductInput) {
+    const db = readDatabase(); const index = db.products.findIndex((item) => item.id === productId)
+    if (index < 0) throw new Error('Produto não encontrado.')
+    const current = db.products[index]
+    const next: ProductRecord = { ...current, ...input, name: input.name?.trim() || current.name, sku: input.sku !== undefined ? input.sku.trim() : current.sku, unitPrice: input.unitPrice !== undefined ? Math.max(0, Number(input.unitPrice)) : current.unitPrice, taxRate: input.taxRate !== undefined ? Math.max(0, Number(input.taxRate)) : current.taxRate, updatedAt: new Date().toISOString() }
+    db.products[index] = next; writeDatabase(db); return clone(next)
+  }
+
+  async deleteProduct(productId: string) {
+    const db = readDatabase()
+    if (db.proposals.some((proposal) => proposal.items.some((item) => item.productId === productId))) throw new Error('Este produto já foi utilizado em uma proposta e não pode ser excluído. Desative-o.')
+    db.products = db.products.filter((item) => item.id !== productId); writeDatabase(db)
+  }
+
+  async listProposals(workspaceId: string) { return clone(readDatabase().proposals.filter((item) => item.workspaceId === workspaceId).sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime())) }
+
+  async createProposal(input: NewProposalInput) {
+    const db = readDatabase(); const lead = db.leads.find((item) => item.id === input.leadId && item.workspaceId === input.workspaceId)
+    if (!lead) throw new Error('Selecione um lead válido para a proposta.')
+    if (!input.items.length) throw new Error('Adicione pelo menos um item à proposta.')
+    const now = new Date().toISOString(); const groupId = input.proposalGroupId || createId('proposal-group')
+    const proposal = normalizeProposal({ ...input, id: createId('proposal'), proposalGroupId: groupId, version: input.version ?? 1, proposalNumber: input.proposalNumber || proposalSequence(db, input.workspaceId), sentAt: null, viewedAt: null, acceptedAt: null, rejectedAt: null, createdAt: now, updatedAt: now })
+    db.proposals.unshift(proposal); lead.value = proposal.total; lead.expectedCloseAt = proposal.validUntil ?? lead.expectedCloseAt; lead.updatedAt = now
+    writeDatabase(db); return clone(proposal)
+  }
+
+  async updateProposal(proposalId: string, input: UpdateProposalInput) {
+    const db = readDatabase(); const index = db.proposals.findIndex((item) => item.id === proposalId)
+    if (index < 0) throw new Error('Proposta não encontrada.')
+    const current = db.proposals[index]
+    if (['accepted', 'cancelled'].includes(current.status) && input.items) throw new Error('Crie uma revisão para alterar itens de uma proposta encerrada.')
+    const next = normalizeProposal({ ...current, ...input, probability: input.probability !== undefined ? Math.min(100, Math.max(0, Number(input.probability))) : current.probability, updatedAt: new Date().toISOString() })
+    db.proposals[index] = next
+    const lead = db.leads.find((item) => item.id === next.leadId); if (lead) { lead.value = next.total; lead.expectedCloseAt = next.validUntil ?? lead.expectedCloseAt; lead.updatedAt = next.updatedAt }
+    writeDatabase(db); return clone(next)
+  }
+
+  async createProposalRevision(proposalId: string) {
+    const db = readDatabase(); const source = db.proposals.find((item) => item.id === proposalId)
+    if (!source) throw new Error('Proposta não encontrada.')
+    const now = new Date().toISOString(); const version = Math.max(...db.proposals.filter((item) => item.proposalGroupId === source.proposalGroupId).map((item) => item.version), 0) + 1
+    const revision = normalizeProposal({ ...clone(source), id: createId('proposal'), version, status: 'draft', forecastCategory: source.forecastCategory === 'closed' ? 'best_case' : source.forecastCategory, sentAt: null, viewedAt: null, acceptedAt: null, rejectedAt: null, items: source.items.map((item) => ({ ...item, id: createId('proposal-item') })), createdAt: now, updatedAt: now })
+    db.proposals.unshift(revision); writeDatabase(db); return clone(revision)
+  }
+
+  async updateProposalStatus(proposalId: string, status: ProposalStatus) {
+    const db = readDatabase(); const proposal = db.proposals.find((item) => item.id === proposalId)
+    if (!proposal) throw new Error('Proposta não encontrada.')
+    const now = new Date().toISOString(); proposal.status = status; proposal.updatedAt = now
+    if (status === 'sent') proposal.sentAt = proposal.sentAt ?? now
+    if (status === 'viewed') { proposal.sentAt = proposal.sentAt ?? now; proposal.viewedAt = now }
+    if (status === 'accepted') { proposal.acceptedAt = now; proposal.forecastCategory = 'closed'; proposal.probability = 100 }
+    if (status === 'rejected') { proposal.rejectedAt = now; proposal.forecastCategory = 'omitted'; proposal.probability = 0 }
+    if (status === 'cancelled' || status === 'expired') { proposal.forecastCategory = 'omitted'; proposal.probability = 0 }
+    const lead = db.leads.find((item) => item.id === proposal.leadId)
+    if (lead) {
+      lead.value = proposal.total; lead.updatedAt = now
+      if (status === 'accepted') {
+        const won = db.stages.find((stage) => stage.workspaceId === proposal.workspaceId && stage.isWon)
+        if (won) lead.stageId = won.id
+        lead.status = 'won'
+        db.activities.unshift(normalizeActivity({ id: createId('activity'), workspaceId: proposal.workspaceId, leadId: lead.id, type: 'note', title: `Proposta aceita — ${proposal.proposalNumber}`, description: `Valor fechado: ${proposal.total.toFixed(2)} · MRR: ${proposal.recurringMonthlyTotal.toFixed(2)}`, dueAt: null, completedAt: now, assignedTo: proposal.ownerId, sourceType: 'system', sourceId: proposal.id, createdAt: now, updatedAt: now }))
+        syncAcceptedProposalRevenue(db, proposal)
+      } else if (status === 'sent') {
+        const proposalStage = db.stages.find((stage) => stage.workspaceId === proposal.workspaceId && /proposta/i.test(stage.name))
+        if (proposalStage && lead.status === 'active') lead.stageId = proposalStage.id
+        db.activities.unshift(normalizeActivity({ id: createId('activity'), workspaceId: proposal.workspaceId, leadId: lead.id, type: 'note', title: `Proposta enviada — ${proposal.proposalNumber}`, description: proposal.title, dueAt: null, completedAt: now, assignedTo: proposal.ownerId, sourceType: 'system', sourceId: proposal.id, createdAt: now, updatedAt: now }))
+      }
+    }
+    writeDatabase(db); return clone(proposal)
+  }
+
+  async deleteProposal(proposalId: string) {
+    const db = readDatabase(); const proposal = db.proposals.find((item) => item.id === proposalId)
+    if (!proposal) return
+    if (proposal.status === 'accepted') throw new Error('Proposta aceita não pode ser excluída. Cancele o lançamento de receita com auditoria.')
+    db.proposals = db.proposals.filter((item) => item.id !== proposalId); writeDatabase(db)
+  }
+
+  async listRevenueEntries(workspaceId: string) { return clone(readDatabase().revenueEntries.filter((item) => item.workspaceId === workspaceId).sort((a, b) => new Date(b.recognizedAt).getTime() - new Date(a.recognizedAt).getTime())) }
+
+  async createRevenueEntry(input: NewRevenueEntryInput) {
+    const db = readDatabase(); const now = new Date().toISOString()
+    const entry: RevenueEntry = { ...input, id: createId('revenue'), amount: Math.max(0, Number(input.amount || 0)), recurringMonthlyAmount: Math.max(0, Number(input.recurringMonthlyAmount || 0)), createdAt: now, updatedAt: now }
+    db.revenueEntries.unshift(entry); writeDatabase(db); return clone(entry)
+  }
+
+  async updateRevenueEntryStatus(entryId: string, status: RevenueEntry['status']) {
+    const db = readDatabase(); const entry = db.revenueEntries.find((item) => item.id === entryId)
+    if (!entry) throw new Error('Lançamento de receita não encontrado.')
+    entry.status = status; entry.updatedAt = new Date().toISOString(); writeDatabase(db); return clone(entry)
   }
 
   async listGoals(workspaceId: string) { return clone(readDatabase().goals.filter((goal) => goal.workspaceId === workspaceId)) }
@@ -734,6 +1130,6 @@ export class LocalCrmRepository implements CrmRepository {
     if (!fallbackStage) throw new Error('O workspace não possui etapas.')
     const existing = new Set(db.leads.filter((lead) => lead.workspaceId === workspaceId).map((lead) => lead.id)); let count = 0
     leads.forEach((lead) => { const id = existing.has(lead.id) ? createId('lead') : lead.id; db.leads.push({ ...lead, id, workspaceId, stageId: stageIds.has(lead.stageId) ? lead.stageId : fallbackStage, updatedAt: new Date().toISOString() }); count += 1 })
-    writeDatabase(db); return count
+    synchronizeStructureInDatabase(db, workspaceId); writeDatabase(db); return count
   }
 }

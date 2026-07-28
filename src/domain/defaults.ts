@@ -1,4 +1,4 @@
-import type { ActivityItem, AutomationRule, AutomationRun, CalendarEvent, CallRecord, Goal, Lead, PipelineStage, Playbook, UserProfile, Workspace } from './types'
+import type { ActivityItem, AutomationRule, AutomationRun, CalendarEvent, CallRecord, CompanyRecord, ContactRecord, Goal, Lead, OpportunityRecord, PipelineStage, Playbook, ProductRecord, ProposalRecord, RevenueEntry, SocialProfile, UserProfile, Workspace } from './types'
 
 export const DEMO_USER: UserProfile = {
   id: 'demo-user',
@@ -34,32 +34,92 @@ const isoInDays = (days: number, hour = 14, minutes = 0) => {
 export const DEMO_LEADS: Lead[] = [
   {
     id: 'lead-alpha', workspaceId: DEMO_WORKSPACE.id, name: 'Barbearia Alpha', company: 'Barbearia Alpha',
-    phone: '(51) 99999-1001', email: 'contato@alpha.com.br', city: 'Canoas', source: 'Instagram',
+    phone: '(51) 99999-1001', email: 'contato@alpha.com.br', postalCode: '92010-300', street: 'Rua Tiradentes', addressNumber: '120', district: 'Centro', city: 'Canoas', state: 'RS', country: 'Brasil', formattedAddress: 'Rua Tiradentes, 120 · Centro · Canoas · RS · 92010-300 · Brasil', latitude: -29.9191, longitude: -51.1814, geocodeStatus: 'manual', geocodePrecision: 'manual', geocodeProvider: 'manual', geocodedAt: isoInDays(-1), source: 'Instagram', sourceDetail: 'Perfil empresarial', sourceUrl: 'https://instagram.com/barbeariaalpha', capturedAt: isoInDays(-12), consentStatus: 'legitimate_interest', doNotContact: false, companyId: 'company-alpha', primaryContactId: 'contact-alpha', opportunityId: 'opportunity-alpha', cnpj: '12.345.678/0001-10', website: 'https://barbeariaalpha.com.br', instagramUrl: 'https://instagram.com/barbeariaalpha', jobTitle: 'Proprietário', decisionRole: 'decision_maker', influenceLevel: 100,
     stageId: 'stage-proposal', status: 'active', temperature: 'hot', priority: 'high', ownerId: DEMO_USER.id,
     ownerName: 'Camila', value: 5000, nextActionAt: isoInDays(0, 13), expectedCloseAt: isoInDays(12).slice(0, 10), notes: 'Apresentar automação de agenda.',
     tags: ['barbearia', 'reunião'], createdAt: isoInDays(-12), updatedAt: isoInDays(-1),
   },
   {
     id: 'lead-bronx', workspaceId: DEMO_WORKSPACE.id, name: 'The Bronx Barber Shop', company: 'The Bronx',
-    phone: '(51) 99826-6560', email: 'contato@thebronx.com.br', city: 'Porto Alegre', source: 'Garimpo',
+    phone: '(51) 99826-6560', email: 'contato@thebronx.com.br', postalCode: '90040-060', street: 'Rua da República', addressNumber: '310', district: 'Cidade Baixa', city: 'Porto Alegre', state: 'RS', country: 'Brasil', formattedAddress: 'Rua da República, 310 · Cidade Baixa · Porto Alegre · RS · 90040-060 · Brasil', latitude: -30.0383, longitude: -51.2232, geocodeStatus: 'exact', geocodePrecision: 'rooftop', geocodeProvider: 'google', geocodedAt: isoInDays(-2), source: 'Garimpo', sourceDetail: 'Google Business Profile', sourceUrl: 'https://google.com/maps', capturedAt: isoInDays(-8), consentStatus: 'legitimate_interest', doNotContact: false, companyId: 'company-bronx', primaryContactId: 'contact-bronx', opportunityId: 'opportunity-bronx', website: 'https://thebronx.com.br', instagramUrl: 'https://instagram.com/thebronxbarber', jobTitle: 'Gerente', decisionRole: 'influencer', influenceLevel: 70,
     stageId: 'stage-contact', status: 'active', temperature: 'warm', priority: 'medium', ownerId: DEMO_USER.id,
     ownerName: 'Camila', value: 3200, nextActionAt: isoInDays(0, 16), expectedCloseAt: isoInDays(24).slice(0, 10), notes: 'Retomar contato pelo WhatsApp.',
     tags: ['barbearia'], createdAt: isoInDays(-8), updatedAt: isoInDays(-2),
   },
   {
     id: 'lead-diamond', workspaceId: DEMO_WORKSPACE.id, name: 'Diamond Barbearia', company: 'Diamond Barbearia',
-    phone: '(51) 98454-6144', email: 'leo@diamond.com.br', city: 'Canoas', source: 'Indicação',
+    phone: '(51) 98454-6144', email: 'leo@diamond.com.br', postalCode: '92020-240', street: 'Avenida Guilherme Schell', addressNumber: '5400', district: 'Centro', city: 'Canoas', state: 'RS', country: 'Brasil', geocodeStatus: 'pending', geocodePrecision: 'unknown', source: 'Indicação', sourceDetail: 'Indicação de cliente', capturedAt: isoInDays(-18), consentStatus: 'consented', doNotContact: false, companyId: 'company-diamond', primaryContactId: 'contact-diamond', opportunityId: 'opportunity-diamond', cnpj: '45.123.987/0001-44', instagramUrl: 'https://instagram.com/diamondbarbearia', jobTitle: 'Sócio', decisionRole: 'decision_maker', influenceLevel: 95,
     stageId: 'stage-followup', status: 'active', temperature: 'hot', priority: 'urgent', ownerId: DEMO_USER.id,
     ownerName: 'Camila', value: 4200, nextActionAt: isoInDays(1, 12), expectedCloseAt: isoInDays(8).slice(0, 10), notes: 'Enviar proposta revisada.',
     tags: ['barbearia', 'quente'], createdAt: isoInDays(-18), updatedAt: isoInDays(-1),
   },
   {
     id: 'lead-morada', workspaceId: DEMO_WORKSPACE.id, name: 'Morada Barbearia', company: 'Morada Barbearia',
-    phone: '(51) 99700-3311', email: '', city: 'Canoas', source: 'Instagram',
+    phone: '(51) 99700-3311', email: '', district: 'Marechal Rondon', city: 'Canoas', state: 'RS', country: 'Brasil', geocodeStatus: 'approximate', geocodePrecision: 'district', geocodeProvider: 'city_fallback', geocodeError: 'Endereço sem rua e número.', source: 'Instagram', sourceDetail: 'Pesquisa manual', sourceUrl: 'https://instagram.com/moradabarbearia', capturedAt: isoInDays(-2), consentStatus: 'unknown', doNotContact: false, companyId: 'company-morada', primaryContactId: 'contact-morada', opportunityId: 'opportunity-morada', instagramUrl: 'https://instagram.com/moradabarbearia', jobTitle: '', decisionRole: 'unknown', influenceLevel: 20,
     stageId: 'stage-new', status: 'active', temperature: 'cold', priority: 'low', ownerId: DEMO_USER.id,
     ownerName: 'Camila', value: 2500, nextActionAt: isoInDays(2, 11), notes: '',
     tags: ['barbearia'], createdAt: isoInDays(-2), updatedAt: isoInDays(-2),
   },
+]
+
+
+export const DEMO_COMPANIES: CompanyRecord[] = [
+  { id: 'company-alpha', workspaceId: DEMO_WORKSPACE.id, name: 'Barbearia Alpha', legalName: 'Barbearia Alpha Ltda.', cnpj: '12.345.678/0001-10', domain: 'barbeariaalpha.com.br', website: 'https://barbeariaalpha.com.br', segment: 'Barbearia', phone: '(51) 99999-1001', city: 'Canoas', state: 'RS', status: 'prospect', leadIds: ['lead-alpha'], createdAt: isoInDays(-12), updatedAt: isoInDays(-1) },
+  { id: 'company-bronx', workspaceId: DEMO_WORKSPACE.id, name: 'The Bronx', legalName: '', cnpj: '', domain: 'thebronx.com.br', website: 'https://thebronx.com.br', segment: 'Barbearia', phone: '(51) 99826-6560', city: 'Porto Alegre', state: 'RS', status: 'prospect', leadIds: ['lead-bronx'], createdAt: isoInDays(-8), updatedAt: isoInDays(-2) },
+  { id: 'company-diamond', workspaceId: DEMO_WORKSPACE.id, name: 'Diamond Barbearia', legalName: 'Diamond Barbearia Ltda.', cnpj: '45.123.987/0001-44', domain: 'diamond.com.br', website: '', segment: 'Barbearia', phone: '(51) 98454-6144', city: 'Canoas', state: 'RS', status: 'prospect', leadIds: ['lead-diamond'], createdAt: isoInDays(-18), updatedAt: isoInDays(-1) },
+  { id: 'company-morada', workspaceId: DEMO_WORKSPACE.id, name: 'Morada Barbearia', legalName: '', cnpj: '', domain: '', website: '', segment: 'Barbearia', phone: '(51) 99700-3311', city: 'Canoas', state: 'RS', status: 'prospect', leadIds: ['lead-morada'], createdAt: isoInDays(-2), updatedAt: isoInDays(-2) },
+]
+
+export const DEMO_CONTACTS: ContactRecord[] = [
+  { id: 'contact-alpha', workspaceId: DEMO_WORKSPACE.id, companyId: 'company-alpha', name: 'Barbearia Alpha', jobTitle: 'Proprietário', phone: '(51) 99999-1001', email: 'contato@alpha.com.br', decisionRole: 'decision_maker', influenceLevel: 100, consentStatus: 'legitimate_interest', doNotContact: false, doNotContactReason: '', leadIds: ['lead-alpha'], createdAt: isoInDays(-12), updatedAt: isoInDays(-1) },
+  { id: 'contact-bronx', workspaceId: DEMO_WORKSPACE.id, companyId: 'company-bronx', name: 'The Bronx Barber Shop', jobTitle: 'Gerente', phone: '(51) 99826-6560', email: 'contato@thebronx.com.br', decisionRole: 'influencer', influenceLevel: 70, consentStatus: 'legitimate_interest', doNotContact: false, doNotContactReason: '', leadIds: ['lead-bronx'], createdAt: isoInDays(-8), updatedAt: isoInDays(-2) },
+  { id: 'contact-diamond', workspaceId: DEMO_WORKSPACE.id, companyId: 'company-diamond', name: 'Diamond Barbearia', jobTitle: 'Sócio', phone: '(51) 98454-6144', email: 'leo@diamond.com.br', decisionRole: 'decision_maker', influenceLevel: 95, consentStatus: 'consented', doNotContact: false, doNotContactReason: '', leadIds: ['lead-diamond'], createdAt: isoInDays(-18), updatedAt: isoInDays(-1) },
+  { id: 'contact-morada', workspaceId: DEMO_WORKSPACE.id, companyId: 'company-morada', name: 'Morada Barbearia', jobTitle: '', phone: '(51) 99700-3311', email: '', decisionRole: 'unknown', influenceLevel: 20, consentStatus: 'unknown', doNotContact: false, doNotContactReason: '', leadIds: ['lead-morada'], createdAt: isoInDays(-2), updatedAt: isoInDays(-2) },
+]
+
+export const DEMO_OPPORTUNITIES: OpportunityRecord[] = DEMO_LEADS.map((lead) => ({
+  id: lead.opportunityId ?? `opportunity-${lead.id}`, workspaceId: lead.workspaceId, companyId: lead.companyId ?? null, primaryContactId: lead.primaryContactId ?? null,
+  leadId: lead.id, title: `${lead.company || lead.name} — RealTalent`, stageId: lead.stageId, status: lead.status, value: lead.value, ownerId: lead.ownerId,
+  expectedCloseAt: lead.expectedCloseAt ?? null, createdAt: lead.createdAt, updatedAt: lead.updatedAt,
+}))
+
+export const DEMO_SOCIAL_PROFILES: SocialProfile[] = [
+  { id: 'social-alpha-instagram', workspaceId: DEMO_WORKSPACE.id, entityType: 'company', entityId: 'company-alpha', network: 'instagram', username: '@barbeariaalpha', url: 'https://instagram.com/barbeariaalpha', externalId: null, verified: false, source: 'Cadastro do lead', confidence: 95, lastCheckedAt: isoInDays(-1), createdAt: isoInDays(-12), updatedAt: isoInDays(-1) },
+  { id: 'social-bronx-instagram', workspaceId: DEMO_WORKSPACE.id, entityType: 'company', entityId: 'company-bronx', network: 'instagram', username: '@thebronxbarber', url: 'https://instagram.com/thebronxbarber', externalId: null, verified: false, source: 'Garimpo', confidence: 88, lastCheckedAt: isoInDays(-2), createdAt: isoInDays(-8), updatedAt: isoInDays(-2) },
+  { id: 'social-diamond-instagram', workspaceId: DEMO_WORKSPACE.id, entityType: 'company', entityId: 'company-diamond', network: 'instagram', username: '@diamondbarbearia', url: 'https://instagram.com/diamondbarbearia', externalId: null, verified: false, source: 'Indicação', confidence: 92, lastCheckedAt: isoInDays(-1), createdAt: isoInDays(-18), updatedAt: isoInDays(-1) },
+  { id: 'social-morada-instagram', workspaceId: DEMO_WORKSPACE.id, entityType: 'company', entityId: 'company-morada', network: 'instagram', username: '@moradabarbearia', url: 'https://instagram.com/moradabarbearia', externalId: null, verified: false, source: 'Instagram', confidence: 80, lastCheckedAt: null, createdAt: isoInDays(-2), updatedAt: isoInDays(-2) },
+]
+
+
+
+export const DEMO_PRODUCTS: ProductRecord[] = [
+  { id: 'product-setup', workspaceId: DEMO_WORKSPACE.id, name: 'Implantação RealTalent', sku: 'RT-SETUP', description: 'Configuração inicial, Pipeline, cadências e treinamento da equipe.', category: 'Implantação', active: true, unitPrice: 1800, billingType: 'one_time', billingInterval: null, taxRate: 0, createdAt: isoInDays(-30), updatedAt: isoInDays(-4) },
+  { id: 'product-crm', workspaceId: DEMO_WORKSPACE.id, name: 'RealTalent CRM Pro', sku: 'RT-CRM-PRO', description: 'Licença mensal do CRM com automações, mapa e comunicações.', category: 'Software', active: true, unitPrice: 499, billingType: 'recurring', billingInterval: 'month', taxRate: 0, createdAt: isoInDays(-30), updatedAt: isoInDays(-2) },
+  { id: 'product-connect', workspaceId: DEMO_WORKSPACE.id, name: 'RealTalent Connect', sku: 'RT-CONNECT', description: 'Aplicativo de ligações integrado ao CRM.', category: 'Add-on', active: true, unitPrice: 149, billingType: 'recurring', billingInterval: 'month', taxRate: 0, createdAt: isoInDays(-20), updatedAt: isoInDays(-2) },
+]
+
+const proposalItem = (id: string, product: ProductRecord, quantity: number, discountPercent = 0) => {
+  const subtotal = product.unitPrice * quantity
+  const discount = subtotal * discountPercent / 100
+  const taxable = subtotal - discount
+  const tax = taxable * product.taxRate / 100
+  const total = taxable + tax
+  const monthlyFactor = product.billingType === 'recurring' ? product.billingInterval === 'year' ? 1 / 12 : product.billingInterval === 'quarter' ? 1 / 3 : 1 : 0
+  return { id, productId: product.id, name: product.name, description: product.description, quantity, unitPrice: product.unitPrice, discountPercent, taxRate: product.taxRate, billingType: product.billingType, billingInterval: product.billingInterval, lineSubtotal: subtotal, lineDiscount: discount, lineTax: tax, lineTotal: total, recurringMonthlyTotal: total * monthlyFactor }
+}
+
+const proposalAlphaItems = [proposalItem('proposal-alpha-item-1', DEMO_PRODUCTS[0], 1), proposalItem('proposal-alpha-item-2', DEMO_PRODUCTS[1], 1, 5)]
+const proposalDiamondItems = [proposalItem('proposal-diamond-item-1', DEMO_PRODUCTS[0], 1, 10), proposalItem('proposal-diamond-item-2', DEMO_PRODUCTS[1], 2, 5), proposalItem('proposal-diamond-item-3', DEMO_PRODUCTS[2], 2)]
+const totals = (items: ReturnType<typeof proposalItem>[]) => ({ subtotal: items.reduce((sum, item) => sum + item.lineSubtotal, 0), discountTotal: items.reduce((sum, item) => sum + item.lineDiscount, 0), taxTotal: items.reduce((sum, item) => sum + item.lineTax, 0), total: items.reduce((sum, item) => sum + item.lineTotal, 0), recurringMonthlyTotal: items.reduce((sum, item) => sum + item.recurringMonthlyTotal, 0) })
+
+export const DEMO_PROPOSALS: ProposalRecord[] = [
+  { id: 'proposal-alpha-v1', workspaceId: DEMO_WORKSPACE.id, proposalGroupId: 'proposal-alpha', version: 1, proposalNumber: 'PROP-2026-001', leadId: 'lead-alpha', opportunityId: 'opportunity-alpha', companyId: 'company-alpha', contactId: 'contact-alpha', title: 'Implantação RealTalent — Barbearia Alpha', status: 'sent', forecastCategory: 'commit', probability: 75, currency: 'BRL', ...totals(proposalAlphaItems), validUntil: isoInDays(10).slice(0, 10), sentAt: isoInDays(-1), viewedAt: null, acceptedAt: null, rejectedAt: null, ownerId: DEMO_USER.id, notes: 'Condição válida para uma unidade.', terms: 'Pagamento da implantação na assinatura e mensalidade a partir da ativação.', items: proposalAlphaItems, createdAt: isoInDays(-3), updatedAt: isoInDays(-1) },
+  { id: 'proposal-diamond-v1', workspaceId: DEMO_WORKSPACE.id, proposalGroupId: 'proposal-diamond', version: 1, proposalNumber: 'PROP-2026-002', leadId: 'lead-diamond', opportunityId: 'opportunity-diamond', companyId: 'company-diamond', contactId: 'contact-diamond', title: 'RealTalent para duas unidades — Diamond', status: 'draft', forecastCategory: 'best_case', probability: 60, currency: 'BRL', ...totals(proposalDiamondItems), validUntil: isoInDays(12).slice(0, 10), sentAt: null, viewedAt: null, acceptedAt: null, rejectedAt: null, ownerId: DEMO_USER.id, notes: 'Revisar desconto antes do envio.', terms: 'Implantação para duas unidades e cobrança mensal por unidade.', items: proposalDiamondItems, createdAt: isoInDays(-1), updatedAt: isoInDays(-1) },
+]
+
+export const DEMO_REVENUE_ENTRIES: RevenueEntry[] = [
+  { id: 'revenue-demo-setup', workspaceId: DEMO_WORKSPACE.id, proposalId: null, leadId: null, opportunityId: null, revenueType: 'one_time', status: 'recognized', amount: 3200, recurringMonthlyAmount: 0, recognizedAt: isoInDays(-7), description: 'Implantação reconhecida no período', ownerId: DEMO_USER.id, createdAt: isoInDays(-7), updatedAt: isoInDays(-7) },
+  { id: 'revenue-demo-mrr', workspaceId: DEMO_WORKSPACE.id, proposalId: null, leadId: null, opportunityId: null, revenueType: 'recurring', status: 'recognized', amount: 0, recurringMonthlyAmount: 998, recognizedAt: isoInDays(-7), description: 'Receita recorrente mensal ativa', ownerId: DEMO_USER.id, createdAt: isoInDays(-7), updatedAt: isoInDays(-7) },
 ]
 
 export const DEMO_ACTIVITIES: ActivityItem[] = [
@@ -118,7 +178,7 @@ export const DEMO_GOALS: Goal[] = [
 export const DEMO_PLAYBOOKS: Playbook[] = [
   {
     id: 'playbook-first-contact', workspaceId: DEMO_WORKSPACE.id, kind: 'script', title: 'Outbound consultivo — barbearias e salões', category: 'Prospecção',
-    content: `Olá, {{nome}}, tudo bem? Aqui é o Marcelo. Posso te explicar em 30 segundos o motivo da ligação e você me diz se vale a pena continuarmos?
+    content: `Olá, {{nome}}, tudo bem? Aqui é {{responsavel}}. Posso te explicar em 30 segundos o motivo da ligação e você me diz se vale a pena continuarmos?
 
 Eu trabalho exclusivamente com barbearias e salões de beleza. Ajudamos negócios do setor a reduzir faltas, cancelamentos e horários vazios, além de recuperar clientes que demoram para retornar.
 

@@ -1,8 +1,8 @@
 import type { Lead, WorkspaceSnapshot } from '../domain/types'
-import { leadPriorityInsight } from './lead-intelligence'
+import { leadScoreInsight, type LeadScoreActionKind, type LeadScoreAlert, type LeadScoreInsight, type LeadScoringConfig } from './lead-scoring'
 
 export type WorkdayReason = 'sla' | 'overdue' | 'today' | 'proposal' | 'stale' | 'no_action' | 'hot'
-export type WorkdayAction = 'call' | 'whatsapp' | 'followup' | 'review'
+export type WorkdayAction = LeadScoreActionKind
 export type WorkdaySlaState = 'breached' | 'due_soon' | 'today' | 'planned'
 
 export interface WorkdayConfig {
@@ -12,6 +12,7 @@ export interface WorkdayConfig {
   businessDays: number[]
   businessStart: string
   businessEnd: string
+  leadScoring: LeadScoringConfig
 }
 
 export interface WorkdayItem {
@@ -24,6 +25,8 @@ export interface WorkdayItem {
   dueAt: string | null
   score: number
   slaState: WorkdaySlaState
+  insight: LeadScoreInsight
+  alerts: LeadScoreAlert[]
 }
 
 export interface WorkdayQueue {
@@ -80,10 +83,11 @@ export const buildWorkdayQueue = (snapshot: WorkspaceSnapshot, config: WorkdayCo
     const lastAt = interactionTimes.length ? Math.max(...interactionTimes) : new Date(lead.createdAt).getTime()
     const idleDays = Number.isFinite(lastAt) ? Math.max(0, Math.floor((nowTime - lastAt) / DAY)) : 0
     const untouched = calls.length === 0 && completedContacts.length === 0
-    let action: WorkdayAction = lead.phone ? 'call' : 'followup'
-    let dueAt = lead.nextActionAt
+    const insight = leadScoreInsight(lead, snapshot, config.leadScoring, now)
+    let action: WorkdayAction = insight.nextBestAction.kind
+    let dueAt = insight.nextBestAction.dueAt ?? lead.nextActionAt
     let slaState: WorkdaySlaState = 'planned'
-    let score = leadPriorityInsight(lead, now).score
+    let score = insight.score
 
     if (untouched && Number.isFinite(firstContactDue)) {
       reasons.push('sla'); dueAt = new Date(firstContactDue).toISOString(); action = lead.phone ? 'call' : 'followup'
@@ -104,9 +108,9 @@ export const buildWorkdayQueue = (snapshot: WorkspaceSnapshot, config: WorkdayCo
     if (!reasons.length) return null
     return {
       id: `workday:${lead.id}`, lead, action,
-      title: action === 'review' ? 'Revisar oportunidade' : action === 'call' ? 'Fazer contato agora' : 'Programar follow-up',
-      explanation: labels.slice(0, 3).join(' • '), reasons: Array.from(new Set(reasons)), dueAt,
-      score: Math.min(100, score), slaState,
+      title: labels.length ? (action === 'review' ? 'Revisar oportunidade' : action === 'call' ? 'Fazer contato agora' : action === 'meeting' ? 'Preparar reunião' : action === 'data' ? 'Completar dados' : insight.nextBestAction.title) : insight.nextBestAction.title,
+      explanation: [...labels, insight.nextBestAction.explanation].filter(Boolean).slice(0, 3).join(' • '), reasons: Array.from(new Set(reasons)), dueAt,
+      score: Math.min(100, score), slaState, insight, alerts: insight.alerts,
     }
   }).filter((item): item is WorkdayItem => Boolean(item)).sort((a, b) => b.score - a.score || (a.dueAt ?? '9').localeCompare(b.dueAt ?? '9'))
 

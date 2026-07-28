@@ -1,13 +1,13 @@
 import type {
-  ActivityItem, AutomationAction, AutomationCondition, AutomationRule, AutomationRun, AutomationRunOutput, AutomationRunStatus, CalendarEvent, CalendarEventStatus, CallOutcome, CallRecord, DashboardStats, Goal, GoalMetric, Lead, PipelineStage, Playbook,
+  ActivityItem, AutomationAction, AutomationCondition, AutomationRule, AutomationRun, AutomationRunOutput, AutomationRunStatus, CalendarEvent, CalendarEventStatus, CallOutcome, CallRecord, CommercialStructureSyncResult, CompanyRecord, ContactRecord, DashboardStats, Goal, GoalMetric, Lead, OpportunityRecord, PipelineStage, Playbook, ProductRecord, ProposalLineItem, ProposalRecord, ProposalStatus, RevenueEntry, SocialProfile,
   AuditLog, RepositoryHealth, Workspace, WorkspaceInvite, WorkspaceMember, WorkspaceSnapshot,
 } from '../domain/types'
 import { getSupabaseClient } from '../lib/supabase'
 import { BACKUP_SCHEMA_VERSION } from '../lib/app-version'
 import type { Database } from '../lib/supabase.types'
 import type {
-  CrmRepository, NewActivityInput, NewAutomationRuleInput, NewAutomationRunInput, NewCalendarEventInput, NewCallInput, NewGoalInput, NewLeadInput, NewPlaybookInput, NewStageInput,
-  UpdateActivityInput, UpdateAutomationRuleInput, UpdateCalendarEventInput, UpdateGoalInput, UpdateLeadInput, UpdatePlaybookInput, UpdateStageInput,
+  CommercialActionResult, CommercialActivityResult, CrmRepository, NewActivityInput, NewAutomationRuleInput, NewAutomationRunInput, NewCalendarEventInput, NewCallInput, NewGoalInput, NewLeadInput, NewPlaybookInput, NewProductInput, NewProposalInput, NewRevenueEntryInput, NewStageInput, RegisterActivityOutcomeInput, RegisterCallOutcomeInput,
+  UpdateActivityInput, UpdateAutomationRuleInput, UpdateCalendarEventInput, UpdateGoalInput, UpdateLeadInput, UpdatePlaybookInput, UpdateProductInput, UpdateProposalInput, UpdateStageInput,
 } from './crm-repository'
 
 type LeadRow = Database['public']['Tables']['leads']['Row']
@@ -19,6 +19,10 @@ type PlaybookRow = Database['public']['Tables']['playbooks']['Row']
 type GoalRow = Database['public']['Tables']['goals']['Row']
 type AutomationRuleRow = Database['public']['Tables']['automation_rules']['Row']
 type AutomationRunRow = Database['public']['Tables']['automation_runs']['Row']
+type ProductRow = Database['public']['Tables']['products']['Row']
+type ProposalRow = Database['public']['Tables']['sales_proposals']['Row']
+type ProposalItemRow = Database['public']['Tables']['sales_proposal_items']['Row']
+type RevenueRow = Database['public']['Tables']['revenue_entries']['Row']
 
 const requireClient = () => {
   const client = getSupabaseClient()
@@ -26,12 +30,28 @@ const requireClient = () => {
   return client
 }
 
-const mapLead = (row: LeadRow, ownerName = 'Equipe'): Lead => ({
-  id: row.id, workspaceId: row.organization_id, name: row.name, company: row.company, phone: row.phone, email: row.email,
-  city: row.city, source: row.source, stageId: row.stage_id, status: row.status, temperature: row.temperature,
-  priority: row.priority, ownerId: row.owner_id, ownerName, value: Number(row.value), nextActionAt: row.next_action_at, lastContactAt: row.last_contact_at, expectedCloseAt: row.expected_close_at,
-  notes: row.notes, tags: row.tags ?? [], createdAt: row.created_at, updatedAt: row.updated_at,
-})
+const mapLead = (row: LeadRow, ownerName = 'Equipe'): Lead => {
+  const raw = row as LeadRow & Record<string, any>
+  return {
+    id: row.id, workspaceId: row.organization_id, name: row.name, company: row.company, phone: row.phone, email: row.email,
+    city: row.city, postalCode: row.postal_code, street: row.street, addressNumber: row.address_number, complement: row.complement, district: row.district, state: row.state, country: row.country,
+    formattedAddress: row.formatted_address, latitude: row.latitude, longitude: row.longitude, geocodeStatus: row.geocode_status, geocodePrecision: row.geocode_precision,
+    geocodeProvider: row.geocode_provider, geocodePlaceId: row.geocode_place_id, geocodedAt: row.geocoded_at, geocodeError: row.geocode_error,
+    source: row.source, sourceDetail: raw.source_detail ?? '', sourceUrl: raw.source_url ?? '', capturedAt: raw.captured_at ?? row.created_at,
+    consentStatus: raw.consent_status ?? 'unknown', doNotContact: Boolean(raw.do_not_contact), doNotContactReason: raw.do_not_contact_reason ?? '',
+    companyId: raw.company_id ?? null, primaryContactId: raw.primary_contact_id ?? null, opportunityId: raw.opportunity_id ?? null,
+    cnpj: raw.cnpj ?? '', website: raw.website ?? '', instagramUrl: raw.instagram_url ?? '', linkedinUrl: raw.linkedin_url ?? '', facebookUrl: raw.facebook_url ?? '',
+    jobTitle: raw.job_title ?? '', decisionRole: raw.decision_role ?? 'unknown', influenceLevel: Number(raw.influence_level ?? 0),
+    stageId: row.stage_id, status: row.status, temperature: row.temperature, priority: row.priority, ownerId: row.owner_id, ownerName,
+    value: Number(row.value), nextActionAt: row.next_action_at, lastContactAt: row.last_contact_at, expectedCloseAt: row.expected_close_at,
+    notes: row.notes, tags: row.tags ?? [], createdAt: row.created_at, updatedAt: row.updated_at,
+  }
+}
+
+const mapCompany = (row: Record<string, any>): CompanyRecord => ({ id: row.id, workspaceId: row.organization_id, name: row.name, legalName: row.legal_name ?? '', cnpj: row.cnpj ?? '', domain: row.domain ?? '', website: row.website ?? '', segment: row.segment ?? '', phone: row.phone ?? '', city: row.city ?? '', state: row.state ?? '', status: row.status ?? 'prospect', leadIds: row.lead_ids ?? [], createdAt: row.created_at, updatedAt: row.updated_at })
+const mapContact = (row: Record<string, any>): ContactRecord => ({ id: row.id, workspaceId: row.organization_id, companyId: row.company_id, name: row.name, jobTitle: row.job_title ?? '', phone: row.phone ?? '', email: row.email ?? '', decisionRole: row.decision_role ?? 'unknown', influenceLevel: Number(row.influence_level ?? 0), consentStatus: row.consent_status ?? 'unknown', doNotContact: Boolean(row.do_not_contact), doNotContactReason: row.do_not_contact_reason ?? '', leadIds: row.lead_ids ?? [], createdAt: row.created_at, updatedAt: row.updated_at })
+const mapOpportunity = (row: Record<string, any>): OpportunityRecord => ({ id: row.id, workspaceId: row.organization_id, companyId: row.company_id, primaryContactId: row.primary_contact_id, leadId: row.lead_id, title: row.title, stageId: row.stage_id, status: row.status, value: Number(row.value), ownerId: row.owner_id, expectedCloseAt: row.expected_close_at, createdAt: row.created_at, updatedAt: row.updated_at })
+const mapSocialProfile = (row: Record<string, any>): SocialProfile => ({ id: row.id, workspaceId: row.organization_id, entityType: row.entity_type, entityId: row.entity_id, network: row.network, username: row.username ?? '', url: row.url, externalId: row.external_id, verified: Boolean(row.verified), source: row.source ?? '', confidence: Number(row.confidence ?? 0), lastCheckedAt: row.last_checked_at, createdAt: row.created_at, updatedAt: row.updated_at })
 
 const mapStage = (row: StageRow): PipelineStage => ({
   id: row.id, workspaceId: row.organization_id, name: row.name, order: row.stage_order, color: row.color,
@@ -79,6 +99,39 @@ const mapAutomationRule = (row: AutomationRuleRow): AutomationRule => ({
   triggerType: row.trigger_type as AutomationRule['triggerType'], conditions: (Array.isArray(row.conditions) ? row.conditions : []) as unknown as AutomationCondition[],
   actions: (Array.isArray(row.actions) ? row.actions : []) as unknown as AutomationAction[], createdBy: row.created_by,
   createdAt: row.created_at, updatedAt: row.updated_at,
+})
+
+
+const mapProduct = (row: ProductRow): ProductRecord => ({
+  id: row.id, workspaceId: row.organization_id, name: row.name, sku: row.sku, description: row.description, category: row.category,
+  active: row.active, unitPrice: Number(row.unit_price), billingType: row.billing_type, billingInterval: row.billing_interval,
+  taxRate: Number(row.tax_rate), createdAt: row.created_at, updatedAt: row.updated_at,
+})
+
+const mapProposalItem = (row: ProposalItemRow): ProposalLineItem => ({
+  id: row.id, productId: row.product_id, name: row.name, description: row.description, quantity: Number(row.quantity),
+  unitPrice: Number(row.unit_price), discountPercent: Number(row.discount_percent), taxRate: Number(row.tax_rate),
+  billingType: row.billing_type, billingInterval: row.billing_interval, lineSubtotal: Number(row.line_subtotal),
+  lineDiscount: Number(row.line_discount), lineTax: Number(row.line_tax), lineTotal: Number(row.line_total),
+  recurringMonthlyTotal: Number(row.recurring_monthly_total),
+})
+
+const mapProposal = (row: ProposalRow, items: ProposalLineItem[]): ProposalRecord => ({
+  id: row.id, workspaceId: row.organization_id, proposalGroupId: row.proposal_group_id, version: row.version,
+  proposalNumber: row.proposal_number, leadId: row.lead_id, opportunityId: row.opportunity_id, companyId: row.company_id,
+  contactId: row.contact_id, title: row.title, status: row.status, forecastCategory: row.forecast_category,
+  probability: Number(row.probability), currency: row.currency, subtotal: Number(row.subtotal), discountTotal: Number(row.discount_total),
+  taxTotal: Number(row.tax_total), total: Number(row.total), recurringMonthlyTotal: Number(row.recurring_monthly_total),
+  validUntil: row.valid_until, sentAt: row.sent_at, viewedAt: row.viewed_at, acceptedAt: row.accepted_at,
+  rejectedAt: row.rejected_at, ownerId: row.owner_id, notes: row.notes, terms: row.terms, items,
+  createdAt: row.created_at, updatedAt: row.updated_at,
+})
+
+const mapRevenueEntry = (row: RevenueRow): RevenueEntry => ({
+  id: row.id, workspaceId: row.organization_id, proposalId: row.proposal_id, leadId: row.lead_id,
+  opportunityId: row.opportunity_id, revenueType: row.revenue_type, status: row.status, amount: Number(row.amount),
+  recurringMonthlyAmount: Number(row.recurring_monthly_amount), recognizedAt: row.recognized_at, description: row.description,
+  ownerId: row.owner_id, createdAt: row.created_at, updatedAt: row.updated_at,
 })
 
 const mapAutomationRun = (row: AutomationRunRow): AutomationRun => ({
@@ -184,14 +237,26 @@ export class SupabaseCrmRepository implements CrmRepository {
   }
 
   async getSnapshot(workspaceId: string): Promise<WorkspaceSnapshot> {
-    const [workspaces, stages, leads, activities, calls, events, playbooks, goals, automationRules, automationRuns] = await Promise.all([
+    const rawClient = requireClient() as any
+    const [workspaces, stages, leads, activities, calls, events, playbooks, goals, automationRules, automationRuns, companiesResult, contactsResult, opportunitiesResult, socialProfilesResult, products, proposals, revenueEntries] = await Promise.all([
       this.listWorkspaces(), this.listStages(workspaceId), this.listLeads(workspaceId), this.listActivities(workspaceId),
       this.listCalls(workspaceId), this.listCalendarEvents(workspaceId), this.listPlaybooks(workspaceId), this.listGoals(workspaceId),
       this.listAutomationRules(workspaceId), this.listAutomationRuns(workspaceId),
+      rawClient.from('companies').select('*').eq('organization_id', workspaceId).order('name'),
+      rawClient.from('contacts').select('*').eq('organization_id', workspaceId).order('name'),
+      rawClient.from('opportunities').select('*').eq('organization_id', workspaceId).order('updated_at', { ascending: false }),
+      rawClient.from('social_profiles').select('*').eq('organization_id', workspaceId).order('network'),
+      this.listProducts(workspaceId), this.listProposals(workspaceId), this.listRevenueEntries(workspaceId),
     ])
     const workspace = workspaces.find((item) => item.id === workspaceId)
     if (!workspace) throw new Error('Workspace não encontrado ou sem acesso.')
-    return { workspace, stages, leads, activities, calls, events, playbooks, goals, automationRules, automationRuns }
+    for (const result of [companiesResult, contactsResult, opportunitiesResult, socialProfilesResult]) if (result.error) throw result.error
+    return { workspace, stages, leads, activities, calls, events, playbooks, goals, automationRules, automationRuns, companies: (companiesResult.data ?? []).map(mapCompany), contacts: (contactsResult.data ?? []).map(mapContact), opportunities: (opportunitiesResult.data ?? []).map(mapOpportunity), socialProfiles: (socialProfilesResult.data ?? []).map(mapSocialProfile), products, proposals, revenueEntries }
+  }
+
+  async synchronizeCommercialStructure(workspaceId: string): Promise<CommercialStructureSyncResult> {
+    const client = requireClient() as any; const { data, error } = await client.rpc('sync_commercial_structure', { p_organization_id: workspaceId }); if (error) throw error
+    return { companiesCreated: Number(data?.companiesCreated ?? data?.companiescreated ?? 0), contactsCreated: Number(data?.contactsCreated ?? data?.contactscreated ?? 0), opportunitiesCreated: Number(data?.opportunitiesCreated ?? data?.opportunitiescreated ?? 0), socialProfilesCreated: Number(data?.socialProfilesCreated ?? data?.socialprofilescreated ?? 0), leadsLinked: Number(data?.leadsLinked ?? data?.leadslinked ?? 0) }
   }
 
   async listLeads(workspaceId: string) {
@@ -200,19 +265,37 @@ export class SupabaseCrmRepository implements CrmRepository {
   }
 
   async createLead(input: NewLeadInput) {
-    const client = requireClient(); const { data, error } = await client.from('leads').insert({
+    const client = requireClient() as any; const { data, error } = await client.from('leads').insert({
       organization_id: input.workspaceId, name: input.name.trim(), company: input.company, phone: input.phone, email: input.email,
-      city: input.city, source: input.source, stage_id: input.stageId, status: input.status, temperature: input.temperature,
+      city: input.city, postal_code: input.postalCode ?? '', street: input.street ?? '', address_number: input.addressNumber ?? '', complement: input.complement ?? '', district: input.district ?? '', state: input.state ?? '', country: input.country ?? 'Brasil',
+      formatted_address: input.formattedAddress ?? '', latitude: input.latitude ?? null, longitude: input.longitude ?? null, geocode_status: input.geocodeStatus ?? (input.city ? 'approximate' : 'incomplete'),
+      geocode_precision: input.geocodePrecision ?? 'unknown', geocode_provider: input.geocodeProvider ?? null, geocode_place_id: input.geocodePlaceId ?? null, geocoded_at: input.geocodedAt ?? null, geocode_error: input.geocodeError ?? null,
+      source: input.source, source_detail: input.sourceDetail ?? '', source_url: input.sourceUrl ?? '', captured_at: input.capturedAt ?? new Date().toISOString(), consent_status: input.consentStatus ?? 'unknown', do_not_contact: input.doNotContact ?? false, do_not_contact_reason: input.doNotContactReason ?? '', company_id: input.companyId ?? null, primary_contact_id: input.primaryContactId ?? null, opportunity_id: input.opportunityId ?? null, cnpj: input.cnpj ?? '', website: input.website ?? '', instagram_url: input.instagramUrl ?? '', linkedin_url: input.linkedinUrl ?? '', facebook_url: input.facebookUrl ?? '', job_title: input.jobTitle ?? '', decision_role: input.decisionRole ?? 'unknown', influence_level: input.influenceLevel ?? 0, stage_id: input.stageId, status: input.status, temperature: input.temperature,
       priority: input.priority, owner_id: input.ownerId, value: input.value, next_action_at: input.nextActionAt, last_contact_at: input.lastContactAt, expected_close_at: input.expectedCloseAt ?? null, notes: input.notes, tags: input.tags,
     }).select().single(); if (error) throw error
-    return mapLead(data, input.ownerName)
+    const { error: syncError } = await client.rpc('sync_commercial_structure', { p_organization_id: input.workspaceId }); if (syncError) throw syncError
+    const { data: synced, error: syncedError } = await client.from('leads').select('*').eq('id', data.id).single(); if (syncedError) throw syncedError
+    return mapLead(synced, input.ownerName)
   }
 
   async updateLead(leadId: string, input: UpdateLeadInput) {
-    const client = requireClient(); const payload: Database['public']['Tables']['leads']['Update'] = {
+    const client = requireClient() as any; const payload: Record<string, unknown> = {
       ...(input.name !== undefined ? { name: input.name.trim() } : {}), ...(input.company !== undefined ? { company: input.company } : {}),
       ...(input.phone !== undefined ? { phone: input.phone } : {}), ...(input.email !== undefined ? { email: input.email } : {}),
-      ...(input.city !== undefined ? { city: input.city } : {}), ...(input.source !== undefined ? { source: input.source } : {}),
+      ...(input.city !== undefined ? { city: input.city } : {}), ...(input.postalCode !== undefined ? { postal_code: input.postalCode } : {}),
+      ...(input.street !== undefined ? { street: input.street } : {}), ...(input.addressNumber !== undefined ? { address_number: input.addressNumber } : {}),
+      ...(input.complement !== undefined ? { complement: input.complement } : {}), ...(input.district !== undefined ? { district: input.district } : {}),
+      ...(input.state !== undefined ? { state: input.state } : {}), ...(input.country !== undefined ? { country: input.country } : {}),
+      ...(input.formattedAddress !== undefined ? { formatted_address: input.formattedAddress } : {}), ...(input.latitude !== undefined ? { latitude: input.latitude } : {}),
+      ...(input.longitude !== undefined ? { longitude: input.longitude } : {}), ...(input.geocodeStatus !== undefined ? { geocode_status: input.geocodeStatus } : {}),
+      ...(input.geocodePrecision !== undefined ? { geocode_precision: input.geocodePrecision } : {}), ...(input.geocodeProvider !== undefined ? { geocode_provider: input.geocodeProvider } : {}),
+      ...(input.geocodePlaceId !== undefined ? { geocode_place_id: input.geocodePlaceId } : {}), ...(input.geocodedAt !== undefined ? { geocoded_at: input.geocodedAt } : {}),
+      ...(input.geocodeError !== undefined ? { geocode_error: input.geocodeError } : {}), ...(input.source !== undefined ? { source: input.source } : {}),
+      ...(input.sourceDetail !== undefined ? { source_detail: input.sourceDetail } : {}), ...(input.sourceUrl !== undefined ? { source_url: input.sourceUrl } : {}), ...(input.capturedAt !== undefined ? { captured_at: input.capturedAt } : {}),
+      ...(input.consentStatus !== undefined ? { consent_status: input.consentStatus } : {}), ...(input.doNotContact !== undefined ? { do_not_contact: input.doNotContact } : {}), ...(input.doNotContactReason !== undefined ? { do_not_contact_reason: input.doNotContactReason } : {}),
+      ...(input.companyId !== undefined ? { company_id: input.companyId } : {}), ...(input.primaryContactId !== undefined ? { primary_contact_id: input.primaryContactId } : {}), ...(input.opportunityId !== undefined ? { opportunity_id: input.opportunityId } : {}),
+      ...(input.cnpj !== undefined ? { cnpj: input.cnpj } : {}), ...(input.website !== undefined ? { website: input.website } : {}), ...(input.instagramUrl !== undefined ? { instagram_url: input.instagramUrl } : {}), ...(input.linkedinUrl !== undefined ? { linkedin_url: input.linkedinUrl } : {}), ...(input.facebookUrl !== undefined ? { facebook_url: input.facebookUrl } : {}),
+      ...(input.jobTitle !== undefined ? { job_title: input.jobTitle } : {}), ...(input.decisionRole !== undefined ? { decision_role: input.decisionRole } : {}), ...(input.influenceLevel !== undefined ? { influence_level: input.influenceLevel } : {}),
       ...(input.stageId !== undefined ? { stage_id: input.stageId } : {}), ...(input.status !== undefined ? { status: input.status } : {}),
       ...(input.temperature !== undefined ? { temperature: input.temperature } : {}), ...(input.priority !== undefined ? { priority: input.priority } : {}),
       ...(input.ownerId !== undefined ? { owner_id: input.ownerId } : {}), ...(input.value !== undefined ? { value: input.value } : {}),
@@ -221,7 +304,9 @@ export class SupabaseCrmRepository implements CrmRepository {
       ...(input.tags !== undefined ? { tags: input.tags } : {}),
     }
     const { data, error } = await client.from('leads').update(payload).eq('id', leadId).select().single(); if (error) throw error
-    return mapLead(data, input.ownerName)
+    const { error: syncError } = await client.rpc('sync_commercial_structure', { p_organization_id: data.organization_id }); if (syncError) throw syncError
+    const { data: synced, error: syncedError } = await client.from('leads').select('*').eq('id', leadId).single(); if (syncedError) throw syncedError
+    return mapLead(synced, input.ownerName)
   }
 
   async moveLead(leadId: string, stageId: string, lossReason?: string | null) {
@@ -254,6 +339,7 @@ export class SupabaseCrmRepository implements CrmRepository {
       p_organization_id: workspaceId, p_primary_lead_id: primaryLeadId, p_duplicate_lead_id: duplicateLeadId,
     })
     if (error) throw error
+    const { error: syncError } = await (client as any).rpc('sync_commercial_structure', { p_organization_id: workspaceId }); if (syncError) throw syncError
     const { data: lead, error: leadError } = await client.from('leads').select('*').eq('id', String(data)).single()
     if (leadError) throw leadError
     return mapLead(lead)
@@ -370,6 +456,38 @@ export class SupabaseCrmRepository implements CrmRepository {
 
   async completeActivity(activityId: string, completed: boolean) { return this.updateActivity(activityId, { completedAt: completed ? new Date().toISOString() : null }) }
 
+  async registerActivityOutcome(input: RegisterActivityOutcomeInput): Promise<CommercialActivityResult> {
+    const client = requireClient()
+    const { data, error } = await client.rpc('register_commercial_activity_outcome', {
+      p_organization_id: input.workspaceId,
+      p_activity_id: input.activityId,
+      p_outcome: input.outcome,
+      p_result_title: input.resultTitle,
+      p_result_description: input.resultDescription,
+      p_create_next: input.createNext,
+      p_next_type: input.nextType,
+      p_next_title: input.nextTitle,
+      p_next_description: input.nextDescription,
+      p_next_at: input.nextAt,
+      p_stage_id: input.stageId,
+    })
+    if (error) throw error
+    const result = (data ?? {}) as unknown as Record<string, unknown>
+    const [{ data: activityRow, error: activityError }, { data: leadRow, error: leadError }] = await Promise.all([
+      client.from('activities').select('*').eq('id', input.activityId).single(),
+      client.from('leads').select('*').eq('id', String(result.lead_id ?? '')).single(),
+    ])
+    if (activityError) throw activityError
+    if (leadError) throw leadError
+    return {
+      activity: mapActivity(activityRow),
+      lead: mapLead(leadRow),
+      resultActivityId: String(result.result_activity_id ?? ''),
+      nextActivityId: result.next_activity_id ? String(result.next_activity_id) : null,
+      idempotent: Boolean(result.idempotent),
+    }
+  }
+
   async listCalls(workspaceId: string) {
     const client = requireClient(); const { data, error } = await client.from('calls').select('*').eq('organization_id', workspaceId).order('started_at', { ascending: false }).limit(500); if (error) throw error
     return Promise.all((data ?? []).map(async (row) => {
@@ -407,6 +525,62 @@ export class SupabaseCrmRepository implements CrmRepository {
     let recordingUrl: string | null = null
     if (recordingPath) recordingUrl = (await client.storage.from('crm-recordings').createSignedUrl(recordingPath, 3600)).data?.signedUrl ?? null
     return mapCall(data, recordingUrl)
+  }
+
+  async registerCallOutcome(input: RegisterCallOutcomeInput, recording?: Blob | null): Promise<CommercialActionResult> {
+    const client = requireClient()
+    const callId = crypto.randomUUID()
+    let recordingPath: string | null = null
+    if (recording?.size) {
+      if (!input.consentAt) throw new Error('Registre o consentimento antes de salvar uma gravação.')
+      recordingPath = `${input.workspaceId}/${callId}.${recordingExtension(recording.type)}`
+      const { error: uploadError } = await client.storage.from('crm-recordings').upload(recordingPath, recording, { contentType: recording.type || 'audio/webm', upsert: false })
+      if (uploadError) throw uploadError
+    }
+    try {
+      const { data, error } = await client.rpc('register_commercial_call_outcome', {
+        p_organization_id: input.workspaceId,
+        p_call_id: callId,
+        p_lead_id: input.leadId,
+        p_outcome: input.outcome,
+        p_duration_seconds: input.durationSeconds,
+        p_notes: input.notes,
+        p_transcript: input.transcript,
+        p_recording_path: recordingPath,
+        p_consent_at: input.consentAt ?? null,
+        p_started_at: input.startedAt,
+        p_ended_at: input.endedAt,
+        p_schedule_next: input.scheduleNext,
+        p_next_at: input.nextAt,
+        p_meeting_duration_minutes: Math.max(15, input.meetingDurationMinutes ?? 30),
+      })
+      if (error) throw error
+      const result = (data ?? {}) as unknown as Record<string, unknown>
+      const persistedCallId = String(result.call_id ?? callId)
+      if (recordingPath && persistedCallId !== callId) {
+        await client.storage.from('crm-recordings').remove([recordingPath])
+        recordingPath = null
+      }
+      const [{ data: callRow, error: callError }, { data: leadRow, error: leadError }] = await Promise.all([
+        client.from('calls').select('*').eq('id', persistedCallId).single(),
+        client.from('leads').select('*').eq('id', input.leadId).single(),
+      ])
+      if (callError) throw callError
+      if (leadError) throw leadError
+      let recordingUrl: string | null = null
+      if (callRow.recording_path) recordingUrl = (await client.storage.from('crm-recordings').createSignedUrl(callRow.recording_path, 3600)).data?.signedUrl ?? null
+      return {
+        call: mapCall(callRow, recordingUrl),
+        lead: mapLead(leadRow),
+        activityId: String(result.activity_id ?? ''),
+        nextActivityId: result.next_activity_id ? String(result.next_activity_id) : null,
+        calendarEventId: result.calendar_event_id ? String(result.calendar_event_id) : null,
+        idempotent: Boolean(result.idempotent),
+      }
+    } catch (error) {
+      if (recordingPath) await client.storage.from('crm-recordings').remove([recordingPath])
+      throw error
+    }
   }
 
   async deleteCall(callId: string) {
@@ -481,6 +655,57 @@ export class SupabaseCrmRepository implements CrmRepository {
   }
 
   async deletePlaybook(playbookId: string) { const client = requireClient(); const { error } = await client.from('playbooks').delete().eq('id', playbookId); if (error) throw error }
+
+
+  async listProducts(workspaceId: string) {
+    const client = requireClient(); const { data, error } = await client.from('products').select('*').eq('organization_id', workspaceId).order('name'); if (error) throw error
+    return (data ?? []).map(mapProduct)
+  }
+
+  async createProduct(input: NewProductInput) {
+    const client = requireClient(); const { data, error } = await client.from('products').insert({ organization_id: input.workspaceId, name: input.name.trim(), sku: input.sku.trim(), description: input.description.trim(), category: input.category.trim(), active: input.active, unit_price: input.unitPrice, billing_type: input.billingType, billing_interval: input.billingType === 'recurring' ? (input.billingInterval ?? 'month') : null, tax_rate: input.taxRate }).select().single(); if (error) throw error
+    return mapProduct(data)
+  }
+
+  async updateProduct(productId: string, input: UpdateProductInput) {
+    const client = requireClient(); const patch: Database['public']['Tables']['products']['Update'] = {}
+    if (input.name !== undefined) patch.name = input.name.trim(); if (input.sku !== undefined) patch.sku = input.sku.trim(); if (input.description !== undefined) patch.description = input.description.trim(); if (input.category !== undefined) patch.category = input.category.trim(); if (input.active !== undefined) patch.active = input.active; if (input.unitPrice !== undefined) patch.unit_price = input.unitPrice; if (input.billingType !== undefined) patch.billing_type = input.billingType; if (input.billingInterval !== undefined) patch.billing_interval = input.billingInterval; if (input.taxRate !== undefined) patch.tax_rate = input.taxRate
+    const { data, error } = await client.from('products').update(patch).eq('id', productId).select().single(); if (error) throw error
+    return mapProduct(data)
+  }
+
+  async deleteProduct(productId: string) { const client = requireClient(); const { error } = await client.from('products').delete().eq('id', productId); if (error) throw error }
+
+  private async loadProposal(proposalId: string) {
+    const client = requireClient(); const [{ data, error }, itemsResult] = await Promise.all([client.from('sales_proposals').select('*').eq('id', proposalId).single(), client.from('sales_proposal_items').select('*').eq('proposal_id', proposalId).order('item_order')]); if (error) throw error; if (itemsResult.error) throw itemsResult.error
+    return mapProposal(data, (itemsResult.data ?? []).map(mapProposalItem))
+  }
+
+  async listProposals(workspaceId: string) {
+    const client = requireClient(); const [{ data, error }, itemsResult] = await Promise.all([client.from('sales_proposals').select('*').eq('organization_id', workspaceId).order('updated_at', { ascending: false }), client.from('sales_proposal_items').select('*').eq('organization_id', workspaceId).order('item_order')]); if (error) throw error; if (itemsResult.error) throw itemsResult.error
+    const byProposal = new Map<string, ProposalLineItem[]>(); for (const row of itemsResult.data ?? []) { const list = byProposal.get(row.proposal_id) ?? []; list.push(mapProposalItem(row)); byProposal.set(row.proposal_id, list) }
+    return (data ?? []).map((row) => mapProposal(row, byProposal.get(row.id) ?? []))
+  }
+
+  async createProposal(input: NewProposalInput) {
+    const client = requireClient() as any; const { data, error } = await client.rpc('save_sales_proposal', { p_organization_id: input.workspaceId, p_proposal_id: null, p_lead_id: input.leadId, p_title: input.title, p_forecast_category: input.forecastCategory, p_probability: input.probability, p_valid_until: input.validUntil, p_notes: input.notes, p_terms: input.terms, p_items: input.items.map((item, index) => ({ product_id: item.productId, item_order: index + 1, name: item.name, description: item.description, quantity: item.quantity, unit_price: item.unitPrice, discount_percent: item.discountPercent, tax_rate: item.taxRate, billing_type: item.billingType, billing_interval: item.billingInterval })) }); if (error) throw error
+    return this.loadProposal(data as string)
+  }
+
+  async updateProposal(proposalId: string, input: UpdateProposalInput) {
+    const current = await this.loadProposal(proposalId); const client = requireClient() as any
+    const { data, error } = await client.rpc('save_sales_proposal', { p_organization_id: current.workspaceId, p_proposal_id: proposalId, p_lead_id: current.leadId, p_title: input.title ?? current.title, p_forecast_category: input.forecastCategory ?? current.forecastCategory, p_probability: input.probability ?? current.probability, p_valid_until: input.validUntil === undefined ? current.validUntil : input.validUntil, p_notes: input.notes ?? current.notes, p_terms: input.terms ?? current.terms, p_items: (input.items ?? current.items).map((item, index) => ({ product_id: item.productId, item_order: index + 1, name: item.name, description: item.description, quantity: item.quantity, unit_price: item.unitPrice, discount_percent: item.discountPercent, tax_rate: item.taxRate, billing_type: item.billingType, billing_interval: item.billingInterval })) }); if (error) throw error
+    if (input.status && input.status !== current.status) await this.updateProposalStatus(data as string, input.status)
+    return this.loadProposal(data as string)
+  }
+
+  async createProposalRevision(proposalId: string) { const current = await this.loadProposal(proposalId); const client = requireClient() as any; const { data, error } = await client.rpc('create_sales_proposal_revision', { p_organization_id: current.workspaceId, p_proposal_id: proposalId }); if (error) throw error; return this.loadProposal(data as string) }
+  async updateProposalStatus(proposalId: string, status: ProposalStatus) { const current = await this.loadProposal(proposalId); const client = requireClient() as any; const { data, error } = await client.rpc('set_sales_proposal_status', { p_organization_id: current.workspaceId, p_proposal_id: proposalId, p_status: status }); if (error) throw error; return this.loadProposal(data as string) }
+  async deleteProposal(proposalId: string) { const client = requireClient(); const { error } = await client.from('sales_proposals').delete().eq('id', proposalId); if (error) throw error }
+
+  async listRevenueEntries(workspaceId: string) { const client = requireClient(); const { data, error } = await client.from('revenue_entries').select('*').eq('organization_id', workspaceId).order('recognized_at', { ascending: false }); if (error) throw error; return (data ?? []).map(mapRevenueEntry) }
+  async createRevenueEntry(input: NewRevenueEntryInput) { const client = requireClient(); const { data, error } = await client.from('revenue_entries').insert({ organization_id: input.workspaceId, proposal_id: input.proposalId, lead_id: input.leadId, opportunity_id: input.opportunityId, revenue_type: input.revenueType, status: input.status, amount: input.amount, recurring_monthly_amount: input.recurringMonthlyAmount, recognized_at: input.recognizedAt, description: input.description.trim(), owner_id: input.ownerId }).select().single(); if (error) throw error; return mapRevenueEntry(data) }
+  async updateRevenueEntryStatus(entryId: string, status: RevenueEntry['status']) { const client = requireClient(); const { data, error } = await client.from('revenue_entries').update({ status }).eq('id', entryId).select().single(); if (error) throw error; return mapRevenueEntry(data) }
 
   async listGoals(workspaceId: string) {
     const client = requireClient(); const { data, error } = await client.from('goals').select('*').eq('organization_id', workspaceId).order('period_start', { ascending: false }); if (error) throw error
@@ -571,9 +796,14 @@ export class SupabaseCrmRepository implements CrmRepository {
   }
 
   async importLeads(workspaceId: string, leads: Lead[]) {
-    const client = requireClient(); if (!leads.length) return 0
-    const payload = leads.map((lead) => ({ organization_id: workspaceId, name: lead.name, company: lead.company, phone: lead.phone, email: lead.email, city: lead.city, source: lead.source, stage_id: lead.stageId, status: lead.status, temperature: lead.temperature, priority: lead.priority, owner_id: null, value: lead.value, next_action_at: lead.nextActionAt, notes: lead.notes, tags: lead.tags }))
+    const client = requireClient() as any; if (!leads.length) return 0
+    const payload = leads.map((lead) => ({ organization_id: workspaceId, name: lead.name, company: lead.company, phone: lead.phone, email: lead.email, city: lead.city,
+      postal_code: lead.postalCode ?? '', street: lead.street ?? '', address_number: lead.addressNumber ?? '', complement: lead.complement ?? '', district: lead.district ?? '', state: lead.state ?? '', country: lead.country ?? 'Brasil',
+      source: lead.source, source_detail: lead.sourceDetail ?? '', source_url: lead.sourceUrl ?? '', captured_at: lead.capturedAt ?? lead.createdAt, consent_status: lead.consentStatus ?? 'unknown', do_not_contact: lead.doNotContact ?? false, do_not_contact_reason: lead.doNotContactReason ?? '',
+      cnpj: lead.cnpj ?? '', website: lead.website ?? '', instagram_url: lead.instagramUrl ?? '', linkedin_url: lead.linkedinUrl ?? '', facebook_url: lead.facebookUrl ?? '', job_title: lead.jobTitle ?? '', decision_role: lead.decisionRole ?? 'unknown', influence_level: lead.influenceLevel ?? 0,
+      stage_id: lead.stageId, status: lead.status, temperature: lead.temperature, priority: lead.priority, owner_id: null, value: lead.value, next_action_at: lead.nextActionAt, expected_close_at: lead.expectedCloseAt ?? null, notes: lead.notes, tags: lead.tags }))
     const { error } = await client.from('leads').insert(payload); if (error) throw error
+    const { error: syncError } = await client.rpc('sync_commercial_structure', { p_organization_id: workspaceId }); if (syncError) throw syncError
     return payload.length
   }
 }

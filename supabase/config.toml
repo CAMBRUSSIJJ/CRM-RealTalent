@@ -69,3 +69,33 @@ verify_jwt = false
 
 [functions.automation-runner]
 verify_jwt = false
+
+[functions.geocode-lead]
+verify_jwt = true
+
+[functions.automation-webhook-dispatch]
+verify_jwt = true
+
+[functions.extension-register]
+verify_jwt = true
+
+[functions.client-diagnostics]
+verify_jwt = true
+
+[functions.official-communication-send]
+verify_jwt = true
+
+[functions.communication-dispatch-worker]
+verify_jwt = false
+
+[functions.communication-sync-worker]
+verify_jwt = false
+
+[functions.google-communications-webhook]
+verify_jwt = false
+
+[functions.microsoft-communications-webhook]
+verify_jwt = false
+
+[functions.whatsapp-webhook]
+verify_jwt = false

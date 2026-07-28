@@ -4,13 +4,16 @@ import { join } from 'node:path'
 const root = new URL('..', import.meta.url).pathname
 const failures = []
 const warnings = []
+const packageJson = JSON.parse(await readFile(join(root, 'package.json'), 'utf8'))
+const shortVersion = packageJson.version.replace(/\.0$/, '')
+const label = `V${shortVersion}`
 
 async function walk(directory) {
   const output = []
   for (const entry of await readdir(directory, { withFileTypes: true })) {
-    const path = join(directory, entry.name)
-    if (entry.isDirectory()) output.push(...await walk(path))
-    else output.push(path)
+    const file = join(directory, entry.name)
+    if (entry.isDirectory()) output.push(...await walk(file))
+    else output.push(file)
   }
   return output
 }
@@ -19,11 +22,11 @@ const sourceFiles = (await walk(join(root, 'src'))).filter((file) => /\.(ts|tsx|
 for (const file of sourceFiles) {
   const text = await readFile(file, 'utf8')
   const relative = file.slice(root.length + 1)
-  for (const [label, pattern] of [
+  for (const [description, pattern] of [
     ['marcador pendente', /\b(TODO|FIXME|HACK|XXX)\b/],
     ['HTML inseguro', /dangerouslySetInnerHTML|\beval\s*\(|new Function\s*\(/],
     ['versão antiga ativa', /CRM V100\.(16|17|18)|Diagnóstico V100\.(16|17|18)|compatível com a V100\.(16|17|18)/],
-  ]) if (pattern.test(text)) failures.push(`${relative}: ${label}`)
+  ]) if (pattern.test(text)) failures.push(`${relative}: ${description}`)
 }
 
 const vercel = JSON.parse(await readFile(join(root, 'vercel.json'), 'utf8'))
@@ -32,39 +35,82 @@ for (const header of ['Content-Security-Policy', 'X-Content-Type-Options', 'Refe
   if (!serializedHeaders.includes(header)) failures.push(`vercel.json: cabeçalho ${header} ausente`)
 }
 
-const packageJson = JSON.parse(await readFile(join(root, 'package.json'), 'utf8'))
-if (packageJson.version !== '100.29.0') failures.push(`package.json: versão ${packageJson.version} diferente de 100.29.0`)
 const indexHtml = await readFile(join(root, 'index.html'), 'utf8')
-if (!indexHtml.includes('RealTalent CRM V100.29')) failures.push('index.html: título da versão V100.29 ausente')
+if (!indexHtml.includes(`RealTalent CRM ${label}`)) failures.push(`index.html: título ${label} ausente`)
 
 for (const required of [
   'src/features/settings/integration-center.tsx',
   'src/services/integration-workspace.ts',
-  'supabase/migrations/202607190007_v100_23_integration_hub.sql',
-  'supabase/migrations/202607190008_v100_24_extension_delivery.sql',
-  'supabase/migrations/202607190009_v100_25_sales_automation.sql',
-  'supabase/migrations/202607190010_v100_26_reliability.sql',
+  'src/services/commercial-action-engine.ts',
+  'src/services/lead-scoring.ts',
+  'src/services/automation-webhooks.ts',
+  'src/services/commercial-structure.ts',
+  'src/features/settings/integration-framework-panel.tsx',
+  'src/services/integration-framework.ts',
+  'src/features/settings/extension-center-panel.tsx',
+  'extension-sdk/realtalent-extension-client.ts',
+  'supabase/migrations/202607270001_v100_40_extension_center.sql',
+  'supabase/functions/extension-register/index.ts',
   'supabase/functions/extension-ingest/index.ts',
   'supabase/functions/automation-runner/index.ts',
-  'src/services/automation-operations.ts',
+  'supabase/functions/geocode-lead/index.ts',
+  'supabase/functions/automation-webhook-dispatch/index.ts',
+  'scripts/source_of_truth_guard.mjs',
+  'scripts/architecture_guard.mjs',
+  'scripts/database_contract_audit.mjs',
+  'supabase/migrations.lock.json',
+  'supabase/migrations/202607230002_v100_38_commercial_structure_data_quality.sql',
+  'supabase/migrations/202607230003_v100_39_integration_framework.sql',
+  'supabase/functions/integration-oauth-start/index.ts',
+  'supabase/functions/integration-oauth-callback/index.ts',
+  'supabase/functions/integration-sync-worker/index.ts',
+  'src/features/proposals/proposals-page.tsx',
+  'src/services/revenue-forecast.ts',
+  'supabase/migrations/202607270004_v100_43_proposals_forecast.sql',
+  'docs/PROPOSTAS-FORECAST-V100-43.md',
+  'docs/PLANO-HOMOLOGACAO-V100-43.md',
+  'docs/OPERACAO-PRODUCAO-V100-43.md',
+  'src/features/communications/communications-page.tsx',
+  'src/services/communications.ts',
+  'supabase/migrations/202607270003_v100_42_official_communications.sql',
+  'supabase/functions/official-communication-send/index.ts',
+  'supabase/functions/communication-dispatch-worker/index.ts',
+  'supabase/functions/communication-sync-worker/index.ts',
+  'supabase/functions/google-communications-webhook/index.ts',
+  'supabase/functions/microsoft-communications-webhook/index.ts',
+  'supabase/functions/whatsapp-webhook/index.ts',
+  'supabase/migrations/202607270002_v100_41_production_observability.sql',
+  'supabase/functions/client-diagnostics/index.ts',
+  'scripts/e2e_staging.py',
+  'scripts/tenant_isolation_test.py',
+  'scripts/backup_database.mjs',
+  'scripts/restore_database.mjs',
+  '.github/workflows/deploy-staging.yml',
+  '.github/workflows/promote-production.yml',
+  'docs/PLANO-HOMOLOGACAO-V100-42.md',
+  'docs/OPERACAO-PRODUCAO-V100-42.md',
+  'docs/COMUNICACOES-OFICIAIS-V100-42.md',
+  'docs/PLANO-HOMOLOGACAO-V100-42.md',
+  'supabase/tests/homologation_contracts.sql',
 ]) {
   try { await stat(join(root, required)) } catch { failures.push(`${required}: arquivo obrigatório ausente`) }
 }
-const browserSource = sourceFiles.map(async (file) => ({ file, text: await readFile(file, 'utf8') }))
-for (const entry of await Promise.all(browserSource)) {
-  if (/SUPABASE_SERVICE_ROLE_KEY|rt_live_[a-zA-Z0-9]/.test(entry.text)) failures.push(`${entry.file.slice(root.length + 1)}: segredo de servidor exposto no frontend`)
+
+for (const file of sourceFiles) {
+  const text = await readFile(file, 'utf8')
+  if (/SUPABASE_SERVICE_ROLE_KEY|rt_live_[a-zA-Z0-9]/.test(text)) failures.push(`${file.slice(root.length + 1)}: segredo de servidor exposto no frontend`)
 }
 
 const distAssets = join(root, 'dist', 'assets')
 try {
   for (const name of await readdir(distAssets)) {
     const size = (await stat(join(distAssets, name))).size
-    if (size > 500_000) warnings.push(`asset ${name} possui ${(size / 1024).toFixed(1)} KB`)
+    if (size > 900_000) warnings.push(`asset ${name} possui ${(size / 1024).toFixed(1)} KB`)
   }
 } catch { warnings.push('dist ainda não foi gerado; auditoria de tamanho ignorada') }
 
 if (failures.length) {
-  console.error(JSON.stringify({ passed: false, failures, warnings }, null, 2))
+  console.error(JSON.stringify({ passed: false, version: packageJson.version, failures, warnings }, null, 2))
   process.exit(1)
 }
-console.log(JSON.stringify({ passed: true, checks: sourceFiles.length, warnings }, null, 2))
+console.log(JSON.stringify({ passed: true, version: packageJson.version, checks: sourceFiles.length, warnings }, null, 2))

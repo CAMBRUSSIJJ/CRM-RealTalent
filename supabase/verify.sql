@@ -5,7 +5,7 @@ where table_schema = 'public'
   and table_name in (
     'profiles','organizations','organization_members','pipeline_stages','leads','lead_stage_history',
     'activities','calls','calendar_events','goals','automation_rules','automation_runs','organization_settings','audit_logs',
-    'prospecting_batches','prospecting_leads','prospecting_events'
+    'prospecting_batches','prospecting_leads','prospecting_events','companies','contacts','opportunities','social_profiles'
   )
 order by table_name;
 
@@ -152,3 +152,71 @@ select tablename, policyname, cmd
 from pg_policies
 where schemaname = 'public' and tablename in ('seller_notifications','contact_drafts','automation_events')
 order by tablename, policyname;
+
+-- Verificações V100.33 a V100.37
+select column_name, data_type
+from information_schema.columns
+where table_schema = 'public' and table_name = 'leads'
+  and column_name in ('street','street_number','district','state','postal_code','latitude','longitude','geocode_status','geocode_precision')
+order by column_name;
+
+select routine_name, security_type
+from information_schema.routines
+where routine_schema = 'public'
+  and routine_name in ('register_commercial_call_outcome','register_commercial_followup_outcome')
+order by routine_name;
+
+select table_name
+from information_schema.tables
+where table_schema = 'public'
+  and table_name in ('automation_webhooks','webhook_deliveries')
+order by table_name;
+
+select tablename, rowsecurity
+from pg_tables
+where schemaname = 'public'
+order by tablename;
+
+
+-- Verificações V100.38
+select table_name
+from information_schema.tables
+where table_schema = 'public'
+  and table_name in ('companies','contacts','opportunities','social_profiles')
+order by table_name;
+
+select column_name, data_type
+from information_schema.columns
+where table_schema = 'public' and table_name = 'leads'
+  and column_name in ('company_id','primary_contact_id','opportunity_id','source_detail','source_url','captured_at','consent_status','do_not_contact','cnpj','website','instagram_url','linkedin_url','facebook_url','job_title','decision_role','influence_level')
+order by column_name;
+
+select routine_name, security_type
+from information_schema.routines
+where routine_schema = 'public' and routine_name = 'sync_commercial_structure';
+
+select tablename, policyname, cmd
+from pg_policies
+where schemaname = 'public' and tablename in ('companies','contacts','opportunities','social_profiles')
+order by tablename, policyname;
+
+-- Verificações V100.39
+select to_regclass('public.integration_connected_accounts') as integration_connected_accounts;
+select to_regclass('public.integration_sync_jobs') as integration_sync_jobs;
+select to_regclass('public.integration_sync_attempts') as integration_sync_attempts;
+select relrowsecurity from pg_class where oid='public.integration_connected_accounts'::regclass;
+select relrowsecurity from pg_class where oid='public.integration_sync_jobs'::regclass;
+
+-- Verificações RealTalent Connect Desktop v1.6
+select to_regclass('public.realtalent_connect_devices') as realtalent_connect_devices;
+select relrowsecurity from pg_class where oid='public.realtalent_connect_devices'::regclass;
+select routine_name, security_type
+from information_schema.routines
+where routine_schema='public' and routine_name in (
+  'register_realtalent_connect_device','heartbeat_realtalent_connect_device','get_realtalent_connect_queue'
+)
+order by routine_name;
+select tablename, policyname, cmd
+from pg_policies
+where schemaname='public' and tablename='realtalent_connect_devices'
+order by policyname;

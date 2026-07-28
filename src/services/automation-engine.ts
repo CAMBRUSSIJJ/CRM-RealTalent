@@ -12,6 +12,9 @@ export interface AutomationEvent {
   eventStatus?: CalendarEventStatus | string
   attemptCount?: number
   now?: string
+  correlationId?: string
+  chainDepth?: number
+  originRuleIds?: string[]
 }
 
 const text = (value: unknown) => String(value ?? '').trim().toLocaleLowerCase('pt-BR')
@@ -63,3 +66,15 @@ export function ruleMatches(rule: AutomationRule, event: AutomationEvent) {
 export function automationEventKey(ruleId: string, event: AutomationEvent) {
   return `${ruleId}:${event.triggerType}:${event.entityId}`
 }
+
+export function automationCorrelationId(event: AutomationEvent) {
+  return event.correlationId?.trim() || `corr:${event.triggerType}:${event.entityId}`
+}
+
+export function automationLoopDetected(ruleId: string, event: AutomationEvent, maxChainDepth: number) {
+  const depth = Math.max(0, Number(event.chainDepth ?? 0))
+  if (depth >= maxChainDepth) return 'max_chain_depth' as const
+  if ((event.originRuleIds ?? []).includes(ruleId)) return 'rule_cycle' as const
+  return null
+}
+

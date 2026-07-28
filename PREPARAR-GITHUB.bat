@@ -12,7 +12,7 @@ git branch -M main || goto :erro
 git add . || goto :erro
 git diff --cached --quiet
 if errorlevel 1 (
-  git commit -m "RealTalent CRM V100.29 - pronto para operar" || goto :erro
+  git commit -m "RealTalent CRM V100.42 - producao e homologacao real" || goto :erro
 )
 echo.
 echo Repositorio local preparado na branch main, sem licenca e sem arquivos de ambiente.

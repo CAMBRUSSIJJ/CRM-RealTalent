@@ -1,4 +1,4 @@
-export const APP_VERSION = '100.29'
-export const APP_VERSION_LABEL = 'V100.29'
-export const APP_RELEASE_NAME = 'Playbook Outbound Interativo'
-export const BACKUP_SCHEMA_VERSION = APP_VERSION
+export const APP_VERSION = '100.43'
+export const APP_VERSION_LABEL = 'V100.43'
+// O formato do backup foi ampliado na V100.43 para catálogo, propostas e receita.
+export const BACKUP_SCHEMA_VERSION = '100.43'

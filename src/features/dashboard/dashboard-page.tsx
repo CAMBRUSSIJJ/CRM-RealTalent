@@ -5,7 +5,6 @@ import {
   ChevronRight,
   CircleDollarSign,
   Clock3,
-  Database,
   Flame,
   History,
   ListTodo,
@@ -27,6 +26,7 @@ import { Button } from '../../components/ui/button'
 import { formatCurrency, formatDateTime } from '../../domain/formatters'
 import type { Lead } from '../../domain/types'
 import { goalMetricLabels, goalProgress } from '../../services/metrics'
+import { buildLeadScoreBoard, type LeadScoreInsight } from '../../services/lead-scoring'
 import { buildWorkdayQueue, type WorkdayItem, type WorkdayReason } from '../../services/workday'
 import { usePreferences } from '../settings/preferences-context'
 import { CallWorkspaceModal } from '../calls/call-workspace-modal'
@@ -69,8 +69,12 @@ export function DashboardPage() {
     const pendingActivities = activities.filter((activity) => activity.dueAt && !activity.completedAt)
     const overdueActivities = pendingActivities.filter((activity) => new Date(activity.dueAt!) < todayStart)
     const workday = snapshot ? buildWorkdayQueue(snapshot, preferences.commercial, now, queueScope === 'mine' ? user?.id : undefined) : { items: [], breached: 0, dueToday: 0, stale: 0, noAction: 0 }
-    const scored = workday.items.map((item) => ({ lead: item.lead, score: item.score, reasons: [item.explanation] }))
-    const recommended = scored[0] ?? null
+    const scoreBoard = snapshot ? buildLeadScoreBoard(snapshot, preferences.commercial.leadScoring, now, queueScope === 'mine' ? user?.id : undefined) : []
+    const recommended = scoreBoard[0] ?? null
+    const scoreAlerts = scoreBoard.reduce((sum, item) => sum + item.alerts.length, 0)
+    const criticalScores = scoreBoard.filter((item) => item.level === 'urgent').length
+    const highScores = scoreBoard.filter((item) => item.level === 'high' || item.level === 'urgent').length
+    const averageScore = scoreBoard.length ? Math.round(scoreBoard.reduce((sum, item) => sum + item.score, 0) / scoreBoard.length) : 0
 
     const proposalStages = new Set(stages.filter((stage) => /proposta|negocia|decis/i.test(stage.name)).map((stage) => stage.id))
     const stale = activeLeads.filter((lead) => dayDiff(now, new Date(lead.updatedAt)) >= 7)
@@ -97,18 +101,6 @@ export function DashboardPage() {
     }).length
     const leadTrend = newThisWeek - newPreviousWeek
 
-    const missingPhone = activeLeads.filter((lead) => !lead.phone.trim()).length
-    const missingOwner = activeLeads.filter((lead) => !lead.ownerId).length
-    const missingNextAction = activeLeads.filter((lead) => !lead.nextActionAt).length
-    const contacts = new Map<string, number>()
-    activeLeads.forEach((lead) => {
-      const phone = normalizeContact(lead.phone)
-      const email = lead.email.trim().toLowerCase()
-      const key = phone.length >= 8 ? `p:${phone}` : email ? `e:${email}` : ''
-      if (key) contacts.set(key, (contacts.get(key) ?? 0) + 1)
-    })
-    const possibleDuplicates = Array.from(contacts.values()).filter((count) => count > 1).reduce((sum, count) => sum + count - 1, 0)
-    const qualityIssues = missingPhone + missingOwner + missingNextAction + possibleDuplicates
 
     const latestLeads = [...activeLeads].sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()).slice(0, 3)
     const pipelineValue = activeLeads.reduce((sum, lead) => sum + lead.value, 0)
@@ -132,10 +124,14 @@ export function DashboardPage() {
       currentGoalProgress,
       daysRemaining,
       leadTrend,
-      quality: { missingPhone, missingOwner, missingNextAction, possibleDuplicates, total: qualityIssues },
       latestLeads,
       contactsToday,
       workday,
+      scoreBoard,
+      scoreAlerts,
+      criticalScores,
+      highScores,
+      averageScore,
     }
   }, [preferences.commercial, queueScope, snapshot, user?.id])
 
@@ -150,9 +146,19 @@ export function DashboardPage() {
   }
 
   const filteredWorkday = dashboard.workday.items.filter((item) => queueFilter === 'all' || item.reasons.includes(queueFilter))
+  const runScoreAction = (item: LeadScoreInsight) => {
+    const action = item.nextBestAction
+    if (action.kind === 'call' && item.lead.phone) { setCallLead(item.lead); return }
+    if (action.kind === 'whatsapp') { openWhatsApp(item.lead); return }
+    if (action.kind === 'followup') { setActivityLead(item.lead); return }
+    if (action.kind === 'data' || action.kind === 'review') { setEditingLead(item.lead); return }
+    setRoute(action.route)
+  }
   const runWorkdayItem = (item: WorkdayItem) => {
     if (item.action === 'call' && item.lead.phone) setCallLead(item.lead)
-    else if (item.action === 'review') setEditingLead(item.lead)
+    else if (item.action === 'whatsapp') openWhatsApp(item.lead)
+    else if (item.action === 'meeting') setRoute('agenda')
+    else if (item.action === 'review' || item.action === 'data') setEditingLead(item.lead)
     else setActivityLead(item.lead)
   }
 
@@ -160,10 +166,10 @@ export function DashboardPage() {
     <div className="page-stack dashboard-v106">
       <section className="workday-hero">
         <div className="workday-hero__content">
-          <span className="eyebrow"><Sparkles size={15} /> Central de trabalho comercial</span>
+          <span className="eyebrow"><Sparkles size={15} /> Visão do dia</span>
           <h2>{greeting}</h2>
           <p>
-            Você possui <strong>{dashboard.workday.breached} prioridade(s) com SLA vencido</strong> e{' '}
+            Você possui <strong>{dashboard.workday.breached === 1 ? '1 prioridade com SLA vencido' : `${dashboard.workday.breached} prioridades com SLA vencido`}</strong> e{' '}
             <strong>{formatCurrency(dashboard.riskLeads.reduce((sum, lead) => sum + lead.value, 0))}</strong> em oportunidades que precisam de atenção.
           </p>
         </div>
@@ -196,10 +202,17 @@ export function DashboardPage() {
         </button>
       </section>
 
+      <section className="lead-score-overview" aria-label="Visão do Lead Score">
+        <button type="button" onClick={() => setRoute('leads')}><span>Score médio</span><strong>{dashboard.averageScore}</strong><small>de 100 pontos</small></button>
+        <button type="button" onClick={() => setRoute('leads')}><span>Prioridade alta</span><strong>{dashboard.highScores}</strong><small>leads para trabalhar primeiro</small></button>
+        <button type="button" className={dashboard.criticalScores ? 'is-critical' : ''} onClick={() => setRoute('leads')}><span>Prioridade crítica</span><strong>{dashboard.criticalScores}</strong><small>{dashboard.criticalScores ? 'ação imediata recomendada' : 'nenhum lead crítico'}</small></button>
+        <button type="button" className={dashboard.scoreAlerts ? 'has-alerts' : ''} onClick={() => setRoute('leads')}><span>Alertas comerciais</span><strong>{dashboard.scoreAlerts}</strong><small>riscos e dados a revisar</small></button>
+      </section>
+
       <section className="dashboard-execution-grid">
         <article className="panel next-action-card">
           <div className="panel__heading">
-            <div><span className="eyebrow"><Sparkles size={13} /> Próxima melhor ação</span><h3>{recommendedLead?.name ?? 'Nenhuma prioridade encontrada'}</h3></div>
+            <div><span className="eyebrow"><Sparkles size={13} /> Próxima ação recomendada</span><h3>{recommendedLead?.name ?? 'Nenhuma prioridade encontrada'}</h3></div>
             {dashboard.recommended ? <span className="priority-score">{dashboard.recommended.score}<small>/100</small></span> : <Target size={24} />}
           </div>
           {recommendedLead && dashboard.recommended ? (
@@ -211,15 +224,15 @@ export function DashboardPage() {
               </div>
               <div className="recommendation-reason">
                 <Zap size={17} />
-                <div><strong>Por que agir agora</strong><span>{dashboard.recommended.reasons.slice(0, 3).join(', ') || 'Oportunidade ativa com potencial comercial'}.</span></div>
+                <div><strong>Por que agir agora</strong><span>{dashboard.recommended.reasons.slice(0, 3).join(' · ') || dashboard.recommended.nextBestAction.explanation}</span></div>
               </div>
               <dl className="next-action-details">
-                <div><dt>Próxima ação</dt><dd>{formatDateTime(recommendedLead.nextActionAt)}</dd></div>
+                <div><dt>Próxima melhor ação</dt><dd>{dashboard.recommended.nextBestAction.title}</dd></div>
                 <div><dt>Valor</dt><dd>{formatCurrency(recommendedLead.value)}</dd></div>
                 <div><dt>Prioridade</dt><dd>{recommendedLead.priority === 'urgent' ? 'Urgente' : recommendedLead.priority === 'high' ? 'Alta' : recommendedLead.priority === 'medium' ? 'Média' : 'Baixa'}</dd></div>
               </dl>
               <div className="next-action-card__actions">
-                <Button disabled={!recommendedLead.phone} onClick={() => setCallLead(recommendedLead)}><PhoneCall size={17} /> Ligar</Button>
+                <Button onClick={() => runScoreAction(dashboard.recommended!)}><Zap size={17} /> {dashboard.recommended.nextBestAction.title}</Button>
                 <Button variant="secondary" onClick={() => openWhatsApp()}><MessageCircle size={17} /> WhatsApp</Button>
                 <Button variant="ghost" onClick={() => setEditingLead(recommendedLead)}>Abrir ficha <ArrowRight size={16} /></Button>
               </div>
@@ -229,7 +242,7 @@ export function DashboardPage() {
 
         <article className="panel work-queue-card">
           <div className="panel__heading">
-            <div><span className="eyebrow"><ListTodo size={13} /> Execução diária</span><h3>Fila inteligente</h3></div>
+            <div><span className="eyebrow"><ListTodo size={13} /> Prioridades do dia</span><h3>Fila inteligente</h3></div>
             <button className="text-button" type="button" onClick={() => setQueueFilter('all')}>Limpar filtro</button>
           </div>
           <div className="workday-filters" aria-label="Filtros da fila">
@@ -241,7 +254,7 @@ export function DashboardPage() {
               <div className={`work-queue-row ${item.slaState === 'breached' ? 'work-queue-row--overdue' : ''}`} key={item.id}>
                 <span className="work-queue-row__time">{item.slaState === 'breached' ? 'SLA' : item.score}</span>
                 <span className="work-queue-row__marker work-queue-row__marker--activity" />
-                <div><strong>{item.lead.name} · {item.title}</strong><small>{item.explanation}</small></div>
+                <div><strong>{item.lead.name} · {item.title}</strong><small>{item.explanation}</small><span className={`queue-score queue-score--${item.insight.level}`}>Score {item.score} · {item.insight.label}</span></div>
                 <button className="queue-open" type="button" title="Executar recomendação" onClick={() => runWorkdayItem(item)}><ChevronRight size={16} /></button>
               </div>
             )) : <div className="dashboard-empty dashboard-empty--compact"><CheckCircle2 size={26} /><strong>Nenhuma prioridade neste filtro</strong><span>A fila se atualiza conforme os contatos e próximas ações.</span></div>}
@@ -275,20 +288,6 @@ export function DashboardPage() {
           ) : <div className="dashboard-empty"><Target size={27} /><strong>Nenhuma meta ativa</strong><span>Crie uma meta para acompanhar o ritmo comercial.</span><Button variant="secondary" onClick={() => setRoute('goals')}>Criar meta</Button></div>}
         </article>
 
-        <article className="panel compact-panel data-quality-card">
-          <div className="panel__heading"><div><span className="eyebrow">Base comercial</span><h3>Qualidade dos dados</h3></div><Database size={21} /></div>
-          <div className={`quality-score ${dashboard.quality.total ? 'quality-score--attention' : ''}`}>
-            <span className="quality-score__ring"><strong>{dashboard.quality.total ? Math.max(0, 100 - Math.min(80, dashboard.quality.total * 3)) : 100}</strong><small>/100</small></span>
-            <div><strong>{dashboard.quality.total ? 'Sua base precisa de atenção' : 'Sua base está organizada'}</strong><span>{dashboard.quality.total} pendência(s) encontrada(s)</span></div>
-          </div>
-          <div className="quality-list">
-            <span><em>{dashboard.quality.missingPhone}</em> sem telefone</span>
-            <span><em>{dashboard.quality.missingOwner}</em> sem responsável</span>
-            <span><em>{dashboard.quality.missingNextAction}</em> sem próxima ação</span>
-            <span><em>{dashboard.quality.possibleDuplicates}</em> possível(is) duplicado(s)</span>
-          </div>
-          <button className="panel-link" type="button" onClick={() => setRoute('leads')}>Revisar base de Leads <ArrowRight size={15} /></button>
-        </article>
       </section>
 
       <section className="dashboard-bottom-grid">

@@ -1,27 +1,13 @@
-# Guia de produção — RealTalent CRM V100.29
+# Produção — RealTalent CRM V100.42
 
-A publicação deve passar por GitHub privado, Supabase staging, testes e somente então produção.
+A release só pode ser promovida após CI verde, staging aprovado, isolamento multiempresa validado, backup válido e teste real dos canais conectados.
 
-## Comandos principais
+Antes da promoção, confirme:
 
-```bash
-npm ci
-npm run check
-npm run supabase:deploy -- --project-ref SEU_PROJECT_REF
-```
-
-## Variáveis do frontend
-
-Use apenas URL e chave publicável do Supabase nas variáveis `VITE_*`. Chaves secretas ficam exclusivamente no Supabase ou nos secrets protegidos do GitHub.
-
-## Automação hospedada
-
-Defina `AUTOMATION_CRON_SECRET`, publique `automation-runner` e execute o modelo em `supabase/cron/CONFIGURAR-AUTOMATION-RUNNER.sql`.
-
-## Vercel
-
-O `vercel.json` já contém fallback da aplicação, cache de assets e cabeçalhos de segurança. O endpoint `/health.json` não usa cache.
-
-## Liberação
-
-Só libere a produção após executar o teste de isolamento entre duas organizações, perfis de permissão, recuperação de senha, backups, extensão e motor de automações em simulação.
+- OAuth Google e Microsoft;
+- webhook e número oficial do WhatsApp Business;
+- workers de envio e sincronização;
+- filas sem itens presos;
+- timeline associando eventos ao lead correto;
+- bloqueio de contato e idempotência;
+- `/health.json` com versão 100.42.

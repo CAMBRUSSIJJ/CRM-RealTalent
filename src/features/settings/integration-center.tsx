@@ -14,6 +14,7 @@ import {
   type ExtensionIntegrationConfig, type IntegrationProvider, type IntegrationStatus, type IntegrationWorkspaceState,
 } from '../../services/integration-workspace'
 import type { CrmPreferences } from './preferences-context'
+import { IntegrationFrameworkPanel } from './integration-framework-panel'
 
 interface IntegrationCenterProps {
   preferences: CrmPreferences['integrations']
@@ -123,7 +124,7 @@ export function IntegrationCenter({ preferences, members, onPreferencesChange }:
     finally { setTokenBusy(false) }
   }
 
-  return <div className="integration-center" aria-busy={loading}>
+  return <><IntegrationFrameworkPanel /><div className="integration-center integration-center--legacy" aria-busy={loading}>
     <section className="panel integration-center__hero">
       <div><span className="eyebrow"><ShieldCheck size={15} /> Operação rastreável</span><h3>Central de Integrações</h3><p>Conecte entradas ao CRM sem esconder limitações. Cada captura recebe status, histórico e regra de destino.</p></div>
       <div className="integration-center__summary"><span><strong>{connectedCount}</strong> disponíveis</span><span className={attentionCount ? 'has-attention' : ''}><strong>{attentionCount}</strong> atenção</span><Button variant="secondary" size="sm" onClick={() => void refresh()} loading={loading}><RefreshCw size={15} /> Atualizar</Button></div>
@@ -193,5 +194,5 @@ export function IntegrationCenter({ preferences, members, onPreferencesChange }:
 
     <section className="panel assisted-channels"><div className="panel__heading"><div><span className="eyebrow">Canais comerciais</span><h3>Ações assistidas pelo vendedor</h3></div><Phone size={21} /></div><p>Esses canais preparam a abordagem, mas nunca enviam mensagens sem confirmação humana.</p><div className="settings-toggle-list"><label className="settings-toggle"><input type="checkbox" checked={preferences.assistedWhatsapp} onChange={(event) => onPreferencesChange({ assistedWhatsapp: event.target.checked })} /><span><strong>WhatsApp</strong><small>Abrir conversa com mensagem preparada.</small></span></label><label className="settings-toggle"><input type="checkbox" checked={preferences.assistedInstagram} onChange={(event) => onPreferencesChange({ assistedInstagram: event.target.checked })} /><span><strong>Instagram</strong><small>Abrir o perfil e orientar a abordagem.</small></span></label><label className="settings-toggle"><input type="checkbox" checked={preferences.assistedEmail} onChange={(event) => onPreferencesChange({ assistedEmail: event.target.checked })} /><span><strong>E-mail</strong><small>Preparar assunto e corpo no cliente de e-mail.</small></span></label></div>
     </section>
-  </div>
+  </div></>
 }

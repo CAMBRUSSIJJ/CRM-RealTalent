@@ -4,6 +4,7 @@ import { Button } from '../../components/ui/button'
 import { Modal } from '../../components/ui/modal'
 import type { AutomationAction, AutomationCondition, AutomationGuard, AutomationRule, AutomationTriggerType, PipelineStage } from '../../domain/types'
 import { createId } from '../../lib/id'
+import type { AutomationWebhook } from '../../services/automation-webhooks'
 import {
   actionLabels,
   conditionFieldLabels,
@@ -23,6 +24,7 @@ interface AutomationModalProps {
   open: boolean
   rule: AutomationRule | null
   stages: PipelineStage[]
+  webhooks: AutomationWebhook[]
   loading?: boolean
   onClose(): void
   onSubmit(input: Pick<AutomationRule, 'name' | 'enabled' | 'triggerType' | 'conditions' | 'actions'>): Promise<void>
@@ -42,7 +44,7 @@ function ConditionValue({ condition, stages, onChange }: { condition: Automation
   return <input aria-label="Valor da condição" value={condition.value} onChange={(event) => onChange(event.target.value)} placeholder={condition.field === 'city' ? 'Ex.: Canoas' : condition.field === 'tag' ? 'Ex.: Lead quente' : 'Informe o valor'} />
 }
 
-function initialActionValue(type: AutomationAction['type'], stages: PipelineStage[]) {
+function initialActionValue(type: AutomationAction['type'], stages: PipelineStage[], webhooks: AutomationWebhook[]) {
   if (type === 'move_stage') return stages[0]?.id ?? ''
   if (type === 'set_priority') return 'medium'
   if (type === 'set_temperature') return 'warm'
@@ -51,14 +53,16 @@ function initialActionValue(type: AutomationAction['type'], stages: PipelineStag
   if (type === 'create_call') return 'Realizar ligação'
   if (type === 'create_followup') return 'Follow-up automático'
   if (type === 'start_cadence') return 'Cadência de prospecção'
+  if (type === 'send_webhook') return webhooks.find((item) => item.enabled)?.id ?? webhooks[0]?.id ?? ''
   return ''
 }
 
-function ActionValue({ action, stages, onChange }: { action: AutomationAction; stages: PipelineStage[]; onChange(input: Partial<AutomationAction>): void }) {
+function ActionValue({ action, stages, webhooks, onChange }: { action: AutomationAction; stages: PipelineStage[]; webhooks: AutomationWebhook[]; onChange(input: Partial<AutomationAction>): void }) {
   if (action.type === 'set_priority') return <select aria-label="Valor da ação" value={action.value} onChange={(event) => onChange({ value: event.target.value })}><option value="low">Baixa</option><option value="medium">Média</option><option value="high">Alta</option><option value="urgent">Urgente</option></select>
   if (action.type === 'set_temperature') return <select aria-label="Valor da ação" value={action.value} onChange={(event) => onChange({ value: event.target.value })}><option value="cold">Frio</option><option value="warm">Morno</option><option value="hot">Quente</option></select>
   if (action.type === 'move_stage') return <select aria-label="Valor da ação" value={action.value} onChange={(event) => onChange({ value: event.target.value })}>{stages.map((stage) => <option key={stage.id} value={stage.id}>{stage.name}</option>)}</select>
   if (action.type === 'mark_lost' || action.type === 'end_cadence') return <span className="automation-no-value">Ação automática sem valor adicional</span>
+  if (action.type === 'send_webhook') return webhooks.length ? <select aria-label="Webhook de destino" value={action.value} onChange={(event) => onChange({ value: event.target.value })}><option value="">Selecione o webhook</option>{webhooks.map((webhook) => <option key={webhook.id} value={webhook.id}>{webhook.name}{webhook.enabled ? '' : ' · pausado'}</option>)}</select> : <span className="automation-no-value automation-no-value--warning">Cadastre um webhook na aba Webhooks antes de usar esta ação.</span>
   const delayed = ['create_followup', 'create_call', 'create_meeting'].includes(action.type)
   return <div className="automation-action-value">
     <input aria-label="Valor da ação" value={action.value} onChange={(event) => onChange({ value: event.target.value })} placeholder={action.type === 'add_tag' || action.type === 'remove_tag' ? 'Nome da tag' : action.type === 'assign_owner' ? 'Nome do responsável' : action.type === 'assisted_whatsapp' || action.type === 'assisted_email' ? 'Mensagem ou assunto' : 'Título ou descrição'} />
@@ -67,7 +71,7 @@ function ActionValue({ action, stages, onChange }: { action: AutomationAction; s
   </div>
 }
 
-export function AutomationModal({ open, rule, stages, loading = false, onClose, onSubmit }: AutomationModalProps) {
+export function AutomationModal({ open, rule, stages, webhooks, loading = false, onClose, onSubmit }: AutomationModalProps) {
   const [name, setName] = useState('')
   const [enabled, setEnabled] = useState(false)
   const [triggerType, setTriggerType] = useState<AutomationTriggerType>('lead_created')
@@ -94,7 +98,7 @@ export function AutomationModal({ open, rule, stages, loading = false, onClose, 
   } : item))
   const updateAction = (id: string, patch: Partial<AutomationAction>) => setActions((current) => current.map((item) => item.id === id ? {
     ...item, ...patch,
-    ...(patch.type ? { value: initialActionValue(patch.type, stages), delayDays: ['create_followup', 'create_call', 'create_meeting'].includes(patch.type) ? 0 : undefined, durationMinutes: patch.type === 'create_meeting' ? 30 : undefined } : {}),
+    ...(patch.type ? { value: initialActionValue(patch.type, stages, webhooks), delayDays: ['create_followup', 'create_call', 'create_meeting'].includes(patch.type) ? 0 : undefined, durationMinutes: patch.type === 'create_meeting' ? 30 : undefined } : {}),
   } : item))
 
   const submit = () => {
@@ -117,7 +121,7 @@ export function AutomationModal({ open, rule, stages, loading = false, onClose, 
         </section>
 
         <section className="builder-section"><header><div><span className="eyebrow">Fazer</span><h3>Ações automáticas</h3></div><Button size="sm" variant="secondary" onClick={() => setActions((current) => [...current, blankAction()])}><Plus size={15} /> Ação</Button></header>
-          <div className="builder-rows">{actions.map((action) => <div className="builder-row builder-row--action" key={action.id}><select aria-label="Tipo da ação" value={action.type} onChange={(event) => updateAction(action.id, { type: event.target.value as AutomationAction['type'] })}>{Object.entries(actionLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select><ActionValue action={action} stages={stages} onChange={(patch) => updateAction(action.id, patch)} /><button className="icon-button icon-button--danger" aria-label="Remover ação" disabled={actions.length === 1} onClick={() => setActions((current) => current.filter((item) => item.id !== action.id))}><Trash2 size={16} /></button></div>)}</div>
+          <div className="builder-rows">{actions.map((action) => <div className="builder-row builder-row--action" key={action.id}><select aria-label="Tipo da ação" value={action.type} onChange={(event) => updateAction(action.id, { type: event.target.value as AutomationAction['type'] })}>{Object.entries(actionLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select><ActionValue action={action} stages={stages} webhooks={webhooks} onChange={(patch) => updateAction(action.id, patch)} /><button className="icon-button icon-button--danger" aria-label="Remover ação" disabled={actions.length === 1} onClick={() => setActions((current) => current.filter((item) => item.id !== action.id))}><Trash2 size={16} /></button></div>)}</div>
         </section>
 
         <section className="builder-section automation-safety-section"><header><div><span className="eyebrow"><ShieldCheck size={13} /> Segurança</span><h3>Limites e prevenção</h3></div><span className={`automation-risk automation-risk--${validation.risk}`}>Risco {validation.risk === 'low' ? 'baixo' : validation.risk === 'medium' ? 'médio' : 'alto'}</span></header>
@@ -126,6 +130,8 @@ export function AutomationModal({ open, rule, stages, loading = false, onClose, 
             <label className="form-field"><span>Intervalo entre execuções</span><select value={guard.cooldownHours} onChange={(event) => setGuard((current) => ({ ...current, cooldownHours: Number(event.target.value) }))}><option value="0">Sem intervalo</option><option value="1">1 hora</option><option value="6">6 horas</option><option value="12">12 horas</option><option value="24">24 horas</option><option value="72">3 dias</option></select></label>
             <label className="form-field"><span>Limite por lead/dia</span><input type="number" min="1" max="20" value={guard.maxRunsPerLeadPerDay} onChange={(event) => setGuard((current) => ({ ...current, maxRunsPerLeadPerDay: Number(event.target.value) }))} /></label>
             <label className="form-field"><span>Máximo de ações por execução</span><input type="number" min="1" max="20" value={guard.maxActionsPerRun} onChange={(event) => setGuard((current) => ({ ...current, maxActionsPerRun: Number(event.target.value) }))} /></label>
+            <label className="form-field"><span>Profundidade máxima da cadeia</span><input type="number" min="1" max="12" value={guard.maxChainDepth} onChange={(event) => setGuard((current) => ({ ...current, maxChainDepth: Number(event.target.value) }))} /></label>
+            <label className="form-field"><span>Janela anti-loop</span><select value={guard.loopWindowMinutes} onChange={(event) => setGuard((current) => ({ ...current, loopWindowMinutes: Number(event.target.value) }))}><option value="2">2 minutos</option><option value="5">5 minutos</option><option value="10">10 minutos</option><option value="30">30 minutos</option><option value="60">1 hora</option></select></label>
             <label className="toggle-field"><input type="checkbox" checked={guard.preventDuplicates} onChange={(event) => setGuard((current) => ({ ...current, preventDuplicates: event.target.checked }))} /><span><strong>Evitar duplicidades</strong><small>Não recria tarefas iguais para o mesmo dia.</small></span></label>
             <label className="toggle-field"><input type="checkbox" checked={guard.stopOnError} onChange={(event) => setGuard((current) => ({ ...current, stopOnError: event.target.checked }))} /><span><strong>Parar em caso de erro</strong><small>Impede ações seguintes quando uma etapa falhar.</small></span></label>
           </div>

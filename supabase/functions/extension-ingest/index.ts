@@ -13,7 +13,7 @@ const SERVICE_ROLE_KEY = readSupabaseSecretKey()
 const supabase = createClient(SUPABASE_URL, SERVICE_ROLE_KEY, { auth: { persistSession: false } })
 const cors = {
   'access-control-allow-origin': '*',
-  'access-control-allow-headers': 'authorization, content-type, x-batch-id, x-rt-capture-test, x-rt-extension-version, x-rt-connection-name',
+  'access-control-allow-headers': 'authorization, content-type, x-batch-id, x-rt-capture-test, x-rt-extension-version, x-rt-connection-name, x-rt-installation-id, x-rt-product-key, x-rt-browser, x-rt-browser-version, x-rt-platform, x-rt-manifest-version, x-rt-source, x-rt-source-url',
   'access-control-allow-methods': 'POST, OPTIONS',
 }
 const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), {
@@ -70,6 +70,21 @@ const connectionFailure = async (organizationId: string, message: string) => {
   await supabase.from('integration_connections').update({ status: 'error', last_error: message.slice(0, 500) }).eq('organization_id', organizationId).eq('provider', 'extension')
 }
 
+const versionParts = (value: string) => value.split(/[^0-9]+/).filter(Boolean).slice(0, 4).map((part) => Number(part) || 0)
+const compareVersions = (left: string, right: string) => {
+  const a = versionParts(left); const b = versionParts(right)
+  for (let index = 0; index < Math.max(a.length, b.length, 3); index += 1) {
+    const delta = (a[index] ?? 0) - (b[index] ?? 0)
+    if (delta) return delta
+  }
+  return 0
+}
+const defaultExtensionSettings = (organizationId: string, productKey: string) => ({
+  organization_id: organizationId, product_key: productKey, enabled: true, destination: 'garimpo', require_confirmation: true,
+  duplicate_policy: 'skip', minimum_version: '', recommended_version: '', max_batch_size: 50, process_interval_ms: 1200,
+  close_tab_after_analysis: true, allowed_sources: ['google_maps','google_search','instagram','cnpj'], settings: {}, config_version: 1,
+})
+
 Deno.serve(async (request) => {
   if (request.method === 'OPTIONS') return new Response(null, { status: 204, headers: cors })
   if (request.method !== 'POST') return json({ error: 'method_not_allowed' }, 405)
@@ -95,14 +110,47 @@ Deno.serve(async (request) => {
 
   const { data: connection, error: connectionError } = await supabase.from('integration_connections').select('*').eq('organization_id', organizationId).eq('provider', 'extension').maybeSingle()
   if (connectionError || !connection || !connection.enabled) return json({ error: 'integration_disabled' }, 409)
-  const settings = isRecord(connection.settings) ? connection.settings : {}
-  const destination = settings.destination === 'crm' ? 'crm' : 'garimpo'
-  const clientVersion = text(request.headers.get('x-rt-extension-version'), 40) || (isRecord(body) ? text(body.version, 40) : '')
+  const legacySettings = isRecord(connection.settings) ? connection.settings : {}
+  const clientVersion = text(request.headers.get('x-rt-extension-version'), 40) || (isRecord(body) ? text(body.version ?? body.appVersion ?? body.app_version, 40) : '')
   const connectionName = text(request.headers.get('x-rt-connection-name'), 120) || (isRecord(body) ? text(body.connectionName ?? body.connection_name, 120) : '') || 'Extensão RealTalent'
+  const productKey = text(request.headers.get('x-rt-product-key'), 80) || (isRecord(body) ? text(body.productKey ?? body.product_key, 80) : '') || 'realtalent_capture'
+  const installationKey = text(request.headers.get('x-rt-installation-id'), 180) || (isRecord(body) ? text(body.installationId ?? body.installation_id, 180) : '') || await sha256(`${connection.id}|${connectionName}|${request.headers.get('user-agent') ?? ''}`)
+  const browser = text(request.headers.get('x-rt-browser'), 60) || 'Chrome'
+  const browserVersion = text(request.headers.get('x-rt-browser-version'), 40)
+  const platform = text(request.headers.get('x-rt-platform'), 80) || text(request.headers.get('user-agent'), 80)
+  const manifestVersion = Math.max(2, Math.min(4, Number(request.headers.get('x-rt-manifest-version') ?? 3)))
+  const source = text(request.headers.get('x-rt-source'), 80) || (isRecord(body) ? text(body.source, 80) : '') || 'extension'
+  const sourceUrl = text(request.headers.get('x-rt-source-url'), 500) || (isRecord(body) ? text(body.sourceUrl ?? body.source_url, 500) : '')
+
+  const { data: existingInstallation } = await supabase.from('extension_installations').select('*')
+    .eq('organization_id', organizationId).eq('product_key', productKey).eq('installation_key', installationKey).maybeSingle()
+  if (existingInstallation?.status === 'revoked') return json({ error: 'installation_revoked' }, 403)
+  if (existingInstallation?.status === 'paused') return json({ error: 'installation_paused' }, 423)
+  const { data: settingsData } = await supabase.from('extension_product_settings').select('*')
+    .eq('organization_id', organizationId).eq('product_key', productKey).maybeSingle()
+  const centralSettings = settingsData ?? defaultExtensionSettings(String(organizationId), productKey)
+  if (!settingsData) await supabase.from('extension_product_settings').upsert(centralSettings, { onConflict: 'organization_id,product_key' })
+  if (!centralSettings.enabled) return json({ error: 'extension_product_disabled' }, 409)
+  const minimumVersion = text(centralSettings.minimum_version, 40)
+  const outdated = Boolean(minimumVersion && (!clientVersion || compareVersions(clientVersion, minimumVersion) < 0))
+  const { data: installation, error: installationError } = await supabase.from('extension_installations').upsert({
+    organization_id: organizationId, user_id: null, product_key: productKey, installation_key: installationKey,
+    display_name: connectionName, browser, browser_version: browserVersion, platform, app_version: clientVersion,
+    manifest_version: manifestVersion, status: outdated ? 'outdated' : 'connected', last_seen_at: new Date().toISOString(),
+    last_error: outdated ? `Versão mínima exigida: ${minimumVersion}` : null,
+    metadata: { userAgent: text(request.headers.get('user-agent'), 300), legacyTokenConnection: true },
+  }, { onConflict: 'organization_id,product_key,installation_key' }).select('*').single()
+  if (installationError || !installation) return json({ error: 'installation_registration_failed' }, 503)
+  if (outdated) return json({ error: 'extension_version_outdated', minimumVersion, recommendedVersion: centralSettings.recommended_version }, 426)
+
+  const allowedSources = Array.isArray(centralSettings.allowed_sources) ? centralSettings.allowed_sources.map((item: unknown) => text(item, 80)).filter(Boolean) : []
+  if (source && allowedSources.length && !allowedSources.includes(source)) return json({ error: 'extension_source_not_allowed', source, allowedSources }, 403)
+  const destination = centralSettings.require_confirmation ? 'garimpo' : centralSettings.destination === 'crm' ? 'crm' : 'garimpo'
+  const settings = { ...legacySettings, ...(isRecord(centralSettings.settings) ? centralSettings.settings : {}), destination, duplicatePolicy: centralSettings.duplicate_policy }
 
   if (isRecord(body) && body.type === 'connection_test') {
     const testedAt = new Date().toISOString()
-    const metadata = { clientVersion, connectionName, destination, maximumItems: 100, maximumBytes: 1_000_000 }
+    const metadata = { clientVersion, connectionName, destination, installationId: installation.id, productKey, maximumItems: centralSettings.max_batch_size, maximumBytes: 1_000_000 }
     const { data: event } = await supabase.from('integration_events').insert({
       organization_id: organizationId, connection_id: connection.id, provider: 'extension', direction: 'inbound',
       event_type: 'connection_test', status: 'processed', item_count: 0, metadata, processed_at: testedAt,
@@ -111,12 +159,14 @@ Deno.serve(async (request) => {
       status: 'connected', last_tested_at: testedAt, last_error: null, client_version: clientVersion || null,
       connection_name: connectionName, last_latency_ms: null,
     }).eq('id', connection.id)
-    return json({ ok: true, connection: true, eventId: event?.id ?? null, workspaceId: organizationId, destination, limits: { maximumItems: 100, maximumBytes: 1_000_000 }, serverTime: testedAt })
+    await supabase.from('extension_events').insert({ organization_id: organizationId, installation_id: installation.id, event_type: 'connection_test', status: 'processed', correlation_id: installationKey, payload: metadata })
+    await supabase.from('extension_installations').update({ last_seen_at: testedAt, last_sync_at: testedAt, last_error: null }).eq('id', installation.id)
+    return json({ ok: true, connection: true, eventId: event?.id ?? null, installationId: installation.id, workspaceId: organizationId, destination, settings: centralSettings, limits: { maximumItems: centralSettings.max_batch_size, maximumBytes: 1_000_000 }, serverTime: testedAt })
   }
 
   const inputItems = Array.isArray(body) ? body : isRecord(body) && Array.isArray(body.leads) ? body.leads : []
   if (!inputItems.length) return json({ error: 'empty_batch' }, 400)
-  if (inputItems.length > 100) return json({ error: 'batch_limit_exceeded', maximumItems: 100 }, 413)
+  if (inputItems.length > centralSettings.max_batch_size) return json({ error: 'batch_limit_exceeded', maximumItems: centralSettings.max_batch_size }, 413)
 
   const headerBatchId = text(request.headers.get('x-batch-id'), 180)
   const bodyBatchId = isRecord(body) ? text(body.batchId ?? body.batch_id, 180) : ''
@@ -139,9 +189,23 @@ Deno.serve(async (request) => {
     if (!stage) return json({ error: 'invalid_default_stage' }, 409)
   }
 
+  const reservedAt = new Date().toISOString()
+  const captureJobKey = `${productKey}:${installation.id}:${batchId}`
+  const { data: captureJob, error: captureJobError } = await supabase.from('extension_capture_jobs').insert({
+    organization_id: organizationId, installation_id: installation.id, user_id: installation.user_id, product_key: productKey,
+    source, source_url: sourceUrl || null, external_id: batchId, status: 'processing', attempts: 1,
+    idempotency_key: captureJobKey, item_count: inputItems.length, payload: { clientVersion, connectionName, destination, retryPayload: { batchId, source, sourceUrl, leads: inputItems } }, started_at: reservedAt,
+  }).select('*').single()
+  if (captureJobError) {
+    if (captureJobError.code === '23505') {
+      const { data: existingJob } = await supabase.from('extension_capture_jobs').select('*').eq('organization_id', organizationId).eq('idempotency_key', captureJobKey).maybeSingle()
+      return json({ accepted: false, duplicateBatch: true, jobId: existingJob?.id ?? null, status: existingJob?.status ?? 'processing', result: existingJob?.result ?? null }, 200)
+    }
+    return json({ error: 'capture_job_reservation_failed' }, 503)
+  }
+
   // Reserva idempotente antes de qualquer efeito colateral. O status "skipped" é temporário;
   // metadata.state diferencia lote em processamento de lote concluído.
-  const reservedAt = new Date().toISOString()
   const { data: reservedEvent, error: reserveError } = await supabase.from('integration_events').insert({
     organization_id: organizationId, connection_id: connection.id, provider: 'extension', direction: 'inbound', event_type: 'extension_batch',
     status: 'skipped', external_id: batchId, item_count: inputItems.length,
@@ -150,9 +214,11 @@ Deno.serve(async (request) => {
   if (reserveError) {
     if (reserveError.code === '23505') {
       const { data: existingEvent } = await supabase.from('integration_events').select('id,status,metadata').eq('organization_id', organizationId).eq('provider', 'extension').eq('external_id', batchId).maybeSingle()
+      await supabase.from('extension_capture_jobs').update({ status: 'cancelled', last_error: 'Lote já reservado pelo histórico legado.', completed_at: new Date().toISOString() }).eq('id', captureJob.id)
       return json({ accepted: false, duplicateBatch: true, inProgress: existingEvent?.metadata?.state === 'processing', eventId: existingEvent?.id ?? null, status: existingEvent?.status ?? 'skipped', result: existingEvent?.metadata ?? null }, 200)
     }
     await connectionFailure(String(organizationId), 'Não foi possível reservar o lote de integração.')
+    await supabase.from('extension_capture_jobs').update({ status: 'failed', last_error: 'Não foi possível reservar o lote de integração.', completed_at: new Date().toISOString() }).eq('id', captureJob.id)
     return json({ error: 'batch_reservation_failed' }, 503)
   }
 
@@ -276,6 +342,17 @@ Deno.serve(async (request) => {
     last_error: errorMessage, received_count: Number(connection.received_count ?? 0) + processed, error_count: Number(connection.error_count ?? 0) + result.errors,
     client_version: clientVersion || null, connection_name: connectionName, last_batch_id: batchId,
   }).eq('id', connection.id)
+  const jobStatus = result.errors && !processed ? 'failed' : destination === 'crm' ? 'sent' : 'review'
+  await supabase.from('extension_capture_jobs').update({ status: jobStatus, result: metadata, last_error: errorMessage, completed_at: finishedAt }).eq('id', captureJob.id)
+  await supabase.from('extension_installations').update({
+    last_seen_at: finishedAt, last_sync_at: finishedAt, pending_items: 0, captured_today: installation.captured_on === finishedAt.slice(0, 10) ? Number(installation.captured_today ?? 0) + processed : processed,
+    captured_on: finishedAt.slice(0, 10), total_captured: Number(installation.total_captured ?? 0) + processed, last_error: errorMessage,
+  }).eq('id', installation.id)
+  await supabase.from('extension_events').insert({
+    organization_id: organizationId, installation_id: installation.id, job_id: captureJob.id, event_type: 'capture_batch',
+    status: result.errors ? (processed ? 'attention' : 'failed') : 'processed', correlation_id: batchId,
+    payload: { destination, source, sourceUrl, clientVersion, result },
+  })
   if (eventUpdateError) await connectionFailure(String(organizationId), 'Não foi possível concluir o histórico do lote.')
-  return json({ accepted: true, eventId: reservedEvent.id, destination, result })
+  return json({ accepted: true, eventId: reservedEvent.id, jobId: captureJob.id, installationId: installation.id, destination, settings: centralSettings, result })
 })

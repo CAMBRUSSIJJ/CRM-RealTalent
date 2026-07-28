@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useMemo, useState, type PropsWithChildren } from 'react'
+import { createContext, useContext, useEffect, useMemo, useRef, useState, type PropsWithChildren } from 'react'
 import type { AppRoute, LeadPriority, LeadTemperature } from '../../domain/types'
 import { safeStorage } from '../../lib/storage'
 import { getSupabaseClient } from '../../lib/supabase'
@@ -6,6 +6,7 @@ import type { Json } from '../../lib/supabase.types'
 import { useApp } from '../../app/app-context'
 import { navigationItems } from '../../components/layout/navigation'
 import type { PipelineStagePolicy } from '../../services/pipeline-intelligence'
+import { DEFAULT_LEAD_SCORING_CONFIG, buildAutomaticReclassification, type LeadScoringConfig } from '../../services/lead-scoring'
 
 export type ThemePreference = 'light' | 'dark' | 'system'
 export type DensityPreference = 'comfortable' | 'compact'
@@ -49,6 +50,7 @@ export interface CrmPreferences {
     activityTypes: string[]
     pipelineStagePolicies: Record<string, PipelineStagePolicy>
     requireNextActionForActiveLeads: boolean
+    leadScoring: LeadScoringConfig
   }
   integrations: {
     extensionEnabled: boolean
@@ -86,7 +88,7 @@ export const createDefaultPreferences = (companyName = 'RealTalent'): CrmPrefere
     lossReasons: ['Sem interesse', 'Preço', 'Sem orçamento', 'Escolheu concorrente', 'Não respondeu', 'Momento inadequado'],
     tags: ['Quente', 'Indicação', 'Retorno', 'Evento', 'Proposta'],
     activityTypes: ['Ligação', 'Follow-up', 'Reunião', 'Proposta', 'Tarefa interna'],
-    pipelineStagePolicies: {}, requireNextActionForActiveLeads: true,
+    pipelineStagePolicies: {}, requireNextActionForActiveLeads: true, leadScoring: DEFAULT_LEAD_SCORING_CONFIG,
   },
   integrations: { extensionEnabled: true, endpointUrl: '', inboxKey: 'realtalent-extension-inbox-v1', assistedWhatsapp: true, assistedInstagram: true, assistedEmail: true },
   security: { confirmCriticalActions: true, autoBackupReminder: true, auditRetentionDays: 180 },
@@ -99,6 +101,35 @@ const clampInteger = (value: unknown, minimum: number, maximum: number, fallback
   const numeric = Number(value)
   return Number.isFinite(numeric) ? Math.max(minimum, Math.min(maximum, Math.round(numeric))) : fallback
 }
+const normalizeLeadScoring = (value: unknown): LeadScoringConfig => {
+  const defaults = DEFAULT_LEAD_SCORING_CONFIG
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return defaults
+  const raw = value as Partial<LeadScoringConfig>
+  const weights = raw.weights ?? defaults.weights
+  const thresholds = raw.thresholds ?? defaults.thresholds
+  const medium = clampInteger(thresholds.medium, 1, 90, defaults.thresholds.medium)
+  const high = Math.max(medium + 1, clampInteger(thresholds.high, 2, 95, defaults.thresholds.high))
+  const urgent = Math.max(high + 1, clampInteger(thresholds.urgent, 3, 100, defaults.thresholds.urgent))
+  const warm = clampInteger(thresholds.warm, 1, 95, defaults.thresholds.warm)
+  const hot = Math.max(warm + 1, clampInteger(thresholds.hot, 2, 100, defaults.thresholds.hot))
+  return {
+    enabled: raw.enabled !== false,
+    autoReclassify: raw.autoReclassify !== false,
+    weights: {
+      profile: clampInteger(weights.profile, 0, 100, defaults.weights.profile),
+      behavior: clampInteger(weights.behavior, 0, 100, defaults.weights.behavior),
+      potential: clampInteger(weights.potential, 0, 100, defaults.weights.potential),
+    },
+    thresholds: { medium, high, urgent, warm, hot },
+    mediumValue: clampInteger(raw.mediumValue, 0, 100_000_000, defaults.mediumValue),
+    highValue: Math.max(clampInteger(raw.mediumValue, 0, 100_000_000, defaults.mediumValue), clampInteger(raw.highValue, 0, 100_000_000, defaults.highValue)),
+    staleDays: clampInteger(raw.staleDays, 1, 180, defaults.staleDays),
+    targetCities: cleanList(raw.targetCities, defaults.targetCities),
+    preferredSources: cleanList(raw.preferredSources, defaults.preferredSources),
+    idealTags: cleanList(raw.idealTags, defaults.idealTags),
+  }
+}
+
 const normalizeStagePolicies = (value: unknown): Record<string, PipelineStagePolicy> => {
   if (!value || typeof value !== 'object' || Array.isArray(value)) return {}
   const policies: Record<string, PipelineStagePolicy> = {}
@@ -171,6 +202,7 @@ export const normalizePreferences = (value: Partial<CrmPreferences> | null | und
       activityTypes: cleanList(commercial.activityTypes, defaults.commercial.activityTypes),
       pipelineStagePolicies: normalizeStagePolicies(commercial.pipelineStagePolicies),
       requireNextActionForActiveLeads: commercial.requireNextActionForActiveLeads !== false,
+      leadScoring: normalizeLeadScoring(commercial.leadScoring),
     },
     integrations: {
       ...defaults.integrations, ...integrations, extensionEnabled: Boolean(integrations.extensionEnabled),
@@ -215,10 +247,11 @@ const applyPreferences = (preferences: CrmPreferences) => {
 }
 
 export function PreferencesProvider({ children }: PropsWithChildren) {
-  const { currentWorkspace } = useApp()
+  const { currentWorkspace, snapshot, canWrite, reclassifyLeads } = useApp()
   const workspaceId = currentWorkspace?.id ?? 'default'
   const companyName = currentWorkspace?.name ?? 'RealTalent'
   const [preferences, setPreferences] = useState(() => readPreferences(workspaceId, companyName))
+  const reclassificationSignature = useRef('')
 
   useEffect(() => { setPreferences(readPreferences(workspaceId, companyName)) }, [workspaceId, companyName])
   useEffect(() => {
@@ -233,6 +266,25 @@ export function PreferencesProvider({ children }: PropsWithChildren) {
     })
     return () => { cancelled = true }
   }, [companyName, currentWorkspace?.id, workspaceId])
+  useEffect(() => {
+    if (!snapshot || !canWrite || !preferences.commercial.leadScoring.enabled || !preferences.commercial.leadScoring.autoReclassify) {
+      reclassificationSignature.current = ''
+      return
+    }
+    const updates = buildAutomaticReclassification(snapshot, preferences.commercial.leadScoring)
+    if (!updates.length) {
+      reclassificationSignature.current = ''
+      return
+    }
+    const signature = updates.map((item) => `${item.leadId}:${item.priority}:${item.temperature}`).sort().join('|')
+    if (signature === reclassificationSignature.current) return
+    reclassificationSignature.current = signature
+    void reclassifyLeads(updates, true).catch((error) => {
+      reclassificationSignature.current = ''
+      console.warn('Não foi possível aplicar a reclassificação automática do Lead Score.', error)
+    })
+  }, [canWrite, preferences.commercial.leadScoring, reclassifyLeads, snapshot])
+
   useEffect(() => {
     applyPreferences(preferences)
     if (preferences.appearance.theme !== 'system') return

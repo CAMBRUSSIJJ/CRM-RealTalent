@@ -47,7 +47,7 @@ export const OUTBOUND_CALL_STEPS: OutboundCallStep[] = [
     phase: 'Abertura',
     title: 'Ganhe permissão para continuar',
     objective: 'Reduzir a resistência inicial e conquistar 30 segundos de atenção.',
-    say: 'Olá, [Nome do Lead], tudo bem? Aqui é o Marcelo. Posso te explicar em 30 segundos o motivo da ligação e você me diz se vale a pena continuarmos?',
+    say: 'Olá, [Nome do Lead], tudo bem? Aqui é [Responsável]. Posso te explicar em 30 segundos o motivo da ligação e você me diz se vale a pena continuarmos?',
     coaching: 'Fale com tranquilidade. Não acelere nem tente apresentar a solução antes de receber a permissão.',
     actions: [
       { id: 'permission', label: 'Pode falar', nextStepId: 'decision-maker', note: 'Prospect autorizou a apresentação.', tone: 'primary' },

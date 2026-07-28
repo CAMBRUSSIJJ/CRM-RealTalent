@@ -1,6 +1,6 @@
 import {
   AlertTriangle, Bell, CheckCircle2, ClipboardCheck, Clock3, Copy, Eye, Filter, FlaskConical, Gauge, History,
-  Inbox, Layers3, Mail, MessageCircle, Pencil, Play, Plus, RefreshCw, RotateCcw, Search, ShieldCheck, Sparkles, Trash2, XCircle, Zap,
+  Inbox, Layers3, Mail, MessageCircle, Pencil, Play, Plus, RefreshCw, RotateCcw, Search, ShieldCheck, Sparkles, Trash2, Webhook, XCircle, Zap,
 } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useApp } from '../../app/app-context'
@@ -15,12 +15,17 @@ import {
   validateAutomationRule, visibleAutomationConditions, type AutomationSimulationResult,
 } from '../../services/automation-workspace'
 import { AutomationModal } from './automation-modal'
+import { WebhookModal } from './webhook-modal'
 import {
   cancelAutomationEvent, loadAutomationOperations, markContactDraft, markSellerNotification, retryAutomationEvent,
   retryFailedAutomationEvents, type AutomationOperationsState, type AutomationQueueStatus,
 } from '../../services/automation-operations'
+import {
+  deleteWebhook, dispatchAutomationWebhook, loadWebhookState, maskWebhookUrl, saveWebhook,
+  type AutomationWebhook, type WebhookInput, type WebhookState, type WebhookDeliveryStatus,
+} from '../../services/automation-webhooks'
 
-type AutomationTab = 'rules' | 'recipes' | 'operations' | 'history'
+type AutomationTab = 'rules' | 'recipes' | 'webhooks' | 'operations' | 'history'
 type RuleFilter = 'all' | 'active' | 'paused' | 'simulation' | 'attention'
 
 const runTone = (run: AutomationRun) => run.status === 'success' ? 'success' : run.status === 'failed' ? 'danger' : run.status === 'undone' ? 'warning' : 'info'
@@ -52,6 +57,13 @@ export function AutomationsPage() {
   const [operations, setOperations] = useState<AutomationOperationsState>({ queue: [], notifications: [], drafts: [] })
   const [operationsLoading, setOperationsLoading] = useState(false)
   const [queueFilter, setQueueFilter] = useState<'all' | AutomationQueueStatus>('all')
+  const [webhookState, setWebhookState] = useState<WebhookState>({ endpoints: [], deliveries: [] })
+  const [webhookLoading, setWebhookLoading] = useState(false)
+  const [webhookSaving, setWebhookSaving] = useState(false)
+  const [webhookTesting, setWebhookTesting] = useState(false)
+  const [webhookOpen, setWebhookOpen] = useState(false)
+  const [editingWebhook, setEditingWebhook] = useState<AutomationWebhook | null>(null)
+  const [deliveryFilter, setDeliveryFilter] = useState<'all' | WebhookDeliveryStatus>('all')
 
   const rules = snapshot?.automationRules ?? []
   const runs = snapshot?.automationRuns ?? []
@@ -78,6 +90,8 @@ export function AutomationsPage() {
   const queuePending = operations.queue.filter((item) => ['queued', 'processing'].includes(item.status)).length
   const unreadNotifications = operations.notifications.filter((item) => item.status === 'unread').length
   const readyDrafts = operations.drafts.filter((item) => item.status === 'ready').length
+  const failedDeliveries = webhookState.deliveries.filter((item) => item.status === 'failed').length
+  const filteredDeliveries = webhookState.deliveries.filter((item) => deliveryFilter === 'all' || item.status === deliveryFilter)
 
   const refreshOperations = useCallback(async () => {
     if (!currentWorkspace) return
@@ -87,7 +101,16 @@ export function AutomationsPage() {
     finally { setOperationsLoading(false) }
   }, [currentWorkspace, notify])
 
+  const refreshWebhooks = useCallback(async () => {
+    if (!currentWorkspace) return
+    setWebhookLoading(true)
+    try { setWebhookState(await loadWebhookState(currentWorkspace.id)) }
+    catch (error) { notify('error', error instanceof Error ? error.message : 'Não foi possível carregar os webhooks.') }
+    finally { setWebhookLoading(false) }
+  }, [currentWorkspace, notify])
+
   useEffect(() => { if (tab === 'operations') void refreshOperations() }, [refreshOperations, tab])
+  useEffect(() => { if (currentWorkspace) void refreshWebhooks() }, [currentWorkspace, refreshWebhooks])
 
   const runOperation = async (operation: () => Promise<unknown>, success: string) => {
     try { await operation(); notify('success', success); await refreshOperations() }
@@ -117,8 +140,8 @@ export function AutomationsPage() {
     try {
       await createAutomationRule(createAutomationRecipe(recipeId))
       setTab('rules')
-      notify('success', 'Receita adicionada em modo de simulação. Revise e teste antes de ativar a execução real.')
-    } catch (error) { notify('error', error instanceof Error ? error.message : 'Não foi possível criar a receita.') }
+      notify('success', 'Template adicionado em modo de simulação. Revise e teste antes de ativar a execução real.')
+    } catch (error) { notify('error', error instanceof Error ? error.message : 'Não foi possível criar o template.') }
   }
 
   const openTest = (rule: AutomationRule) => {
@@ -148,6 +171,36 @@ export function AutomationsPage() {
     finally { setChecking(false) }
   }
 
+  const persistWebhook = async (input: WebhookInput) => {
+    if (!currentWorkspace) return
+    setWebhookSaving(true)
+    try {
+      await saveWebhook(currentWorkspace.id, input, editingWebhook?.id)
+      notify('success', editingWebhook ? 'Webhook atualizado.' : 'Webhook criado.')
+      setWebhookOpen(false); setEditingWebhook(null); await refreshWebhooks()
+    } catch (error) { notify('error', error instanceof Error ? error.message : 'Não foi possível salvar o webhook.') }
+    finally { setWebhookSaving(false) }
+  }
+
+  const testWebhook = async (input: WebhookInput) => {
+    if (!currentWorkspace) return
+    setWebhookTesting(true)
+    try {
+      const saved = await saveWebhook(currentWorkspace.id, input, editingWebhook?.id)
+      await dispatchAutomationWebhook({ workspaceId: currentWorkspace.id, webhookId: saved.id, runId: null, rule: null, lead: snapshot?.leads[0] ?? null, eventType: 'webhook.test', correlationId: `test:${Date.now()}`, test: true })
+      notify('success', 'Configuração salva e teste registrado. Consulte o histórico de entregas.')
+      setEditingWebhook(saved)
+      await refreshWebhooks()
+    } catch (error) { notify('error', error instanceof Error ? error.message : 'Falha no teste do webhook.') }
+    finally { setWebhookTesting(false) }
+  }
+
+  const removeWebhook = async (webhook: AutomationWebhook) => {
+    if (!currentWorkspace || !window.confirm(`Excluir o webhook “${webhook.name}”?`)) return
+    try { await deleteWebhook(currentWorkspace.id, webhook.id); notify('success', 'Webhook removido.'); await refreshWebhooks() }
+    catch (error) { notify('error', error instanceof Error ? error.message : 'Não foi possível remover o webhook.') }
+  }
+
   return (
     <div className="page-stack automations-page automations-page--professional">
       <section className="toolbar-card automations-toolbar">
@@ -164,7 +217,7 @@ export function AutomationsPage() {
 
       <nav className="automation-tabs" aria-label="Áreas de automação">
         <button className={tab === 'rules' ? 'is-active' : ''} onClick={() => setTab('rules')}><Layers3 size={16} /> Regras <span>{rules.length}</span></button>
-        <button className={tab === 'recipes' ? 'is-active' : ''} onClick={() => setTab('recipes')}><Sparkles size={16} /> Receitas <span>{AUTOMATION_RECIPES.length}</span></button>
+        <button className={tab === 'recipes' ? 'is-active' : ''} onClick={() => setTab('recipes')}><Sparkles size={16} /> Templates <span>{AUTOMATION_RECIPES.length}</span></button><button className={tab === 'webhooks' ? 'is-active' : ''} onClick={() => setTab('webhooks')}><Webhook size={16} /> Webhooks <span>{failedDeliveries || webhookState.endpoints.length}</span></button>
         <button className={tab === 'operations' ? 'is-active' : ''} onClick={() => setTab('operations')}><Inbox size={16} /> Operação <span>{queueAttention + unreadNotifications + readyDrafts}</span></button>
         <button className={tab === 'history' ? 'is-active' : ''} onClick={() => setTab('history')}><History size={16} /> Histórico <span>{runs.length}</span></button>
       </nav>
@@ -189,13 +242,19 @@ export function AutomationsPage() {
               <footer><div>{lastRun ? <><small>Última execução</small><strong>{formatDateTime(lastRun.startedAt)} · {runLabel(lastRun)}</strong></> : <><small>Ainda não executada</small><strong>Teste com um lead antes de ativar</strong></>}</div><div><button className="icon-button" aria-label="Simular automação" onClick={() => openTest(rule)}><FlaskConical size={16} /></button>{canWrite ? <><button className="icon-button" aria-label="Editar automação" onClick={() => { setEditing(rule); setBuilderOpen(true) }}><Pencil size={16} /></button><button className="icon-button icon-button--danger" aria-label="Excluir automação" onClick={() => { if (window.confirm(`Excluir “${rule.name}”?`)) void deleteAutomationRule(rule.id) }}><Trash2 size={16} /></button></> : null}</div></footer>
             </article>
           })}
-          {!filteredRules.length ? <div className="automation-empty-span"><EmptyState icon={Sparkles} title="Nenhuma regra encontrada" description="Ajuste os filtros, crie uma automação ou instale uma receita pronta." /></div> : null}
+          {!filteredRules.length ? <div className="automation-empty-span"><EmptyState icon={Sparkles} title="Nenhuma regra encontrada" description="Ajuste os filtros, crie uma automação ou use um template pronto." /></div> : null}
         </section>
       </> : null}
 
       {tab === 'recipes' ? <section className="page-stack">
-        <div className="automation-recipe-header"><div><span className="eyebrow">Modelos prontos</span><h3>Receitas comerciais seguras</h3><p>Todas são adicionadas pausadas e em modo de simulação para revisão antes da execução real.</p></div><label className="compact-select"><Filter size={15} /><span>Categoria</span><select value={recipeCategory} onChange={(event) => setRecipeCategory(event.target.value)}>{recipeCategories.map((category) => <option key={category}>{category}</option>)}</select></label></div>
-        <div className="automation-recipe-grid">{filteredRecipes.map((recipe) => <article className="automation-recipe-card" key={recipe.id}><header><span><Sparkles size={18} /></span><em>{recipe.category}</em></header><h3>{recipe.name}</h3><p>{recipe.description}</p><div><span><Zap size={13} /> {triggerLabels[recipe.triggerType]}</span><span>{recipe.actions.length} ações</span></div>{canWrite ? <Button variant="secondary" onClick={() => void createRecipe(recipe.id)}><Plus size={15} /> Adicionar receita</Button> : null}</article>)}</div>
+        <div className="automation-recipe-header"><div><span className="eyebrow">Modelos prontos</span><h3>Templates comerciais seguros</h3><p>Todas são adicionadas pausadas e em modo de simulação para revisão antes da execução real.</p></div><label className="compact-select"><Filter size={15} /><span>Categoria</span><select value={recipeCategory} onChange={(event) => setRecipeCategory(event.target.value)}>{recipeCategories.map((category) => <option key={category}>{category}</option>)}</select></label></div>
+        <div className="automation-recipe-grid">{filteredRecipes.map((recipe) => <article className="automation-recipe-card" key={recipe.id}><header><span><Sparkles size={18} /></span><em>{recipe.category}</em></header><h3>{recipe.name}</h3><p>{recipe.description}</p><div><span><Zap size={13} /> {triggerLabels[recipe.triggerType]}</span><span>{recipe.actions.length} ações</span></div>{canWrite ? <Button variant="secondary" onClick={() => void createRecipe(recipe.id)}><Plus size={15} /> Usar template</Button> : null}</article>)}</div>
+      </section> : null}
+
+      {tab === 'webhooks' ? <section className="automation-webhooks-page">
+        <header className="automation-operations__header"><div><span className="eyebrow">Integrações externas</span><h3>Webhooks gerenciados</h3><p>Cadastre destinos, teste assinaturas e acompanhe cada entrega sem expor segredos no navegador.</p></div><div className="toolbar-card__actions"><Button variant="secondary" loading={webhookLoading} onClick={() => void refreshWebhooks()}><RefreshCw size={16} /> Atualizar</Button>{canManageQueue ? <Button onClick={() => { setEditingWebhook(null); setWebhookOpen(true) }}><Plus size={16} /> Novo webhook</Button> : null}</div></header>
+        <div className="automation-webhook-grid">{webhookState.endpoints.map((webhook) => <article className="automation-webhook-card" key={webhook.id}><header><span className={webhook.enabled ? 'is-enabled' : ''}><Webhook size={18} /></span><div><strong>{webhook.name}</strong><small>{webhook.method} · {maskWebhookUrl(webhook.url)}</small></div><StatusPill tone={webhook.enabled ? 'success' : 'neutral'}>{webhook.enabled ? 'Ativo' : 'Pausado'}</StatusPill></header><div className="automation-webhook-meta"><span>{webhook.maxAttempts} tentativa(s)</span><span>{webhook.timeoutSeconds}s de timeout</span><span>{webhook.hasSecret ? 'Assinatura configurada' : 'Sem assinatura'}</span></div><footer><small>Atualizado em {formatDateTime(webhook.updatedAt)}</small>{canManageQueue ? <div><button className="icon-button" aria-label="Testar webhook" onClick={() => { setEditingWebhook(webhook); setWebhookOpen(true) }}><FlaskConical size={15} /></button><button className="icon-button" aria-label="Editar webhook" onClick={() => { setEditingWebhook(webhook); setWebhookOpen(true) }}><Pencil size={15} /></button><button className="icon-button icon-button--danger" aria-label="Excluir webhook" onClick={() => void removeWebhook(webhook)}><Trash2 size={15} /></button></div> : null}</footer></article>)}{!webhookState.endpoints.length ? <div className="automation-empty-span"><EmptyState icon={Webhook} title="Nenhum webhook cadastrado" description="Crie um destino, faça um teste e depois selecione a ação Enviar webhook em uma regra." /></div> : null}</div>
+        <section className="panel automation-webhook-deliveries"><div className="panel__heading"><div><span className="eyebrow">Auditoria externa</span><h3>Histórico de entregas</h3></div><label className="compact-select"><Filter size={14} /><span>Status</span><select value={deliveryFilter} onChange={(event) => setDeliveryFilter(event.target.value as typeof deliveryFilter)}><option value="all">Todos</option><option value="pending">Pendente</option><option value="sending">Enviando</option><option value="success">Sucesso</option><option value="failed">Falha</option><option value="simulated">Simulado</option><option value="cancelled">Cancelado</option></select></label></div>{filteredDeliveries.length ? <div className="automation-delivery-list">{filteredDeliveries.slice(0, 100).map((delivery) => { const endpoint = webhookState.endpoints.find((item) => item.id === delivery.webhookId); return <article key={delivery.id}><div><StatusPill tone={delivery.status === 'success' ? 'success' : delivery.status === 'failed' ? 'danger' : delivery.status === 'simulated' ? 'warning' : 'info'}>{delivery.status}</StatusPill><div><strong>{endpoint?.name ?? 'Webhook removido'}</strong><small>{delivery.eventType} · {delivery.leadId ? leadNames.get(delivery.leadId) ?? 'Lead relacionado' : 'Teste técnico'}</small></div></div><div><span>{delivery.attempts} tentativa(s)</span><time>{formatDateTime(delivery.finishedAt ?? delivery.createdAt)}</time>{delivery.errorMessage ? <small>{delivery.errorMessage}</small> : delivery.responseStatus ? <small>HTTP {delivery.responseStatus}</small> : null}</div></article> })}</div> : <EmptyState icon={CheckCircle2} title="Sem entregas registradas" description="Testes e envios automáticos aparecerão aqui com status, resposta e tentativas." />}</section>
       </section> : null}
 
       {tab === 'operations' ? <section className="automation-operations">
@@ -223,12 +282,13 @@ export function AutomationsPage() {
         {filteredRuns.length ? <div className="automation-history-table"><div className="automation-history-table__head"><span>Automação</span><span>Execução</span><span>Resultado</span><span>Ações</span></div>{filteredRuns.slice(0, 80).map((run) => <article key={run.id}><div><span className={`run-dot run-dot--${run.status}`} /><div><strong>{rules.find((rule) => rule.id === run.ruleId)?.name ?? 'Regra removida'}</strong><small>{triggerLabels[String(run.input.triggerType ?? 'manual') as keyof typeof triggerLabels] ?? 'Evento'}</small></div></div><time>{formatDateTime(run.startedAt)}</time><div><StatusPill tone={runTone(run)}>{runLabel(run)}</StatusPill><small>{run.output.message ?? run.errorMessage ?? run.eventKey}</small></div><div><button className="icon-button" aria-label="Ver detalhes" onClick={() => setSelectedRun(run)}><Eye size={15} /></button>{canWrite && run.status === 'success' && !run.output.simulated && (run.output.mutations?.length ?? 0) > 0 ? <button className="icon-button" aria-label="Desfazer execução" onClick={() => void undoAutomationRun(run.id)}><RotateCcw size={15} /></button> : null}</div></article>)}</div> : <EmptyState icon={History} title="Nenhuma execução" description="Simulações, testes e execuções aparecerão aqui com o resultado completo." />}
       </section> : null}
 
-      <AutomationModal open={canWrite && builderOpen} rule={editing} stages={snapshot?.stages ?? []} loading={saving} onClose={() => { setBuilderOpen(false); setEditing(null) }} onSubmit={save} />
+      <AutomationModal open={canWrite && builderOpen} rule={editing} stages={snapshot?.stages ?? []} webhooks={webhookState.endpoints} loading={saving} onClose={() => { setBuilderOpen(false); setEditing(null) }} onSubmit={save} />
+      <WebhookModal open={canManageQueue && webhookOpen} webhook={editingWebhook} loading={webhookSaving} testing={webhookTesting} onClose={() => { setWebhookOpen(false); setEditingWebhook(null) }} onSave={persistWebhook} onTest={testWebhook} />
       <Modal open={Boolean(testRule)} title="Simular e testar automação" subtitle={canWrite ? "A simulação não altera nenhum dado. O teste real executa as ações e registra uma transação reversível." : "A simulação não altera nenhum dado."} size="lg" onClose={() => { setTestRule(null); setTestResult(null) }} footer={<><Button variant="secondary" onClick={() => { setTestRule(null); setTestResult(null) }}>Fechar</Button><Button variant="secondary" loading={running} disabled={!testLeadId} onClick={() => void simulate()}><FlaskConical size={16} /> Simular sem alterar</Button>{canWrite ? <Button loading={running} disabled={!testLeadId || testResult?.matched === false} onClick={() => void executeTest()}><Play size={16} /> Executar teste real</Button> : null}</>}>
         <div className="automation-test-layout"><label className="form-field"><span>Lead para o teste</span><select value={testLeadId} onChange={(event) => { setTestLeadId(event.target.value); setTestResult(null) }}><option value="">Selecione</option>{snapshot?.leads.map((lead) => <option key={lead.id} value={lead.id}>{lead.name} · {lead.company}</option>)}</select></label>{testResult ? <section className={`automation-simulation-result ${testResult.matched ? 'is-matched' : 'is-unmatched'}`}><header>{testResult.matched ? <CheckCircle2 /> : <AlertTriangle />}<div><strong>{testResult.matched ? 'O lead atende às condições' : 'O lead não atende às condições'}</strong><span>{testResult.leadName} · {testResult.trigger}</span></div><StatusPill tone={testResult.mode === 'live' ? 'info' : 'warning'}>{testResult.mode === 'live' ? 'Regra real' : 'Regra em simulação'}</StatusPill></header><div className="automation-simulation-columns"><div><small>CONDIÇÕES</small>{testResult.conditionResults.length ? testResult.conditionResults.map((item) => <span key={item.label} className={item.matched ? 'is-ok' : 'is-fail'}>{item.matched ? '✓' : '×'} {item.label}</span>) : <span className="is-ok">✓ Sem condições adicionais</span>}</div><div><small>AÇÕES PREVISTAS</small>{testResult.actions.map((action) => <span key={action}>→ {action}</span>)}</div></div>{testResult.warnings.length ? <div className="automation-simulation-warnings">{testResult.warnings.map((warning) => <span key={warning}><AlertTriangle size={13} /> {warning}</span>)}</div> : null}</section> : <div className="automation-test-placeholder"><FlaskConical size={28} /><strong>Escolha um lead e simule primeiro</strong><span>Você verá exatamente quais condições passam e quais ações seriam realizadas.</span></div>}</div>
       </Modal>
       <Modal open={Boolean(selectedRun)} title="Detalhes da execução" subtitle={selectedRun ? formatDateTime(selectedRun.startedAt) : ''} onClose={() => setSelectedRun(null)} footer={<Button variant="secondary" onClick={() => setSelectedRun(null)}>Fechar</Button>}>
-        {selectedRun ? <div className="automation-run-details"><div><span>Status</span><StatusPill tone={runTone(selectedRun)}>{runLabel(selectedRun)}</StatusPill></div><div><span>Mensagem</span><strong>{selectedRun.output.message ?? selectedRun.errorMessage ?? 'Sem mensagem'}</strong></div><div><span>Evento</span><code>{String(selectedRun.input.triggerType ?? selectedRun.eventKey)}</code></div>{selectedRun.output.actionPreview?.length ? <section><small>AÇÕES PROCESSADAS</small>{selectedRun.output.actionPreview.map((item) => <span key={item}>→ {item}</span>)}</section> : null}{selectedRun.output.warnings?.length ? <section className="is-warning"><small>ALERTAS</small>{selectedRun.output.warnings.map((item) => <span key={item}><AlertTriangle size={12} /> {item}</span>)}</section> : null}</div> : null}
+        {selectedRun ? <div className="automation-run-details"><div><span>Status</span><StatusPill tone={runTone(selectedRun)}>{runLabel(selectedRun)}</StatusPill></div><div><span>Mensagem</span><strong>{selectedRun.output.message ?? selectedRun.errorMessage ?? 'Sem mensagem'}</strong></div><div><span>Evento</span><code>{String(selectedRun.input.triggerType ?? selectedRun.eventKey)}</code></div><div><span>Correlação</span><code>{selectedRun.output.correlationId ?? String(selectedRun.input.correlationId ?? 'não disponível')}</code></div><div><span>Duração e cadeia</span><strong>{selectedRun.output.durationMs ?? 0} ms · profundidade {selectedRun.output.chainDepth ?? 0}</strong></div>{selectedRun.output.actionPreview?.length ? <section><small>AÇÕES PROCESSADAS</small>{selectedRun.output.actionPreview.map((item) => <span key={item}>→ {item}</span>)}</section> : null}{selectedRun.output.warnings?.length ? <section className="is-warning"><small>ALERTAS</small>{selectedRun.output.warnings.map((item) => <span key={item}><AlertTriangle size={12} /> {item}</span>)}</section> : null}</div> : null}
       </Modal>
     </div>
   )

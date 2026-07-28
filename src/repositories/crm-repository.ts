@@ -1,6 +1,6 @@
 import type {
-  ActivityItem, AutomationRule, AutomationRun, AutomationRunOutput, AutomationRunStatus, CalendarEvent, DashboardStats,
-  AuditLog, Goal, Lead, PipelineStage, Playbook, RepositoryHealth, Workspace, WorkspaceInvite, WorkspaceMember, WorkspaceRole, WorkspaceSnapshot,
+  ActivityItem, AutomationRule, AutomationRun, AutomationRunOutput, AutomationRunStatus, CalendarEvent, CommercialStructureSyncResult, DashboardStats,
+  AuditLog, Goal, Lead, PipelineStage, Playbook, ProductRecord, ProposalRecord, ProposalStatus, RevenueEntry, RepositoryHealth, Workspace, WorkspaceInvite, WorkspaceMember, WorkspaceRole, WorkspaceSnapshot,
 } from '../domain/types'
 
 export type NewLeadInput = Omit<Lead, 'id' | 'createdAt' | 'updatedAt'>
@@ -10,10 +10,52 @@ export type UpdateStageInput = Partial<Pick<PipelineStage, 'name' | 'color' | 'p
 export type NewActivityInput = Omit<ActivityItem, 'id' | 'createdAt' | 'updatedAt'>
 export type UpdateActivityInput = Partial<Pick<ActivityItem, 'leadId' | 'type' | 'title' | 'description' | 'dueAt' | 'completedAt' | 'assignedTo'>>
 export type NewCallInput = Omit<import('../domain/types').CallRecord, 'id' | 'createdAt' | 'recordingUrl'>
+export interface RegisterCallOutcomeInput extends NewCallInput {
+  scheduleNext: boolean
+  nextAt: string | null
+  meetingDurationMinutes?: number
+}
+export interface CommercialActionResult {
+  call: import('../domain/types').CallRecord
+  lead: Lead
+  activityId: string
+  nextActivityId: string | null
+  calendarEventId: string | null
+  idempotent: boolean
+}
+export type CommercialActivityOutcome = 'answered' | 'no_response' | 'callback_requested' | 'interested' | 'proposal_requested' | 'meeting_scheduled' | 'not_decision_maker' | 'invalid_contact' | 'not_interested' | 'won' | 'lost'
+export interface RegisterActivityOutcomeInput {
+  workspaceId: string
+  userId: string | null
+  activityId: string
+  outcome: CommercialActivityOutcome
+  resultTitle: string
+  resultDescription: string
+  createNext: boolean
+  nextType: ActivityItem['type'] | null
+  nextTitle: string | null
+  nextDescription: string | null
+  nextAt: string | null
+  stageId: string | null
+}
+export interface CommercialActivityResult {
+  activity: ActivityItem
+  lead: Lead
+  resultActivityId: string
+  nextActivityId: string | null
+  idempotent: boolean
+}
 export type NewCalendarEventInput = Omit<CalendarEvent, 'id' | 'createdAt' | 'updatedAt'>
 export type UpdateCalendarEventInput = Partial<Omit<CalendarEvent, 'id' | 'workspaceId' | 'createdAt' | 'updatedAt'>>
 export type NewPlaybookInput = Omit<Playbook, 'id' | 'createdAt' | 'updatedAt'>
 export type UpdatePlaybookInput = Partial<Pick<Playbook, 'kind' | 'title' | 'category' | 'content' | 'tags' | 'active'>>
+
+export type NewProductInput = Omit<ProductRecord, 'id' | 'createdAt' | 'updatedAt'>
+export type UpdateProductInput = Partial<Omit<ProductRecord, 'id' | 'workspaceId' | 'createdAt' | 'updatedAt'>>
+export type NewProposalInput = Omit<ProposalRecord, 'id' | 'proposalGroupId' | 'version' | 'proposalNumber' | 'createdAt' | 'updatedAt' | 'sentAt' | 'viewedAt' | 'acceptedAt' | 'rejectedAt'> & { proposalGroupId?: string; version?: number; proposalNumber?: string }
+export type UpdateProposalInput = Partial<Pick<ProposalRecord, 'title' | 'status' | 'forecastCategory' | 'probability' | 'validUntil' | 'notes' | 'terms' | 'items'>>
+export type NewRevenueEntryInput = Omit<RevenueEntry, 'id' | 'createdAt' | 'updatedAt'>
+
 export type NewGoalInput = Omit<Goal, 'id' | 'createdAt' | 'updatedAt'>
 export type UpdateGoalInput = Partial<Pick<Goal, 'userId' | 'userName' | 'metric' | 'targetValue' | 'periodStart' | 'periodEnd'>>
 export type NewAutomationRuleInput = Omit<AutomationRule, 'id' | 'createdAt' | 'updatedAt'>
@@ -41,6 +83,7 @@ export interface CrmRepository {
   listAuditLogs(workspaceId: string, limit?: number): Promise<AuditLog[]>
   exportWorkspace(workspaceId: string): Promise<Record<string, unknown>>
   getSnapshot(workspaceId: string): Promise<WorkspaceSnapshot>
+  synchronizeCommercialStructure(workspaceId: string): Promise<CommercialStructureSyncResult>
   listLeads(workspaceId: string): Promise<Lead[]>
   createLead(input: NewLeadInput): Promise<Lead>
   updateLead(leadId: string, input: UpdateLeadInput): Promise<Lead>
@@ -61,8 +104,10 @@ export interface CrmRepository {
   updateActivity(activityId: string, input: UpdateActivityInput): Promise<ActivityItem>
   deleteActivity(activityId: string): Promise<void>
   completeActivity(activityId: string, completed: boolean): Promise<ActivityItem>
+  registerActivityOutcome(input: RegisterActivityOutcomeInput): Promise<CommercialActivityResult>
   listCalls(workspaceId: string): Promise<import('../domain/types').CallRecord[]>
   createCall(input: NewCallInput, recording?: Blob | null): Promise<import('../domain/types').CallRecord>
+  registerCallOutcome(input: RegisterCallOutcomeInput, recording?: Blob | null): Promise<CommercialActionResult>
   deleteCall(callId: string): Promise<void>
   listCalendarEvents(workspaceId: string): Promise<CalendarEvent[]>
   createCalendarEvent(input: NewCalendarEventInput): Promise<CalendarEvent>
@@ -72,6 +117,20 @@ export interface CrmRepository {
   createPlaybook(input: NewPlaybookInput): Promise<Playbook>
   updatePlaybook(playbookId: string, input: UpdatePlaybookInput): Promise<Playbook>
   deletePlaybook(playbookId: string): Promise<void>
+
+  listProducts(workspaceId: string): Promise<ProductRecord[]>
+  createProduct(input: NewProductInput): Promise<ProductRecord>
+  updateProduct(productId: string, input: UpdateProductInput): Promise<ProductRecord>
+  deleteProduct(productId: string): Promise<void>
+  listProposals(workspaceId: string): Promise<ProposalRecord[]>
+  createProposal(input: NewProposalInput): Promise<ProposalRecord>
+  updateProposal(proposalId: string, input: UpdateProposalInput): Promise<ProposalRecord>
+  createProposalRevision(proposalId: string): Promise<ProposalRecord>
+  updateProposalStatus(proposalId: string, status: ProposalStatus): Promise<ProposalRecord>
+  deleteProposal(proposalId: string): Promise<void>
+  listRevenueEntries(workspaceId: string): Promise<RevenueEntry[]>
+  createRevenueEntry(input: NewRevenueEntryInput): Promise<RevenueEntry>
+  updateRevenueEntryStatus(entryId: string, status: RevenueEntry['status']): Promise<RevenueEntry>
   listGoals(workspaceId: string): Promise<Goal[]>
   createGoal(input: NewGoalInput): Promise<Goal>
   updateGoal(goalId: string, input: UpdateGoalInput): Promise<Goal>

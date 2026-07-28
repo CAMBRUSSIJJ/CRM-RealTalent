@@ -18,7 +18,7 @@ import { OutcomeModal } from './outcome-modal'
 
 type Filter = 'queue' | 'overdue' | 'today' | 'upcoming' | 'completed' | 'all'
 type ViewMode = 'queue' | 'board' | 'calendar' | 'cadences' | 'performance'
-const typeLabels = { followup: 'Follow-up', call: 'Ligação', meeting: 'Reunião', note: 'Nota', stage_change: 'Etapa' }
+const typeLabels = { followup: 'Follow-up', call: 'Ligação', meeting: 'Reunião', note: 'Nota', stage_change: 'Etapa', email: 'E-mail', whatsapp: 'WhatsApp' }
 const sameDay = (a: Date, b: Date) => a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate()
 const startOfDay = (date: Date) => new Date(date.getFullYear(), date.getMonth(), date.getDate())
 const endOfDay = (date: Date) => new Date(date.getFullYear(), date.getMonth(), date.getDate(), 23, 59, 59, 999)

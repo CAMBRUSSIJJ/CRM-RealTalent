@@ -6,7 +6,7 @@ const snapshot = (): WorkspaceSnapshot => ({
   workspace: { id: 'w1', name: 'Teste', slug: 'teste', role: 'owner', createdAt: '2026-01-01T00:00:00.000Z' },
   stages: [{ id: 's1', workspaceId: 'w1', name: 'Novo', order: 1, color: '#000000', probability: 10, isWon: false, isLost: false }],
   leads: [{ id: 'l1', workspaceId: 'w1', name: 'Lead', company: 'Empresa', phone: '51999999999', email: 'lead@empresa.com', city: 'Canoas', source: 'Manual', stageId: 's1', status: 'active', temperature: 'warm', priority: 'medium', ownerId: null, ownerName: '', value: 0, nextActionAt: null, notes: '', tags: [], createdAt: '2026-01-01T00:00:00.000Z', updatedAt: '2026-01-01T00:00:00.000Z' }],
-  activities: [], calls: [], events: [], playbooks: [], goals: [], automationRules: [], automationRuns: [],
+  activities: [], calls: [], events: [], playbooks: [], goals: [], automationRules: [], automationRuns: [], companies: [], contacts: [], opportunities: [], socialProfiles: [],
 })
 
 describe('integridade do workspace', () => {

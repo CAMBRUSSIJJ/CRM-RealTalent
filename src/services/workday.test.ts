@@ -1,18 +1,19 @@
 import { describe, expect, it } from 'vitest'
 import { DEFAULT_STAGES, DEMO_WORKSPACE } from '../domain/defaults'
 import type { Lead, WorkspaceSnapshot } from '../domain/types'
+import { DEFAULT_LEAD_SCORING_CONFIG } from './lead-scoring'
 import { addBusinessMinutes, buildWorkdayQueue } from './workday'
 
 const now = new Date('2026-07-19T15:00:00.000Z')
 const lead = (overrides: Partial<Lead> = {}): Lead => ({
   id: 'lead-1', workspaceId: DEMO_WORKSPACE.id, name: 'Lead teste', company: 'Real', phone: '51999999999', email: '', city: 'Canoas', source: 'Site', stageId: 'stage-new', status: 'active', temperature: 'warm', priority: 'medium', ownerId: 'seller-1', ownerName: 'Ana', value: 1000, nextActionAt: null, notes: '', tags: [], createdAt: '2026-07-19T13:00:00.000Z', updatedAt: '2026-07-19T13:00:00.000Z', ...overrides,
 })
-const snapshot = (leads: Lead[]): WorkspaceSnapshot => ({ workspace: DEMO_WORKSPACE, stages: DEFAULT_STAGES, leads, activities: [], calls: [], events: [], playbooks: [], goals: [], automationRules: [], automationRuns: [] })
-const config = { firstContactSlaMinutes: 30, staleLeadDays: 7, proposalFollowupDays: 3, businessDays: [1, 2, 3, 4, 5, 6, 0], businessStart: '08:30', businessEnd: '18:00' }
+const snapshot = (leads: Lead[]): WorkspaceSnapshot => ({ workspace: DEMO_WORKSPACE, stages: DEFAULT_STAGES, leads, activities: [], calls: [], events: [], playbooks: [], goals: [], automationRules: [], automationRuns: [], companies: [], contacts: [], opportunities: [], socialProfiles: [] })
+const config = { firstContactSlaMinutes: 30, staleLeadDays: 7, proposalFollowupDays: 3, businessDays: [1, 2, 3, 4, 5, 6, 0], businessStart: '08:30', businessEnd: '18:00', leadScoring: DEFAULT_LEAD_SCORING_CONFIG }
 
 describe('fila Meu Dia', () => {
   it('conta o SLA somente dentro do expediente configurado', () => {
-    const due = addBusinessMinutes(new Date(2026, 6, 17, 17, 50).toISOString(), 30, { businessDays: [1, 2, 3, 4, 5], businessStart: '08:30', businessEnd: '18:00' })
+    const due = addBusinessMinutes(new Date(2026, 6, 17, 17, 50).toISOString(), 30, { businessDays: [1, 2, 3, 4, 5], businessStart: '08:30', businessEnd: '18:00', leadScoring: DEFAULT_LEAD_SCORING_CONFIG })
     expect([due.getDay(), due.getHours(), due.getMinutes()]).toEqual([1, 8, 50])
   })
 

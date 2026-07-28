@@ -77,9 +77,9 @@ export function CallsPage() {
   return <div className="page-stack calls-page calls-page--professional">
     <section className="calls-command-bar">
       <div>
-        <span className="eyebrow">Operação comercial</span>
-        <h2>Central de Ligações</h2>
-        <p>Priorize contatos, execute a rotina e registre o próximo passo sem perder contexto.</p>
+        <span className="eyebrow">Rotina de contato</span>
+        <h2>Fila e execução</h2>
+        <p>Organize as chamadas, use o roteiro e registre o próximo passo.</p>
       </div>
       <div className="calls-command-bar__actions">
         {canWrite ? <><Button variant="secondary" onClick={() => startCall()}><PhoneCall size={17} /> Ligação avulsa</Button>
@@ -109,13 +109,13 @@ export function CallsPage() {
         </> : <label className="compact-select"><span>Resultado</span><select value={outcomeFilter} onChange={(event) => setOutcomeFilter(event.target.value as 'all' | CallOutcome)}><option value="all">Todos</option>{Object.values(snapshot?.calls.reduce((acc, call) => ({ ...acc, [call.outcome]: call.outcome }), {} as Record<string, CallOutcome>) ?? {}).map((value) => <option key={value} value={value}>{outcomeLabel(value)}</option>)}</select></label>}
       </div>
       <div className="toolbar-card__actions">
-        {view === 'queue' && canWrite ? <Button variant="secondary" size="sm" onClick={selectVisible}>{selectedQueueIds.length && selectedQueueIds.length === filteredQueue.length ? <Square size={15} /> : <CheckSquare size={15} />} {selectedQueueIds.length ? `${selectedQueueIds.length} selecionado(s)` : 'Selecionar fila'}</Button> : null}
+        {view === 'queue' && canWrite ? <Button variant="secondary" size="sm" onClick={selectVisible}>{selectedQueueIds.length && selectedQueueIds.length === filteredQueue.length ? <Square size={15} /> : <CheckSquare size={15} />} {selectedQueueIds.length ? selectedQueueIds.length === 1 ? '1 selecionado' : `${selectedQueueIds.length} selecionados` : 'Selecionar fila'}</Button> : null}
       </div>
     </section> : null}
 
     {view === 'queue' ? <section className="calls-operations-layout">
       <div className="panel call-queue-panel call-queue-panel--professional">
-        <div className="panel__heading"><div><span className="eyebrow">Prioridade automática</span><h3>Fila de ligação</h3><p>{filteredQueue.length} contato(s) na visualização atual</p></div>{canWrite && selectedQueueIds.length ? <Button size="sm" onClick={() => startCall(selectedQueueIds[0], selectedQueueIds)}><Play size={15} /> Ligar para selecionados</Button> : null}</div>
+        <div className="panel__heading"><div><span className="eyebrow">Prioridade automática</span><h3>Fila de ligação</h3><p>{filteredQueue.length === 1 ? '1 contato nesta visualização' : `${filteredQueue.length} contatos nesta visualização`}</p></div>{canWrite && selectedQueueIds.length ? <Button size="sm" onClick={() => startCall(selectedQueueIds[0], selectedQueueIds)}><Play size={15} /> Ligar para selecionados</Button> : null}</div>
         {filteredQueue.length ? <div className="call-queue call-queue--professional">{filteredQueue.map((entry, index) => {
           const selected = selectedQueueIds.includes(entry.lead.id)
           return <article className={`call-queue-card ${selected ? 'is-selected' : ''}`} key={entry.lead.id}>
@@ -123,7 +123,7 @@ export function CallsPage() {
             <div className="call-queue-card__rank">{index + 1}</div>
             <div className="call-queue-card__main">
               <div className="call-queue-card__headline"><div className="lead-cell"><span className="lead-cell__avatar">{entry.lead.name.slice(0, 2).toUpperCase()}</span><div><strong>{entry.lead.name}</strong><small>{entry.lead.company || 'Empresa não informada'} · {entry.lead.city || 'Cidade não informada'}</small></div></div><div className="call-queue-card__badges">{entry.attempts >= preferences.commercial.maxCallAttempts ? <StatusPill tone="danger">Limite de tentativas</StatusPill> : <StatusPill tone={entry.bucket === 'overdue' ? 'danger' : entry.lead.temperature === 'hot' ? 'warning' : 'info'}>{entry.reason}</StatusPill>}<span className={`priority-chip priority-chip--${entry.lead.priority}`}>{priorityLabel[entry.lead.priority]}</span></div></div>
-              <div className="call-queue-card__meta"><span><PhoneCall size={14} /> {entry.lead.phone}</span><span><RotateCcw size={14} /> {entry.attempts} tentativa(s)</span><span><CalendarClock size={14} /> {entry.dueAt ? formatDateTime(entry.dueAt) : 'Sem agendamento'}</span><span><Target size={14} /> {entry.stage?.name ?? 'Sem etapa'}</span></div>
+              <div className="call-queue-card__meta"><span><PhoneCall size={14} /> {entry.lead.phone}</span><span><RotateCcw size={14} /> {entry.attempts} {entry.attempts === 1 ? 'tentativa' : 'tentativas'}</span><span><CalendarClock size={14} /> {entry.dueAt ? formatDateTime(entry.dueAt) : 'Sem agendamento'}</span><span><Target size={14} /> {entry.stage?.name ?? 'Sem etapa'}</span></div>
               {entry.lastCall ? <p>Última ligação: <strong>{outcomeLabel(entry.lastCall.outcome)}</strong> · {formatDateTime(entry.lastCall.startedAt)}{entry.lastCall.notes ? ` — ${entry.lastCall.notes}` : ''}</p> : <p>Primeira tentativa registrada para este lead.</p>}
             </div>
             {canWrite ? <div className="call-queue-card__actions"><Button size="sm" onClick={() => startCall(entry.lead.id)}><PhoneCall size={15} /> Ligar</Button></div> : null}
@@ -132,12 +132,12 @@ export function CallsPage() {
       </div>
 
       <aside className="calls-side-stack">
-        <section className="panel calls-routine-card"><Headphones size={30} /><span className="eyebrow">Modo focado</span><h3>Rotina de ligações</h3><p>Trabalhe um lead por vez com contexto, script, objeções, gravação, transcrição e próximo passo.</p><ul><li>Timer somente após “Atendeu”</li><li>Pausa, retomada e recuperação da sessão</li><li>Salvar e avançar para o próximo lead</li></ul>{canWrite ? <Button onClick={() => startCall('', selectedQueueIds.length ? selectedQueueIds : filteredQueue.map((entry) => entry.lead.id))} disabled={!filteredQueue.length}><Play size={17} /> Iniciar com {selectedQueueIds.length || filteredQueue.length} lead(s)</Button> : null}</section>
+        <section className="panel calls-routine-card"><Headphones size={30} /><span className="eyebrow">Modo focado</span><h3>Rotina de ligações</h3><p>Trabalhe um lead por vez com contexto, script, objeções, gravação, transcrição e próximo passo.</p><ul><li>Timer somente após “Atendeu”</li><li>Pausa, retomada e recuperação da sessão</li><li>Salvar e avançar para o próximo lead</li></ul>{canWrite ? <Button onClick={() => startCall('', selectedQueueIds.length ? selectedQueueIds : filteredQueue.map((entry) => entry.lead.id))} disabled={!filteredQueue.length}><Play size={17} /> Iniciar com {selectedQueueIds.length || filteredQueue.length} {(selectedQueueIds.length || filteredQueue.length) === 1 ? 'lead' : 'leads'}</Button> : null}</section>
         <section className="panel calls-alerts-card"><div className="panel__heading"><div><span className="eyebrow">Atenção</span><h3>Riscos da fila</h3></div></div><div><span><Flame size={16} /> Atrasadas <strong>{queue.filter((item) => item.bucket === 'overdue').length}</strong></span><span><Target size={16} /> Quentes <strong>{queue.filter((item) => item.lead.temperature === 'hot').length}</strong></span><span><CalendarClock size={16} /> Sem próxima ação <strong>{queue.filter((item) => item.bucket === 'without_action').length}</strong></span></div></section>
       </aside>
     </section> : null}
 
-    {view === 'history' ? <section className="panel data-panel"><div className="data-panel__header"><div><h3>Histórico de ligações</h3><p>{history.length} registro(s)</p></div></div>{history.length ? <div className="call-history">{history.map((call) => {
+    {view === 'history' ? <section className="panel data-panel"><div className="data-panel__header"><div><h3>Histórico de ligações</h3><p>{history.length === 1 ? '1 registro' : `${history.length} registros`}</p></div></div>{history.length ? <div className="call-history">{history.map((call) => {
       const lead = snapshot?.leads.find((item) => item.id === call.leadId)
       const definition = outcomeDefinition(call.outcome)
       return <article className="call-history__item" key={call.id}><div className="call-history__icon"><PhoneCall size={18} /></div><div className="call-history__content"><div><strong>{lead?.name ?? 'Lead removido'}</strong><StatusPill tone={definition.tone === 'neutral' ? 'info' : definition.tone}>{outcomeLabel(call.outcome)}</StatusPill></div><p>{call.notes || 'Sem anotações.'}</p><span>{formatDateTime(call.startedAt)} · {formatDuration(call.durationSeconds)} · {lead?.company || 'Empresa não informada'}</span>{call.transcript ? <details><summary>Ver transcrição</summary><p>{call.transcript}</p></details> : null}{call.recordingUrl ? <audio src={call.recordingUrl} controls preload="none" /> : null}</div>{canWrite ? <button className="icon-button" type="button" disabled={busyId === call.id} onClick={() => void remove(call.id)} aria-label="Excluir ligação"><Trash2 size={17} /></button> : null}</article>

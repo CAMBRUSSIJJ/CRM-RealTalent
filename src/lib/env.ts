@@ -7,6 +7,8 @@ export const env = {
   dataMode: (clean(import.meta.env.VITE_DATA_MODE) || 'auto') as DataMode,
   supabaseUrl: clean(import.meta.env.VITE_SUPABASE_URL),
   supabasePublishableKey: clean(import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY),
+  releaseChannel: clean(import.meta.env.VITE_RELEASE_CHANNEL) || 'development',
+  commitSha: clean(import.meta.env.VITE_COMMIT_SHA) || 'local',
 }
 
 export const hasSupabaseConfig = Boolean(

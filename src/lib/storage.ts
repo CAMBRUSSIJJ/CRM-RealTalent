@@ -5,6 +5,7 @@ let persistentAvailable: boolean | null = null
 const browserStorage = (): Storage | null => {
   if (persistentAvailable === false) return null
   try {
+    if (typeof window === 'undefined' || !window.localStorage) return null
     const storage = window.localStorage
     const probe = '__crm_v100_probe__'
     storage.setItem(probe, '1')

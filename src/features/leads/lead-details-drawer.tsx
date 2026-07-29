@@ -33,7 +33,7 @@ interface Props {
 }
 
 export function LeadDetailsDrawer({ readOnly = false, lead, duplicateMatches, onClose, onEdit, onActivity, onEvent, onCall, onOpenDuplicate }: Props) {
-  const { snapshot, moveLead, updateLead, setRoute, notify } = useApp()
+  const { snapshot, moveLead, updateLead, setRoute, notify, confirmAction } = useApp()
   const { preferences } = usePreferences()
   const [historyFilter, setHistoryFilter] = useState<HistoryFilter>('all')
   const [busy, setBusy] = useState(false)
@@ -77,9 +77,13 @@ export function LeadDetailsDrawer({ readOnly = false, lead, duplicateMatches, on
   }
 
   const archive = async () => {
-    if (!window.confirm(`Arquivar ${lead.name}? O histórico será preservado.`)) return
+    if (!await confirmAction({ title: `Arquivar ${lead.name}?`, description: 'O lead sairá das filas ativas, mas todo o histórico será preservado.', confirmLabel: 'Arquivar lead', tone: 'warning' })) return
+    const previousStatus = lead.status
     setBusy(true)
-    try { await updateLead(lead.id, { status: 'archived' }); onClose() }
+    try {
+      await updateLead(lead.id, { status: 'archived' }); onClose()
+      notify('info', `${lead.name} foi arquivado.`, { action: { label: 'Desfazer', run: async () => { await updateLead(lead.id, { status: previousStatus }) } } })
+    }
     catch (error) { notify('error', error instanceof Error ? error.message : 'Não foi possível arquivar.') }
     finally { setBusy(false) }
   }

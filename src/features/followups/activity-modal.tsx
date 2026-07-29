@@ -23,7 +23,7 @@ interface Props {
 }
 
 export function ActivityModal({ open, activity, initialLeadId = '', initialType = 'followup', initialTitle = '', onClose }: Props) {
-  const { snapshot, createActivity, updateActivity, deleteActivity, notify } = useApp()
+  const { snapshot, createActivity, updateActivity, deleteActivity, notify, confirmAction } = useApp()
   const [leadId, setLeadId] = useState('')
   const [type, setType] = useState<ActivityType>('followup')
   const [title, setTitle] = useState('')
@@ -62,7 +62,8 @@ export function ActivityModal({ open, activity, initialLeadId = '', initialType 
   }
 
   const remove = async () => {
-    if (!activity || !window.confirm('Excluir esta atividade?')) return
+    if (!activity) return
+    if (!await confirmAction({ title: 'Excluir atividade?', description: 'Esta atividade será removida da fila e do histórico operacional.', confirmLabel: 'Excluir atividade', tone: 'danger' })) return
     setBusy(true)
     try { await deleteActivity(activity.id); onClose() }
     catch (error) { notify('error', error instanceof Error ? error.message : 'Não foi possível excluir.') }

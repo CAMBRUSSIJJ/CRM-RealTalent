@@ -39,7 +39,7 @@ const sourceLabels: Record<string, string> = {
 const allSources = ['google_maps', 'google_search', 'instagram', 'cnpj']
 
 export function ExtensionCenterPanel({ state, loading, canManage, onRefresh }: ExtensionCenterPanelProps) {
-  const { currentWorkspace, repositoryMode, notify } = useApp()
+  const { currentWorkspace, repositoryMode, notify, confirmAction } = useApp()
   const [tab, setTab] = useState<ExtensionTab>('installations')
   const [busy, setBusy] = useState('')
   const [revealedToken, setRevealedToken] = useState('')
@@ -59,7 +59,7 @@ export function ExtensionCenterPanel({ state, loading, canManage, onRefresh }: E
 
   const installationAction = async (installationId: string, action: 'pause' | 'resume' | 'revoke') => {
     if (!currentWorkspace || !canManage) return notify('info', 'Somente administradores podem controlar extensões.')
-    if (action === 'revoke' && !confirm('Revogar esta instalação? Ela precisará ser autenticada novamente para enviar dados.')) return
+    if (action === 'revoke' && !await confirmAction({ title: 'Revogar instalação?', description: 'A extensão perderá a autorização atual e precisará ser autenticada novamente.', confirmLabel: 'Revogar instalação', tone: 'danger' })) return
     setBusy(`installation-${action}-${installationId}`)
     try {
       await updateExtensionInstallation(currentWorkspace.id, installationId, action)
@@ -97,7 +97,8 @@ export function ExtensionCenterPanel({ state, loading, canManage, onRefresh }: E
     finally { setBusy('') }
   }
   const revokeToken = async () => {
-    if (!currentWorkspace || !canManage || !confirm('Revogar o token de ingestão da extensão?')) return
+    if (!currentWorkspace || !canManage) return
+    if (!await confirmAction({ title: 'Revogar token de ingestão?', description: 'A extensão deixará de enviar dados até que um novo token seja gerado e configurado.', confirmLabel: 'Revogar token', tone: 'danger' })) return
     setBusy('revoke-token')
     try { await revokeExtensionToken(currentWorkspace.id); setRevealedToken(''); notify('success', 'Token revogado.') }
     catch (error) { notify('error', error instanceof Error ? error.message : 'Não foi possível revogar o token.') }

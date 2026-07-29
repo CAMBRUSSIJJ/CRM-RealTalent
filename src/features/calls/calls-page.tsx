@@ -1,4 +1,4 @@
-import { BarChart3, CalendarClock, CheckSquare, Clock3, Headphones, History, Mic, PhoneCall, Play, RotateCcw, Search, Settings2, Square, Target, Trash2 } from 'lucide-react'
+import { ArrowUpRight, BarChart3, CalendarClock, CheckSquare, Clock3, Headphones, History, Mic, PhoneCall, Play, RotateCcw, Search, Settings2, Sparkles, Square, Target, Trash2, Zap } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 import { useApp } from '../../app/app-context'
 import { Button } from '../../components/ui/button'
@@ -7,6 +7,7 @@ import { StatusPill } from '../../components/ui/status-pill'
 import { formatDateTime } from '../../domain/formatters'
 import type { CallOutcome, LeadPriority } from '../../domain/types'
 import { buildCallQueue, calculateCallPerformance, outcomeDefinition, outcomeLabel, type CallQueueBucket } from '../../services/call-workspace'
+import { recommendCommercialAction } from '../../services/commercial-execution'
 import { usePreferences } from '../settings/preferences-context'
 import { CallDisplayPreferencesModal } from './call-display-preferences-modal'
 import { readCallDisplayPreferences, saveCallDisplayPreferences, type CallDisplayPreferences } from '../../services/call-display-preferences'
@@ -21,7 +22,7 @@ const bucketLabel: Record<CallQueueBucket, string> = { all: 'Toda a fila', overd
 type CallsView = 'queue' | 'history' | 'performance'
 
 export function CallsPage() {
-  const { snapshot, currentWorkspace, canWrite, deleteCall, notify } = useApp()
+  const { snapshot, currentWorkspace, canWrite, deleteCall, notify, confirmAction, setRoute } = useApp()
   const { preferences } = usePreferences()
   const workspaceId = currentWorkspace?.id ?? snapshot?.workspace.id ?? 'default'
   const [view, setView] = useState<CallsView>('queue')
@@ -44,6 +45,8 @@ export function CallsPage() {
 
   const queue = useMemo(() => buildCallQueue(snapshot?.leads ?? [], snapshot?.calls ?? [], snapshot?.activities ?? [], snapshot?.stages ?? []), [snapshot])
   const stats = useMemo(() => calculateCallPerformance(snapshot?.calls ?? []), [snapshot])
+  const actionSuggestions = useMemo(() => new Map(queue.map((entry) => [entry.lead.id, recommendCommercialAction(entry.lead, entry.stage, snapshot?.calls ?? [], snapshot?.activities ?? [])])), [queue, snapshot?.activities, snapshot?.calls])
+  const urgentActionCount = useMemo(() => [...actionSuggestions.values()].filter((item) => item.urgency === 'critical' || item.urgency === 'high').length, [actionSuggestions])
 
   const filteredQueue = useMemo(() => {
     const normalized = query.trim().toLowerCase()
@@ -88,8 +91,16 @@ export function CallsPage() {
   const toggleQueueLead = (leadId: string) => setSelectedQueueIds((current) => current.includes(leadId) ? current.filter((id) => id !== leadId) : [...current, leadId])
   const selectVisible = () => setSelectedQueueIds((current) => current.length === filteredQueue.length && filteredQueue.every((entry) => current.includes(entry.lead.id)) ? [] : filteredQueue.map((entry) => entry.lead.id))
 
+  const executeSuggestedAction = (leadId: string, kind: ReturnType<typeof recommendCommercialAction>['kind']) => {
+    if (kind === 'prepare_proposal' || kind === 'follow_proposal') { setRoute('proposals'); return }
+    if (kind === 'schedule_meeting') { setRoute('agenda'); return }
+    if (kind === 'complete_contact' || kind === 'identify_decision_maker' || kind === 'review_lead') { setRoute('leads'); return }
+    requestSession(leadId, [leadId])
+  }
+
   const remove = async (id: string) => {
-    if (!window.confirm('Excluir esta ligação e a gravação associada?')) return
+    const confirmed = await confirmAction({ title: 'Excluir ligação?', description: 'A ligação e a gravação associada serão removidas permanentemente.', confirmLabel: 'Excluir ligação', tone: 'danger', details: ['O histórico desta chamada deixará de aparecer no lead.', 'A gravação não poderá ser recuperada.'] })
+    if (!confirmed) return
     setBusyId(id)
     try { await deleteCall(id) } catch (error) { notify('error', error instanceof Error ? error.message : 'Não foi possível excluir.') } finally { setBusyId(null) }
   }
@@ -114,6 +125,7 @@ export function CallsPage() {
       <span><Headphones size={16} /><strong>{stats.answerRate}%</strong> atendidas</span>
       <span><Target size={16} /><strong>{stats.meetings}</strong> reuniões</span>
       <span><Clock3 size={16} /><strong>{formatDuration(stats.averageDuration)}</strong> média</span>
+      <span><Zap size={16} /><strong>{urgentActionCount}</strong> ações prioritárias</span>
     </section> : null}
 
     <section className="calls-view-tabs" aria-label="Visualizações de ligações">
@@ -141,15 +153,17 @@ export function CallsPage() {
         <div className="panel__heading"><div><span className="eyebrow">Prioridade automática</span><h3>Fila de ligação</h3><p>{filteredQueue.length === 1 ? '1 contato nesta visualização' : `${filteredQueue.length} contatos nesta visualização`}</p></div>{canWrite && selectedQueueIds.length ? <Button size="sm" onClick={() => requestSession(selectedQueueIds[0], selectedQueueIds)}><Play size={15} /> Preparar selecionados</Button> : null}</div>
         {filteredQueue.length ? <div className={`call-queue call-queue--professional call-queue--${display.queueDensity}`}>{filteredQueue.map((entry, index) => {
           const selected = selectedQueueIds.includes(entry.lead.id)
+          const suggestion = actionSuggestions.get(entry.lead.id)
           return <article className={`call-queue-card ${selected ? 'is-selected' : ''}`} key={entry.lead.id}>
             {canWrite ? <button className="call-queue-card__check" type="button" onClick={() => toggleQueueLead(entry.lead.id)} aria-label={selected ? 'Remover da seleção' : 'Selecionar lead'}>{selected ? <CheckSquare size={17} /> : <Square size={17} />}</button> : null}
             <div className="call-queue-card__rank">{index + 1}</div>
             <div className="call-queue-card__main">
               <div className="call-queue-card__headline"><div className="lead-cell"><span className="lead-cell__avatar">{entry.lead.name.slice(0, 2).toUpperCase()}</span><div><strong>{entry.lead.name}</strong><small>{entry.lead.company || 'Empresa não informada'} · {entry.lead.city || 'Cidade não informada'}</small></div></div><div className="call-queue-card__badges">{display.showQueueReason ? entry.attempts >= preferences.commercial.maxCallAttempts ? <StatusPill tone="danger">Limite de tentativas</StatusPill> : <StatusPill tone={entry.bucket === 'overdue' ? 'danger' : entry.lead.temperature === 'hot' ? 'warning' : 'info'}>{entry.reason}</StatusPill> : null}<span className={`priority-chip priority-chip--${entry.lead.priority}`}>{priorityLabel[entry.lead.priority]}</span></div></div>
               <div className="call-queue-card__meta"><span><PhoneCall size={14} /> {entry.lead.phone}</span><span><RotateCcw size={14} /> {entry.attempts} {entry.attempts === 1 ? 'tentativa' : 'tentativas'}</span><span><CalendarClock size={14} /> {entry.dueAt ? formatDateTime(entry.dueAt) : 'Sem agendamento'}</span><span><Target size={14} /> {entry.stage?.name ?? 'Sem etapa'}</span></div>
+              {suggestion ? <div className={`call-next-best-action call-next-best-action--${suggestion.urgency}`}><span><Sparkles size={14} /> Próxima melhor ação</span><strong>{suggestion.label}</strong><small>{suggestion.reason}</small></div> : null}
               {display.showLastCall ? entry.lastCall ? <p>Última ligação: <strong>{outcomeLabel(entry.lastCall.outcome)}</strong> · {formatDateTime(entry.lastCall.startedAt)}{entry.lastCall.notes ? ` — ${entry.lastCall.notes}` : ''}</p> : <p>Primeira tentativa registrada para este lead.</p> : null}
             </div>
-            {canWrite ? <div className="call-queue-card__actions"><Button size="sm" onClick={() => requestSession(entry.lead.id, [entry.lead.id])}><PhoneCall size={15} /> Ligar</Button></div> : null}
+            {canWrite ? <div className="call-queue-card__actions"><Button size="sm" onClick={() => suggestion ? executeSuggestedAction(entry.lead.id, suggestion.kind) : requestSession(entry.lead.id, [entry.lead.id])}>{suggestion?.kind === 'call_now' || suggestion?.kind === 'callback' || suggestion?.kind === 'reactivate' ? <PhoneCall size={15} /> : <ArrowUpRight size={15} />} {suggestion?.shortLabel ?? 'Ligar'}</Button></div> : null}
           </article>
         })}</div> : <EmptyState icon={PhoneCall} title="Nenhum lead nesta fila" description="Ajuste os filtros ou cadastre uma próxima ação para os leads ativos." />}
       </div>

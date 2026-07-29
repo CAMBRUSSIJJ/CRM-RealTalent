@@ -1,10 +1,11 @@
 {
   "status": "ok",
   "application": "RealTalent CRM",
-  "version": "100.46.5",
-  "release": "Produção e Homologação Real",
+  "version": "100.49",
+  "release": "commercial-execution-premium",
   "channel": "development",
   "commit": "local",
-  "builtAt": "2026-07-28T04:21:06.910Z",
-  "module": "mapa-de-leads-profissional"
+  "builtAt": "2026-07-29T18:18:17Z",
+  "module": "commercial-execution",
+  "generatedAt": "2026-07-29T18:18:17Z"
 }

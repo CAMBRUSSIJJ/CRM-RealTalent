@@ -18,7 +18,7 @@ interface StageFormValue {
 const emptyValue: StageFormValue = { name: '', color: '#4361ee', probability: 20, outcome: 'active', config: DEFAULT_STAGE_CONFIG }
 
 export function StageModal({ open, stage, leadCount, workspaceId, stageIndex, stageTotal, onClose }: { open: boolean; stage: PipelineStage | null; leadCount: number; workspaceId: string; stageIndex: number; stageTotal: number; onClose(): void }) {
-  const { createStage, updateStage, deleteStage, notify } = useApp()
+  const { createStage, updateStage, deleteStage, notify, confirmAction } = useApp()
   const { preferences: crmPreferences, savePreferences: saveCrmPreferences } = usePreferences()
   const [value, setValue] = useState<StageFormValue>(emptyValue)
   const [saving, setSaving] = useState(false)
@@ -51,7 +51,7 @@ export function StageModal({ open, stage, leadCount, workspaceId, stageIndex, st
 
   const remove = async () => {
     if (!stage || leadCount > 0) return
-    if (!window.confirm(`Excluir a etapa “${stage.name}”?`)) return
+    if (!await confirmAction({ title: `Excluir a etapa “${stage.name}”?`, description: 'A etapa será removida da configuração do Pipeline.', confirmLabel: 'Excluir etapa', tone: 'danger' })) return
     setSaving(true)
     try {
       await deleteStage(stage.id)

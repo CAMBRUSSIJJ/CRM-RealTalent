@@ -85,7 +85,7 @@ const readSavedViews = (workspaceId: string): SavedView[] => {
 }
 
 export function LeadsPage() {
-  const { snapshot, canWrite, importLeadFile, bulkUpdateLeads, bulkDeleteLeads, updateLead, createActivity, notify } = useApp()
+  const { snapshot, canWrite, importLeadFile, bulkUpdateLeads, bulkDeleteLeads, updateLead, createActivity, notify, confirmAction, promptAction } = useApp()
   const { preferences: crmPreferences } = usePreferences()
   const workspaceId = snapshot?.workspace.id ?? 'default'
   const preferences = useMemo(() => readPreferences(workspaceId), [workspaceId])
@@ -200,8 +200,8 @@ export function LeadsPage() {
   }
 
   const applySavedView = (view: SavedView) => { setQuery(''); setFilters(view.filters); setActiveView(view.id) }
-  const saveCurrentView = () => {
-    const name = window.prompt('Nome da visualização:', 'Minha visualização')?.trim()
+  const saveCurrentView = async () => {
+    const name = (await promptAction({ title: 'Salvar visualização', description: 'Dê um nome para reutilizar esta combinação de filtros.', label: 'Nome da visualização', initialValue: 'Minha visualização', confirmLabel: 'Salvar visualização', placeholder: 'Ex.: Leads quentes de São Paulo' }))?.trim()
     if (!name) return
     const view: SavedView = { id: `saved-${Date.now()}`, name, filters }
     setSavedViews((current) => [...current, view]); setActiveView(view.id); notify('success', 'Visualização salva para este navegador.')
@@ -238,7 +238,7 @@ export function LeadsPage() {
   }
 
   const addTagSelected = async () => {
-    const tag = window.prompt('Tag para adicionar aos leads selecionados:')?.trim()
+    const tag = (await promptAction({ title: 'Adicionar tag', description: `A tag será adicionada a ${selected.size} lead(s) selecionado(s).`, label: 'Nome da tag', confirmLabel: 'Adicionar tag', placeholder: 'Ex.: Prioridade comercial' }))?.trim()
     if (!tag || !selected.size) return
     setBusy(true)
     try {
@@ -262,7 +262,8 @@ export function LeadsPage() {
   }
 
   const removeSelected = async () => {
-    if (!selected.size || !window.confirm(`Excluir ${selected.size} lead(s)? Esta ação não pode ser desfeita.`)) return
+    if (!selected.size) return
+    if (!await confirmAction({ title: `Excluir ${selected.size} lead(s)?`, description: 'Os cadastros selecionados serão removidos permanentemente da base.', confirmLabel: 'Excluir leads', tone: 'danger', details: ['Esta ação não pode ser desfeita.', 'Considere arquivar quando precisar preservar o histórico.'] })) return
     setBusy(true)
     try { await bulkDeleteLeads([...selected]); setSelected(new Set()) }
     catch (error) { notify('error', error instanceof Error ? error.message : 'Falha ao excluir leads.') }
@@ -314,7 +315,7 @@ export function LeadsPage() {
           ].map(([id, label]) => <button key={id} type="button" className={activeView === id ? 'is-active' : ''} onClick={() => applyBuiltInView(id)}>{label}</button>)}
           {savedViews.map((view) => <button key={view.id} type="button" className={activeView === view.id ? 'is-active lead-view-tabs__saved' : 'lead-view-tabs__saved'} onClick={() => applySavedView(view)}>{view.name}<X size={13} onClick={(event) => removeSavedView(event, view.id)} /></button>)}
         </div>
-        <Button size="sm" variant="ghost" onClick={saveCurrentView}><Save size={15} /> Salvar visualização</Button>
+        <Button size="sm" variant="ghost" onClick={() => void saveCurrentView()}><Save size={15} /> Salvar visualização</Button>
       </section>
 
       <section className="toolbar-card toolbar-card--wrap leads-toolbar">

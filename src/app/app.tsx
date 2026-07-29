@@ -28,21 +28,23 @@ const ModulePlaceholder = lazy(() => import('../features/modules/module-placehol
 
 function RouteContent() {
   const { route } = useApp()
-  if (route === 'dashboard') return <DashboardPage />
-  if (route === 'leads') return <LeadsPage />
-  if (route === 'commercial-map') return <CommercialMapPage />
-  if (route === 'pipeline') return <PipelinePage />
-  if (route === 'followups') return <FollowupsPage />
-  if (route === 'calls') return <CallsPage />
-  if (route === 'proposals') return <ProposalsPage />
-  if (route === 'agenda') return <AgendaPage />
-  if (route === 'playbooks') return <PlaybooksPage />
-  if (route === 'goals') return <GoalsPage />
-  if (route === 'automations') return <AutomationsPage />
-  if (route === 'metrics') return <MetricsPage />
-  if (route === 'prospecting') return <ProspectingPage />
-  if (route === 'settings') return <SettingsPage />
-  return <ModulePlaceholder route={route} />
+  let content
+  if (route === 'dashboard') content = <DashboardPage />
+  else if (route === 'leads') content = <LeadsPage />
+  else if (route === 'commercial-map') content = <CommercialMapPage />
+  else if (route === 'pipeline') content = <PipelinePage />
+  else if (route === 'followups') content = <FollowupsPage />
+  else if (route === 'calls') content = <CallsPage />
+  else if (route === 'proposals') content = <ProposalsPage />
+  else if (route === 'agenda') content = <AgendaPage />
+  else if (route === 'playbooks') content = <PlaybooksPage />
+  else if (route === 'goals') content = <GoalsPage />
+  else if (route === 'automations') content = <AutomationsPage />
+  else if (route === 'metrics') content = <MetricsPage />
+  else if (route === 'prospecting') content = <ProspectingPage />
+  else if (route === 'settings') content = <SettingsPage />
+  else content = <ModulePlaceholder route={route} />
+  return <div className="route-transition" key={route} data-route={route}>{content}</div>
 }
 
 const LoadingModule = () => <div className="module-loading"><LoaderCircle className="spin" /><span>Carregando módulo...</span></div>

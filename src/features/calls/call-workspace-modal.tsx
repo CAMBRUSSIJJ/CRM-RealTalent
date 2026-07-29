@@ -43,6 +43,7 @@ import { formatDateTime } from '../../domain/formatters'
 import type { CallOutcome, Lead } from '../../domain/types'
 import { deleteLocalRecording, readLocalRecording, saveLocalRecording } from '../../lib/local-recordings'
 import { CALL_OUTCOMES, defaultNextDate, outcomeDefinition, outcomeLabel } from '../../services/call-workspace'
+import { buildStructuredCallSummary, buildWrapRecommendation, recommendCommercialAction } from '../../services/commercial-execution'
 import {
   buildRealTalentConnectProtocolUrl,
   cancelRealTalentConnectCall,
@@ -154,7 +155,7 @@ const writeClipboard = async (content: string) => {
 }
 
 export function CallWorkspaceModal({ open, config, onClose }: { open: boolean; config: CallSessionConfig | null; onClose(): void }) {
-  const { snapshot, currentWorkspace, repositoryMode, registerCallOutcome, notify } = useApp()
+  const { snapshot, currentWorkspace, repositoryMode, registerCallOutcome, notify, confirmAction } = useApp()
   const { preferences } = usePreferences()
   const workspaceId = currentWorkspace?.id ?? snapshot?.workspace.id ?? 'default'
   const display = config?.display
@@ -193,6 +194,10 @@ export function CallWorkspaceModal({ open, config, onClose }: { open: boolean; c
   const [devices, setDevices] = useState<RealTalentConnectDevice[]>([])
   const [deviceId, setDeviceId] = useState('')
   const [connectCommand, setConnectCommand] = useState<ConnectCallCommand | null>(null)
+  const [attemptSaved, setAttemptSaved] = useState(false)
+  const [completedInSession, setCompletedInSession] = useState(0)
+  const [advanceTarget, setAdvanceTarget] = useState<{ leadId: string; index: number } | null>(null)
+  const [advanceCountdown, setAdvanceCountdown] = useState(0)
   const mediaRecorderRef = useRef<MediaRecorder | null>(null)
   const mediaStreamRef = useRef<MediaStream | null>(null)
   const chunksRef = useRef<Blob[]>([])
@@ -204,12 +209,14 @@ export function CallWorkspaceModal({ open, config, onClose }: { open: boolean; c
   const leadCalls = useMemo(() => (snapshot?.calls ?? []).filter((call) => call.leadId === leadId).sort((a, b) => new Date(b.startedAt).getTime() - new Date(a.startedAt).getTime()), [leadId, snapshot])
   const leadActivities = useMemo(() => (snapshot?.activities ?? []).filter((activity) => activity.leadId === leadId).sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()), [leadId, snapshot])
   const selectedStage = snapshot?.stages.find((stage) => stage.id === selectedLead?.stageId)
+  const nextBestAction = useMemo(() => selectedLead ? recommendCommercialAction(selectedLead, selectedStage ?? null, snapshot?.calls ?? [], snapshot?.activities ?? []) : null, [selectedLead, selectedStage, snapshot?.activities, snapshot?.calls])
   const recordingSupported = typeof MediaRecorder !== 'undefined' && Boolean(navigator.mediaDevices?.getUserMedia)
   const speechConstructor = (window as unknown as { SpeechRecognition?: SpeechRecognitionConstructor; webkitSpeechRecognition?: SpeechRecognitionConstructor }).SpeechRecognition
     ?? (window as unknown as { webkitSpeechRecognition?: SpeechRecognitionConstructor }).webkitSpeechRecognition
   const speechSupported = Boolean(speechConstructor)
   const currentDefinition = outcomeDefinition(outcome)
   const currentStep = outboundStepById(currentStepId)
+  const wrapRecommendation = useMemo(() => buildWrapRecommendation(outcome, discovery, notes), [discovery, notes, outcome])
   const activeGuidanceTabs = useMemo<GuidanceTab[]>(() => {
     const next: GuidanceTab[] = []
     if (effectiveDisplay?.showObjections !== false) next.push('objections')
@@ -259,13 +266,19 @@ export function CallWorkspaceModal({ open, config, onClose }: { open: boolean; c
     mediaStreamRef.current = null; mediaRecorderRef.current = null; setRecording(false)
   }, [])
 
-  const hasUnsavedAttempt = Boolean(startedAt || seconds > 0 || notes.trim() || transcript.trim() || interim.trim() || recordingBlob || recording || listening || session !== 'idle' || Object.values(discovery).some(Boolean) || currentStepId !== 'opening')
+  const hasUnsavedAttempt = !attemptSaved && Boolean(startedAt || seconds > 0 || notes.trim() || transcript.trim() || interim.trim() || recordingBlob || recording || listening || session !== 'idle' || Object.values(discovery).some(Boolean) || currentStepId !== 'opening')
 
-  const confirmDiscardAttempt = useCallback((action: string) => {
+  const confirmDiscardAttempt = useCallback(async (action: string) => {
     if (recording) { notify('error', 'Pare a gravação antes de sair desta tentativa.'); return false }
     if (!hasUnsavedAttempt) return true
-    return window.confirm(`Há dados desta ligação ainda não salvos. ${action} irá descartá-los. Deseja continuar?`)
-  }, [hasUnsavedAttempt, notify, recording])
+    return confirmAction({
+      title: 'Descartar tentativa não salva?',
+      description: `${action} irá remover as anotações, o progresso e os dados ainda não salvos desta ligação.`,
+      confirmLabel: 'Descartar e continuar',
+      tone: 'warning',
+      details: ['Gravações em andamento precisam ser encerradas primeiro.', 'Resultados já salvos no histórico não serão alterados.'],
+    })
+  }, [confirmAction, hasUnsavedAttempt, notify, recording])
 
   const clearDraftRecording = useCallback(async () => {
     try { await deleteLocalRecording(DRAFT_RECORDING_KEY) } catch { /* rascunho inexistente */ }
@@ -276,6 +289,7 @@ export function CallWorkspaceModal({ open, config, onClose }: { open: boolean; c
     setLeadId(nextLeadId); setQueueIndex(nextIndex); setSession('idle'); setStartedAt(null); setSeconds(0); setOutcome('answered'); setWrapGroup('conversation')
     setNotes(''); setTranscript(''); setInterim(''); setConsent(false); setRecording(false); setRecordingBlob(null); recordingBlobRef.current = null; setListening(false)
     setScheduleNext(true); setNextAt(nextHourInput()); setCurrentStepId('opening'); setVisitedStepIds(['opening']); setDiscovery(EMPTY_DISCOVERY); setActiveObjectionId(''); setConnectCommand(null)
+    setAttemptSaved(false); setAdvanceTarget(null); setAdvanceCountdown(0)
     setGuidanceTab(activeGuidanceTabs[0] ?? 'lead')
     if (recordingUrl) URL.revokeObjectURL(recordingUrl)
     setRecordingUrl(null)
@@ -292,6 +306,7 @@ export function CallWorkspaceModal({ open, config, onClose }: { open: boolean; c
     setConsent(false); setRecording(false); setRecordingBlob(null); recordingBlobRef.current = null; setListening(false); setScheduleNext(true); setNextAt(nextHourInput())
     setPlaybookId(config.playbookId || snapshot?.playbooks.find((item) => item.kind === 'script' && item.active)?.id || '')
     setDeviceId(config.deviceId); setLocalDisplay(config.display); setFullScreen(true); setCurrentStepId('opening'); setVisitedStepIds(['opening']); setDiscovery(EMPTY_DISCOVERY); setActiveObjectionId(''); setGuidanceTab('objections'); setConnectCommand(null)
+    setAttemptSaved(false); setCompletedInSession(0); setAdvanceTarget(null); setAdvanceCountdown(0)
     if (recordingUrl) URL.revokeObjectURL(recordingUrl); setRecordingUrl(null)
     setShowRecovery(Boolean(safeStorageGet(STORAGE_KEY) ?? safeStorageGet(LEGACY_STORAGE_KEY)))
     void readLocalRecording(DRAFT_RECORDING_KEY).then((blob) => setRecoveryHasAudio(Boolean(blob?.size))).catch(() => setRecoveryHasAudio(false))
@@ -407,8 +422,8 @@ export function CallWorkspaceModal({ open, config, onClose }: { open: boolean; c
     recognitionRef.current = recognition; recognition.start(); setListening(true)
   }
 
-  const moveInQueue = (direction: 1 | -1) => {
-    if (!confirmDiscardAttempt(direction > 0 ? 'Avançar para o próximo lead' : 'Voltar ao lead anterior')) return
+  const moveInQueue = async (direction: 1 | -1) => {
+    if (!await confirmDiscardAttempt(direction > 0 ? 'Avançar para o próximo lead' : 'Voltar ao lead anterior')) return
     const nextIndex = queueIndex + direction
     const nextLeadId = routineIds[nextIndex]
     if (!nextLeadId) { notify('info', direction > 0 ? 'Você chegou ao fim da fila.' : 'Você está no primeiro lead.'); return }
@@ -431,8 +446,12 @@ export function CallWorkspaceModal({ open, config, onClose }: { open: boolean; c
       const contextualNotes = [`Resultado: ${outcomeLabel(outcome)}.`, `Etapa do roteiro: ${currentStep.phase} — ${currentStep.title}.`, selectedPlaybook ? `Material complementar: ${selectedPlaybook.title}.` : '', discoverySummary, notes.trim()].filter(Boolean).join(' ')
       await registerCallOutcome({ leadId, outcome, durationSeconds: seconds, notes: contextualNotes, transcript: `${transcript}${interim ? ` ${interim}` : ''}`.trim(), recordingPath: null, consentAt: blob && consent ? ended : null, startedAt: start, endedAt: ended, scheduleNext, nextAt: scheduleNext && nextAt ? new Date(nextAt).toISOString() : null, meetingDurationMinutes: 30 }, blob)
       safeStorageRemove(STORAGE_KEY); safeStorageRemove(LEGACY_STORAGE_KEY); await clearDraftRecording()
-      if (advance && routineIds[queueIndex + 1]) resetAttempt(routineIds[queueIndex + 1], queueIndex + 1)
-      else onClose()
+      setAttemptSaved(true); setCompletedInSession((current) => current + 1)
+      const nextLeadId = routineIds[queueIndex + 1]
+      if (advance && nextLeadId) {
+        if (config?.autoAdvance) { setAdvanceTarget({ leadId: nextLeadId, index: queueIndex + 1 }); setAdvanceCountdown(config.autoAdvanceSeconds || 3) }
+        else resetAttempt(nextLeadId, queueIndex + 1)
+      } else onClose()
     } catch (error) { notify('error', error instanceof Error ? error.message : 'Não foi possível salvar a ligação.') }
     finally { setBusy(false) }
   }
@@ -441,12 +460,23 @@ export function CallWorkspaceModal({ open, config, onClose }: { open: boolean; c
   const hasPrevious = queueIndex > 0
 
   useEffect(() => {
+    if (!advanceTarget) return
+    if (advanceCountdown <= 0) { resetAttempt(advanceTarget.leadId, advanceTarget.index); return }
+    const timer = window.setTimeout(() => setAdvanceCountdown((current) => Math.max(0, current - 1)), 1000)
+    return () => window.clearTimeout(timer)
+  }, [advanceCountdown, advanceTarget, resetAttempt])
+
+  const advanceNow = () => { if (advanceTarget) resetAttempt(advanceTarget.leadId, advanceTarget.index) }
+  const pauseAutoAdvance = () => { setAdvanceTarget(null); setAdvanceCountdown(0); notify('info', 'Fila pausada. O resultado já está salvo.') }
+  const continueAfterSaved = () => { const nextLeadId = routineIds[queueIndex + 1]; if (nextLeadId) resetAttempt(nextLeadId, queueIndex + 1); else onClose() }
+
+  useEffect(() => {
     if (!open) return
     const onKeyDown = (event: KeyboardEvent) => {
       const target = event.target as HTMLElement | null
       const typing = target?.tagName === 'INPUT' || target?.tagName === 'TEXTAREA' || target?.tagName === 'SELECT'
       if (event.ctrlKey && event.key === 'Enter') { event.preventDefault(); void save(false); return }
-      if (event.altKey && event.key === 'ArrowRight' && hasNext) { event.preventDefault(); moveInQueue(1); return }
+      if (event.altKey && event.key === 'ArrowRight' && hasNext) { event.preventDefault(); void moveInQueue(1); return }
       if (!typing && event.code === 'Space' && ['running', 'paused'].includes(session)) { event.preventDefault(); setSession((current) => current === 'running' ? 'paused' : 'running') }
     }
     window.addEventListener('keydown', onKeyDown)
@@ -461,10 +491,15 @@ export function CallWorkspaceModal({ open, config, onClose }: { open: boolean; c
   const goToStep = (stepId: OutboundStepId) => { setCurrentStepId(stepId); setVisitedStepIds((current) => current.includes(stepId) ? current : [...current, stepId]) }
   const applyScriptAction = (action: OutboundStepAction) => { if (action.note) appendNote(`Roteiro — ${action.note}`); if (action.outcome) selectOutcome(action.outcome); if (action.nextStepId) goToStep(action.nextStepId); else if (action.outcome && ['running', 'paused', 'dialing'].includes(session)) finishSession() }
   const useObjection = (item: ObjectionItem) => { appendNote(`Objeção — ${item.title}. Resposta utilizada: ${item.response} Pergunta de diagnóstico: ${item.diagnosticQuestion}`); setActiveObjectionId(item.id); notify('success', 'Objeção registrada nas anotações.') }
+  const structureSummary = () => {
+    const summary = buildStructuredCallSummary({ notes, transcript: `${transcript}${interim ? ` ${interim}` : ''}`, discovery, outcomeLabel: outcomeLabel(outcome) })
+    if (!summary) { notify('info', 'Registre notas ou dados de descoberta antes de estruturar o resumo.'); return }
+    setNotes(summary); notify('success', 'Resumo estruturado com os dados capturados.')
+  }
 
   const formattedTime = `${String(Math.floor(seconds / 60)).padStart(2, '0')}:${String(seconds % 60).padStart(2, '0')}`
-  const requestClose = () => { if (!confirmDiscardAttempt('Fechar a sessão')) return; cleanupMedia(); if (connectCommand && !['completed', 'failed', 'cancelled', 'expired'].includes(connectCommand.status)) void cancelRealTalentConnectCall(workspaceId, connectCommand.deviceId, connectCommand.id).catch(() => undefined); safeStorageRemove(STORAGE_KEY); safeStorageRemove(LEGACY_STORAGE_KEY); void clearDraftRecording(); onClose() }
-  const discardRecording = async () => { if (recording) { notify('error', 'Pare a gravação antes de descartá-la.'); return }; if (!recordingBlob && !recordingUrl) return; if (!window.confirm('Descartar definitivamente o áudio desta tentativa?')) return; recordingBlobRef.current = null; setRecordingBlob(null); setConsent(false); if (recordingUrl) URL.revokeObjectURL(recordingUrl); setRecordingUrl(null); await clearDraftRecording(); setRecoveryHasAudio(false) }
+  const requestClose = async () => { if (!await confirmDiscardAttempt('Fechar a sessão')) return; cleanupMedia(); if (connectCommand && !['completed', 'failed', 'cancelled', 'expired'].includes(connectCommand.status)) void cancelRealTalentConnectCall(workspaceId, connectCommand.deviceId, connectCommand.id).catch(() => undefined); safeStorageRemove(STORAGE_KEY); safeStorageRemove(LEGACY_STORAGE_KEY); void clearDraftRecording(); onClose() }
+  const discardRecording = async () => { if (recording) { notify('error', 'Pare a gravação antes de descartá-la.'); return }; if (!recordingBlob && !recordingUrl) return; if (!await confirmAction({ title: 'Descartar gravação?', description: 'O áudio desta tentativa será removido permanentemente.', confirmLabel: 'Descartar áudio', tone: 'danger' })) return; recordingBlobRef.current = null; setRecordingBlob(null); setConsent(false); if (recordingUrl) URL.revokeObjectURL(recordingUrl); setRecordingUrl(null); await clearDraftRecording(); setRecoveryHasAudio(false) }
 
   useEffect(() => {
     if (!open || !hasUnsavedAttempt) return
@@ -487,10 +522,11 @@ export function CallWorkspaceModal({ open, config, onClose }: { open: boolean; c
       subtitle={`${routineIds.length ? `${queueIndex + 1} de ${routineIds.length} na fila` : 'Ligação rápida'} · foco no roteiro, resultado e próximo passo.`}
       size={fullScreen ? 'full' : 'xl'}
       headerActions={<div className="call-session-header-actions"><button className="button button--ghost button--sm" type="button" onClick={() => setDisplayOpen(true)}><Settings2 size={16} /> Personalizar</button><button className="button button--secondary button--sm" type="button" onClick={() => setFullScreen((value) => !value)}>{fullScreen ? <Minimize2 size={16} /> : <Maximize2 size={16} />}{fullScreen ? 'Restaurar' : 'Expandir'}</button></div>}
-      footer={<><Button variant="ghost" disabled={!hasPrevious || busy} onClick={() => moveInQueue(-1)}><ArrowLeft size={16} /> Anterior</Button><span className="modal__footer-spacer" />{session === 'finished' ? <><Button variant="secondary" loading={busy} onClick={() => void save(false)}><Save size={16} /> Salvar</Button><Button loading={busy} disabled={!hasNext} onClick={() => void save(true)}><ArrowRight size={16} /> Salvar e próximo</Button></> : <Button variant="secondary" disabled={!hasNext || busy} onClick={() => moveInQueue(1)}><SkipForward size={16} /> Pular lead</Button>}</>}
+      footer={<>{attemptSaved ? <><Button variant="secondary" onClick={requestClose}>Encerrar sessão</Button><span className="modal__footer-spacer" /><Button disabled={!hasNext || Boolean(advanceTarget)} onClick={continueAfterSaved}><ArrowRight size={16} /> Próximo lead</Button></> : <><Button variant="ghost" disabled={!hasPrevious || busy} onClick={() => void moveInQueue(-1)}><ArrowLeft size={16} /> Anterior</Button><span className="modal__footer-spacer" />{session === 'finished' ? <><Button variant="secondary" loading={busy} onClick={() => void save(false)}><Save size={16} /> Salvar e encerrar</Button><Button loading={busy} disabled={!hasNext} onClick={() => void save(true)}><ArrowRight size={16} /> Salvar e próximo</Button></> : <Button variant="secondary" disabled={!hasNext || busy} onClick={() => void moveInQueue(1)}><SkipForward size={16} /> Pular lead</Button>}</>}</>}
     >
       <div className="call-focus-workspace call-focus-workspace--v465">
         {showRecovery ? <section className="call-recovery-banner"><RotateCcw size={20} /><div><strong>Há uma sessão interrompida</strong><span>Recupere roteiro, notas, transcrição, tempo e posição na fila{recoveryHasAudio ? ' e o áudio parcial' : ''}.</span></div><Button size="sm" onClick={recoverSession}>Recuperar</Button><Button size="sm" variant="ghost" onClick={discardRecovery}>Descartar</Button></section> : null}
+        {advanceTarget ? <section className="call-auto-advance-banner"><CheckCircle2 size={21} /><div><strong>Ligação salva. Próximo lead em {advanceCountdown}s</strong><span>{snapshot?.leads.find((lead) => lead.id === advanceTarget.leadId)?.name ?? 'Próximo contato'} será preparado sem iniciar a chamada automaticamente.</span></div><Button size="sm" onClick={advanceNow}><ArrowRight size={15} /> Avançar agora</Button><Button size="sm" variant="ghost" onClick={pauseAutoAdvance}>Pausar fila</Button></section> : null}
 
         <section className="call-session-topbar">
           <div className="call-session-lead"><span className="lead-cell__avatar">{selectedLead?.name.slice(0, 2).toUpperCase() || '--'}</span><div><span>Lead {queueIndex + 1} de {Math.max(routineIds.length, 1)}</span><strong>{selectedLead?.name || 'Selecione um lead'}</strong><small>{selectedLead?.company || 'Empresa não informada'} · {selectedStage?.name ?? 'Sem etapa'} · prioridade {selectedLead ? priorityLabel[selectedLead.priority] : 'não definida'}</small></div></div>
@@ -499,10 +535,12 @@ export function CallWorkspaceModal({ open, config, onClose }: { open: boolean; c
           <div className="call-session-topbar__actions"><Button size="sm" variant="secondary" onClick={() => void copyPhone()} disabled={!selectedLead?.phone}><Copy size={15} /> Copiar</Button>{session === 'idle' ? <Button size="sm" onClick={() => void dialWithConnect()} disabled={!selectedLead?.phone}><Smartphone size={15} /> Ligar pelo Connect</Button> : session === 'dialing' ? <><Button size="sm" onClick={markAnswered}><CheckCircle2 size={15} /> Atendeu</Button><Button size="sm" variant="secondary" onClick={markNoAnswer}>Não atendeu</Button></> : session === 'running' || session === 'paused' ? <><Button size="sm" variant="secondary" onClick={() => setSession((current) => current === 'running' ? 'paused' : 'running')}>{session === 'running' ? <Pause size={15} /> : <Play size={15} />} {session === 'running' ? 'Pausar' : 'Retomar'}</Button><Button size="sm" variant="danger" onClick={finishSession}><Square size={15} /> Encerrar</Button></> : null}</div>
         </section>
 
+        {nextBestAction ? <section className={`call-execution-brief call-execution-brief--${nextBestAction.urgency}`}><Sparkles size={18} /><div><span>Próxima melhor ação</span><strong>{nextBestAction.label}</strong><small>{nextBestAction.reason}</small></div><div className="call-execution-brief__goal"><small>Meta da sessão</small><strong>{completedInSession}/{config?.sessionGoal ?? routineIds.length}</strong></div></section> : null}
+
         <div className={gridClass}>
           {effectiveDisplay?.showQueueSidebar !== false ? <ErrorBoundary><aside className="call-session-queue">
             <div className="call-session-panel-title"><div><span className="eyebrow">Fila da sessão</span><h3>{routineIds.length} contatos</h3></div><StatusPill tone="info">Meta {config?.sessionGoal ?? routineIds.length}</StatusPill></div>
-            <div className="call-session-queue-list">{queueLeads.map((lead, index) => <button type="button" key={lead.id} className={`${index === queueIndex ? 'is-current' : ''} ${index < queueIndex ? 'is-done' : ''}`} onClick={() => { if (index === queueIndex || !confirmDiscardAttempt('Trocar o lead atual')) return; resetAttempt(lead.id, index) }}><span>{index < queueIndex ? <Check size={13} /> : index + 1}</span><div><strong>{lead.name}</strong><small>{lead.company || lead.phone}</small></div></button>)}</div>
+            <div className="call-session-queue-list">{queueLeads.map((lead, index) => <button type="button" key={lead.id} className={`${index === queueIndex ? 'is-current' : ''} ${index < queueIndex ? 'is-done' : ''}`} onClick={() => void (async () => { if (index === queueIndex || !await confirmDiscardAttempt('Trocar o lead atual')) return; resetAttempt(lead.id, index) })()}><span>{index < queueIndex ? <Check size={13} /> : index + 1}</span><div><strong>{lead.name}</strong><small>{lead.company || lead.phone}</small></div></button>)}</div>
             {effectiveDisplay?.showScriptProgress !== false ? <div className="call-macro-progress"><span className="eyebrow">Progresso da conversa</span>{MACRO_PHASES.map((phase) => { const current = phase.id === currentMacro; const complete = phase.steps.every((step) => visitedStepIds.includes(step)) && !current; return <button key={phase.id} type="button" className={`${current ? 'is-current' : ''} ${complete ? 'is-complete' : ''}`} onClick={() => goToStep(phase.steps[0])}><span>{complete ? <Check size={12} /> : MACRO_PHASES.indexOf(phase) + 1}</span><strong>{phase.label}</strong></button> })}</div> : null}
           </aside></ErrorBoundary> : null}
 
@@ -516,7 +554,8 @@ export function CallWorkspaceModal({ open, config, onClose }: { open: boolean; c
               <header><div><span className="eyebrow">Ligação encerrada · {formattedTime}</span><h2>Registre o resultado</h2><p>Escolha uma categoria e preencha apenas o que é necessário.</p></div><StatusPill tone={currentDefinition.tone === 'neutral' ? 'neutral' : currentDefinition.tone}>{currentDefinition.label}</StatusPill></header>
               <div className="call-wrapup-groups">{WRAP_GROUPS.map((group) => <button type="button" key={group.id} className={wrapGroup === group.id ? 'is-active' : ''} onClick={() => { setWrapGroup(group.id); selectOutcome(group.outcomes[0]) }}>{group.label}</button>)}</div>
               <div className="call-wrapup-outcomes">{CALL_OUTCOMES.filter((item) => wrapOptions.includes(item.value)).map((item) => <button type="button" key={item.value} className={outcome === item.value ? 'is-active' : ''} onClick={() => selectOutcome(item.value)}>{item.label}</button>)}</div>
-              <div className={`call-wrapup-fields ${effectiveDisplay?.showTranscript === false ? 'call-wrapup-fields--single' : ''}`}><label className="field"><span>Resumo da conversa</span><textarea rows={5} value={notes} onChange={(event) => setNotes(event.target.value)} placeholder="Dor, contexto, decisão e próximo passo." /></label>{effectiveDisplay?.showTranscript !== false ? <label className="field"><span>Transcrição</span><textarea rows={5} value={`${transcript}${interim ? ` ${interim}` : ''}`} onChange={(event) => { setTranscript(event.target.value); setInterim('') }} placeholder="Transcrição confirmada da conversa." /></label> : null}</div>
+              {config?.smartWrap ? <section className="call-smart-wrap"><Sparkles size={19} /><div><span>Recomendação operacional</span><strong>{wrapRecommendation.title}</strong><p>{wrapRecommendation.description}</p>{wrapRecommendation.checklist.length ? <ul>{wrapRecommendation.checklist.map((item) => <li key={item}>{item}</li>)}</ul> : null}</div><StatusPill tone={wrapRecommendation.closesLead ? 'warning' : wrapRecommendation.scheduleRecommended ? 'success' : 'info'}>{wrapRecommendation.actionLabel}</StatusPill></section> : null}
+              <div className={`call-wrapup-fields ${effectiveDisplay?.showTranscript === false ? 'call-wrapup-fields--single' : ''}`}><label className="field"><span>Resumo da conversa</span><textarea rows={5} value={notes} onChange={(event) => setNotes(event.target.value)} placeholder="Dor, contexto, decisão e próximo passo." /><button className="call-summary-assist" type="button" onClick={structureSummary}><Sparkles size={14} /> Estruturar com dados capturados</button></label>{effectiveDisplay?.showTranscript !== false ? <label className="field"><span>Transcrição</span><textarea rows={5} value={`${transcript}${interim ? ` ${interim}` : ''}`} onChange={(event) => { setTranscript(event.target.value); setInterim('') }} placeholder="Transcrição confirmada da conversa." /></label> : null}</div>
               <section className="call-next-step"><label className="consent-check"><input type="checkbox" checked={scheduleNext} onChange={(event) => setScheduleNext(event.target.checked)} disabled={Boolean(currentDefinition.closesLead)} /><span>{outcome === 'meeting_scheduled' ? 'Criar compromisso na Agenda' : 'Criar próxima ligação no Follow-up'}</span></label><label className="field"><span>Data e horário</span><input type="datetime-local" value={nextAt} onChange={(event) => setNextAt(event.target.value)} disabled={!scheduleNext || Boolean(currentDefinition.closesLead)} /></label><div className="call-next-step__summary"><CalendarPlus size={18} /><div><strong>{currentDefinition.closesLead ? `Lead será marcado como ${currentDefinition.closesLead === 'won' ? 'ganho' : 'perdido'}` : scheduleNext && nextAt ? `Próximo passo em ${formatDateTime(new Date(nextAt).toISOString())}` : 'Sem próximo passo automático'}</strong><span>Pipeline, Agenda e Follow-up serão atualizados ao salvar.</span></div></div></section>
             </section>}
 

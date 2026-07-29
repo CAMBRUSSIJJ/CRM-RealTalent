@@ -1,32 +1,19 @@
-# RealTalent CRM V100.46.5
+# RealTalent CRM V100.48
 
-Release da **Central de Ligações Profissional**, integrada ao RealTalent Connect e com visualização configurável pelo usuário.
+Versão **Ações Profissionais** construída sobre a V100.47 Motion System Global.
 
-## Entregas principais
+## Principais entregas
 
-- preparação da sessão com fila, meta, ordenação, roteiro e dispositivo;
-- integração CRM → RealTalent Connect com fila persistida, estados e fallback telefônico;
-- execução em três áreas: fila, roteiro central e painel de apoio;
-- wrap-up progressivo exibido somente após encerrar a tentativa;
-- resultado obrigatório, próxima ação e comando **Salvar e próximo**;
-- escolha do que exibir na página e durante a sessão;
-- correção do erro `duplicateIds is not defined` na aba Leads;
-- auditoria semântica para impedir identificadores não declarados;
-- Central de Comunicações mantida fora da interface;
-- build independente do registro npm para publicação no Vercel.
+- confirmações próprias do RealTalent em todo o sistema;
+- remoção de `window.confirm` e `window.prompt` do código de produção;
+- campos contextuais para tags, datas e visualizações salvas;
+- notificações com ações, incluindo **Desfazer** em arquivamentos seguros;
+- barras de seleção em massa padronizadas para Leads, Pipeline e Garimpo;
+- foco seguro, acessibilidade e consequências explícitas em ações destrutivas;
+- Motion System V100.47 preservado e estendido.
 
 ## Validação
 
-```bash
-node scripts/source_syntax_audit.mjs
-node scripts/runtime_identifier_audit.mjs
-node scripts/test-registry-independent.mjs
-node scripts/render_stability_audit.mjs
-node scripts/build-registry-independent.mjs
-```
+Execute `npm run typecheck`, `npm run build`, `npm run audit:identifiers`, `npm run audit:render` e `npm run audit:actions`.
 
-## Publicação
-
-Copie o conteúdo desta pasta para a raiz do repositório. O `vercel.json` gera `dist/` sem executar `npm install` no deployment.
-
-Leia `docs/CENTRAL-DE-LIGACOES-V100-46-5.md` e `docs/REALTALENT-CONNECT-V100-46-5.md`.
+Leia `docs/FONTE-OFICIAL-V100-48.md`, `docs/PLANO-HOMOLOGACAO-V100-48.md` e `docs/ACOES-PROFISSIONAIS-V100-48.md`.

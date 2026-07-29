@@ -43,7 +43,7 @@ const recurrenceLabel: Record<AgendaRecurrence, string> = {
 }
 
 export function EventModal({ open, event, initialDate, initialLeadId = '', onClose }: { open: boolean; event?: CalendarEvent | null; initialDate?: Date | null; initialLeadId?: string; onClose(): void }) {
-  const { snapshot, createCalendarEvent, createCalendarEvents, updateCalendarEvent, deleteCalendarEvent, notify } = useApp()
+  const { snapshot, createCalendarEvent, createCalendarEvents, updateCalendarEvent, deleteCalendarEvent, notify, confirmAction } = useApp()
   const { preferences } = usePreferences()
   const [leadId, setLeadId] = useState('')
   const [title, setTitle] = useState('')
@@ -158,7 +158,8 @@ export function EventModal({ open, event, initialDate, initialLeadId = '', onClo
   }
 
   const remove = async () => {
-    if (!event || !window.confirm('Excluir este compromisso e sua atividade vinculada?')) return
+    if (!event) return
+    if (!await confirmAction({ title: 'Excluir compromisso?', description: 'O compromisso e a atividade vinculada serão removidos da agenda e do histórico.', confirmLabel: 'Excluir compromisso', tone: 'danger' })) return
     setBusy(true)
     try { await deleteCalendarEvent(event.id); onClose() }
     catch (error) { notify('error', error instanceof Error ? error.message : 'Não foi possível excluir.') }

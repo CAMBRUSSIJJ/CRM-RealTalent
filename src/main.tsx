@@ -6,6 +6,8 @@ import { AuthProvider } from './features/auth/auth-context'
 import { ErrorBoundary } from './components/ui/error-boundary'
 import { PreferencesProvider } from './features/settings/preferences-context'
 import './styles/index.css'
+import './styles/motion-system.css'
+import './styles/actions-system.css'
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>

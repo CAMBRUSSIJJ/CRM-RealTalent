@@ -38,7 +38,7 @@ const queuePresentation: Record<AutomationQueueStatus, { label: string; tone: 'n
 export function AutomationsPage() {
   const {
     snapshot, currentWorkspace, createAutomationRule, updateAutomationRule, deleteAutomationRule, simulateAutomationRule, runAutomationRule,
-    runAutomationChecks, undoAutomationRun, notify, canWrite,
+    runAutomationChecks, undoAutomationRun, notify, canWrite, confirmAction,
   } = useApp()
   const [tab, setTab] = useState<AutomationTab>('rules')
   const [editing, setEditing] = useState<AutomationRule | null>(null)
@@ -196,7 +196,8 @@ export function AutomationsPage() {
   }
 
   const removeWebhook = async (webhook: AutomationWebhook) => {
-    if (!currentWorkspace || !window.confirm(`Excluir o webhook “${webhook.name}”?`)) return
+    if (!currentWorkspace) return
+    if (!await confirmAction({ title: `Excluir o webhook “${webhook.name}”?`, description: 'As automações deixarão de enviar eventos para este destino.', confirmLabel: 'Excluir webhook', tone: 'danger' })) return
     try { await deleteWebhook(currentWorkspace.id, webhook.id); notify('success', 'Webhook removido.'); await refreshWebhooks() }
     catch (error) { notify('error', error instanceof Error ? error.message : 'Não foi possível remover o webhook.') }
   }
@@ -239,7 +240,7 @@ export function AutomationsPage() {
               <div className="automation-rule-card__flow"><div><small>QUANDO</small><strong>{triggerLabels[rule.triggerType]}</strong></div><i>→</i><div><small>SE</small><strong>{visibleAutomationConditions(rule.conditions).length} condição(ões)</strong></div><i>→</i><div><small>FAZER</small><strong>{rule.actions.length} ação(ões)</strong></div></div>
               <div className="automation-rule-card__safety"><span><ShieldCheck size={14} /> Risco {risk === 'low' ? 'baixo' : risk === 'medium' ? 'médio' : 'alto'}</span><span>{guard.cooldownHours ? `${guard.cooldownHours}h de intervalo` : 'sem intervalo'}</span><span>máx. {guard.maxRunsPerLeadPerDay}/lead/dia</span></div>
               {validation.errors.length || validation.warnings.length ? <div className={`automation-rule-card__warning ${validation.errors.length ? 'is-error' : ''}`}><AlertTriangle size={14} /><span>{validation.errors[0] ?? validation.warnings[0]}</span></div> : null}
-              <footer><div>{lastRun ? <><small>Última execução</small><strong>{formatDateTime(lastRun.startedAt)} · {runLabel(lastRun)}</strong></> : <><small>Ainda não executada</small><strong>Teste com um lead antes de ativar</strong></>}</div><div><button className="icon-button" aria-label="Simular automação" onClick={() => openTest(rule)}><FlaskConical size={16} /></button>{canWrite ? <><button className="icon-button" aria-label="Editar automação" onClick={() => { setEditing(rule); setBuilderOpen(true) }}><Pencil size={16} /></button><button className="icon-button icon-button--danger" aria-label="Excluir automação" onClick={() => { if (window.confirm(`Excluir “${rule.name}”?`)) void deleteAutomationRule(rule.id) }}><Trash2 size={16} /></button></> : null}</div></footer>
+              <footer><div>{lastRun ? <><small>Última execução</small><strong>{formatDateTime(lastRun.startedAt)} · {runLabel(lastRun)}</strong></> : <><small>Ainda não executada</small><strong>Teste com um lead antes de ativar</strong></>}</div><div><button className="icon-button" aria-label="Simular automação" onClick={() => openTest(rule)}><FlaskConical size={16} /></button>{canWrite ? <><button className="icon-button" aria-label="Editar automação" onClick={() => { setEditing(rule); setBuilderOpen(true) }}><Pencil size={16} /></button><button className="icon-button icon-button--danger" aria-label="Excluir automação" onClick={() => void (async () => { if (await confirmAction({ title: `Excluir “${rule.name}”?`, description: 'A regra será removida e não executará novamente.', confirmLabel: 'Excluir automação', tone: 'danger' })) await deleteAutomationRule(rule.id) })()}><Trash2 size={16} /></button></> : null}</div></footer>
             </article>
           })}
           {!filteredRules.length ? <div className="automation-empty-span"><EmptyState icon={Sparkles} title="Nenhuma regra encontrada" description="Ajuste os filtros, crie uma automação ou use um template pronto." /></div> : null}

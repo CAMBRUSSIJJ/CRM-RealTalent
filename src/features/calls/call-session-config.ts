@@ -6,5 +6,8 @@ export interface CallSessionConfig {
   deviceId: string
   playbookId: string
   sessionGoal: number
+  autoAdvance: boolean
+  autoAdvanceSeconds: number
+  smartWrap: boolean
   display: CallDisplayPreferences
 }

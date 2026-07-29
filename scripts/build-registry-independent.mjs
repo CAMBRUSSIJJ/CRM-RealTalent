@@ -127,7 +127,10 @@ fs.mkdirSync(assets, { recursive: true })
 const jsName = `realtalent-crm-${label.toLowerCase()}.js`
 const cssName = `realtalent-crm-${label.toLowerCase()}.css`
 fs.writeFileSync(path.join(assets, jsName), bundle)
-fs.writeFileSync(path.join(assets, cssName), fs.readFileSync(path.join(srcRoot, 'styles', 'index.css'), 'utf8'))
+const cssSources = ['index.css', 'motion-system.css', 'actions-system.css']
+  .map((name) => fs.readFileSync(path.join(srcRoot, 'styles', name), 'utf8'))
+  .join('\n\n')
+fs.writeFileSync(path.join(assets, cssName), cssSources)
 for (const file of walk(path.join(root, 'public'))) {
   const relative = path.relative(path.join(root, 'public'), file)
   const target = path.join(dist, relative)

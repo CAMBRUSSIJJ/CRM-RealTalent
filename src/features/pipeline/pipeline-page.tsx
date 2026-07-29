@@ -45,7 +45,7 @@ function SummaryCard({ label, value, detail, tone = 'default' }: { label: string
 }
 
 export function PipelinePage() {
-  const { snapshot, canWrite, moveLead, bulkMoveLeads, bulkUpdateLeads, bulkAddLeadTag, createActivities, notify } = useApp()
+  const { snapshot, canWrite, moveLead, bulkMoveLeads, bulkUpdateLeads, bulkAddLeadTag, createActivities, notify, confirmAction, promptAction } = useApp()
   const { preferences: crmPreferences } = usePreferences()
   const { user } = useAuth()
   const workspaceId = snapshot?.workspace.id ?? ''
@@ -177,7 +177,7 @@ export function PipelinePage() {
   const pagedFiltered = filtered.slice((listSafePage - 1) * listPageSize, listSafePage * listPageSize)
   useEffect(() => { setListPage(1) }, [filters, scope, sort, listPageSize])
 
-  const validateMove = (lead: Lead, target: PipelineStage): boolean => {
+  const validateMove = async (lead: Lead, target: PipelineStage): Promise<boolean> => {
     const config = stagePolicies.get(target.id) ?? recommendedStagePolicy(target)
     const currentIndex = snapshot?.stages.findIndex((stage) => stage.id === lead.stageId) ?? -1
     const targetIndex = snapshot?.stages.findIndex((stage) => stage.id === target.id) ?? -1
@@ -185,7 +185,7 @@ export function PipelinePage() {
     if (config.requireValue && lead.value <= 0) { notify('error', `Informe o valor de ${lead.name} antes de mover para ${target.name}.`); return false }
     if ((config.requireNextAction || (crmPreferences.commercial.requireNextActionForActiveLeads && !target.isWon && !target.isLost)) && !lead.nextActionAt) { notify('error', `Defina a próxima ação de ${lead.name} antes de mover para ${target.name}.`); return false }
     if (config.preventSkipping && currentIndex >= 0 && targetIndex > currentIndex + 1) { notify('error', `A etapa ${target.name} não permite saltos. Avance uma etapa por vez.`); return false }
-    if (config.confirmBackward && currentIndex >= 0 && targetIndex >= 0 && targetIndex < currentIndex && !window.confirm(`Retroceder ${lead.name} para “${target.name}”?`)) return false
+    if (config.confirmBackward && currentIndex >= 0 && targetIndex >= 0 && targetIndex < currentIndex && !await confirmAction({ title: `Retroceder ${lead.name}?`, description: `A oportunidade voltará para a etapa “${target.name}”.`, confirmLabel: 'Retroceder etapa', tone: 'warning' })) return false
     return true
   }
 
@@ -201,7 +201,7 @@ export function PipelinePage() {
   const guardedMove = async (lead: Lead, stageId: string) => {
     if (lead.stageId === stageId) return true
     const target = snapshot?.stages.find((stage) => stage.id === stageId)
-    if (!target || !validateMove(lead, target)) return false
+    if (!target || !await validateMove(lead, target)) return false
     let lossReason: string | null = null
     if (target.isLost) {
       lossReason = await requestLossReason(lead.name)
@@ -229,17 +229,19 @@ export function PipelinePage() {
     try {
       if (action === 'priority' && value) await bulkUpdateLeads(selectedIds, { priority: value as Lead['priority'] })
       if (action === 'tag') {
-        const tag = window.prompt('Tag que será adicionada aos leads selecionados:', '')?.trim()
+        const tag = (await promptAction({ title: 'Adicionar tag', description: `A tag será aplicada a ${selectedIds.length} oportunidade(s).`, label: 'Nome da tag', confirmLabel: 'Adicionar tag', placeholder: 'Ex.: Follow-up prioritário' }))?.trim()
         if (!tag) return
         await bulkAddLeadTag(selectedIds, tag)
       }
       if (action === 'archive') {
-        if (!window.confirm(`Arquivar ${selectedIds.length} oportunidade(s)?`)) return
+        if (!await confirmAction({ title: `Arquivar ${selectedIds.length} oportunidade(s)?`, description: 'Elas sairão do Pipeline ativo, mantendo o histórico comercial.', confirmLabel: 'Arquivar oportunidades', tone: 'warning' })) return
+        const previous = selectedLeads.map((lead) => ({ id: lead.id, status: lead.status }))
         await bulkUpdateLeads(selectedIds, { status: 'archived' })
+        notify('info', `${selectedIds.length} oportunidade(s) arquivada(s).`, { action: { label: 'Desfazer', run: async () => { for (const item of previous) await bulkUpdateLeads([item.id], { status: item.status }) } } })
       }
       if (action === 'followup') {
         const tomorrow = new Date(); tomorrow.setDate(tomorrow.getDate() + 1); tomorrow.setHours(9, 0, 0, 0)
-        const raw = window.prompt('Data do follow-up (AAAA-MM-DDTHH:MM):', localDateInput(tomorrow))
+        const raw = await promptAction({ title: 'Criar follow-up em massa', description: `Defina quando os ${selectedIds.length} follow-ups devem entrar na fila.`, label: 'Data e horário', initialValue: localDateInput(tomorrow), inputType: 'datetime-local', confirmLabel: 'Criar follow-ups' })
         if (!raw) return
         const date = new Date(raw)
         if (Number.isNaN(date.getTime())) { notify('error', 'Data inválida.'); return }
@@ -257,7 +259,7 @@ export function PipelinePage() {
       const target = snapshot?.stages.find((stage) => stage.id === stageId)
       if (!target) throw new Error('Etapa não encontrada.')
       for (const lead of selectedLeads) {
-        if (lead.stageId !== stageId && !validateMove(lead, target)) return
+        if (lead.stageId !== stageId && !await validateMove(lead, target)) return
       }
       let lossReason: string | null = null
       if (target.isLost) {
@@ -272,8 +274,8 @@ export function PipelinePage() {
     finally { setBulkBusy(false) }
   }
 
-  const saveView = () => {
-    const name = window.prompt('Nome desta visualização:', '')?.trim()
+  const saveView = async () => {
+    const name = (await promptAction({ title: 'Salvar visão do Pipeline', description: 'Dê um nome para reutilizar os filtros e o modo de visualização atuais.', label: 'Nome da visão', confirmLabel: 'Salvar visão', placeholder: 'Ex.: Propostas em risco' }))?.trim()
     if (!name) return
     const saved: PipelineSavedView = { id: `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`, name, filters, viewMode, compact, sort }
     persistPreferences((current) => ({ ...current, savedViews: [...current.savedViews, saved] }))
@@ -488,7 +490,7 @@ export function PipelinePage() {
         <select className="pipeline-saved-select" defaultValue="" onChange={(event) => { applySavedView(event.target.value); event.currentTarget.value = '' }}><option value="">Visualizações salvas</option>{preferences.savedViews.map((item) => <option value={item.id} key={item.id}>{item.name}</option>)}</select>
       </div>
       <div className="toolbar-card__actions">
-        <Button variant="ghost" onClick={saveView}><Bookmark size={16} /> Salvar visão</Button>
+        <Button variant="ghost" onClick={() => void saveView()}><Bookmark size={16} /> Salvar visão</Button>
         <Button variant="secondary" onClick={() => setSettingsOpen(true)}><Settings2 size={17} /> Cards</Button>
         <Button variant="secondary" onClick={() => setCompact((value) => !value)}><Columns3 size={17} /> {compact ? 'Confortável' : 'Compacto'}</Button>
         {canManageStages && canWrite ? <Button variant="secondary" onClick={() => setStageEditing('new')}><Plus size={17} /> Nova etapa</Button> : null}

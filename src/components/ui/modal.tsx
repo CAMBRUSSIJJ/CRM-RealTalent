@@ -1,5 +1,5 @@
 import { X } from 'lucide-react'
-import { useEffect, useId, useRef, type PropsWithChildren, type ReactNode } from 'react'
+import { useEffect, useId, useRef, useState, type PropsWithChildren, type ReactNode } from 'react'
 
 interface ModalProps {
   open: boolean
@@ -11,10 +11,28 @@ interface ModalProps {
   size?: 'sm' | 'md' | 'lg' | 'xl' | 'full'
 }
 
+const EXIT_DURATION_MS = 180
+let modalLockCount = 0
+
 export function Modal({ open, title, subtitle, footer, headerActions, onClose, size = 'md', children }: PropsWithChildren<ModalProps>) {
   const titleId = useId()
   const subtitleId = useId()
   const dialogRef = useRef<HTMLElement>(null)
+  const [mounted, setMounted] = useState(open)
+  const [closing, setClosing] = useState(false)
+
+  useEffect(() => {
+    if (open) {
+      setMounted(true)
+      setClosing(false)
+      return
+    }
+    if (!mounted) return
+    setClosing(true)
+    const timer = window.setTimeout(() => { setMounted(false); setClosing(false) }, EXIT_DURATION_MS)
+    return () => window.clearTimeout(timer)
+  }, [mounted, open])
+
   useEffect(() => {
     if (!open) return
     const previouslyFocused = document.activeElement instanceof HTMLElement ? document.activeElement : null
@@ -35,18 +53,26 @@ export function Modal({ open, title, subtitle, footer, headerActions, onClose, s
       else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus() }
     }
     document.addEventListener('keydown', onKeyDown)
-    document.body.classList.add('modal-open')
     return () => {
       document.removeEventListener('keydown', onKeyDown)
-      document.body.classList.remove('modal-open')
       previouslyFocused?.focus()
     }
   }, [onClose, open])
 
-  if (!open) return null
+  useEffect(() => {
+    if (!open) return
+    modalLockCount += 1
+    document.body.classList.add('modal-open')
+    return () => {
+      modalLockCount = Math.max(0, modalLockCount - 1)
+      if (modalLockCount === 0) document.body.classList.remove('modal-open')
+    }
+  }, [open])
+
+  if (!mounted) return null
   return (
-    <div className="modal-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose() }}>
-      <section ref={dialogRef} tabIndex={-1} className={`modal modal--${size}`} role="dialog" aria-modal="true" aria-labelledby={titleId} aria-describedby={subtitle ? subtitleId : undefined}>
+    <div className={`modal-backdrop ${closing ? 'is-closing' : ''}`} role="presentation" onMouseDown={(event) => { if (open && event.target === event.currentTarget) onClose() }}>
+      <section ref={dialogRef} tabIndex={-1} className={`modal modal--${size} ${closing ? 'is-closing' : ''}`} role="dialog" aria-modal="true" aria-labelledby={titleId} aria-describedby={subtitle ? subtitleId : undefined}>
         <header className="modal__header">
           <div>
             <h2 id={titleId}>{title}</h2>

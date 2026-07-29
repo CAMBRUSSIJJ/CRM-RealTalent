@@ -20,6 +20,10 @@ const walk = (directory) => {
 }
 for (const directory of includedRoots) walk(path.join(root, directory))
 for (const file of fixedFiles) if (fs.existsSync(path.join(root, file))) files.push(file)
+for (const file of fs.readdirSync(root)) {
+  const fullPath = path.join(root, file)
+  if (fs.statSync(fullPath).isFile() && file.includes(releaseLabel) && !file.startsWith('RELEASE-MANIFEST-')) files.push(file)
+}
 const unique = [...new Set(files)].sort()
 const entries = unique.map((file) => ({ file, bytes: fs.statSync(path.join(root, file)).size, sha256: crypto.createHash('sha256').update(fs.readFileSync(path.join(root, file))).digest('hex') }))
 const manifest = { application: 'RealTalent CRM', version: packageJson.version, sourceOfTruth: 'React + TypeScript + Vite', generatedAt: new Date().toISOString(), files: entries }

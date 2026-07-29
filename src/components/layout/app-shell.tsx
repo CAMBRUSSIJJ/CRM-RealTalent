@@ -3,6 +3,7 @@ import { Sidebar } from './sidebar'
 import { Topbar } from './topbar'
 import { MobileNav } from './mobile-nav'
 import { ToastRegion } from '../ui/toast-region'
+import { ActionDialogCenter } from '../ui/action-dialog-center'
 import { Eye } from 'lucide-react'
 import { useApp } from '../../app/app-context'
 import { AgendaReminderWatcher } from '../../features/agenda/agenda-reminder-watcher'
@@ -29,6 +30,7 @@ export function AppShell({ children }: PropsWithChildren) {
       <MobileNav />
       <AgendaReminderWatcher />
       <ToastRegion />
+      <ActionDialogCenter />
     </div>
   )
 }

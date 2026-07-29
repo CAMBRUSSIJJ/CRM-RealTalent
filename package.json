@@ -1,7 +1,7 @@
 {
-  "name": "realtalent-crm-v100-46-5-central-ligacoes-profissional",
+  "name": "realtalent-crm-v100-49-commercial-execution",
   "private": true,
-  "version": "100.46.5",
+  "version": "100.49.0",
   "type": "module",
   "scripts": {
     "dev": "vite --host 0.0.0.0",
@@ -9,7 +9,9 @@
     "preview": "vite preview --host 0.0.0.0",
     "typecheck": "node scripts/source_syntax_audit.mjs",
     "audit:render": "node scripts/render_stability_audit.mjs",
-    "audit:identifiers": "node scripts/runtime_identifier_audit.mjs"
+    "audit:identifiers": "node scripts/runtime_identifier_audit.mjs",
+    "audit:actions": "node scripts/action_system_audit.mjs",
+    "audit:execution": "node scripts/commercial_execution_audit.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "2.110.7",

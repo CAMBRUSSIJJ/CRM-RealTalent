@@ -32,7 +32,7 @@ const paceLabel = (insight: GoalInsight) => insight.percentage >= 100 ? 'Atingid
 const paceTone = (insight: GoalInsight) => insight.percentage >= 100 ? 'success' : insight.pace === 'at_risk' ? 'danger' : insight.pace === 'attention' ? 'warning' : 'info'
 
 export function GoalsPage() {
-  const { snapshot, currentWorkspace, createGoal, updateGoal, deleteGoal, createActivities, listWorkspaceMembers, notify, canWrite } = useApp()
+  const { snapshot, currentWorkspace, createGoal, updateGoal, deleteGoal, createActivities, listWorkspaceMembers, notify, canWrite, confirmAction } = useApp()
   const [modalOpen, setModalOpen] = useState(false)
   const [routineOpen, setRoutineOpen] = useState(false)
   const [editing, setEditing] = useState<Goal | null>(null)
@@ -84,7 +84,7 @@ export function GoalsPage() {
   }
 
   const remove = async (goal: Goal) => {
-    if (!window.confirm(`Remover a meta “${goalMetricLabels[goal.metric]}”?`)) return
+    if (!await confirmAction({ title: 'Remover meta?', description: `A meta “${goalMetricLabels[goal.metric]}” deixará de aparecer no acompanhamento da equipe.`, confirmLabel: 'Remover meta', tone: 'danger' })) return
     try { await deleteGoal(goal.id) } catch (error) { notify('error', error instanceof Error ? error.message : 'Não foi possível remover.') }
   }
 

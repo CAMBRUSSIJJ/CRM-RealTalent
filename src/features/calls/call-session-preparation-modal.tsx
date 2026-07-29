@@ -32,6 +32,9 @@ export function CallSessionPreparationModal({ open, leadIds, initialLeadId, onCl
   const [goal, setGoal] = useState(10)
   const [limit, setLimit] = useState(20)
   const [order, setOrder] = useState<QueueOrder>('smart')
+  const [autoAdvance, setAutoAdvance] = useState(true)
+  const [autoAdvanceSeconds, setAutoAdvanceSeconds] = useState(3)
+  const [smartWrap, setSmartWrap] = useState(true)
   const [loadingDevices, setLoadingDevices] = useState(false)
   const [display, setDisplay] = useState<CallDisplayPreferences>(() => readCallDisplayPreferences(workspaceId))
   const [displayOpen, setDisplayOpen] = useState(false)
@@ -78,7 +81,7 @@ export function CallSessionPreparationModal({ open, leadIds, initialLeadId, onCl
     if (deviceId) saveDefaultConnectDevice(workspaceId, deviceId)
     saveCallDisplayPreferences(workspaceId, display)
     const preferred = initialLeadId && availableLeads.some((lead) => lead.id === initialLeadId) ? initialLeadId : availableLeads[0].id
-    onStart({ leadIds: availableLeads.map((lead) => lead.id), initialLeadId: preferred, deviceId, playbookId, sessionGoal: goal, display })
+    onStart({ leadIds: availableLeads.map((lead) => lead.id), initialLeadId: preferred, deviceId, playbookId, sessionGoal: goal, autoAdvance, autoAdvanceSeconds, smartWrap, display })
   }
 
   return <>
@@ -113,7 +116,12 @@ export function CallSessionPreparationModal({ open, leadIds, initialLeadId, onCl
           <div className="call-preparation-card__title"><PhoneCall size={19} /><div><strong>Roteiro e execução</strong><span>Selecione o material principal da sessão.</span></div></div>
           <label className="field"><span>Roteiro da equipe</span><select value={playbookId} onChange={(event) => setPlaybookId(event.target.value)}><option value="">Roteiro outbound padrão</option>{snapshot?.playbooks.filter((item) => item.kind === 'script' && item.active).map((item) => <option key={item.id} value={item.id}>{item.title}</option>)}</select></label>
           <div className="call-preparation-info"><Target size={17} /><div><strong>Objetivo da sessão</strong><span>Trabalhar a fila sem alternar entre páginas e registrar um próximo passo obrigatório.</span></div></div>
-          <div className="call-preparation-info"><Clock3 size={17} /><div><strong>Wrap-up progressivo</strong><span>O formulário de resultado aparece somente depois que a tentativa for encerrada.</span></div></div>
+          <div className="call-execution-options">
+            <label className="call-execution-toggle"><input type="checkbox" checked={smartWrap} onChange={(event) => setSmartWrap(event.target.checked)} /><span><strong>Wrap-up inteligente</strong><small>Exibe recomendação operacional conforme o resultado da ligação.</small></span></label>
+            <label className="call-execution-toggle"><input type="checkbox" checked={autoAdvance} onChange={(event) => setAutoAdvance(event.target.checked)} /><span><strong>Avanço automático visível</strong><small>Após salvar, prepara o próximo lead com contagem regressiva.</small></span></label>
+            {autoAdvance ? <label className="field"><span>Intervalo entre contatos</span><select value={autoAdvanceSeconds} onChange={(event) => setAutoAdvanceSeconds(Number(event.target.value))}><option value={3}>3 segundos</option><option value={5}>5 segundos</option><option value={8}>8 segundos</option></select></label> : null}
+          </div>
+          <div className="call-preparation-info"><Clock3 size={17} /><div><strong>Execução contínua</strong><span>O vendedor mantém controle para avançar agora, pausar a fila ou encerrar a sessão.</span></div></div>
         </section>
 
         <section className="call-preparation-card call-preparation-card--display">

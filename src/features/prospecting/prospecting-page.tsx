@@ -50,7 +50,7 @@ interface SendOptions {
 const initialState: ProspectingState = { prospects: [], history: [], lastExtensionSyncAt: null }
 
 export function ProspectingPage() {
-  const { snapshot, currentWorkspace, createLead, updateLead, createActivity, notify, setRoute, canWrite } = useApp()
+  const { snapshot, currentWorkspace, createLead, updateLead, createActivity, notify, setRoute, canWrite, confirmAction } = useApp()
   const { preferences } = usePreferences()
   const workspaceId = currentWorkspace?.id ?? ''
   const [state, setState] = useState<ProspectingState>(initialState)
@@ -217,8 +217,8 @@ export function ProspectingPage() {
     setSelectedIds(new Set())
   }
 
-  const removeProspects = (ids: string[]) => {
-    if (!window.confirm(`Remover ${ids.length} registro(s) do Garimpo?`)) return
+  const removeProspects = async (ids: string[]) => {
+    if (!await confirmAction({ title: `Remover ${ids.length} registro(s)?`, description: 'Os itens serão retirados da base de processamento do Garimpo.', confirmLabel: 'Remover registros', tone: 'danger' })) return
     const idSet = new Set(ids)
     commit((current) => appendHistory({ ...current, prospects: current.prospects.filter((item) => !idSet.has(item.id)) }, workspaceId, { action: 'delete', title: 'Registros removidos', description: 'Exclusão manual da base de processamento.', count: ids.length }))
     setSelectedIds(new Set())

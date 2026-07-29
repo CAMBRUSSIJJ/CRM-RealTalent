@@ -21,7 +21,35 @@ import { dispatchAutomationWebhook } from '../services/automation-webhooks'
 import { queueCalendarMutation } from '../services/calendar-integration'
 import { normalizeSnapshotForRender } from '../services/snapshot-safety'
 
-interface ToastMessage { id: number; type: 'success' | 'error' | 'info'; message: string }
+export interface ToastAction { label: string; run: () => void | Promise<void> }
+export interface ToastOptions { action?: ToastAction; duration?: number; persistent?: boolean }
+export interface ToastMessage { id: number; type: 'success' | 'error' | 'info'; message: string; closing?: boolean; action?: ToastAction; duration: number }
+
+export type ActionDialogTone = 'default' | 'warning' | 'danger'
+export interface ConfirmActionOptions {
+  title: string
+  description: string
+  confirmLabel?: string
+  cancelLabel?: string
+  tone?: ActionDialogTone
+  details?: string[]
+}
+export interface PromptActionOptions extends ConfirmActionOptions {
+  label: string
+  initialValue?: string
+  placeholder?: string
+  inputType?: 'text' | 'datetime-local'
+  required?: boolean
+}
+export interface ActionDialogState extends ConfirmActionOptions {
+  id: number
+  kind: 'confirm' | 'prompt'
+  label?: string
+  initialValue?: string
+  placeholder?: string
+  inputType?: 'text' | 'datetime-local'
+  required?: boolean
+}
 
 interface LeadClassificationInput { leadId: string; priority: Lead['priority']; temperature: Lead['temperature']; score?: number }
 
@@ -49,6 +77,11 @@ interface AppContextValue {
   loading: boolean
   error: string | null
   toasts: ToastMessage[]
+  dismissToast(id: number): void
+  actionDialog: ActionDialogState | null
+  confirmAction(options: ConfirmActionOptions): Promise<boolean>
+  promptAction(options: PromptActionOptions): Promise<string | null>
+  resolveActionDialog(value: boolean | string | null): void
   setCurrentWorkspace(id: string): Promise<void>
   createWorkspace(name: string): Promise<void>
   listWorkspaceMembers(): Promise<WorkspaceMember[]>
@@ -117,7 +150,7 @@ interface AppContextValue {
   restoreWorkspaceBackup(file: File): Promise<{ imported: number; warnings: string[] }>
   importLegacyBackup(file: File): Promise<{ imported: number; warnings: string[] }>
   importLeadFile(file: File): Promise<{ imported: number; warnings: string[] }>
-  notify(type: ToastMessage['type'], message: string): void
+  notify(type: ToastMessage['type'], message: string, options?: ToastOptions): void
 }
 
 const AppContext = createContext<AppContextValue | null>(null)
@@ -135,11 +168,50 @@ export function AppProvider({ children }: PropsWithChildren) {
   const [error, setError] = useState<string | null>(null)
   const [toasts, setToasts] = useState<ToastMessage[]>([])
   const toastId = useRef(0)
+  const toastTimers = useRef(new Map<number, number>())
+  const [actionDialog, setActionDialog] = useState<ActionDialogState | null>(null)
+  const actionDialogId = useRef(0)
+  const actionDialogResolver = useRef<((value: boolean | string | null) => void) | null>(null)
 
-  const notify = useCallback((type: ToastMessage['type'], message: string) => {
+  const dismissToast = useCallback((id: number) => {
+    const timer = toastTimers.current.get(id)
+    if (timer) window.clearTimeout(timer)
+    toastTimers.current.delete(id)
+    setToasts((current) => current.map((toast) => toast.id === id ? { ...toast, closing: true } : toast))
+    window.setTimeout(() => setToasts((current) => current.filter((toast) => toast.id !== id)), 180)
+  }, [])
+
+  const notify = useCallback((type: ToastMessage['type'], message: string, options?: ToastOptions) => {
     const id = ++toastId.current
-    setToasts((current) => [...current, { id, type, message }])
-    window.setTimeout(() => setToasts((current) => current.filter((toast) => toast.id !== id)), 4200)
+    const duration = Math.max(2200, options?.duration ?? (options?.action ? 7000 : 4200))
+    setToasts((current) => [...current.slice(-3), { id, type, message, action: options?.action, duration }])
+    if (!options?.persistent) {
+      const timer = window.setTimeout(() => dismissToast(id), duration)
+      toastTimers.current.set(id, timer)
+    }
+  }, [dismissToast])
+
+  const openActionDialog = useCallback((dialog: Omit<ActionDialogState, 'id'>) => new Promise<boolean | string | null>((resolve) => {
+    actionDialogResolver.current?.(null)
+    actionDialogResolver.current = resolve
+    setActionDialog({ ...dialog, id: ++actionDialogId.current })
+  }), [])
+
+  const confirmAction = useCallback(async (options: ConfirmActionOptions) => {
+    const result = await openActionDialog({ kind: 'confirm', ...options })
+    return result === true
+  }, [openActionDialog])
+
+  const promptAction = useCallback(async (options: PromptActionOptions) => {
+    const result = await openActionDialog({ kind: 'prompt', ...options })
+    return typeof result === 'string' ? result : null
+  }, [openActionDialog])
+
+  const resolveActionDialog = useCallback((value: boolean | string | null) => {
+    const resolve = actionDialogResolver.current
+    actionDialogResolver.current = null
+    setActionDialog(null)
+    resolve?.(value)
   }, [])
 
   const canWrite = currentWorkspace?.role !== 'viewer'
@@ -488,7 +560,7 @@ export function AppProvider({ children }: PropsWithChildren) {
   }, [currentWorkspace, notify, refreshData, repository])
 
   const value = useMemo<AppContextValue>(() => ({
-    route, setRoute, repositoryMode: repository.mode, health, workspaces, currentWorkspace, canWrite, snapshot, loading, error, toasts,
+    route, setRoute, repositoryMode: repository.mode, health, workspaces, currentWorkspace, canWrite, snapshot, loading, error, toasts, dismissToast, actionDialog, confirmAction, promptAction, resolveActionDialog,
     reinitialize: bootstrap,
     async synchronizeCommercialStructure() { assertWritable(); if (!currentWorkspace) throw new Error('Selecione um workspace.'); const result = await repository.synchronizeCommercialStructure(currentWorkspace.id); await refreshData(); notify('success', `Estrutura sincronizada: ${result.leadsLinked} lead(s) vinculados.`); return result },
     async setCurrentWorkspace(id) {
@@ -903,7 +975,7 @@ export function AppProvider({ children }: PropsWithChildren) {
       await refreshData(); notify('success', `${imported} lead(s) importado(s).`); return { imported, warnings: result.warnings }
     },
     notify,
-  }), [assertWritable, bootstrap, canWrite, currentWorkspace, error, executeAutomationEvent, health, loadWorkspace, loading, notify, refreshData, repository, route, snapshot, toasts, user?.id, workspaces])
+  }), [actionDialog, assertWritable, bootstrap, canWrite, confirmAction, currentWorkspace, dismissToast, error, executeAutomationEvent, health, loadWorkspace, loading, notify, promptAction, refreshData, repository, resolveActionDialog, route, snapshot, toasts, user?.id, workspaces])
 
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>
 }

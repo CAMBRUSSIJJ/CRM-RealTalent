@@ -7,7 +7,7 @@ import type { Lead } from '../../domain/types'
 import { LeadForm, type LeadFormValue } from './lead-form'
 
 export function EditLeadModal({ lead, open, onClose }: { lead: Lead | null; open: boolean; onClose(): void }) {
-  const { updateLead, deleteLead } = useApp()
+  const { updateLead, deleteLead, confirmAction } = useApp()
   const [saving, setSaving] = useState(false)
   const formId = 'edit-lead-form'
   if (!lead) return null
@@ -23,7 +23,7 @@ export function EditLeadModal({ lead, open, onClose }: { lead: Lead | null; open
   }
 
   const remove = async () => {
-    if (!window.confirm(`Excluir ${lead.name}? Esta ação remove o lead desta base.`)) return
+    if (!await confirmAction({ title: `Excluir ${lead.name}?`, description: 'O lead e seus vínculos operacionais serão removidos desta base.', confirmLabel: 'Excluir lead', tone: 'danger', details: ['Esta ação não pode ser desfeita.', 'Use Arquivar quando quiser preservar o histórico.'] })) return
     setSaving(true)
     try {
       await deleteLead(lead.id)

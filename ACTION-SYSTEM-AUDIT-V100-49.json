@@ -1,0 +1,62 @@
+{
+  "version": "100.49.0",
+  "generatedAt": "2026-07-29T18:20:43.933Z",
+  "passed": true,
+  "checks": [
+    {
+      "name": "Versão oficial",
+      "passed": true,
+      "detail": "100.49.0"
+    },
+    {
+      "name": "Diálogos nativos removidos",
+      "passed": true,
+      "detail": "nenhuma confirmação ou prompt do navegador no código de produção"
+    },
+    {
+      "name": "Central de ações montada",
+      "passed": true,
+      "detail": "componente global no AppShell"
+    },
+    {
+      "name": "Confirmação contextual",
+      "passed": true,
+      "detail": "23 usos"
+    },
+    {
+      "name": "Entrada contextual",
+      "passed": true,
+      "detail": "6 usos"
+    },
+    {
+      "name": "Foco seguro",
+      "passed": true,
+      "detail": "cancelamento priorizado em ações destrutivas"
+    },
+    {
+      "name": "Toast acionável",
+      "passed": true,
+      "detail": "notificação com callback"
+    },
+    {
+      "name": "Desfazer seguro",
+      "passed": true,
+      "detail": "Pipeline e ficha do lead"
+    },
+    {
+      "name": "Ações em massa padronizadas",
+      "passed": true,
+      "detail": "Leads, Pipeline e Garimpo"
+    },
+    {
+      "name": "Acessibilidade de movimento",
+      "passed": true,
+      "detail": "barra contextual sem animação quando solicitado"
+    },
+    {
+      "name": "CSS incluído no build",
+      "passed": true,
+      "detail": "bundle oficial inclui a camada V100.48"
+    }
+  ]
+}

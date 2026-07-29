@@ -1,0 +1,68 @@
+{
+  "version": "100.49",
+  "generatedAt": "2026-07-29T18:20:43.883Z",
+  "passed": 15,
+  "total": 15,
+  "checks": [
+    {
+      "name": "engine exists",
+      "pass": true
+    },
+    {
+      "name": "wrap recommendation",
+      "pass": true
+    },
+    {
+      "name": "structured summary",
+      "pass": true
+    },
+    {
+      "name": "queue suggestion visible",
+      "pass": true
+    },
+    {
+      "name": "priority CTA",
+      "pass": true
+    },
+    {
+      "name": "auto advance config",
+      "pass": true
+    },
+    {
+      "name": "preparation controls",
+      "pass": true
+    },
+    {
+      "name": "smart wrap config",
+      "pass": true
+    },
+    {
+      "name": "countdown banner",
+      "pass": true
+    },
+    {
+      "name": "pause queue",
+      "pass": true
+    },
+    {
+      "name": "advance now",
+      "pass": true
+    },
+    {
+      "name": "session goal",
+      "pass": true
+    },
+    {
+      "name": "smart wrap rendered",
+      "pass": true
+    },
+    {
+      "name": "summary assist",
+      "pass": true
+    },
+    {
+      "name": "responsive execution css",
+      "pass": true
+    }
+  ]
+}

@@ -38,9 +38,8 @@ for (const file of files) {
     })
   }
 }
-const pkg = JSON.parse(fs.readFileSync(path.join(root, 'package.json'), 'utf8'))
-const label = `V${pkg.version.replace(/\.0$/, '').replaceAll('.', '-')}`
-const report = { version: pkg.version, generatedAt: new Date().toISOString(), passed: failures.length === 0, files: files.length, failures }
-fs.writeFileSync(path.join(root, `SOURCE-SYNTAX-${label}.json`), JSON.stringify(report, null, 2) + '\n')
-console.log(JSON.stringify(report, null, 2))
-if (failures.length) process.exit(1)
+if (failures.length) {
+  console.error(JSON.stringify({ passed: false, files: files.length, failures }, null, 2))
+  process.exit(1)
+}
+console.log(`Validação sintática aprovada em ${files.length} arquivos.`)

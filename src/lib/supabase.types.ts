@@ -33,6 +33,12 @@ export interface Database {
         Update: { settings?: Json; updated_by?: string | null; updated_at?: string }
         Relationships: []
       }
+      user_experience_preferences: {
+        Row: { organization_id: string; user_id: string; preferences: Json; updated_at: string }
+        Insert: { organization_id: string; user_id: string; preferences?: Json; updated_at?: string }
+        Update: { preferences?: Json; updated_at?: string }
+        Relationships: []
+      }
       prospecting_leads: {
         Row: { id: string; organization_id: string; batch_id: string | null; lead_id: string | null; name: string; company: string; phone: string; email: string; city: string; address: string; cnpj: string; instagram: string; website: string; booking_url: string; system_name: string; description: string; followers: number | null; source: 'maps' | 'instagram' | 'cnpj' | 'extension' | 'manual'; source_detail: string; status: 'new' | 'analyzing' | 'review' | 'approved' | 'discarded' | 'sent'; confidence: number; duplicate_level: 'none' | 'possible' | 'confirmed'; duplicate_lead_id: string | null; duplicate_reasons: string[]; notes: string; raw_data: Json; created_by: string | null; created_at: string; updated_at: string; analyzed_at: string | null; sent_at: string | null }
         Insert: { id?: string; organization_id: string; batch_id?: string | null; lead_id?: string | null; name?: string; company?: string; phone?: string; email?: string; city?: string; address?: string; cnpj?: string; instagram?: string; website?: string; booking_url?: string; system_name?: string; description?: string; followers?: number | null; source: 'maps' | 'instagram' | 'cnpj' | 'extension' | 'manual'; source_detail?: string; status?: 'new' | 'analyzing' | 'review' | 'approved' | 'discarded' | 'sent'; confidence?: number; duplicate_level?: 'none' | 'possible' | 'confirmed'; duplicate_lead_id?: string | null; duplicate_reasons?: string[]; notes?: string; raw_data?: Json; created_by?: string | null; created_at?: string; updated_at?: string; analyzed_at?: string | null; sent_at?: string | null }

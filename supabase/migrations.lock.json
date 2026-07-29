@@ -120,6 +120,10 @@
     {
       "name": "202607280005_v100_46_5_connect_call_sessions.sql",
       "sha256": "b303c749ce92611f6c3e8cfeba241d3d48f677163d2fff650474004c28760c82"
+    },
+    {
+      "name": "202607290001_v100_50_user_experience_preferences.sql",
+      "sha256": "9cbd2245b24790b0fead392f2759c455774a52d89f0423f3b8f1d50fd50da28b"
     }
   ]
 }

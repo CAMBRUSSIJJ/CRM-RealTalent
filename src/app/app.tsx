@@ -9,6 +9,7 @@ import { WorkspaceOnboarding } from '../features/workspaces/workspace-onboarding
 import { LocalOnboarding } from '../features/onboarding/local-onboarding'
 import { isLocalSetupPending } from '../lib/local-experience'
 import { configurationError } from '../lib/env'
+import { PageExperienceBoundary } from '../features/experience/page-experience-boundary'
 
 const DashboardPage = lazy(() => import('../features/dashboard/dashboard-page').then((module) => ({ default: module.DashboardPage })))
 const LeadsPage = lazy(() => import('../features/leads/leads-page').then((module) => ({ default: module.LeadsPage })))
@@ -44,7 +45,7 @@ function RouteContent() {
   else if (route === 'prospecting') content = <ProspectingPage />
   else if (route === 'settings') content = <SettingsPage />
   else content = <ModulePlaceholder route={route} />
-  return <div className="route-transition" key={route} data-route={route}>{content}</div>
+  return <PageExperienceBoundary route={route}>{content}</PageExperienceBoundary>
 }
 
 const LoadingModule = () => <div className="module-loading"><LoaderCircle className="spin" /><span>Carregando módulo...</span></div>

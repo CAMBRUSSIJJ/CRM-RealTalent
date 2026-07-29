@@ -1,8 +1,0 @@
-REALTALENT CRM V100.48 — PUBLICAÇÃO NO VERCEL
-
-1. Publique o conteúdo completo desta pasta.
-2. Use Node.js 22.
-3. Configure as variáveis VITE_SUPABASE_URL e VITE_SUPABASE_PUBLISHABLE_KEY.
-4. Rode o build oficial antes da promoção.
-5. Confirme public/health.json na versão 100.48.
-6. A V100.48 não adiciona migration. Caso ainda não tenha aplicado a integração do Connect, publique 202607280005_v100_46_5_connect_call_sessions.sql.

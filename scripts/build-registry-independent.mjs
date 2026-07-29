@@ -1,10 +1,16 @@
 import fs from 'node:fs'
 import path from 'node:path'
-import crypto from 'node:crypto'
-import { fileURLToPath } from 'node:url'
-import ts from '../vendor/typescript/typescript.cjs'
+import { fileURLToPath, pathToFileURL } from 'node:url'
+import { spawnSync } from 'node:child_process'
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
+const localTypeScript = path.join(root, 'node_modules', 'typescript', 'lib', 'typescript.js')
+const npmRoot = spawnSync('npm', ['root', '-g'], { encoding: 'utf8', shell: process.platform === 'win32' }).stdout.trim()
+const globalTypeScript = path.join(npmRoot, 'typescript', 'lib', 'typescript.js')
+const typescriptPath = fs.existsSync(localTypeScript) ? localTypeScript : globalTypeScript
+if (!fs.existsSync(typescriptPath)) throw new Error('TypeScript não encontrado. Execute npm install antes de gerar o build.')
+const importedTypeScript = await import(pathToFileURL(typescriptPath).href)
+const ts = importedTypeScript.default ?? importedTypeScript
 const srcRoot = path.join(root, 'src')
 const dist = path.join(root, 'dist')
 const assets = path.join(dist, 'assets')
@@ -127,7 +133,7 @@ fs.mkdirSync(assets, { recursive: true })
 const jsName = `realtalent-crm-${label.toLowerCase()}.js`
 const cssName = `realtalent-crm-${label.toLowerCase()}.css`
 fs.writeFileSync(path.join(assets, jsName), bundle)
-const cssSources = ['index.css', 'motion-system.css', 'actions-system.css']
+const cssSources = ['index.css', 'motion-system.css', 'actions-system.css', 'experience-system.css']
   .map((name) => fs.readFileSync(path.join(srcRoot, 'styles', name), 'utf8'))
   .join('\n\n')
 fs.writeFileSync(path.join(assets, cssName), cssSources)
@@ -158,22 +164,5 @@ const index = `<!doctype html>
 `
 fs.writeFileSync(path.join(dist, 'index.html'), index)
 
-const meta = {
-  version: pkg.version,
-  generatedAt: new Date().toISOString(),
-  source: 'TypeScript/TSX official source',
-  buildMode: 'registry-independent',
-  externalRuntime: {
-    provider: 'esm.sh',
-    pinned: true,
-    packages: ['react@19.2.7', 'react-dom@19.2.7', 'lucide-react@1.24.0', '@supabase/supabase-js@2.110.7'],
-  },
-  modules: modules.length,
-  files: {
-    javascript: jsName,
-    css: cssName,
-    sha256: crypto.createHash('sha256').update(bundle).digest('hex'),
-  },
-}
-fs.writeFileSync(path.join(root, `BUILD-OFFICIAL-${label}.json`), JSON.stringify(meta, null, 2) + '\n')
-console.log(`Build oficial ${label} gerado do TypeScript sem depender do registro npm (${modules.length} módulos).`)
+console.log(`Build ${label} gerado a partir do TypeScript (${modules.length} módulos).`)
+

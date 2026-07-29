@@ -1,29 +1,30 @@
 {
-  "name": "realtalent-crm-v100-49-commercial-execution",
+  "name": "realtalent-crm",
   "private": true,
-  "version": "100.49.0",
+  "version": "100.50.0",
   "type": "module",
   "scripts": {
     "dev": "vite --host 0.0.0.0",
     "build": "node scripts/build-registry-independent.mjs",
     "preview": "vite preview --host 0.0.0.0",
     "typecheck": "node scripts/source_syntax_audit.mjs",
-    "audit:render": "node scripts/render_stability_audit.mjs",
-    "audit:identifiers": "node scripts/runtime_identifier_audit.mjs",
-    "audit:actions": "node scripts/action_system_audit.mjs",
-    "audit:execution": "node scripts/commercial_execution_audit.mjs"
+    "test": "vitest run",
+    "validate:env": "node scripts/validate-env.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "2.110.7",
     "lucide-react": "1.24.0",
     "react": "19.2.7",
-    "react-dom": "19.2.7",
+    "react-dom": "19.2.7"
+  },
+  "devDependencies": {
     "@types/node": "24.10.11",
     "@types/react": "19.2.14",
     "@types/react-dom": "19.2.3",
     "@vitejs/plugin-react": "6.0.3",
     "typescript": "7.0.2",
-    "vite": "8.1.5"
+    "vite": "8.1.5",
+    "vitest": "4.1.10"
   },
   "engines": {
     "node": ">=22.12.0 <23"

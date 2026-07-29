@@ -1,7 +1,7 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
-  "installCommand": "node -e \"console.log('RealTalent: instalação npm dispensada.')\"",
-  "buildCommand": "node scripts/build-registry-independent.mjs",
+  "installCommand": "npm ci",
+  "buildCommand": "npm run build",
   "outputDirectory": "dist",
   "rewrites": [
     {

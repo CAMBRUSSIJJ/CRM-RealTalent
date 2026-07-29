@@ -1,0 +1,11 @@
+{
+  "status": "ok",
+  "application": "RealTalent CRM",
+  "version": "100.50",
+  "release": "personalizacao-experiencia-global",
+  "channel": "development",
+  "commit": "local",
+  "builtAt": "2026-07-29T19:03:26Z",
+  "module": "experience-system",
+  "generatedAt": "2026-07-29T19:03:26Z"
+}

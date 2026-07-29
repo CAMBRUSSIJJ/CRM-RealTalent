@@ -8,8 +8,10 @@ const localTypeScript = path.join(root, 'node_modules', 'typescript', 'lib', 'ty
 const npmRoot = spawnSync('npm', ['root', '-g'], { encoding: 'utf8', shell: process.platform === 'win32' }).stdout.trim()
 const globalTypeScript = path.join(npmRoot, 'typescript', 'lib', 'typescript.js')
 const typescriptPath = fs.existsSync(localTypeScript) ? localTypeScript : globalTypeScript
-if (!fs.existsSync(typescriptPath)) throw new Error('TypeScript não encontrado para auditoria sintática.')
-const ts = await import(pathToFileURL(typescriptPath).href)
+if (!fs.existsSync(typescriptPath)) throw new Error('TypeScript 6.x não encontrado para auditoria sintática.')
+const importedTypeScript = await import(pathToFileURL(typescriptPath).href)
+const ts = importedTypeScript.default ?? importedTypeScript
+if (typeof ts.createSourceFile !== 'function') throw new Error('Versão incompatível do TypeScript para auditoria sintática.')
 const files = []
 const walk = (dir) => {
   if (!fs.existsSync(dir)) return

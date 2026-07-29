@@ -8,9 +8,14 @@ const localTypeScript = path.join(root, 'node_modules', 'typescript', 'lib', 'ty
 const npmRoot = spawnSync('npm', ['root', '-g'], { encoding: 'utf8', shell: process.platform === 'win32' }).stdout.trim()
 const globalTypeScript = path.join(npmRoot, 'typescript', 'lib', 'typescript.js')
 const typescriptPath = fs.existsSync(localTypeScript) ? localTypeScript : globalTypeScript
-if (!fs.existsSync(typescriptPath)) throw new Error('TypeScript não encontrado. Execute npm install antes de gerar o build.')
+if (!fs.existsSync(typescriptPath)) {
+  throw new Error('TypeScript 6.x não encontrado. Execute npm ci --include=dev antes de gerar o build.')
+}
 const importedTypeScript = await import(pathToFileURL(typescriptPath).href)
 const ts = importedTypeScript.default ?? importedTypeScript
+if (typeof ts.transpileModule !== 'function') {
+  throw new Error('Versão incompatível do TypeScript. Este build requer TypeScript 6.x com Compiler API JavaScript.')
+}
 const srcRoot = path.join(root, 'src')
 const dist = path.join(root, 'dist')
 const assets = path.join(dist, 'assets')
@@ -52,7 +57,6 @@ for (const file of sourceFiles) {
     compilerOptions: {
       target: ts.ScriptTarget.ES2022,
       module: ts.ModuleKind.CommonJS,
-      moduleResolution: ts.ModuleResolutionKind.Node10,
       jsx: ts.JsxEmit.ReactJSX,
       esModuleInterop: true,
       allowSyntheticDefaultImports: true,

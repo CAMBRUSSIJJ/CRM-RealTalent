@@ -41,3 +41,8 @@ Nunca envie `.env`, `.env.local`, tokens, senhas ou a chave `service_role` ao Gi
 ## Publicação
 
 O projeto está preparado para Vercel. Configure as variáveis de ambiente no painel da hospedagem e publique a partir deste diretório. O arquivo `vercel.json` mantém o roteamento SPA e os cabeçalhos de segurança.
+
+
+## Vercel
+
+O repositório já contém `vercel.json`: instalação com `npm ci --include=dev`, build com `npm run build` e saída em `dist`. O TypeScript está fixado na série 6.x porque o gerador utiliza a Compiler API JavaScript, que não é compatível com o pacote nativo do TypeScript 7.

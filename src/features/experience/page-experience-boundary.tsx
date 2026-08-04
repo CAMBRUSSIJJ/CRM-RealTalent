@@ -29,5 +29,5 @@ export function PageExperienceBoundary({ route, children }: PropsWithChildren<{ 
     return () => observer.disconnect()
   }, [page, route])
 
-  return <div ref={rootRef} className="route-transition" key={route} data-route={route} data-experience-density={page?.density ?? 'comfortable'} data-experience-emphasis={page?.emphasis ?? 'balanced'}>{children}</div>
+  return <div ref={rootRef} className="route-transition" key={route} data-route={route} data-experience-density={page?.density ?? 'comfortable'} data-experience-emphasis={page?.emphasis ?? 'balanced'} data-experience-scope={page?.dataScope ?? 'mine'}>{children}</div>
 }

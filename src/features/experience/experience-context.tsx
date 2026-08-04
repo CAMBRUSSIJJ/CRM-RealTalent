@@ -13,16 +13,18 @@ export type FontScale = 'small' | 'medium' | 'large'
 export type ContrastMode = 'standard' | 'high'
 export type PageDensity = 'comfortable' | 'compact'
 export type PageEmphasis = 'balanced' | 'focus'
+export type PageDataScope = 'mine' | 'team'
 
 export interface PageExperiencePreference {
   density: PageDensity
   emphasis: PageEmphasis
   hiddenSections: string[]
   sectionOrder: string[]
+  dataScope: PageDataScope
 }
 
 export interface ExperiencePreferences {
-  version: 1
+  version: 2
   preset: ExperiencePreset
   global: {
     contentWidth: ContentWidth
@@ -49,10 +51,11 @@ const defaultPage = (route: AppRoute): PageExperiencePreference => ({
   emphasis: 'balanced',
   hiddenSections: [],
   sectionOrder: pageSectionRegistry[route].map((section) => section.id),
+  dataScope: 'mine',
 })
 
 export const createDefaultExperiencePreferences = (role: WorkspaceRole = 'member'): ExperiencePreferences => ({
-  version: 1,
+  version: 2,
   preset: presetByRole[role],
   global: { contentWidth: 'wide', fontScale: 'medium', contrast: 'standard', reduceTransparency: false, showPageSubtitle: true, stickyTopbar: true },
   pages: Object.fromEntries(routeKeys.map((route) => [route, defaultPage(route)])) as Partial<Record<AppRoute, PageExperiencePreference>>,
@@ -61,7 +64,7 @@ export const createDefaultExperiencePreferences = (role: WorkspaceRole = 'member
 
 const presetHidden: Partial<Record<ExperiencePreset, Partial<Record<AppRoute, string[]>>>> = {
   sdr: { dashboard: ['summary', 'insights'], pipeline: ['summary'], metrics: ['analysis'], proposals: ['summary'] },
-  seller: {},
+  seller: { dashboard: ['score'] },
   closer: { dashboard: ['score'], prospecting: ['metrics', 'integration'], automations: ['health'] },
   manager: { dashboard: ['score'], leads: ['health'], calls: ['toolbar'], metrics: [] },
   executive: { dashboard: ['score', 'execution'], leads: ['views', 'filters'], followups: ['filters'], calls: ['toolbar', 'workspace'], prospecting: ['command', 'workspace'], automations: ['toolbar', 'content'] },
@@ -96,7 +99,7 @@ export const normalizeExperiencePreferences = (value: Partial<ExperiencePreferen
   const preset: ExperiencePreset = ['sdr', 'seller', 'closer', 'manager', 'executive', 'admin', 'custom'].includes(String(value.preset)) ? value.preset as ExperiencePreset : defaults.preset
   const global = value.global ?? defaults.global
   const normalized: ExperiencePreferences = {
-    version: 1,
+    version: 2,
     preset,
     global: {
       contentWidth: global.contentWidth === 'focused' || global.contentWidth === 'fluid' ? global.contentWidth : 'wide',
@@ -123,6 +126,7 @@ export const normalizeExperiencePreferences = (value: Partial<ExperiencePreferen
       emphasis: current?.emphasis === 'focus' ? 'focus' : 'balanced',
       hiddenSections: cleanStringList(current?.hiddenSections, pageSectionRegistry[route].filter((section) => !section.required).map((section) => section.id)),
       sectionOrder: [...requestedOrder, ...definitionIds.filter((id) => !requestedOrder.includes(id))],
+      dataScope: current?.dataScope === 'team' ? 'team' : 'mine',
     }
   }
   return normalized

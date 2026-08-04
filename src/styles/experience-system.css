@@ -1,4 +1,4 @@
-/* RealTalent V100.50 — Personalização e Experiência Global */
+/* RealTalent V100.51.1 — Personalização e Experiência Global */
 :root {
   --experience-content-max: 1760px;
   --experience-font-scale: 16px;
@@ -77,6 +77,7 @@ html[data-contrast="high"] textarea { border-color: #8492a8 !important; }
 .experience-segmented > span { padding-left: 7px; color: var(--muted); font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: .04em; }
 .experience-segmented button { min-height: 34px; border: 0; border-radius: 8px; background: transparent; color: var(--muted); font-size: 12px; font-weight: 750; cursor: pointer; }
 .experience-segmented button.is-active { color: var(--text); background: var(--surface); box-shadow: 0 2px 8px rgba(18,36,66,.08); }
+.experience-segmented--two { grid-template-columns: 84px repeat(2, 1fr); }
 .experience-choice-row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 12px; }
 .experience-choice-row label { display: flex; align-items: flex-start; gap: 9px; padding: 11px; border: 1px solid var(--border); border-radius: 12px; cursor: pointer; }
 .experience-choice-row input { margin-top: 2px; accent-color: var(--blue); }
@@ -136,6 +137,7 @@ html[data-theme="dark"] .notification-item.is-warning > span { background: rgba(
   .experience-drawer__scroll { padding: 14px 14px 24px; }
   .experience-choice-row { grid-template-columns: 1fr; }
   .experience-segmented { grid-template-columns: 1fr 1fr 1fr; }
+  .experience-segmented--two { grid-template-columns: 1fr 1fr; }
   .experience-segmented > span { grid-column: 1/-1; padding: 3px 5px 1px; }
   .experience-drawer__footer { flex-wrap: wrap; }
   .experience-drawer__footer > div { width: 100%; }

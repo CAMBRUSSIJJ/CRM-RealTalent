@@ -1,6 +1,6 @@
-# RealTalent CRM V100.50
+# RealTalent CRM V100.51.1
 
-Código-fonte oficial da versão **V100.50 — Personalização e Experiência Global**.
+Código-fonte oficial da versão **V100.51.1 — Visual System Premium: Meu Dia**.
 
 ## Requisitos
 

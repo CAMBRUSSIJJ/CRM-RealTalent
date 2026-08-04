@@ -33,6 +33,7 @@ import { CallWorkspaceModal } from '../calls/call-workspace-modal'
 import { ActivityModal } from '../followups/activity-modal'
 import { EditLeadModal } from '../leads/edit-lead-modal'
 import { useAuth } from '../auth/auth-context'
+import { useExperience } from '../experience/experience-context'
 
 const startOfDay = (date = new Date()) => new Date(date.getFullYear(), date.getMonth(), date.getDate())
 const dayDiff = (newer: Date, older: Date) => Math.floor((newer.getTime() - older.getTime()) / 86_400_000)
@@ -41,11 +42,13 @@ const normalizeContact = (value: string) => value.toLowerCase().replace(/\D/g, '
 
 export function DashboardPage() {
   const { snapshot, setRoute, notify, refresh } = useApp()
-  const { preferences } = usePreferences()
+  const { preferences: settingsPreferences } = usePreferences()
+  const { preferences: experiencePreferences, updatePage } = useExperience()
   const { user } = useAuth()
   const [showMobileRoutine, setShowMobileRoutine] = useState(false)
   const [queueFilter, setQueueFilter] = useState<'all' | WorkdayReason>('all')
-  const [queueScope, setQueueScope] = useState<'mine' | 'team'>('mine')
+  const queueScope = experiencePreferences.pages.dashboard?.dataScope ?? 'mine'
+  const setQueueScope = (scope: 'mine' | 'team') => updatePage('dashboard', { dataScope: scope })
   const [callLead, setCallLead] = useState<Lead | null>(null)
   const [activityLead, setActivityLead] = useState<Lead | null>(null)
   const [editingLead, setEditingLead] = useState<Lead | null>(null)
@@ -68,8 +71,8 @@ export function DashboardPage() {
     const activeLeads = leads.filter((lead) => lead.status === 'active')
     const pendingActivities = activities.filter((activity) => activity.dueAt && !activity.completedAt)
     const overdueActivities = pendingActivities.filter((activity) => new Date(activity.dueAt!) < todayStart)
-    const workday = snapshot ? buildWorkdayQueue(snapshot, preferences.commercial, now, queueScope === 'mine' ? user?.id : undefined) : { items: [], breached: 0, dueToday: 0, stale: 0, noAction: 0 }
-    const scoreBoard = snapshot ? buildLeadScoreBoard(snapshot, preferences.commercial.leadScoring, now, queueScope === 'mine' ? user?.id : undefined) : []
+    const workday = snapshot ? buildWorkdayQueue(snapshot, settingsPreferences.commercial, now, queueScope === 'mine' ? user?.id : undefined) : { items: [], breached: 0, dueToday: 0, stale: 0, noAction: 0 }
+    const scoreBoard = snapshot ? buildLeadScoreBoard(snapshot, settingsPreferences.commercial.leadScoring, now, queueScope === 'mine' ? user?.id : undefined) : []
     const recommended = scoreBoard[0] ?? null
     const scoreAlerts = scoreBoard.reduce((sum, item) => sum + item.alerts.length, 0)
     const criticalScores = scoreBoard.filter((item) => item.level === 'urgent').length
@@ -109,6 +112,9 @@ export function DashboardPage() {
       return sum + lead.value * probability / 100
     }, 0)
     const contactsToday = calls.filter((call) => sameDay(new Date(call.startedAt), now) && ['answered', 'callback_requested', 'interested', 'meeting_scheduled', 'proposal_requested', 'proposal_sent', 'sale_completed'].includes(call.outcome)).length
+    const activitiesToday = pendingActivities.filter((activity) => activity.dueAt && sameDay(new Date(activity.dueAt), now)).length
+    const meetingsToday = pendingActivities.filter((activity) => activity.type === 'meeting' && activity.dueAt && sameDay(new Date(activity.dueAt), now)).length
+    const riskValue = riskLeads.reduce((sum, lead) => sum + lead.value, 0)
 
     return {
       activeLeads,
@@ -126,6 +132,9 @@ export function DashboardPage() {
       leadTrend,
       latestLeads,
       contactsToday,
+      activitiesToday,
+      meetingsToday,
+      riskValue,
       workday,
       scoreBoard,
       scoreAlerts,
@@ -133,9 +142,11 @@ export function DashboardPage() {
       highScores,
       averageScore,
     }
-  }, [preferences.commercial, queueScope, snapshot, user?.id])
+  }, [queueScope, settingsPreferences.commercial, snapshot, user?.id])
 
   const greeting = new Date().getHours() >= 18 ? 'Boa noite' : new Date().getHours() >= 12 ? 'Boa tarde' : 'Bom dia'
+  const firstName = user?.displayName?.trim().split(/\s+/)[0] || ''
+  const todayLabel = new Intl.DateTimeFormat('pt-BR', { weekday: 'long', day: '2-digit', month: 'long' }).format(new Date())
   const recommendedLead = dashboard.recommended?.lead ?? null
   const recommendedPhone = recommendedLead?.phone ? normalizeContact(recommendedLead.phone) : ''
 
@@ -163,36 +174,37 @@ export function DashboardPage() {
   }
 
   return (
-    <div className="page-stack dashboard-v106">
+    <div className="page-stack dashboard-v10051">
       <section className="workday-hero">
         <div className="workday-hero__content">
-          <span className="eyebrow"><Sparkles size={15} /> Visão do dia</span>
-          <h2>{greeting}</h2>
+          <span className="eyebrow"><Sparkles size={15} /> {todayLabel}</span>
+          <h2>{greeting}{firstName ? `, ${firstName}` : ''}.</h2>
           <p>
-            Você possui <strong>{dashboard.workday.breached === 1 ? '1 prioridade com SLA vencido' : `${dashboard.workday.breached} prioridades com SLA vencido`}</strong> e{' '}
-            <strong>{formatCurrency(dashboard.riskLeads.reduce((sum, lead) => sum + lead.value, 0))}</strong> em oportunidades que precisam de atenção.
+            {dashboard.workday.breached
+              ? <>Existem <strong>{dashboard.workday.breached} {dashboard.workday.breached === 1 ? 'prioridade vencida' : 'prioridades vencidas'}</strong> para resolver e <strong>{formatCurrency(dashboard.riskValue)}</strong> em oportunidades que pedem atenção.</>
+              : <>Sua operação está em dia. Há <strong>{dashboard.workday.items.length} prioridades</strong> na fila e <strong>{dashboard.activitiesToday} atividades</strong> previstas para hoje.</>}
           </p>
         </div>
         <div className="workday-hero__actions">
-          <Button size="lg" disabled={!dashboard.workday.items.length} onClick={() => dashboard.workday.items[0] && runWorkdayItem(dashboard.workday.items[0])}><Zap size={18} /> Iniciar rotina comercial</Button>
+          <Button size="lg" disabled={!dashboard.workday.items.length} onClick={() => dashboard.workday.items[0] && runWorkdayItem(dashboard.workday.items[0])}><Zap size={18} /> Começar próxima ação</Button>
           <button className="icon-action" type="button" title="Atualizar prioridades" onClick={() => void refresh()}><RefreshCw size={18} /></button>
         </div>
       </section>
 
-      <section className="health-strip" aria-label="Saúde comercial">
+      <section className="health-strip" aria-label="Resumo do dia">
         <button type="button" className="health-item" onClick={() => setRoute('followups')}>
           <span className="health-item__icon"><ListTodo size={19} /></span>
-          <span><small>Fila inteligente</small><strong>{dashboard.workday.items.length}</strong><em>{dashboard.workday.dueToday} para hoje</em></span>
+          <span><small>Prioridades</small><strong>{dashboard.workday.items.length}</strong><em>{dashboard.workday.dueToday} vencem hoje</em></span>
           <ChevronRight size={16} />
         </button>
         <button type="button" className={`health-item ${dashboard.workday.breached ? 'health-item--danger' : ''}`} onClick={() => setQueueFilter('sla')}>
           <span className="health-item__icon"><Clock3 size={19} /></span>
-          <span><small>SLA vencido</small><strong>{dashboard.workday.breached}</strong><em>{dashboard.workday.breached ? 'Exigem atenção agora' : 'Tudo em dia'}</em></span>
+          <span><small>Em atraso</small><strong>{dashboard.workday.breached}</strong><em>{dashboard.workday.breached ? 'Resolver primeiro' : 'Nenhum SLA vencido'}</em></span>
           <ChevronRight size={16} />
         </button>
-        <button type="button" className={`health-item ${dashboard.riskLeads.length ? 'health-item--warning' : ''}`} onClick={() => setRoute('pipeline')}>
-          <span className="health-item__icon"><TriangleAlert size={19} /></span>
-          <span><small>Pipeline em risco</small><strong>{dashboard.riskLeads.length}</strong><em>{formatCurrency(dashboard.riskLeads.reduce((sum, lead) => sum + lead.value, 0))}</em></span>
+        <button type="button" className="health-item" onClick={() => setRoute('calls')}>
+          <span className="health-item__icon"><PhoneCall size={19} /></span>
+          <span><small>Contatos hoje</small><strong>{dashboard.contactsToday}</strong><em>{dashboard.meetingsToday} {dashboard.meetingsToday === 1 ? 'reunião' : 'reuniões'} hoje</em></span>
           <ChevronRight size={16} />
         </button>
         <button type="button" className="health-item" onClick={() => setRoute('goals')}>
@@ -202,11 +214,11 @@ export function DashboardPage() {
         </button>
       </section>
 
-      <section className="lead-score-overview" aria-label="Visão do Lead Score">
-        <button type="button" onClick={() => setRoute('leads')}><span>Score médio</span><strong>{dashboard.averageScore}</strong><small>de 100 pontos</small></button>
+      <section className="lead-score-overview portfolio-signal-bar" aria-label="Inteligência da carteira">
+        <button type="button" onClick={() => setRoute('leads')}><span>Score médio da carteira</span><strong>{dashboard.averageScore}</strong><small>de 100 pontos</small></button>
         <button type="button" onClick={() => setRoute('leads')}><span>Prioridade alta</span><strong>{dashboard.highScores}</strong><small>leads para trabalhar primeiro</small></button>
-        <button type="button" className={dashboard.criticalScores ? 'is-critical' : ''} onClick={() => setRoute('leads')}><span>Prioridade crítica</span><strong>{dashboard.criticalScores}</strong><small>{dashboard.criticalScores ? 'ação imediata recomendada' : 'nenhum lead crítico'}</small></button>
-        <button type="button" className={dashboard.scoreAlerts ? 'has-alerts' : ''} onClick={() => setRoute('leads')}><span>Alertas comerciais</span><strong>{dashboard.scoreAlerts}</strong><small>riscos e dados a revisar</small></button>
+        <button type="button" className={dashboard.criticalScores ? 'is-critical' : ''} onClick={() => setRoute('leads')}><span>Críticos agora</span><strong>{dashboard.criticalScores}</strong><small>{dashboard.criticalScores ? 'ação imediata recomendada' : 'nenhum lead crítico'}</small></button>
+        <button type="button" className={dashboard.scoreAlerts ? 'has-alerts' : ''} onClick={() => setRoute('leads')}><span>Alertas de qualidade</span><strong>{dashboard.scoreAlerts}</strong><small>riscos e dados a revisar</small></button>
       </section>
 
       <section className="dashboard-execution-grid">
@@ -291,7 +303,7 @@ export function DashboardPage() {
       </section>
 
       <section className="dashboard-bottom-grid">
-        <article className="panel compact-panel">
+        <article className="panel compact-panel dashboard-quick-actions">
           <div className="panel__heading"><div><span className="eyebrow"><Zap size={13} /> Acesso rápido</span><h3>Ações comerciais</h3></div></div>
           <div className="quick-action-grid">
             <button type="button" onClick={() => setRoute('leads')}><span><UserRoundPlus size={19} /></span><strong>Novo lead</strong><small>Adicionar oportunidade</small></button>
@@ -301,7 +313,7 @@ export function DashboardPage() {
           </div>
         </article>
 
-        <article className="panel compact-panel">
+        <article className="panel compact-panel dashboard-continuity">
           <div className="panel__heading"><div><span className="eyebrow"><History size={13} /> Continuidade</span><h3>Continue de onde parou</h3></div><span className="today-contact-badge"><UsersRound size={14} /> {dashboard.contactsToday} contatos hoje</span></div>
           <div className="recent-work-list">
             {dashboard.latestLeads.length ? dashboard.latestLeads.map((lead) => (

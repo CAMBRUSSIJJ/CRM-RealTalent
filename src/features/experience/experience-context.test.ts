@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { applyExperiencePreset, createDefaultExperiencePreferences, normalizeExperiencePreferences } from './experience-context'
 
- describe('preferências de experiência V100.50', () => {
+ describe('preferências de experiência V100.51.1', () => {
   it('protege seções essenciais ao normalizar dados antigos', () => {
     const normalized = normalizeExperiencePreferences({
       version: 1,
@@ -12,12 +12,14 @@ import { applyExperiencePreset, createDefaultExperiencePreferences, normalizeExp
           emphasis: 'focus',
           hiddenSections: ['hero', 'health', 'execution', 'inexistente'],
           sectionOrder: ['execution', 'hero'],
+          dataScope: 'team',
         },
       },
     }, 'member')
     expect(normalized.pages.dashboard?.hiddenSections).toEqual(['health'])
     expect(normalized.pages.dashboard?.sectionOrder.slice(0, 2)).toEqual(['execution', 'hero'])
     expect(normalized.pages.dashboard?.sectionOrder).toContain('insights')
+    expect(normalized.pages.dashboard?.dataScope).toBe('team')
   })
 
   it('aplica perfil executivo sem remover conteúdo essencial', () => {
@@ -34,5 +36,6 @@ import { applyExperiencePreset, createDefaultExperiencePreferences, normalizeExp
     expect(defaults.preset).toBe('admin')
     expect(Object.keys(defaults.pages).length).toBeGreaterThanOrEqual(14)
     expect(defaults.pages.settings?.sectionOrder).toContain('content')
+    expect(defaults.pages.dashboard?.dataScope).toBe('mine')
   })
 })

@@ -1,4 +1,4 @@
-export const APP_VERSION = '100.50'
-export const APP_VERSION_LABEL = 'V100.50'
-// A V100.50 sincroniza preferências individuais, perfis por função, personalização por página e central de notificações.
+export const APP_VERSION = '100.51.1'
+export const APP_VERSION_LABEL = 'V100.51.1'
+// V100.51.1 inaugura o Visual System Premium aba por aba, começando pelo Meu Dia.
 export const BACKUP_SCHEMA_VERSION = '100.50'

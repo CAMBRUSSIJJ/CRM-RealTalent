@@ -63,6 +63,7 @@ export function PageCustomizationDrawer({ route, open, onClose }: { route: AppRo
           <div className="experience-config-section__heading"><div><span className="eyebrow">Esta página</span><h3>Densidade e foco</h3></div></div>
           <div className="experience-segmented"><span>Densidade</span>{(['comfortable', 'compact'] as const).map((value) => <button type="button" key={value} className={page.density === value ? 'is-active' : ''} onClick={() => updatePage(route, { density: value })}>{value === 'comfortable' ? 'Confortável' : 'Compacta'}</button>)}</div>
           <div className="experience-segmented"><span>Ênfase</span>{(['balanced', 'focus'] as const).map((value) => <button type="button" key={value} className={page.emphasis === value ? 'is-active' : ''} onClick={() => updatePage(route, { emphasis: value })}>{value === 'balanced' ? 'Equilibrada' : 'Modo foco'}</button>)}</div>
+          {route === 'dashboard' ? <div className="experience-segmented experience-segmented--two"><span>Escopo</span>{(['mine', 'team'] as const).map((value) => <button type="button" key={value} className={page.dataScope === value ? 'is-active' : ''} onClick={() => updatePage(route, { dataScope: value })}>{value === 'mine' ? 'Meus leads' : 'Equipe'}</button>)}</div> : null}
         </section>
 
         <section className="experience-config-section">

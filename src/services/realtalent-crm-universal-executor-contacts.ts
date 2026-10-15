@@ -13,8 +13,8 @@ export async function executeUniversalContacts(step: CrmCapabilityPlanStep, runt
     const company = ubest(snapshot.companies, uarg(step, 'company_query'), (item) => [item.id, item.name, item.legalName])
     const companyId = from.companyId || to.companyId || company?.id || ''
     if (!companyId) throw new Error('Os contatos precisam estar vinculados a uma empresa para criar a relação.')
-    const created = await actions.createContactRelationship({ workspaceId: runtime.workspaceId, companyId, fromContactId: from.id, toContactId: to.id, relationshipType: (uarg(step, 'relationship_type') || 'works_with') as any, strength: Math.max(0, Math.min(100, unum(uarg(step, 'strength'), 50))), notes: uarg(step, 'notes') } as any)
-    return { ok: true, summary: `Relação entre ${from.name} e ${to.name} criada.`, evidence: { source: 'repository', entityType: 'contact_relationship', entityId: created.id, state: 'persisted' } }
+    await actions.createContactRelationship({ companyId, fromContactId: from.id, toContactId: to.id, relationshipType: (uarg(step, 'relationship_type') || 'works_with') as any, strength: Math.max(0, Math.min(100, unum(uarg(step, 'strength'), 50))), notes: uarg(step, 'notes') } as any)
+    return { ok: true, summary: `Relação entre ${from.name} e ${to.name} criada.` }
   }
 
   if (step.capabilityId === 'contacts.relationship_update' || step.capabilityId === 'contacts.relationship_delete') {
@@ -83,7 +83,7 @@ export async function executeUniversalContacts(step: CrmCapabilityPlanStep, runt
     assertRecordU(runtime, 'contacts', primary.ownerId)
     assertRecordU(runtime, 'contacts', duplicate.ownerId)
     const merged = await actions.mergeLeads(primary.id, duplicate.id)
-    return { ok: true, summary: `Lead duplicado mesclado em ${merged.company || merged.name}.`, evidence: { source: 'repository', entityType: 'lead', entityId: merged.id, state: 'persisted' } }
+    return { ok: true, summary: `Lead duplicado mesclado em ${merged.company || merged.name}.` }
   }
 
   return null

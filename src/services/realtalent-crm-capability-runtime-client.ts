@@ -1,7 +1,7 @@
 import { env } from '../lib/env'
 import { runtimeFetch } from './realtalent-runtime-transport'
-import { crmCapabilityById, crmCapabilityCatalogForModel } from './realtalent-crm-capabilities'
-import { crmCapabilitySlotRulesForModel } from './realtalent-crm-slot-filling'
+import { universalCrmCapabilityById as crmCapabilityById, universalCrmCapabilityCatalogForModel as crmCapabilityCatalogForModel } from './realtalent-crm-universal-capabilities'
+import { crmCapabilitySlotRulesForModel } from './realtalent-crm-universal-slot-filling'
 import type {
   CrmCapabilityArgument,
   CrmCapabilityPlan,
@@ -59,7 +59,7 @@ const normalizePlan = (value: unknown): CrmCapabilityPlan => {
   const knownArgs = pendingId ? sanitizeArgs(pendingId, raw.knownArgs) : []
 
   return {
-    version: '3.6',
+    version: '3.7',
     goal: cleanText(raw.goal, 500),
     confidence: Number.isFinite(confidence) ? Math.max(0, Math.min(1, confidence)) : 0,
     needsClarification: Boolean(raw.needsClarification),
@@ -73,16 +73,6 @@ const normalizePlan = (value: unknown): CrmCapabilityPlan => {
   }
 }
 
-/**
- * Primary browser -> Agent capability client for the embedded CRM Agent.
- *
- * Important invariants:
- * - waits long enough for a local CPU Ollama two-stage route+plan request;
- * - sends the entire native catalog, independent of the current page;
- * - strips arguments the chosen capability does not declare/accept;
- * - therefore non-entity capabilities such as goals.create can never acquire a
- *   hallucinated contact_query/record_query and trigger a contact lookup.
- */
 export async function planCrmCapabilitiesViaAgent(
   prompt: string,
   context: CrmCapabilityPlanningContext = {},

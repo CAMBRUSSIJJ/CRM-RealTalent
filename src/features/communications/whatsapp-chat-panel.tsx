@@ -121,7 +121,14 @@ export function WhatsAppChatPanel({ lead, externalIdentity, workspaceId, events,
   const deliveredKeys = useMemo(() => new Set(messages.map(item => String(item.metadata?.idempotencyKey || '')).filter(Boolean)), [messages])
   const optimisticItems = useMemo<UnifiedCommunicationItem[]>(() => pendingMessages.filter(item => !deliveredKeys.has(item.idempotencyKey)).map(item => ({ id: `optimistic:${item.id}`, source: 'official' as const, leadId: lead?.id ?? null, contactId: lead?.primaryContactId ?? null, channel: 'whatsapp' as const, direction: 'outbound' as const, status: item.status, title: identityName, body: item.body || (`[${item.attachment?.kind === 'voice' ? 'Áudio' : item.attachment?.kind === 'image' ? 'Imagem' : 'Arquivo'}]`), subject: '', occurredAt: item.occurredAt, official: false, metadata: { idempotencyKey: item.idempotencyKey, optimistic: true, attachment: item.attachment ? { ...item.attachment, url: item.attachment.previewUrl } : null, replyToExternalMessageId: item.replyToExternalMessageId || null, replyPreview: item.replyPreview || null } })), [deliveredKeys, identityName, lead?.id, lead?.primaryContactId, pendingMessages])
   const displayMessages = useMemo(() => [...messages, ...optimisticItems].sort((a, b) => Date.parse(a.occurredAt) - Date.parse(b.occurredAt)), [messages, optimisticItems])
-  const externalIndex = useMemo(() => new Map(displayMessages.map(item => [String(item.metadata?.externalMessageId || ''), item]).filter(([key]) => Boolean(key))), [displayMessages])
+  const externalIndex = useMemo(() => {
+    const index = new Map<string, UnifiedCommunicationItem>()
+    for (const item of displayMessages) {
+      const key = String(item.metadata?.externalMessageId || '')
+      if (key) index.set(key, item)
+    }
+    return index
+  }, [displayMessages])
 
   const loadAccounts = async () => {
     setLoadingAccounts(true)

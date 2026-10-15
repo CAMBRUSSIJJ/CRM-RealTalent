@@ -1,0 +1,85 @@
+name: Fix V3.5-H1 Preview Typecheck
+
+on:
+  push:
+    branches:
+      - preview/v3.5-h1
+    paths:
+      - .github/workflows/fix-v35h1-typecheck.yml
+
+permissions:
+  contents: write
+
+jobs:
+  fix:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: preview/v3.5-h1
+          fetch-depth: 0
+
+      - name: Apply targeted typecheck fixes
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          def replace_once(path, old, new):
+              p = Path(path)
+              s = p.read_text()
+              count = s.count(old)
+              if count != 1:
+                  raise SystemExit(f'{path}: expected 1 occurrence, found {count}: {old[:80]}')
+              p.write_text(s.replace(old, new, 1))
+
+          replace_once(
+              'src/app/app-context.tsx',
+              "import { readAgendaMetadata } from '../services/agenda-workspace'",
+              "import { readAgendaMetadata } from '../services/agenda-workspace'\nimport { calculateProposalTotals } from '../services/proposal-pricing'",
+          )
+          replace_once(
+              'src/app/app-context.tsx',
+              "    route, routeContext, setRoute, navigate, clearRouteContext, repositoryMode: repository.mode, health, workspaces, currentWorkspace, canWrite, can, snapshot, loading, routeDataLoading, loadedSnapshotSlices, error, toasts, dismissToast, actionDialog, confirmAction, promptAction, resolveActionDialog,",
+              "    route, routeContext, setRoute, navigate, clearRouteContext, repositoryMode: repository.mode, health, workspaces, currentWorkspace, currentUserId: user?.id ?? null, teamAccess, canWrite, can, canTeamAccess, teamAccessScope, canTeamAccessRecord, snapshot, loading, routeDataLoading, loadedSnapshotSlices, error, toasts, dismissToast, actionDialog, confirmAction, promptAction, resolveActionDialog,",
+          )
+          replace_once(
+              'src/app/app-context.tsx',
+              "const candidateTcv=input.totalContractValue??currentProposal?.totalContractValue??0;",
+              "const candidateTcv=calculateProposalTotals(candidateItems,input.contractTermMonths??currentProposal?.contractTermMonths??12).totalContractValue;",
+          )
+          replace_once(
+              'src/app/app-context.tsx',
+              "teamAccess, toasts, user?.id, workspaces, permissionSubject])",
+              "teamAccess, canTeamAccess, teamAccessScope, canTeamAccessRecord, toasts, user?.id, workspaces, permissionSubject])",
+          )
+          replace_once(
+              'src/app/app.tsx',
+              "  if ('requestIdleCallback' in window) (window as Window & { requestIdleCallback?: (cb: () => void, opts?: { timeout: number }) => number }).requestIdleCallback?.(run, { timeout: 1800 })\n  else window.setTimeout(run, 350)",
+              "  if (typeof window.requestIdleCallback === 'function') window.requestIdleCallback(run, { timeout: 1800 })\n  else globalThis.setTimeout(run, 350)",
+          )
+          replace_once(
+              'src/features/communications/whatsapp-chat-panel.tsx',
+              "  const optimisticItems = useMemo(() => pendingMessages.filter",
+              "  const optimisticItems = useMemo<UnifiedCommunicationItem[]>(() => pendingMessages.filter",
+          )
+          replace_once(
+              'src/services/realtalent-crm-execution-truth.ts',
+              "    risk: 'safe_write',",
+              "    risk: 'low',",
+          )
+          replace_once(
+              'src/services/team-access-control.ts',
+              "  const loaded=(profiles.data??[]).map((row:any)=>mapProfile(row,workspaceId))",
+              "  const loaded: TeamAccessProfile[]=(profiles.data??[]).map((row:any)=>mapProfile(row,workspaceId))",
+          )
+          PY
+
+      - name: Commit fixes once
+        run: |
+          set -euo pipefail
+          rm -f .github/workflows/fix-v35h1-typecheck.yml
+          git config user.name "RealTalent Preview Bot"
+          git config user.email "actions@users.noreply.github.com"
+          git add -A
+          git commit -m "fix: clear V3.5-H1 preview typecheck blockers"
+          git push origin HEAD:preview/v3.5-h1

@@ -1,0 +1,60 @@
+RealTalent CRM V100.98.2 — RealTalent Calling 3.0
+QA REPORT
+Data: 2026-09-26
+
+ESCOPO DESTA RELEASE
+- RealTalent Connect local como gateway/orquestrador de telefonia.
+- Provider inicial: Twilio Agent Bridge (telefone do vendedor -> telefone do lead).
+- Contrato Voice API v1: health, capabilities, criar chamada, consultar estado e hangup.
+- Polling do estado real da chamada e distinção entre perna do agente e perna do lead.
+- Preparação da sessão antes das ligações com fila, objetivo, Playbook e telefonia.
+- Recomendação automática contextual de Playbook, com possibilidade de seleção manual.
+- Modo Foco simplificado em três momentos: Antes de ligar -> Conversar -> Depois da ligação.
+- Assistant compacto e contextual; objeções/contexto/recursos avançados continuam disponíveis de forma recolhível.
+- Resultado, notas e próxima ação preservados no wrap-up.
+- Launcher Linux na porta 4183 e RealTalent Connect na porta 3001 por padrão.
+
+VALIDAÇÕES EXECUTADAS NESTE AMBIENTE
+[PASS] Auditoria sintática: 272 arquivos.
+[PASS] Auditoria de contratos de integração: 241 arquivos.
+[PASS] Migrations: 41/41 com checksum íntegro.
+[PASS] Linux release preflight: 239 arquivos TS/TSX; sem imports de marcas incompatíveis; bindings da Comunicação íntegros.
+[PASS] Gate específico V100.98.2: 86/86 contratos.
+[PASS] Gates históricos/atuais: 45/45 scripts qa:*.
+[PASS] bash -n: start-linux.sh, install-linux.sh, start-linux-dev.sh e configure-realtalent-connect.sh.
+[PASS] Typecheck isolado de src/services/voice-dialer.ts com TypeScript estrito.
+
+SMOKE TEST — REALTALENT CONNECT
+[PASS] Origin local permitido: HTTP 200 + Access-Control-Allow-Origin correto.
+[PASS] Origin externo não autorizado: HTTP 403.
+[PASS] POST sem application/json: HTTP 415.
+[PASS] Tentativa de chamada sem provider PSTN configurado: HTTP 503 com mensagem explícita.
+[PASS] Serviço inicia em localhost e informa provider não configurado sem expor credenciais.
+
+SEGURANÇA / CONTRATOS
+- CORS não usa wildcard.
+- Serviço escuta 127.0.0.1 por padrão.
+- Credenciais Twilio ficam em .env.local, que não é empacotado nesta release.
+- configure-realtalent-connect.sh grava .env.local com permissão 600.
+- Token não é passado como argumento de linha de comando ao helper de configuração.
+- Telefones são normalizados para E.164; código de país padrão configurável (55 por padrão).
+- Capacidades não suportadas pelo provider inicial não são anunciadas pela UI.
+
+LIMITAÇÕES DE VALIDAÇÃO DESTE AMBIENTE
+- O registry npm não estava acessível no momento do QA: EAI_AGAIN ao resolver registry.npmjs.org.
+- Por isso, não foi possível executar aqui uma instalação limpa das dependências e, consequentemente, não foram executados neste ambiente:
+  * npm run typecheck completo do projeto;
+  * Vitest completo;
+  * build Vite real com as dependências reinstaladas.
+- O start-linux.sh exige Node.js 22, instala as dependências no computador de destino, executa o preflight, executa npm run build e só abre o navegador após validar o build. Se o build falhar, o navegador não é aberto.
+- Uma chamada PSTN real via Twilio não foi executada neste ambiente porque não foram fornecidas credenciais/números Twilio reais. O gateway e seus contratos foram testados localmente sem credenciais.
+
+CONFIGURAÇÃO PARA CHAMADAS REAIS
+1. Execute ./configure-realtalent-connect.sh
+2. Informe TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, TWILIO_FROM_NUMBER e REALTALENT_AGENT_PHONE_NUMBER.
+3. Execute ./start-linux.sh.
+4. O fluxo inicial toca primeiro o telefone do vendedor; após o atendimento, o bridge disca para o lead.
+
+PORTAS PADRÃO
+CRM: http://127.0.0.1:4183
+RealTalent Connect: http://127.0.0.1:3001

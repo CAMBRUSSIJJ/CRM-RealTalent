@@ -1,0 +1,83 @@
+RealTalent CRM V101.10.4 — Local Discovery Experience
+QA Report
+================================================================
+
+Escopo
+------
+- Place-First Search: WebDocument separado de CompanyCandidate
+- Place Classifier para artigo/ranking/diretório/negócio local
+- deduplicação de documentos Web por URL antes do Company Resolver
+- Map & Radius UX com presets, slider, campo numérico e centro ajustável
+- raio real enviado ao Prospecting Agent
+- aba Local com mapa + lista sincronizados
+- empresas locais válidas permanecem listadas mesmo sem coordenadas
+- visualizações Empresas / Densidade / Cobertura
+- Review Experience 3.0 com cinco decisões essenciais
+- mini mapa na revisão, atalhos e aprovação inteligente
+- preservação integral de H1-H9.1
+
+Validações finais executadas
+----------------------------
+QA Architecture ................. PASS
+Source syntax ................... 385 arquivos aprovados
+Integration contracts ........... 358 arquivos aprovados
+Migrations ...................... 49/49, checksums íntegros
+Release Manifest ................ 44/44 invariantes
+Capability Matrix ............... 18 capacidades / 62 evidências / 40 executáveis
+Repository Contract ............. 98 métodos
+Browser E2E Contract ............ 9/9 fluxos catalogados
+V101.10.4 ....................... 32/32
+Legacy regression ............... PASS
+Linux release preflight ......... PASS (351 TS/TSX)
+start-linux.sh syntax ............ PASS
+install service syntax .......... PASS
+
+Runtime V101.10.4
+-----------------
+Entrada simulada: busca local de barbearias com OSM + Web.
+Resultado: 2 empresas válidas.
+- 1 empresa local via OpenStreetMap
+- 1 negócio local validado via Web
+- 1 documento editorial/ranking rejeitado
+- URLs Web repetidas por consultas expandidas foram deduplicadas
+- centro customizado do raio preservado: -29.89, -51.14
+Status: PASS
+
+Runtime Territory Engine 2.0 preservado
+----------------------------------------
+21 consultas OSM
+nível máximo 2 no cenário de smoke
+5 subdivisões
+78,6 km² ponderados
+resultado fora do raio descartado
+Status: PASS
+
+Gates globais neste ambiente
+----------------------------
+TYPECHECK: NOT PASS / ambiente sem dependências instaladas
+- comando: npm run typecheck
+- exit code: 2
+- node_modules ausente
+- erros predominantes: React, lucide-react, Supabase e tipos associados não resolvidos
+- diagnósticos secundários de inferência aparecem em cascata pela ausência desses tipos
+
+VITEST: NOT EXECUTABLE neste contêiner
+- comando: npm test
+- exit code: 127
+- causa: vitest: not found
+
+VITE BUILD: NOT EXECUTABLE neste contêiner
+- comando: npm run build
+- exit code: 127
+- validate:env passou
+- causa final: vite: not found
+
+Esses três gates NÃO foram convertidos artificialmente em PASS.
+O start-linux.sh instala/repara dependências e executa release:verify antes de abrir o CRM no Linux do usuário.
+
+Limites conhecidos
+------------------
+- O mapa de busca está muito mais operacional, mas ainda não é um GIS completo.
+- Não há múltiplos polígonos simultâneos ou áreas de exclusão nesta release.
+- O Place Classifier é determinístico e conservador; páginas incertas são rejeitadas ou usadas como evidência, não como empresa.
+- Providers adicionais continuam opcionais e não foram introduzidos nesta release.

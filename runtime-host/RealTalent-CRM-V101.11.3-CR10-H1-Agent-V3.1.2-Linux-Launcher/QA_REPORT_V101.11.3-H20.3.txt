@@ -1,0 +1,88 @@
+RealTalent CRM V101.11.3-H20.3 — QA REPORT
+Global UI & Product Cohesion
+Base funcional: V101.11.3-H19.13 — WhatsApp Work Management
+
+RESULTADO PRINCIPAL
+-------------------
+qa:architecture                                      PASS
+H20.3 Global UI & Product Cohesion                  26/26 PASS
+
+FUNDAÇÃO / REGRESSÕES VISUAIS
+-----------------------------
+V101.6.7 Global Workspace UI Consistency            31/31 PASS
+V101.6.8 Workspace Interaction Architecture         36/36 PASS
+CSS Governance                                       65/65 PASS
+H14 Commercial Management Foundation                28/28 PASS
+H14-UI1 Commercial Management UI                    15/15 PASS
+
+LINHA COMMUNICATIONS PRESERVADA
+-------------------------------
+H19.12 Communication Workspace Lineage Recovery     19/19 PASS
+H19.13 WhatsApp Work Management                     27/27 PASS
+Pure Chat / Rich Messaging / Normalization          PRESERVADOS
+
+GATES ESTRUTURAIS
+-----------------
+Source Syntax                                  418 arquivos PASS
+Integration Contracts                         386 arquivos PASS
+Migrations                                           54/54 PASS
+Release Manifest                                     93/93 PASS
+Capability Matrix               42 capacidades / 148 evidências / 99 executáveis PASS
+Repository Local                                   100/100 PASS
+Repository Supabase                                100/100 PASS
+Browser E2E Contracts                               11 fluxos PASS
+
+H20.1 — DESIGN SYSTEM TRUTH
+---------------------------
+- Azul canônico para interação/brand: PASS
+- Verde reservado a success/estado positivo: PASS
+- Aliases históricos apontam para brand truth: PASS
+- Camada H20 sem fonte operacional sub-10 px: PASS
+
+H20.2 — CSS CASCADE RECOVERY
+----------------------------
+- h20-product-cohesion.css é a última folha global: PASS
+- Runtime cascade guard instalado: PASS
+- Tokens canônicos reassertados após CSS lazy: PASS
+- CSS específico permanece lazy: PASS
+- Orçamento global reconhecido pelo CSS Governance: PASS
+
+H20.3 — GLOBAL WORKSPACE SHELL
+-----------------------------
+- WorkspacePageHeader: PASS
+- WorkspaceSummaryStrip / Metric: PASS
+- WorkspaceViewStrip: PASS
+- WorkspaceCommandBar / Group: PASS
+- Tarefas migradas: PASS
+- Equipes migradas: PASS
+- Follow-ups migrado: PASS
+- Drawer/filtros avançados de Follow-ups preservados: PASS
+
+BUILD INDEPENDENTE
+------------------
+Registry-independent transpile                    302 módulos PASS
+Bundle audit independente                         FAIL esperado
+Motivo: fallback produziu HTML legado; artefato rejeitado.
+Ação: dist fallback removido do pacote final.
+
+GATES OFICIAIS DEPENDENTES DE DEPENDÊNCIAS
+-------------------------------------------
+npm ci       BLOCKED — não concluiu dentro da janela do ambiente e não produziu node_modules.
+typecheck    NOT PASS — dependências/tipos React, React DOM, Supabase e JSX runtime ausentes.
+vitest       BLOCKED — vitest: not found.
+vite build   BLOCKED — validate:env PASS; vite: not found.
+
+Esses gates NÃO são classificados como PASS.
+
+BROWSER / PIXEL QA
+------------------
+Não classificado como pixel-perfect browser QA porque o build Vite oficial não ficou disponível neste ambiente.
+A auditoria desta release cobre código, CSS, arquitetura, contracts, runtime audits e regressões estruturais.
+
+HIGIENE DO ARTEFATO
+-------------------
+- node_modules: removido/ausente
+- dist fallback: removido
+- sessão local WhatsApp: removida/ausente
+- .env.local: removido/ausente
+- migrations novas: 0

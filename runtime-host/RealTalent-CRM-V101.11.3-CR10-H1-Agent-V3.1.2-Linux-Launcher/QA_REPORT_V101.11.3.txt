@@ -1,0 +1,80 @@
+RealTalent CRM — QA REPORT
+V101.11.3 — Actionable Pipeline Experience
+Data: 2026-10-06
+
+ESCOPO
+- KPIs acionáveis no Pipeline
+- Barra de progresso Pipeline/Forecast contra meta
+- Smart Views de acesso rápido
+- Single Action Bar
+- Kanban Card 3.0
+- Deal Rotting visual
+- Hover actions: ligar, mensagem/e-mail, concluir próxima atividade
+- Densidade Compacta/Confortável
+
+RESULTADOS COMPROVADOS NESTE AMBIENTE
+PASS  syntax:audit — 400 arquivos
+PASS  integration:audit — 368 arquivos
+PASS  migrations:verify — 50/50 checksums íntegros
+PASS  qa:release-manifest — 67/67 invariantes
+PASS  qa:repository-contracts — Local 99/99; Supabase 99/99
+PASS  qa:e2e-contract — 11 fluxos catalogados
+PASS  qa:v101.11.3 — 38/38 contratos
+PASS  qa:architecture — cadeia moderna completa V101.9.9 → V101.11.3
+PASS  check:legacy — cadeia histórica completa, incluindo typechecks isolados V101.9.7/V101.9.8
+PASS  V100.62 Deal Intelligence — 47/47 após adaptar contrato à sinalização visual de Deal Rotting
+PASS  V100.76 Pipeline 2.0 — 42/42
+PASS  V101.6.8 Workspace Interaction — 36/36 após reconhecer Single Action Bar
+PASS  Linux release preflight — 361 TS/TSX
+PASS  build:legacy — 285 módulos TypeScript transpilados
+PASS  CSS parse — 74 arquivos fonte + bundle de verificação; 0 erros
+
+VALIDAÇÕES ESPECÍFICAS V101.11.3
+PASS  KPI Em risco usa conjunto único, sem dupla contagem critical + proposal risk
+PASS  KPI Em risco aplica recorte real no Kanban
+PASS  KPI Sem próxima ação aplica recorte real
+PASS  recorte Atrasadas existe
+PASS  Forecast KPI abre Forecast
+PASS  Pipeline/Forecast possuem progresso de meta
+PASS  Smart Views e views customizadas coexistem
+PASS  busca/filtro/ordenação/exibição/densidade/criação estão na mesma barra
+PASS  card padrão reduzido a título/contato/valor/próxima ação
+PASS  Deal Health textual removido do corpo padrão do card
+PASS  Deal Rotting usa borda/background sem frase longa
+PASS  hover expõe Phone/Mail/Check
+PASS  Check chama completeActivity sobre atividade pendente real
+PASS  mobile não depende de hover
+PASS  page personalization aponta para Single Action Bar atual
+
+GATES OFICIAIS BLOQUEADOS / INDETERMINADOS NESTE SANDBOX
+BLOCKED  npm run typecheck
+Motivo: node_modules ausente; TypeScript começa em "Cannot find module 'react'" e tipos dependentes ficam indisponíveis.
+
+BLOCKED  npm test
+Motivo: vitest não instalado no sandbox.
+
+BLOCKED  npm run build
+Motivo: vite não instalado no sandbox.
+
+BLOCKED  npm audit --audit-level=high
+Motivo: registry.npmjs.org não resolve neste ambiente (EAI_AGAIN).
+
+LOCKFILE
+O lockfile herdado continua incompleto e o checker reporta:
+- missing @whiskeysockets/baileys@7.0.0-rc14
+- missing qrcode@1.5.4
+- missing whatsapp-web.js@1.34.7
+O launcher preserva a recuperação automática introduzida na V101.10.7-H1: primeira execução com registry disponível repara com npm install e depois retorna ao npm ci.
+
+BUILD DE VERIFICAÇÃO
+O build registry-independent foi usado somente como smoke de transpile/bundle e será removido do ZIP final. Ele não substitui o build oficial Vite.
+
+MIGRATIONS / DADOS
+- Migrations: 50, sem migration nova na V101.11.3
+- Schema: inalterado
+- Repository contracts: inalterados
+- Teams & Tasks: preservados
+- Communications: preservado
+
+PENDÊNCIA NÃO RELACIONADA
+O problema previamente reportado de Communications Gateway local não ficar pronto na porta 3002 não faz parte da V101.11.3 e não deve ser considerado corrigido por esta release.

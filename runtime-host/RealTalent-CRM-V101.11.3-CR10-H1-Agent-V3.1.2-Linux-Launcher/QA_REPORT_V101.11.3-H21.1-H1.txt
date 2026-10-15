@@ -1,0 +1,44 @@
+RealTalent CRM V101.11.3-H21.1-H1 — QA REPORT
+Communication Lineage Guard Fix
+
+ROOT CAUSE
+----------
+O source atual de Comunicação usa o marker sucessor H20.7-H2:
+  whatsapp-inbox-create-actions is-h207h2
+
+O launcher scripts/start.mjs ainda exigia apenas:
+  whatsapp-inbox-create-actions is-h1911
+
+Isso gerava falso bloqueio de lineage apesar de a capacidade H19.11 estar preservada.
+
+CORREÇÃO
+--------
+O launcher agora aceita explicitamente:
+  - whatsapp-inbox-create-actions is-h1911
+  OU
+  - whatsapp-inbox-create-actions is-h207h2
+
+Pure Chat, Continuous Chat, WhatsAppChatPanel e channel switch continuam obrigatórios.
+
+RESULTADOS
+----------
+H21.1-H1 Communication Lineage Guard Fix        15/15 PASS
+H19.12 Communication Workspace Lineage Recovery 19/19 PASS
+H20.7-H2 WhatsApp Conversation-Only Inbox       24/24 PASS
+H21.1 Garimpo Coverage & Runtime Truth           33/33 PASS
+Release Manifest                              101/101 PASS
+qa:architecture                                    PASS
+start.mjs syntax                                    PASS
+
+ESCOPO PRESERVADO
+-----------------
+- H20.7-H2 Inbox apenas com conversas preservada.
+- Novo contato / Novo grupo / Contatos do WhatsApp preservados.
+- Trabalho e Etiquetas não retornam à coluna esquerda.
+- Pure Chat preservado.
+- H21.1 Garimpo preservado sem alterações funcionais.
+- Nenhuma migration nova.
+
+LIMITAÇÕES DO AMBIENTE
+----------------------
+Este hotfix corrige somente o preflight/launcher. Os gates oficiais dependentes de node_modules mantêm a mesma classificação da H21.1 quando as dependências não estão instaladas no ambiente.

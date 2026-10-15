@@ -1,0 +1,259 @@
+RealTalent CRM V101.8.4-H15 — QA
+====================================
+
+Linux release preflight: OK (266 arquivos TS/TSX; sem imports de marcas incompatíveis; bindings da Comunicação íntegros).
+OK   baseline V101.8.4 permanece
+OK   conversa selecionada não herda selectedLeadId
+OK   seleção de thread limpa contato anterior quando não há vínculo
+OK   auto seleção limpa contato anterior quando thread é externa
+OK   identidade WhatsApp existe mesmo após vínculo CRM
+OK   vínculo explícito por peer/thread precede vínculo histórico
+OK   H14 leadId incorreto é reparado por telefone
+OK   contato pode ser criado pelo WhatsApp
+OK   contato pode ser vinculado a cadastro existente
+OK   vínculo persistente usa número e thread
+OK   vínculo guarda lead e contact
+OK   chat oferece Salvar contato
+OK   destino do chat prioriza a thread WhatsApp
+OK   grupo continua bloqueado para salvar/enviar
+OK   modal explica persistência do vínculo
+OK   CSS cobre ações de vínculo
+OK   launcher identifica H15
+OK   launcher migra H14 para H15
+OK   index identifica H15
+OK   release notes H15 existem
+
+V101.8.4-H15 WhatsApp Contact Identity: 20/20 contratos aprovados.
+OK   baseline V101.8.4 permanece
+OK   conversa selecionada decide o modo chat
+OK   classe visual do chat segue a conversa selecionada
+OK   chat não depende mais do filtro global WhatsApp
+OK   view Todos pode manter conversa WhatsApp selecionada
+OK   composer WhatsApp possui textarea
+OK   composer envia pela conta selecionada
+OK   composer suporta QR Local e Cloud API
+OK   Enter envia e Shift+Enter quebra linha
+OK   mensagens continuam usando eventos WhatsApp existentes
+OK   tempo real permanece visível no chat
+OK   composer permanece no rodapé visual
+OK   launcher identifica H14
+OK   launcher migra H13 para H14
+OK   index identifica H14
+OK   release notes H14 existem
+
+V101.8.4-H14 WhatsApp Conversation Composer: 16/16 contratos aprovados.
+OK   gateway identifica H13
+OK   bridge lê WAWebCollections diretamente
+OK   bridge lê Chat collection sem serialize completo
+OK   bridge lê mensagens materializadas
+OK   ID moderno $1 é suportado
+OK   store direta é caminho primário
+OK   getChats permanece fallback
+OK   diagnóstico registra engine do histórico
+OK   importador entende chats raw
+OK   importação inicial aguarda materialização
+OK   launcher identifica H13
+OK   launcher migra H12 para H13
+OK   health exige H13
+OK   index identifica H13
+OK   release notes H13 existem
+OK   diagnóstico mede store real sem expor conteúdo
+OK   package preserva whatsapp-web.js 1.34.7
+
+V101.8.4-H13 WhatsApp Real History Bridge: 17/17 contratos aprovados.
+OK   gateway atual preserva baseline H12
+OK   bus SSE dedicado existe
+OK   endpoint SSE existe
+OK   SSE usa text/event-stream
+OK   gateway envia heartbeat
+OK   saveStore publica mudança
+OK   health expõe realtime
+OK   frontend usa EventSource
+OK   frontend escuta realtime.ready
+OK   frontend escuta communications.changed
+OK   Central assina realtime
+OK   refresh realtime é silencioso
+OK   refresh realtime usa debounce
+OK   polling virou fallback de 60s
+OK   chat mostra estado tempo real
+OK   live 1:1 usa fast path sem getChat
+OK   Sincronizar virou recuperação de histórico
+OK   start identifica H12
+OK   start migra H11 para H12
+OK   index identifica H12
+OK   release notes H12 existem
+
+V101.8.4-H12 WhatsApp Realtime: 21/21 contratos aprovados.
+OK   baseline 101.8.4 preservada
+OK   gateway preserva baseline H11 na release atual
+OK   LID usa API atual de mapeamento do WhatsApp Web
+OK   LID longo não é tratado como telefone
+OK   grupos não entram por padrão no CRM
+OK   listagem de chats possui retry/fallback
+OK   falha por mensagem não derruba conta inteira
+OK   sessão QR recupera conexão automaticamente
+OK   status de conta reflete estado vivo QR
+OK   sync manual aceita QR em attention para recuperar
+OK   texto genérico é enriquecido sem rebaixar texto real
+OK   parser cobre mídia e interações
+OK   histórico importado legado não infla não lidas
+OK   interface não exibe LID gigante como telefone
+OK   vínculo de lead ignora peer inválido
+OK   UI distingue QR conectado de reconectando
+OK   aviso de sync QR não acusa histórico oficial
+OK   launcher preserva migração H10/H11 na release atual
+OK   launcher exige health da release atual
+OK   index identifica H11
+OK   release notes H11 existem
+OK   gate H11 e smoke estão no pipeline
+
+V101.8.4-H11 WhatsApp Sync Recovery: 22/22 contratos aprovados.
+OK   supervisor dedicado existe
+OK   launcher usa supervisor do gateway
+OK   launcher espera health real por até 15s
+OK   launcher migra sessão H9 para H10
+OK   supervisor reinicia processo que cai
+OK   supervisor encaminha sinais ao filho
+OK   supervisor permite smoke com entry isolado
+OK   gateway publica versão H10
+OK   gateway trata promises e exceções fatais com log
+OK   background sync não deixa rejection escapar
+OK   gateway encerra WhatsApp Web graciosamente
+OK   bridge protege eventos message/message_create
+OK   bridge protege ack e ready
+OK   bridge expõe shutdown de sessões
+OK   frontend faz retry seguro em GET
+OK   mensagem de indisponibilidade não acusa launcher falsamente
+OK   index identifica H10
+OK   release notes H10 existem
+
+V101.8.4-H10 Communications Gateway Resilience: 18/18 contratos aprovados.
+OK   baseline V101.8.4 preservada
+OK   store faz merge antes de gravar snapshot concorrente
+OK   deduplicação externa possui escopo workspace + conta + canal
+OK   evento duplicado é enriquecido em vez de descartado
+OK   ACK mais avançado não é rebaixado por snapshot antigo
+OK   QR sincroniza usando o mesmo snapshot do gateway
+OK   sessão possui mutex para impedir sync concorrente
+OK   sync background é incremental e manual continua completo
+OK   histórico importado não infla não lidas
+OK   abrir conversa pode marcar leitura apenas no CRM
+OK   bridge resolve Contact para JID/LID moderno
+OK   WhatsApp usa peer canônico em 1:1 e thread para grupos
+OK   Cloud webhook preserva peerAddress e escopa status por conta
+OK   sync retorna falhas por conta sem falso sucesso
+OK   QR Local não é rotulado como integração oficial
+OK   busca considera todas as mensagens da conversa
+OK   vínculo por telefone evita matches curtos e prioriza peer WhatsApp
+OK   testes cobrem não lidas, múltiplos números e alias LID
+OK   smoke cobre preservação de evento novo contra snapshot stale
+OK   launcher migra H8 e marca H9 atual
+OK   index e documentação marcam H9
+OK   gate H9 e smoke entram no pipeline completo
+
+V101.8.4-H9 Communications Reliability: 22/22 contratos aprovados.
+OK   baseline V101.8.4 preservada
+OK   sessão WhatsApp Web expõe sincronização de histórico
+OK   sincronização limita chats e mensagens para proteger runtime
+OK   importação deduplica usando externalMessageId existente
+OK   mensagens enviadas pelo celular entram pelo message_create
+OK   ACK do WhatsApp atualiza entrega e leitura
+OK   nome, peer e thread do chat são preservados
+OK   mídia recebe representação textual segura
+OK   gateway sincroniza contas QR no botão Sincronizar
+OK   gateway inclui QR na sincronização incremental
+OK   timeline local suporta volume maior de histórico
+OK   vínculo ao CRM considera peer do WhatsApp e endereços dos demais canais
+OK   conversas sem contato usam thread externa e não colapsam juntas
+OK   conversas não vinculadas podem abrir no workspace WhatsApp
+OK   envio para conversa externa direta é suportado sem criar Lead
+OK   grupos importados ficam protegidos contra envio
+OK   sincronização informa quantas mensagens novas foram importadas
+OK   launcher migra sessão QR e store da H7 para H8
+OK   H8 preserva H7 e marca release atual
+OK   testes cobrem separação e agrupamento de threads importadas
+OK   release notes explicam limite imposto pelo WhatsApp Web
+
+V101.8.4-H8 WhatsApp History Sync: 21/21 contratos aprovados.
+OK   baseline V101.8.4 preservada
+OK   WhatsApp possui workspace de chat dedicado
+OK   troca de canal seleciona conversa WhatsApp compatível
+OK   mensagens são ordenadas cronologicamente
+OK   chat diferencia mensagens recebidas e enviadas
+OK   chat exibe estados de entrega e leitura
+OK   composer envia pelo WhatsApp oficial ou QR conectado
+OK   Enter envia e Shift+Enter preserva quebra de linha
+OK   conta conectada pode ser selecionada no chat
+OK   sincronização permanece acessível dentro do chat
+OK   layout possui bolhas e composer persistente visualmente
+OK   layout WhatsApp ocupa o painel sem duplicar contexto superior
+OK   responsividade do chat foi registrada
+OK   release H7 está marcada no launcher e no index
+OK   release notes H7 documentam timeline única
+
+V101.8.4-H7 WhatsApp Chat Workspace: 15/15 contratos aprovados.
+OK  baseline V101.8.3-H1 permanece incorporada
+OK  reconciliação de identidade existe no core local
+OK  reconciliação preserva dados estruturados e enriquece vazios
+OK  Lead atualiza contato primário antes da estrutura
+OK  ContactRecord atualiza somente leads primários
+OK  bulk update preserva paridade de identidade
+OK  merge preserva identidade consolidada
+OK  e-mail de contato é normalizado no modo local
+OK  Supabase sincroniza Lead → ContactRecord
+OK  Supabase sincroniza ContactRecord → Lead
+OK  migration de reparo existe
+OK  migration enriquece vazios antes de eleger ContactRecord canônico
+OK  triggers bidirecionais possuem guarda de recursão
+OK  testes cobrem reparo, ida, volta e isolamento comercial
+OK  hotfix possui release notes e documentação
+OK  QA do hotfix está registrado no gate
+OK  launcher preserva identidade sync e Connect One-Tap na release atual
+
+V101.8.3-H1 Contact Identity Sync: 17/17 contratos aprovados.
+OK  One-Tap preservado na release atual
+OK  lock acompanha pacote
+OK  VERSION acompanha pacote
+OK  APP_VERSION acompanha pacote
+OK  health/runtime acompanham pacote
+OK  index identifica One-Tap
+OK  Connect identifica V101.8.3
+OK  presença tolera suspensão curta
+OK  heartbeat explícito existe
+OK  presença registra visibilidade e standalone
+OK  device expõe oneTapReady
+OK  diagnóstico conta One-Tap pronto
+OK  Phone HTML dedicado existe
+OK  Phone inclui manifest próprio
+OK  ícones iPhone existem
+OK  Phone detecta iOS
+OK  Phone persiste pareamento
+OK  Phone persiste One-Tap
+OK  Phone mantém tela acordada quando suportado
+OK  Phone envia heartbeat
+OK  Phone acompanha visibilidade
+OK  One-Tap abre tel imediatamente
+OK  sem atraso artificial antes de tel
+OK  fallback manual único existe
+OK  idempotência persiste callId
+OK  retorno da chamada mostra próximo passo
+OK  CRM tipa readiness One-Tap
+OK  settings mostra One-Tap
+OK  settings testa Fast Dial
+OK  diagnóstico do CRM mostra One-Tap
+OK  preparação renomeada One-Tap
+OK  CSS V101.8.3 existe e é última camada
+OK  CSS destaca readiness
+OK  launcher identifica V101.8.3
+OK  release notes existem
+OK  documentação existe
+OK  QA registrado
+OK  smoke registrado
+OK  release verify inclui One-Tap smoke
+
+V101.8.3 Connect One-Tap para iPhone: 39/39 contratos aprovados.
+Validação sintática aprovada em 300 arquivos.
+Auditoria de contratos aprovada em 268 arquivos.
+Migrations verificadas: 46 arquivo(s), todos com checksum íntegro.
+
+Observação: typecheck/Vitest/build completos dependem de node_modules e são executados pelo start-linux.sh no Linux do usuário.

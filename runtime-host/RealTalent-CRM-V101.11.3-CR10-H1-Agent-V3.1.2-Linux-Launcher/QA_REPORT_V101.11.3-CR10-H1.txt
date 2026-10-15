@@ -1,0 +1,43 @@
+RealTalent CRM V101.11.3-CR10-H1 — CSS Cascade Governance Hotfix
+Date: 2026-10-13
+
+ROOT CAUSE
+CR6 moved canonical Contact/Garimpo/Proposal CSS from their historical global cascade zones into route-lazy Promise.all imports. This reduced global CSS loading but changed cascade precedence and violated the established CSS governance contract.
+
+FIX
+- Restored contacts/prospecting/proposals canonical CSS to the exact historical global order.
+- Removed duplicate route CSS dynamic imports.
+- Preserved route-lazy JavaScript.
+- Preserved idle/deduplicated route prefetch.
+- Preserved CR5 observability and CR6 source/payload budgets.
+- Preserved CR10 Supabase staging bootstrap/readiness marker.
+
+QA
+css:governance                         65/65 PASS
+CR10-H1 hotfix                         9/9 PASS
+CR6 performance optimization          26/26 PASS
+CR10 staging bootstrap                36/36 PASS
+Source Syntax                         424 files PASS
+Integration Contracts                 392 files PASS
+Migrations                            58/58 PASS
+Lockfile                              PASS
+Release Manifest                      111/111 PASS
+Capability Matrix                     58 capabilities / 220 evidence / 144 executable
+Repository Local parity               100/100
+Repository Supabase parity            100/100
+CR1                                   16/16 PASS
+CR2                                   15/15 PASS
+CR3                                   21/21 PASS
+CR4                                   21/21 PASS
+CR5                                   24/24 PASS
+CR6                                   26/26 PASS
+CR7                                   32/32 PASS
+CR8                                   32/32 PASS
+CR9                                   32/32 PASS
+CR10                                  36/36 PASS
+
+NO DATABASE CHANGES
+No migration, schema, RLS, Auth, staging credential, or customer data changes.
+
+LIMITATIONS
+This hotfix addresses the CSS governance/startup blocker. Full npm ci/typecheck/Vitest/Vite build remain dependent on successful dependency installation in the target environment.

@@ -1,0 +1,74 @@
+RealTalent CRM V101.10.3 — Garimpo Search & Processing Engine
+=================================================================
+
+Base
+----
+V101.10.2-H3 — Prospecting Agent Search Runtime Fix.
+
+Escopo implementado
+-------------------
+- Buscas → Processamento → Revisão → Histórico.
+- Search Planner com expansão automática de consultas.
+- Territory Engine com grade geográfica, raio e subdivisão de células densas.
+- Mapa de cobertura das células sobre OpenStreetMap.
+- Cobertura territorial e Search Saturation separadas.
+- Provider runs persistidos.
+- RawCompany → Company Resolver → CompanyCandidate → Enrichment/Validation → Revisão → CRM.
+- Deduplicação por identificadores fortes e sinais auxiliares.
+- Evidência/proveniência por campo.
+- Retry limitado para descoberta/enriquecimento de website.
+- Completude e confiança calculadas separadamente.
+- Persistência do Prospecting Agent em schema v2 e migração de jobs anteriores.
+- Correções da V101.10.2-H3 preservadas, incluindo fallback sem Nominatim.
+
+Validações executadas nesta árvore
+---------------------------------
+PASS  node --check do Prospecting Agent e do audit V101.10.3
+PASS  syntax:audit: 384 arquivos
+PASS  integration:audit: 357 arquivos
+PASS  migrations:verify: 49/49 checksums
+PASS  qa:release-manifest: 34/34 invariantes
+PASS  qa:capabilities: 18 capacidades / 44 evidências / 32 executáveis
+PASS  qa:repository-contracts: Local 96/96 / Supabase 96/96
+PASS  qa:e2e-contract: 9 fluxos catalogados
+PASS  qa:v101.10.3: 41/41 contratos
+PASS  qa:architecture: árvore completa aprovada
+PASS  check:legacy: regressão histórica aprovada
+PASS  runtime:prospecting-search: OSM + web + enrichment + fallback sem Nominatim
+PASS  runtime:prospecting-engine: 3 únicas / cobertura 100% / saturação 99% / OSM 1 / Web 5
+PASS  bash -n start-linux.sh
+PASS  bash -n install-prospecting-agent-service.sh
+
+Gates globais
+-------------
+NÃO EXECUTADOS NESTE AMBIENTE:
+- npm run typecheck
+- npm test
+- npm run build
+
+Motivo:
+A árvore de release não traz node_modules e a tentativa de
+`npm install --no-audit --no-fund` excedeu o limite de 120 segundos
+do ambiente de montagem sem concluir a aquisição das dependências.
+
+Isto não foi convertido em PASS artificial.
+
+O `start-linux.sh` da release instala/repara as dependências e executa
+`npm run release:verify` antes de abrir o CRM no Linux do usuário.
+
+Limite conhecido
+----------------
+O mapa de cobertura territorial está funcional para visualizar as células
+planejadas e executadas. O desenho livre de um polígono customizado ainda
+não é aplicado como geometria de entrada nesta release. Ao selecionar
+"Área do mapa", a execução usa a geometria geocodificada da região informada.
+
+Segurança
+---------
+- Agent restrito a localhost.
+- Somente fontes e páginas públicas.
+- Sem login automático em terceiros.
+- Sem resolução de CAPTCHA.
+- Sem bypass de autenticação, rate limit ou bloqueios.
+- robots.txt preservado no crawler.
+- Cobertura/saturação são indicadores operacionais, não promessa de 100% do mercado.

@@ -1,0 +1,25 @@
+RealTalent CRM V101.6.9 — Global Filter & View Standard
+QA estático da release
+
+RESULTADOS
+- Linux release preflight: OK — 261 arquivos TS/TSX.
+- Auditoria sintática: OK — 294 arquivos.
+- Auditoria de contratos: OK — 263 arquivos.
+- Migrations: OK — 44 arquivos com checksum íntegro.
+- Auditoria específica V101.6.9: OK — 53/53 contratos.
+- Auditorias históricas QA: OK — 69 scripts executados.
+- TypeScript syntax/noCheck: OK.
+- public/commercial-map-runtime.js: node --check OK.
+
+ESCOPO VALIDADO
+- padrão global de barra de exibições;
+- padrão global da barra de comando/dados;
+- filtros rápidos configuráveis e pesquisáveis;
+- persistência da composição de filtros rápidos por workspace;
+- integração com filtros avançados já existentes;
+- cobertura em Contatos, Território, Pipeline, Follow-ups, Ligações, Playbooks, Agenda, Metas, Automações, Métricas, Propostas, Comunicação e Garimpo;
+- compatibilidade da baseline V101.6.8;
+- preflight Linux atualizado para os seletores atuais.
+
+LIMITAÇÃO DO AMBIENTE DE GERAÇÃO
+O gate npm completo (typecheck sem --noCheck + Vitest + build + bundle/HTTP) não foi executado neste ambiente porque node_modules não está presente e a instalação de dependências não pôde ser concluída aqui. O start-linux.sh executa esse gate completo após instalar as dependências no Linux do usuário.

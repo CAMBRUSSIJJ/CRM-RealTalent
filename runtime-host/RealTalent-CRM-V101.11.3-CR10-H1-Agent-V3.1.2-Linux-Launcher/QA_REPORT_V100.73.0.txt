@@ -1,0 +1,14 @@
+RealTalent CRM V100.73.0 — QA Report
+
+Escopo: RealTalent Voice & Dialer.
+- Voice Provider Layer criado.
+- Fallback external_tel preservado.
+- RealTalent Connect exige capabilities V1; servidor apenas alcançável não é tratado como compatível.
+- Browser Voice e SIP permanecem explicitamente não configurados.
+- Device Manager e Caller ID Manager adicionados.
+- Call State Engine integrado ao Modo Foco.
+- Controles de mute/hold/DTMF/transfer/voicemail são capability-gated.
+- Inbound Call UI global adicionada por contrato de eventos.
+- Origem de postMessage restrita a same-origin/localhost.
+- V100.72 Calling Intelligence preservada.
+- Nenhuma migration de banco necessária: configurações de voz são locais por workspace e o histórico comercial existente continua compatível.

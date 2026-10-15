@@ -1,0 +1,38 @@
+RealTalent CRM V100.98.1 — Workspace Layout Studio
+QA / Release Report
+
+Base
+- V100.98.0 Prospecting Engine preservada como baseline funcional.
+- Release atual: V100.98.1 Workspace Layout Studio.
+
+Escopo implementado
+- Sidebar configurável: Expandida, Compacta e Automática.
+- Presets seguros de largura: 224 px e 252 px; compacto 82 px.
+- Configuração de marca, agrupadores, perfil e estado inicial de Mais ferramentas.
+- Menu principal / Mais ferramentas / Oculto preservados e configuráveis.
+- Tooltips preservados no modo compacto.
+- Layout Studio no Meu Dia usando grade responsiva de 12 colunas.
+- Tamanhos seguros por bloco, sem redimensionamento livre que possa quebrar a página.
+- Organização automática e dense packing para reduzir lacunas.
+- Persistência de tamanhos no Experience schema V4, com normalização compatível com preferências antigas.
+- Fallback responsivo para notebook/tablet.
+
+QA executado neste ambiente
+- Gate específico V100.98.1: 66/66 contratos aprovados.
+- Auditoria sintática: 272 arquivos aprovados.
+- Auditoria de contratos: 241 arquivos aprovados.
+- Migrations: 41/41 com checksum íntegro.
+- Linux release preflight: OK em 239 arquivos TS/TSX.
+- 44/44 gates históricos/atuais qa:v100.* aprovados, incluindo V100.98.0 e V100.98.1.
+- Sintaxe Bash validada para start-linux.sh, start-linux-dev.sh, install-linux.sh e configure-google-places.sh.
+
+Limitação do ambiente
+- O registry/cache npm deste ambiente não disponibilizou todas as dependências para uma instalação limpa; por isso não foi possível afirmar execução local do Vite build/typecheck/Vitest com node_modules completo aqui.
+- O start-linux.sh executa no Linux do usuário: instalação de dependências (quando necessária), preflight, npm run build real, validação do dist e somente depois inicia o CRM. Se o build falhar, o navegador não é aberto.
+
+Runtime Linux
+- Porta padrão: 4182
+- URL: http://127.0.0.1:4182
+
+Critério para avançar
+- Esta versão deve ser aberta no Linux e validada visualmente/operacionalmente antes da V100.98.2 RealTalent Calling 3.0, mantendo a estratégia de releases pequenas para reduzir regressões.

@@ -1,0 +1,46 @@
+RealTalent CRM V101.11.3-H19.7 — QA REPORT
+Scope: WhatsApp Pure Chat
+Base: V101.11.3-H19.6
+
+CURRENT ARCHITECTURE
+qa:architecture                         PASS
+H19.7 WhatsApp Pure Chat                38/38 PASS
+Source Syntax                           413 arquivos PASS
+Integration Contracts                  381 arquivos PASS
+Migrations                               54/54 PASS
+Release Manifest                         84/84 PASS
+Capability Matrix              34 / 109 / 69 PASS
+Repository Local                        100/100 PASS
+Repository Supabase                     100/100 PASS
+Browser contracts                        11 fluxos PASS
+CSS Governance                           65/65 PASS
+WhatsApp 2.0                             66/66 PASS
+Communications 2.0                       61/61 PASS
+validate:env                                   PASS
+
+H19.7 PRODUCT CONTRACT
+- WhatsApp central surface = contact header + message history + composer.
+- Proposal controls removed from chat.
+- Quick replies removed from chat.
+- Commercial conversation status removed from chat and WhatsApp conversation list.
+- Lead shortcut removed from chat header.
+- Follow-up / Task / Note per-message actions removed from chat.
+- Yellow disconnected-state block removed from chat body.
+- Visible realtime technical label removed from chat.
+- WhatsApp/E-mail switch remains at workspace top.
+- Connection Center / QR / Cloud integration preserved through discrete Connect control.
+- Historical messages remain visible while disconnected; only sending is blocked.
+
+OFFICIAL DEPENDENCY GATES
+Typecheck   BLOCKED — node_modules absent; React/ReactDOM/Lucide/Supabase type packages unavailable.
+Vitest      BLOCKED — vitest not found.
+Vite build  BLOCKED — validate:env PASS; vite not found.
+npm ci --ignore-scripts — timed out before dependency installation completed.
+
+INDEPENDENT BUILD CHECK
+TypeScript fallback transpile            298 módulos
+runtime:bundle                            REJECTED fallback dist as expected: legacy HTML returned
+Release action                            fallback dist removed from ZIP
+
+NOTE
+The legacy V100.77.0 Follow-ups 2.0 visual audit is superseded by the current H19.6 Follow-up Focus contract and is not claimed as PASS in this release. H19.7 does not modify Follow-ups.

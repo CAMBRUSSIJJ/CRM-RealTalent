@@ -1,0 +1,26 @@
+# RealTalent CRM V100.77.0 — Follow-ups 2.0
+
+Data: 2026-09-20
+
+## Objetivo
+
+Transformar a fila de follow-up em uma área de execução imediata, tornando prazo, atraso, canal, responsável, cadência e próxima ação legíveis sem abrir a atividade.
+
+## Entregas
+
+- cards da fila agora destacam **Atrasado**, **Hoje**, **Amanhã**, próximo prazo ou ausência de data;
+- lead, empresa, responsável, etapa, prioridade, canal e cadência ficam visíveis no card;
+- reagendamento rápido com **+2 horas**, **Amanhã útil** e **Próximo dia útil**, respeitando janela comercial;
+- painel lateral ganhou estado temporal da atividade e os mesmos atalhos de reagendamento;
+- novo filtro por **responsável**;
+- Quadro passa a exibir timing, responsável, empresa e cadência;
+- Calendário passa a exibir responsável e etapa da cadência;
+- cards vencidos/hoje/sem data recebem hierarquia visual distinta sem depender somente de cor;
+- auditoria funcional atualizada para refletir o refinamento da área de Follow-ups.
+
+## Compatibilidade
+
+- sem migration nova;
+- `BACKUP_SCHEMA_VERSION` permanece `100.54`;
+- nenhuma integração externa foi alterada;
+- atividades e cadências existentes continuam compatíveis.

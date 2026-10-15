@@ -1,0 +1,81 @@
+RealTalent CRM V101.8.3-H1 — Contact Identity Sync — QA
+Data: 2026-10-01
+
+1) Compatibilidade V101.8.3 Connect One-Tap
+OK  package V101.8.3
+OK  lock acompanha pacote
+OK  VERSION acompanha pacote
+OK  APP_VERSION acompanha pacote
+OK  health/runtime acompanham pacote
+OK  index identifica One-Tap
+OK  Connect identifica V101.8.3
+OK  presença tolera suspensão curta
+OK  heartbeat explícito existe
+OK  presença registra visibilidade e standalone
+OK  device expõe oneTapReady
+OK  diagnóstico conta One-Tap pronto
+OK  Phone HTML dedicado existe
+OK  Phone inclui manifest próprio
+OK  ícones iPhone existem
+OK  Phone detecta iOS
+OK  Phone persiste pareamento
+OK  Phone persiste One-Tap
+OK  Phone mantém tela acordada quando suportado
+OK  Phone envia heartbeat
+OK  Phone acompanha visibilidade
+OK  One-Tap abre tel imediatamente
+OK  sem atraso artificial antes de tel
+OK  fallback manual único existe
+OK  idempotência persiste callId
+OK  retorno da chamada mostra próximo passo
+OK  CRM tipa readiness One-Tap
+OK  settings mostra One-Tap
+OK  settings testa Fast Dial
+OK  diagnóstico do CRM mostra One-Tap
+OK  preparação renomeada One-Tap
+OK  CSS V101.8.3 existe e é última camada
+OK  CSS destaca readiness
+OK  launcher identifica V101.8.3
+OK  release notes existem
+OK  documentação existe
+OK  QA registrado
+OK  smoke registrado
+OK  release verify inclui One-Tap smoke
+
+V101.8.3 Connect One-Tap para iPhone: 39/39 contratos aprovados.
+
+2) Contratos do hotfix de identidade
+OK  baseline permanece V101.8.3
+OK  reconciliação de identidade existe no core local
+OK  reconciliação preserva dados estruturados e enriquece vazios
+OK  Lead atualiza contato primário antes da estrutura
+OK  ContactRecord atualiza somente leads primários
+OK  bulk update preserva paridade de identidade
+OK  merge preserva identidade consolidada
+OK  e-mail de contato é normalizado no modo local
+OK  Supabase sincroniza Lead → ContactRecord
+OK  Supabase sincroniza ContactRecord → Lead
+OK  migration de reparo existe
+OK  migration enriquece vazios antes de eleger ContactRecord canônico
+OK  triggers bidirecionais possuem guarda de recursão
+OK  testes cobrem reparo, ida, volta e isolamento comercial
+OK  hotfix possui release notes e documentação
+OK  QA do hotfix está registrado no gate
+OK  launcher identifica o hotfix sem alterar o Connect One-Tap
+
+V101.8.3-H1 Contact Identity Sync: 17/17 contratos aprovados.
+
+3) Auditorias estruturais
+Validação sintática aprovada em 294 arquivos.
+Auditoria de contratos aprovada em 263 arquivos.
+Migrations verificadas: 45 arquivo(s), todos com checksum íntegro.
+Linux release preflight: OK (261 arquivos TS/TSX; sem imports de marcas incompatíveis; bindings da Comunicação íntegros).
+
+4) TypeScript focal — repositório local
+PASS — tsc focal executado externamente para local-crm-repository.ts e dependências internas.
+5) TypeScript focal — repositório Supabase
+PASS — tsc focal executado externamente com stub apenas para @supabase/supabase-js/ImportMeta; sem erros nos arquivos modificados.
+6) Runtime focal
+PASS — 4/4: reparo legado; Lead→ContactRecord; ContactRecord→Lead; isolamento comercial; persistência após reload.
+
+Observação: npm test/build completos não foram executados neste container porque as dependências npm da aplicação não estão instaladas e o ambiente não dispõe de acesso ao registry. O start-linux.sh preserva o gate release:verify para executar typecheck, Vitest, build e smokes após npm ci no Linux do usuário.

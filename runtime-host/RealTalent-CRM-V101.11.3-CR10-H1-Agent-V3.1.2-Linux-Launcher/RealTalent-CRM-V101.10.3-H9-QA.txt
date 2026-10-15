@@ -1,0 +1,111 @@
+RealTalent CRM V101.10.3-H9 — Territory Engine 2.0
+QA Report
+====================================================================
+
+Base
+----
+V101.10.3-H8 — Search Ontology.
+
+Escopo H9
+---------
+- Territory Engine 2.0 no Prospecting Agent.
+- subdivisão recursiva de células densas, com profundidade configurável;
+- limite global de células e área mínima para evitar explosão de busca;
+- célula saturada explicitamente registrada quando o provider continua no limite e não é seguro subdividir mais;
+- modo Raio usa geometria circular real aproximada por polígono, não apenas bbox quadrada;
+- resultados fora da geometria territorial são descartados;
+- cobertura territorial ponderada pela área efetiva pesquisável (km²), e não pela contagem simples de células;
+- métricas de km² tentados / sucesso / falha, profundidade, subdivisões e células saturadas;
+- editor de polígono permite arrastar e excluir vértices;
+- mapa mostra profundidade, área efetiva e saturação por célula;
+- schema persistente do Agent evolui para v6 com normalização de estados anteriores;
+- H1-H8 preservados.
+
+Validações finais executadas
+----------------------------
+QA Architecture ................ PASS
+Source syntax .................. 385 arquivos aprovados
+Integration contracts .......... 358 arquivos aprovados
+Migrations ..................... 49/49, checksums íntegros
+Release Manifest ............... 43/43 invariantes
+Capability Matrix .............. 18 capacidades / 60 evidências / 39 executáveis
+Repository Local ............... 98/98
+Repository Supabase ............ 98/98
+Browser E2E Contract ........... 9/9 fluxos catalogados
+V101.10.3 base ................. 41/41
+H1 Drawn Territory ............. 44/44
+H2 Coverage Truth .............. 10/10
+H3 Identity Resolver ........... 10/10
+H4 Canonical Company Bridge .... 13/13
+H5 Enrichment Jobs ............. 28/28
+H6 Progressive Processing ...... 28/28
+H7 Review Workspace 2.0 ........ 36/36
+H8 Search Ontology ............. 29/29
+H9 Territory Engine 2.0 ........ 35/35
+Legacy regression .............. 3.185 OK / 0 FAIL
+Linux release preflight ........ PASS (351 TS/TSX)
+start-linux.sh syntax ........... PASS
+install service syntax ......... PASS
+
+Runtimes acumulados
+-------------------
+Prospecting Agent base ......... PASS
+H3 Search runtime .............. PASS
+V101.10.3 Engine ............... PASS
+H1 Drawn Territory ............. PASS
+H2 Coverage Truth .............. PASS
+H3 Identity Resolver ........... PASS
+H5 Enrichment Jobs ............. PASS
+H6 Progressive Processing ...... PASS
+H8 Search Ontology ............. PASS
+H9 Territory Engine 2.0 ........ PASS
+
+Runtime H9 validado
+-------------------
+- geometria: raio circular real de 5 km;
+- área ponderada: 78,6 km²;
+- 21 consultas OSM no cenário controlado;
+- 5 subdivisões;
+- profundidade atingida: nível 2;
+- resultado propositalmente fora do raio: descartado;
+- cobertura calculada por área efetiva, não por quantidade de células.
+
+Proteções do motor
+------------------
+Defaults do Agent (configuráveis por ambiente):
+- MAX_SEARCH_CELLS: 256;
+- MAX_SUBDIVISION_LEVEL: 3;
+- MIN_SUBDIVISION_AREA_KM2: 0,35;
+- densidade mínima para gatilho de subdivisão: 20 resultados.
+
+Gates globais neste ambiente
+----------------------------
+TYPECHECK: NOT PASS / ambiente sem dependências
+  comando: npm run typecheck
+  exit code: 2
+  causa predominante: node_modules ausente; React, React DOM, Supabase e respectivos tipos não resolvem.
+
+VITEST: NOT EXECUTABLE neste contêiner
+  comando: npm test
+  exit code: 127
+  causa: vitest: not found.
+
+VITE BUILD: NOT EXECUTABLE neste contêiner
+  comando: npm run build
+  exit code: 127
+  validate:env passa; vite: not found.
+
+Esses gates NÃO foram convertidos artificialmente em PASS. O start-linux.sh instala/repara dependências e executa release:verify antes de iniciar o CRM.
+
+Empacotamento
+-------------
+- dist antigo não incluído: o launcher gera a build H9 após os gates;
+- estado local do Prospecting Agent não incluído no ZIP;
+- launcher prioriza migração do estado da V101.10.3-H8;
+- nenhuma migration SQL nova; total permanece 49/49.
+
+Limites conhecidos
+------------------
+- editor de território agora permite mover/excluir vértices, mas ainda não é um editor GIS completo;
+- múltiplos polígonos, áreas de exclusão (holes) e edição MapLibre/Leaflet nativa ficam fora do H9;
+- cobertura continua sendo uma métrica operacional de execução territorial, não uma garantia de que 100% das empresas existentes foram descobertas.

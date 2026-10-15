@@ -1,0 +1,146 @@
+/* RealTalent CRM V100.98.1 — Workspace Layout Studio
+   Sidebar configurável + grade segura de 12 colunas para o Meu Dia. */
+:root{
+  --rt-sidebar-width-expanded:252px;
+  --rt-sidebar-width-compact:82px;
+}
+
+/* Sidebar: preferências explícitas vencem os overrides responsivos históricos. */
+.sidebar{width:var(--rt-sidebar-width-expanded)}
+.app-shell__main{margin-left:var(--rt-sidebar-width-expanded)}
+.sidebar--collapsed{width:var(--rt-sidebar-width-compact)}
+.sidebar--collapsed + .app-shell__main{margin-left:var(--rt-sidebar-width-compact)}
+.sidebar--hide-brand .sidebar__brand{display:none}
+.sidebar--hide-profile .sidebar__profile{display:none}
+.sidebar--hide-groups .sidebar__group-label{display:none}
+
+html[data-sidebar-mode="expanded"] .sidebar__brand-copy,
+html[data-sidebar-mode="expanded"] .sidebar__item span,
+html[data-sidebar-mode="expanded"] .sidebar__profile-copy{
+  opacity:1!important;width:auto!important;height:auto!important;overflow:hidden!important;padding:initial;
+}
+html[data-sidebar-mode="expanded"] .sidebar__group-label{
+  opacity:1!important;width:auto!important;height:auto!important;overflow:hidden!important;padding:0 13px 5px!important;
+}
+html[data-sidebar-mode="expanded"] .sidebar__item{justify-content:flex-start!important;padding:0 13px!important}
+html[data-sidebar-mode="expanded"] .sidebar__brand,
+html[data-sidebar-mode="expanded"] .sidebar__profile{justify-content:flex-start!important}
+html[data-sidebar-mode="expanded"] .sidebar__collapse{display:grid!important}
+html[data-sidebar-mode="expanded"] .app-shell__main{margin-left:var(--rt-sidebar-width-expanded)!important}
+
+html[data-sidebar-mode="compact"] .sidebar{width:var(--rt-sidebar-width-compact)!important}
+html[data-sidebar-mode="compact"] .app-shell__main{margin-left:var(--rt-sidebar-width-compact)!important}
+html[data-sidebar-mode="compact"] .sidebar__brand-copy,
+html[data-sidebar-mode="compact"] .sidebar__item span,
+html[data-sidebar-mode="compact"] .sidebar__profile-copy,
+html[data-sidebar-mode="compact"] .sidebar__group-label,
+html[data-sidebar-mode="compact"] .sidebar__more-toggle span,
+html[data-sidebar-mode="compact"] .sidebar__more-chevron{display:none!important;opacity:0!important;width:0!important;height:0!important}
+html[data-sidebar-mode="compact"] .sidebar__item,
+html[data-sidebar-mode="compact"] .sidebar__more-toggle{justify-content:center!important;padding-inline:0!important}
+html[data-sidebar-mode="compact"] .sidebar__brand,
+html[data-sidebar-mode="compact"] .sidebar__profile{justify-content:center!important;padding-inline:0!important}
+html[data-sidebar-mode="compact"] .sidebar__collapse{display:grid!important;width:42px;margin-inline:auto}
+/* Compact mode is a rail: hovering reveals the full labels without changing the content layout. */
+html[data-sidebar-mode="compact"] .sidebar{z-index:120;transition:width .16s ease,box-shadow .16s ease}
+html[data-sidebar-mode="compact"] .sidebar:hover{width:var(--rt-sidebar-width-expanded)!important;box-shadow:16px 0 34px rgba(18,33,28,.14)}
+html[data-sidebar-mode="compact"] .sidebar:hover .sidebar__brand-copy,
+html[data-sidebar-mode="compact"] .sidebar:hover .sidebar__item span,
+html[data-sidebar-mode="compact"] .sidebar:hover .sidebar__profile-copy,
+html[data-sidebar-mode="compact"] .sidebar:hover .sidebar__group-label,
+html[data-sidebar-mode="compact"] .sidebar:hover .sidebar__more-toggle span,
+html[data-sidebar-mode="compact"] .sidebar:hover .sidebar__more-chevron{display:block!important;opacity:1!important;width:auto!important;height:auto!important}
+html[data-sidebar-mode="compact"] .sidebar:hover .sidebar__item{justify-content:flex-start!important;padding:0 13px!important}
+html[data-sidebar-mode="compact"] .sidebar:hover .sidebar__more-toggle{justify-content:flex-start!important;padding-inline:13px!important}
+html[data-sidebar-mode="compact"] .sidebar:hover .sidebar__brand,
+html[data-sidebar-mode="compact"] .sidebar:hover .sidebar__profile{justify-content:flex-start!important;padding-inline:9px!important}
+html[data-sidebar-mode="compact"] .sidebar:hover .sidebar__collapse{display:none!important}
+
+@media(max-width:1180px) and (min-width:721px){
+  html[data-sidebar-mode="auto"] .sidebar{width:var(--rt-sidebar-width-compact)!important}
+  html[data-sidebar-mode="auto"] .app-shell__main{margin-left:var(--rt-sidebar-width-compact)!important}
+  html[data-sidebar-mode="auto"] .sidebar__brand-copy,
+  html[data-sidebar-mode="auto"] .sidebar__item span,
+  html[data-sidebar-mode="auto"] .sidebar__profile-copy,
+  html[data-sidebar-mode="auto"] .sidebar__group-label,
+  html[data-sidebar-mode="auto"] .sidebar__more-toggle span,
+  html[data-sidebar-mode="auto"] .sidebar__more-chevron{display:none!important;opacity:0!important;width:0!important;height:0!important}
+  html[data-sidebar-mode="auto"] .sidebar__item,
+  html[data-sidebar-mode="auto"] .sidebar__more-toggle{justify-content:center!important;padding-inline:0!important}
+  html[data-sidebar-mode="auto"] .sidebar__brand,
+  html[data-sidebar-mode="auto"] .sidebar__profile{justify-content:center!important;padding-inline:0!important}
+}
+@media(min-width:1181px){
+  html[data-sidebar-mode="auto"] .sidebar{width:var(--rt-sidebar-width-expanded)!important}
+  html[data-sidebar-mode="auto"] .app-shell__main{margin-left:var(--rt-sidebar-width-expanded)!important}
+  html[data-sidebar-mode="auto"] .sidebar__brand-copy,
+  html[data-sidebar-mode="auto"] .sidebar__item span,
+  html[data-sidebar-mode="auto"] .sidebar__profile-copy{display:grid!important;opacity:1!important;width:auto!important;height:auto!important}
+  html[data-sidebar-mode="auto"] .sidebar__group-label{display:block!important;opacity:1!important;width:auto!important;height:auto!important;padding:0 13px 5px!important}
+  html[data-sidebar-mode="auto"] .sidebar__item{justify-content:flex-start!important;padding:0 13px!important}
+}
+@media(max-width:720px){
+  .app-shell__main, .sidebar--collapsed + .app-shell__main{margin-left:0!important}
+}
+
+/* Configurações > Navegação */
+.sidebar-studio{display:grid;grid-template-columns:minmax(0,1fr) 250px;gap:18px;margin:4px 0 20px;padding:16px;border:1px solid var(--border);border-radius:14px;background:var(--surface-2)}
+.sidebar-studio__controls{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+.sidebar-studio__controls .field small{color:var(--muted);font-size:10px;line-height:1.4}
+.sidebar-studio__controls .settings-toggle{min-height:74px}
+.sidebar-studio__preview{min-height:318px;align-self:stretch;display:flex;flex-direction:column;gap:7px;padding:14px;border-radius:16px;background:linear-gradient(180deg,#17264a,#111d38);color:#d8e2ff;box-shadow:0 12px 28px rgba(23,38,74,.16);transition:width .18s ease}
+.sidebar-studio__preview-brand{display:flex;align-items:center;gap:10px;padding:8px 6px 14px;border-bottom:1px solid rgba(255,255,255,.1);font-weight:900}
+.sidebar-studio__preview-brand::first-letter{color:#fff}
+.sidebar-studio__preview-brand span{font-size:12px}
+.sidebar-studio__preview-item{min-height:40px;display:flex;align-items:center;gap:10px;padding:0 10px;border-radius:10px;color:#aebcdf;font-size:11px;font-weight:700}
+.sidebar-studio__preview-item.is-active{color:#fff;background:rgba(65,105,232,.2);box-shadow:inset 3px 0 #7391f2}
+.sidebar-studio__preview-profile{margin-top:auto;min-height:44px;display:flex;align-items:center;gap:9px;padding:7px 10px;border-radius:10px;background:rgba(255,255,255,.05);font-size:11px;font-weight:800}
+.sidebar-studio__preview-profile::first-letter{display:grid;place-items:center}
+.sidebar-studio__preview--compact{width:82px;justify-self:end}
+.sidebar-studio__preview--compact span{display:none}
+.sidebar-studio__preview--compact .sidebar-studio__preview-item{justify-content:center;padding-inline:0}
+.navigation-editor__subheading{display:flex;align-items:end;justify-content:space-between;gap:12px;margin:4px 0 10px}.navigation-editor__subheading strong{font-size:13px}.navigation-editor__subheading span{color:var(--muted);font-size:10px}
+
+/* Layout Studio de páginas */
+.page-personalization-heading-actions{display:flex;flex-wrap:wrap;justify-content:flex-end;gap:8px}
+.page-personalization-section__sizes{display:flex;flex-wrap:wrap;gap:5px;margin-top:7px}
+.page-personalization-section__sizes button{min-height:28px;padding:0 9px;border:1px solid var(--border);border-radius:999px;background:var(--surface-2);color:var(--muted);font-size:9px;font-weight:800;cursor:pointer}
+.page-personalization-section__sizes button:hover{border-color:color-mix(in srgb,var(--blue) 35%,var(--border));color:var(--blue)}
+.page-personalization-section__sizes button.is-active{border-color:var(--blue);background:color-mix(in srgb,var(--blue) 8%,var(--surface));color:var(--blue);box-shadow:0 0 0 2px color-mix(in srgb,var(--blue) 8%,transparent)}
+
+/* Meu Dia em grade de 12 colunas. Tamanhos inválidos nunca são aplicados porque
+   o registry expõe apenas combinações testadas por bloco. */
+.route-transition[data-route="dashboard"] .dashboard-v10051{
+  display:grid;
+  grid-template-columns:repeat(12,minmax(0,1fr));
+  grid-auto-flow:row dense;
+  gap:22px;
+}
+.route-transition[data-route="dashboard"] .dashboard-v10051 > [data-experience-section]{min-width:0;grid-column:span 12}
+.route-transition[data-route="dashboard"] .dashboard-v10051 > [data-experience-section][data-experience-size="s"]{grid-column:span 4}
+.route-transition[data-route="dashboard"] .dashboard-v10051 > [data-experience-section][data-experience-size="m"]{grid-column:span 6}
+.route-transition[data-route="dashboard"] .dashboard-v10051 > [data-experience-section][data-experience-size="l"]{grid-column:span 8}
+.route-transition[data-route="dashboard"] .dashboard-v10051 > [data-experience-section][data-experience-size="full"]{grid-column:1/-1}
+.route-transition[data-route="dashboard"] .health-strip[data-experience-size="m"]{grid-template-columns:repeat(2,minmax(0,1fr))}
+.route-transition[data-route="dashboard"] .health-strip[data-experience-size="l"]{grid-template-columns:repeat(2,minmax(0,1fr))}
+.route-transition[data-route="dashboard"] .deal-day-summary[data-experience-size="m"],
+.route-transition[data-route="dashboard"] .lead-score-overview[data-experience-size="m"]{grid-template-columns:repeat(2,minmax(0,1fr))}
+.route-transition[data-route="dashboard"] .dashboard-execution-grid[data-experience-size="l"]{grid-template-columns:1fr}
+.route-transition[data-route="dashboard"] .commercial-summary-grid[data-experience-size="m"],
+.route-transition[data-route="dashboard"] .dashboard-bottom-grid[data-experience-size="m"]{grid-template-columns:1fr}
+.route-transition[data-route="dashboard"] .commercial-summary-grid[data-experience-size="l"],
+.route-transition[data-route="dashboard"] .dashboard-bottom-grid[data-experience-size="l"]{grid-template-columns:1fr}
+
+@media(max-width:1220px){
+  .route-transition[data-route="dashboard"] .dashboard-v10051 > [data-experience-section]{grid-column:1/-1!important}
+  .route-transition[data-route="dashboard"] .dashboard-execution-grid,
+  .route-transition[data-route="dashboard"] .commercial-summary-grid,
+  .route-transition[data-route="dashboard"] .dashboard-bottom-grid{grid-template-columns:1fr!important}
+}
+@media(max-width:980px){
+  .sidebar-studio{grid-template-columns:1fr}.sidebar-studio__preview{display:none}.sidebar-studio__controls{grid-template-columns:1fr}
+}
+@media(max-width:760px){
+  .page-personalization-heading-actions{width:100%;justify-content:stretch}.page-personalization-heading-actions .button{flex:1}
+  .page-personalization-section__sizes{grid-column:1/-1}
+}

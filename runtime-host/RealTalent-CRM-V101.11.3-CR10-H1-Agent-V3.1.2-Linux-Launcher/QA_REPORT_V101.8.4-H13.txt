@@ -1,0 +1,28 @@
+RealTalent CRM V101.8.4-H13 — WhatsApp Real History Bridge
+QA Report
+
+Objetivo
+- Corrigir o caso em que o QR conecta e a sessão fica READY/CONNECTED, mas o CRM não consegue puxar os chats reais porque whatsapp-web.js#getChats() falha/retorna vazio com o WhatsApp Web atual.
+
+Correções principais
+- WAWebCollections.Chat vira a fonte primária do histórico QR.
+- Leitura mínima/defensiva, sem Chat.serialize().
+- Mensagens recentes lidas diretamente de chat.msgs quando materializadas.
+- Suporte a IDs modernos $1 e _serialized.
+- client.getChats() mantido apenas como fallback.
+- Espera inicial de 5 segundos para materialização da store.
+- historyEngine persistido no diagnóstico da sincronização.
+- Endpoint de diagnóstico: /api/integrations/whatsapp/qr/diagnostics?workspaceId=...
+
+Gates executados neste ambiente
+- H11 WhatsApp Sync Recovery: 22/22
+- H12 WhatsApp Realtime: 21/21
+- H13 WhatsApp Real History Bridge: 17/17
+- Linux release preflight: OK (265 TS/TSX)
+- Integration contract audit: 267 arquivos aprovados
+- node --check bridge/gateway: OK
+- bash -n start-linux.sh: OK
+
+Limitação desta validação
+- Não foi possível autenticar uma conta WhatsApp real dentro deste ambiente de montagem; portanto o teste final com o WhatsApp do usuário deve ser feito no Linux dele após migração da sessão H12.
+- O QR Local continua sendo uma integração não oficial/experimental baseada em WhatsApp Web.

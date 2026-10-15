@@ -1,0 +1,47 @@
+RealTalent CRM V100.66.0 — Buyer Room / Mutual Action Plan
+QA REPORT — 2026-09-15
+
+BASE
+- V100.65.0 — Coaching & Playbooks
+- 34 arquivos adicionados/alterados em relação à base
+- Dependências de runtime: inalteradas
+
+AUDITORIAS EXECUTADAS
+- Source syntax audit: 216 arquivos — APROVADO
+- Integration contract audit: 187 arquivos — APROVADO
+- Migration verifier: 37/37 — APROVADO
+- V100.56.4 regression: 21/21 — APROVADO
+- V100.60 Sales Experience: 41/41 — APROVADO
+- V100.60.1 Performance: 29/29 — APROVADO
+- V100.62 Deal Intelligence: 47/47 — APROVADO
+- V100.63 Sales Engagement: 64/64 — APROVADO
+- V100.65 Coaching & Playbooks: 63/63 — APROVADO
+- V100.66 Buyer Room / Mutual Action Plan: 69/69 — APROVADO
+- TypeScript structural pass: tsc -p tsconfig.typecheck.json --noEmit --noCheck — APROVADO
+
+CENÁRIOS CRÍTICOS COBERTOS
+- CRUD local/Supabase de Buyer Room
+- link público por token com expiração, desativação e rotação
+- RLS da tabela e revogação explícita de PUBLIC EXECUTE
+- comprador altera somente etapas buyer/shared
+- telemetria de abertura, documento e comentário
+- Proposal 360 / aba Buyer Rooms
+- revisão de proposta retargeta sala existente
+- aceite/fechamento sincroniza o Mutual Action Plan
+- merge local preserva Buyer Room
+- merge Supabase usa wrapper transacional V100.66 antes da rotina legado
+- Deal Intelligence usa abertura/progresso/bloqueio como sinais
+- diagnóstico de integridade cobre referências/token/duplicidade
+- snapshots locais antigos normalizam buyerRooms ausente
+
+LIMITAÇÃO DO AMBIENTE
+A tentativa de npm install voltou a expirar por indisponibilidade/rede do ambiente de execução.
+Por isso NÃO foram marcados como executados nesta máquina:
+- npm run typecheck (checagem semântica completa com node_modules)
+- npm test (Vitest)
+- npm run build (Vite)
+
+Após npm install/npm ci concluir no Linux de destino, rode:
+  npm run check
+
+O pacote não inclui node_modules nem arquivos .env.

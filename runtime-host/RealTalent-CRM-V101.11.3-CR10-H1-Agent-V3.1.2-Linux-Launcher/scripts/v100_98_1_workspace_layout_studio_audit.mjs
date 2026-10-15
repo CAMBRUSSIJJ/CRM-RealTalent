@@ -1,0 +1,103 @@
+import fs from 'node:fs'
+import path from 'node:path'
+
+const root = process.cwd()
+const read = (file) => fs.readFileSync(path.join(root, file), 'utf8')
+const exists = (file) => fs.existsSync(path.join(root, file))
+const checks = []
+const check = (label, pass) => checks.push({ label, pass: Boolean(pass) })
+
+const pkg = JSON.parse(read('package.json'))
+const lock = JSON.parse(read('package-lock.json'))
+const health = JSON.parse(read('public/health.json'))
+const runtime = JSON.parse(read('public/runtime-version.json'))
+const version = read('src/lib/app-version.ts')
+const prefs = read('src/features/settings/preferences-context.tsx')
+const settings = read('src/features/settings/settings-page.tsx')
+const sidebar = read('src/components/layout/sidebar.tsx')
+const experience = read('src/features/experience/experience-context.tsx')
+const registry = read('src/features/experience/experience-registry.ts')
+const boundary = read('src/features/experience/page-experience-boundary.tsx')
+const pageSettings = read('src/features/settings/page-personalization-settings.tsx')
+const css = read('src/styles/workspace-layout-studio-v100981.css')
+const main = read('src/main.tsx')
+const launcher = ((read('start-linux.sh') + '\n' + (fs.existsSync('start-linux-legacy.sh') ? read('start-linux-legacy.sh') : '') + '\n' + (fs.existsSync('scripts/start.mjs') ? read('scripts/start.mjs') : '')) + '\n' + (exists?.('start-linux-legacy.sh') ? read('start-linux-legacy.sh') : '') + '\n' + (exists?.('scripts/start.mjs') ? read('scripts/start.mjs') : ''))
+
+const parts981 = pkg.version.split('.').map(Number)
+const isV100981OrNewer = parts981[0] > 100 || (parts981[0] === 100 && (parts981[1] > 98 || (parts981[1] === 98 && (parts981[2] ?? 0) >= 1)))
+check('package V100.98.1 ou sucessora', isV100981OrNewer)
+check('package-lock acompanha versão', lock.version === pkg.version && lock.packages?.['']?.version === pkg.version)
+check('VERSION acompanha package', read('VERSION').trim() === `V${pkg.version}`)
+check('APP_VERSION acompanha package', version.includes(`APP_VERSION = '${pkg.version}'`))
+check('health acompanha package e mantém release identificável', health.version === pkg.version && Boolean(health.release))
+check('runtime acompanha sucessora e porta isolada', runtime.version === pkg.version && Number(runtime.default_port) >= 4182)
+check('index acompanha package', read('index.html').includes(`V${pkg.version}`))
+
+check('Sidebar possui modo automático', prefs.includes("'expanded' | 'compact' | 'auto'"))
+check('Sidebar possui largura segura', prefs.includes("SidebarWidthPreference = 'comfortable' | 'wide'"))
+for (const marker of ['sidebarWidth', 'sidebarShowBrand', 'sidebarShowGroups', 'sidebarShowProfile', 'sidebarOpenSecondary']) {
+  check(`Preferência ${marker}`, prefs.includes(marker))
+}
+check('normalização preserva modo auto', prefs.includes("appearance.sidebar === 'compact' || appearance.sidebar === 'auto'"))
+check('variável CSS de largura expandida é aplicada', prefs.includes('--rt-sidebar-width-expanded'))
+check('datasets da Sidebar são aplicados', prefs.includes('root.dataset.sidebarMode') && prefs.includes('root.dataset.sidebarWidth'))
+
+check('Sidebar usa preferências de marca', sidebar.includes('sidebarShowBrand'))
+check('Sidebar usa preferências de grupos', sidebar.includes('sidebarShowGroups'))
+check('Sidebar usa preferências de perfil', sidebar.includes('sidebarShowProfile'))
+check('Mais ferramentas persiste estado', sidebar.includes('toggleSecondary') && sidebar.includes('sidebarOpenSecondary: nextOpen'))
+check('Sidebar mantém tooltips nos ícones', sidebar.includes('title={customLabel}'))
+check('modo automático marca a Sidebar', sidebar.includes("preferences.appearance.sidebar === 'auto'"))
+
+check('Configurações expõe comportamento da Sidebar', settings.includes('Comportamento') && settings.includes('Sempre expandida') && settings.includes('Automática'))
+check('Configurações expõe largura', settings.includes('Largura expandida') && settings.includes('224 px') && settings.includes('252 px'))
+check('Configurações expõe marca/grupos/perfil', settings.includes('Marca e versão') && settings.includes('Separadores de área') && settings.includes('Perfil no rodapé'))
+check('Configurações expõe Mais ferramentas aberto', settings.includes('Mais ferramentas aberto'))
+check('Configurações tem prévia de Sidebar', settings.includes('sidebar-studio__preview'))
+check('Configurações restaura Sidebar', settings.includes('Restaurar Sidebar'))
+
+check('Experience schema V4', experience.includes('version: 4'))
+check('Experience mantém sectionSizes', experience.includes('sectionSizes: Record<string, ExperienceBlockSize>'))
+check('defaultPage cria sectionSizes', experience.includes('section.defaultSize ?? \'full\''))
+check('normalização valida tamanhos permitidos', experience.includes('allowed.includes(requested as ExperienceBlockSize)'))
+check('boundary aplica data-experience-size', boundary.includes('element.dataset.experienceSize'))
+
+check('registry define ExperienceBlockSize', registry.includes("'s' | 'm' | 'l' | 'full'"))
+check('Meu Dia usa contrato bloqueado V101.6.2', registry.includes("id: 'day'") && registry.includes("id: 'day-health'") && !registry.includes("id: 'execution'") && !registry.includes("id: 'insights'"))
+check('Meu Dia possui sizeOptions fixos', registry.includes("id: 'day'") && registry.includes("id: 'day-health'") && (registry.match(/sizeOptions: \['full'\]/g) || []).length >= 2)
+check('blocos fixos do Meu Dia são obrigatórios e linha inteira', registry.includes("id: 'day', label: 'Central do dia'") && registry.includes("id: 'day-health', label: 'Resumo do dia'") && (registry.match(/required: true, sizeOptions: \['full'\]/g) || []).length >= 2)
+
+check('editor mostra tamanhos por bloco', pageSettings.includes('page-personalization-section__sizes'))
+check('editor mostra Linha inteira', pageSettings.includes("full: 'Linha inteira'"))
+check('editor possui organização automática', pageSettings.includes('Organizar automaticamente') && pageSettings.includes('dashboardSmartSizes'))
+check('organização automática preserva seções', pageSettings.includes('sectionOrder: definitions.map'))
+check('alteração de tamanho é persistida', pageSettings.includes('setSectionSize') && pageSettings.includes('sectionSizes: { ...page.sectionSizes'))
+
+check('CSS V100.98.1 existe', exists('src/styles/workspace-layout-studio-v100981.css'))
+check('CSS V100.98.1 é importado por último', main.includes("workspace-layout-studio-v100981.css"))
+check('grade de 12 colunas existe', css.includes('grid-template-columns:repeat(12,minmax(0,1fr))'))
+check('grade usa dense packing', css.includes('grid-auto-flow:row dense'))
+check('Médio ocupa 6 colunas', css.includes('[data-experience-size="m"]{grid-column:span 6}'))
+check('Amplo ocupa 8 colunas', css.includes('[data-experience-size="l"]{grid-column:span 8}'))
+check('Linha inteira ocupa 12 colunas', css.includes('[data-experience-size="full"]{grid-column:1/-1}'))
+check('responsividade força linha inteira', css.includes('@media(max-width:1220px)'))
+check('modo auto tem breakpoint dedicado', css.includes('html[data-sidebar-mode="auto"]'))
+check('expanded vence overrides históricos', css.includes('html[data-sidebar-mode="expanded"] .sidebar__brand-copy'))
+check('compact preserva largura fixa', css.includes('--rt-sidebar-width-compact'))
+
+check('launcher usa porta isolada atual', launcher.includes('PORT="${PORT:-') && launcher.includes(String(runtime.default_port)))
+check('launcher valida build atual', (launcher.includes('npm run build') || launcher.includes('npm run release:verify')) && launcher.includes(`V${pkg.version}`))
+check('launcher mantém preflight', launcher.includes('linux-release-preflight.mjs'))
+check('launcher mantém build real', launcher.includes('npm run build') || launcher.includes('npm run release:verify'))
+check('release notes existem', exists('RELEASE_NOTES_V100.98.1.md'))
+check('documentação existe', exists('docs/V100.98.1-WORKSPACE-LAYOUT-STUDIO.md'))
+check('script QA registrado', pkg.scripts['qa:v100.98.1'] === 'node scripts/v100_98_1_workspace_layout_studio_audit.mjs')
+check('npm check inclui V100.98.1', String(pkg.scripts['check:legacy']).includes('qa:v100.98.1'))
+
+for (const item of checks) console.log(`${item.pass ? 'OK' : 'FAIL'}  ${item.label}`)
+const failed = checks.filter((item) => !item.pass)
+if (failed.length) {
+  console.error(`\nV100.98.1 Workspace Layout Studio falhou: ${checks.length - failed.length}/${checks.length}.`)
+  process.exit(1)
+}
+console.log(`\nV100.98.1 Workspace Layout Studio: ${checks.length}/${checks.length} contratos aprovados.`)

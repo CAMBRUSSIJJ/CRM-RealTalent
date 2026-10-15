@@ -1,0 +1,112 @@
+RealTalent CRM V101.11.3-H22.3 — QA REPORT
+Field-Level Permissions + Approvals + Audit Log
+Base: V101.11.3-H22.2
+
+RESULTADO PRINCIPAL
+-------------------
+qa:architecture                                      PASS
+H22.1 Team Profiles & Real Access Control            54/54 PASS
+H22.2 Cross-Module Access Control                    75/75 PASS
+H22.3 Field Permissions / Approvals / Audit         102/102 PASS
+H22.1 Team Access runtime                            17/17 PASS
+H22.2 Cross-Module Access runtime                    25/25 PASS
+H22.3 Field Governance runtime                       33/33 PASS
+
+ESCOPO VALIDADO H22.3
+---------------------
+- TeamAccessAction inclui approve.
+- Oito campos sensíveis possuem hidden/view/edit por perfil.
+- Defaults coerentes para Administrador, Gestor, Vendedor, SDR e Somente leitura.
+- Perfis personalizados persistem fieldAccess e approvalPolicy.
+- Painel de Equipes edita campos sensíveis e alçadas comerciais.
+- Central de Aprovações permite aprovar/rejeitar com permissão approve.
+- Auditoria registra save/assignment/delete de perfil, approvals, exports e alterações sensíveis.
+- Contatos mascaram telefone/e-mail/valor quando ocultos.
+- Drawer restringe escrita de telefone/e-mail.
+- Catálogo/Propostas restringem custo, margem, desconto e total/TCV.
+- Receita restringe amount/MRR.
+- Exportação de Contatos e Garimpo pode exigir aprovação single-use.
+- Propostas fora da alçada permanecem draft/não oficiais e criam pedido de aprovação.
+- Status oficial/sent/viewed/accepted e close-won verificam aprovação.
+- Alteração de preço invalida aprovação anterior.
+
+BANCO / SUPABASE
+----------------
+Migration: 202610120003_v101_11_3_h22_3_field_approvals_audit.sql
+- access_profiles recebe field_access e approval_policy.
+- access_approval_requests possui RLS.
+- rt_access_field_level e rt_access_approval_policy resolvem governança efetiva.
+- rt_record_access_audit persiste eventos em audit_logs.
+- RPCs solicitam, decidem e consomem aprovações.
+- triggers protegem writes sensíveis em leads, contacts, products, sales_proposal_items e revenue_entries.
+- rt_proposal_policy_reasons calcula alçada de desconto/margem/TCV.
+- trigger de proposal status/is_official exige aprovação quando necessário.
+- alteração posterior de pricing cancela aprovação anterior.
+
+GATES ESTRUTURAIS
+-----------------
+Source Syntax                                  421 arquivos PASS
+Integration Contracts                         389 arquivos PASS
+Migrations                                          57/57 PASS
+Release Manifest                                  107/107 PASS
+Capability Matrix               47 capacidades / 180 evidências / 121 executáveis
+Repository Contract                               100 métodos PASS
+Browser E2E Contract                               11 fluxos PASS
+CSS Governance                                     65/65 PASS
+Linux release preflight                        382 TS/TSX PASS
+Registry-independent transpile                  306 módulos PASS
+
+REGRESSÕES DIRETAMENTE RELACIONADAS
+-----------------------------------
+H19.13 WhatsApp Work Management                   27/27 PASS
+H20.7-H2 Conversation-Only Inbox                  24/24 PASS
+H11 Proposal & Catalog Pricing                    70/70 PASS
+H12 Commercial Product Studio                     62/62 PASS
+H13 Product Readiness & Revenue Bridge            73/73 PASS
+H14 Commercial Management Foundation              28/28 PASS
+H15 Strict Prospecting Scope                      39/39 PASS
+H21.1 Garimpo Coverage & Runtime Truth            33/33 PASS
+H22.1 Team Profiles                               54/54 PASS
+H22.2 Cross-Module Access                         75/75 PASS
+
+RUNTIME CRÍTICO
+---------------
+Security Runtime                                   12/12 PASS
+WhatsApp Media Delivery Fix                         7/7 PASS
+WhatsApp normalization                              8/8 PASS
+Communications realtime bus                         7/7 PASS
+Garimpo Strict Scope                                    PASS
+Garimpo H21.1                                           PASS
+H22.1 Team Access                                  17/17 PASS
+H22.2 Cross-Module Access                          25/25 PASS
+H22.3 Field Governance                             33/33 PASS
+
+GATES OFICIAIS DEPENDENTES DE DEPENDÊNCIAS
+-------------------------------------------
+npm ci          BLOCKED — não concluiu; node_modules não foi produzido.
+typecheck       BLOCKED — primeiro erro: Cannot find module 'react'; dependências/tipos ausentes.
+Vitest          BLOCKED — vitest: not found.
+Vite build      BLOCKED — validate:env PASS; vite: not found.
+
+BUNDLE
+------
+Registry-independent build                         306 módulos PASS
+Bundle audit                                        FAIL esperado — "HTML legado reapareceu"
+dist fallback                                       REMOVIDO do pacote final
+
+HIGIENE DO ARTEFATO
+-------------------
+node_modules                                        AUSENTE
+dist                                                AUSENTE
+.env.local                                          AUSENTE
+.realtalent-whatsapp-browser                        AUSENTE
+.realtalent-communications-media                    AUSENTE
+
+LIMITAÇÕES IMPORTANTES
+----------------------
+1. A migration/RLS/trigger contract foi auditada estaticamente, mas não foi aplicada contra uma
+   instância Supabase real nesta sessão.
+2. O modo Local não é isolamento multiusuário; login individual + Supabase são obrigatórios para isso.
+3. Field-level H22.3 mascara leitura nas superfícies governadas e bloqueia escrita no banco, mas ainda
+   não revoga SELECT direto de colunas sensíveis para um cliente raw Supabase que já tenha acesso RLS
+   à linha. Column-level database secrecy exige secure projections/RPCs/views em uma etapa posterior.

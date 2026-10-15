@@ -1,0 +1,24 @@
+RealTalent CRM V100.88.0 — Garimpo 2.0
+
+RESULTADO
+- Gate específico V100.88: 78/78 verificações aprovadas.
+- Regressão histórica/atual: 33/33 suítes aprovadas (V100.56.4 → V100.88.0).
+- Auditoria sintática: 255 arquivos aprovados.
+- Contratos de integração: 225 arquivos aprovados.
+- Migrations: 38/38 com checksum íntegro.
+- Migration nova nesta versão: nenhuma.
+- BACKUP_SCHEMA_VERSION: 100.54.
+
+VALIDAÇÕES FUNCIONAIS PRINCIPAIS
+- Revisão guiada pelo RealTalent Data Layer.
+- Qualidade por Identidade, Contato, Origem e Cobertura.
+- Sem corte fixo de 75% para aprovação.
+- Bloqueio por identidade ausente, falta de contato e duplicidade confirmada.
+- Aprovação em lote dos registros prontos.
+- Envio ao CRM somente após aprovação.
+- Exportação realtalent-data-layer/2.5.
+- Importação do retorno atualiza registros existentes e recalcula análise.
+- Extensão/RT Capture e importadores históricos preservados.
+
+LIMITAÇÃO DO AMBIENTE DE EMPACOTAMENTO
+A tentativa de `npm ci --ignore-scripts --no-audit --no-fund` falhou por TransportTimeoutError do ambiente. Por isso typecheck completo, Vitest e build Vite com as dependências reais não foram declarados como executados. Qualquer node_modules parcial foi removido antes do empacotamento.

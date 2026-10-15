@@ -1,0 +1,99 @@
+RealTalent CRM
+V101.11.3-H6 — Playbook Studio 2.0
+Data: 2026-10-07
+Base: V101.11.3-H5 — Calling Essential Context & Goal Link
+
+ESCOPO
+- Reconstrução conceitual do módulo Playbooks como Visual Conversation Builder.
+- Mapa editável como experiência principal do Playbook Studio.
+- Nós tipados, conexões, ramificações, inspector lateral e simulação.
+- Visualizações Mapa, Estrutura, Script e Execução.
+- Conversão compatível de playbooks legados para grafo inicial.
+- Persistência do grafo dentro de PlaybookGuidance.conversationGraph.
+- Sem migration nova e sem quebra do editor clássico.
+
+IMPLEMENTAÇÃO COMPROVADA
+1. MODELO DE GRAFO
+- PlaybookConversationNodeType: stage, statement, question, decision, objection, action, outcome e note.
+- PlaybookConversationNode com posição, conteúdo, objetivo e tipo.
+- PlaybookConversationEdge com source/target e rótulo de caminho.
+- PlaybookConversationGraph versionado, com rootNodeId e defaultView.
+
+2. PLAYBOOK STUDIO 2.0
+- workspace full-screen dedicado;
+- canvas visual com conectores direcionais;
+- nós arrastáveis;
+- zoom e auto-organização;
+- criação, duplicação e remoção de nós;
+- criação de caminhos/ramificações;
+- Inspector lateral para editar tipo, título, conteúdo, objetivo e rótulo do caminho;
+- templates Em branco, Cold Call, Discovery e Follow-up.
+
+3. VISUALIZAÇÕES
+- Mapa: construtor visual do grafo;
+- Estrutura: hierarquia navegável;
+- Script: representação textual derivada do grafo;
+- Execução: simulação do caminho da conversa.
+
+4. COMPATIBILIDADE
+- playbooks legados são convertidos para um grafo inicial ao abrir no Studio;
+- editor clássico preserva conversationGraph ao salvar;
+- backup/restore preserva guidance e o grafo;
+- execution engine deriva etapas do conversationGraph quando presente;
+- conteúdo textual derivado continua disponível para busca, execução e integrações existentes.
+
+5. HOME / ACESSO
+- ação primária Novo playbook visual;
+- Editor clássico preservado como alternativa;
+- cards podem abrir o Studio diretamente;
+- visualização de mapa usa o conversationGraph real quando disponível.
+
+QA COMPROVADO
+- V101.11.3-H6 Playbook Studio 2.0: 39/39 PASS
+- Playbooks 2.0: 55/55 PASS
+- V101.11.3-H5 Calling Essential Context: 33/33 PASS
+- V101.11.3-H4 Visual Hierarchy + Mind Map: 37/37 PASS
+- V101.11.3-H3 Calling Workspace 2.0: 32/32 PASS
+- V101.11.3-H2 Runtime Service Recovery: 38/38 PASS
+- CSS Governance: 65/65 PASS
+- Source syntax: 403 arquivos PASS
+- Integration contracts: 371 arquivos PASS
+- Release Manifest: 73/73 PASS
+- Migrations: 50/50 PASS
+- Repository Local: 99/99 PASS
+- Repository Supabase: 99/99 PASS
+- Browser E2E contract catalog: 11 fluxos PASS
+- Capability Matrix: 22 capacidades / 76 evidências / 48 executáveis PASS
+- qa:architecture completo: PASS
+
+RUNTIME / SECURITY SMOKES
+- Communications recovery: 5/5 PASS
+- Connect recovery: 5/5 PASS
+- Security Runtime Foundation: 12/12 PASS
+
+BUILD DE VERIFICAÇÃO
+- registry-independent TypeScript bundle: 288 módulos compilados PASS.
+- Esse smoke confirma transpile/bundle dos arquivos alterados, mas não substitui o build Vite oficial.
+
+GATES OFICIAIS BLOQUEADOS NESTE AMBIENTE
+- npm run typecheck: BLOCKED
+  Motivo: node_modules não está instalado; a primeira falha é Cannot find module 'react' e tipos dependentes ficam indisponíveis.
+- npm test -- --run: BLOCKED
+  Motivo: vitest não está instalado neste ambiente.
+- npm run build: BLOCKED
+  Motivo: validação de ambiente passa, mas vite não está instalado neste ambiente.
+
+LOCKFILE / PRIMEIRO START
+- Mantida a recuperação automática herdada para o lockfile incompleto.
+- Entradas críticas historicamente ausentes no lock herdado: @whiskeysockets/baileys, qrcode e whatsapp-web.js.
+- Em Linux com acesso ao registry, o launcher repara a árvore na primeira execução e volta ao npm ci determinístico nas execuções seguintes.
+
+LIMITAÇÃO FUNCIONAL DELIBERADA DA H6
+- O Playbook Studio já gera e persiste o grafo e o execution engine já deriva etapas dele.
+- O Modo Foco do Calling ainda não faz roteamento dinâmico automático por cada aresta do grafo durante a chamada; essa ligação em tempo real fica como evolução posterior do Conversation Execution Engine.
+
+ARTEFATOS EXCLUÍDOS DO ZIP
+- dist de verificação;
+- node_modules;
+- .env.local;
+- .realtalent-* (tokens, sessões, logs, stores locais e browser state).

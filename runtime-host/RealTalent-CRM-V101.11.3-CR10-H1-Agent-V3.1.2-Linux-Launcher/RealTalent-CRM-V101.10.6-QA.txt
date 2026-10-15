@@ -1,0 +1,93 @@
+RealTalent CRM V101.10.6 — Garimpo UX Consolidation
+QA Report
+============================================================
+
+Escopo
+------
+- fluxo principal: Buscar → Local → Revisar → Histórico
+- Processamento removido da navegação primária e preservado em Detalhes da campanha
+- configuração principal reduzida a o que / onde / área
+- opções avançadas recolhidas
+- estado persistente de campanha com cobertura e ações
+- centro do raio e alça da borda arrastáveis
+- mapa/lista, clusters, densidade e cobertura preservados
+- revisão por exceção como padrão
+- auto-validáveis separados de registros que precisam atenção
+- edição e evidências técnicas recolhidas
+- ontologia/CNAE, Coverage Truth e saturação continuam acessíveis
+- Prospecting Agent permanece 101.10.4
+- sem migration nova
+
+Validações finais
+-----------------
+QA Architecture ................. PASS
+Source syntax ................... PASS (387 arquivos)
+Integration contracts ........... PASS (360 arquivos)
+Migrations ...................... PASS (49/49, checksums íntegros)
+Release Manifest ................ PASS (46/46 invariantes)
+Capability Matrix ............... PASS (20 capacidades / 67 evidências / 44 executáveis)
+Repository Local ................ PASS (98/98)
+Repository Supabase ............. PASS (98/98)
+Browser E2E Contract ............ PASS (9/9 fluxos catalogados)
+V101.10.3 base .................. PASS (41/41)
+H1 Drawn Territory .............. PASS (44/44)
+H2 Coverage Truth ............... PASS (10/10)
+H3 Identity Resolver ............ PASS (10/10)
+H4 Canonical Company Bridge ..... PASS (13/13)
+H5 Enrichment Jobs .............. PASS (28/28)
+H6 Progressive Processing ....... PASS (28/28)
+H7 Review Workspace 2.0 ......... PASS (36/36)
+H8 Search Ontology .............. PASS (29/29)
+H9 Territory Engine 2.0 ......... PASS (35/35)
+V101.10.4 Local Discovery ....... PASS (32/32)
+V101.10.5-H3 Contact Intelligence PASS (19/19)
+V101.10.6 UX Consolidation ...... PASS (40/40)
+Legacy regression ............... PASS (3185 OK / 0 FAIL)
+Linux release preflight ......... PASS (353 TS/TSX)
+start-linux.sh syntax ............ PASS
+install service syntax .......... PASS
+
+Runtimes acumulados
+-------------------
+Prospecting Agent base .......... PASS
+H3 search runtime ............... PASS
+Search & Processing Engine ...... PASS
+Drawn Territory ................. PASS
+Coverage Truth .................. PASS
+Identity Resolver / filiais ..... PASS
+Independent Enrichment .......... PASS
+Progressive Processing .......... PASS
+Search Ontology ................. PASS
+Territory Engine 2.0 ............ PASS
+Local Discovery ................. PASS
+
+Resultados de referência dos runtimes
+-------------------------------------
+- Engine: 3 empresas únicas · cobertura 100% · saturação 99% · OSM 1 · Web 7
+- Polygon: 2 internas · 4 células · 26.8 km² · Web ampla 0 · enrichment web 2
+- Coverage Truth: tentado 100% · sucesso 98% · falha 2% · saturação 89%/medium
+- Identity Resolver: 2 unidades preservadas com domínio/telefone compartilhados
+- Enrichment: website/contacts/cnpj/social completed · retry isolado OK
+- Progressive: publicado em running · ACK revisão · sem reentrega
+- Ontology: HVAC 100% · CNAE 4322-3/02 · OSM craft=hvac · 5 queries web
+- Territory 2.0: 21 consultas OSM · nível 2 · 5 subdivisões · 78.6 km² · fora-do-raio filtrado
+- Local Discovery: 2 empresas · web locais=1 · documentos rejeitados=1
+
+Gates globais neste ambiente
+----------------------------
+TYPECHECK: NOT PASS / ambiente sem dependências
+  comando: npm run typecheck
+  exit code: 2
+  causa predominante: node_modules ausente; React e demais módulos/tipos não resolvem.
+
+VITEST: NOT EXECUTABLE
+  comando: npm test -- --run
+  exit code: 127
+  causa: vitest: not found
+
+VITE BUILD: NOT EXECUTABLE
+  comando: npm run build
+  exit code: 127
+  causa: vite: not found
+
+Esses gates não foram convertidos artificialmente em PASS. O start-linux.sh instala/repara as dependências e executa release:verify no Linux antes de servir o CRM.

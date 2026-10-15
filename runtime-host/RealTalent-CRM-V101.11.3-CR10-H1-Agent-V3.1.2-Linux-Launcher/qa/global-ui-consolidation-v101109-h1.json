@@ -1,0 +1,77 @@
+{
+  "release": "V101.10.9-H1",
+  "groups": {
+    "ui-foundation.css": [
+      {
+        "source": "realtalent-ui-system-v10154.css",
+        "sha256": "52049605b8cf497c2c6ae9761a816237b89c1e013f51453814d2f04efe402a5f"
+      },
+      {
+        "source": "visual-rollout-v10155.css",
+        "sha256": "87cb92a7e2651162542b52d74eed95f8faadd3310485f7b320a2339159060571"
+      },
+      {
+        "source": "visual-consistency-hotfix-v10156.css",
+        "sha256": "edafe3aceb87ff466de1ae424ad1ecb76eb86460e2a2d665a1890a09ab6b087a"
+      }
+    ],
+    "app-shell.css": [
+      {
+        "source": "myday-lock-appbar-v10162.css",
+        "sha256": "6d91629e77a794799ac39b6e88990888d1db5ce614b838e3c17a9840a627b0a2"
+      }
+    ],
+    "workspace-ui.css": [
+      {
+        "source": "workspace-ui-standardization-v10166.css",
+        "sha256": "6dd7b5fd2ba2b6ff49630a37b245079567bf8ea0733ad40320bd939813c2b113"
+      },
+      {
+        "source": "global-workspace-ui-consistency-v10167.css",
+        "sha256": "3e0ec9b352c4fe056d344d1bc3a4768e60a2ebd3af62cb00cb673a439b8e2316"
+      },
+      {
+        "source": "workspace-interaction-architecture-v10168.css",
+        "sha256": "9e51741a4ac3d0fae01168d7436ccab8ca15e96249e2bb9a15c2d47901129215"
+      },
+      {
+        "source": "global-filter-view-standard-v10169.css",
+        "sha256": "1cfe49daa5397b1bb998f427b3f09749ded7d62fa5365fc407ca2bf203319ccd"
+      },
+      {
+        "source": "workspace-simplification-filter-engine-v10170.css",
+        "sha256": "3d6dc8624536b9f5f78738131bb36d4e616a755a26ca62e32c36d90e4f193215"
+      }
+    ],
+    "interaction-ui.css": [
+      {
+        "source": "interaction-surfaces-v10172.css",
+        "sha256": "6c21bbb0927498e1ed764233899bc2815398ba5ef248e436b51806dfd9550003"
+      },
+      {
+        "source": "ux-consolidation-v10173.css",
+        "sha256": "eaa23328b9abec7b4b54b129461b707f9d92c715435b3eb9b9bd684e76dd4b0a"
+      }
+    ],
+    "ui-polish.css": [
+      {
+        "source": "design-system-consolidation-v10198.css",
+        "sha256": "31a43a1a42ca74c42b6b85b3a28ec64639bb250bd66daebca147f4223e12d759"
+      },
+      {
+        "source": "ux-recovery-v10199-h3.css",
+        "sha256": "c2fa1ae6bc93ffb51cf71feb6d32183a6ad2aa231ae7de1b80d900d8fae02845"
+      },
+      {
+        "source": "workspace-appearance-v10199-h4.css",
+        "sha256": "ed8f437a234e75953cc10fd2dfc89c8152fcf28a79b05a557a2459ded38b578c"
+      }
+    ],
+    "selection-controls.css": [
+      {
+        "source": "selection-filter-system-v101105.css",
+        "sha256": "c5faf0e7d20f0481079bd5807f5a64f5916c6e7e9fa9c42a07ad825872d7be5e"
+      }
+    ]
+  }
+}

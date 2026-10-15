@@ -1,0 +1,39 @@
+RealTalent CRM V100.96.0 — Guided Selling & Help
+=================================================
+
+Escopo entregue
+---------------
+1. Guided Selling contextual no AppShell.
+2. Sinais explicáveis com botão "Por quê?".
+3. Ação direta para a função correta.
+4. Integração com o RealTalent Assistant usando prompt contextual.
+5. Central de Ajuda redesenhada em Jornada do vendedor, Ajuda desta tela, Biblioteca e Tours guiados.
+6. Jornada comercial em 8 etapas com objetivo do vendedor e progresso local.
+7. Botões "Ir para a função" e "Perguntar ao Assistant" preservados.
+8. Workspace Personalization V100.95 e Omnichannel Inbox V100.94 preservados.
+
+Validações executadas neste ambiente
+------------------------------------
+- Linux release preflight: OK em 237 arquivos TS/TSX.
+- Gate V100.96 Guided Selling & Help: 36/36.
+- Auditoria sintática: 269 arquivos aprovados.
+- Auditoria de contratos: 239 arquivos aprovados.
+- Migrations: 40/40 com checksum íntegro.
+- Gates históricos de QA: 41/41 scripts aprovados após atualização dos contratos históricos para aceitar releases sucessoras.
+- TypeScript transpile sintático: 236 módulos TS/TSX aprovados (arquivos .d.ts excluídos da transpilation).
+- Bash syntax do start-linux.sh: OK.
+
+Limitação do ambiente
+---------------------
+O registry npm não ficou disponível de forma confiável nesta sessão para instalar todas as dependências e executar o build Vite completo aqui. Por isso o launcher Linux mantém um gate obrigatório no computador do usuário: npm ci/install -> preflight -> npm run build -> validação do dist -> somente então abre o navegador. Se o build falhar, o navegador não é iniciado.
+
+Execução Linux
+--------------
+cd ~/Downloads
+rm -rf RealTalent-CRM-V100.96.0-Guided-Selling-Help
+unzip RealTalent-CRM-V100.96.0-Guided-Selling-Help.zip
+cd RealTalent-CRM-V100.96.0-Guided-Selling-Help
+chmod +x start-linux.sh
+./start-linux.sh
+
+Porta padrão: 4179

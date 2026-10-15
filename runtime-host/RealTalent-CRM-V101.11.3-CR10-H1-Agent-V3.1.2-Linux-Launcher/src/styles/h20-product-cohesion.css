@@ -1,0 +1,834 @@
+/* RealTalent CRM V101.11.3-H20.3 — Global UI & Product Cohesion
+   Final canonical visual layer. Functional lineage remains H19.13.
+   H20.1 Design System Truth + H20.2 CSS Cascade Recovery + H20.3 Global Workspace Shell. */
+:root{
+  /* Brand is interaction blue. Green is semantic success only. */
+  --rt-color-brand:#315BD8;
+  --rt-color-brand-hover:#274CC5;
+  --rt-color-brand-strong:#173B91;
+  --rt-color-brand-soft:#EEF3FF;
+  --rt-color-brand-subtle:#F6F8FF;
+  --rt-color-canvas:#F4F6FA;
+  --rt-color-surface:#FFFFFF;
+  --rt-color-surface-soft:#F7F9FC;
+  --rt-color-surface-subtle:#FBFCFE;
+  --rt-color-text:#20283A;
+  --rt-color-text-2:#556176;
+  --rt-color-muted:#788398;
+  --rt-color-border:#DEE4ED;
+  --rt-color-border-strong:#C9D2E1;
+  --rt-color-success:#1D9E75;
+  --rt-color-success-soft:#EAF8F3;
+  --rt-color-warning:#A36A08;
+  --rt-color-warning-soft:#FFF6E5;
+  --rt-color-danger:#C4474E;
+  --rt-color-danger-soft:#FFF0F1;
+  --rt-color-info:#315BD8;
+  --rt-color-info-soft:#EEF3FF;
+
+  --rt-font-micro:10px;
+  --rt-font-xs:11px;
+  --rt-font-sm:12px;
+  --rt-font-md:13px;
+  --rt-font-lg:15px;
+  --rt-font-xl:18px;
+  --rt-font-page:21px;
+  --rt-line-body:1.5;
+
+  --rt-radius-xs:6px;
+  --rt-radius-sm:8px;
+  --rt-radius-md:10px;
+  --rt-radius-lg:12px;
+  --rt-radius-xl:16px;
+  --rt-radius-pill:999px;
+  --rt-control-sm:34px;
+  --rt-control-md:40px;
+  --rt-control-lg:46px;
+  --rt-page-gap:14px;
+  --rt-page-gutter:24px;
+  --rt-panel-padding:16px;
+  --rt-shadow-sm:0 2px 8px rgba(31,45,74,.05);
+  --rt-shadow-card:0 7px 22px rgba(31,45,74,.06);
+  --rt-shadow-overlay:0 24px 64px rgba(31,45,74,.16);
+  --rt-focus:0 0 0 3px rgba(49,91,216,.16);
+
+  /* Legacy aliases now point to the same semantic truth. */
+  --blue:var(--rt-color-brand);
+  --blue-2:var(--rt-color-brand-hover);
+  --blue-soft:var(--rt-color-brand-soft);
+  --accent:var(--rt-color-brand);
+  --accent-soft:var(--rt-color-brand-soft);
+  --primary:var(--rt-color-brand);
+  --primary-soft:var(--rt-color-brand-soft);
+  --navy:var(--rt-color-brand-strong);
+  --navy-2:#102C70;
+  --warm:var(--rt-color-canvas);
+  --surface:var(--rt-color-surface);
+  --surface-soft:var(--rt-color-surface-soft);
+  --surface-subtle:var(--rt-color-surface-subtle);
+  --surface-2:var(--rt-color-surface-soft);
+  --text:var(--rt-color-text);
+  --text-2:var(--rt-color-text-2);
+  --muted:var(--rt-color-muted);
+  --border:var(--rt-color-border);
+  --border-strong:var(--rt-color-border-strong);
+  --line:var(--rt-color-border);
+  --danger:var(--rt-color-danger);
+  --danger-soft:var(--rt-color-danger-soft);
+  --rt-primary:var(--rt-color-brand);
+  --rt-primary-soft:var(--rt-color-brand-soft);
+  --rt-text:var(--rt-color-text);
+  --rt-text-2:var(--rt-color-text-2);
+  --rt-muted:var(--rt-color-muted);
+  --rt-border:var(--rt-color-border);
+  --rt-border-strong:var(--rt-color-border-strong);
+  --rt-surface:var(--rt-color-surface);
+  --rt-surface-soft:var(--rt-color-surface-soft);
+}
+
+html,body,#root{background:var(--rt-color-canvas);color:var(--rt-color-text)}
+body{font-size:var(--rt-font-md);line-height:var(--rt-line-body)}
+.app-content{padding:20px var(--rt-page-gutter) 36px}
+.page-stack,.workspace-page{gap:var(--rt-page-gap)}
+
+/* Canonical controls: H20 primitives win over feature-specific legacy styling. */
+body [data-rt-primitive="button"]{min-height:var(--rt-control-md);border-radius:var(--rt-radius-md);font-size:var(--rt-font-sm);font-weight:700;box-shadow:none}
+body [data-rt-primitive="button"].rt-button--primary{background:var(--rt-color-brand);border-color:var(--rt-color-brand);color:#fff}
+body [data-rt-primitive="button"].rt-button--primary:hover{background:var(--rt-color-brand-hover);border-color:var(--rt-color-brand-hover)}
+body [data-rt-primitive="input"],body [data-rt-primitive="select"],body [data-rt-primitive="textarea"]{border-color:var(--rt-color-border);border-radius:var(--rt-radius-md);background:var(--rt-color-surface);color:var(--rt-color-text);font-size:var(--rt-font-md)}
+body [data-rt-primitive="input"]:focus,body [data-rt-primitive="select"]:focus,body [data-rt-primitive="textarea"]:focus{border-color:rgba(49,91,216,.58);box-shadow:var(--rt-focus)}
+body [data-rt-primitive="surface"]{border:1px solid var(--rt-color-border);border-radius:var(--rt-radius-lg);background:var(--rt-color-surface);box-shadow:none}
+
+/* H20.3 global workspace shell */
+.rt-workspace-page-header{min-height:68px;display:flex;align-items:flex-start;justify-content:space-between;gap:18px;padding:2px 0 8px;border-bottom:1px solid var(--rt-color-border)}
+.rt-workspace-page-header__copy{min-width:0;display:grid;gap:3px}
+.rt-workspace-page-header__eyebrow{display:inline-flex;align-items:center;gap:6px;color:var(--rt-color-brand);font-size:var(--rt-font-micro);font-weight:800;letter-spacing:.075em;text-transform:uppercase}
+.rt-workspace-page-header h1{margin:0;color:var(--rt-color-text);font-size:var(--rt-font-page);font-weight:750;line-height:1.2;letter-spacing:-.018em}
+.rt-workspace-page-header p{max-width:760px;margin:0;color:var(--rt-color-muted);font-size:var(--rt-font-sm);line-height:1.45}
+.rt-workspace-page-header__actions{display:flex;align-items:center;justify-content:flex-end;gap:7px;flex-wrap:wrap}
+
+.rt-workspace-summary-strip{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));overflow:hidden;border:1px solid var(--rt-color-border);border-radius:var(--rt-radius-lg);background:var(--rt-color-surface)}
+.rt-workspace-summary-metric{appearance:none;min-width:0;min-height:70px;padding:11px 13px;display:grid;grid-template-columns:auto minmax(0,1fr);align-items:center;gap:10px;border:0;border-right:1px solid var(--rt-color-border);background:transparent;text-align:left;color:inherit}
+button.rt-workspace-summary-metric{cursor:pointer}
+button.rt-workspace-summary-metric:hover{background:var(--rt-color-surface-soft)}
+.rt-workspace-summary-metric:last-child{border-right:0}
+.rt-workspace-summary-metric__icon{width:30px;height:30px;display:grid;place-items:center;border-radius:9px;background:var(--rt-color-brand-soft);color:var(--rt-color-brand)}
+.rt-workspace-summary-metric.is-success .rt-workspace-summary-metric__icon{background:var(--rt-color-success-soft);color:var(--rt-color-success)}
+.rt-workspace-summary-metric.is-warning .rt-workspace-summary-metric__icon{background:var(--rt-color-warning-soft);color:var(--rt-color-warning)}
+.rt-workspace-summary-metric.is-danger .rt-workspace-summary-metric__icon{background:var(--rt-color-danger-soft);color:var(--rt-color-danger)}
+.rt-workspace-summary-metric__body{min-width:0;display:grid;gap:1px}
+.rt-workspace-summary-metric small{color:var(--rt-color-muted);font-size:var(--rt-font-micro);font-weight:700}
+.rt-workspace-summary-metric strong{color:var(--rt-color-text);font-size:18px;line-height:1.1}
+.rt-workspace-summary-metric em{overflow:hidden;color:var(--rt-color-muted);font-size:var(--rt-font-micro);font-style:normal;text-overflow:ellipsis;white-space:nowrap}
+
+.rt-workspace-view-strip{display:flex;align-items:center;gap:3px;min-width:0;padding:3px;border:1px solid var(--rt-color-border);border-radius:var(--rt-radius-lg);background:var(--rt-color-surface-soft);overflow:auto;scrollbar-width:none}
+.rt-workspace-view-strip::-webkit-scrollbar{display:none}
+.rt-workspace-view-strip>button{min-height:32px;padding:0 11px;display:inline-flex;align-items:center;justify-content:center;gap:6px;white-space:nowrap;border:1px solid transparent;border-radius:var(--rt-radius-sm);background:transparent;color:var(--rt-color-text-2);font-size:var(--rt-font-xs);font-weight:700;cursor:pointer}
+.rt-workspace-view-strip>button:hover{background:rgba(255,255,255,.8);color:var(--rt-color-text)}
+.rt-workspace-view-strip>button.is-active{background:var(--rt-color-surface);border-color:rgba(49,91,216,.20);color:var(--rt-color-brand-strong);box-shadow:var(--rt-shadow-sm)}
+.rt-workspace-view-strip>button b{min-width:18px;height:18px;padding:0 5px;display:inline-grid;place-items:center;border-radius:999px;background:var(--rt-color-brand-soft);color:var(--rt-color-brand);font-size:10px}
+
+.rt-workspace-command-bar{min-height:48px;padding:6px;display:flex;align-items:center;justify-content:space-between;gap:8px;border:1px solid var(--rt-color-border);border-radius:var(--rt-radius-lg);background:var(--rt-color-surface)}
+.rt-workspace-command-group{min-width:0;display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.rt-workspace-command-group.is-end{margin-left:auto;justify-content:flex-end}
+.rt-workspace-command-bar input,.rt-workspace-command-bar select{font-size:var(--rt-font-xs)}
+
+/* Bridge previous workspace classes onto H20 geometry so non-migrated pages converge immediately. */
+.workspace-page-header-v10167{min-height:68px;padding:2px 0 8px;border-bottom:1px solid var(--rt-color-border)}
+.workspace-page-header-v10167 h2{font-size:var(--rt-font-page);font-weight:750;letter-spacing:-.018em}
+.workspace-page-header-v10167 .eyebrow{color:var(--rt-color-brand);font-size:var(--rt-font-micro)}
+.workspace-page-header-v10167 p{font-size:var(--rt-font-sm)}
+.workspace-view-tabs-v10167{border-color:var(--rt-color-border);background:var(--rt-color-surface-soft)}
+.workspace-view-tabs-v10167 button{font-size:var(--rt-font-xs)}
+
+/* Tasks / Teams migration: remove the alternate 30px green page language. */
+.tasks-page-v101112,.teams-page-v101112{gap:var(--rt-page-gap)}
+.tasks-page-v101112 .work-page-header,.teams-page-v101112 .work-page-header{display:none}
+.tasks-page-v101112 .work-metric-grid,.teams-page-v101112 .work-metric-grid{gap:8px}
+.tasks-page-v101112 .work-metric-grid>article,.teams-page-v101112 .work-metric-grid>article{min-height:76px;padding:12px;border-radius:var(--rt-radius-lg);box-shadow:none}
+.tasks-page-v101112 .work-metric-grid>article>span,.teams-page-v101112 .work-metric-grid>article>span{width:32px;height:32px;border-radius:9px;background:var(--rt-color-brand-soft);color:var(--rt-color-brand)}
+.tasks-page-v101112 .work-metric-grid small,.tasks-page-v101112 .work-metric-grid em,.teams-page-v101112 .work-metric-grid small,.teams-page-v101112 .work-metric-grid em{font-size:var(--rt-font-micro)}
+.tasks-page-v101112 .work-metric-grid strong,.teams-page-v101112 .work-metric-grid strong{font-size:19px}
+.tasks-page-v101112 .work-toolbar{padding:0;border:0;background:transparent;display:grid;gap:8px}
+.tasks-page-v101112 .work-view-tabs{display:none}
+.tasks-page-v101112 .work-filters{min-height:48px;padding:6px;border:1px solid var(--rt-color-border);border-radius:var(--rt-radius-lg);background:var(--rt-color-surface)}
+.tasks-page-v101112 .work-search{min-height:34px;border-radius:var(--rt-radius-sm)}
+.teams-page-v101112 .teams-directory,.teams-page-v101112 .team-detail,.teams-page-v101112 .work-section{border-color:var(--rt-color-border);border-radius:var(--rt-radius-lg);box-shadow:none}
+.teams-page-v101112 .team-360-tabs{display:none}
+.teams-page-v101112 .team-hero{padding:14px 16px;border-radius:var(--rt-radius-lg)}
+
+/* Follow-ups: restored compact summary + one view strip + command bar. */
+.followups-page .followup-view-tabs-v10167{display:none}
+.followups-page .followup-focus-toolbar{border:0;background:transparent;padding:0;display:block}
+.followups-page .followup-focus-status{display:none}
+.followups-page .followup-focus-controls{min-height:48px;padding:6px;border:1px solid var(--rt-color-border);border-radius:var(--rt-radius-lg);background:var(--rt-color-surface);display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.followups-page .followup-focus-search{min-height:34px;border-radius:var(--rt-radius-sm)}
+.followups-page .followup-list-panel--professional{border-radius:var(--rt-radius-lg);box-shadow:none}
+.followups-page .followup-list-header{min-height:52px;padding:10px 12px}
+.followups-page .followup-row--professional{font-size:var(--rt-font-xs)}
+
+/* Semantic status: old green becomes success, never generic action. */
+.status-pill--success,.is-success{--rt-status-color:var(--rt-color-success)}
+
+/* Minimum readable operational metadata on H20 surfaces. */
+.rt-workspace-page-header,.rt-workspace-summary-strip,.rt-workspace-command-bar,.rt-workspace-view-strip,.tasks-page-v101112,.teams-page-v101112,.followups-page{--rt-operational-min-font:10px}
+.rt-workspace-page-header small,.rt-workspace-summary-strip small,.rt-workspace-command-bar small,.rt-workspace-view-strip small,.tasks-page-v101112 small,.teams-page-v101112 small,.followups-page small{font-size:max(var(--rt-operational-min-font),1em)}
+
+@media(max-width:900px){
+  .rt-workspace-page-header{flex-direction:column;align-items:stretch}
+  .rt-workspace-page-header__actions{justify-content:flex-start}
+  .rt-workspace-command-bar{align-items:stretch;flex-direction:column}
+  .rt-workspace-command-group.is-end{margin-left:0;justify-content:flex-start}
+  .rt-workspace-summary-strip{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .rt-workspace-summary-metric:nth-child(2n){border-right:0}
+}
+@media(max-width:620px){
+  :root{--rt-page-gutter:14px}
+  .app-content{padding-top:14px}
+  .rt-workspace-summary-strip{grid-template-columns:1fr}
+  .rt-workspace-summary-metric{border-right:0;border-bottom:1px solid var(--rt-color-border)}
+  .rt-workspace-summary-metric:last-child{border-bottom:0}
+  .rt-workspace-view-strip>button{flex:0 0 auto}
+}
+
+
+/* RealTalent CRM V101.11.3-H20.4 — Proposals & Prospecting Workspace Cohesion
+   Final migration layer after H20.3. No business behavior is defined here. */
+
+/* Proposals: one shell, one command surface, one visual hierarchy. */
+.proposals-page-h20{gap:var(--rt-page-gap)}
+.proposals-page-h20>.workspace-page-header-v10166,
+.proposals-page-h20>.workspace-summary-strip-v10166{display:none}
+.proposal-summary-strip-h20 .rt-workspace-summary-metric strong{font-size:17px}
+.proposal-table-panel-h20{padding:0;overflow:visible;border-color:var(--rt-color-border);border-radius:var(--rt-radius-lg);box-shadow:none;background:var(--rt-color-surface)}
+.proposal-command-bar-h20{margin:0;border-width:0 0 1px;border-radius:var(--rt-radius-lg) var(--rt-radius-lg) 0 0;background:var(--rt-color-surface)}
+.proposal-search-h20{min-width:min(440px,48vw);min-height:34px;margin:0;border:1px solid var(--rt-color-border);border-radius:var(--rt-radius-sm);background:var(--rt-color-surface-soft)}
+.proposal-search-h20:focus-within{border-color:rgba(49,91,216,.58);box-shadow:var(--rt-focus)}
+.proposal-search-h20 input{min-width:0;font-size:var(--rt-font-xs);background:transparent}
+.proposals-page-h20 .proposal-toolbar-actions-v10166{display:flex;align-items:center;gap:4px;flex-wrap:wrap}
+.proposals-page-h20 .proposal-filter-chips-v10166{margin:0;padding:7px 9px;border-bottom:1px solid var(--rt-color-border);background:var(--rt-color-surface-subtle)}
+.proposals-page-h20 .proposal-work-card{border-color:var(--rt-color-border);border-radius:var(--rt-radius-lg);box-shadow:none}
+.proposals-page-h20 .proposal-work-card:hover{border-color:rgba(49,91,216,.28);box-shadow:var(--rt-shadow-card)}
+.proposals-page-h20 .catalog-workspace,
+.proposals-page-h20 .buyer-room-workspace,
+.proposals-page-h20 .revenue-workspace-v10081{border-color:var(--rt-color-border);border-radius:var(--rt-radius-lg);box-shadow:none}
+.proposals-page-h20 .panel__heading .eyebrow{color:var(--rt-color-brand)}
+.proposals-page-h20 .proposal-sync-alert{border-radius:var(--rt-radius-lg);box-shadow:none}
+.proposals-page-h20 small,
+.proposals-page-h20 .proposal-work-card__money small,
+.proposals-page-h20 .proposal-work-card__next small,
+.proposals-page-h20 .catalog-workspace small{font-size:max(10px,var(--rt-font-micro))}
+
+/* Garimpo: remove the alternate toolbar/metric language and use the global shell. */
+.prospecting-page-h20{gap:var(--rt-page-gap)}
+.prospecting-page-h20>.prospecting-command,
+.prospecting-page-h20>.prospecting-metrics{display:none}
+.prospecting-summary-strip-h20 .rt-workspace-summary-metric strong{font-size:18px}
+.prospecting-command-more-h20{position:relative}
+.prospecting-command-more-h20>summary{width:40px;height:40px;display:grid;place-items:center;list-style:none;border:1px solid var(--rt-color-border);border-radius:var(--rt-radius-md);background:var(--rt-color-surface);color:var(--rt-color-text-2);cursor:pointer}
+.prospecting-command-more-h20>summary::-webkit-details-marker{display:none}
+.prospecting-command-more-h20[open]>summary{border-color:rgba(49,91,216,.30);background:var(--rt-color-brand-soft);color:var(--rt-color-brand)}
+.prospecting-command-more-h20>div{right:0;left:auto;top:46px;border-color:var(--rt-color-border);border-radius:var(--rt-radius-md);box-shadow:var(--rt-shadow-overlay)}
+.prospecting-page-h20 .prospecting-campaign-v101106,
+.prospecting-page-h20 .prospecting-review-modebar-v101106,
+.prospecting-page-h20 .prospecting-results-panel,
+.prospecting-page-h20 .prospecting-history-panel,
+.prospecting-page-h20 .prospecting-local-workspace-v101104{border-color:var(--rt-color-border);border-radius:var(--rt-radius-lg);box-shadow:none}
+.prospecting-page-h20 .prospecting-review-modebar-v101106{padding:13px 14px}
+.prospecting-page-h20 .prospecting-review-scope-v101106{border-color:var(--rt-color-border);background:var(--rt-color-surface-soft)}
+.prospecting-page-h20 .prospecting-review-scope-v101106 button{min-height:32px;font-size:var(--rt-font-micro);color:var(--rt-color-text-2)}
+.prospecting-page-h20 .prospecting-review-scope-v101106 button span{font-size:var(--rt-font-micro)}
+.prospecting-page-h20 .prospecting-review-switch-v101103-h7 button{font-size:var(--rt-font-micro)}
+.prospecting-page-h20 .prospecting-table__head,
+.prospecting-page-h20 .prospecting-table>article{font-size:var(--rt-font-xs)}
+.prospecting-page-h20 .prospecting-review-attention-v101106 strong,
+.prospecting-page-h20 .prospecting-review-attention-v101106 small,
+.prospecting-page-h20 .prospecting-review-attention-v101106 span,
+.prospecting-page-h20 .prospecting-review-edit-v101106>summary small,
+.prospecting-page-h20 .prospecting-review-evidence-v101106>summary strong,
+.prospecting-page-h20 .prospecting-review-evidence-v101106>summary small{font-size:var(--rt-font-micro)}
+.prospecting-page-h20 .prospecting-local-workspace-v101104__list>div>button{font-size:var(--rt-font-xs)}
+
+/* Keep secondary panels visually subordinate to page shell. */
+.proposals-page-h20 .panel,
+.prospecting-page-h20 .panel{--workspace-border:var(--rt-color-border);--workspace-text:var(--rt-color-text);--workspace-subtle:var(--rt-color-surface-soft);--muted-text:var(--rt-color-muted)}
+
+@media(max-width:900px){
+  .proposal-search-h20{min-width:0;width:100%}
+  .proposal-command-bar-h20 .rt-workspace-command-group{width:100%}
+  .proposal-command-bar-h20 .rt-workspace-command-group.is-end{justify-content:flex-start}
+}
+@media(max-width:620px){
+  .prospecting-command-more-h20>summary{width:36px;height:36px}
+  .proposal-table-panel-h20{border-radius:var(--rt-radius-md)}
+}
+
+
+/* RealTalent CRM V101.11.3-H20.5 — Settings & Calling Cohesion */
+.settings-page-h20{gap:var(--rt-page-gap)}
+.settings-page-h20>.settings-v1100__header{display:none}
+.settings-command-bar-h20{position:relative;overflow:visible}
+.settings-search-group-h20{flex:1;min-width:0}
+.settings-page-h20 .settings-search-shell{width:min(720px,100%)}
+.settings-page-h20 .settings-search{min-height:36px;border:1px solid var(--rt-color-border);border-radius:var(--rt-radius-sm);background:var(--rt-color-surface-soft)}
+.settings-page-h20 .settings-search:focus-within{border-color:rgba(49,91,216,.56);box-shadow:var(--rt-focus)}
+.settings-page-h20 .settings-search input{font-size:var(--rt-font-xs)}
+.settings-page-h20 .settings-search-results{border-color:var(--rt-color-border);border-radius:var(--rt-radius-md);box-shadow:var(--rt-shadow-overlay)}
+.settings-page-h20 .settings-search-results strong{font-size:var(--rt-font-xs)}
+.settings-page-h20 .settings-search-results small,.settings-page-h20 .settings-search-empty{font-size:var(--rt-font-micro)}
+.settings-page-h20 .settings-v1100__body{gap:var(--rt-page-gap);grid-template-columns:minmax(210px,236px) minmax(0,1fr)}
+.settings-page-h20 .settings-v1100__nav{top:82px;padding:8px;border-color:var(--rt-color-border);border-radius:var(--rt-radius-lg);box-shadow:none}
+.settings-page-h20 .settings-v1100__nav-title strong{font-size:var(--rt-font-xs)}
+.settings-page-h20 .settings-v1100__nav-title small,.settings-page-h20 .settings-nav-group__header span{font-size:var(--rt-font-micro)}
+.settings-page-h20 .settings-nav-group__items>button{min-height:36px;border-radius:var(--rt-radius-sm)}
+.settings-page-h20 .settings-nav-group__items>button span{font-size:var(--rt-font-xs)}
+.settings-page-h20 .settings-v1100__page-intro{min-height:64px;padding:12px 14px;border:1px solid var(--rt-color-border);border-radius:var(--rt-radius-lg);background:var(--rt-color-surface);box-shadow:none}
+.settings-page-h20 .settings-v1100__page-intro>div>span{font-size:var(--rt-font-micro)}
+.settings-page-h20 .settings-v1100__page-intro h3{font-size:16px}
+.settings-page-h20 .settings-v1100__page-intro p{font-size:var(--rt-font-xs)}
+.settings-page-h20 .panel{border-color:var(--rt-color-border);border-radius:var(--rt-radius-lg);box-shadow:none}
+.settings-page-h20 .panel__heading h3{font-size:15px}
+.settings-page-h20 .panel__heading p,.settings-page-h20 .settings-copy{font-size:var(--rt-font-xs)}
+.settings-page-h20 .eyebrow,.settings-page-h20 .field>span,.settings-page-h20 .field>small{font-size:var(--rt-font-micro)}
+.settings-page-h20 .field input,.settings-page-h20 .field select,.settings-page-h20 .field textarea{min-height:38px;border-radius:var(--rt-radius-sm);font-size:var(--rt-font-xs)}
+.settings-page-h20 .settings-choice strong,.settings-page-h20 .settings-toggle strong{font-size:var(--rt-font-xs)}
+.settings-page-h20 .settings-choice span,.settings-page-h20 .settings-toggle small{font-size:var(--rt-font-micro)}
+.settings-page-h20 .settings-workspace-chip{min-height:40px;border-color:var(--rt-color-border);border-radius:var(--rt-radius-sm);background:var(--rt-color-surface-soft)}
+.settings-page-h20 .settings-workspace-chip small,.settings-page-h20 .settings-health-chip small{font-size:var(--rt-font-micro)}
+.settings-page-h20 .settings-workspace-chip strong,.settings-page-h20 .settings-health-chip strong{font-size:var(--rt-font-xs)}
+.settings-page-h20 .settings-health-chip{min-height:40px;border-color:var(--rt-color-border);border-radius:var(--rt-radius-sm);box-shadow:none}
+.settings-page-h20 .settings-health-metrics small,.settings-page-h20 .settings-health-details summary{font-size:var(--rt-font-micro)}
+.settings-page-h20 .settings-health-metrics strong{font-size:13px}
+.settings-page-h20 .settings-savebar strong{font-size:var(--rt-font-xs)}
+.settings-page-h20 .settings-savebar span{font-size:var(--rt-font-micro)}
+
+.calls-page-h20{gap:var(--rt-page-gap)}
+.calls-page-h20>.workspace-page-header-v10167,.calls-page-h20>.calls-section-nav-v10171{display:none}
+.calls-summary-strip-h20 .rt-workspace-summary-metric strong{font-size:18px}
+.calls-page-h20 .calls-command-center-v10171{border-color:var(--rt-color-border);border-radius:var(--rt-radius-lg);box-shadow:none}
+.calls-page-h20 .calls-command-center-v10171__kpis{display:none}
+.calls-page-h20 .calls-command-center-v10171__next{border-right:0}
+.calls-page-h20 .calls-command-center-v10171__heading h3{font-size:17px}
+.calls-page-h20 .calls-command-center-v10171__heading p,.calls-page-h20 .calls-command-center-v10171__meta{font-size:var(--rt-font-xs)}
+.calls-page-h20 .calls-command-center-v10171__suggestion small{font-size:var(--rt-font-micro)}
+.calls-page-h20 .calls-command-center-v10171__suggestion strong{font-size:var(--rt-font-xs)}
+.calls-operation-command-h20,.calls-history-command-h20{overflow:visible}
+.calls-search-group-h20{flex:1;min-width:min(360px,100%)}
+.calls-page-h20 .workspace-search-v10167{width:min(520px,100%);min-height:34px;border:1px solid var(--rt-color-border);border-radius:var(--rt-radius-sm);background:var(--rt-color-surface-soft)}
+.calls-page-h20 .workspace-search-v10167:focus-within{border-color:rgba(49,91,216,.56);box-shadow:var(--rt-focus)}
+.calls-page-h20 .workspace-search-v10167 input{font-size:var(--rt-font-xs);background:transparent}
+.calls-page-h20 .call-queue-panel,.calls-page-h20 .calls-history-panel{border-color:var(--rt-color-border);border-radius:var(--rt-radius-lg);box-shadow:none;overflow:hidden}
+.calls-page-h20 .call-queue-card{border-color:var(--rt-color-border);box-shadow:none}
+.calls-page-h20 .call-queue-card:hover{border-color:rgba(49,91,216,.28);box-shadow:var(--rt-shadow-card)}
+.calls-page-h20 .call-queue-card__meta,.calls-page-h20 .call-history__content>span,.calls-page-h20 .call-history__content>p{font-size:var(--rt-font-xs)}
+.calls-page-h20 .call-next-best-action span,.calls-page-h20 .call-next-best-action small,.calls-page-h20 .priority-chip{font-size:var(--rt-font-micro)}
+.calls-page-h20 .call-queue-card__headline strong,.calls-page-h20 .call-history__content strong{font-size:var(--rt-font-sm)}
+.calls-page-h20 .call-queue-card__headline small{font-size:var(--rt-font-xs)}
+.calls-page-h20 .calls-settings-v731__card header small,.calls-page-h20 .voice-launcher-v73__header p,.calls-page-h20 .voice-settings-v73 p,.calls-page-h20 .calling-v1014__transport span,.calls-page-h20 .calling-v1014__wrap-recommendation p{font-size:var(--rt-font-micro)}
+.calls-page-h20 .calls-settings-v731__card header strong,.calls-page-h20 .calling-v1014__transport strong{font-size:var(--rt-font-xs)}
+
+@media(max-width:900px){
+  .settings-page-h20 .settings-v1100__body{grid-template-columns:1fr}
+  .settings-page-h20 .settings-v1100__nav{position:relative;top:0;max-height:none}
+  .calls-search-group-h20{min-width:0;width:100%}
+  .calls-page-h20 .workspace-search-v10167{width:100%}
+}
+
+/* H20.5 — Calling overlays/portals typography floor.
+   These surfaces are rendered outside .calls-page-h20 in portals, so they need
+   an explicit canonical typography layer instead of inheriting historical 7–9px rules. */
+.voice-launcher-v73__header p,
+.voice-launcher-v73__field>span,
+.voice-launcher-v73__provider small,
+.voice-launcher-v73__notice,
+.voice-control-v73__state,
+.voice-settings-v73 p,
+.voice-settings-v73__provider-title small,
+.voice-settings-v73__provider-footer>button,
+.voice-settings-v73__connection label>span,
+.voice-settings-v73__caller-form label>span,
+.voice-settings-v73__devices small,
+.voice-settings-v73__identity-list small,
+.voice-inbound-v73 span,
+.voice-inbound-v73 small,
+.call-preparation-wizard-v10171__hero p,
+.call-preparation-wizard-footer-v10171__left>span,
+.calling-focus-script-v10171__prompt small,
+.calling-focus-script-v10171__support>summary,
+.calling-h3__history-row time,
+.calling-h3__full-step small,
+.calling-h3__map-step small,
+.calling-h3__objection-head small,
+.calling-h3__objection-copy small,
+.calling-h3__session-goals-grid small,
+.calling-h3__objection-picker small,
+.call-preparation-v70 .call-execution-toggle small,
+.call-preparation-v70 .call-preparation-v70__field>span,
+.calling-h3__view-switch button,
+.calling-h4__current-focus small,
+.calling-h3__objection-picker-actions button,
+.rt-mindmap__root small,
+.rt-mindmap__leaf small,
+.rt-mindmap__branch-head span,
+.rt-mindmap__leaf span{font-size:var(--rt-font-micro)}
+
+/* RealTalent CRM V101.11.3-H20.6 — Core Sales Workspaces Cohesion
+   Pipeline + Contacts + Agenda migrated to the canonical H20 shell. */
+
+/* Canonical summary metrics can now express selection and goal/attainment progress. */
+.rt-workspace-summary-metric.is-active{background:var(--rt-color-brand-subtle);box-shadow:inset 0 -2px 0 var(--rt-color-brand)}
+.rt-workspace-summary-metric__progress{position:relative;height:4px;margin-top:5px;overflow:visible;border-radius:var(--rt-radius-pill);background:var(--rt-color-border)}
+.rt-workspace-summary-metric__progress>i{display:block;height:100%;border-radius:inherit;background:var(--rt-color-brand);transition:width .18s ease}
+.rt-workspace-summary-metric__progress>b{position:absolute;top:6px;left:0;color:var(--rt-color-muted);font-size:var(--rt-font-micro);font-weight:700;white-space:nowrap}
+.rt-workspace-summary-metric:has(.rt-workspace-summary-metric__progress){min-height:82px}
+
+/* Pipeline — preserve intelligence depth while using one page hierarchy. */
+.pipeline-page-h20{gap:var(--rt-page-gap)}
+.pipeline-page-h20 .pipeline-summary-strip-h20 .rt-workspace-summary-metric strong{font-size:17px}
+.pipeline-page-h20 .pipeline-command-bar-h20{padding:5px;gap:6px;box-shadow:none;border-color:var(--rt-color-border);border-radius:var(--rt-radius-lg)}
+.pipeline-page-h20 .pipeline-command-bar-h20>.workspace-view-strip-v10169{flex:1 1 420px;min-width:280px;border:0;background:transparent;box-shadow:none}
+.pipeline-page-h20 .pipeline-command-search-v101113{flex:0 1 300px;min-width:210px;min-height:34px;border:1px solid var(--rt-color-border);border-radius:var(--rt-radius-sm);background:var(--rt-color-surface-soft)}
+.pipeline-page-h20 .pipeline-command-search-v101113 input{font-size:var(--rt-font-xs);background:transparent}
+.pipeline-page-h20 .pipeline-command-actions-v101113{display:flex;align-items:center;gap:4px;flex-wrap:wrap}
+.pipeline-page-h20 .pipeline-intelligence-shell,
+.pipeline-page-h20 .pipeline-board-v1008,
+.pipeline-page-h20 .pipeline-list-panel,
+.pipeline-page-h20 .pipeline-forecast,
+.pipeline-page-h20 .pipeline-calendar,
+.pipeline-page-h20 .pipeline-funnel{border-color:var(--rt-color-border);border-radius:var(--rt-radius-lg);box-shadow:none}
+.pipeline-page-h20 .pipeline-column-v1008{border-radius:var(--rt-radius-lg);background:var(--rt-color-surface-soft)}
+.pipeline-page-h20 .pipeline-card-v1008{border-color:var(--rt-color-border);border-radius:var(--rt-radius-lg);box-shadow:none}
+.pipeline-page-h20 .pipeline-card-v1008:hover{border-color:rgba(49,91,216,.28);box-shadow:var(--rt-shadow-card)}
+.pipeline-page-h20 .pipeline-card-v1008 small,
+.pipeline-page-h20 .pipeline-column-v1008 small,
+.pipeline-page-h20 .pipeline-stage-instruction,
+.pipeline-page-h20 .pipeline-action-center small,
+.pipeline-page-h20 .pipeline-action-center button,
+.pipeline-page-h20 .pipeline-intelligence-shell small{font-size:var(--rt-font-micro)}
+.pipeline-page-h20 .pipeline-card-v1008 strong,
+.pipeline-page-h20 .pipeline-column-v1008__identity strong{font-size:var(--rt-font-xs)}
+.pipeline-page-h20 .pipeline-filter-drawer-v10168{border-color:var(--rt-color-border);box-shadow:var(--rt-shadow-overlay)}
+
+/* Contacts — saved views remain powerful, but page chrome is now canonical. */
+.contacts-page-h20{gap:var(--rt-page-gap)}
+.contacts-page-h20 .contact-view-tabs-v10163{padding:3px;border-color:var(--rt-color-border);border-radius:var(--rt-radius-lg);background:var(--rt-color-surface-soft);box-shadow:none}
+.contacts-page-h20 .contact-view-tabs-v10163__scroll{gap:3px}
+.contacts-page-h20 .contact-saved-view-v10163{border-radius:var(--rt-radius-sm)}
+.contacts-page-h20 .contact-saved-view-v10163>button:first-child{min-height:32px;font-size:var(--rt-font-xs)}
+.contacts-page-h20 .contact-saved-view-v10163.is-active{background:var(--rt-color-surface);box-shadow:var(--rt-shadow-sm)}
+.contacts-page-h20 .contacts-command-bar-h20{box-shadow:none}
+.contacts-page-h20 .leads-search{min-width:min(520px,54vw);min-height:34px;border-color:var(--rt-color-border);border-radius:var(--rt-radius-sm);background:var(--rt-color-surface-soft)}
+.contacts-page-h20 .leads-search input{font-size:var(--rt-font-xs);background:transparent}
+.contacts-page-h20 .leads-data-panel,
+.contacts-page-h20 .contact-board-v1016__column,
+.contacts-page-h20 .lead-base-card{border-color:var(--rt-color-border);border-radius:var(--rt-radius-lg);box-shadow:none}
+.contacts-page-h20 .lead-base-card:hover{border-color:rgba(49,91,216,.28);box-shadow:var(--rt-shadow-card)}
+.contacts-page-h20 .leads-table th{font-size:var(--rt-font-micro)}
+.contacts-page-h20 .leads-table td,
+.contacts-page-h20 .lead-base-card small,
+.contacts-page-h20 .contact-board-v1016 small,
+.contacts-page-h20 .contact-view-settings-v10164 small{font-size:var(--rt-font-xs)}
+.contacts-page-h20 .contact-view-settings-v10164{border-color:var(--rt-color-border);box-shadow:var(--rt-shadow-overlay)}
+.contacts-page-h20 .lead-filter-chips{border-color:var(--rt-color-border);border-radius:var(--rt-radius-md);box-shadow:none}
+
+/* Agenda — one time view strip, one command surface, no duplicate quick-navigation strip. */
+.agenda-page-h20{gap:var(--rt-page-gap)}
+.agenda-page-h20 .agenda-period-view-strip-h20{width:max-content;max-width:100%}
+.agenda-page-h20 .agenda-command-bar-h20{box-shadow:none}
+.agenda-page-h20 .agenda-toolbar__date{display:flex;align-items:center;gap:6px;min-width:0}
+.agenda-page-h20 .agenda-toolbar__date strong{font-size:var(--rt-font-sm);text-transform:capitalize;white-space:nowrap}
+.agenda-page-h20 .agenda-toolbar-v10166__actions{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.agenda-page-h20 .workspace-search-v10166{min-width:min(360px,38vw);min-height:34px;border-color:var(--rt-color-border);border-radius:var(--rt-radius-sm);background:var(--rt-color-surface-soft)}
+.agenda-page-h20 .workspace-search-v10166 input{font-size:var(--rt-font-xs);background:transparent}
+.agenda-page-h20 .calendar-year,
+.agenda-page-h20 .calendar-month,
+.agenda-page-h20 .calendar-week-pro,
+.agenda-page-h20 .day-timeline-pro,
+.agenda-page-h20 .agenda-inspector,
+.agenda-page-h20 .agenda-upcoming-list,
+.agenda-page-h20 .agenda-free-slots{border-color:var(--rt-color-border);border-radius:var(--rt-radius-lg);box-shadow:none}
+.agenda-page-h20 .calendar-day{border-color:var(--rt-color-border)}
+.agenda-page-h20 .calendar-day.is-today{background:var(--rt-color-brand-subtle)}
+.agenda-page-h20 .agenda-event,
+.agenda-page-h20 .all-day-event{font-size:var(--rt-font-micro)}
+.agenda-page-h20 .calendar-time-axis,
+.agenda-page-h20 .calendar-week-pro__header small,
+.agenda-page-h20 .agenda-inspector small,
+.agenda-page-h20 .agenda-upcoming-list small{font-size:var(--rt-font-micro)}
+.agenda-page-h20 .agenda-filter-drawer-v10166{border-color:var(--rt-color-border);box-shadow:var(--rt-shadow-overlay)}
+
+@media(max-width:980px){
+  .pipeline-page-h20 .pipeline-command-bar-h20{align-items:stretch;flex-wrap:wrap}
+  .pipeline-page-h20 .pipeline-command-bar-h20>.workspace-view-strip-v10169{flex-basis:100%}
+  .contacts-page-h20 .leads-search,.agenda-page-h20 .workspace-search-v10166{min-width:0;width:100%}
+}
+@media(max-width:720px){
+  .pipeline-page-h20 .pipeline-command-search-v101113{flex-basis:100%;width:100%}
+  .pipeline-page-h20 .pipeline-command-actions-v101113{width:100%}
+  .contacts-page-h20 .contacts-command-bar-h20 .rt-workspace-command-group,
+  .agenda-page-h20 .agenda-command-bar-h20 .rt-workspace-command-group{width:100%;justify-content:flex-start}
+  .agenda-page-h20 .agenda-period-view-strip-h20{width:100%}
+  .agenda-page-h20 .agenda-period-view-strip-h20>button{flex:1 0 auto}
+}
+
+
+/* RealTalent CRM V101.11.3-H20.7 — Global UI Final Pass
+   Cross-system closure: shell, overlays, forms, data surfaces, feedback, states,
+   navigation, typography floor, accessibility and responsive behavior.
+   This remains the last global stylesheet; no new parallel design layer is introduced. */
+
+/* Final semantic shell — interaction blue, green reserved for success. */
+:root{
+  --rt-shell-topbar:#17264A;
+  --rt-shell-topbar-hover:#22365F;
+  --rt-shell-topbar-control:#26385D;
+  --rt-shell-topbar-border:rgba(255,255,255,.18);
+  --rt-shell-topbar-text:#FFFFFF;
+  --rt-shell-topbar-muted:#DCE5FF;
+  --rt-scrollbar-track:transparent;
+  --rt-scrollbar-thumb:#C9D2E1;
+  --rt-scrollbar-thumb-hover:#A9B6CB;
+}
+
+.topbar.global-appbar-v10162{
+  background:var(--rt-shell-topbar)!important;
+  color:var(--rt-shell-topbar-text)!important;
+  border-bottom:1px solid var(--rt-shell-topbar-border)!important;
+  box-shadow:0 1px 0 color-mix(in srgb,var(--rt-shell-topbar-text) 12%,transparent)!important;
+}
+.global-appbar-v10162 .global-search{
+  min-height:38px!important;
+  background:var(--rt-shell-topbar-control)!important;
+  border-color:var(--rt-shell-topbar-border)!important;
+  color:var(--rt-shell-topbar-text)!important;
+  border-radius:var(--rt-radius-md)!important;
+}
+.global-appbar-v10162 .global-search:hover{border-color:color-mix(in srgb,var(--rt-shell-topbar-text) 30%,var(--rt-shell-topbar-border))!important;background:color-mix(in srgb,var(--rt-shell-topbar-control) 88%,var(--rt-shell-topbar-text) 12%)!important}
+.global-appbar-v10162 .global-search.is-focused{border-color:var(--rt-color-brand)!important;box-shadow:0 0 0 3px var(--rt-color-brand-soft)!important}
+.global-appbar-v10162 .global-search input{color:var(--rt-shell-topbar-text)!important;font-size:var(--rt-font-sm)!important;background:transparent!important}
+.global-appbar-v10162 .global-search input::placeholder{color:var(--rt-shell-topbar-muted)!important;opacity:1!important}
+.global-appbar-v10162 .global-search svg,.global-appbar-v10162__context{color:var(--rt-shell-topbar-muted)!important}
+.global-appbar-v10162 .global-search>span{color:var(--rt-shell-topbar-text)!important;background:color-mix(in srgb,var(--rt-shell-topbar-text) 14%,transparent)!important}
+.global-appbar-v10162__assistant,.global-appbar-v10162 .icon-button,.global-appbar-v10162 .workspace-switcher__trigger{color:var(--rt-shell-topbar-text)!important}
+.global-appbar-v10162__assistant svg{color:var(--rt-shell-topbar-text)!important}
+.global-appbar-v10162__assistant:hover,.global-appbar-v10162 .icon-button:hover,.global-appbar-v10162 .workspace-switcher__trigger:hover{background:rgba(255,255,255,.12)!important;border-color:rgba(255,255,255,.18)!important}
+.global-appbar-v10162 .local-mode-badge{color:var(--rt-shell-topbar-text)!important;background:color-mix(in srgb,var(--rt-shell-topbar-text) 9%,transparent)!important;border-color:var(--rt-shell-topbar-border)!important}
+.global-appbar-v10162 .workspace-switcher__trigger small,.global-appbar-v10162 .workspace-switcher__trigger span{color:var(--rt-shell-topbar-muted)!important}
+.global-appbar-v10162 .workspace-switcher__trigger strong{color:var(--rt-shell-topbar-text)!important}
+
+.sidebar{background:var(--rt-shell-sidebar)!important;color:var(--rt-shell-sidebar-text)!important;border-right:1px solid var(--rt-shell-sidebar-border)!important;box-shadow:none!important}
+.sidebar__brand{border-bottom-color:var(--rt-shell-sidebar-border)!important}
+.sidebar__logo{background:var(--rt-color-brand)!important;color:#fff!important;box-shadow:none!important}
+.sidebar__brand-copy strong{color:var(--rt-shell-sidebar-text)!important}.sidebar__brand-copy span{color:var(--rt-shell-sidebar-muted)!important}
+.sidebar__group-label{color:var(--rt-shell-sidebar-muted)!important;font-size:var(--rt-font-micro)!important}
+.sidebar__item,.sidebar__more-toggle{color:var(--rt-shell-sidebar-muted)!important;border:1px solid transparent!important;border-radius:var(--rt-radius-sm)!important}
+.sidebar__item:hover,.sidebar__more-toggle:hover{background:color-mix(in srgb,var(--rt-shell-sidebar) 88%,var(--rt-color-brand) 12%)!important;border-color:var(--rt-shell-sidebar-border)!important;color:var(--rt-shell-sidebar-text)!important}
+.sidebar__item.is-active,.sidebar__more-toggle.is-open{background:var(--rt-shell-sidebar-active)!important;border-color:color-mix(in srgb,var(--rt-color-brand) 30%,var(--rt-shell-sidebar-border))!important;color:var(--rt-shell-sidebar-active-text)!important;box-shadow:none!important}
+.sidebar__item.is-active::before{background:var(--rt-color-brand)!important}
+.sidebar__profile,.sidebar__collapse{background:color-mix(in srgb,var(--rt-shell-sidebar) 92%,var(--rt-shell-sidebar-text) 8%)!important;border:1px solid var(--rt-shell-sidebar-border)!important;color:var(--rt-shell-sidebar-muted)!important;border-radius:var(--rt-radius-sm)!important}
+.sidebar__profile:hover,.sidebar__collapse:hover{background:var(--rt-shell-sidebar-active)!important;color:var(--rt-shell-sidebar-active-text)!important}
+.sidebar__profile-copy strong{color:var(--rt-shell-sidebar-text)!important}.sidebar__profile-copy small{color:var(--rt-shell-sidebar-muted)!important;font-size:var(--rt-font-micro)!important}
+.sidebar__logout:hover{background:var(--rt-color-danger-soft)!important;border-color:#F2CDD0!important;color:var(--rt-color-danger)!important}
+
+/* Unified interaction states. */
+.app-shell :where(button,a[href],input,select,textarea,[tabindex]:not([tabindex="-1"])):focus-visible{
+  outline:2px solid var(--rt-color-brand);outline-offset:2px;
+}
+.app-shell :where(input,select,textarea):focus-visible{outline:0;border-color:var(--rt-color-brand)!important;box-shadow:var(--rt-focus)!important}
+.app-shell :where(button,input,select,textarea):disabled,.app-shell [aria-disabled="true"]{opacity:.52;cursor:not-allowed!important}
+.app-shell :where(button,a,input,select,textarea){transition:border-color .14s ease,background-color .14s ease,color .14s ease,box-shadow .14s ease,opacity .14s ease}
+
+/* Form controls — canonical floor across raw legacy forms and primitives. */
+.app-shell :where(.field input,.field select,.field textarea,[data-rt-primitive="input"],[data-rt-primitive="select"],[data-rt-primitive="textarea"]){
+  border:1px solid var(--rt-color-border)!important;border-radius:var(--rt-radius-sm)!important;background:var(--rt-color-surface)!important;color:var(--rt-color-text)!important;font-size:var(--rt-font-md)!important;
+}
+.app-shell :where(.field input,.field select,[data-rt-primitive="input"],[data-rt-primitive="select"]){min-height:38px}
+.app-shell :where(.field textarea,[data-rt-primitive="textarea"]){min-height:88px;line-height:1.5}
+.app-shell .field>span,.app-shell .field>label,.app-shell label.field>span{color:var(--rt-color-text-2);font-size:var(--rt-font-xs)!important;font-weight:700}
+.app-shell .field>small,.app-shell label.field>small{color:var(--rt-color-muted);font-size:var(--rt-font-micro)!important;line-height:1.45}
+.app-shell input::placeholder,.app-shell textarea::placeholder{color:#929CAF;opacity:1}
+.app-shell input[type="checkbox"],.app-shell input[type="radio"]{width:17px;height:17px;accent-color:var(--rt-color-brand)!important;cursor:pointer}
+.rt-checkbox-v101105>button{border-color:var(--rt-color-border-strong)!important}
+.rt-checkbox-v101105>button:hover,.rt-checkbox-v101105>button:focus-visible{border-color:var(--rt-color-brand)!important}
+.rt-checkbox-v101105>button.is-checked,.rt-checkbox-v101105>button.is-indeterminate{background:var(--rt-color-brand)!important;border-color:var(--rt-color-brand)!important}
+.rt-selection-trigger-v101105:focus-visible{border-color:var(--rt-color-brand)!important;box-shadow:var(--rt-focus)!important}
+.rt-selection-option-check-v101105,.rt-selection-menu-v101105 footer button{color:var(--rt-color-brand)!important}
+.rt-selection-options-v101105>button.is-selected{background:var(--rt-color-brand-soft)!important;color:var(--rt-color-brand-strong)!important}
+.rt-filter-selection-v101105.is-active .rt-selection-trigger-v101105{border-color:#CFDAFA!important;background:var(--rt-color-brand-soft)!important;color:var(--rt-color-brand-strong)!important}
+
+/* Overlay system — one geometry and visual hierarchy for modals and drawers. */
+.modal-backdrop,.rt-drawer-backdrop-v10172,.lead-drawer-layer,.assistant-layer,.experience-drawer-layer,.notification-center-layer,.communication-lead-drawer-layer{
+  background:rgba(20,29,48,.30)!important;backdrop-filter:blur(5px)!important;
+}
+.modal,.rt-dialog{
+  border:1px solid var(--rt-color-border)!important;border-radius:var(--rt-radius-xl)!important;background:var(--rt-color-surface)!important;box-shadow:var(--rt-shadow-overlay)!important;
+}
+.modal__header{min-height:68px!important;padding:14px 18px!important;border-bottom:1px solid var(--rt-color-border)!important;background:var(--rt-color-surface)!important}
+.modal__header h2{margin:0;font-size:18px!important;color:var(--rt-color-text)!important}.modal__header p{margin:3px 0 0;font-size:var(--rt-font-sm)!important;color:var(--rt-color-muted)!important;line-height:1.45}
+.modal__body{padding:18px!important;background:var(--rt-color-surface)!important}.modal__footer{min-height:58px!important;padding:10px 18px!important;border-top:1px solid var(--rt-color-border)!important;background:var(--rt-color-surface-soft)!important}
+.rt-drawer,.rt-drawer-v10172,.lead-drawer,.assistant-drawer,.experience-drawer,.communication-lead-drawer{
+  border-left:1px solid var(--rt-color-border)!important;background:var(--rt-color-surface)!important;box-shadow:-18px 0 46px rgba(31,45,74,.15)!important;
+}
+.rt-drawer__header,.lead-drawer__header,.assistant-drawer__header,.experience-drawer__header,.communication-lead-drawer__header{border-bottom:1px solid var(--rt-color-border)!important;background:var(--rt-color-surface)!important}
+.rt-drawer__body,.lead-drawer__body,.experience-drawer__scroll,.communication-lead-drawer__body{background:var(--rt-color-surface-soft)!important}
+.rt-drawer__footer,.lead-drawer__footer,.assistant-drawer__footer,.experience-drawer__footer,.communication-lead-drawer__footer{border-top:1px solid var(--rt-color-border)!important;background:var(--rt-color-surface)!important}
+
+/* Menus, popovers and dropdown panels. */
+.global-search-results,.workspace-filter-popover-v10170,.workspace-display-popover-v10170,.rt-display-popover-v10172,.rt-sort-popover-v10172,.contact-view-creator-v10161__popover,.contact-view-creator-v10163__popover,.rt-selection-menu-v101105{
+  border:1px solid var(--rt-color-border)!important;border-radius:var(--rt-radius-lg)!important;background:var(--rt-color-surface)!important;box-shadow:var(--rt-shadow-overlay)!important;
+}
+.global-search-results button,.workspace-filter-popover-v10170 button,.workspace-display-popover-v10170 button,.rt-display-popover-v10172 button,.rt-sort-popover-v10172 button{font-size:var(--rt-font-xs)!important}
+
+/* Tables and lists — consistent density, headers and hover selection. */
+.rt-data-grid,.data-table{font-size:var(--rt-font-md)!important}
+.rt-data-grid th,.data-table th{height:40px!important;padding:0 14px!important;background:var(--rt-color-surface-soft)!important;color:var(--rt-color-muted)!important;border-bottom:1px solid var(--rt-color-border)!important;font-size:var(--rt-font-micro)!important;font-weight:800!important;letter-spacing:.045em}
+.rt-data-grid td,.data-table td{min-height:46px;padding:11px 14px!important;border-bottom:1px solid var(--rt-color-border)!important;background:var(--rt-color-surface)!important;font-size:var(--rt-font-sm)!important}
+.rt-data-grid tbody tr:hover td,.data-table tbody tr:hover td{background:var(--rt-color-brand-subtle)!important}
+.rt-data-grid tbody tr:focus-within td,.data-table tbody tr:focus-within td{background:var(--rt-color-brand-subtle)!important}
+
+/* Badges and compact status metadata never fall below the legibility floor. */
+.status-pill,.badge,.stage-chip,.priority-chip,.health-chip,[class*="status-pill"],[class*="status-chip"]{font-size:var(--rt-font-micro)!important;line-height:1.2}
+.app-shell :where(.eyebrow,time,small){font-size:var(--rt-font-micro);line-height:1.4}
+.app-shell :where(.card,.panel,.toolbar-card,.data-panel) :where(p,li){line-height:1.5}
+
+/* Empty/loading/feedback states. */
+.rt-empty-state,.empty-state,.activity-empty,.pipeline-empty-view,.proposal-catalog-empty,.contact-record-v1016__empty,.whatsapp-chat__empty,.email-thread__empty,.notification-empty,.integration-framework__empty{
+  min-height:180px;padding:28px 20px;align-content:center;justify-content:center;color:var(--rt-color-muted);text-align:center;
+}
+.rt-empty-state h3,.empty-state h3,.pipeline-empty-view strong,.proposal-catalog-empty strong,.whatsapp-chat__empty strong,.email-thread__empty strong{color:var(--rt-color-text);font-size:var(--rt-font-lg)!important}
+.rt-empty-state p,.empty-state p,.pipeline-empty-view p,.proposal-catalog-empty p,.whatsapp-chat__empty p,.email-thread__empty p{color:var(--rt-color-muted);font-size:var(--rt-font-sm)!important;line-height:1.55}
+.skeleton,[data-skeleton="true"]{border-radius:var(--rt-radius-sm)!important;background:#E9EDF4!important}
+
+.toast-region{z-index:14000!important;right:18px!important;bottom:18px!important;width:min(400px,calc(100vw - 36px))!important;gap:8px!important}
+.toast{min-height:48px;padding:10px 10px 10px 12px!important;border:1px solid var(--rt-color-border)!important;border-radius:var(--rt-radius-lg)!important;background:var(--rt-color-surface)!important;color:var(--rt-color-text)!important;box-shadow:var(--rt-shadow-card)!important}
+.toast__message{font-size:var(--rt-font-sm)!important;line-height:1.45}.toast__action{font-size:var(--rt-font-xs)!important;color:var(--rt-color-brand)!important}.toast__close{color:var(--rt-color-muted)!important}
+.toast--success{border-left:3px solid var(--rt-color-success)!important}.toast--warning{border-left:3px solid var(--rt-color-warning)!important}.toast--error{border-left:3px solid var(--rt-color-danger)!important}.toast--info{border-left:3px solid var(--rt-color-brand)!important}
+
+/* Pagination and navigation controls. */
+.pagination,.pipeline-list-pagination,.proposal-pagination{min-height:44px;display:flex;align-items:center;justify-content:flex-end;gap:6px;color:var(--rt-color-muted);font-size:var(--rt-font-xs)!important}
+.pagination button,.pipeline-list-pagination button,.proposal-pagination button{min-width:34px;min-height:34px;border:1px solid var(--rt-color-border)!important;border-radius:var(--rt-radius-sm)!important;background:var(--rt-color-surface)!important;color:var(--rt-color-text-2)!important}
+.pagination button:hover,.pipeline-list-pagination button:hover,.proposal-pagination button:hover{border-color:#C7D3F6!important;background:var(--rt-color-brand-soft)!important;color:var(--rt-color-brand-strong)!important}
+
+/* Communications residual typography that historically remained 8–9px. */
+.communication-channel-switch button,.communication-channel-switch button b,.email-workspace-identity small,.email-workspace-identity em,.email-account-health strong,.email-account-health small,.email-message-card__content>header span,.email-message-card__content>header time,.email-message-card__content footer,.email-message-card__content footer b,.email-composer__connection small,.email-composer__meta label>span,.email-composer__subject>span,.email-composer__footer small{
+  font-size:var(--rt-font-micro)!important;
+}
+.email-composer__meta select,.email-composer__meta input,.email-composer__subject input{min-height:34px!important;font-size:var(--rt-font-xs)!important;border-color:var(--rt-color-border)!important;border-radius:var(--rt-radius-sm)!important}
+.email-message-card__content p,.email-workspace-panel--empty p{font-size:var(--rt-font-xs)!important}
+
+/* Global scrollbars — subtle, consistent and usable. */
+.app-shell *{scrollbar-width:thin;scrollbar-color:var(--rt-scrollbar-thumb) var(--rt-scrollbar-track)}
+.app-shell *::-webkit-scrollbar{width:9px;height:9px}
+.app-shell *::-webkit-scrollbar-track{background:var(--rt-scrollbar-track)}
+.app-shell *::-webkit-scrollbar-thumb{border:2px solid transparent;border-radius:999px;background:var(--rt-scrollbar-thumb);background-clip:padding-box}
+.app-shell *::-webkit-scrollbar-thumb:hover{background:var(--rt-scrollbar-thumb-hover);background-clip:padding-box}
+
+/* Mobile navigation uses the same semantic brand and safe-area geometry. */
+.mobile-nav{border-top:1px solid var(--rt-color-border)!important;background:rgba(255,255,255,.96)!important;backdrop-filter:blur(14px)}
+.mobile-nav button{color:var(--rt-color-muted)!important;font-size:var(--rt-font-micro)!important}.mobile-nav button.is-active{color:var(--rt-color-brand)!important;background:var(--rt-color-brand-soft)!important}
+.mobile-more-menu{border:1px solid var(--rt-color-border)!important;border-radius:var(--rt-radius-xl) var(--rt-radius-xl) 0 0!important;background:var(--rt-color-surface)!important;box-shadow:0 -18px 44px rgba(31,45,74,.16)!important}
+.mobile-more-menu button.is-active{background:var(--rt-color-brand-soft)!important;color:var(--rt-color-brand-strong)!important}
+
+/* Responsive final pass. */
+@media(max-width:980px){
+  .rt-workspace-summary-strip{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .rt-workspace-summary-metric{border-bottom:1px solid var(--rt-color-border)}
+  .rt-workspace-command-bar{align-items:stretch;flex-direction:column}.rt-workspace-command-group,.rt-workspace-command-group.is-end{width:100%;margin-left:0;justify-content:flex-start}
+}
+@media(max-width:760px){
+  :root{--rt-page-gutter:12px;--rt-page-gap:12px;--rt-panel-padding:14px}
+  .app-content{padding:14px var(--rt-page-gutter) calc(88px + env(safe-area-inset-bottom))}
+  .rt-workspace-page-header{min-height:0;flex-direction:column;align-items:stretch;gap:10px}.rt-workspace-page-header__actions{justify-content:flex-start}
+  .rt-workspace-summary-strip{grid-template-columns:1fr 1fr}.rt-workspace-summary-metric{min-height:64px;padding:9px 10px}
+  .modal-backdrop{padding:8px!important;align-items:end!important}.modal{width:100%!important;max-width:none!important;max-height:calc(100dvh - 16px)!important;border-radius:var(--rt-radius-xl) var(--rt-radius-xl) var(--rt-radius-md) var(--rt-radius-md)!important}
+  .modal__header,.modal__body,.modal__footer{padding-left:14px!important;padding-right:14px!important}
+  .rt-drawer,.rt-drawer-v10172,.lead-drawer,.assistant-drawer,.experience-drawer,.communication-lead-drawer{width:min(100vw,520px)!important}
+  .toast-region{right:10px!important;bottom:calc(76px + env(safe-area-inset-bottom))!important;width:calc(100vw - 20px)!important}
+  .data-panel,.rt-surface{max-width:100%;overflow-x:auto}
+  .rt-data-grid th,.data-table th,.rt-data-grid td,.data-table td{padding-left:10px!important;padding-right:10px!important}
+}
+@media(max-width:480px){
+  .rt-workspace-summary-strip{grid-template-columns:1fr}
+  .rt-workspace-summary-metric{border-right:0!important}
+  .rt-workspace-page-header h1{font-size:19px}
+  .global-appbar-v10162__assistant{display:none!important}
+}
+
+@media(prefers-reduced-motion:reduce){
+  .app-shell *, .modal, .toast, .rt-drawer, .mobile-more-menu{scroll-behavior:auto!important;animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important}
+}
+
+
+/* V101.11.3-H20.7-H1 — Appearance & Sidebar Truth
+   Appearance settings own the shell colors. Settings is a pinned sidebar utility. */
+.global-appbar-v10162 .global-search [data-rt-primitive="input"]{
+  min-width:0!important;height:auto!important;padding:0!important;border:0!important;border-radius:0!important;
+  background:transparent!important;box-shadow:none!important;color:var(--rt-shell-topbar-text)!important;
+}
+.global-appbar-v10162 .global-search-wrap{width:clamp(260px,28vw,430px);max-width:100%}
+.global-appbar-v10162 .global-search{width:100%;min-width:0!important}
+.sidebar__footer{border-top:1px solid var(--rt-shell-sidebar-border)!important;background:var(--rt-shell-sidebar)!important}
+.sidebar__settings{width:100%;flex:0 0 auto}
+.sidebar__settings.is-active{background:var(--rt-shell-sidebar-active)!important;color:var(--rt-shell-sidebar-active-text)!important}
+.navigation-fixed-utility-h207h1{margin-top:10px;padding:10px 12px;display:flex;align-items:flex-start;gap:9px;border:1px solid var(--rt-color-border);border-radius:var(--rt-radius-md);background:var(--rt-color-surface-soft);color:var(--rt-color-text-2)}
+.navigation-fixed-utility-h207h1>div{display:grid;gap:2px}.navigation-fixed-utility-h207h1 strong{font-size:var(--rt-font-sm);color:var(--rt-color-text)}.navigation-fixed-utility-h207h1 span{font-size:var(--rt-font-xs);color:var(--rt-color-muted);line-height:1.4}
+.mobile-more-menu__settings{margin-top:8px!important;padding-top:12px!important;border-top:1px solid var(--rt-color-border)!important}
+@media(max-width:760px){.global-appbar-v10162 .global-search-wrap{width:100%}}
+
+/* V101.11.3-H20.7-H2 — WhatsApp Conversation-Only Inbox
+   The left rail is navigation for conversations only. Work metadata remains in the conversation toolbar. */
+.communication-focus-inbox--conversations-only .communication-focus-inbox__tools{gap:8px;padding:10px;border-bottom:1px solid var(--rt-color-border)}
+.communication-focus-inbox--conversations-only .communication-focus-search{min-height:36px;border-color:var(--rt-color-border)!important;border-radius:var(--rt-radius-sm)!important;background:var(--rt-color-surface)!important}
+.communication-focus-inbox--conversations-only .communication-focus-search input{font-size:var(--rt-font-xs)!important}
+.communication-focus-inbox--conversations-only .whatsapp-inbox-create-actions.is-h207h2{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px}
+.communication-focus-inbox--conversations-only .whatsapp-inbox-create-actions.is-h207h2 .rt-button{width:100%;min-width:0;min-height:34px;padding:0 7px!important;justify-content:center;border-radius:var(--rt-radius-sm)!important;font-size:var(--rt-font-micro)!important;font-weight:700;white-space:nowrap}
+.communication-focus-inbox--conversations-only .communication-focus-inbox__views.is-whatsapp-normalized{grid-template-columns:repeat(4,minmax(0,1fr));gap:4px}
+.communication-focus-inbox--conversations-only .communication-focus-inbox__views button{min-height:30px;border:1px solid transparent!important;border-radius:var(--rt-radius-sm)!important;background:var(--rt-color-surface-soft)!important;color:var(--rt-color-muted)!important;font-size:var(--rt-font-micro)!important}
+.communication-focus-inbox--conversations-only .communication-focus-inbox__views button:hover{background:var(--rt-color-brand-soft)!important;color:var(--rt-color-brand-strong)!important}
+.communication-focus-inbox--conversations-only .communication-focus-inbox__views button.is-active{border-color:color-mix(in srgb,var(--rt-color-brand) 22%,var(--rt-color-border))!important;background:var(--rt-color-brand-soft)!important;color:var(--rt-color-brand-strong)!important}
+.communication-focus-inbox--conversations-only .communication-focus-inbox__views button span{background:var(--rt-color-surface)!important;color:inherit!important}
+.communication-focus-inbox--conversations-only .whatsapp-work-inbox,
+.communication-focus-inbox--conversations-only .whatsapp-conversation-workmeta,
+.communication-focus-inbox--conversations-only .communication-focus-inbox__filter-row{display:none!important}
+.communication-focus-inbox--conversations-only .omnichannel-conversation-list{padding:4px 0 8px;overflow:auto;min-height:0}
+.communication-focus-inbox--conversations-only .omnichannel-conversation{min-height:66px;padding:10px 11px!important;border-radius:0!important}
+.communication-focus-inbox--conversations-only .omnichannel-conversation__top strong{font-size:var(--rt-font-sm)!important}
+.communication-focus-inbox--conversations-only .omnichannel-conversation__content>small,
+.communication-focus-inbox--conversations-only .omnichannel-conversation__preview{font-size:var(--rt-font-xs)!important}
+.communication-focus-inbox--conversations-only .omnichannel-conversation__meta{margin-top:3px}
+@media(max-width:760px){
+  .communication-focus-inbox--conversations-only .whatsapp-inbox-create-actions.is-h207h2{grid-template-columns:repeat(3,minmax(0,1fr))}
+  .communication-focus-inbox--conversations-only .whatsapp-inbox-create-actions.is-h207h2 .rt-button{font-size:10px!important}
+}
+
+/* V101.11.3-H21.1 — Garimpo Coverage & Runtime Truth */
+.prospecting-runtime-truth-summary-h21 {
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+}
+
+.prospecting-runtime-facts-h21 {
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+}
+
+.prospecting-runtime-truth-h21 {
+  display: grid;
+  gap: 14px;
+}
+
+.prospecting-runtime-truth-h21__sources {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.prospecting-runtime-truth-h21__sources article {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  min-height: 54px;
+  padding: 10px 12px;
+  border: 1px solid var(--rt-color-border, #d9dee8);
+  border-radius: var(--rt-radius-md, 10px);
+  background: var(--rt-color-surface, #fff);
+}
+
+.prospecting-runtime-truth-h21__sources article > span {
+  width: 9px;
+  height: 9px;
+  flex: 0 0 9px;
+  border-radius: 999px;
+  background: var(--rt-color-text-muted, #7b8494);
+}
+
+.prospecting-runtime-truth-h21__sources article.is-running > span { background: var(--rt-color-brand, #315bd8); }
+.prospecting-runtime-truth-h21__sources article.is-completed > span { background: var(--rt-color-success, #1d9e75); }
+.prospecting-runtime-truth-h21__sources article.is-failed > span { background: var(--rt-color-danger, #c93a3a); }
+.prospecting-runtime-truth-h21__sources article.is-disabled { opacity: .62; }
+
+.prospecting-runtime-truth-h21__sources small,
+.prospecting-runtime-truth-h21__sources strong {
+  display: block;
+}
+.prospecting-runtime-truth-h21__sources small {
+  color: var(--rt-color-text-muted, #6f7888);
+  font-size: 11px;
+}
+.prospecting-runtime-truth-h21__sources strong {
+  margin-top: 2px;
+  color: var(--rt-color-text, #1b2430);
+  font-size: 12px;
+}
+
+.prospecting-runtime-truth-h21__current {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+.prospecting-runtime-truth-h21__current span {
+  min-width: 0;
+  padding: 9px 11px;
+  border-radius: var(--rt-radius-sm, 8px);
+  background: var(--rt-color-surface-subtle, #f6f8fb);
+  color: var(--rt-color-text-secondary, #4c5667);
+  font-size: 11px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.prospecting-runtime-truth-h21__current strong {
+  display: block;
+  margin-bottom: 3px;
+  color: var(--rt-color-text, #1b2430);
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: .05em;
+}
+
+.prospecting-runtime-truth-h21__events {
+  display: grid;
+  gap: 5px;
+  padding-top: 2px;
+}
+.prospecting-runtime-truth-h21__events > div {
+  display: grid;
+  grid-template-columns: 68px minmax(0, 1fr);
+  gap: 9px;
+  align-items: start;
+  padding: 6px 0;
+  border-top: 1px solid var(--rt-color-border-subtle, #edf0f4);
+  font-size: 11px;
+}
+.prospecting-runtime-truth-h21__events time {
+  color: var(--rt-color-text-muted, #7b8494);
+  font-variant-numeric: tabular-nums;
+}
+.prospecting-runtime-truth-h21__events span {
+  color: var(--rt-color-text-secondary, #4c5667);
+  line-height: 1.45;
+}
+
+@media (max-width: 1180px) {
+  .prospecting-runtime-truth-summary-h21 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .prospecting-runtime-facts-h21 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
+
+@media (max-width: 760px) {
+  .prospecting-runtime-truth-summary-h21,
+  .prospecting-runtime-facts-h21,
+  .prospecting-runtime-truth-h21__sources,
+  .prospecting-runtime-truth-h21__current { grid-template-columns: 1fr 1fr; }
+}
+
+@media (max-width: 520px) {
+  .prospecting-runtime-truth-summary-h21,
+  .prospecting-runtime-truth-h21__sources,
+  .prospecting-runtime-truth-h21__current { grid-template-columns: 1fr; }
+}
+
+
+/* V101.11.3-H21.1 — Garimpo Coverage & Runtime Truth */
+.prospecting-coverage-truth-h21{display:flex;align-items:flex-start;gap:10px;padding:10px 12px;border:1px solid var(--rt-color-border,#dfe3ea);border-radius:var(--rt-radius-md,10px);background:var(--rt-color-surface-subtle,#f8fafc);color:var(--rt-color-text-secondary,#526071)}
+.prospecting-coverage-truth-h21>svg{flex:0 0 auto;margin-top:2px;color:var(--rt-color-brand,#315bd8)}
+.prospecting-coverage-truth-h21>div{display:grid;gap:2px}
+.prospecting-coverage-truth-h21 strong{font-size:12px;color:var(--rt-color-text,#182230)}
+.prospecting-coverage-truth-h21 span{font-size:11px;line-height:1.45}

@@ -1,0 +1,68 @@
+RealTalent CRM V101.11.3-H19.4 — Communication Focus Experience
+Base direta: V101.11.3-H19.3 — WhatsApp Sales Workspace
+Data: 2026-10-08
+
+ESCOPO H19.4
+- Central de Comunicação reduzida para duas áreas principais: Conversas + Conversa.
+- Contexto CRM fixo removido do workspace principal.
+- Lead Context Drawer lateral sob demanda.
+- Drawer aberto pelo nome do contato ou pelo atalho Lead.
+- Abas do drawer: Resumo | Negócio | Histórico.
+- Busca, prioridades e filtros movidos para a coluna Conversas.
+- Estado comercial do WhatsApp compactado em seletor único no header.
+- Barra de conta WhatsApp só ocupa linha quando há múltiplas contas.
+- H19.2 Connection Center e H19.3 Sales Workspace preservados.
+
+GATES ARQUITETURAIS
+qa:architecture                                      PASS
+Source Syntax                         412 arquivos   PASS
+Integration Contracts                380 arquivos   PASS
+Migrations                                54/54     PASS
+Release Manifest                          86/86     PASS
+Capability Matrix       29 capacidades / 94 evidências / 59 executáveis PASS
+Repository Local                         100/100    PASS
+Repository Supabase                      100/100    PASS
+Browser E2E Contracts                    11 fluxos  PASS
+CSS Governance                            65/65     PASS
+Linux release preflight                  373 TS/TSX PASS
+
+REGRESSÕES DE COMUNICAÇÕES
+H19.2 Communication Workspace              54/54    PASS
+H19.3 WhatsApp Sales Workspace              66/66    PASS
+H19.4 Communication Focus Experience        57/57    PASS
+
+RUNTIME
+Communications Recovery                      5/5     PASS
+Connect Recovery                              5/5     PASS
+Security Runtime                             12/12    PASS
+
+TRANSPILE INDEPENDENTE
+TypeScript transpile independente         297 módulos PASS
+Observação: o dist gerado por esse fallback não é o bundle oficial Vite e foi removido antes do empacotamento.
+
+GATES OFICIAIS DEPENDENTES DE NODE_MODULES
+npm ci                                     BLOCKED
+- A instalação não concluiu no ambiente de auditoria.
+- npm registry ping confirmou EAI_AGAIN em registry.npmjs.org.
+- node_modules não foi criado.
+
+typecheck                                  BLOCKED
+- O comando foi executado, porém React/ReactDOM/Supabase e respectivas declarações não estão instalados.
+- Os erros resultantes são de dependências/JSX ausentes e não são classificados como aprovação de typecheck.
+
+Vitest                                     BLOCKED
+- vitest: not found
+
+Vite build                                 BLOCKED
+- validate:env PASS
+- vite: not found
+
+INTEGRIDADE DE ENTREGA
+- node_modules não incluído.
+- dist fallback não incluído.
+- Release Manifest aponta para H19.4.
+- H19.2 e H19.3 permanecem como linhagem preservada.
+- Nenhuma migration nova foi adicionada.
+
+LIMITAÇÃO CONHECIDA
+O estado comercial manual Aguardando você / Aguardando cliente / Resolvido continua persistido localmente pelo mecanismo H19.3. Sincronização desse estado entre navegadores e membros da equipe permanece fora do escopo da H19.4.

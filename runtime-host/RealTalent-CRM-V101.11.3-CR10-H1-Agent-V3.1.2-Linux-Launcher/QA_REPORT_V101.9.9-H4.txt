@@ -1,0 +1,55 @@
+RealTalent CRM V101.9.9-H4 — Workspace Appearance & Theme Personalization
+QA Report
+=======================================================================
+
+Escopo
+------
+- topbar deixa de usar verde obrigatório
+- preset padrão Minimal
+- Configurações -> Aparência
+- presets RealTalent / Minimal / Grafite / Azul / Verde / Areia / Personalizado
+- cor de destaque, topbar, sidebar, canvas e cards
+- contraste automático
+- preview ao vivo antes de persistir
+- persistência por workspace usando Preferences existente
+- restauração do padrão
+- compatibilidade light / dark / system
+- nenhuma migration nova na H4
+
+Resultados executados nesta montagem
+------------------------------------
+H4 Workspace Appearance audit: 22/22
+H3 UX Recovery audit: 21/21
+H2 Canonical Merge audit: 13/13
+H1 Realtime Type audit: 6/6
+V101.9.9 base audit: 19/19
+Release Manifest: 26/26
+Capability Matrix: 15 capacidades / 32 evidências / 25 executáveis
+Repository Contract: Local 96/96 + Supabase 96/96
+Browser E2E Contract: 7/7
+Source syntax audit: 381 arquivos
+Integration contract audit: 354 arquivos
+Migrations: 49/49 com checksum íntegro
+TypeScript isolado do Design System V101.9.8: OK
+TypeScript isolado de appearance-theme.ts: OK
+check:legacy: PASS
+bash -n start-linux.sh: OK
+
+Correção de QA adicional
+------------------------
+O tsconfig.v10198.json passou a excluir explicitamente *.test.ts e *.test.tsx.
+Esse gate valida as fontes de produção do Design System; os testes são executados
+pelo Vitest no gate próprio. Isso remove dependência indevida de tipos do Vitest
+no typecheck isolado sem reduzir a cobertura das fontes de produção.
+
+Limitação do ambiente de montagem
+---------------------------------
+Esta montagem não possui node_modules e a instalação de dependências não concluiu
+por timeout de rede. Por isso o typecheck global, a suíte Vitest completa e o build
+não são declarados como executados aqui. O start-linux.sh continua executando os
+gates completos no Linux após npm install.
+
+Banco
+-----
+Nenhuma migration H4 nova. As 49 migrations existentes, incluindo a migration H2,
+permanecem intactas e verificadas.

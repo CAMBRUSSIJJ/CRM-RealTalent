@@ -1,0 +1,32 @@
+import fs from 'node:fs'
+import path from 'node:path'
+import crypto from 'node:crypto'
+const root=process.cwd(); const read=p=>fs.readFileSync(path.join(root,p),'utf8'); const exists=p=>fs.existsSync(path.join(root,p)); const json=p=>JSON.parse(read(p))
+const pkg=json('package.json'), manifest=json('release-manifest.json'), removal=json('qa/dead-css-removal-v101109-h5.json'), main=read('src/main.tsx'), start=read('scripts/start.mjs')
+const checks=[]; const ok=(label,v)=>checks.push({label,ok:Boolean(v)})
+const sha=s=>crypto.createHash('sha256').update(s).digest('hex')
+const extract=(canonical, source)=>{const css=read(`src/styles/${canonical}`);const esc=source.replace(/[.*+?^${}()|[\]\\]/g,'\\$&');const marker=new RegExp(`\\/\\*\\s*(?:={5}\\s*)?(?:legacy\\s+)?source:\\s*${esc}(?:\\s*={5})?\\s*\\*\\/`,'i');const hit=marker.exec(css);if(!hit)return'';const tail=css.slice(hit.index+hit[0].length);const next=/\n\s*\/\*\s*(?:={5}\s*)?(?:legacy\s+)?source:\s*[^*]+\*\//i.exec(tail);return(next?tail.slice(0,next.index):tail).trim()}
+ok('package lineage preserved in current or approved successor',['101.10.9','101.11.0','101.11.1','101.11.2','101.11.3'].includes(pkg.version))
+ok('manifest preserves H5 lineage through approved successor',(manifest.release?.version==='101.10.9'&&manifest.release?.hotfix==='H5'&&manifest.release?.hotfixName==='Dead CSS Removal'&&manifest.release?.hotfixBaseRelease==='V101.10.9-H4')||(manifest.release?.version==='101.11.0'&&manifest.release?.baseRelease==='V101.10.9-H5')||(manifest.release?.version==='101.11.1'&&manifest.release?.baseRelease==='V101.11.0')||(manifest.release?.version==='101.11.2'&&manifest.release?.baseRelease==='V101.11.1-H5')||(manifest.release?.version==='101.11.3'&&manifest.release?.baseRelease==='V101.11.2'))
+ok('H5 removal manifest has 47 verified sources',removal.release==='V101.10.9-H5'&&removal.base==='V101.10.9-H4'&&removal.removedCount===47&&Object.keys(removal.removed).length===47)
+ok('all removed legacy stylesheets are physically absent',Object.keys(removal.removed).every(name=>!exists(`src/styles/${name}`)))
+ok('every canonical owner still exists',Object.values(removal.removed).every(entry=>exists(`src/styles/${entry.canonical}`)))
+ok('every removed layer is still embedded in canonical owner with matching hash',Object.entries(removal.removed).every(([name,entry])=>{const text=extract(entry.canonical,name);return text&&sha(text)===entry.trimmedSha256}))
+ok('runtime never imports a removed stylesheet',Object.keys(removal.removed).every(name=>!main.includes(`./styles/${name}`)))
+const allow=json('qa/css-legacy-allowlist.json')
+ok('legacy allowlist excludes every deleted source',Object.keys(removal.removed).every(name=>!allow.legacyVersionedCss.includes(name)))
+ok('remaining allowlist entries physically exist',allow.legacyVersionedCss.every(name=>exists(`src/styles/${name}`)))
+{ const cssImports=[...main.matchAll(/import\s+['"]\.\/styles\/([^'"]+\.css)['"]/g)].map(m=>m[1]); ok('runtime import count preserves H5 baseline plus scoped login experience', cssImports.length===(['101.11.2','101.11.3'].includes(pkg.version)?(cssImports.includes('proposals-workspace.css')?52:cssImports.includes('h20-product-cohesion.css')?51:50):(pkg.version==='101.11.1'?49:48)) && (pkg.version<'101.11.1'||cssImports.includes('login-experience.css')) && (!['101.11.2','101.11.3'].includes(pkg.version)||cssImports.includes('work-management.css'))) }
+ok('H5 gate registered',pkg.scripts?.['qa:v101.10.9:h5']==='node scripts/v101_10_9_h5_dead_css_removal_audit.mjs')
+ok('architecture includes H5',pkg.scripts?.['qa:architecture']?.includes('qa:v101.10.9:h5'))
+ok('release verify includes H5',pkg.scripts?.['release:verify']?.includes('qa:v101.10.9:h5'))
+ok('manifest requires H5',manifest.qa?.requiredGates?.includes('qa:v101.10.9:h5'))
+ok('runtime migrates first from H4',start.indexOf('V101.10.9-H4-Garimpo-Automations-CSS-Consolidation-Linux-Launcher')>=0&&start.indexOf('V101.10.9-H4-Garimpo-Automations-CSS-Consolidation-Linux-Launcher')<start.indexOf('V101.10.9-H3-Calling-Connect-CSS-Consolidation-Linux-Launcher'))
+ok('runtime requires current build marker while preserving H5 lineage',start.includes('V101.10.9-H5 — Dead CSS Removal')||start.includes('V101.11.0 — Communications Architecture'))
+ok('runtime executes H5 QA in normal/rebuild/dev path',(start.match(/qa:v101\.10\.9:h5/g)||[]).length>=3)
+ok('no H5 database migration',!fs.readdirSync(path.join(root,'supabase/migrations')).some(n=>/101[_-]?10[_-]?9[_-]?h5/i.test(n)))
+ok('H5 release notes exist',exists('RELEASE_NOTES_V101.10.9-H5.md')&&exists('docs/releases/101.10/V101.10.9-H5-DEAD-CSS-REMOVAL.md'))
+ok('H5 QA report placeholder exists',exists('docs/qa/DEAD_CSS_REMOVAL_V101.10.9-H5.md'))
+ok('H5 CSS inventory exists',exists('docs/qa/CSS_INVENTORY_V101.10.9-H5.md'))
+ok('H5 lineage marker exists',read('index.html').includes('V101.10.9-H5 — Dead CSS Removal')&&read('src/lib/app-version.ts').includes('V101.10.9-H5 — Dead CSS Removal'))
+for(const c of checks)console.log(`${c.ok?'OK  ':'FAIL'} ${c.label}`);const failed=checks.filter(c=>!c.ok);console.log(`\nV101.10.9-H5 Dead CSS Removal: ${checks.length-failed.length}/${checks.length} contracts.`);if(failed.length)process.exit(1)

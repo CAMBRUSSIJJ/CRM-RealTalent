@@ -1,0 +1,20 @@
+{
+  "version": "3.1.5",
+  "purpose": "Regression dataset for semantic commercial language. These are meaning examples, not a command table.",
+  "cases": [
+    {"input":"me traga os melhores contatos","intent":"best_contacts"},
+    {"input":"pega os contatos que tão melhores","intent":"best_contacts"},
+    {"input":"quem eu deveria atacar agora?","intent":"best_contacts"},
+    {"input":"quem tá mais quente?","intent":"best_contacts"},
+    {"input":"me mostra quem tem mais chance","intent":"best_contacts"},
+    {"input":"qem devo ligar hj","intent":"call_now"},
+    {"input":"who should I call next?","intent":"call_now"},
+    {"input":"¿a quién debería llamar?","intent":"call_now"},
+    {"input":"tem negócio morrendo?","intent":"risk_deals"},
+    {"input":"quem sumiu?","intent":"stale_deals"},
+    {"input":"não deixa eu esquecer de falar com a Camila amanhã às 14:30","intent":"create_task"},
+    {"input":"deixa marcado pra eu retornar a Camila sexta às 10h","intent":"create_task"},
+    {"input":"crie ligacao cm camila amanha 14:30","intent":"create_task"},
+    {"input":"marca pra mim uma ligação com a Camila amanhã duas e meia e coloca o Marcelo como responsável","intent":"create_task"}
+  ]
+}

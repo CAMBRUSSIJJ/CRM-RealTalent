@@ -1,0 +1,17 @@
+import fs from 'node:fs'
+import path from 'node:path'
+const root=process.cwd(); const read=p=>fs.readFileSync(path.join(root,p),'utf8')
+const status=read('src/platform/events/realtime-status.ts')
+const panel=read('src/features/communications/whatsapp-chat-panel.tsx')
+const page=read('src/features/communications/communications-page.tsx')
+const checks=[]; const check=(label,ok)=>checks.push({label,ok:Boolean(ok)})
+check('transport state inclui disabled', /RealtimeTransportState\s*=\s*CommunicationsRealtimeState\s*\|\s*['"]disabled['"]/.test(status))
+check('WhatsApp panel usa RealtimeTransportState', panel.includes("import type { RealtimeTransportState } from '../../platform/events/realtime-status'"))
+check('prop realtimeState aceita transport state', panel.includes('realtimeState?: RealtimeTransportState') || panel.includes('realtimeState?:RealtimeTransportState'))
+check('panel não usa contrato realtime legado', !panel.includes('realtimeState?: CommunicationsRealtimeState'))
+check('estado realtime permanece representado sem exigir badge visual', panel.includes('data-realtime-state={realtimeState}') || panel.includes("realtimeState === 'disabled' ? 'Tempo real desativado'"))
+check('communications page passa estado global sem cast', page.includes('realtimeState={realtimeState}') && !page.includes('realtimeState={realtimeState as'))
+for(const item of checks) console.log(`${item.ok?'OK  ':'FAIL'} ${item.label}`)
+const failed=checks.filter(x=>!x.ok)
+console.log(`\nV101.9.9-H1 Realtime Type Contract: ${checks.length-failed.length}/${checks.length} contratos aprovados.`)
+if(failed.length) process.exit(1)

@@ -1,0 +1,33 @@
+RealTalent CRM V101.6.7 — Global Workspace UI Consistency
+QA report — 2026-09-28
+
+RESULTADOS APROVADOS
+- Auditoria sintática: 293 arquivos aprovados.
+- Auditoria de contratos de integração: 262 arquivos aprovados.
+- Migrations: 44 arquivos, todos com checksum íntegro.
+- Contratos específicos V101.6.7: 31/31 aprovados.
+- Gates históricos e atuais qa:*: 67/67 aprovados.
+- Linux release preflight: aprovado em 260 arquivos TS/TSX; sem imports de marcas incompatíveis; bindings da Comunicação íntegros.
+- RealTalent Connect resilience smoke V101.4: aprovado (requestId idempotente -> persistência -> restart -> retomada -> connected -> ended; origin guard 403).
+- Experience Registry atualizado para os novos seletores V101.6.7 em Follow-ups, Ligações, Automações e Métricas.
+
+ESCOPO VALIDADO
+- Follow-ups: cabeçalho, resumo, tabs, toolbar, chips e drawer de filtros padronizados.
+- Métricas: cabeçalho, toolbar, tabs, chips e drawer de escopo padronizados; exportação/PDF preservados.
+- Automações: cabeçalho, resumo, tabs e filtros contextuais padronizados; builder/operação preservados.
+- Ligações: cabeçalho, resumo, tabs, busca, filtros de fila/histórico e chips padronizados; Calling Intelligence e sessão preservados.
+- Lazy loading: após 8 segundos passa a estado acionável com Tentar novamente e Abrir diagnóstico.
+- Meu Dia, Global App Bar, Contatos, Contact Views, Custom Properties, Agenda, Propostas, Pipeline e demais regras comerciais não foram reconstruídos nesta release.
+
+LIMITAÇÃO DO AMBIENTE DE EMPACOTAMENTO
+- O diretório final não contém node_modules nem dist.
+- A tentativa de npm ci neste ambiente não concluiu dentro da janela de execução.
+- npm ci --offline confirmou que o cache local não possui xmlchars@2.2.0 (ENOTCACHED).
+- Portanto, typecheck do TypeScript, suíte Vitest e build Vite não são declarados como executados neste ambiente.
+- O start-linux.sh instala as dependências e executa release:verify no Linux antes de iniciar o CRM, incluindo typecheck, Vitest, build, bundle audit, HTTP smoke e Connect smoke.
+
+PACOTE
+- Pasta esperada: RealTalent-CRM-V101.6.7-Global-Workspace-UI-Consistency
+- ZIP esperado: RealTalent-CRM-V101.6.7-Global-Workspace-UI-Consistency.zip
+- Porta CRM: 4188
+- Porta RealTalent Connect: 3001

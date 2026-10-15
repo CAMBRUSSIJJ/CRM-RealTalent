@@ -1,0 +1,74 @@
+RealTalent CRM V101.9.5 — Workflow Runtime 3.0
+QA Report
+==================================================
+
+Escopo
+-----
+- runtime persistente para automações duráveis
+- workflow_executions + workflow_step_runs
+- scheduler server-side via automation-runner + pg_cron
+- wait/resume persistente por next_run_at
+- branch_if com skip persistido
+- retry exponencial e recuperação de locks expirados
+- idempotência por workspace/chave lógica
+- enqueue/retry/cancel por RPC
+- integração com Global Event Bus / Realtime
+- aba Runtime em Automações
+- inspector window.__REALTALENT_WORKFLOWS__
+- preservação do executor imediato para regras sem controles duráveis
+- preservação dos gates de cooldown, limite diário, DNC/simulação e maxActionsPerRun
+
+Resultados executados neste ambiente
+------------------------------------
+Workflow Runtime 3.0 audit: 44/44 contratos aprovados
+Linux release preflight: OK (315 arquivos TS/TSX)
+Source syntax audit: 349 arquivos aprovados
+Integration contract audit: 317 arquivos aprovados
+Migrations: 48/48 com checksum íntegro
+TypeScript isolado (workflow runtime + executor + workspace): OK
+Runtime state-machine smoke: OK
+  - idempotência
+  - wait -> waiting -> resume
+  - branch false -> skipped persistido
+  - retry backoff
+Historical npm run check: 3048 linhas OK / 0 FAIL antes do typecheck global
+
+Banco / runtime
+---------------
+Nova migration:
+  202610020002_v101_9_5_workflow_runtime_3.sql
+
+Total de migrations:
+  48
+
+O runtime durável server-side usa:
+  workflow_executions
+  workflow_step_runs
+  automation-runner
+  pg_cron (cadência de 1 minuto)
+
+Compatibilidade
+---------------
+- regras sem wait/branch_if permanecem no executor imediato
+- regras duráveis só são enfileiradas depois dos gates de segurança existentes
+- UI, fila externa e activity_overdue convergem para o mesmo runtime durável
+- modo local/teste preserva fallback sem scheduler oculto no navegador
+- modo cloud/Supabase habilita persistência temporal e retomada com a UI fechada
+- V101.9.4 preservada como fonte de sessão/configuração no launcher
+- 47 migrations anteriores preservadas; nova migration adicionada sem alterar seus checksums
+
+Limitação do ambiente de montagem
+---------------------------------
+A tentativa de instalar dependências não concluiu dentro do timeout disponível e não gerou node_modules.
+Por isso typecheck global, Vitest e build globais não puderam ser concluídos nesta montagem.
+O typecheck global chegou a executar e os primeiros erros são de módulos ausentes (React/Lucide/Supabase),
+consistentes com a ausência de node_modules.
+
+O start-linux.sh mantém o gate completo no Linux antes de abrir o CRM:
+  npm install -> preflight -> release:verify -> typecheck -> Vitest -> build -> runtime smokes.
+
+Observação operacional para Supabase
+------------------------------------
+Para usar wait/retry/resume realmente durável em um ambiente cloud, a migration 48 e a Edge Function
+automation-runner V101.9.5 precisam ser publicadas pelo fluxo normal de deploy do ambiente Supabase.
+O launcher local não publica recursos remotos sem credenciais explícitas.

@@ -1,0 +1,88 @@
+RealTalent CRM V101.10.3-H6 — Progressive Processing
+QA Report
+==========================================================
+
+Escopo
+------
+- publicação progressiva de CompanyCandidates prontos na Revisão durante a campanha
+- cursor persistente por candidato via reviewRevision
+- endpoint incremental GET /jobs/:id/review?afterRevision=N
+- ACK persistente POST /jobs/:id/review/ack
+- fechamento importa somente candidatos ainda não sincronizados
+- reprocessamento de enrichment republica atualização quando o candidato está pronto
+- migração do estado do Prospecting Agent H5/H4/H1 para H6 no launcher
+- preservação integral de H1 Territory, H2 Coverage Truth, H3 Identity Resolver, H4 Canonical Company Bridge e H5 Enrichment Jobs
+
+Validações aprovadas
+--------------------
+- QA Architecture: PASS
+  - Source syntax audit: 385 arquivos
+  - Integration contract audit: 358 arquivos
+  - Migrations: 49/49 com checksum íntegro
+  - Release Manifest: 40/40 invariantes
+  - Capability Matrix: 18 capacidades / 55 evidências / 37 executáveis
+  - Repository Contract: Local 98/98 / Supabase 98/98
+  - Browser E2E Contract: 9 fluxos catalogados
+- V101.10.3 base: 41/41
+- V101.10.3-H1 Drawn Territory: 44/44
+- V101.10.3-H2 Coverage Truth: 10/10
+- V101.10.3-H3 Identity Resolver 2.0: 10/10
+- V101.10.3-H4 Canonical Company Bridge: 13/13
+- V101.10.3-H5 Independent Enrichment Jobs: 28/28
+- V101.10.3-H6 Progressive Processing: 28/28
+- Linux release preflight: PASS (351 arquivos TS/TSX)
+- start-linux.sh: bash -n PASS
+- install-prospecting-agent-service.sh: bash -n PASS
+- Legacy regression: PASS
+  - 3.185 linhas OK
+  - 0 FAIL
+- Runtimes do Garimpo: PASS
+  - Search & Processing Engine
+  - Drawn Territory
+  - Coverage Truth
+  - Identity Resolver 2.0
+  - Independent Enrichment Jobs
+  - Progressive Processing
+
+Cenário funcional H6 validado
+-----------------------------
+1. Campanha iniciada em modo de máxima cobertura com múltiplas células.
+2. Primeira empresa é descoberta e passa pelo enrichment enquanto o território ainda possui células pendentes.
+3. Ao atingir qualityStatus=ready, recebe reviewRevision=1 e reviewPublishedAt.
+4. GET incremental retorna a empresa enquanto o job ainda está status=running.
+5. CRM pode realizar upsert na Revisão sem esperar o fechamento.
+6. Após import local, ACK revision=1 é persistido pelo Agent.
+7. Nova consulta afterRevision=1 não reentrega a empresa já confirmada.
+8. O job continua percorrendo o território e conclui posteriormente.
+9. clientImportedAt permanece reservado ao fechamento terminal; ACK progressivo não marca o job inteiro como importado.
+10. No fechamento, somente candidatos não sincronizados progressivamente permanecem pendentes para importação final.
+
+Gates globais neste ambiente
+----------------------------
+Os comandos globais foram executados, mas a árvore de release não contém node_modules e por isso NÃO são declarados aprovados neste contêiner:
+
+- npm run typecheck: NÃO EXECUTÁVEL COMPLETAMENTE
+  Dependências/tipos React, React DOM, Lucide e Supabase não estão instalados. Os erros de JSX/implicit-any subsequentes são cascata da ausência desses módulos.
+- npm test: NÃO EXECUTÁVEL
+  Motivo: vitest: not found (status 127).
+- npm run build: NÃO EXECUTÁVEL
+  validate:env passou; Vite não iniciou porque vite: not found (status 127).
+
+O start-linux.sh instala/repara as dependências e executa release:verify no Linux antes de abrir o CRM. Ausência de dependências neste contêiner não foi convertida em aprovação fictícia.
+
+Persistência e compatibilidade
+------------------------------
+- schema local do Prospecting Agent: v4
+- jobs v2/v3 são normalizados para v4 ao carregar
+- H6 adiciona reviewStream.revision / acknowledgedRevision / readyCandidates / timestamps
+- CompanyCandidate mantém reviewRevision / reviewPublishedAt / reviewReason
+- estado local .realtalent-prospecting-agent não é incluído no ZIP
+- launcher procura primeiro V101.10.3-H5, depois H4/H1/base, antes das árvores V101.10.2
+- nenhum migration SQL novo; total permanece 49/49
+
+Segurança
+---------
+- somente fontes e páginas públicas
+- robots.txt preservado
+- sem login automático, CAPTCHA ou bypass
+- revisão progressiva altera somente sincronização local Agent → CRM; não amplia superfícies de coleta

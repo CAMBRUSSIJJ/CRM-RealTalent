@@ -1,0 +1,103 @@
+RealTalent CRM V101.11.3-H22.3-H1 — QA REPORT
+Stability & Security Closure
+Base: V101.11.3-H22.3
+Data: 2026-10-13
+
+RESULTADO PRINCIPAL
+-------------------
+qa:architecture                                      PASS
+H22.3-H1 Stability & Security Closure             29/29 PASS
+H22.3 Field-Level Permissions                     102/102 PASS
+H22.2 Cross-Module Access                          75/75 PASS
+H22.1 Team Profiles                                54/54 PASS
+
+RUNTIMES H22
+------------
+H22.1 Team Access Runtime                           17/17 PASS
+H22.2 Cross-Module Runtime                          25/25 PASS
+H22.3 Governance Runtime                            33/33 PASS
+
+CORREÇÕES COMPROVADAS
+---------------------
+PASS Product Studio usa canWrite ao salvar; referência inválida canProposalEdit removida do modal.
+PASS UI de margem usa policy.grossMarginAmount; policy.marginValue removida.
+PASS approvalStatusForEntity aceita TeamApprovalStatus completo, incluindo cancelled.
+PASS Tarefas e Equipes agora existem no Experience Registry para Personalizar visualização.
+PASS Migration H22.3-H1 endurece rt_access_approval_policy com membership guard.
+PASS rt_proposal_policy_reasons exige membership, permissão de view e proposta existente.
+PASS rt_proposal_policy_reasons deixa de ser RPC executável por authenticated.
+PASS rt_proposal_has_approval deixa de ser RPC executável por authenticated.
+PASS Revoke/Grant explícitos adicionados aos helpers SECURITY DEFINER relevantes.
+
+GATES ESTRUTURAIS
+-----------------
+Source Syntax                                  421 arquivos PASS
+Integration Contracts                         389 arquivos PASS
+Migrations                                          58/58 PASS
+Release Manifest                                  108/108 PASS
+Capability Matrix               48 capacidades / 184 evidências / 124 executáveis
+Repository Local                                  100/100 PASS
+Repository Supabase                               100/100 PASS
+Browser E2E Contract                               11 fluxos PASS
+CSS Governance                                      PASS (incluído em qa:architecture)
+Linux Preflight                               382 TS/TSX PASS
+
+RUNTIME CRÍTICO REEXECUTADO
+---------------------------
+Security Runtime                                    12/12 PASS
+WhatsApp Normalization                               8/8 PASS
+Garimpo Strict Scope                                     PASS
+Garimpo H21.1 Runtime Truth                              PASS
+Connect Recovery                                     5/5 PASS
+Registry-independent build                    306 módulos PASS
+
+TYPECHECK — STATUS REAL
+-----------------------
+O typecheck oficial continua BLOCKED porque node_modules não existe no ambiente.
+Primeiro erro: Cannot find module 'react'.
+A busca específica no output NÃO encontrou mais os quatro erros locais identificados na auditoria anterior:
+- canProposalEdit no ProductStudioModal
+- policy.marginValue
+- mismatch TeamApprovalStatus/cancelled em approvalStatusForEntity
+- Experience Registry sem tasks/teams
+
+DEPENDÊNCIAS / LOCKFILE
+-----------------------
+NÃO CORRIGIDO NESTE AMBIENTE.
+A tentativa de reconstruir package-lock.json falhou por DNS/rede:
+  EAI_AGAIN registry.npmjs.org
+  primeira dependência: @whiskeysockets/baileys
+
+Doctor atual:
+  Lockfile: INCONSISTENTE
+  Dependências: ausentes/incompletas
+
+lockfile-integrity aponta exatamente:
+- missing @whiskeysockets/baileys@7.0.0-rc14
+- missing qrcode@1.5.4
+- missing whatsapp-web.js@1.34.7
+
+Esse ponto permanece BLOCKED, não PASS. Em um ambiente com registry npm acessível, executar npm install para reconstruir o lock e então npm ci/typecheck/test/build.
+
+GATES OFICIAIS BLOQUEADOS
+-------------------------
+npm ci          BLOCKED — EAI_AGAIN no registry npm.
+typecheck       BLOCKED — dependências/tipos ausentes; hotfix signatures locais não reaparecem.
+Vitest          BLOCKED — vitest: not found.
+Vite build      BLOCKED — validate:env PASS; vite: not found.
+
+BUNDLE FALLBACK
+---------------
+build:legacy gera 306 módulos.
+runtime:bundle rejeita o fallback com "HTML legado reapareceu".
+dist fallback REMOVIDO antes do empacotamento.
+
+SEGURANÇA / LIMITAÇÕES
+----------------------
+- Migration H22.3-H1 foi auditada por contrato/checksum, mas não aplicada contra uma instância Supabase real nesta sessão.
+- Field-level hidden continua não sendo isolamento de coluna contra raw SELECT Supabase de uma linha já permitida por RLS. Secure views/RPC projections continuam sendo a evolução necessária para column isolation completa.
+
+VEREDITO
+--------
+Os defeitos locais de código/UX/SQL encontrados na auditoria H22.3 foram corrigidos e os runtimes/regressões passam.
+A release NÃO deve ser chamada de build oficial totalmente comprovada enquanto o package-lock não puder ser reconstruído e npm ci/typecheck/Vitest/Vite não forem executados com dependências reais.

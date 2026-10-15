@@ -1,0 +1,49 @@
+RealTalent CRM V101.5.1 — Reliability & Data Integrity Hotfix
+QA executado em 2026-09-26
+
+ESCOPO CORRIGIDO
+- isolamento da recuperação do Calling por workspace + usuário + attemptId;
+- migração defensiva das antigas chaves globais de recovery;
+- persistência incremental da gravação em chunks no IndexedDB;
+- proteção contra divergência banco/Storage após commit da RPC comercial;
+- owner_id como fonte canônica do responsável, com ownerName derivado dos membros do workspace;
+- seleção de responsável por membro, sem edição livre de ownerName;
+- resolução segura Lead → Conta → Contato/Oportunidade sem associação por null === null;
+- correção dos controles Recolher/Menos detalhes no Modo Completo;
+- remoção de bloco calendarEventId duplicado;
+- runtime/bundle/HTTP gates atualizados para a V101.5.1.
+
+RESULTADOS
+- Auditoria sintática: 283 arquivos aprovados.
+- Auditoria de contratos de integração: 252 arquivos aprovados.
+- Migrations: 41/41 com checksum íntegro.
+- Gate específico V101.5.1: 53/53 contratos aprovados.
+- Regressão histórica + atual: 54/54 gates QA aprovados (V100.56.4 → V101.5.1).
+- RealTalent Connect resilience smoke: aprovado (idempotência → persistência → restart → retomada → connected → ended; origin guard 403).
+- TypeScript direcionado das novas rotinas puras (storage scope, relações, IndexedDB chunks e owner helper): aprovado com TypeScript 5.8.3.
+- Smoke executável dos helpers de escopo/relacionamento: aprovado.
+- Repositório Supabase principal preservado abaixo do teto histórico de 80 KiB após extração do helper de owner.
+
+ALTERAÇÕES EM RELAÇÃO À V101.5.0
+- 23 arquivos existentes alterados.
+- 8 arquivos adicionados.
+- 0 arquivos removidos.
+
+LIMITAÇÃO DO AMBIENTE DE QA
+O build completo Vite/Vitest/typecheck do projeto não foi executado neste container porque as dependências npm não estão instaladas e o cache offline não contém xmlchars@2.2.0.
+Comando verificado:
+  npm ci --offline --ignore-scripts
+Resultado:
+  ENOTCACHED — https://registry.npmjs.org/xmlchars/-/xmlchars-2.2.0.tgz não está disponível no cache.
+
+O pacote NÃO inclui node_modules parcial. O diretório foi limpo após a tentativa.
+O start-linux.sh mantém typecheck, Vitest, build, bundle audit, HTTP smoke e Connect smoke como gates obrigatórios quando as dependências puderem ser instaladas no Linux do usuário.
+
+ITENS DELIBERADAMENTE FORA DA V101.5.1
+- substituição dos refreshData() integrais por atualização incremental;
+- paginação/lazy signed URL de Calls;
+- consolidação dos vários CSS históricos de Calling;
+- suíte E2E/Playwright completa e testes reais de componentes;
+- revisão global de tipografia/touch targets/acessibilidade;
+- modularização adicional dos componentes grandes.
+Esses itens pertencem às etapas V101.5.2 / V101.5.3.

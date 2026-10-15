@@ -1,0 +1,33 @@
+RealTalent Agent V2.5 — QA FINAL
+Data: 2026-10-14
+
+PASS Runtime audit: 257/257
+PASS Multimodal Intelligence: 7/7
+PASS V2.5 integration: 8/8
+PASS Memory & Knowledge: 8/8
+PASS V2.4 compatibility: 10/10
+PASS V2.3 compatibility: 11/11
+PASS Intelligence Core: 10/10
+PASS Conversation Intelligence: 11/11
+PASS Intelligence Orchestration: 15/15
+PASS Grounded App Intelligence V2.2: 25/25
+PASS Chat Experience: 10/10
+PASS Local AI: 7/7
+PASS CRM Agent V2.5 integration: 5/5
+PASS Blue Ocean Agent V2.5 integration: 5/5
+PASS CRM TypeScript parser: tsc --noEmit --noCheck
+PASS Blue Ocean TypeScript parser: tsc --noEmit --noCheck
+PASS Shell syntax: 75 scripts
+PASS Python compile: browser_chat_e2e.py, browser_qa.py, builder_agent.py, knowledge-agent.py
+PASS Release hygiene: nenhum node_modules, __pycache__ ou estado/vetor de teste no pacote-fonte
+
+UNVERIFIED Browser Conversation E2E neste ambiente:
+Chromium administrado bloqueia localhost antes de carregar a aplicação, retornando ERR_BLOCKED_BY_ADMINISTRATOR. O teste permanece incluído para execução em um navegador sem essa política.
+
+NÃO ATESTADO NESTA RELEASE:
+- npm build/test completos do CRM e Blue Ocean sem instalação das dependências. O parser TypeScript passou, mas isso não equivale a build/Vitest completo.
+
+Política de evidência:
+- nenhum gate não executado foi convertido em PASS;
+- sem Vision configurado, a Agent não deve afirmar conteúdo de pixels;
+- nenhuma nova mutação de negócio foi adicionada ao CRM ou Blue Ocean.

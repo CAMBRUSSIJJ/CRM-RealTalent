@@ -1,0 +1,55 @@
+RealTalent CRM V101.10.5-H3 — Contact Intelligence & Language Standardization
+==========================================================================
+
+SCOPE
+- Contact Activity Intelligence: compact timeline, semantic activity colors, per-entry detail disclosure.
+- Contact Notes: seller brief, structured note helpers and concise editing flow.
+- Selection System rollout: Account 360, Lead Form and visible Settings selectors use canonical SelectionSelect.
+- Sidebar: compact rail, hover reveal and neutral PanelLeft control instead of arrow controls.
+- Terminology: visible surfaces prefer Contatos, empresas, pessoas and Conta 360.
+- No database migration added.
+
+ARCHITECTURE GATES
+- qa:architecture: PASS
+- V101.10.5-H3 Contact Intelligence: 19/19
+- Release Manifest: 45/45
+- Capability Matrix: 19 capabilities · 64 evidences · 42 executable checks
+- Repository Contract: Local 98/98 · Supabase 98/98
+- Browser E2E Contract: 9/9 flows
+- Syntax audit: 387 files PASS
+- Integration contract audit: 360 files PASS
+- Migrations: 49/49 checksums PASS
+- Linux release preflight: PASS (353 TS/TSX)
+- start-linux.sh syntax: PASS
+- install-prospecting-agent-service.sh syntax: PASS
+
+LEGACY REGRESSION
+- check:legacy: PASS
+- OK: 3185
+- FAIL: 0
+- typecheck:v101.9.7: PASS
+- typecheck:v101.9.8: PASS
+
+RUNTIME / PREVIOUS ENGINE PRESERVATION
+- V101.10.3-H4 Company Bridge: 13/13
+- V101.10.3-H5 Enrichment: 28/28
+- V101.10.3-H6 Progressive Processing: 28/28
+- V101.10.3-H7 Review Workspace: 36/36
+- V101.10.3-H8 Search Ontology: 29/29
+- V101.10.3-H9 Territory Engine 2.0: 35/35
+- V101.10.4 Local Discovery: 32/32
+- Selection System previous gate: preserved and evolved
+
+GLOBAL GATES IN PACKAGING ENVIRONMENT
+- npm run typecheck: NOT EXECUTABLE — node_modules absent; React/ReactDOM/Supabase type declarations unavailable.
+- npm test -- --run: NOT EXECUTABLE — vitest binary absent because node_modules is absent.
+- npm run build: NOT EXECUTABLE — vite binary absent because node_modules is absent; validate:env itself PASS.
+
+These three are environmental blockers in the packaging container, not functional PASS claims.
+The Linux launcher installs/repairs dependencies and runs the release verification gates on the target machine.
+
+FILES / COMPATIBILITY
+- Prospecting Agent remains version 101.10.4.
+- Local Discovery, Search Ontology, Territory Engine 2.0, Review Workspace and Selection System preserved.
+- No migration added; migration lock remains 49.
+- Launcher migrates from V101.10.5-H2 first and preserves the prior Prospecting Agent state.

@@ -1,0 +1,69 @@
+RealTalent CRM V101.9.6 — Permission Matrix
+QA Report
+==================================================
+
+Escopo
+- Permission Registry + Permission Engine
+- autorização por objeto/recurso e ação
+- proteção de campos estruturais
+- scopes de integrações
+- AppContext.can() como API de autorização da UI
+- centralização de checks críticos de workspace, equipe, integrações e registros
+- painel de permissões efetivas em Configurações > Equipe
+- inspector window.__REALTALENT_PERMISSIONS__
+- nenhuma migration SQL nova
+
+Resultados executados nesta montagem
+------------------------------------
+V101.9.6 Permission Matrix audit: 28/28 contratos aprovados
+Permission Matrix runtime smoke: 8/8
+Linux release preflight: OK (323 arquivos TS/TSX)
+Source syntax audit: 357 arquivos aprovados
+Integration contract audit: 325 arquivos aprovados
+Migrations: 48/48 com checksum íntegro
+TypeScript isolado do núcleo Permission Matrix: OK
+
+Smoke de política
+-----------------
+- viewer lê contatos: OK
+- viewer não altera contatos: OK
+- member opera registros comerciais: OK
+- admin administra: OK
+- owner exporta: OK
+- campo id protegido: OK
+- workspaceId protegido: OK
+- member usa integração sem administrá-la: OK
+
+Regressão histórica
+-------------------
+`npm run check` chegou ao typecheck com:
+  OK:   3084
+  FAIL: 0
+
+Os audits históricos que continham allowlists rígidas de release foram atualizados
+apenas para reconhecer V101.9.6 como sucessora. Os contratos funcionais foram mantidos.
+
+Limitação do ambiente de montagem
+---------------------------------
+`npm ci --prefer-offline --no-audit --no-fund` expirou por timeout de rede e não criou
+`node_modules`. Por isso o typecheck/Vitest/build globais não puderam ser concluídos
+nesta montagem.
+
+O typecheck global iniciado por `npm run check` parou em dependências ausentes como
+React, react/jsx-runtime, lucide-react e @supabase/supabase-js, com erros derivados de
+tipos JSX/implicit-any. O typecheck isolado do núcleo novo passou sem erros.
+
+O `start-linux.sh` continua executando os gates completos no Linux:
+  npm install -> preflight -> release:verify -> typecheck -> Vitest -> build -> smokes.
+
+Compatibilidade e política padrão
+---------------------------------
+- owner/admin: capacidades administrativas preservadas
+- member: operação comercial permitida; administração sensível não é herdada
+- viewer: leitura preservada
+- campos estruturais id/workspaceId/createdAt/updatedAt são protegidos contra update
+- accessMode/allowedUserIds/allowedRoles das integrações continuam respeitados
+- V101.9.5 Workflow Runtime 3.0 preservado
+- V101.9.4 Global Event Bus preservado
+- V101.9.3 Canonical Commercial Model preservado
+- 48 migrations históricas preservadas sem alteração

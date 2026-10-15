@@ -1,0 +1,67 @@
+RealTalent CRM V101.11.3-H20.7-H2 — QA REPORT
+WhatsApp Conversation-Only Inbox
+Base: V101.11.3-H20.7-H1 — Appearance & Sidebar Truth
+Functional lineage: V101.11.3-H19.13 — WhatsApp Work Management
+
+RESULTADO PRINCIPAL
+-------------------
+qa:architecture                                  PASS
+H20.7-H2 Conversation-Only Inbox                 24/24 PASS
+H19.12 Communication Workspace Lineage           19/19 PASS
+H19.13 WhatsApp Work Management                  27/27 PASS
+H20.7 Global UI Final Pass                       49/49 PASS
+H20.7-H1 Appearance & Sidebar Truth              22/22 PASS
+
+ESCOPO H20.7-H2
+---------------
+PASS coluna esquerda sem bloco Trabalho
+PASS coluna esquerda sem bloco Etiquetas
+PASS linhas de conversa sem etiquetas/status/follow-up/tarefa
+PASS WhatsApp sem filtro lateral por work queue/labels
+PASS WhatsApp sem seletor Ir para contato na Inbox
+PASS busca específica: Buscar conversas...
+PASS ações Contato / Grupo / Contatos usam Button canônico
+PASS filtros Todas / Pessoas / Grupos / Não lidas preservados
+PASS Follow-up/Tarefa/Etiqueta preservados na conversa aberta
+PASS Status/Responsável preservados na conversa aberta
+PASS H19.7 Pure Chat preservado
+PASS H20.7-H1 Appearance/Sidebar preservado
+PASS carregamento WorkManagement removido da Inbox
+
+GATES ESTRUTURAIS
+-----------------
+Source Syntax                              418 arquivos PASS
+Integration Contracts                     386 arquivos PASS
+Migrations                                      54/54 PASS
+Release Manifest                                99/99 PASS
+CSS Governance                                  65/65 PASS
+Capability Matrix        43 capacidades / 160 evidências / 105 executáveis PASS
+Repository Local                              100/100 PASS
+Repository Supabase                           100/100 PASS
+Browser E2E Contract                         11 fluxos PASS
+
+RUNTIME
+-------
+WhatsApp Media Delivery Fix                      7/7 PASS
+WhatsApp Normalization                           8/8 PASS
+Communications Recovery                          5/5 PASS
+Registry-independent transpile             303 módulos PASS
+Bundle fallback audit         FAIL esperado — HTML legado reapareceu
+Dist fallback                                   REMOVIDO
+
+GATES OFICIAIS DEPENDENTES DE DEPENDÊNCIAS
+-------------------------------------------
+node_modules                                  AUSENTE
+typecheck   BLOCKED — Cannot find module 'react' / tipos ausentes
+Vitest      BLOCKED — vitest: not found
+Vite build  BLOCKED — vite: not found
+
+Esses gates NÃO são classificados como PASS.
+
+HIGIENE
+-------
+node_modules                                    ausente
+dist fallback                                   ausente
+.env.local                                      ausente
+.realtalent-whatsapp-browser                    ausente
+.realtalent-communications.log                  ausente

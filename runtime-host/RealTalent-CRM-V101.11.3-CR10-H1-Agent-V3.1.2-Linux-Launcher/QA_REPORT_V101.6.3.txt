@@ -1,0 +1,27 @@
+RealTalent CRM V101.6.3 — Contact Views 2.0
+QA final — 2026-09-28
+
+RESULTADO
+- V101.6.3: 22/22 contratos aprovados.
+- Regressão histórica/atual: 63/63 gates qa:* aprovados.
+- Auditoria sintática: 291 arquivos aprovados.
+- Auditoria de integração: 260 arquivos aprovados.
+- Migrations: 43/43 arquivos com checksum íntegro.
+- Linux release preflight: 258 arquivos TS/TSX aprovados.
+- RealTalent Connect resilience smoke: aprovado.
+
+CAPACIDADES VALIDADAS
+- starter tabs convertidas em views persistidas;
+- nome, cor, ícone, formato, posição, visibilidade e padrão por view;
+- Tabela / Quadro / Lista compacta;
+- reordenação por drag-and-drop e comandos esquerda/direita;
+- configuração, renomear, duplicar, excluir e definir padrão;
+- salvar estado atual da view;
+- exclusão das starter views via arquivamento, sem recriação automática;
+- proteção para manter ao menos uma view;
+- views compartilhadas de terceiros continuam somente leitura;
+- migration V101.6.3 adiciona metadados com persistência Supabase.
+
+LIMITAÇÃO DO AMBIENTE DE EMPACOTAMENTO
+`npm ci --offline --no-audit --no-fund` não concluiu porque o cache deste ambiente não contém `xmlchars@2.2.0` (ENOTCACHED).
+Por isso typecheck completo, Vitest e Vite build não foram marcados como executados aqui. O launcher Linux mantém esses gates obrigatórios e os executará após instalar as dependências no computador do usuário.

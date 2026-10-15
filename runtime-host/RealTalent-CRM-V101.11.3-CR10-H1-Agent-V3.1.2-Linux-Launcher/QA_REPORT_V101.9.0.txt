@@ -1,0 +1,63 @@
+RealTalent CRM V101.9.0 — Core Metadata Foundation
+QA Report
+==================================================
+
+Escopo
+- ObjectRegistry
+- FieldRegistry
+- RelationRegistry
+- adapters Lead / ContactRecord / CompanyRecord / OpportunityRecord
+- validação de IDs, workspaces e relações
+- inspector interno de metadata
+- integração não destrutiva no WorkspaceSnapshot usado pela UI
+- nenhuma alteração visual principal
+- nenhuma migration SQL nova
+
+Resultados executados neste ambiente
+------------------------------------
+Core Metadata Foundation audit: 25/25 contratos aprovados
+Linux release preflight: OK (275 arquivos TS/TSX)
+Source syntax audit: 309 arquivos aprovados
+Integration contract audit: 277 arquivos aprovados
+Migrations: 46/46 com checksum íntegro
+TypeScript isolado da nova camada: OK
+Runtime metadata smoke: OK
+  objects: 4
+  fields: 44
+  relations: 9
+  errors: 0
+  warnings: 0
+  records: leads=4, contacts=7, companies=4, opportunities=4
+
+Regressão histórica
+-------------------
+Todos os audits históricos executados pelo `npm run check` passaram sem `FAIL`
+até o início do `typecheck`. Os gates históricos que usavam allowlists rígidas de
+versão foram ajustados para reconhecer V101.9.0 como release sucessora sem remover
+qualquer validação funcional.
+
+Limitação do ambiente de montagem
+---------------------------------
+O `npm install --no-audit --no-fund` expirou por timeout de rede e nenhum node_modules
+ficou disponível. Por isso o typecheck/Vitest/build completos não puderam ser executados
+aqui. O typecheck global começou e parou por módulos ausentes (React/Lucide/Supabase),
+não por erros detectados nos arquivos da nova fundação.
+
+O `start-linux.sh` preserva o gate completo no Linux:
+  npm install -> preflight -> release:verify -> typecheck -> Vitest -> build -> runtime smokes.
+
+Compatibilidade
+---------------
+- V101.8.4-H15 preservada
+- Lead/ContactRecord Identity Sync preservado
+- WhatsApp QR/Realtime/Chat preservados
+- RealTalent Connect One-Tap preservado
+- Backup schema preservado em 100.54
+- release channel técnico `official-communications` preservado para compatibilidade dos gates históricos
+- 46 migrations históricas preservadas sem alteração
+
+Critério "UI existente continua funcionando sobre adapters"
+------------------------------------------------------------
+`normalizeSnapshotForRender()` continua devolvendo `WorkspaceSnapshot`, mas agora passa
+por `adaptWorkspaceSnapshotWithMetadata()`. A nova camada valida e inspeciona os quatro
+objetos core e devolve o mesmo snapshot/shape para as páginas existentes.

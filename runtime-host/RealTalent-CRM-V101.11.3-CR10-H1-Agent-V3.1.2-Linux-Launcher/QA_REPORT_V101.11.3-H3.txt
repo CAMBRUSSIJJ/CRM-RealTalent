@@ -1,0 +1,108 @@
+RealTalent CRM
+V101.11.3-H3 — Calling Workspace 2.0
+Data: 2026-10-06
+Base: V101.11.3-H2 — Runtime Service Recovery
+
+ESCOPO
+- Evolução do workspace de Ligações sem alterar schema/migrations.
+- Padronização operacional de controles Focus/Power e escolhas de sessão.
+- Pré-call Intelligence visível antes da discagem.
+- Metas operacionais conectadas à aba Metas.
+- Objeções estruturadas com status + resposta real do lead.
+- Wrap-up com resultado estruturado + contexto livre.
+- Roteiro com visualizações Guiado / Completo / Mapa.
+- H1/H2 de runtime preservadas.
+
+IMPLEMENTAÇÃO COMPROVADA
+1. PRE-CALL INTELLIGENCE
+- antes de Ligar agora, mostra última interação, situação comercial, próxima ação, pessoas da conta;
+- mostra histórico recente, notas do contato/lead, notas fixadas e objeções anteriores;
+- mantém ação Abrir ficha completa para não duplicar Account/Contact 360.
+
+2. METAS
+- preparação e sessão consultam metas ativas de calls/contacts/meetings/proposals;
+- progresso vem de getGoalInsight sobre o WorkspaceSnapshot real;
+- botão abre a aba Metas;
+- salvar a chamada continua usando registerCallOutcome, portanto a própria chamada passa a compor as métricas/objetivos existentes, sem segunda fonte de verdade.
+
+3. OBJEÇÕES
+- catálogo do Playbook pode ser capturado durante a conversa;
+- estado: em aberto / contornada / permaneceu;
+- campo para registrar o que o lead realmente respondeu;
+- objeção não catalogada pode ser escrita manualmente;
+- persistência na sessão recuperável;
+- wrap-up grava marcador "Objeção — ..." compatível com Calling Intelligence/Coaching legado.
+
+4. ROTEIRO
+- Guiado: uma etapa por vez;
+- Completo: todas as etapas em leitura contínua;
+- Mapa: navegação por fase;
+- mudança de visualização preserva etapa corrente e também é persistida na sessão.
+
+5. WRAP-UP
+- separa Resultado principal de Resultado específico;
+- mantém outcome estruturado para analytics;
+- adiciona Motivo/contexto em texto livre;
+- resumo, próxima ação e automações existentes foram preservados.
+
+6. UI / DESIGN SYSTEM
+- Focus/Power deixam de comprimir descrição;
+- controles H3 ficam em stylesheet operacional não versionado;
+- nenhuma exceção foi adicionada à allowlist de dívida CSS;
+- CSS Governance permanece aprovado.
+
+GATES EXECUTADOS
+PASS  source syntax audit: 400 arquivos
+PASS  integration contract audit: 368 arquivos
+PASS  migrations: 50/50 checksums
+PASS  Release Manifest: 70/70
+PASS  Capability Matrix: 22 capacidades / 76 evidências / 48 executáveis
+PASS  Local Repository parity: 99/99
+PASS  Supabase Repository parity: 99/99
+PASS  Browser E2E contract catalog: 11 fluxos
+PASS  CSS Governance: 65/65
+PASS  qa:architecture completo
+PASS  V101.11.3-H3 Calling Workspace 2.0: 32/32
+PASS  V101.11.3-H2 Runtime Service Recovery: 38/38
+PASS  V101.11.3-H1 Communications Gateway Recovery: 41/41
+PASS  V100.69 Calling Experience: 43/43
+PASS  V100.70 Call Preparation: 36/36
+PASS  V100.71 Calling UI Standard: 25/25
+PASS  V100.72 Calling Intelligence: 21/21
+PASS  V100.73 Voice & Dialer: 25/25
+PASS  V100.73.1 Focus Simplification: 19/19
+PASS  V101.2 Calling Workflow & Strategy: 78/78
+PASS  V101.4 Calling Production Ready: 50/50
+PASS  Communications recovery smoke: 5/5
+PASS  Connect recovery smoke: 5/5
+PASS  Security Runtime Foundation smoke: 12/12
+PASS  registry-independent transpile/bundle smoke: 285 módulos
+
+GATES OFICIAIS NÃO CLASSIFICADOS COMO PASS NESTE AMBIENTE
+- npm run typecheck
+- npm test
+- npm run build (Vite oficial)
+
+Motivo objetivo:
+- node_modules não está incluído na release;
+- o package-lock herdado permanece autocorretivo e ainda acusa as entradas diretas ausentes:
+  @whiskeysockets/baileys@7.0.0-rc14
+  qrcode@1.5.4
+  whatsapp-web.js@1.34.7
+- a instalação npm completa não foi concluída no ambiente de geração.
+
+O launcher preserva a recuperação introduzida na V101.10.7-H1: na primeira execução com acesso ao registry, detecta o lock inconsistente, executa npm install uma vez, revalida as dependências e depois retorna ao npm ci em steady-state.
+
+BUILD REGISTRY-INDEPENDENT
+- build:legacy compilou/transpilou 285 módulos com sucesso;
+- esse build é somente smoke e não substitui Vite oficial;
+- o dist de smoke foi removido do ZIP final para obrigar o launcher a produzir/reutilizar apenas um build oficial com marker H3.
+
+ARTEFATOS EXCLUÍDOS DO ZIP
+- dist de verificação
+- node_modules
+- .env.local
+- .realtalent-* (tokens, logs, stores, sessões WhatsApp/browser state)
+
+CONCLUSÃO
+A H3 fecha os seis pontos solicitados no Calling Workspace sem regressão observada nos contratos de Calling, Runtime Recovery ou arquitetura. A validação final de TypeScript/Vitest/Vite oficial deve ser executada no Linux real após a recuperação inicial das dependências.

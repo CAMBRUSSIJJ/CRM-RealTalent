@@ -1,0 +1,31 @@
+#!/usr/bin/env node
+import fs from 'node:fs'
+const read=p=>fs.readFileSync(new URL(`../${p}`,import.meta.url),'utf8')
+const exists=p=>fs.existsSync(new URL(`../${p}`,import.meta.url))
+const page=read('src/features/communications/communications-page.tsx')
+const chat=read('src/features/communications/whatsapp-chat-panel.tsx')
+const css=read('src/styles/omnichannel-v10094.css')
+const start=((read('start-linux.sh') + '\n' + (fs.existsSync('start-linux-legacy.sh') ? read('start-linux-legacy.sh') : '') + '\n' + (fs.existsSync('scripts/start.mjs') ? read('scripts/start.mjs') : '')) + '\n' + (exists?.('start-linux-legacy.sh') ? read('start-linux-legacy.sh') : '') + '\n' + (exists?.('scripts/start.mjs') ? read('scripts/start.mjs') : ''))
+const index=read('index.html')
+const pkg=JSON.parse(read('package.json'))
+const checks=[]
+const ok=(name,v)=>{checks.push([name,Boolean(v)]);console.log(`${v?'OK  ':'FAIL'} ${name}`)}
+ok('baseline V101.8.4 permanece',['101.8.4','101.9.0','101.9.1','101.9.2','101.9.3','101.9.4','101.9.5','101.9.6','101.9.7','101.9.8','101.9.9','101.10.0','101.10.1','101.10.2','101.10.3','101.10.4','101.10.5','101.10.6','101.10.7','101.10.8','101.10.9','101.11.0','101.11.1','101.11.2','101.11.3'].includes(pkg.version))
+ok('conversa selecionada decide o modo chat',page.includes("selectedConversation?.channel === 'whatsapp' ? <WhatsAppChatPanel"))
+ok('classe visual do chat segue a conversa selecionada',page.includes("selectedConversation?.channel === 'whatsapp' ? 'is-whatsapp-chat' : ''"))
+ok('chat não depende mais do filtro global WhatsApp',!page.includes("{channel === 'whatsapp' && selectedConversation ? <WhatsAppChatPanel"))
+ok('view Todos pode manter conversa WhatsApp selecionada',page.includes("channel === 'all' ? 'Todos os contatos'")&&page.includes('selectConversation(conversation)'))
+ok('composer WhatsApp possui textarea',chat.includes('<textarea')&&chat.includes('whatsapp-chat__composer'))
+ok('composer envia pela conta selecionada',chat.includes('sendOfficialWhatsApp')&&chat.includes('accountId: account.id'))
+ok('composer suporta QR Local e Cloud API',chat.includes("transport === 'qr'")&&chat.includes("'Cloud API'"))
+ok('Enter envia e Shift+Enter quebra linha',chat.includes("event.key === 'Enter' && !event.shiftKey")&&chat.includes('Shift+Enter quebra linha'))
+ok('mensagens continuam usando eventos WhatsApp existentes',page.includes("events={displayedSelectedEvents.filter((item) => item.channel === 'whatsapp')}"))
+ok('tempo real permanece visível no chat',chat.includes("realtimeState === 'live'")&&chat.includes('Tempo real ativo'))
+ok('composer permanece no rodapé visual',css.includes('.whatsapp-chat__composer')&&css.includes('.whatsapp-chat__messages'))
+ok('launcher identifica H14',start.includes('V101.8.4-H14 — WhatsApp Conversation Composer'))
+ok('launcher migra H13 para H14',start.includes('RealTalent-CRM-V101.8.4-H13-GateFix1')&&start.includes('Migrando para H14'))
+ok('index identifica H14',index.includes('V101.8.4-H14 — WhatsApp Conversation Composer'))
+ok('release notes H14 existem',exists('RELEASE_NOTES_V101.8.4-H14.md'))
+const failed=checks.filter(([,v])=>!v)
+console.log(`\nV101.8.4-H14 WhatsApp Conversation Composer: ${checks.length-failed.length}/${checks.length} contratos aprovados.`)
+if(failed.length){console.log('Falharam: '+failed.map(([n])=>n).join('; '));process.exit(1)}

@@ -1,0 +1,41 @@
+RealTalent CRM V100.60.1 — Performance & Architecture
+QA Report — 2026-09-15
+
+ESCOPO
+- Refatoração arquitetural sem remoção de funcionalidades da V100.60.0.
+- Nenhuma migration nova; permanecem 35 migrations.
+- Nenhuma dependência de runtime nova.
+- Schema de backup preservado.
+
+VALIDAÇÕES EXECUTADAS
+- Source syntax audit: 201/201 arquivos aprovados.
+- Integration contract audit: 172/172 arquivos aprovados.
+- Migration checksum audit: 35/35 migrations íntegras.
+- V100.56.4 regression audit: 21/21 contratos críticos aprovados.
+- V100.60 Sales Experience audit: 41/41 contratos aprovados.
+- V100.60.1 Performance & Architecture audit: 29/29 contratos aprovados.
+
+MUDANÇAS DE ARQUITETURA
+- AppContext fatiado em contextos de navegação, workspace/dados, UI e ações.
+- Facade estável de ações para reduzir invalidações por mudança de rota/toast.
+- Executor de automações extraído para application service.
+- Restauração de backup extraída para application service transacional.
+- Call Workspace pesado carregado sob demanda com React.lazy/Suspense.
+- CSS de Account 360, Leads, Propostas e Call Workspace retirado do bootstrap global.
+- index.css legado dividido em 13 módulos sequenciais preservando a cascata.
+- Repositório local dividido com core de seed/storage/validação extraído.
+- Mapeadores Supabase extraídos para módulo dedicado.
+
+MEDIDAS PRINCIPAIS (V100.60.0 -> V100.60.1)
+- app-context.tsx: 97.376 B -> 60.589 B (-37,8%).
+- local-crm-repository.ts: 130.291 B -> 100.935 B (-22,5% no arquivo principal).
+- supabase-crm-repository.ts: 90.369 B -> 77.317 B (-14,4% no arquivo principal).
+- index.css: 478.444 B -> 87 B (conteúdo redistribuído em módulos; não removido em massa).
+- CSS específico retirado do bootstrap global: ~41,8 KB (Account 360 + Calls + Leads + Proposals).
+- Código-fonte total sem node_modules: aumento pequeno (~0,9%) por modularização, auditoria e documentação.
+
+LIMITAÇÃO DO AMBIENTE
+A tentativa de npm ci/npm install não concluiu por timeout de transporte/rede no ambiente de execução. Portanto, typecheck completo, Vitest e Vite build não foram declarados como executados nesta entrega. Os scripts permanecem configurados e devem ser rodados localmente após `npm install`/`npm ci` com `npm run check`.
+
+OBSERVAÇÃO
+A meta desta release não é reduzir o ZIP a qualquer custo. O foco é reduzir acoplamento, renderizações cruzadas, bootstrap global e concentração de responsabilidades, mantendo a experiência e os dados compatíveis.

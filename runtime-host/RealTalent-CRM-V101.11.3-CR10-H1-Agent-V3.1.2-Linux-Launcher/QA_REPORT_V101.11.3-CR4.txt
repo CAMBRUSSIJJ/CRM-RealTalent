@@ -1,0 +1,54 @@
+RealTalent CRM V101.11.3-CR4 — Commercial UX & Failure Recovery
+Data: 2026-10-13
+
+ESCOPO
+- recuperação de falhas comerciais
+- preservação de rascunho de proposta
+- preservação de composer de e-mail/WhatsApp
+- classificação de sessão/offline/conflito/aprovação/permissão/sincronização
+- regressão CR1/CR2/CR3
+
+RESULTADOS EXECUTADOS
+CR1 Build & Dependency Closure           16/16 PASS
+CR2 Supabase/Auth/RLS static QA          15/15 PASS
+CR3 E2E workflow static QA               21/21 PASS
+CR4 Failure Recovery static QA           21/21 PASS
+Migrations                                58/58 PASS (checksum íntegro)
+Source Syntax                            423 arquivos PASS
+Integration Contracts                   391 arquivos PASS
+
+ALTERAÇÕES FUNCIONAIS
+1. Proposal Wizard
+   - salva recovery draft antes da persistência
+   - remove draft somente após sucesso
+   - mantém modal aberto em falha
+   - exibe recovery toast persistente
+   - retry apenas quando a falha é classificada como retry-safe
+
+2. Comunicação oficial
+   - preserva assunto/corpo/canal em sessionStorage
+   - restaura rascunho ao reabrir
+   - mantém conteúdo após erro de envio
+   - limpa rascunho somente após confirmação de envio/fila
+
+3. Failure taxonomy
+   - session
+   - offline
+   - conflict
+   - approval
+   - permission/RLS
+   - sync
+   - unknown
+
+4. Release lineage
+   - rt_cr3 preserva o marker da CR3
+   - rt_readiness aponta para CR4
+
+NÃO EXECUTADO / BLOQUEADO
+- typecheck: BLOCKED (node_modules ausente no pacote de trabalho)
+- Vitest: BLOCKED (node_modules ausente)
+- Vite build: BLOCKED (node_modules ausente)
+- chaos test Supabase real: BLOCKED (credenciais/staging não disponíveis neste ambiente)
+
+CONCLUSÃO
+A CR4 está fechada nos gates estruturais e de regressão disponíveis. Não há evidência suficiente neste ambiente para marcar typecheck, Vitest, build ou chaos testing externo como PASS.

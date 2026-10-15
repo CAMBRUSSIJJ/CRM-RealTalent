@@ -1,0 +1,15 @@
+RealTalent CRM V101.6.1 — Typecheck Hotfix
+
+Correção:
+- src/features/leads/leads-page.tsx: renameSavedView agora fornece o campo obrigatório `description` ao `promptAction`.
+- Resolve o TS2345 reportado em leads-page.tsx:285.
+
+Validação no ambiente de build:
+- V101.6.1 release audit: 28/28 contratos aprovados.
+- Gates históricos/currentes qa:*: 61/61 aprovados.
+- Auditoria sintática: aprovada.
+- Auditoria de integração: aprovada.
+- Migrations: 42/42 com checksum íntegro.
+- TypeScript global: o erro TS2345 de leads-page.tsx:285 não reaparece. O typecheck total local não é conclusivo sem as dependências React/Lucide/Supabase instaladas neste ambiente.
+
+No Linux, execute ./start-linux.sh; após npm ci, o launcher executará o typecheck completo com as dependências reais.

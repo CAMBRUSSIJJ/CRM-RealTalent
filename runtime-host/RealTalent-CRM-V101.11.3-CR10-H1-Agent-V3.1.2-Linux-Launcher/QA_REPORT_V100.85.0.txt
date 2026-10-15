@@ -1,0 +1,39 @@
+RealTalent CRM V100.85.0 — WhatsApp 2.0
+QA REPORT
+Data: 2026-09-22
+
+RESULTADO
+- Gate específico V100.85.0: 66/66 verificações aprovadas.
+- Regressão histórica/atual: 30/30 suítes aprovadas.
+- Auditoria sintática: 250 arquivos aprovados.
+- Contratos de integração: 220 arquivos aprovados.
+- Migrations: 38/38 com checksum íntegro.
+- Migration nova V100.85: nenhuma.
+- BACKUP_SCHEMA_VERSION: 100.54.
+
+AUDITORIA FUNCIONAL
+- Funcionais: 19
+- Parciais: 8
+- Apenas visuais: 0
+- Não implementados: 1
+- Maturidade ponderada aproximada: 84%.
+
+ESCOPO VALIDADO
+- Configurações > WhatsApp.
+- Modos Assistido e Business oficial.
+- Código do país configurável.
+- Templates internos e variáveis comerciais.
+- Uso opcional do nome do responsável.
+- Leads, Ficha comercial, Account 360, Pipeline, Follow-ups, Propostas e Meu Dia usando compositor central.
+- Respeito a doNotContact do lead e do contato.
+- Atividade WhatsApp opcional com contactId quando aplicável.
+- Envio oficial via official-communication-send.
+- Conta WhatsApp Cloud live, OAuth, worker e webhook preservados.
+- Separação explícita entre template interno e template oficial Meta.
+
+LIMITAÇÃO DO AMBIENTE DE QA
+- npm ci --ignore-scripts --no-audit --no-fund falhou por TransportTimeoutError.
+- O projeto foi empacotado sem node_modules parcial.
+- O tsc global foi tentado, mas não pode concluir o typecheck do projeto porque os módulos React, React DOM, Supabase e suas declarações de tipos não estão instalados neste ambiente; os erros subsequentes são cascata dessa ausência.
+- Por esse motivo, Vitest e build Vite completos não foram declarados como executados/aprovados.
+- A sintaxe TypeScript/TSX foi validada pelo source_syntax_audit e os contratos funcionais/regressões permaneceram aprovados.

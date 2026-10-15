@@ -1,0 +1,41 @@
+RealTalent CRM V101.8.4-H12 — WhatsApp Realtime
+================================================
+
+Objetivo
+- Tornar mensagens novas do WhatsApp, mensagens enviadas e ACKs de entrega/leitura visíveis na Central de Comunicação sem depender do botão Sincronizar.
+
+Arquitetura implementada
+- WhatsApp Web -> Communications Gateway -> SSE -> Central de Comunicação.
+- Endpoint: GET /api/communications/stream?workspaceId=...
+- EventSource com reconexão automática no frontend.
+- Heartbeat SSE a cada 15s.
+- Debounce de refresh de 90ms.
+- Polling de 60s mantido somente como fallback.
+- Sincronizar renomeado semanticamente para recuperação de histórico.
+- Fast path para mensagens 1:1 @c.us, evitando getChat/getContact quando desnecessário.
+
+Validações executadas
+- H12 realtime audit: 21/21.
+- H12 realtime bus smoke: 7/7.
+- H11 Sync Recovery audit: 22/22.
+- H11 parser/runtime smoke: 7/7.
+- H10 Gateway Resilience audit: 18/18.
+- H10 supervisor restart smoke: 2/2.
+- H9 Communications Reliability audit: 22/22.
+- H9 runtime smoke: 4/4.
+- H8 History Sync audit: 21/21.
+- Source syntax audit: 299 arquivos.
+- Integration contract audit: 267 arquivos.
+- Linux release preflight: OK, 265 TS/TSX.
+- Migrations: 46/46 com checksum íntegro.
+- Cadeia histórica completa: nenhum FAIL até typecheck.
+
+Smoke HTTP/SSE real executado
+- Gateway H12 iniciado isoladamente em 127.0.0.1:3312.
+- Cliente abriu /api/communications/stream?workspaceId=ws-1.
+- Recebeu realtime.ready.
+- Alteração de conversa via POST /api/communications/read gerou communications.changed imediatamente.
+- Health confirmou version=101.8.4-h12 e realtime.transport=sse.
+
+Limitação do ambiente de empacotamento
+- O ZIP não carrega node_modules. Por isso npm run check chega ao typecheck e então acusa módulos React/Lucide/Supabase ausentes neste ambiente. No Linux do usuário, start-linux.sh instala/repara node_modules antes dos gates, portanto typecheck/Vitest/build rodam ali.

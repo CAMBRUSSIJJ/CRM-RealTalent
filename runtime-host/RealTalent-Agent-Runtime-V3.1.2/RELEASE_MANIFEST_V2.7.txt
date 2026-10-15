@@ -1,0 +1,23 @@
+RealTalent Agent V2.7 — Release Manifest
+=========================================
+Complete bundle:
+- RealTalent-Agent-Runtime-V2.7
+- RealTalent-CRM-V101.11.3-CR10-H1-Agent-V2.7-Linux-Launcher
+- Blue-Ocean-Service-Studio-V1.20.5-H7.24-Agent-V2.7-Linux-Source-Launcher
+
+Primary V2.7 capability:
+- Advanced Reasoning & Planning
+- Planner → Executor → Critic → Finalizer
+- competing hypotheses
+- evidence checkpoints
+- bounded adaptive replanning (max 1)
+- cognitive privacy: no chain-of-thought storage/exposure
+
+Preserved capability layers:
+- V2.2 Grounded App Intelligence
+- V2.3 Intelligence Core
+- V2.4 Memory & Knowledge
+- V2.5 Multimodal Intelligence
+- V2.6 Learning & Evaluation
+
+See: RELEASE_NOTES_V2.7.md, VALIDACAO_V2.7.md, QA_V2.7.txt, ADVANCED_REASONING_V2.7.md

@@ -1,0 +1,86 @@
+RealTalent CRM V101.9.9-H3 — UX Recovery & Operational Fixes
+QA Report
+============================================================
+
+Escopo
+------
+1. Global Shell Recovery
+   - Topbar de alto contraste em #04342C
+   - Sidebar clara com estado ativo RealTalent
+   - busca, badges, ícones e utilidades com contraste explícito
+
+2. Feature Recovery
+   - qa/feature-recovery-matrix.json com 15 superfícies críticas
+   - proteção contra ocultação acidental de métricas/ações no desktop
+   - evidências de código para Meu Dia, Contatos, Pipeline, Comunicação,
+     Propostas, Agenda, Garimpo, Ligações, Follow-ups, Playbooks,
+     Território, Automações, Métricas e Configurações
+
+3. Proposal Wizard Recovery
+   - initialLeadId vazio não bloqueia mais o fallback visual
+   - validação explícita da etapa 1
+   - mensagem visível quando a etapa está inválida
+   - Opportunity canônica priorizada ao salvar
+   - testes novos em src/services/proposal-pipeline-h3.test.ts
+
+4. Prospecting Browser Gateway
+   - RT Capture Browser neutro a Chrome
+   - entrada universal por URL/clipboard
+   - Capturador Universal via bookmarklet
+   - retorno ao CRM por #/prospecting?action=browser-capture&capture=...
+   - Google Maps, Instagram, CNPJ, URL genérica e texto estruturado
+   - clipboard usa src/lib/browser-actions.ts, sem navigator.clipboard direto
+   - testes novos em src/services/prospecting-browser-capture-h3.test.ts
+
+Resultados executados nesta montagem
+------------------------------------
+V101.9.9-H3 audit: 21/21 contratos aprovados
+V101.9.9-H2 audit: 13/13 contratos aprovados
+V101.9.9-H1 audit: 6/6 contratos aprovados
+V101.9.9 base audit: 19/19 contratos aprovados
+Release Manifest: 25/25 invariantes
+Capability Matrix: 15 capacidades / 32 evidências / 25 executáveis
+Repository parity: Local 96/96 / Supabase 96/96
+Browser E2E Contract: 7/7 fluxos catalogados
+Source syntax audit: 378 arquivos aprovados
+Integration contract audit: 349 arquivos aprovados
+Migrations: 49/49 com checksum íntegro
+start-linux.sh: bash -n OK
+
+Regressão histórica
+-------------------
+check:legacy: PASS
+Checks históricos observados: 3.939 OK / 0 FAIL
+
+Durante o hardening H3, dois gates históricos foram atualizados sem remover
+capacidade funcional:
+- V100.98 continua exigindo RT_Capture visível, agora apresentado como
+  "Integração RT_Capture · Browser Gateway";
+- V101.6.9 reconhece o módulo sucessor ux-recovery-operational-fixes-h3.
+
+Limitação do ambiente de montagem
+---------------------------------
+Esta montagem não possui node_modules e a instalação de dependências foi
+bloqueada por timeout de rede em tentativas anteriores do ciclo. Por isso o
+typecheck global, a suíte Vitest completa e o build global NÃO são reportados
+como executados aqui.
+
+Dois arquivos de testes H3 foram adicionados ao projeto, mas devem ser
+executados pelo launcher no Linux do usuário após a instalação das dependências:
+- src/services/proposal-pipeline-h3.test.ts
+- src/services/prospecting-browser-capture-h3.test.ts
+
+O start-linux.sh continua responsável pelo gate completo no Linux:
+npm install -> preflight -> qa:architecture -> typecheck -> Vitest -> build -> smokes.
+
+Banco e migrations
+------------------
+Nenhuma migration H3 nova.
+A migration 49 da V101.9.9-H2 é preservada e verificada.
+
+Segurança do Browser Gateway
+----------------------------
+O Capturador Universal não executa scraping automático em terceiros. Ele envia
+URL, título da página e texto selecionado para o próprio CRM via fragmento/hash.
+Providers oficiais continuam sendo usados quando configurados; sem provider,
+o fluxo permanece assistido por URL/clipboard/RT Capture Browser.

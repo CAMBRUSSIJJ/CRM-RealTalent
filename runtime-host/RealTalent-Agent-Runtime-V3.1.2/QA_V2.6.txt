@@ -1,0 +1,39 @@
+RealTalent Agent V2.6 — QA FINAL
+2026-10-14
+
+PASS Runtime contract audit: 267/267
+PASS Learning & Evaluation core: 11/11
+PASS V2.6 integration: 9/9
+PASS Broad self-test suite: 29/29 files
+PASS Reliability FULL: 1000/1000 (100%)
+PASS Known-Failure Regression V2.6
+PASS V2.5 regression: 8/8
+PASS V2.4 regression: 10/10
+PASS V2.3 regression: 11/11
+PASS V2.2 regression: 25/25
+PASS Chat Experience: 10/10
+PASS CRM Agent V2.6 integration: 5/5
+PASS Blue Ocean Agent V2.6 integration: 5/5
+PASS CRM TypeScript parser (--noCheck)
+PASS Blue Ocean TypeScript parser (--noCheck)
+PASS Shell syntax: 82/82
+PASS Runtime MJS syntax: 53/53
+PASS Python compile
+
+UNVERIFIED Browser Conversation E2E
+Reason: Chromium policy blocks localhost before app load:
+net::ERR_BLOCKED_BY_ADMINISTRATOR
+
+UNVERIFIED full CRM/Blue Ocean typecheck + Vitest + Vite build
+Reason: product dependencies/node_modules are not installed in this source bundle/environment.
+
+V2.6 policy:
+- negative feedback -> Failure Memory
+- Verifier repairs -> Failure Memory
+- objective expectations may become regression cases
+- known failures must not regress
+- critical open failures block release
+- baseline acceptance is explicit
+- raw image bytes are not persisted in Failure Memory
+- no automatic fine-tuning
+- no new business mutations in CRM/Blue Ocean

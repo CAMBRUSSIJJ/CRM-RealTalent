@@ -1,0 +1,113 @@
+/* RealTalent CRM V101.5.2 — UI Runtime QA & Accessibility
+   Runtime-focused fixes: legibility, focus, touch targets, responsive overlays and keyboard affordance. */
+
+/* Keep interactive focus visible even outside high-contrast mode. */
+:where(button,a,input,select,textarea,[tabindex]):focus-visible{
+  outline:3px solid color-mix(in srgb,var(--blue,#2f59db) 34%,transparent);
+  outline-offset:2px;
+}
+
+/* Overlay runtime: prevent scroll chaining and keep content reachable on short/mobile viewports. */
+.modal-backdrop,.lead-drawer-layer,.assistant-layer,.experience-drawer-layer,.notification-center-layer{overscroll-behavior:contain}
+.modal__body,.lead-drawer__body,.sales-workspace-v1013__main,.sales-workspace-v1013__context-content,.sales-workspace-v1013__history-content,.sales-workspace-v1013__notes-content{scrollbar-gutter:stable}
+.modal{max-height:min(calc(100dvh - 40px),calc(100vh - 40px))}
+.modal__header,.modal__footer{flex-shrink:0}
+
+/* Lead Workspace 3.1: simplify by disclosure, not by unreadably small type. */
+.sales-workspace-v1015__mode-switch button{min-height:36px;font-size:11px}
+.sales-workspace-v1015__disclosure{min-height:36px;padding-inline:10px;font-size:11px}
+.sales-workspace-v1015__strategy-summary strong{font-size:13px}
+.sales-workspace-v1015__strategy-summary p{font-size:11px;line-height:1.45}
+.sales-workspace-v1013__signal-row>span{font-size:10px}
+.sales-workspace-v1015--focus .sales-workspace-v1013__facts span,.sales-workspace-v1013__facts span{font-size:10px;letter-spacing:.015em}
+.sales-workspace-v1015--focus .sales-workspace-v1013__facts strong,.sales-workspace-v1013__facts strong{font-size:12px}
+.sales-workspace-v1013__contact-line>span{font-size:10px}
+.sales-workspace-v1013__deal p{font-size:11px;line-height:1.45}
+.sales-workspace-v1013__deal>div:last-child span,.sales-workspace-v1013__deal>div:last-child small{font-size:10px}
+.sales-workspace-v1013__tabs button{min-height:40px;font-size:11px;cursor:pointer}
+.sales-workspace-v1013__context-list small{font-size:10px}
+.sales-workspace-v1013__context-list strong{font-size:11px}
+.sales-workspace-v1013__side-heading small,.sales-workspace-v1013__side-heading button{font-size:10px}
+.sales-workspace-v1013__mini-list article>span,.sales-workspace-v1013__mini-list article small{font-size:10px}
+.sales-workspace-v1013__mini-list article strong{font-size:11px}
+.sales-workspace-v1013__empty-copy{font-size:10px}
+.sales-workspace-v1013__account-card small{font-size:10px}
+.sales-workspace-v1013__account-card strong{font-size:11px}
+.sales-workspace-v1013__account-card p{font-size:10px}
+.sales-workspace-v1015__attention strong{font-size:11px}
+.sales-workspace-v1015__attention span{font-size:10px}
+.sales-workspace-v1015__attention button{min-height:36px;font-size:11px}
+.lead-history-filters button{min-height:36px;font-size:10px}
+.lead-timeline article span:not(.lead-timeline__dot){font-size:10px}
+.lead-timeline article strong{font-size:12px}
+.lead-timeline article p{font-size:11px}
+.lead-timeline article small{font-size:10px}
+.lead-history-empty span{font-size:10px}
+
+/* Real buttons own the lead-opening interaction; rows/cards no longer impersonate controls. */
+.leads-table tbody tr,.lead-base-card{cursor:default}
+.lead-table-open{width:100%;padding:0;border:0;background:transparent;color:inherit;text-align:left;cursor:pointer;border-radius:10px}
+.lead-table-open:hover .lead-name-line strong,.lead-table-open:focus-visible .lead-name-line strong{color:var(--blue)}
+.lead-table-open .lead-cell--professional{display:flex;align-items:center;gap:10px}
+.lead-table-open .lead-cell--professional>span:last-child{min-width:0;display:grid;gap:3px}
+.lead-card-open-identity{min-width:0;display:grid;grid-template-columns:38px minmax(0,1fr);align-items:center;gap:9px;padding:2px;border:0;border-radius:10px;background:transparent;color:inherit;text-align:left;cursor:pointer}
+.lead-card-open-copy{min-width:0;display:grid;gap:3px}
+.lead-card-open-copy strong,.lead-card-open-copy small{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.lead-base-card__top{grid-template-columns:18px minmax(0,1fr) 36px}
+.lead-base-card__top>.lead-card-open-identity{width:100%;height:auto}
+.lead-base-card__top>button:last-child{width:36px;height:36px}
+.lead-row-actions button{min-width:36px;min-height:36px}
+
+/* Keyboard tabs expose a stable panel focus target without a permanent ring after pointer use. */
+.sales-workspace-v1013__context-content[role="tabpanel"],.sales-workspace-v1013__history-content[role="tabpanel"],.sales-workspace-v1013__notes-content[role="tabpanel"]{outline:none}
+.sales-workspace-v1013__context-content[role="tabpanel"]:focus-visible,.sales-workspace-v1013__history-content[role="tabpanel"]:focus-visible,.sales-workspace-v1013__notes-content[role="tabpanel"]:focus-visible{box-shadow:inset 0 0 0 3px color-mix(in srgb,var(--blue) 22%,transparent)}
+
+@media (max-width:980px){
+  .sales-workspace-v1013__context-panel{min-height:0}
+  .sales-workspace-v1013__context-content,.sales-workspace-v1013__history-content,.sales-workspace-v1013__notes-content{overflow:visible}
+}
+
+@media (max-width:720px){
+  .lead-drawer-layer{background:var(--surface-soft,#f3f5f8);backdrop-filter:none}
+  .lead-drawer--sales-workspace{height:100dvh;max-height:100dvh;border-left:0}
+  .sales-workspace-v1015 .sales-workspace-v1013__header{padding-top:max(11px,env(safe-area-inset-top));gap:10px}
+  .sales-workspace-v1015__command-bar{scroll-snap-type:x proximity;scrollbar-width:thin;padding-inline:12px;overscroll-behavior-x:contain}
+  .sales-workspace-v1015__command-bar .button{min-height:44px;scroll-snap-align:start}
+  .sales-workspace-v1015__mode-switch button,.sales-workspace-v1015__disclosure,.sales-workspace-v1013__tabs button,.sales-workspace-v1015__attention button{min-height:44px}
+  .sales-workspace-v1013__body{padding:10px;gap:10px;overflow-y:auto;overscroll-behavior-y:contain}
+  .sales-workspace-v1013__context-panel{min-height:0}
+  .sales-workspace-v1013__context-content,.sales-workspace-v1013__history-content,.sales-workspace-v1013__notes-content{overflow:visible}
+  .sales-workspace-v1013__footer{padding-bottom:max(10px,env(safe-area-inset-bottom))}
+  .modal-backdrop{padding:0;align-items:end}
+  .modal{max-height:calc(100dvh - env(safe-area-inset-top));border-radius:20px 20px 0 0}
+  .modal__header{padding-top:max(17px,env(safe-area-inset-top))}
+  .modal__footer{padding-bottom:max(13px,env(safe-area-inset-bottom))}
+  .lead-row-actions button,.lead-base-card__top>button:last-child{min-width:44px;min-height:44px}
+  .lead-card-open-identity{min-height:44px}
+}
+
+@media (max-width:520px){
+  .sales-workspace-v1015__header-actions{width:100%;justify-content:space-between}
+  .sales-workspace-v1015__mode-switch{width:auto;flex:1}
+  .sales-workspace-v1015__mode-switch button{padding-inline:10px}
+  .sales-workspace-v1013__facts{grid-template-columns:1fr}
+  .sales-workspace-v1015__attention{grid-template-columns:auto minmax(0,1fr)}
+  .sales-workspace-v1015__attention button{grid-column:1/-1;width:100%;justify-self:stretch;border:1px solid currentColor;border-radius:9px}
+}
+
+@media (pointer:coarse){
+  .icon-button,.lead-history-filters button,.sales-workspace-v1013__side-heading button,.duplicate-list button{min-width:44px;min-height:44px}
+}
+
+@media (prefers-reduced-motion:reduce){
+  .lead-drawer,.modal,.lead-base-card{animation:none!important;transition:none!important;transform:none!important}
+}
+
+/* V101.5.2 semantic interaction hardening outside the Lead Workspace. */
+.metrics-funnel-list>button{width:100%;border:0;background:transparent;color:inherit;font:inherit;text-align:inherit;cursor:pointer}
+.metrics-funnel-list>button:focus-visible{position:relative;z-index:1;box-shadow:inset 0 0 0 3px color-mix(in srgb,var(--blue) 28%,transparent)}
+.followup-row--professional{cursor:default}
+.followup-row__open{border-radius:10px;cursor:pointer;outline:none}
+.followup-row__open:focus-visible{box-shadow:0 0 0 3px color-mix(in srgb,var(--blue) 24%,transparent)}
+.omnichannel-view-tabs [role="tab"],.calls-view-tabs [role="tab"]{min-height:36px}
+@media (pointer:coarse){.metrics-funnel-list>button,.omnichannel-view-tabs [role="tab"],.calls-view-tabs [role="tab"],.followup-row__open{min-height:44px}}

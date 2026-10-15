@@ -1,0 +1,29 @@
+RealTalent CRM V101.6.4 — Contact Data Grid & View Settings
+QA final — 2026-09-28
+
+RESULTADOS EXECUTADOS
+- V101.6.4 audit: 22/22 contratos aprovados.
+- Regressão histórica/atual: 64/64 scripts v*_audit.mjs aprovados (exclui built bundle, que depende de build Vite).
+- Source syntax audit: 291 arquivos aprovados.
+- Integration contract audit: 260 arquivos aprovados.
+- Migrations: 43/43 com checksum íntegro.
+- Linux release preflight: OK (258 arquivos TS/TSX).
+- RealTalent Connect resilience smoke: OK (idempotência -> persistência -> restart -> retomada -> connected -> ended; origin guard 403).
+- Porta Linux/browser padrão: 4188.
+
+CONTRATOS PRINCIPAIS V101.6.4
+- Toolbar de Contatos reduzida a busca/filtro/classificação/configuração + ações essenciais.
+- Painel lateral dockado mantém a base visível em desktop.
+- Filtros contextuais por propriedade e valor.
+- Classificação centralizada.
+- Tipo Tabela / Quadro / Lista compacta em tempo real.
+- Colunas e densidade centralizadas.
+- Nome, cor, ícone e visibilidade da view configuráveis.
+- Salvar, restaurar, definir padrão, duplicar e excluir no painel.
+- Views compartilhadas de terceiros permanecem protegidas.
+- Mobile usa drawer de tela inteira.
+- Experience Registry atualizado para o novo painel de filtros, sem seletor legado fantasma.
+
+LIMITAÇÃO DO AMBIENTE DE EMPACOTAMENTO
+- node_modules não está presente neste ambiente; portanto typecheck completo, Vitest, Vite build, bundle audit e HTTP smoke não foram executados aqui.
+- O start-linux.sh instala as dependências e executa o release:verify completo no Linux do usuário.

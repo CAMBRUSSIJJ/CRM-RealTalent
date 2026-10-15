@@ -1,0 +1,9 @@
+/* RealTalent Contacts / Intelligence — canonical runtime stylesheet. Historical source layers retained below in original cascade order. */
+
+/* source: contact-intelligence-v101105-h3.css */
+/* V101.10.5-H3 — Contact Intelligence & Language Standardization */
+.contact-record-v1016__notes-workspace .contact-record-card>header{min-height:58px}
+.contact-record-v1016__notes-workspace .contact-record-card>header h3{font-size:14px}
+.contact-record-v1016__notes-workspace .contact-record-card>header p{max-width:720px}
+/* Native selects keep the same closed-state grammar as the canonical selector. Rich/large lists use SelectionSelect. */
+select{font-family:inherit}

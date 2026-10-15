@@ -1,0 +1,29 @@
+RealTalent CRM V101.6.6 — Workspace UI Standardization
+QA Report
+
+Escopo da release
+- Padronização visual/operacional de Agenda e Propostas conforme Meu Dia e Contatos.
+- Cabeçalhos compactos, resumo compacto, toolbar limpa, chips de filtros e drawer lateral.
+- Novo compromisso com disclosure progressivo via "Mais opções".
+- Terminologia visual de Propostas usa "Oportunidade / contato" preservando leadId interno por compatibilidade.
+- Nenhuma migração estrutural ampla de regras comerciais nesta release.
+
+Validações executadas neste ambiente
+- V101.6.6 audit: 31/31 contratos aprovados.
+- QA scripts históricos e atuais: 66/66 aprovados.
+- Source syntax audit: 293 arquivos aprovados.
+- Integration contract audit: 262 arquivos aprovados.
+- Migrations: 44 arquivos, checksums íntegros.
+- Linux release preflight: 260 arquivos TS/TSX aprovados.
+- RealTalent Connect resilience smoke V101.4: aprovado.
+
+Validações não executadas neste ambiente
+- npm typecheck
+- Vitest completo
+- Vite production build / built-bundle HTTP smoke
+
+Motivo
+O pacote de trabalho final não contém node_modules. O launcher start-linux.sh instala/recupera as dependências e executa os gates completos no ambiente Linux do usuário.
+
+Nota de compatibilidade
+A alteração visível de "Lead" para "Oportunidade / contato" em Propostas não renomeia o identificador interno leadId nesta versão. Isso é intencional para manter compatibilidade com repositories, Pipeline e dados existentes.

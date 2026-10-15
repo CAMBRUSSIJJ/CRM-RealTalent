@@ -1,0 +1,29 @@
+RealTalent CRM V101.8.4-H4-GateFix1 — QA
+==========================================
+
+Correção principal
+- Substituída a comparação rígida histórica de dependências runtime por uma política central de allowlist.
+- Dependências-base obrigatórias: @supabase/supabase-js, lucide-react, react, react-dom.
+- Dependências aprovadas da H4: @whiskeysockets/baileys, qrcode.
+- Dependências runtime adicionais não aprovadas continuam falhando o gate.
+
+Audits históricos corrigidos
+- V100.60.1 Performance Audit: 29/29
+- V100.62.0 Deal Intelligence: 47/47
+- V100.63.0 Sales Engagement: 64/64
+- V100.67 Assistant: 56/56
+- V100.68 Revenue Intelligence: 65/65
+- V100.89 Assistant 2.0: 71/71 (README canônico corrigido)
+
+Release atual
+- V101.8.4-H4 WhatsApp QR Local: 12/12
+- V101.8.4-H4 GateFix1 Runtime Dependencies: 5/5
+- Sintaxe: 297 arquivos aprovados
+- Contratos: 265 arquivos aprovados
+- Migrations: 46/46 íntegras
+
+Cadeia completa
+- npm run check foi executado e todos os audits históricos chegaram ao typecheck sem falhas de contrato.
+- O typecheck não é considerado executado com sucesso neste ambiente porque o pacote de trabalho não contém node_modules; os erros observados foram principalmente módulos React/lucide/Supabase ausentes. No Linux do usuário, o launcher instala as dependências antes deste gate.
+
+Nenhuma funcionalidade do WhatsApp QR, Cloud API, Connect, Identity Sync ou Central de Comunicação foi removida.

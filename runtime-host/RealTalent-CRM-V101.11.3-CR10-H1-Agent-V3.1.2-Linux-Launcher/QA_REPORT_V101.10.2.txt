@@ -1,0 +1,62 @@
+RealTalent CRM V101.10.2 — Prospecting Agent for Linux
+QA Report
+======================================================
+
+Escopo
+------
+- Agent Linux local em 127.0.0.1:4319
+- fila persistente de jobs
+- pause / resume / cancel
+- campanhas daily / weekly
+- OpenStreetMap / Overpass
+- Nominatim
+- crawler de sites públicos com robots.txt
+- Chromium headless opcional
+- extração telefone / e-mail / Instagram / CNPJ
+- BrasilAPI para enrichment quando há CNPJ
+- deduplicação interna, contra o CRM e contra jobs anteriores do workspace
+- importação dos resultados para Revisão no Garimpo
+- instalador opcional systemd --user
+
+Resultados executados nesta montagem
+------------------------------------
+Linux release preflight: OK (350 arquivos TS/TSX)
+Source syntax audit: 384 arquivos aprovados
+Integration contract audit: 357 arquivos aprovados
+Migrations: 49/49 com checksum íntegro
+Release Manifest: 30/30 invariantes
+Capability Matrix: 18 capacidades · 40 evidências · 30 executáveis
+Repository parity: Local 96/96 · Supabase 96/96
+Browser E2E Contract: 9/9 fluxos catalogados
+V101.10.2 Prospecting Agent audit: 34/34 contratos aprovados
+Prospecting Agent runtime smoke: OK (health + queue API)
+Legacy regression: 3.185 OK / 0 FAIL
+start-linux.sh: bash -n OK
+install-prospecting-agent-service.sh: bash -n OK
+
+Segurança / limites
+-------------------
+- bind padrão somente em localhost
+- sem login automático em terceiros
+- sem resolução de CAPTCHA
+- sem bypass de rate limit, autenticação ou bloqueios
+- crawler bloqueia localhost/redes IPv4 privadas
+- crawler consulta robots.txt antes de navegar
+- Chromium é fallback opcional somente para sites públicos já descobertos
+
+Persistência
+------------
+O Agent persiste jobs/campanhas em .realtalent-prospecting-agent/state.json durante o uso.
+Esse estado NÃO é incluído no ZIP de release. O frontend envia chaves de identidade já existentes
+no CRM, e o Agent também considera identidades de jobs anteriores do mesmo workspace para evitar
+que campanhas recorrentes gastem a meta redescobrindo as mesmas empresas.
+
+Limitação do ambiente de montagem
+---------------------------------
+A tentativa de npm install/npm ci expirou por timeout de rede e não deixou node_modules utilizável.
+Por isso typecheck + Vitest + build globais não foram executados nesta montagem. O start-linux.sh
+mantém esses gates no Linux do usuário antes de abrir o CRM.
+
+Migrations
+----------
+Nenhuma migration SQL nova nesta versão. Total preservado: 49/49.

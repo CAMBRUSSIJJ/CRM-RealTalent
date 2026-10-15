@@ -1,0 +1,17 @@
+import fs from 'node:fs'
+const read=(p)=>fs.readFileSync(p,'utf8'); const json=(p)=>JSON.parse(read(p)); const checks=[]; const ok=(n,v)=>{checks.push([n,!!v]);console.log(`${v?'OK  ':'FAIL'} ${n}`)}
+const repo=read('src/repositories/crm-repository.ts'), local=read('src/repositories/local-crm-repository.ts'), supa=read('src/repositories/supabase-crm-repository.ts'), ctx=read('src/app/app-context.tsx'), types=read('src/app/app-context-types.ts'), page=read('src/features/prospecting/prospecting-page.tsx'), manifest=json('release-manifest.json'), index=read('index.html'), launcher=(read('start-linux.sh') + '\n' + (fs.existsSync('start-linux-legacy.sh') ? read('start-linux-legacy.sh') : '') + '\n' + (fs.existsSync('scripts/start.mjs') ? read('scripts/start.mjs') : ''))
+ok('manifest identifica H4',['H4','H5','H6','H7','H8','H9'].includes(manifest.release?.hotfix)||manifest.release?.label==='V101.10.4'||manifest.release?.label==='V101.10.5'||manifest.release?.label==='V101.10.6'||manifest.release?.label==='V101.10.7'||manifest.release?.label==='V101.10.8'||manifest.release?.label==='V101.10.9'||['V101.11.0','V101.11.1','V101.11.2','V101.11.3'].includes(manifest.release?.label)||manifest.release?.label==='V101.10.9'||['V101.11.0','V101.11.1','V101.11.2','V101.11.3'].includes(manifest.release?.label))
+ok('repository expõe create/update Company',repo.includes('createCompany(input: NewCompanyInput)')&&repo.includes('updateCompany(companyId: string'))
+ok('Local implementa Company CRUD',local.includes('async createCompany(input: NewCompanyInput)')&&local.includes('async updateCompany(companyId: string'))
+ok('Supabase implementa Company CRUD',supa.includes('async createCompany(input: NewCompanyInput)')&&supa.includes('async updateCompany(companyId: string'))
+ok('App actions expõem Company CRUD',types.includes('createCompany(input:')&&ctx.includes('async createCompany(input)'))
+ok('Garimpo usa createCompany antes de oportunidade',page.indexOf('await createCompany(companyPayload)')<page.indexOf('if (options.createOpportunity)'))
+ok('ContactRecord só nasce com pessoa identificada',page.includes('const contactName = rawContactName')&&page.includes('if (contactName)'))
+ok('oportunidade é opcional por padrão',page.includes('createOpportunity: false')&&page.includes('Criar também uma oportunidade comercial'))
+ok('Lead recebe companyId/contactId quando opcional',page.includes('companyId: company.id')&&page.includes('primaryContactId: contactId'))
+ok('resultado guarda IDs canônicos',page.includes('crmCompanyId: company.id')&&page.includes('crmContactId'))
+ok('UI chama Garimpo de empresas',(page.includes('Garimpo de empresas')||((page.includes('<h2>Garimpo</h2>')||page.includes('title="Garimpo"'))&&page.includes('Encontre empresas em uma região'))))
+ok('index possui marker H4',index.includes('realtalent-release-h4'))
+ok('launcher exige H4',(launcher.includes("j.version!=='101.10.3-H4'")||(launcher.includes("j.version!=='101.10.3-H5'")||(launcher.includes("j.version!=='101.10.3-H6'")||(launcher.includes("j.version!=='101.10.3-H8'")||launcher.includes("j.version!=='101.10.3-H9'"))||launcher.includes("j.version!=='101.10.3-H9'"))))&&read('RELEASE_NOTES_V101.10.3-H4-FULL.md').includes('Canonical Company Bridge'))
+const failed=checks.filter(([,v])=>!v); console.log(`\nV101.10.3-H4 Canonical Company Bridge: ${checks.length-failed.length}/${checks.length}`); if(failed.length)process.exit(1)

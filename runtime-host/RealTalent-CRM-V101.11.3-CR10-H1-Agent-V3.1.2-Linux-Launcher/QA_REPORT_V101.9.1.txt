@@ -1,0 +1,65 @@
+RealTalent CRM V101.9.1 — Universal View Engine
+QA Report
+==================================================
+
+Escopo
+- ViewDefinition canônica e persistente
+- Filter AST AND / OR / NOT
+- Table / List / Kanban / Calendar + modos legados avançados
+- sort / grouping / columns / visibility
+- personal / workspace views
+- adapters transparentes de Contatos e Pipeline
+- reconciliação de projeções universais por superfície
+- identidade de view qualificada por surface + id
+- inspector interno window.__REALTALENT_VIEWS__
+- nenhuma migration SQL nova
+- UX principal preservada
+
+Resultados executados neste ambiente
+------------------------------------
+V101.9.1 Universal View Engine audit: 24/24 contratos aprovados
+Linux release preflight: OK (282 arquivos TS/TSX)
+Source syntax audit: 316 arquivos aprovados
+Integration contract audit: 284 arquivos aprovados
+Migrations: 46/46 com checksum íntegro
+TypeScript isolado da nova arquitetura: OK
+Runtime smoke do View Engine: OK
+  - filtro AND/OR/NOT
+  - ordenação
+  - agrupamento
+  - isolamento surface + id
+  - reconciliação/remoção de views órfãs
+
+Regressão histórica
+-------------------
+Todos os gates históricos executados por `npm run check` passaram sem FAIL até o início do typecheck global.
+Antes do typecheck foram observados:
+- 2.917 checks OK
+- 0 linhas FAIL
+
+Limitação do ambiente de montagem
+---------------------------------
+`npm ci --ignore-scripts --prefer-offline --no-audit --no-fund` expirou por timeout de rede e nenhum node_modules permaneceu instalado.
+Por isso o typecheck/Vitest/build globais não puderam ser concluídos aqui.
+O typecheck global parou por dependências ausentes como React, Lucide e Supabase, e não por erro identificado nos arquivos do Universal View Engine.
+
+O `start-linux.sh` mantém o gate completo no Linux:
+npm install -> preflight -> auditorias -> typecheck -> Vitest -> build -> runtime smokes.
+
+Compatibilidade
+---------------
+- V101.9.0 Core Metadata Foundation preservada
+- WorkspaceSnapshot legado preservado
+- Contatos continua consumindo ContactSavedView na UI atual
+- Pipeline continua consumindo PipelineSavedView/PipelinePreferences na UI atual
+- Universal View Engine recebe projeções em paralelo
+- WhatsApp/Comunicação H15 preservados
+- RealTalent Connect One-Tap preservado
+- 46 migrations históricas preservadas sem alteração
+
+Hardening adicional concluído
+-----------------------------
+- IDs iguais em superfícies diferentes não se sobrescrevem
+- delete/archive de Contatos é qualificado pela superfície
+- load de Contatos e Pipeline reconcilia a superfície inteira
+- views removidas do legado não permanecem órfãs no Universal View Store

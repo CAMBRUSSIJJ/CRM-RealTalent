@@ -1,0 +1,54 @@
+RealTalent CRM V101.11.3-H13 — Product Readiness & Revenue Bridge
+================================================================
+
+Resultado final
+---------------
+- qa:architecture: PASS (status 0)
+- H13 Product Readiness & Revenue Bridge: 73/73 PASS
+- H12 Commercial Product Studio: 62/62 PASS
+- H11 Proposal & Catalog Pricing 3.0: 70/70 PASS
+- Propostas + Catálogo 2.0: 36/36 PASS
+- Revenue Intelligence 2.0: 49/49 PASS
+- Product & Revenue Workspace: 54/54 PASS
+- Selection System: 32/32 PASS
+- Communications recovery smoke: 5/5 PASS
+- Connect recovery smoke: 5/5 PASS
+- Security runtime smoke: 12/12 PASS
+
+Gates estruturais
+-----------------
+- Source syntax: 409 arquivos PASS
+- Integration contracts: 377 arquivos PASS
+- Migrations: 53/53 PASS, checksums íntegros
+- Release Manifest: 80/80 PASS
+- Repository parity: Local 100/100; Supabase 100/100
+- Browser E2E contract: 11 fluxos
+- CSS Governance: 65/65 PASS
+- Linux release preflight: PASS (370 arquivos TS/TSX)
+
+Build/transpile neste contêiner
+-------------------------------
+- build:legacy / registry-independent transpile: 294 módulos PASS como smoke de transpile.
+- runtime:bundle do fallback: corretamente REJEITADO porque o builder alternativo produz HTML legado. O dist foi removido do ZIP.
+
+Gates oficiais dependentes de node_modules
+------------------------------------------
+Não são declarados PASS neste contêiner:
+- npm run typecheck: React/Supabase e respectivos tipos não estão instalados; os erros subsequentes são cascata dessa ausência.
+- npm test: vitest: not found.
+- npm run build: validate:env PASS; vite: not found.
+
+O launcher Linux preserva a recuperação/instalação de dependências e faz o build oficial no ambiente do usuário.
+
+Escopo H13
+----------
+- Product Readiness: Identidade, Preço, Posicionamento e Venda.
+- Lifecycle: Rascunho / Pronto / Ativo / Arquivado.
+- Pricing modes: fixo / a partir de / sob consulta / gratuito / personalizado.
+- Edição inline no Product Studio.
+- Structured Sales Knowledge.
+- Offer Builder / bundles.
+- Historical Catalog Reconciliation.
+- Proposal Revenue Bridge idempotente por schedule_key.
+- MRR previsto / competência / histórico semântico.
+- Selection blue standard na superfície Propostas/Catálogo sem alterar o CSS canônico protegido.

@@ -1,0 +1,21 @@
+RealTalent CRM V101.6.2 — My Day Lock & Global App Bar
+QA report — 2026-09-28
+
+RESULTADO
+- QA histórico/atual: 62/62 scripts aprovados.
+- Contratos V101.6.2: aprovados.
+- Auditoria sintática: 291 arquivos aprovados.
+- Auditoria de integração: 260 arquivos aprovados.
+- Migrations: 42/42 com checksum íntegro.
+- Linux release preflight: 258 arquivos TS/TSX aprovados.
+- RealTalent Connect resilience smoke: aprovado (idempotência, persistência, restart, retomada, connected, ended e origin guard).
+
+CONTRATO DE PRODUTO V101.6.2
+- Meu Dia é layout estruturalmente bloqueado.
+- Registry do Dashboard contém apenas Central do dia (day) e Resumo do dia (day-health), ambos obrigatórios e full-width.
+- Blocos analíticos profundos removidos da home permanecem nos módulos especializados.
+- Global App Bar contém busca, RealTalent Assistant, utilidades e workspace.
+- Personalização estrutural permanece disponível nos demais módulos, não no Meu Dia.
+
+LIMITAÇÃO DO AMBIENTE DE EMPACOTAMENTO
+Este diretório não contém node_modules, portanto typecheck completo, Vitest, Vite build e HTTP bundle smoke não foram executados aqui. O start-linux.sh instala as dependências e executa o release:verify no ambiente Linux do usuário antes de servir o CRM.

@@ -1,0 +1,54 @@
+RealTalent CRM V101.11.3-H12 — Commercial Product Studio & Catalog-First Proposals
+
+Escopo validado
+- catálogo como fonte de verdade para novas propostas
+- Product Studio com Visão geral / Preço / Venda / Performance
+- inteligência por produto: propostas, win rate, preço médio vendido, desconto, pipeline, bookings, MRR e co-sell
+- aceite conectado ao fechamento comercial/bookings
+- receita realizada continua separada por competência
+- sales knowledge persistente por produto
+- proposta nova começa vazia e exige produto ativo do catálogo
+- itens manuais preservados apenas como compatibilidade legada
+
+Gates finais neste ambiente
+- qa:architecture: PASS
+- qa:v101.11.3:h12: 62/62 PASS
+- qa:v101.11.3:h11: 70/70 PASS
+- qa:v100.78.0 Propostas + Catálogo: 36/36 PASS
+- qa:v100.81.0 Revenue Intelligence: 49/49 PASS
+- qa:v100.97.0 Product & Revenue: 54/54 PASS
+- qa:v101.10.5:selection: 32/32 PASS
+- migrations:verify: 52/52 checksums íntegros
+- source syntax: 408 arquivos PASS
+- integration contracts: 376 arquivos PASS
+- release manifest: 79/79
+- capability matrix: 24 capacidades / 80 evidências / 50 executáveis
+- repository Local: 99/99
+- repository Supabase: 99/99
+- browser E2E contract: 11 fluxos
+- CSS governance: PASS (executado em qa:architecture)
+- runtime communications recovery: 5/5 PASS
+- runtime connect recovery: 5/5 PASS
+- runtime security foundation: 12/12 PASS
+- Linux release preflight: PASS (369 arquivos TS/TSX)
+
+Gates oficiais dependentes de node_modules
+- npm run typecheck: BLOQUEADO neste contêiner; módulos/tipos React, React DOM, Supabase etc. não estão instalados. Erros implicit-any subsequentes são cascata da ausência das dependências.
+- npm test: BLOQUEADO; vitest: not found (127).
+- npm run build: validate:env PASS, mas BLOQUEADO; vite: not found (127).
+
+Fallback de transpile
+- npm run build:legacy: PASS, 293 módulos TypeScript transpileados.
+- npm run runtime:bundle: REJEITOU corretamente o fallback porque ele gera HTML legado; esse dist foi removido e não integra o ZIP.
+
+Persistência
+- nova migration H12: 202610070002_v101_11_3_h12_commercial_product_studio.sql
+- total: 52 migrations
+- ProductRecord persiste valueProposition, targetCustomer e salesNotes
+- propostas preservam os snapshots financeiros introduzidos na H11
+
+Empacotamento
+- sem node_modules
+- sem dist de fallback
+- sem .env.local
+- sem estado local/browser do WhatsApp

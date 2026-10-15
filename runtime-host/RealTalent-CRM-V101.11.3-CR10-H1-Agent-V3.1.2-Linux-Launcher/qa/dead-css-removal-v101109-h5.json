@@ -1,0 +1,291 @@
+{
+  "release": "V101.10.9-H5",
+  "name": "Dead CSS Removal",
+  "base": "V101.10.9-H4",
+  "strategy": "delete only superseded CSS whose exact content is already embedded in canonical runtime-owned stylesheets",
+  "removedCount": 47,
+  "removed": {
+    "pipeline-v100.css": {
+      "canonical": "pipeline.css",
+      "rawSha256": "82b7a0de617566707c2319b301310d562941db2dfc92e6bed119b01bc7d74538",
+      "rawBytes": 25682,
+      "trimmedSha256": "41d5a9198149ae1ae44fb8b5f2ff0c83fcee37200fde4671b1d78d73550fd57c"
+    },
+    "pipeline-v10076.css": {
+      "canonical": "pipeline.css",
+      "rawSha256": "0bfd6acd0d1d6b77fc8c5101560324b7e712cb5877350a843905dcda4ed1a249",
+      "rawBytes": 5071,
+      "trimmedSha256": "fba7461a29dc96b0fb61ee75177ddbe56e0a1b4eebb6b7aba694d219178bbe36"
+    },
+    "followups-v100.css": {
+      "canonical": "followups.css",
+      "rawSha256": "518afc8adbdd0da338013951b0ce5abfb9757cbd898d429dd15e9b1573d578e1",
+      "rawBytes": 29007,
+      "trimmedSha256": "249c49e6a41287504a8ce8f6955fa4f454a794c59a10c827bfeff575c27428e4"
+    },
+    "followups-v10077.css": {
+      "canonical": "followups.css",
+      "rawSha256": "fdf499763acf3828d29d9a7ceeebd9c1ade5177e2797bfb2c9482d7cf0375cdb",
+      "rawBytes": 5602,
+      "trimmedSha256": "c352143749d10ef0c8ebccba251165b50388a7aca474f54411ed8686f7f7761e"
+    },
+    "realtalent-connect-v1018.css": {
+      "canonical": "realtalent-connect.css",
+      "rawSha256": "086083e773c3a0395004a82ab55bfaf1e863b0f9d45856c05bd50fea10207b18",
+      "rawBytes": 8548,
+      "trimmedSha256": "2597699720efece19e3828a6491d702ddb97892f64ec671276927d536af051f5"
+    },
+    "realtalent-connect-v10181.css": {
+      "canonical": "realtalent-connect.css",
+      "rawSha256": "d246f5b9779ae87cb7f5fe9cfae533c2684cea8b040e871ce38299c3c16999ab",
+      "rawBytes": 5469,
+      "trimmedSha256": "9c0cc2cf4d9967ef1f097309bc267f65cd74454e566b1a95fda413f1e2fc186c"
+    },
+    "realtalent-connect-v10182.css": {
+      "canonical": "realtalent-connect.css",
+      "rawSha256": "b7646e2b05fcca39da620f3a4f9a8b4a8bccd49dee479d6a18f813bee9e94410",
+      "rawBytes": 955,
+      "trimmedSha256": "5bb1af210a134e79dbc952f970eea436c5058c215896b9ad6ff3ef0c43ea49ee"
+    },
+    "realtalent-connect-v10183.css": {
+      "canonical": "realtalent-connect.css",
+      "rawSha256": "fb7178259a1f33028306f1aa2eb56705e830de2c68ec253500bc6162adfab1bd",
+      "rawBytes": 1125,
+      "trimmedSha256": "3ebe3f9c9d1af5497476aba034a1443e8cae3391b7b225620cfe4b53b44952bc"
+    },
+    "realtalent-connect-v101107.css": {
+      "canonical": "realtalent-connect.css",
+      "rawSha256": "46deb8137aa38b9454113964448f4c0f747620fcfd47f329dd379ea19747619c",
+      "rawBytes": 1412,
+      "trimmedSha256": "043eef99e668648fef87cfa1eb47452c264709e84243ae76dd68d524c4c6345d"
+    },
+    "realtalent-ui-system-v10154.css": {
+      "canonical": "ui-foundation.css",
+      "rawSha256": "52049605b8cf497c2c6ae9761a816237b89c1e013f51453814d2f04efe402a5f",
+      "rawBytes": 16088,
+      "trimmedSha256": "9fb29611b7fbf83e4ee542c7d6005673362e70896b2d3560f297f02df85bce7f"
+    },
+    "visual-rollout-v10155.css": {
+      "canonical": "ui-foundation.css",
+      "rawSha256": "87cb92a7e2651162542b52d74eed95f8faadd3310485f7b320a2339159060571",
+      "rawBytes": 26252,
+      "trimmedSha256": "9f69f0f43fa12abbd94edc7138484a0b5734b7b2423bb34a91b409133c63f162"
+    },
+    "visual-consistency-hotfix-v10156.css": {
+      "canonical": "ui-foundation.css",
+      "rawSha256": "edafe3aceb87ff466de1ae424ad1ecb76eb86460e2a2d665a1890a09ab6b087a",
+      "rawBytes": 12609,
+      "trimmedSha256": "32f5a096b4485f205bbd880a8b727bc69896a759fdc5812702dc60b22ec2f0d2"
+    },
+    "myday-lock-appbar-v10162.css": {
+      "canonical": "app-shell.css",
+      "rawSha256": "6d91629e77a794799ac39b6e88990888d1db5ce614b838e3c17a9840a627b0a2",
+      "rawBytes": 4907,
+      "trimmedSha256": "f46894ba8b75a82f11784630042ebcb3e7966f4182bc8eac288086907343a7e0"
+    },
+    "workspace-ui-standardization-v10166.css": {
+      "canonical": "workspace-ui.css",
+      "rawSha256": "6dd7b5fd2ba2b6ff49630a37b245079567bf8ea0733ad40320bd939813c2b113",
+      "rawBytes": 12762,
+      "trimmedSha256": "bb3fdf50d2c239816b2ada7ada42307724cf4ce485316fd158412f8ebe731943"
+    },
+    "global-workspace-ui-consistency-v10167.css": {
+      "canonical": "workspace-ui.css",
+      "rawSha256": "3e0ec9b352c4fe056d344d1bc3a4768e60a2ebd3af62cb00cb673a439b8e2316",
+      "rawBytes": 15438,
+      "trimmedSha256": "c918c38aec742d66b2d840d9c12d162265a7db5c16a383018d85f6fe5e3612e6"
+    },
+    "workspace-interaction-architecture-v10168.css": {
+      "canonical": "workspace-ui.css",
+      "rawSha256": "9e51741a4ac3d0fae01168d7436ccab8ca15e96249e2bb9a15c2d47901129215",
+      "rawBytes": 16269,
+      "trimmedSha256": "04884d353f311140b4d3cf3b5072bbbec4e8a294c5b6b74199fba175467fbedd"
+    },
+    "global-filter-view-standard-v10169.css": {
+      "canonical": "workspace-ui.css",
+      "rawSha256": "1cfe49daa5397b1bb998f427b3f09749ded7d62fa5365fc407ca2bf203319ccd",
+      "rawBytes": 11843,
+      "trimmedSha256": "ee6e3b37015c204c47ea95aa84d9feedb3ae94b0180f3be4091232efa9b74337"
+    },
+    "workspace-simplification-filter-engine-v10170.css": {
+      "canonical": "workspace-ui.css",
+      "rawSha256": "3d6dc8624536b9f5f78738131bb36d4e616a755a26ca62e32c36d90e4f193215",
+      "rawBytes": 13232,
+      "trimmedSha256": "b3013152037349e75424344a02a963cb551d250575dcfd29cf151a0807cc7e03"
+    },
+    "interaction-surfaces-v10172.css": {
+      "canonical": "interaction-ui.css",
+      "rawSha256": "6c21bbb0927498e1ed764233899bc2815398ba5ef248e436b51806dfd9550003",
+      "rawBytes": 13090,
+      "trimmedSha256": "400fcf888f7590aa1d487158304f57a5b6f69d520787c2502357e8fd7c3f361b"
+    },
+    "ux-consolidation-v10173.css": {
+      "canonical": "interaction-ui.css",
+      "rawSha256": "eaa23328b9abec7b4b54b129461b707f9d92c715435b3eb9b9bd684e76dd4b0a",
+      "rawBytes": 11427,
+      "trimmedSha256": "0f481ef96425414171082fcec1c8afe6618e5334d912ea71ec9bf4dd118e4426"
+    },
+    "design-system-consolidation-v10198.css": {
+      "canonical": "ui-polish.css",
+      "rawSha256": "31a43a1a42ca74c42b6b85b3a28ec64639bb250bd66daebca147f4223e12d759",
+      "rawBytes": 13213,
+      "trimmedSha256": "7376c6106a692ae5efd8879b45c0df852c792f48ed64a3ac0d0f032a7108cee6"
+    },
+    "ux-recovery-v10199-h3.css": {
+      "canonical": "ui-polish.css",
+      "rawSha256": "c2fa1ae6bc93ffb51cf71feb6d32183a6ad2aa231ae7de1b80d900d8fae02845",
+      "rawBytes": 7747,
+      "trimmedSha256": "668030911d3a5d5ef0e1d486062017f96a1dfbc64af0a3d1d8d263984f1dee57"
+    },
+    "workspace-appearance-v10199-h4.css": {
+      "canonical": "ui-polish.css",
+      "rawSha256": "ed8f437a234e75953cc10fd2dfc89c8152fcf28a79b05a557a2459ded38b578c",
+      "rawBytes": 11826,
+      "trimmedSha256": "5ff1f2b5cdca94e43ef094ac3b6db62dcdf6017b756114f7f83981a0ab5f4134"
+    },
+    "selection-filter-system-v101105.css": {
+      "canonical": "selection-controls.css",
+      "rawSha256": "c5faf0e7d20f0481079bd5807f5a64f5916c6e7e9fa9c42a07ad825872d7be5e",
+      "rawBytes": 7747,
+      "trimmedSha256": "133103fee20533c9a2079933ab4c09c9c349b5b5a63161e97197aaf3b4edd476"
+    },
+    "contacts-views-record-v1016.css": {
+      "canonical": "contact-record.css",
+      "rawSha256": "af18fe0e4d93977017215e6bffeb01e9ed188cccdc556ac832682cec22c3779b",
+      "rawBytes": 17115,
+      "trimmedSha256": "b86c74e08ecb3afac2810a6224618b87917a1e3feec5e246fbd63acd7382f359"
+    },
+    "contacts-experience-completion-v10161.css": {
+      "canonical": "contact-record.css",
+      "rawSha256": "bd42459364ca70ac879f12ff18b0dc81f0cbeaa6e0cd350ec1d186fc77daa3c8",
+      "rawBytes": 11698,
+      "trimmedSha256": "a4f162bdf5edc903eb699ff7eabbab42494d9ec879171efc24f91cd18fd2825a"
+    },
+    "contact-views-v10163.css": {
+      "canonical": "contacts.css",
+      "rawSha256": "a43aed48b78159c1f9f6c648daba4b882610478399476ba9674d288179ff4654",
+      "rawBytes": 3888,
+      "trimmedSha256": "ee4081e8240b3964884b6418c5cf1721d43f6531b6ed90ba2b9f2aec4aa61ce9"
+    },
+    "contact-data-grid-view-settings-v10164.css": {
+      "canonical": "contacts.css",
+      "rawSha256": "cefea9626da4c65a45f14c69aceb367298d18cf9566aac0b73d47832a9f1d8de",
+      "rawBytes": 10174,
+      "trimmedSha256": "c7b5055e99630a286db94f6af672934f0c6811cd984df2dac8fd4938d32f8ded"
+    },
+    "contact-custom-properties-v10165.css": {
+      "canonical": "contacts.css",
+      "rawSha256": "0e75ce341a13e146693c124a7cdf11f46da0f389b0b071bafa3c5c676a4901f8",
+      "rawBytes": 2922,
+      "trimmedSha256": "42e9b13a31334b1bf867098c40830e824f6f0f2376746a5ed8cc3510595b7648"
+    },
+    "contact-intelligence-v101105-h3.css": {
+      "canonical": "contact-intelligence.css",
+      "rawSha256": "c743366c451ff01827ce35c81a0dac318b9e9a447d76c78004025697d7bdd7bc",
+      "rawBytes": 476,
+      "trimmedSha256": "2f8fe6e7d1430ef5da11359b1b448ffacc2ca195e74b6b47d14038cfba81e8c8"
+    },
+    "account-intelligence.css": {
+      "canonical": "account-360.css",
+      "rawSha256": "0c5a3b2f16d792bc27b98ec4640767154ee88bec4c6df6e503335034a92282a2",
+      "rawBytes": 14296,
+      "trimmedSha256": "16f94ef44f106d3866ee2c364fe88b6c08a88812e013821a5205b2d89a80f6ef"
+    },
+    "calls-v100.css": {
+      "canonical": "calls-core.css",
+      "rawSha256": "664e5bdedd28b1e4c407ce4d9e8d93fa93e3b54ec30c79cd7f16b63dd1e45445",
+      "rawBytes": 15577,
+      "trimmedSha256": "3e30c6fa493113218a52e9536db1c12e7f610ba7d8cf3624ec566cd349af4bdd"
+    },
+    "calls-v100982.css": {
+      "canonical": "calling-workspace.css",
+      "rawSha256": "922d90564b073619b5335bb1c7b66130d4a6681e3c504d97098343f9e250828b",
+      "rawBytes": 9701,
+      "trimmedSha256": "831a185a03a200023e113b02ccd77d0aabd7734a9f607166291007783ce5be76"
+    },
+    "calls-v1012.css": {
+      "canonical": "calling-workspace.css",
+      "rawSha256": "c3325b89bb586310ee5ec153657fb5ab0cfda165e57fdaebca7f34c4503ca80f",
+      "rawBytes": 7010,
+      "trimmedSha256": "432c939ae4559d6e75d418445a0b44bf675a59f138630da5115e5adbcffc830f"
+    },
+    "workspace-metrics-calling-convergence-v10170-h4.css": {
+      "canonical": "calling-intelligence.css",
+      "rawSha256": "bb1ebd2ce5d812db49f6829d03813ab615640c6ba72ae292f524d754c84bd5c6",
+      "rawBytes": 9024,
+      "trimmedSha256": "70142b3c0af589cde81ff6f6f5900743cc8e03c247c82e596e51fffd48e876c7"
+    },
+    "metrics-calling-structural-redesign-v10171.css": {
+      "canonical": "calling-intelligence.css",
+      "rawSha256": "ff982faa42776f4bf816e1d3f8dc7d4578f66052a5b139e007b53488bcb5ad28",
+      "rawBytes": 14641,
+      "trimmedSha256": "8684e6beb1d0bb862842bcb4c881c6b174017c5b18b606792d7d5c61a55cfd33"
+    },
+    "automations-v100.css": {
+      "canonical": "automations.css",
+      "rawSha256": "998134d41bd8a3fa5670d05455ffdd945a01799181f92816786acfdb1e901b9f",
+      "rawBytes": 20216,
+      "trimmedSha256": "9e9d2a9c6b7c2b475e65e7d5aac52bd1e4f87ef0566582e4b619ed0079363c8a"
+    },
+    "prospecting-v100.css": {
+      "canonical": "prospecting-core.css",
+      "rawSha256": "de7b6dcbca2ab06faffd16a889d100002d33429f00694566e223fb0b15cf67a6",
+      "rawBytes": 33989,
+      "trimmedSha256": "0240e602f3af2ec4ccf9086ba711748ca72279f24eec7bd128a20423a585d37e"
+    },
+    "prospecting-engine-v10098.css": {
+      "canonical": "prospecting-engine.css",
+      "rawSha256": "a4f3ff10f518ce20a59696da8ba3940bf18e7c555fc6414e2ed7b10ded56fa87",
+      "rawBytes": 3304,
+      "trimmedSha256": "12db523da1b78df171b1892775210264fe90106c062362af97004082725bbd6c"
+    },
+    "prospecting-search-automation-v101101.css": {
+      "canonical": "prospecting-workspace.css",
+      "rawSha256": "ab9815a98b3b0a7a50b6e653ae2d36575100eae4fee4dc4c852fe2ba7b67ac07",
+      "rawBytes": 1717,
+      "trimmedSha256": "b6c138d6559bb37e07c1c5b022fe4d1bf85791e90eb5759edb3406555b25a476"
+    },
+    "prospecting-agent-v101102.css": {
+      "canonical": "prospecting-workspace.css",
+      "rawSha256": "8f9b12975a7f2b8c28d226f1fe22f71924adc23f3cf9cc332adec240f6fdfdb3",
+      "rawBytes": 8127,
+      "trimmedSha256": "06eb95ad97b5f510aae978c813422060d15c83d68b3ce4691159e513986add3d"
+    },
+    "prospecting-review-v101103-h7.css": {
+      "canonical": "prospecting-workspace.css",
+      "rawSha256": "dea6cf8709e0c6ed1dbd862a4a4fe51b1dc9dcde944fefbea5988e8054548838",
+      "rawBytes": 2371,
+      "trimmedSha256": "8b0fc58248cbc796ec386959b0ffddcabdd4f5bfa036ee25f4bb7d0297b59ec3"
+    },
+    "prospecting-search-ontology-v101103-h8.css": {
+      "canonical": "prospecting-workspace.css",
+      "rawSha256": "957f76a835dca01c7751af75c1d84c98a355235dae6fac39e4eb47d0ba8aefb0",
+      "rawBytes": 1124,
+      "trimmedSha256": "b340370b2e2b9734df51167c3048a519750ebae98ff28ecc478e2d81c2b4c03e"
+    },
+    "prospecting-territory-engine-v101103-h9.css": {
+      "canonical": "prospecting-workspace.css",
+      "rawSha256": "38a697edc9cf88dd82f503e2cd447f7c5fa3443105316db3e30432cd74e22877",
+      "rawBytes": 976,
+      "trimmedSha256": "09998db9e342ab5cb50e11acc7a261fe0a207fda7684e8dfce373d92285ad7e2"
+    },
+    "prospecting-local-discovery-v101104.css": {
+      "canonical": "prospecting-workspace.css",
+      "rawSha256": "c18ccf323cc846de77d6d4c5ec1172ba662faf224d4fd3ad9492bf21ce9320bb",
+      "rawBytes": 13494,
+      "trimmedSha256": "5d91245e3c768c87cb4110bc2e3723eb4e3fd32ace3d25fbc4ddb2a68283e0f9"
+    },
+    "prospecting-ux-consolidation-v101106.css": {
+      "canonical": "prospecting-workspace.css",
+      "rawSha256": "91f9e0dd4c58c1172fd7fc411da585d808eb6663f0fb34fa7b942cce6c253eb5",
+      "rawBytes": 14207,
+      "trimmedSha256": "e0a317c6ffa75d5a99f8b6e96b25dadf0c057dc06975afa8c035bda92e88dfae"
+    },
+    "prospecting-search-processing-v101103.css": {
+      "canonical": "prospecting-processing.css",
+      "rawSha256": "3928b787adca0c93bd54212fa4f9340c9a521cbc26f7a3f82544c5e96defaa6f",
+      "rawBytes": 14674,
+      "trimmedSha256": "23d1a750a0ad43bf153cbc34c3ae317080887b652d62024c231c883e030c88ed"
+    }
+  }
+}

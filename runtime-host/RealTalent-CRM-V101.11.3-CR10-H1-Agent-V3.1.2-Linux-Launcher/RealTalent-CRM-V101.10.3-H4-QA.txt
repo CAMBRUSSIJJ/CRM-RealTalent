@@ -1,0 +1,103 @@
+RealTalent CRM V101.10.3-H4 — Data Integrity & Canonical Company Bridge
+QA Report
+=======================================================================
+
+Escopo
+------
+1. H2 Coverage Truth
+   - attempted vs successful vs failed territory
+   - failed cells no longer count as saturation gain
+   - saturation confidence based on valid/failed runs
+
+2. H3 Identity Resolver 2.0
+   - strong identities: CNPJ / stable provider identity
+   - domain/phone/Instagram alone cannot auto-merge branches
+   - physical-unit evidence required for automatic merge
+
+3. H4 Canonical Company Bridge
+   - CompanyRecord canonical entry
+   - ContactRecord only with identified person
+   - opportunity/Lead optional by default
+   - Local/Supabase Company CRUD parity
+
+Final structural QA
+-------------------
+QA Architecture ........................ PASS
+Release Manifest ....................... 38/38
+Syntax Audit ........................... 385 files
+Integration Contract Audit ............. 358 files
+Migrations ............................. 49/49
+Capability Matrix ...................... 18 capabilities / 51 evidence / 35 executable
+Repository Contract .................... 98 methods
+Local Repository parity ................ 98/98
+Supabase Repository parity ............. 98/98
+Browser E2E Contract ................... 9 flows
+V101.10.3 Engine ....................... 41/41
+V101.10.3-H1 Drawn Territory ........... 44/44
+V101.10.3-H2 Coverage Truth ............. 10/10
+V101.10.3-H3 Identity Resolver 2.0 ...... 10/10
+V101.10.3-H4 Canonical Company Bridge .. 13/13
+Linux release preflight ................ PASS (351 TS/TSX)
+Launcher bash syntax ................... PASS
+Legacy regression ...................... 3,939 OK / 0 FAIL
+
+Runtime simulations
+-------------------
+Coverage Truth:
+- attempted territory: 100%
+- successful territory: 98%
+- failed territory: 2%
+- saturation: 89% / medium
+- PASS: partial technical failure no longer reports 100% successful coverage.
+
+Identity Resolver 2.0:
+- 2 branches returned with same domain and same phone
+- 2 unique units preserved
+- PASS: shared corporate channels do not auto-merge branches.
+
+Drawn Territory:
+- 2 companies inside polygon
+- 4 cells
+- 26.8 km2
+- broad web injection: 0
+- PASS
+
+Search & Processing Engine:
+- 7 unique companies
+- successful coverage: 100%
+- saturation: 97%
+- OSM + Web
+- PASS
+
+H3 search runtime compatibility:
+- OSM + web discovery + enrichment
+- administrative fallback without Nominatim
+- PASS
+
+Historical architecture regression
+----------------------------------
+A temporary regression caused by adding Company CRUD directly to large modules was caught by V100.60.1:
+- AppContext exceeded historical 70 KB threshold;
+- Local repository exceeded historical modularity threshold.
+
+Resolution:
+- Company local persistence extracted to local-company-repository.ts;
+- AppContext returned below 70 KB;
+- local-crm-repository.ts returned below 110 KB;
+- V100.60.1 returned to 29/29;
+- complete legacy run finished 3,939 OK / 0 FAIL.
+
+Global dependency gates in packaging environment
+------------------------------------------------
+node_modules is absent in the source ZIP.
+
+npm run typecheck: BLOCKED BY ENVIRONMENT
+- React/react-dom/@supabase/supabase-js types/modules are unavailable.
+
+npm test -- --run: BLOCKED BY ENVIRONMENT
+- vitest: not found
+
+npm run build: BLOCKED BY ENVIRONMENT
+- vite: not found
+
+These gates remain mandatory in start-linux.sh. The launcher installs dependencies and executes npm run release:verify before starting the CRM.

@@ -1,0 +1,10 @@
+/* V100.79 — Mapa de Contas 2.0 */
+.commercial-map-v10079 .commercial-map-hero__actions{flex-wrap:wrap}
+.commercial-map-v10079 .commercial-map-toolbar__filters--advanced{grid-template-columns:minmax(150px,.7fr) minmax(150px,.7fr) minmax(160px,.7fr) auto auto!important}
+.commercial-map-v10079 .commercial-map-account-summary>div{align-items:flex-start}.commercial-map-v10079 .commercial-map-account-summary>div>strong{max-width:190px}
+.commercial-map-v10079 .commercial-map-open-lead{font-weight:800}.commercial-map-v10079 .commercial-map-lead-actions .button{min-width:76px}
+.commercial-map-runtime-root.map-style-light .leaflet-tile-pane,.commercial-map-runtime-root.map-style-streets .leaflet-tile-pane,.commercial-map-runtime-root.map-style-dark .leaflet-tile-pane{filter:none!important}
+.commercial-map-v10079 .commercial-map-basemap button{min-width:52px}
+.commercial-map-v10079 .commercial-map-precision{max-width:min(620px,calc(100% - 40px))}
+@media(max-width:980px){.commercial-map-v10079 .commercial-map-toolbar__filters--advanced{grid-template-columns:repeat(2,minmax(0,1fr))!important}}
+@media(max-width:760px){.commercial-map-v10079 .commercial-map-toolbar__filters--advanced{grid-template-columns:1fr!important}.commercial-map-v10079 .commercial-map-hero__actions>*{width:100%}}

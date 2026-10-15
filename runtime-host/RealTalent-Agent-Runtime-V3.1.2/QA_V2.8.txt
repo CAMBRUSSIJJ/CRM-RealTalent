@@ -1,0 +1,22 @@
+RealTalent Agent V2.8 — QA FINAL
+
+Runtime audit................ 282/282 PASS
+Execution Intelligence....... 10/10 PASS
+Agent -> Execution........... 5/5 PASS
+V2.8 gateway integration..... 10/10 PASS
+Broad runtime self-tests..... 35/35 PASS
+Reliability FULL............. 1000/1000 PASS
+Known-Failure replay......... 7/7 PASS
+CRM integration.............. 7/7 PASS
+Blue Ocean integration....... 7/7 PASS
+CRM TS parser................ PASS
+Blue Ocean TS parser......... PASS
+Shell syntax................. 85/85 PASS
+MJS syntax................... 522/522 PASS
+Python compile............... 18/18 PASS
+Browser Conversation E2E..... UNVERIFIED (Chromium policy blocks localhost)
+CRM full typecheck/test/build. UNVERIFIED (node_modules absent)
+Blue full typecheck/build..... UNVERIFIED (node_modules absent)
+
+Safety invariant: maxSilentWriteActions = 0.
+A planned/dispatched write is not success until receipt + postcondition verification.

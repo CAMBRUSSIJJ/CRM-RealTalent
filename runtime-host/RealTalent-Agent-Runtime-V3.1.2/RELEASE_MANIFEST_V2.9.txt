@@ -1,0 +1,27 @@
+RealTalent Agent V2.9 — Release Manifest
+========================================
+Core: Long-Horizon Autonomous Workflows
+Baseline: V2.8 Execution Intelligence & Controlled Autonomy
+
+Artifacts inside complete bundle:
+- RealTalent-Agent-Runtime-V2.9
+- RealTalent-CRM-V101.11.3-CR10-H1-Agent-V2.9-Linux-Launcher
+- Blue-Ocean-Service-Studio-V1.20.5-H7.24-Agent-V2.9-Linux-Source-Launcher
+- LONG_HORIZON_AUTONOMY_V2.9.md
+- RELEASE_NOTES_V2.9.md
+- VALIDACAO_V2.9.md
+- QA_V2.9.txt
+
+Release gates:
+- Runtime 287/287 PASS
+- Long-Horizon core 9/9 PASS
+- V2.9 gateway 11/11 PASS
+- Self-tests 37/37 PASS
+- Reliability 1000/1000 PASS
+- Known-Failure 8/8 PASS
+- CRM 7/7 PASS
+- Blue Ocean 7/7 PASS
+
+Explicitly unverified:
+- Browser Conversation E2E due administrator URL block on localhost
+- full Vite/Vitest product gates

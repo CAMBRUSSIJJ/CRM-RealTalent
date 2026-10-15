@@ -1,0 +1,50 @@
+import fs from 'node:fs'
+import path from 'node:path'
+
+const root = process.cwd()
+const read = (file) => fs.readFileSync(path.join(root, file), 'utf8')
+const exists = (file) => fs.existsSync(path.join(root, file))
+const checks = []
+const check = (label, ok) => checks.push({ label, ok: Boolean(ok) })
+
+const pkg = JSON.parse(read('package.json'))
+const version = read('src/lib/app-version.ts')
+const workspace = read('src/features/calls/call-workspace-modal.tsx')
+const prep = read('src/features/calls/call-session-preparation-modal.tsx')
+const service = read('src/services/calling-intelligence-workspace.ts')
+const test = read('src/services/calling-intelligence-workspace.test.ts')
+const css = read('src/styles/calls-intelligence-workspace-v10072.css')
+const map = read('src/features/commercial-map/commercial-map-page.tsx')
+const health = JSON.parse(read('public/health.json'))
+
+const versionParts = String(pkg.version).split('.').map(Number)
+const isAtLeast100720 = (versionParts[0] ?? 0) > 100 || ((versionParts[0] ?? 0) === 100 && ((versionParts[1] ?? 0) > 72 || ((versionParts[1] ?? 0) === 72 && (versionParts[2] ?? 0) >= 0)))
+check('base V100.72.0 preservada', isAtLeast100720 && version.includes(`APP_VERSION = '${pkg.version}'`))
+check('backup schema histórico preservado', version.includes("BACKUP_SCHEMA_VERSION = '100.54'"))
+check('runtime bridge acompanha pacote', map.includes('version: APP_VERSION'))
+check('health acompanha pacote', health.version === pkg.version)
+check('serviço de inteligência existe', exists('src/services/calling-intelligence-workspace.ts'))
+check('stylesheet da inteligência existe', exists('src/styles/calls-intelligence-workspace-v10072.css'))
+check('Pré-call Brief implementado', service.includes('buildPreCallBrief') && ((workspace.includes('Pré-call Brief') && workspace.includes('preCallBrief.recommendedQuestion')) || (workspace.includes('Resumo essencial do contato') && workspace.includes('recentHistory.slice(0, 2)') && workspace.includes('Objetivo da ligação'))))
+check('Call Health implementado', service.includes('buildCallHealth') && workspace.includes('Call Health') && workspace.includes("callHealth?.status === 'restricted'"))
+check('Call Health integrado à preparação', prep.includes('callHealthByLead') && (prep.includes('Call Health da fila') || prep.includes('<strong>Call Health</strong>')) && prep.includes("status !== 'restricted'"))
+check('Next Best Question implementado', service.includes('recommendNextBestQuestion') && workspace.includes('Next Best Question') && workspace.includes('nextBestQuestion.question'))
+check('Live Conversation Signals implementado', service.includes('analyzeLiveConversation') && workspace.includes('Live Conversation Signals') && workspace.includes('liveSignals.map'))
+check('sinais automáticos persistem no wrap-up', workspace.includes('automaticSignalLabels') && workspace.includes('Sinais da conversa'))
+check('análise local não usa API externa', !service.includes('fetch(') && !service.includes('axios') && !service.includes('supabase'))
+check('inteligência não cria nova aba principal', !workspace.includes("type WorkTab = 'script' | 'discovery' | 'notes' |"))
+check('CSS responsivo V100.72', css.includes('@media (max-width: 760px)') && css.includes('.call-intelligence-v72__precall'))
+check('testes unitários existem', exists('src/services/calling-intelligence-workspace.test.ts') && test.includes("describe('calling intelligence workspace'"))
+check('release notes existem', exists('RELEASE_NOTES_V100.72.0.md'))
+check('documentação existe', exists('docs/V100.72.0-CALLING-INTELLIGENCE-WORKSPACE.md'))
+check('QA report existe', exists('QA_REPORT_V100.72.0.txt'))
+check('npm check inclui V100.72.0', String(pkg.scripts['check:legacy']).includes('qa:v100.72.0'))
+check('sem migration V100.72', !fs.readdirSync(path.join(root, 'supabase/migrations')).some((name) => /100[_-]?72/i.test(name)))
+
+const failed = checks.filter((item) => !item.ok)
+for (const item of checks) console.log(`${item.ok ? '✓' : '✗'} ${item.label}`)
+if (failed.length) {
+  console.error(`\nV100.72 Calling Intelligence Workspace Audit falhou: ${checks.length - failed.length}/${checks.length}.`)
+  process.exit(1)
+}
+console.log(`\nV100.72 Calling Intelligence Workspace Audit: ${checks.length}/${checks.length} contratos aprovados.`)

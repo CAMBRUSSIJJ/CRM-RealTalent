@@ -1,0 +1,38 @@
+RealTalent CRM V100.91.0 — Central de Ajuda + Onboarding
+Data: 2026-09-23
+
+ESCOPO
+- Central de Ajuda pesquisável no botão ?
+- ajuda contextual por rota
+- artigos passo a passo para módulos centrais
+- tours guiados com persistência local
+- onboarding inicial dispara tour de primeiro ciclo comercial
+- RealTalent Assistant consulta a mesma base de ajuda
+- abertura do Assistant com prompt de ajuda pré-preenchido
+- Auditoria funcional promove Ajuda/tutorial para Funcional
+
+VALIDAÇÕES EXECUTADAS
+- Gate V100.91: 82/82 verificações aprovadas antes do relatório final
+- Gates históricos/atuais: 36/36 scripts aprovados (V100.56.4 → V100.91)
+- Auditoria sintática: 264 arquivos aprovados
+- Contratos de integração: 234 arquivos aprovados
+- Migrations: 38/38 checksums íntegros
+- TypeScript isolado: help-center.ts + realtalent-assistant.ts compilados com TypeScript 5.8.3 sem erros
+- BACKUP_SCHEMA_VERSION: 100.54 (preservado)
+- Migration nova: não
+
+LIMITAÇÃO DO AMBIENTE
+- npm ci não concluiu por TransportTimeoutError.
+- Portanto typecheck global, Vitest e build Vite com dependências reais NÃO são declarados como executados/aprovados neste empacotamento.
+- node_modules parcial foi removido antes do pacote final.
+
+AUDITORIA FUNCIONAL ESTIMADA APÓS PROMOÇÃO DA AJUDA
+- Funcionais: 23
+- Parciais: 6
+- Visual-only: 0
+- Não implementados: 0
+
+OBSERVAÇÕES
+- A documentação da V100.91 é embarcada; vídeos e documentação remota versionada ficam para evolução posterior.
+- Tours não exigem backend e podem ser encerrados sem bloquear o uso do CRM.
+- O Assistant recebe capacidade de consultar ajuda, mas nenhuma autoridade adicional de escrita.

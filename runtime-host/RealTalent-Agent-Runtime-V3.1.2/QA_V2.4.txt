@@ -1,0 +1,26 @@
+RealTalent Agent V2.4 — QA FINAL
+Data: 2026-10-14
+
+PASS  Runtime contracts: 250/250
+PASS  Memory & Knowledge core: 8/8
+PASS  Gateway V2.4: 10/10
+PASS  Intelligence Core V2.3: 10/10
+PASS  Conversation Intelligence V2.3: 11/11
+PASS  Intelligence Orchestration V2.3: 15/15
+PASS  V2.3 compatibility: 11/11
+PASS  V2.2 Grounded App Intelligence: 25/25
+PASS  Chat Experience V2.4: 10/10
+PASS  Local AI: 7/7
+PASS  CRM integration: 5/5
+PASS  Blue Ocean integration: 5/5
+PASS  Shell syntax
+PASS  Python compile
+UNVERIFIED Browser Conversation E2E: Chromium policy URLBlocklist=["*"] blocks localhost before application load.
+
+Key guarantees:
+- chat does not auto-promote every message to durable semantic memory;
+- RAG ingestion is explicit;
+- memory and knowledge reset independently;
+- local embedding failure has deterministic fallback;
+- older Tool-First/App Context/History contracts remain green;
+- no new CRM/Blue Ocean business functions were introduced.

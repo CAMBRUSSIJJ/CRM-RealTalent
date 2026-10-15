@@ -1,0 +1,54 @@
+RealTalent CRM V101.9.8 — Design System Consolidation
+QA Report
+====================================================
+
+Escopo
+- tokens canônicos de cor, spacing, tipografia, radius, controls, shadow, focus e motion
+- primitives compartilhadas Button/IconButton/Input/Select/Textarea/Tabs/Drawer/Dialog/DataGrid/Surface/EmptyState
+- legacy bridge para classes/tokens históricos
+- Meu Dia e Contatos como baseline visual
+- migração inicial de Button, Modal, EmptyState, busca global e DataGrid de Contatos
+- design-system-v101.css aposentada da pilha runtime
+- nenhuma migration SQL nova
+
+Resultados executados neste ambiente
+------------------------------------
+V101.9.8 Design System audit: 38/38 contratos aprovados
+Design System runtime/static smoke: 12/12
+Linux release preflight: OK (342 arquivos TS/TSX)
+Source syntax audit: 376 arquivos aprovados
+Integration contract audit: 347 arquivos aprovados
+Migrations: 48/48 com checksum íntegro
+TypeScript isolado do Design System: OK
+
+Regressão histórica
+-------------------
+O `npm run check` atravessou todos os audits históricos e os gates V101.9.0 → V101.9.8
+com 3.184 checks OK e 0 FAIL antes do typecheck global.
+
+O typecheck global parou porque esta montagem não possui as dependências de runtime/tipos
+(React, react-dom, lucide-react, @supabase/supabase-js etc.). Os erros subsequentes de JSX
+/ implicit any são consequência da resolução desses módulos ausentes.
+
+Tentativa de instalação
+-----------------------
+`npm install --no-audit --no-fund` foi tentado de forma controlada, mas ficou bloqueado
+por rede/timeout e não criou `node_modules` utilizável. Nenhuma árvore parcial foi incluída
+na release.
+
+O `start-linux.sh` mantém os gates completos no Linux:
+  npm install -> preflight -> release:verify -> typecheck -> Vitest -> build -> runtime smokes.
+
+Compatibilidade visual
+----------------------
+- identidade RealTalent preservada: #04342C / #1D9E75 / #F1EFE8 / #2C2C2A
+- densidade compact/comfortable preservada
+- dark theme preservado
+- classes históricas bridged para primitives canônicas
+- aliases V101.0 (--rt-border, --rt-text, --rt-primary etc.) preservados
+- CSS específicos de módulos não foram removidos prematuramente
+- antiga design-system-v101.css permanece no repositório para histórico, mas não é importada no runtime
+
+Migrations
+----------
+48/48. Nenhuma migration V101.9.8.

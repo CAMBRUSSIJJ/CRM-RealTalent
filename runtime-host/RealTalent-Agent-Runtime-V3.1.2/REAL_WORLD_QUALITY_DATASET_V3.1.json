@@ -1,0 +1,53 @@
+{
+  "version":"3.1",
+  "purpose":"Regression dataset for perceived intelligence quality. These are deterministic routing/context/reference/tool/style checks, not a substitute for human scoring of model prose.",
+  "cases":[
+    {"id":"intent-01","category":"intent","message":"oi","expect":{"intent":"greeting"}},
+    {"id":"intent-02","category":"intent","message":"o que é CRM?","expect":{"intent":"general_question"}},
+    {"id":"intent-03","category":"intent","message":"como posso me amar?","expect":{"intent":"personal_emotional"}},
+    {"id":"intent-04","category":"intent","message":"Analise o CRM inteiro e priorize o que impede a comercialização","expect":{"intent":"analysis_job"}},
+    {"id":"intent-05","category":"intent","message":"onde está implementado o pipeline no CRM?","expect":{"intent":"project_question"}},
+    {"id":"intent-06","category":"intent","message":"analise","attachments":[{"name":"tela.png","type":"image/png","dataUrl":"data:image/png;base64,AA=="}],"expect":{"intent":"attachment_analysis"}},
+    {"id":"intent-07","category":"intent","message":"melhore essa tela","appContext":{"product":"crm","route":"/contacts"},"expect":{"intent":"app_context_reference"}},
+    {"id":"intent-08","category":"intent","message":"obrigada","expect":{"intent":"thanks"}},
+
+    {"id":"ref-01","category":"reference","message":"esse botão","baseCandidates":[["app_context",0.96],["visual_context",0.91]],"expect":{"source":"visual_context"}},
+    {"id":"ref-02","category":"reference","message":"esse contato selecionado","baseCandidates":[["app_context",0.96],["conversation",0.76]],"expect":{"source":"app_context"}},
+    {"id":"ref-03","category":"reference","message":"isso","baseCandidates":[["app_context",0.94],["conversation",0.91]],"expect":{"source":"unresolved"}},
+    {"id":"ref-04","category":"reference","message":"analise isso","attachments":[{"name":"x.png","type":"image/png","dataUrl":"data:image/png;base64,AA=="}],"baseCandidates":[["attachment",0.99],["app_context",0.96]],"expect":{"source":"attachment"}},
+    {"id":"ref-05","category":"reference","message":"e agora?","baseCandidates":[["conversation",0.76]],"expect":{"source":"conversation"}},
+    {"id":"ref-06","category":"reference","message":"o canto superior direito","baseCandidates":[["visual_context",0.91],["app_context",0.96]],"expect":{"source":"visual_context"}},
+
+    {"id":"tool-01","category":"tool","message":"mostre os contatos","product":"crm","expect":{"tool":"crm.contacts.search"}},
+    {"id":"tool-02","category":"tool","message":"busque o contato Acme por id","product":"crm","expect":{"tool":"crm.contacts.get"}},
+    {"id":"tool-03","category":"tool","message":"mostre as oportunidades do pipeline","product":"crm","expect":{"tool":"crm.pipeline.list"}},
+    {"id":"tool-04","category":"tool","message":"envie uma mensagem no WhatsApp","product":"crm","expect":{"tool":"crm.communications.sendMessage"}},
+    {"id":"tool-05","category":"tool","message":"rode uma busca no garimpo","product":"crm","expect":{"tool":"crm.prospecting.runSearch"}},
+    {"id":"tool-06","category":"tool","message":"abra o blueprint atual","product":"blue_ocean","expect":{"tool":"blueOcean.blueprint.get"}},
+    {"id":"tool-07","category":"tool","message":"mostre a persona do cliente","product":"blue_ocean","expect":{"tool":"blueOcean.persona.get"}},
+    {"id":"tool-08","category":"tool","message":"leia o service graph","product":"blue_ocean","expect":{"tool":"blueOcean.serviceGraph.read"}},
+
+    {"id":"style-01","category":"style","input":"Claro! CRM é gestão de relacionamento com clientes.","expect":{"outputStarts":"CRM"}},
+    {"id":"style-02","category":"style","input":"A resposta é direta.\n\nSe quiser, posso explicar mais.","expect":{"notContains":"Se quiser"}},
+    {"id":"style-03","category":"style","intent":"greeting","expect":{"maxHeadings":0}},
+    {"id":"style-04","category":"style","intent":"analysis_job","tier":"deep","expect":{"maxHeadings":5}},
+
+    {"id":"context-01","category":"context","query":"oportunidade Acme","messages":["gatos domésticos","sobre gatos","pipeline oportunidade Acme","Acme em proposta"],"expect":{"contains":"Acme","notContains":"gatos"}},
+    {"id":"context-02","category":"context","query":"e o pipeline?","messages":["pipeline etapa proposta","tem 4 oportunidades","receita financeira","custos anuais"],"expect":{"contains":"pipeline"}},
+    {"id":"context-03","category":"context","query":"novo assunto completamente diferente","topicShift":true,"messages":["CRM antigo","pipeline antigo"],"expect":{"count":0}},
+    {"id":"context-04","category":"context","query":"lead id_928 status","messages":["lead id_111 perdido","lead id_928 em negociação","outra coisa","status id_928 atualizado"],"expect":{"contains":"id_928"}},
+
+    {"id":"latency-01","category":"latency","tier":"instant","expect":{"maxOutputTokens":650}},
+    {"id":"latency-02","category":"latency","tier":"standard","expect":{"maxOutputTokens":1800}},
+    {"id":"latency-03","category":"latency","tier":"deep","expect":{"maxOutputTokens":3200}},
+
+    {"id":"visual-01","category":"visual","message":"analise essa tela","imageCount":1,"expect":{"kind":"ui_diagnosis"}},
+    {"id":"visual-02","category":"visual","message":"compare essas duas telas","imageCount":2,"expect":{"kind":"compare"}},
+    {"id":"visual-03","category":"visual","message":"analise esse gráfico de KPI","imageCount":1,"expect":{"kind":"chart_analysis"}},
+    {"id":"visual-04","category":"visual","message":"leia esse documento","imageCount":1,"expect":{"kind":"document_visual"}},
+
+    {"id":"rag-01","category":"rag","query":"lead-details-drawer.tsx","expect":{"identifierLike":true}},
+    {"id":"rag-02","category":"rag","query":"amor próprio","expect":{"short":true}},
+    {"id":"rag-03","category":"rag","query":"compare as decisões de arquitetura do pipeline comercial","expect":{"short":false}}
+  ]
+}

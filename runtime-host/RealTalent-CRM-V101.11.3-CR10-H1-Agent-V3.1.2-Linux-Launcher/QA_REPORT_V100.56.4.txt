@@ -1,0 +1,24 @@
+RealTalent CRM V100.56.4 — Full QA & Data Consistency
+Data: 2026-09-15
+Base verificada: V100.56.3 — UX Reliability
+
+GATES EXECUTADOS E APROVADOS
+- source_syntax_audit: 192 arquivos
+- integration_contract_audit: 163 arquivos
+- migrations:verify: 35 migrations / checksums íntegros
+- v100_56_4_regression_audit: 21/21 contratos críticos
+
+PRINCIPAIS CENÁRIOS COBERTOS
+- proteção de histórico em exclusão individual/em massa
+- mesclagem preservando propostas, oportunidades e receita
+- sincronização sem apagar empresa/contato manual
+- validação de agenda e intervalos de datas
+- coerência de etapas ganha/perdida
+- sincronização Lead ↔ oportunidade em proposta/fechamento
+- prevenção de IDs duplicados na importação
+- validação de proposta, receita e metas
+- referências entre workspaces no Supabase
+- diagnóstico ampliado de inconsistências comerciais
+
+LIMITAÇÃO DO AMBIENTE
+Os binários locais vitest, tsc e vite não estavam disponíveis após a restauração e o cache npm estava vazio. Por isso npm test, npm run typecheck e npm run build não foram executados neste ambiente. Eles continuam configurados no npm run check e devem ser executados após npm ci em ambiente com dependências disponíveis.

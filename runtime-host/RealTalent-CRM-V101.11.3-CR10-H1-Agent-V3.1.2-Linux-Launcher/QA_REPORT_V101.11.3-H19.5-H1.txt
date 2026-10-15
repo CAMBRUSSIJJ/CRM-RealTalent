@@ -1,0 +1,40 @@
+RealTalent CRM — V101.11.3-H19.5-H1
+Selection Overlay Runtime Fix
+
+BASE
+- V101.11.3-H19.5 — Channel Workspaces & Collaborative Tasks
+
+ACHADO COMPROVADO
+- SelectionSelect renderiza o menu por createPortal(..., document.body).
+- O menu canônico tinha z-index 9999.
+- .modal-backdrop usa z-index 13000.
+- Resultado: dentro de modais o menu abria, mas ficava atrás da camada do modal; para o usuário parecia que Status, Prioridade, Equipe, Responsável e Registro não tinham opções.
+
+CORREÇÃO
+- Baseline canônica selection-controls.css preservada sem alteração para manter hashes históricos.
+- Override aplicado em camada posterior já carregada: work-management.css.
+- .rt-selection-menu-v101105 passa a z-index 13550 em runtime.
+- Continua abaixo da toast-region (14000).
+- Equipe vazia informa "Nenhuma equipe cadastrada".
+- Responsável vazio informa "Nenhuma pessoa disponível" / "Nenhuma pessoa nesta equipe".
+- Vínculo Equipe -> Pessoa e checklist Trello-style preservados.
+
+QA
+- H19.5-H1 Selection Overlay Runtime Hotfix: 18/18 PASS
+- V101.10.5 Selection & Filter System: 32/32 PASS
+- H19.5 Channel Workspaces & Collaborative Tasks: 76/76 PASS
+- Source Syntax: 413 arquivos PASS
+- Integration Contracts: 381 arquivos PASS
+- CSS Governance: 65/65 PASS
+- H5 Dead CSS Removal: 22/22 PASS
+- qa:architecture: PASS
+- validate:env: PASS
+
+BUILD GATES
+- node_modules não está presente neste pacote.
+- typecheck, Vitest e Vite build não foram reclassificados como PASS neste hotfix.
+- dist não está presente no artefato final.
+
+LIMITAÇÃO DE DADOS
+- Em modo local, Equipes só aparecem após serem cadastradas no módulo Equipes.
+- Responsáveis vêm dos membros reais do workspace; escolher uma equipe restringe a lista aos membros vinculados a ela.

@@ -1,0 +1,82 @@
+RealTalent CRM V101.10.3-H5 — Independent Enrichment Jobs
+QA Report
+==========================================================
+
+Escopo
+------
+- Website Discovery independente
+- Contact Discovery independente
+- CNPJ Discovery + validação cadastral/identidade
+- Social Discovery por evidência no website oficial
+- quatro enrichment tasks persistentes por CompanyCandidate
+- retry automático limitado por tarefa
+- reprocessamento isolado por tarefa
+- sincronização do candidato reprocessado com a fila de Revisão
+- preservação de Coverage Truth, Identity Resolver 2.0, território desenhado e Canonical Company Bridge
+
+Validações aprovadas
+--------------------
+- QA Architecture: PASS
+  - Source syntax audit: 385 arquivos
+  - Integration contract audit: 358 arquivos
+  - Migrations: 49/49 com checksum íntegro
+  - Release Manifest: 39/39 invariantes
+  - Capability Matrix: 18 capacidades / 53 evidências / 36 executáveis
+  - Repository Contract: Local 98/98 / Supabase 98/98
+  - Browser E2E Contract: 9 fluxos catalogados
+- V101.10.3 base: 41/41
+- V101.10.3-H1 Drawn Territory: 44/44
+- V101.10.3-H2 Coverage Truth: 10/10
+- V101.10.3-H3 Identity Resolver 2.0: 10/10
+- V101.10.3-H4 Canonical Company Bridge: 13/13
+- V101.10.3-H5 Independent Enrichment Jobs: 28/28
+- Linux release preflight: PASS (351 arquivos TS/TSX)
+- start-linux.sh: bash -n PASS
+- install-prospecting-agent-service.sh: bash -n PASS
+- Legacy regression: PASS (exit status 0)
+- Enrichment runtime smoke: PASS
+  - website=completed
+  - contacts=completed
+  - cnpj=completed
+  - social=completed após retry isolado
+  - retry de Social não repetiu Website/Contacts/CNPJ
+
+Cenário funcional validado
+--------------------------
+1. Empresa descoberta sem website.
+2. Website Discovery encontra domínio por busca web pública.
+3. Contact Discovery extrai telefone/e-mail do website validado.
+4. CNPJ Discovery encontra CNPJ e valida correspondência cadastral.
+5. Social Discovery fica em attention quando não encontra rede confiável.
+6. Reprocessar somente Redes conclui Social posteriormente.
+7. Contadores/resultados das outras três tarefas permanecem inalterados.
+8. Resultado enriquecido é sincronizado de volta para Revisão.
+
+Gates globais neste ambiente
+----------------------------
+Os três comandos foram executados, mas NÃO podem ser considerados aprovados neste contêiner porque a árvore de release não inclui node_modules:
+
+- npm run typecheck: NÃO EXECUTÁVEL COMPLETAMENTE
+  Motivo principal: dependências/tipos de React, React DOM e Supabase não instalados; os erros subsequentes de JSX/implicit-any são cascata da ausência desses módulos.
+- npm test: NÃO EXECUTÁVEL
+  Motivo: vitest: not found (status 127).
+- npm run build: NÃO EXECUTÁVEL
+  validate:env passou; Vite não iniciou porque vite: not found (status 127).
+
+O start-linux.sh permanece responsável por instalar/reparar dependências e executar release:verify no Linux antes de abrir o CRM. Este relatório não converte ausência de dependências em aprovação fictícia.
+
+Segurança e limites
+-------------------
+- somente páginas públicas
+- robots.txt respeitado
+- sem login automático, CAPTCHA ou bypass
+- Social Discovery usa links/evidências do website oficial; não raspa diretamente redes sociais autenticadas
+- CNPJ descoberto é aceito somente após validação e correspondência com a empresa candidata
+- nenhum estado local do Agent é incluído no ZIP
+
+Persistência
+------------
+- schema do Agent: v3
+- candidateId estável
+- cada enrichment task persiste status, attempts, maxAttempts, lastError, message, lastRunAt e completedAt
+- nenhum migration SQL novo; total permanece 49/49

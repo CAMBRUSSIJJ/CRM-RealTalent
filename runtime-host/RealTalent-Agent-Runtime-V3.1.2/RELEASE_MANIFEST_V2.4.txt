@@ -1,0 +1,31 @@
+RealTalent Agent V2.4 — Release Manifest
+
+Complete bundle contents:
+- RealTalent-Agent-Runtime-V2.4/
+- RealTalent-CRM-V101.11.3-CR10-H1-Agent-V2.4-Linux-Launcher/
+- Blue-Ocean-Service-Studio-V1.20.5-H7.24-Agent-V2.4-Linux-Source-Launcher/
+- COMECE-AQUI.txt
+- MEMORY_KNOWLEDGE_V2.4.md
+- RELEASE_NOTES_V2.4.md
+- VALIDACAO_V2.4.md
+- QA_V2.4.txt
+- wrapper scripts for chat, CRM, Blue Ocean, knowledge, memory, QA and control center
+
+Runtime V2.4 additions:
+- memory-knowledge.mjs
+- memory-knowledge-selftest.mjs
+- v2.4-selftest.mjs
+- knowledge-agent.py
+- semantic-memory-linux.sh
+- embedding role in hardware profiler/setup
+- Knowledge/Semantic Memory API routes
+- Control Center Memory & Knowledge panels
+
+Storage:
+- knowledge-index-v2.4.json (created at runtime under XDG state)
+- semantic-memory-v2.4.json (created at runtime under XDG state)
+
+Durable memory policy:
+- explicit-only
+- chatAutoPersistence=false
+- knowledgeIngestion=explicit

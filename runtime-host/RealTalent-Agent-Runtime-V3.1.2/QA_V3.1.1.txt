@@ -1,0 +1,43 @@
+RealTalent Agent V3.1.1 — QA FINAL
+Data: 2026-10-14
+
+ESCOPO
+- Model & Human Quality Calibration sobre V3.1.
+- Sem CRM Native Tools novos.
+- Kernel/API V3.1 preservados.
+
+PASS
+- V3.1.1 selftest: 9/9
+- Calibration core: 8/8
+- Calibration integration mock Ollama: 8/8
+- Intelligence Quality: 11/11
+- Memory/RAG Quality: 5/5
+- Gateway V3.1: 10/10
+- Platform V3.1: 10/10
+- Runtime Audit: 290/290
+- Real-world Quality: 40/40 (1000/1000)
+- Reliability FULL: 1000/1000
+- Known-Failure: 10/10
+- CRM integration: 8/8
+- Blue Ocean integration: 8/8
+- Broad MJS selftests final: 46/46
+- Shell syntax: 92/92
+- Runtime MJS syntax: 76/76
+- Runtime Python compile: 4/4
+
+OBSERVAÇÃO DE FLAKINESS
+- Primeira bateria ampla: Project Brain 13/16 durante execução em lote.
+- Reexecução isolada imediata: 16/16 PASS.
+- Repetição completa final: 46/46 PASS.
+
+UNVERIFIED
+- Browser Conversation E2E: Chromium administrado bloqueia localhost com ERR_BLOCKED_BY_ADMINISTRATOR.
+- Benchmark real dos modelos no notebook do usuário: precisa ser executado no hardware alvo.
+
+SEGURANÇA DA CALIBRAÇÃO
+- arena não baixa modelos;
+- arena não altera agent.env;
+- apply exige resultado prévio;
+- apply cria backup;
+- avaliação humana é opt-in;
+- plataforma V3.1/contrato V3.0 permanecem estáveis.

@@ -1,0 +1,66 @@
+RealTalent CRM V101.11.3-H19.5 — QA Report
+Channel Workspaces & Collaborative Tasks
+
+Base direta: V101.11.3-H19.4 — Communication Focus Experience
+Data: 2026-10-08
+Status arquitetural: PASS
+
+ESCOPO VALIDADO
+- WhatsApp dedicado como workspace padrão da Central de Comunicação.
+- E-mail dedicado com thread cronológica, Gmail/Outlook conectado e envio via sendOfficialEmail existente.
+- Lead Context Drawer H19.4 preservado.
+- Tarefas ligadas a memberships reais de Equipe -> Pessoa.
+- Checklist item a item inspirado no padrão operacional do Trello, com progresso, edição, conclusão, remoção, ocultação e drag reorder.
+- Nenhuma migration nova.
+
+GATES DE ARQUITETURA
+- qa:architecture: PASS
+- Source Syntax: 413 arquivos PASS
+- Integration Contracts: 381 arquivos PASS
+- Migrations: 54/54 checksums íntegros
+- Release Manifest: 87/87
+- Capability Matrix: 31 capacidades / 100 evidências / 63 executáveis
+- Repository Local: 100/100
+- Repository Supabase: 100/100
+- Browser E2E Contract: 11 fluxos
+- CSS Governance: 65/65
+- Linux release preflight: 374 arquivos TS/TSX PASS
+
+REGRESSÕES DIRETAS
+- V100.85.0 WhatsApp 2.0: 66/66 PASS
+- V100.86.0 Communications 2.0: 61/61 PASS
+- V100.94.0 Omnichannel Inbox: 45/45 PASS (social preservado na infraestrutura, oculto do workspace primário H19.5 por decisão de UX)
+- V101.11.0 Communications Architecture: 44/44 PASS
+- V101.11.2 Teams & Tasks Foundation: 42/42 PASS
+- H19.2 Communication Workspace & Connection Center: 54/54 PASS
+- H19.3 WhatsApp Sales Workspace: 66/66 PASS
+- H19.4 Communication Focus Experience: 57/57 PASS
+- H19.5 Channel Workspaces & Collaborative Tasks: 76/76 PASS
+
+RUNTIME
+- Communications Recovery: 5/5 PASS
+- Connect Recovery: 5/5 PASS
+- Security Runtime: 12/12 PASS
+- Communications Architecture runtime: 6/6 PASS
+
+TRANSPILATION / BUILD
+- Registry-independent transpile: 298 módulos processados.
+- O bundle legado gerado por build:legacy foi corretamente rejeitado pelo runtime:bundle com "HTML legado reapareceu".
+- O dist legado foi removido antes do empacotamento.
+
+GATES OFICIAIS DEPENDENTES DE NODE_MODULES
+- npm ci: BLOQUEADO por indisponibilidade de registry; a tentativa atingiu timeout e npm ping para https://registry.npmjs.org também expirou.
+- validate:env: PASS.
+- typecheck: INCONCLUSIVO/BLOQUEADO. O tsc global executou, mas sem node_modules não resolve react, react/jsx-runtime, lucide-react e @supabase/supabase-js, produzindo erros em cascata.
+- Vitest: BLOQUEADO — vitest: not found.
+- Vite build: BLOQUEADO — vite: not found (validate:env passa antes da ausência do Vite).
+
+INTEGRIDADE DA RELEASE
+- H19.5 reconhecida como sucessora da H19.4 nos auditores históricos que validam linhagem.
+- Nenhum contrato funcional antigo foi removido para obter PASS; apenas whitelists/linhagens de sucessão foram atualizadas onde paravam em H19.4.
+- Diretório de sessão local .realtalent-whatsapp-browser removido do artefato final; nenhuma sessão local é distribuída.
+
+LIMITAÇÕES DA H19.5
+- O composer de e-mail não adiciona anexos nesta hotfix.
+- Reordenação de checklist ocorre dentro da tarefa; não existe drag-and-drop de checklist entre tarefas.
+- Canais sociais permanecem na infraestrutura/legado, mas deixam de competir visualmente com WhatsApp e E-mail no workspace principal.

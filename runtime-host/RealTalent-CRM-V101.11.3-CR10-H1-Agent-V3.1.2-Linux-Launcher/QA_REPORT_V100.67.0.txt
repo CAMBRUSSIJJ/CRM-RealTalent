@@ -1,0 +1,29 @@
+RealTalent CRM V100.67.0 — RealTalent Assistant
+QA executado em 2026-09-15
+
+APROVADO
+- Source syntax audit: 220 arquivos
+- Integration contract audit: 191 arquivos
+- Migrations: 37/37 checksums íntegros
+- V100.56.4 hardening: 21/21
+- V100.60 Sales Experience: 41/41
+- V100.60.1 Performance: 29/29
+- V100.62 Deal Intelligence: 47/47
+- V100.63 Sales Engagement: 64/64
+- V100.65 Coaching & Playbooks: 63/63
+- V100.66 Buyer Room: 69/69
+- V100.67 RealTalent Assistant: 56/56
+- TypeScript noCheck transpile smoke dos módulos novos: OK
+- Runtime smoke do Assistant: call_now, risk_deals, forecast e create_followups: OK
+
+SEGURANÇA DO ASSISTANT
+- Nenhum dado enviado a LLM externo na V100.67.0.
+- Provider local declara sendsDataExternally=false.
+- Provider não possui acesso aos repositories ou AppActions.
+- Mutações exigem plano, prévia e confirmAction.
+- Execução de follow-up revalida lead ativo, DNC e duplicidade temporal.
+
+LIMITAÇÃO DO AMBIENTE DE QA
+- npm install --prefer-offline expirou por timeout de rede neste ambiente.
+- Por isso Vitest completo, typecheck completo com @types do projeto e Vite build não foram marcados como executados.
+- O pacote final não contém node_modules parcial.

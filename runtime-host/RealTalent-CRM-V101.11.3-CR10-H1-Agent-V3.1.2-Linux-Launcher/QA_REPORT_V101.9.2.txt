@@ -1,0 +1,68 @@
+RealTalent CRM V101.9.2 — Universal Record Page
+QA Report
+==================================================
+
+Escopo
+- RecordPageDefinition 101.9.2
+- RecordPageRegistry
+- RecordPageShell com left/main/right + tabs
+- FieldsWidget
+- TimelineWidget
+- RelatedRecordsWidget
+- QuickActionsWidget
+- CommunicationWidget
+- adapter Contato/Pessoa com ContactRecord preferencial + Lead fallback
+- migração da ficha atual de Contato para o shell universal
+- Deal Intelligence, Account 360, Calling e Comunicação preservados
+- inspector interno de record pages
+- nenhuma migration SQL nova
+- nenhuma camada visual V101.9.2 nova
+
+Resultados executados neste ambiente
+------------------------------------
+Universal Record Page audit: 26/26 contratos aprovados
+Linux release preflight: OK (296 arquivos TS/TSX)
+Source syntax audit: 330 arquivos aprovados
+Integration contract audit: 298 arquivos aprovados
+Migrations: 46/46 com checksum íntegro
+TypeScript isolado da nova camada platform/record-page: OK
+Transpile TSX dos 7 componentes universais + ContactRecordPage: OK
+
+Regressão histórica
+-------------------
+O gate npm run check executou todas as auditorias históricas até o início do typecheck com:
+  OK:   2943
+  FAIL: 0
+
+Foram corrigidos gates históricos que usavam allowlists rígidas de versão para reconhecer a V101.9.2 como sucessora sem remover validações funcionais. A auditoria V101.6.0 também foi atualizada para localizar as tabs da ficha no RecordPageRegistry, onde agora vivem, em vez de depender de strings dentro do componente da página.
+
+Limitação do ambiente de montagem
+---------------------------------
+A pasta de montagem não possui node_modules. O npm install --no-audit --no-fund foi tentado, mas expirou por timeout de rede e não deixou árvore parcial.
+
+Por isso, o typecheck/Vitest/build globais não puderam ser concluídos aqui. O typecheck global alcançou a fase do compilador e falhou por módulos ausentes (React, Lucide, Supabase etc.), com 0 FAILs nas auditorias históricas anteriores.
+
+O start-linux.sh mantém o gate completo no Linux:
+  npm install -> preflight -> release:verify -> typecheck -> Vitest -> build -> runtime smokes.
+
+Compatibilidade
+---------------
+- V101.9.1 Universal View Engine preservada
+- V101.9.0 Core Metadata Foundation preservada
+- Lead/ContactRecord Identity Sync preservado
+- WhatsApp QR/Realtime/Chat preservados
+- RealTalent Connect One-Tap preservado
+- Deal Intelligence preservada
+- Account 360/organograma preservados
+- backup schema preservado em 100.54
+- release channel técnico official-communications preservado
+- 46 migrations históricas preservadas sem alteração
+
+Critério "Contato/Pessoa sobre Universal Record Page"
+-----------------------------------------------------
+A página atual continua sendo aberta pela rota legada de Contatos e mantém a mesma UX/CSS. Internamente, ela agora monta RecordPageShell e widgets reutilizáveis. O adapter prefere ContactRecord quando existe primaryContactId/contato primário vinculado e mantém Lead como source/fallback até a migração canônica prevista para V101.9.3.
+
+Inspector
+---------
+window.__REALTALENT_RECORD_PAGES__.inspect()
+window.__REALTALENT_RECORD_PAGES__.get('contact-person-record-v10192')

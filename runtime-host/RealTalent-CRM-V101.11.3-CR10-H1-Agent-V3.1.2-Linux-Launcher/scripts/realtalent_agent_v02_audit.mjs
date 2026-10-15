@@ -1,0 +1,22 @@
+import fs from 'node:fs'; import path from 'node:path';
+const root=process.cwd(), checks=[]; const text=(rel)=>fs.readFileSync(path.join(root,rel),'utf8'); const check=(label,ok)=>checks.push([label,Boolean(ok)]);
+const client=text('src/services/realtalent-agent-client.ts'); const provider=text('src/services/realtalent-assistant-provider.ts'); const gateway=text('src/services/realtalent-ai-gateway.ts'); const drawer=text('src/features/assistant/assistant-drawer.tsx'); const assistant=text('src/services/realtalent-assistant.ts'); const notes=text('REALTALENT_AGENT_V0.2.md');
+check('gateway loopback', client.includes("const AGENT_URL = 'http://127.0.0.1:8791'") && client.includes('`${AGENT_URL}/agent`'));
+check('produto CRM', client.includes("product: 'crm'"));
+for (const tool of ['crm.create_followup','crm.move_opportunity','crm.create_task','crm.update_lead_profile','crm.create_goal','crm.create_proposal']) check(`tool ${tool}`, client.includes(tool));
+for (const kind of ['create_task','update_lead_profile','create_goal','create_proposal']) check(`plano ${kind}`, assistant.includes(`kind: '${kind}'`));
+check('contexto inclui produtos', client.includes('products: snapshot.products'));
+check('contexto inclui metas', client.includes('goals: snapshot.goals'));
+check('provider v0.2', provider.includes("hybrid-realtalent-agent-v0.2"));
+check('fallback local preservado', /local-deterministic-v3-realtalent-ai/.test(provider));
+check('tarefa usa saveTask com teamAccess', drawer.includes('saveTask(repositoryMode') && drawer.includes('teamAccess'));
+check('perfil usa updateLead', drawer.includes('await updateLead'));
+check('meta usa createGoal', drawer.includes('await createGoal'));
+check('proposta usa catálogo', drawer.includes('createProposalLineFromProduct') && drawer.includes('calculateProposalTotals'));
+check('proposta usa createProposal', drawer.includes('await createProposal'));
+check('mutação exige confirmação', drawer.includes('confirmAction'));
+check('gateway trace reconhece novas tools', gateway.includes('create_task') && gateway.includes('create_goal') && gateway.includes('create_proposal'));
+check('sem delete tool', !client.includes('crm.delete_'));
+check('documentação explicita confirmação', /confirma/i.test(notes));
+let passed=0; for(const [label,ok] of checks){console.log(`${ok?'OK  ':'FAIL'} ${label}`); if(ok) passed++;}
+console.log(`\nRealTalent Agent V0.2 / CRM: ${passed}/${checks.length} contratos aprovados.`); if(passed!==checks.length) process.exit(1);

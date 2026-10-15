@@ -1,0 +1,52 @@
+RealTalent CRM V100.94.0 — Omnichannel Inbox
+QA FINAL
+Data: 2026-09-24
+
+RESUMO
+A release V100.94.0 transforma a Central de Comunicação em um Omnichannel Inbox orientado a conversas e contato, preservando os fluxos existentes de WhatsApp, e-mail, ligações, reuniões e timeline, e adicionando Instagram, Facebook e LinkedIn em modo assistido. A arquitetura Meta também expõe capabilities explícitas para mensagens oficiais quando o provider/conta habilitar esse recurso.
+
+ESCOPO IMPLEMENTADO
+- Inbox unificado por conversa, lead/contato e canal.
+- Canais: Todos, WhatsApp, E-mail, Instagram, Facebook, LinkedIn, Ligações e Reuniões.
+- Visões: Caixa de entrada, Não lidas e Responder.
+- Filtros preservados de direção e período.
+- Busca por mensagem, assunto, lead e empresa.
+- Painel de conversa com histórico unificado e ações rápidas.
+- Agrupamento de eventos por lead/contato + canal.
+- Status de conversa: needs_reply, waiting_reply, internal e idle.
+- Persistência local de interações sociais assistidas.
+- Diferenciação explícita entre evento oficial e assistido.
+- Instagram/Facebook/LinkedIn com abertura de perfil, cópia de mensagem e confirmação humana antes do registro.
+- Preferências independentes para WhatsApp, Instagram, Facebook, LinkedIn e E-mail assistidos.
+- Meta capabilities para instagram_messages e facebook_messages sem declarar suporte oficial quando a conta/provider não expõe a capability.
+- Migration V100.94 para ampliar communication_threads e communication_events com canais sociais.
+- Ajuda, auditoria funcional, release notes e documentação atualizadas.
+- Build registry-independent atualizado para incluir o CSS V100.94.
+
+RESULTADOS DOS GATES
+PASS  Validação sintática: 267 arquivos.
+PASS  Auditoria de contratos de integração: 237 arquivos.
+PASS  Migrations: 40/40 com checksum íntegro.
+PASS  Gate específico V100.94.0: 45/45 contratos.
+PASS  Cadeia histórica: 39/39 scripts de auditoria de versão executados sem falha.
+PASS  Gate V100.93.0: 62/62.
+PASS  Gate V100.92.0: 65/65.
+PASS  Gate V100.91.0: 83/83.
+PASS  Compatibilidade da Central de Comunicação V100.86 preservada: 61/61.
+PASS  Confiabilidade de UI V100.68.1 preservada: 50/50.
+PASS  Build registry-independent: 178 módulos TypeScript.
+PASS  Assets gerados: realtalent-crm-v100-94.js e realtalent-crm-v100-94.css.
+
+LIMITAÇÃO DO AMBIENTE DE QA
+O ambiente atual não disponibilizou de forma confiável o registry externo do npm para reinstalar as dependências do projeto. Uma tentativa de npm ci ficou sem conclusão e foi encerrada; o diretório node_modules parcial foi removido. Por isso, nesta execução não foi possível afirmar aprovação do typecheck oficial via TypeScript, da suíte Vitest ou do build Vite padrão dependente dessas instalações.
+
+Para não mascarar essa limitação, a validação desta release foi feita com os gates locais disponíveis: auditoria sintática, auditoria de contratos, verificação de migrations/checksums, toda a cadeia histórica de gates e o build registry-independent. O package.json mantém os gates oficiais no fluxo npm run check para execução em um ambiente com dependências instaláveis.
+
+OBSERVAÇÕES DE INTEGRAÇÃO
+- WhatsApp e e-mail continuam suportando o modelo assistido já existente; recursos oficiais dependem das credenciais e providers configurados.
+- Instagram e Facebook só devem ser tratados como mensageria oficial quando a conta Meta expuser as capabilities correspondentes.
+- LinkedIn permanece assistido: a release não tenta automatizar ações não suportadas ou proibidas pela plataforma.
+- Interações assistidas não são marcadas como entregues/lidas automaticamente; são registradas apenas após confirmação humana.
+
+STATUS FINAL
+APROVADO nos gates locais disponíveis para empacotamento da V100.94.0 — Omnichannel Inbox, com a limitação de dependências externas descrita acima.

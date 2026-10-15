@@ -1,0 +1,30 @@
+RealTalent Agent V3.1.1 — Release Manifest
+
+Core novo:
+- RealTalent-Agent-Runtime-V3.1.2/model-calibration.mjs
+- RealTalent-Agent-Runtime-V3.1.2/model-calibration-linux.sh
+- RealTalent-Agent-Runtime-V3.1.2/model-calibration-integration-selftest.mjs
+- RealTalent-Agent-Runtime-V3.1.2/v3.1.1-selftest.mjs
+- RealTalent-Agent-Runtime-V3.1.2/MODEL_CALIBRATION_DATASET_V3.1.1.json
+- RealTalent-Agent-Runtime-V3.1.2/MODEL_CALIBRATION_FIXTURE_V3.1.1.png
+- calibrar-modelos.sh
+
+Integração modificada:
+- realtalent-agent.sh
+- configurar-agent.sh / setup-agent-linux.sh
+- install-local-ai-linux.sh
+- platform-manifest.mjs
+- package.json
+
+Documentação:
+- MODEL_HUMAN_QUALITY_CALIBRATION_V3.1.1.md
+- RELEASE_NOTES_V3.1.1.md
+- VALIDACAO_V3.1.1.md
+- QA_V3.1.1.txt
+- RELEASE_MANIFEST_V3.1.1.txt
+
+Compatibilidade:
+- RealTalent CRM adapter V3.1 preservado
+- Blue Ocean adapter V3.1 preservado
+- Platform kernel V3.1 preservado
+- Stable platform contract V3.0 preservado

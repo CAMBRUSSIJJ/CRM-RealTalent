@@ -1,0 +1,31 @@
+RealTalent CRM V101.6.8 — Linux Preflight Hotfix 1
+=================================================
+
+CAUSA
+- Registro de personalização do Pipeline preservava o seletor legado .advanced-filters--pipeline.
+- A V101.6.8 já usa pipeline-filter-drawer-v10168 + pipeline-filter-chips-v10168 + pipeline-saved-strip.
+
+CORREÇÃO
+- experience-registry.ts atualizado para os seletores atuais.
+
+VALIDAÇÕES EXECUTADAS
+- Linux release preflight: OK (260 arquivos TS/TSX)
+- qa:v101.5.1: 44/44
+- qa:v101.5.2: 37/37
+- qa:v101.5.3: 27/27
+- qa:v101.5.4: 16/16
+- qa:v101.5.5: 15/15
+- qa:v101.5.6: 18/18
+- qa:v101.6.0: 20/20
+- qa:v101.6.1: 29/29
+- qa:v101.6.2: 19/19
+- qa:v101.6.3: 22/22
+- qa:v101.6.4: 22/22
+- qa:v101.6.5: 26/26
+- qa:v101.6.6: 31/31
+- qa:v101.6.7: 31/31
+- qa:v101.6.8: 36/36
+
+NOTA DO AMBIENTE DE EMPACOTAMENTO
+- npm ci foi interrompido antes de completar node_modules; por isso typecheck/test/build não foram considerados validados neste ambiente.
+- O pacote não inclui node_modules; start-linux.sh executa a instalação normalmente na primeira execução.

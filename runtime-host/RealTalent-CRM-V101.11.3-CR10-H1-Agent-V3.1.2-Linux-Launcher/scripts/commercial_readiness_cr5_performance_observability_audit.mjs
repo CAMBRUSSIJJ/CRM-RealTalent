@@ -1,0 +1,32 @@
+import fs from 'node:fs'
+const checks=[]
+const read=(f)=>fs.readFileSync(f,'utf8')
+const expect=(label,file,pattern)=>{ const ok=fs.existsSync(file)&&pattern.test(read(file)); checks.push([label,ok]) }
+expect('observability module exists','src/lib/commercial-observability.ts',/installCommercialObservability/)
+expect('local bounded metric storage','src/lib/commercial-observability.ts',/MAX_SAMPLES = 240/)
+expect('route timing start','src/lib/commercial-observability.ts',/markCommercialRouteStart/)
+expect('route timing ready','src/lib/commercial-observability.ts',/markCommercialRouteReady/)
+expect('p95 summary','src/lib/commercial-observability.ts',/routeP95Ms/)
+expect('long-task observer','src/lib/commercial-observability.ts',/longtask/)
+expect('resource payload observer','src/lib/commercial-observability.ts',/transferSize/)
+expect('slow route diagnostic','src/lib/commercial-observability.ts',/Abertura lenta do módulo/)
+expect('no business payload capture','src/lib/commercial-observability.ts',/cleanName\(resource\.name\)/)
+expect('browser inspector hook','src/lib/commercial-observability.ts',/__REALTALENT_OBSERVABILITY__/)
+expect('main installs observability','src/main.tsx',/installCommercialObservability\(\)/)
+expect('app route observer','src/app/app.tsx',/CommercialRoutePerformanceObserver/)
+expect('observer follows route changes','src/app/app.tsx',/markCommercialRouteStart\(route\)/)
+expect('observer waits data loading','src/app/app.tsx',/if \(routeDataLoading\) return/)
+expect('double RAF paint settlement','src/app/app.tsx',/requestAnimationFrame\(\(\) => \{\s*window\.requestAnimationFrame/s)
+expect('dashboard monitored','src/lib/commercial-observability.ts',/'dashboard'/)
+expect('contacts monitored','src/lib/commercial-observability.ts',/'leads'/)
+expect('pipeline monitored','src/lib/commercial-observability.ts',/'pipeline'/)
+expect('prospecting monitored','src/lib/commercial-observability.ts',/'prospecting'/)
+expect('communications monitored','src/lib/commercial-observability.ts',/'communications'/)
+expect('proposals monitored','src/lib/commercial-observability.ts',/'proposals'/)
+expect('runtime health script','scripts/commercial_readiness_cr5_runtime_health.mjs',/large assets >=250KB/)
+expect('CR5 package QA command','package.json',/qa:commercial-readiness:cr5/)
+expect('CR5 package runtime command','package.json',/runtime:commercial-readiness:cr5/)
+let passed=0
+for (const [label,ok] of checks) { console.log(`${ok?'PASS':'FAIL'} ${label}`); if(ok) passed++ }
+console.log(`CR5 ${passed}/${checks.length} PASS`)
+if (passed!==checks.length) process.exit(1)

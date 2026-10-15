@@ -1,0 +1,96 @@
+RealTalent CRM V101.11.0 — Communications Architecture
+QA REPORT
+Date: 2026-10-06
+Base: V101.10.9-H5 — Dead CSS Removal
+
+SCOPE
+- Unified cloud communications edge for WhatsApp Cloud, Gmail Pub/Sub and Microsoft Graph.
+- Shared security/observability/idempotency primitives.
+- Legacy webhook URLs preserved as compatibility wrappers.
+- No UX redesign, no schema migration and no CRM business-rule change.
+
+ADDED
+- supabase/functions/communications-gateway/index.ts
+- supabase/functions/_shared/communications/core.ts
+- provider adapters: whatsapp.ts, gmail.ts, microsoft.ts
+- gateway health surface
+- correlation IDs and structured communications logging
+- bounded webhook payload parsing
+- shared constant-time comparison, SHA-256, HMAC SHA-256 and stable digest primitives
+- qa:v101.11.0 and runtime:communications-v101.11.0 gates
+
+IMPROVED
+- Microsoft subscriptions are resolved in one batched lookup per webhook request.
+- Microsoft fallback idempotency is deterministic; Date.now() is no longer used.
+- Gmail webhook secret comparison is constant-time and fails closed when not configured.
+- WhatsApp Meta signature remains HMAC SHA-256 fail-closed.
+- Persistence/queue errors propagate as 5xx so provider retries are not falsely acknowledged.
+- Correlation IDs are propagated into queued jobs/metadata where applicable.
+- Generic gateway health no longer mislabels itself as a Gmail provider response.
+
+CORRECTED
+- Microsoft notices without subscriptionId are rejected safely without issuing an empty .in() query.
+- Historical QA contracts were made successor-aware without relaxing functional assertions.
+- Legacy V100.85 WhatsApp audit now recognizes the thin wrapper + shared provider adapter.
+- CHANGELOG and README identify V101.11.0 as the current release.
+
+REMOVED / REPLACED
+- No public webhook URL was removed.
+- Duplicated cloud handler responsibility was removed from the three legacy entrypoints; they are now thin wrappers over provider adapters and the shared core.
+- No database migration or user-facing feature was removed.
+
+PROVEN GATES
+- source syntax: PASS — 393 files
+- integration contracts: PASS — 361 files
+- migrations: PASS — 49/49 checksum integrity
+- release manifest: PASS — 59/59 invariants
+- Local Repository contract: PASS — 99/99
+- Supabase Repository contract: PASS — 99/99
+- Browser E2E contract catalog: PASS — 9 flows
+- V101.11.0 architecture: PASS — 44/44
+- V101.11.0 communications smoke: PASS — 6/6
+  - existing communications reliability smoke: 4/4
+  - supervisor restart smoke: 2/2
+  - WhatsApp sync recovery smoke: 7/7
+- qa:architecture: PASS
+- historical check:legacy: PASS in three execution segments — 113/113 commands total
+- registry-independent frontend build: PASS — 278 TypeScript modules
+
+HISTORICAL REGRESSION NOTES
+- V100.56.4 through V101.5.4 segment: PASS (60 commands)
+- V101.5.5 through V101.8.4-H15 segment: PASS (38 commands)
+- V101.9.0 through V101.9.8 segment: PASS (15 commands)
+- Total: 113/113 commands
+
+OFFICIAL NPM GATES — NOT MARKED PASS IN THIS ENVIRONMENT
+- npm run typecheck: NOT VALIDATED; node_modules is absent. Errors start with missing React/Supabase typings.
+- npm test -- --run: NOT VALIDATED; vitest is not installed.
+- npm run build: NOT VALIDATED; vite is not installed.
+- npm audit --audit-level=high: NOT VALIDATED; registry.npmjs.org returned EAI_AGAIN.
+- npm run doctor: lockfile INCONSISTENT; dependencies absent/incomplete; official V101.11.0 dist absent.
+
+EDGE RUNTIME LIMITATION
+- Deno is not installed in this execution environment, so the Supabase Edge Functions were not executed against a live Deno/Supabase runtime here.
+- No external provider webhook was sent to a deployed Supabase project because no deployment credentials/live provider secrets are available in this environment.
+- Static/source QA, architecture QA, legacy compatibility, local communications smokes and integration contracts passed; live cloud-provider validation remains a deployment-time gate.
+
+SECURITY MODEL
+- WhatsApp: verify token + Meta HMAC x-hub-signature-256; missing app secret returns 503.
+- Gmail: explicit high-entropy shared webhook secret; missing secret returns 503; constant-time comparison.
+- Microsoft: Graph validation challenge + clientState hash verification; deterministic idempotency.
+- Provider-specific verification remains mandatory even though the Supabase gateway uses verify_jwt=false.
+
+PRESERVED
+- Central de Comunicação UX and composer
+- local WhatsApp QR gateway and realtime/history flow
+- WhatsApp contact identity/linking
+- Gmail/Outlook existing account model
+- communication_outbox retry/backoff/dead-letter behavior
+- integration_sync_jobs queue/idempotency model
+- RealTalent Connect
+- V101.10.9-H5 CSS baseline
+- 49 database migrations
+- CRM data and business rules
+
+FINAL ASSESSMENT
+The Communications Architecture refactor is structurally integrated and backward-compatible according to the available executable/static gates. It is safe to validate on the user's Linux runtime. Production/cloud readiness still requires a real dependency install plus live Supabase/provider webhook tests before any legacy endpoint is retired.

@@ -1,0 +1,30 @@
+RealTalent CRM V101.5.3 — Performance & Repository Parity
+QA final — 2026-09-27
+
+RESULTADO
+- Release audit V101.5.3: 27/27 contratos aprovados.
+- Regressão histórica/atual: 56/56 scripts qa:* aprovados.
+- Auditoria sintática: 289 arquivos aprovados.
+- Auditoria de integração: 258 arquivos aprovados.
+- Migrations: 41/41 com checksum íntegro; nenhuma migration adicionada nesta release.
+- Linux release preflight: OK em 256 arquivos TS/TSX.
+- RealTalent Connect resilience smoke: OK (requestId idempotente -> persistência -> restart -> retomada -> connected -> ended; origin guard 403).
+
+MUDANÇAS DE PERFORMANCE/PARIDADE VALIDADAS
+- Refresh global reduzido aos 7 fluxos que realmente exigem reconstrução ampla (operações destrutivas/importação/restore/manual).
+- Operações comuns usam refresh parcial por domínio via snapshot-refresh.ts.
+- Snapshot inicial de chamadas limitado a 500 registros em Local e Supabase.
+- Histórico anterior carregável em páginas de 200 registros, sem recarregar o CRM inteiro.
+- Gravações de chamadas não são mais lidas/assinadas durante listagem; URL/Blob é resolvido sob demanda.
+- Histórico de automation runs local limitado a 300 para paridade com Supabase.
+- Exportações Local e Supabase continuam preservando todas as chamadas, sem herdar o limite operacional de 500.
+- Leitura/paginação de chamadas Supabase extraída para supabase-call-history.ts; supabase-crm-repository.ts permanece abaixo do teto histórico de 80 KiB.
+
+LIMITAÇÃO DO AMBIENTE
+- node_modules não está presente no pacote de trabalho.
+- O teste direcionado `npm test -- --run src/repositories/repository-performance-v10153.test.ts` não pôde executar porque `vitest` não está instalado (`sh: vitest: not found`).
+- Portanto, Vitest completo, typecheck completo, Vite build e HTTP smoke do bundle NÃO são declarados como executados neste ambiente.
+- Os gates estáticos, contratos, migrations, preflight Linux e smoke executável do RealTalent Connect foram executados de fato e estão listados acima.
+
+STATUS
+APROVADO para empacotamento da V101.5.3, com a limitação npm acima explicitamente registrada.

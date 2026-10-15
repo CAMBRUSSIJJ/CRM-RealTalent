@@ -1,0 +1,47 @@
+const CATALOG={
+  crm:[
+    ['crm.contacts.search','read','Busca contatos/leads no snapshot ativo.'],['crm.contacts.get','read','Obtém um contato/lead por ID.'],
+    ['crm.contacts.update','write','Atualiza contato/lead; requer confirmação e execução no aplicativo.'],['crm.pipeline.list','read','Lista etapas e oportunidades do pipeline.'],
+    ['crm.pipeline.moveOpportunity','write','Move oportunidade; requer confirmação e execução no aplicativo.'],['crm.communications.getThread','read','Obtém thread disponível no contexto da tela.'],
+    ['crm.communications.sendMessage','write','Envia mensagem; requer confirmação explícita no aplicativo.'],['crm.prospecting.runSearch','write','Inicia Garimpo; requer confirmação explícita no aplicativo.']
+  ],
+  blue_ocean:[
+    ['blueOcean.journey.get','read','Obtém uma jornada do contexto ativo.'],['blueOcean.blueprint.get','read','Obtém o blueprint atual.'],
+    ['blueOcean.persona.get','read','Obtém uma persona do Discovery.'],['blueOcean.serviceGraph.read','read','Lê o grafo de serviço/contexto ativo.']
+  ]
+}
+
+export function nativeAppToolCatalog(product=null){
+  const entries=product&&CATALOG[product]?CATALOG[product]:[...CATALOG.crm,...CATALOG.blue_ocean]
+  return entries.map(([name,capability,description])=>({name,capability,description,confirmation:capability==='write',execution:capability==='write'?'delegated-to-app':'runtime'}))
+}
+
+const norm=(v)=>String(v??'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase()
+const list=(v)=>Array.isArray(v)?v:[]
+const dataOf=(ctx)=>ctx?.data||{}
+const findById=(arr,id)=>list(arr).find((x)=>String(x?.id)===String(id))||null
+
+export function executeNativeAppTool({name,args={},context}={}){
+  const spec=nativeAppToolCatalog().find((x)=>x.name===name)
+  if(!spec)return {ok:false,status:'unknown_tool',error:'Ferramenta nativa desconhecida.'}
+  if(spec.capability==='write') return {ok:false,status:'requires_confirmation',tool:name,confirmation:true,error:'Ação de escrita bloqueada no runtime. Confirme e execute pelo aplicativo conectado.',proposal:{tool:name,args}}
+  if(!context)return {ok:false,status:'missing_app_context',error:'App Context Bridge sem snapshot atual.'}
+  const d=dataOf(context)
+  if(name==='crm.contacts.search'){
+    const q=norm(args.query||args.q||''); const rows=[...list(d.contacts),...list(d.leads)]
+    const out=rows.filter((x)=>!q||norm(`${x.name||''} ${x.company||''} ${x.jobTitle||''} ${x.id||''}`).includes(q)).slice(0,Number(args.limit||30))
+    return {ok:true,status:'ok',tool:name,result:out}
+  }
+  if(name==='crm.contacts.get') return {ok:true,status:'ok',tool:name,result:findById([...list(d.contacts),...list(d.leads)],args.id)}
+  if(name==='crm.pipeline.list') return {ok:true,status:'ok',tool:name,result:{stages:list(d.stages),opportunities:list(d.opportunities),leads:list(d.leads)}}
+  if(name==='crm.communications.getThread'){
+    const threads=list(d.communicationThreads||d.threads); return {ok:true,status:'ok',tool:name,result:args.id?findById(threads,args.id):threads.slice(0,30)}
+  }
+  if(name==='blueOcean.journey.get') return {ok:true,status:'ok',tool:name,result:findById(list(d.journeys),args.id)||list(d.journeys)[0]||null}
+  if(name==='blueOcean.blueprint.get') return {ok:true,status:'ok',tool:name,result:d.blueprintDraft||d.blueprint||null}
+  if(name==='blueOcean.persona.get'){
+    const personas=list(d.discovery?.personas); return {ok:true,status:'ok',tool:name,result:findById(personas,args.id)||personas.find((x)=>norm(x.title).includes(norm(args.query||'')))||null}
+  }
+  if(name==='blueOcean.serviceGraph.read') return {ok:true,status:'ok',tool:name,result:d}
+  return {ok:false,status:'unsupported_read',error:'Ferramenta ainda não possui executor de leitura.'}
+}

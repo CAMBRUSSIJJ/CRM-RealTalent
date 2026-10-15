@@ -1,0 +1,48 @@
+RealTalent CRM V101.11.3-CR5 — Commercial Performance & Production Observability
+Date: 2026-10-13
+
+IMPLEMENTED
+- Local-first bounded observability store (max 240 technical samples).
+- App boot/navigation and paint timing.
+- Route readiness timing for Dashboard, Contacts, Pipeline, Prospecting, Communications and Proposals.
+- Long-task capture (>=50ms) where browser API is available.
+- Slow/large resource capture (>=800ms or >=250KB), storing sanitized resource name only.
+- P95 and average route timing health snapshot.
+- Slow module diagnostic when route load reaches >=2.5s.
+- QA/support browser inspector: window.__REALTALENT_OBSERVABILITY__.snapshot()/clear().
+- Runtime health script for critical source surfaces and built asset size inventory.
+- CR4 lineage marker preserved; current readiness marker points to CR5.
+- Capability Matrix and release manifest extended to CR4/CR5.
+
+PRIVACY
+No contact names, message bodies, proposal content, commercial values or customer payloads are captured by CR5 observability. Metrics are technical timing/route/resource metadata only.
+
+PROVEN GATES
+CR1                                  16/16 PASS
+CR2                                  15/15 PASS
+CR3                                  21/21 PASS
+CR4                                  21/21 PASS
+CR5                                  24/24 PASS
+Migrations                           58/58 PASS (checksums intact)
+Source Syntax                        424 files PASS
+Integration Contracts                392 files PASS
+Capability Matrix                    53 capabilities / 200 evidence / 135 executable
+Release Manifest                     111/111 invariants PASS
+
+SOURCE SURFACE INVENTORY
+Pipeline page                         77,816 B
+Contacts page                        102,622 B
+Prospecting page                     168,446 B
+Communications page                   82,338 B
+Proposals page                       135,948 B
+
+FULL INSTALL/BUILD GATES
+npm ci                               BLOCKED (registry/download exceeded available execution window; partial node_modules only)
+typecheck                            BLOCKED (dependency tree incomplete; React/Supabase/etc. modules absent)
+Vitest                               BLOCKED (vitest binary absent because npm ci incomplete)
+Vite build                           BLOCKED (vite binary absent because npm ci incomplete)
+Built asset payload inspection       BLOCKED (no dist produced)
+Production/Supabase load telemetry   BLOCKED (requires running production/staging environment and real traffic)
+
+IMPORTANT
+The typecheck output after the interrupted npm ci is not classified as a source regression because its primary failures are missing installed packages/types. CR5 does not report typecheck/test/build PASS.

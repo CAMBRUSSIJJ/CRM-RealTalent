@@ -1,0 +1,56 @@
+RealTalent CRM V100.95.0 — Workspace Personalization
+QA REPORT
+====================================================
+
+Escopo validado
+---------------
+1. Sidebar configurável: Menu principal x Mais ferramentas.
+2. Visibilidade, ordem e rótulos da navegação persistidos por workspace.
+3. Nova área Configurações > Páginas.
+4. Personalização de blocos por página: visibilidade, ordem, densidade e ênfase.
+5. Meu Dia integrado ao mesmo sistema de composição de páginas.
+6. Forecast/Revenue Intelligence exposto em blocos configuráveis dentro de Propostas.
+7. Migração segura de preferências antigas sem primaryRoutes.
+8. Launcher Linux com preflight e build obrigatório antes de abrir o CRM.
+
+Validações executadas neste ambiente
+------------------------------------
+- Auditoria sintática do projeto: 268 arquivos aprovados.
+- Auditoria de contratos de integração: 238 arquivos aprovados.
+- Migrations: 40/40 com checksum íntegro.
+- Linux release preflight: aprovado em 236 arquivos TS/TSX.
+- TypeScript parser: 236 arquivos sem erro sintático.
+- TypeScript transpileModule: 235 arquivos sem erro de compilação sintática.
+- V100.95 Workspace Personalization: 40/40 contratos aprovados.
+- Gates históricos e atuais qa:*: 40/40 scripts aprovados.
+- Seletores expostos em Configurações > Páginas: todos possuem alvo no TSX atual.
+- Proteção histórica da V100.94 Omnichannel e versões anteriores: preservada pelos gates.
+
+Regressões especificamente bloqueadas
+-------------------------------------
+- imports de logos de marca inexistentes em lucide-react;
+- redeclaração do binding preferences na Central de Comunicação;
+- seletor de personalização sem alvo real no DOM atual;
+- build legado com "Carregando RealTalent CRM";
+- dependência do CDN legado esm.sh;
+- abertura do navegador antes de o build Vite terminar com sucesso.
+
+Limitação deste ambiente
+------------------------
+O registry npm externo não está acessível neste ambiente. A tentativa de npm ci --offline
+falhou porque o pacote xmlchars não existe no cache local. Portanto, não é correto afirmar
+que npm ci, Vitest, typecheck completo com node_modules e vite build foram executados aqui.
+
+Para impedir que essa limitação vire uma tela quebrada no Linux do usuário, start-linux.sh:
+1. exige Node.js 22.x;
+2. instala dependências com npm ci (fallback npm install);
+3. executa scripts/linux-release-preflight.mjs;
+4. executa npm run build;
+5. valida o dist gerado;
+6. só então abre a V100.95 em http://127.0.0.1:4178/.
+
+Resultado
+---------
+O pacote está apto para validação final de runtime no Linux. Se o build real falhar na
+máquina do usuário, o launcher interrompe a execução e mostra o erro no terminal em vez de
+abrir uma tela de carregamento infinito.

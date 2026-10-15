@@ -1,0 +1,82 @@
+RealTalent CRM
+V101.11.3-H1 — Communications Gateway Recovery
+
+ESCOPO
+Hotfix de runtime sobre V101.11.3 — Actionable Pipeline Experience.
+Sem mudança de schema, dados, Pipeline, Teams & Tasks, Login ou UX interna do CRM.
+
+INCIDENTE OBSERVADO NO LINUX
+- Vite production build concluiu no ambiente do usuário.
+- A falha ocorreu na etapa 3/4, ao aguardar o Communications Gateway.
+- O log fornecido não inclui o conteúdo de .realtalent-communications.log, portanto não prova a exceção interna específica.
+- A auditoria do launcher encontrou duas fragilidades capazes de produzir esse sintoma:
+  1) novo supervisor era iniciado sem recuperar um gateway/supervisor RealTalent antigo na porta 3002;
+  2) qrcode era importado estaticamente no boot do Gateway, permitindo que um recurso de QR impedisse o /health de subir.
+
+CORREÇÕES
+1. PRE-FLIGHT DA PORTA 3002
+- prova primeiro se já existe Gateway saudável com token/versão esperados;
+- Gateway saudável pode ser reutilizado.
+
+2. RECUPERAÇÃO SEGURA DE PROCESSOS ÓRFÃOS
+- Linux inventaria processos por /proc + cwd + cmdline;
+- reconhece apenas realtalent-communications-supervisor.mjs e realtalent-communications-gateway.mjs;
+- encerra processos da release atual;
+- para releases irmãs, somente encerra a release comprovadamente dona da porta 3002;
+- outro runtime RealTalent fora desse escopo permanece intacto;
+- processo desconhecido na porta nunca é morto automaticamente.
+
+3. FAIL-SOFT
+- Communications Gateway indisponível não encerra mais todo o CRM;
+- Pipeline, Contatos, Tarefas, Equipes, Calling e demais módulos continuam abrindo;
+- Communications fica marcado como indisponível/degradado.
+
+4. DIAGNÓSTICO NO TERMINAL
+- mostra HTTP/probe final;
+- mostra ocupação da porta e PID quando disponível;
+- imprime as últimas 50 linhas de .realtalent-communications.log;
+- adiciona boundary de startup no log para distinguir tentativas.
+
+5. DOCTOR
+- npm run doctor mostra porta, processos RealTalent e log recente;
+- doctor permanece não destrutivo: não mata processos nem inicia serviços.
+
+6. QR LAZY LOAD
+- qrcode não é mais importado durante o boot do Gateway;
+- só é carregado quando uma sessão QR realmente pede geração do código;
+- whatsapp-web.js continua lazy-loaded.
+
+QA COMPROVADO
+- V101.11.3-H1 audit: 41/41 PASS
+- Communications recovery smoke: 5/5 PASS
+- Communications Gateway smoke: PASS
+- Communications reliability H9: 4/4 PASS
+- Gateway supervisor H10: 2/2 PASS
+- WhatsApp sync recovery H11: 7/7 PASS
+- Realtime bus H12: 7/7 PASS
+- V101.11.0 Communications Architecture smoke: 6/6 PASS
+- Security Runtime Foundation: 12/12 PASS
+- V101.8.4-H5 WhatsApp Web QR audit: 14/14 PASS
+- V101.8.4-H6 Dependency Install audit: 10/10 PASS
+- qa:architecture: PASS
+- Release Manifest: 68/68 PASS
+- Source syntax: 400 arquivos PASS
+- Integration contracts: 368 arquivos PASS
+- Migrations: 50/50 checksums PASS
+- Local Repository: 99/99 PASS
+- Supabase Repository: 99/99 PASS
+- Browser E2E contract: 11 fluxos PASS
+- Linux preflight: 361 TS/TSX PASS
+- Registry-independent build: 285 módulos PASS
+- Legacy regressions: executadas em segmentos; V100→V101.8.3-H1 sem falha antes do limite de tempo do harness, e V101.8.4→V101.9.8 PASS após as alterações finais relevantes.
+
+LIMITAÇÕES DO AMBIENTE DE GERAÇÃO
+- node_modules não é incluído no pacote final.
+- build oficial Vite/Vitest/typecheck completo depende da instalação npm real no Linux do usuário.
+- O build fornecido pelo usuário já demonstrou que Vite production build da V101.11.3 concluiu; a falha reportada foi posterior, no runtime de Communications.
+
+ARTEFATOS EXCLUÍDOS DO ZIP
+- dist de verificação
+- node_modules
+- .env.local
+- .realtalent-* (tokens, sessões e stores locais)

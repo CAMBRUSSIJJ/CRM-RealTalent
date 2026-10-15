@@ -1,0 +1,30 @@
+# QA V2.3 — Intelligence Core
+
+Generated UTC: 2026-10-14T18:41:52Z
+
+## Runtime audit
+RealTalent Agent Runtime V2.3: 245/245 contratos aprovados.
+## Intelligence Core
+Intelligence Core V2.3: 10/10 PASS
+## V2.3 gateway/routing
+RealTalent Agent V2.3 Intelligence Core: 11/11 PASS
+## Conversation Intelligence
+Conversation Intelligence V2.3: 11/11 PASS
+## Intelligence Orchestration
+Intelligence Orchestration V2.3: 15/15 PASS
+## Chat Experience
+Chat Experience V2.3: 10/10 testes aprovados.
+## Local AI
+Local AI V1.6: 7/7 testes aprovados.
+## V2.2 compatibility
+RealTalent Agent V2.2 Grounded App Intelligence: 25/25 PASS
+## CRM integration
+CRM Agent V2.3 Intelligence Core integration: 5/5 PASS
+## Blue Ocean integration
+Blue Ocean Agent V2.3 Intelligence Core integration: 5/5 PASS
+
+## Browser Conversation E2E
+UNVERIFIED neste ambiente: Chromium administrado bloqueia todas as URLs por política URLBlocklist=["*"], incluindo localhost/127.0.0.1, antes da aplicação receber a navegação.
+
+## Product build/typecheck
+UNVERIFIED nesta release: os dois pacotes-fonte distribuídos não contêm node_modules. A V2.3 alterou apenas branding/documentação nos produtos; o Intelligence Core está no runtime.

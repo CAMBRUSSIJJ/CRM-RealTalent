@@ -1,0 +1,84 @@
+RealTalent CRM V101.10.9-H2 — Contacts & Account 360 CSS Consolidation
+QA REPORT
+Date: 2026-10-06
+
+SCOPE
+- Consolidate Contacts / record-page CSS into canonical versionless runtime stylesheets.
+- Consolidate Account 360 stylesheet ownership without changing selectors or business behavior.
+- Preserve historical CSS files for rollback/audit.
+- No database migration, schema change, repository contract change, integration change, or UX redesign.
+
+CANONICAL H2 STYLESHEETS
+- src/styles/contact-record.css
+  sources: contacts-views-record-v1016.css + contacts-experience-completion-v10161.css
+- src/styles/contacts.css
+  sources: contact-views-v10163.css + contact-data-grid-view-settings-v10164.css + contact-custom-properties-v10165.css
+- src/styles/contact-intelligence.css
+  source: contact-intelligence-v101105-h3.css
+- src/styles/account-360.css
+  source: account-intelligence.css
+
+CASCADE / OWNERSHIP GUARANTEES
+- contact-record.css remains between ui-foundation.css and app-shell.css.
+- contacts.css remains between app-shell.css and workspace-ui.css.
+- contact-intelligence.css remains after selection-controls.css.
+- account-360.css remains route-owned by src/features/leads/leads-page.tsx.
+- Superseded H2 source CSS stays in the repository but is excluded from runtime ownership and registry-independent append order.
+
+PROVED GATES
+- Source syntax audit: PASS — 388 files.
+- Integration contract audit: PASS — 361 files.
+- Migration integrity: PASS — 49 files, checksums intact.
+- Release Manifest: PASS — 55/55.
+- Repository Contract: PASS — 99 methods.
+- Local repository parity: PASS — 99/99.
+- Supabase repository parity: PASS — 99/99.
+- CSS Governance: PASS — 35/35.
+- V101.10.9 baseline gate: PASS — 28/28.
+- V101.10.9-H1 gate: PASS — 45/45.
+- V101.10.9-H2 gate: PASS — 37/37.
+- V101.6.0 Contacts / Record: PASS — 20/20.
+- V101.6.1 Contacts Experience: PASS — 29/29.
+- V101.6.3 Contact Views: PASS — 22/22.
+- V101.6.4 Data Grid / View Settings: PASS — 22/22.
+- V101.6.5 Custom Properties: PASS — 26/26.
+- V101.10.5-H3 Contact Intelligence: PASS — 19/19.
+- Selection System: PASS — 32/32.
+- Full qa:architecture: PASS.
+- Full check:legacy: PASS through V101.9.8, including isolated V101.9.7/V101.9.8 typechecks and registered smokes.
+- CSS parse validation (tinycss2): PASS — 111 CSS files, 0 top-level parse errors.
+- registry-independent source build: PASS — 278 TypeScript/TSX modules transpiled for structural bundle inspection.
+
+CSS INVENTORY AFTER H2
+- Physical CSS files: 111.
+- Version-suffixed legacy CSS files: 93.
+- Direct CSS imports in src/main.tsx: 56 (H1 had 59).
+- Canonical runtime stylesheets tracked by inventory: 13.
+- Cross-file duplicated selector heuristic: 3112. This number includes retained rollback sources and canonical copies, so it is a debt signal, not a bug count.
+
+HISTORICAL QA COMPATIBILITY FIXES
+Historical audits that asserted literal legacy filenames were updated to accept the canonical H1/H2 ownership while continuing to inspect the original source CSS content. No product behavior was reintroduced or relaxed to satisfy these gates.
+
+LIMITATIONS / NOT CLAIMED AS PASS
+- npm registry access from this execution environment timed out (`npm ping https://registry.npmjs.org`).
+- node_modules is not present in this sandbox copy.
+- Therefore the current full `npm run typecheck`, Vitest suite, Vite production build, and npm audit were NOT executed with the real dependency tree here.
+- The inherited package-lock remains incomplete in this source package; the H1 lockfile-recovery path remains active and is expected to repair it once on the user's Linux machine with registry access, then return to deterministic npm ci behavior.
+- A registry-independent legacy build was used only for structural CSS/bundle validation. Its generated dist was removed before packaging because the runtime does not classify that fallback output as an official V101.10.9 dist marker.
+
+RUNTIME DOCTOR BEFORE PACKAGING
+- Node: v22.16.0
+- npm: 10.9.2
+- Lockfile: INCONSISTENT (inherited; auto-recovery preserved)
+- Dependencies: absent/incomplete in sandbox
+- Official V101.10.9 dist: absent
+- Services: off (not started during packaging)
+
+INSTALL / VERIFY ON LINUX
+1. chmod +x start-linux.sh
+2. ./start-linux.sh
+3. npm run doctor
+4. npm run verify
+
+EXPECTED FIRST-RUN BEHAVIOR
+If the lockfile is still incomplete, the launcher detects the mismatch and runs one repair installation before returning to the deterministic npm-ci workflow on subsequent runs.

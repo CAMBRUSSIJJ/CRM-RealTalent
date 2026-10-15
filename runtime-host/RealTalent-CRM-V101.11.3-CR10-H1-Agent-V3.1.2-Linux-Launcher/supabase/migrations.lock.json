@@ -1,0 +1,237 @@
+{
+  "generatedAt": "2026-10-12T22:00:00.000Z",
+  "migrations": [
+    {
+      "name": "202607160001_v100_foundation.sql",
+      "sha256": "5d5eaceee7a004cdd90814e2c81176a4df84db746fce74e5f5786a17ba8aa299"
+    },
+    {
+      "name": "202607160002_v100_1_leads_pipeline.sql",
+      "sha256": "4e40fbdacc368afd9e119f66a97153ebbd89e2c7cdf1933fe85c4ed0c5768ca2"
+    },
+    {
+      "name": "202607160003_v100_2_followups_calls_agenda.sql",
+      "sha256": "69b36adaa0d93c5b76d91c2ecd804558604924a6535b686d51de3c9518158dd7"
+    },
+    {
+      "name": "202607160004_v100_3_goals_automations_metrics.sql",
+      "sha256": "ba70100dad757d95ba250291822c27fa1ef1510e8d07fc17ac6b5043eebdbfe4"
+    },
+    {
+      "name": "202607160005_v100_4_production_security.sql",
+      "sha256": "f4b68264246072a629655d3dd7758415e1b7b4c80fd631f964d0bb581a00a31a"
+    },
+    {
+      "name": "202607190001_v100_10_calls_professional.sql",
+      "sha256": "369745ad70acbef28816141f83f3c454cb600f1b5abcbbaf9e133d15214d4dbd"
+    },
+    {
+      "name": "202607190002_v100_14_automations_professional.sql",
+      "sha256": "47569b87bcdc10070bae49d6fc3b768f9335152145028fe9212bdb2af2b26b15"
+    },
+    {
+      "name": "202607190003_v100_15_prospecting.sql",
+      "sha256": "36990ccc0dc17791912bb355da29a1d991352649c54efc98779f4ecbfed975bc"
+    },
+    {
+      "name": "202607190004_v100_19_hardening.sql",
+      "sha256": "a7a805219349ab0dea8843ae0bdffcaf00edb12671b1d64a247b775ae4c9534f"
+    },
+    {
+      "name": "202607190005_v100_21_workday_merge.sql",
+      "sha256": "72a7cc98657e15629b134365aa377dd240c477c9674a4d7b69543d9f776b9c87"
+    },
+    {
+      "name": "202607190006_v100_22_pipeline_execution.sql",
+      "sha256": "3ec73cc2f69e264af2c7e7dadabe345425cf52da3035b2983389bc7da7c7718f"
+    },
+    {
+      "name": "202607190007_v100_23_integration_hub.sql",
+      "sha256": "6d319c3de58c59b547d6852b9a511dd09e935a384dd49391f48f529110de1dcf"
+    },
+    {
+      "name": "202607190008_v100_24_extension_delivery.sql",
+      "sha256": "03f6786364e673b29e0c6f067a0e4f75cbe52d6dec6f2aa76f85026a38b5a0ae"
+    },
+    {
+      "name": "202607190009_v100_25_sales_automation.sql",
+      "sha256": "811d514724546913b05be04a262f8f91f8d4a431e90e90d07ee490a6a864b274"
+    },
+    {
+      "name": "202607190010_v100_26_reliability.sql",
+      "sha256": "d0b62606e8f49d02204e733375069b50aab269547f5d0bec35efbeb10ff768e3"
+    },
+    {
+      "name": "202607220001_v100_33_geolocation.sql",
+      "sha256": "5b614e07258911bea96bfd34356043a422db373bafa2ae4ff615c82132ccd064"
+    },
+    {
+      "name": "202607220002_v100_34_commercial_engine.sql",
+      "sha256": "7e556e086df2ed35558bdabf2d75d58091d4a576fd2f8666b97fb26ba64ad6bb"
+    },
+    {
+      "name": "202607230001_v100_36_automation_webhooks.sql",
+      "sha256": "d1840cbcb98b7dd2c005cff6d48636fb23576009cadbb7bbfeb2962e86a592d5"
+    },
+    {
+      "name": "202607230002_v100_38_commercial_structure_data_quality.sql",
+      "sha256": "53f02dcb026f70ccc758240fda21550b02038b22f279a5e27d2d0d2cf3a84633"
+    },
+    {
+      "name": "202607230003_v100_39_integration_framework.sql",
+      "sha256": "5d5df69942b26791171078ef1f92d6c8c0e38263f451ce96c7226aedf38b07a5"
+    },
+    {
+      "name": "202607230004_v100_39_connect_desktop.sql",
+      "sha256": "ee9428ab0c6ec584367f9b4ef3707746a98b84b24da117f9d2dec3d985f1b317"
+    },
+    {
+      "name": "202607270001_v100_40_extension_center.sql",
+      "sha256": "bee6d71e6bf80447ef27676f2f6979939f5939c0c317b3d11d035361a648cfef"
+    },
+    {
+      "name": "202607270002_v100_41_production_observability.sql",
+      "sha256": "e76e7ad85adaec90cc93e2dbc6782221ecf46e862b802e3a34431e9fdd3db73e"
+    },
+    {
+      "name": "202607270003_v100_42_official_communications.sql",
+      "sha256": "a10b10ae95f985bf31250a41fb7859fbb5c87dfbd770e74056bb2852e19243cf"
+    },
+    {
+      "name": "202607270004_v100_43_proposals_forecast.sql",
+      "sha256": "0997527001b28848cc14641f4e1453fb153f4cd1be8dbada078324ba8c93a624"
+    },
+    {
+      "name": "202607280001_v100_44_commercial_consolidation.sql",
+      "sha256": "b4db037fce5a1636f76c300acf0a6057caf6d0c35c0e13e54c3f29a1dc12ab46"
+    },
+    {
+      "name": "202607280002_v100_45_integration_foundation.sql",
+      "sha256": "2141a09053453d5557fa850cac1af0594ee2772ca5cf81433577b0bce6dac17a"
+    },
+    {
+      "name": "202607280003_v100_46_google_microsoft.sql",
+      "sha256": "27ae686648d983a3b40d23f425a52eea838ed06a65926368ce94d2090c4af842"
+    },
+    {
+      "name": "202607280004_v100_46_2_lead_map.sql",
+      "sha256": "0ef2ab1a7f611e5d0fcdd1726bdd6043667dfba3c3d16553e80090022cfd5bf5"
+    },
+    {
+      "name": "202607280005_v100_46_5_connect_call_sessions.sql",
+      "sha256": "b303c749ce92611f6c3e8cfeba241d3d48f677163d2fff650474004c28760c82"
+    },
+    {
+      "name": "202607290001_v100_50_user_experience_preferences.sql",
+      "sha256": "9cbd2245b24790b0fead392f2759c455774a52d89f0423f3b8f1d50fd50da28b"
+    },
+    {
+      "name": "202609120001_v100_52_architecture_hardening.sql",
+      "sha256": "7017e79c6b729f7adb556be096d4e475371e89fd4deb1114a6890a67a491fe28"
+    },
+    {
+      "name": "202609120002_v100_53_commercial_consistency.sql",
+      "sha256": "e90c828de2e253376a33511ed8e6f10ba5bc9ab908319358474cdf6c5547489a"
+    },
+    {
+      "name": "202609130001_v100_54_account_intelligence_territory.sql",
+      "sha256": "6d375f0137f2f1e1d2448576abefe4d59d5cc7805ff5938b8cb193a235ef0287"
+    },
+    {
+      "name": "202609150001_v100_56_4_full_qa_data_consistency.sql",
+      "sha256": "017558367d6cae5e02e390d402a8dcca014cf170cb41f54c29886bf61db11949"
+    },
+    {
+      "name": "202609150002_v100_65_coaching_playbooks.sql",
+      "sha256": "0291f0bca68cacf2086cf4a35844db67105979c26d48817701d55117be572ae0"
+    },
+    {
+      "name": "202609150003_v100_66_buyer_room_mutual_action_plan.sql",
+      "sha256": "5a540d743d724762145c1b8222c0a36d98268c67a9ef3a191cfca8754990a1fe"
+    },
+    {
+      "name": "202609220001_v100_84_calendar_integration.sql",
+      "sha256": "092c19fba90fe6e82cf6e10e006237cd94d8a1e022c8a48fe0a25cc95afa8c94"
+    },
+    {
+      "name": "202609240001_v100_92_hardening_ux.sql",
+      "sha256": "8d7a54055ab63da5fc9028167593a7d6b32605c1b7ab654d168c650099d84e24"
+    },
+    {
+      "name": "202609240002_v100_94_omnichannel_inbox.sql",
+      "sha256": "2cc83d269b2a1cd1b6e4667795b027c6ae69c32e80910afe4fa51356196f5099"
+    },
+    {
+      "name": "202609250001_v100_97_product_revenue_workspace.sql",
+      "sha256": "7d75721c9d45ab5c24c218be86035c29b323bc1df6d271ac6bf9bba217fb958d"
+    },
+    {
+      "name": "202609270001_v101_6_1_contact_saved_views.sql",
+      "sha256": "20516429bd2db359751a0358ab9e02b6b421ae6c5a8e23d015aed5bbf9bdbd5a"
+    },
+    {
+      "name": "202609280001_v101_6_3_contact_views_2.sql",
+      "sha256": "edd627df97eb5272289cf385a98f476ac39ba5b4227a120d4504bd30a40c4085"
+    },
+    {
+      "name": "202609280002_v101_6_5_contact_custom_properties.sql",
+      "sha256": "e8958e4f0261728a36bb0796034666785c261a253f665a5cb8751986fbd526c9"
+    },
+    {
+      "name": "202610010001_v101_8_3_hotfix1_contact_identity_sync.sql",
+      "sha256": "abc9ee3fd6ce8f4a9ae460202ed81ef03229fb24da21b31e4309bdf1f0afddde"
+    },
+    {
+      "name": "202610010002_v101_8_4_official_communications.sql",
+      "sha256": "5b556ff240f9cd1b9b253e8f90329c78267f9c0e85eb76f90e509522e10364fb"
+    },
+    {
+      "name": "202610020001_v101_9_3_canonical_commercial_model.sql",
+      "sha256": "262f29b231e43348b188cb363b42b45e6fec45090e7faf7d1be6d02588c84a45"
+    },
+    {
+      "name": "202610020002_v101_9_5_workflow_runtime_3.sql",
+      "sha256": "29c3b0d6396fa7ee3920d980627804aff3a9b8dd55047a40ce331a051a6abdf8"
+    },
+    {
+      "name": "202610030001_v101_9_9_h2_duplicate_merge_canonical_value.sql",
+      "sha256": "6b680b7dd8cb455693b932f28d94c47e22c9622667317d9bef79ea4492ccf91b"
+    },
+    {
+      "name": "202610060001_v101_11_2_teams_tasks_foundation.sql",
+      "sha256": "29d219b01a5e237f08bc73315ee9c1ebaf44fb7e732b0deee3bc8c8483e654be"
+    },
+    {
+      "name": "202610070001_v101_11_3_h11_proposal_catalog_pricing.sql",
+      "sha256": "9319fdd327fa42bfd4a302637d4619e3e4763d050f9f51186c9a66c0aa0a9312"
+    },
+    {
+      "name": "202610070002_v101_11_3_h12_commercial_product_studio.sql",
+      "sha256": "52fdc2cfa546283e9f1566d744d6fd29cf9ba540af2c0c8f17092aa15969392e"
+    },
+    {
+      "name": "202610070003_v101_11_3_h13_product_readiness_revenue_bridge.sql",
+      "sha256": "23588b726af74bab292d69df817f0699b974fa8b623fc9fecda13da40c4ae3f3"
+    },
+    {
+      "name": "202610070004_v101_11_3_h14_commercial_management_foundation.sql",
+      "sha256": "90e7b32ec86d7bccca28a98872cd5c9dba7eabded5639ae1ed86ad04d94012b0"
+    },
+    {
+      "name": "202610120001_v101_11_3_h22_1_team_profiles_access_control.sql",
+      "sha256": "f8d8d2626c767849df06841ff3124670bd7303cf7d13b72230626070c925b605"
+    },
+    {
+      "name": "202610120002_v101_11_3_h22_2_cross_module_access_control.sql",
+      "sha256": "5213d77e0ae858d13d80ae8dea5b83e002affc18ce4990633f701874b3b7c3ae"
+    },
+    {
+      "name": "202610120003_v101_11_3_h22_3_field_approvals_audit.sql",
+      "sha256": "cf4b8431c6aabe48f57fb575ed07dd582de5728e47dca2c6f8a8e07329d5d011"
+    },
+    {
+      "name": "202610130001_v101_11_3_h22_3_h1_stability_security_closure.sql",
+      "sha256": "656df1fa871579c8e0304f9d32f0e45260586eb0c8df7ce86776764a14f92625"
+    }
+  ]
+}

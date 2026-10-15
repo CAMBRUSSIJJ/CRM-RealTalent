@@ -1,0 +1,71 @@
+RealTalent CRM V101.11.3-CR3 — End-to-End Commercial Workflow Validation
+Data: 2026-10-13
+
+ESCOPO
+- Login Vendedor/Gestor em Supabase staging
+- Contato + lead + oportunidade
+- Follow-up + work task + relação com oportunidade
+- Comunicação thread/event
+- Proposta via RPC real
+- Envio + aceite + fechamento
+- Pós-venda automático
+- Controle negativo de revenue para Vendedor
+- Reconhecimento de revenue por Gestor
+
+RESULTADOS LOCAIS COMPROVADOS
+CR1 Build & Dependency Closure             16/16 PASS
+CR2 Supabase/Auth/RLS static QA             15/15 PASS
+CR3 End-to-End static QA                    21/21 PASS
+Source Syntax                              421 arquivos PASS
+Integration Contracts                     389 arquivos PASS
+Migrations                                  58/58 PASS
+Release Manifest                           111/111 PASS
+Capability Matrix                           51 capacidades
+                                              194 evidências
+                                              131 executáveis
+Repository Local                           100/100 PASS
+Repository Supabase                        100/100 PASS
+Lockfile principal                         sincronizado PASS
+
+MIGRATIONS
+Nenhuma migration nova adicionada.
+58 migrations preservadas e checksums íntegros.
+
+NOVOS GATES
+npm run qa:commercial-readiness:cr3
+npm run runtime:commercial-readiness:cr3
+
+STAGING RUNTIME
+BLOCKED — este ambiente não contém as variáveis CR3_SUPABASE_URL, CR3_SUPABASE_ANON_KEY,
+CR3_WORKSPACE_ID e credenciais exclusivas de Vendedor/Gestor de homologação.
+O runner retorna exit code 2 de forma explícita antes de carregar o SDK.
+
+DEPENDÊNCIAS / BUILD
+node_modules não acompanha o pacote e não estava instalado neste ambiente.
+Assim, typecheck, Vitest e Vite build não foram reclassificados como PASS nesta etapa.
+CR1 continua responsável por Build & Dependency Closure; CR3 não mascara esse bloqueio.
+
+FLUXO STAGING IMPLEMENTADO
+01 login Vendedor
+02 login Gestor
+03 contato criado
+04 lead comercial criado
+05 oportunidade vinculada
+06 follow-up criado
+07 tarefa vinculada à oportunidade
+08 comunicação registrada
+09 proposta criada via save_sales_proposal
+10 proposta enviada
+11 aceite registrado
+12 lead/oportunidade fechados como won + pós-venda criado
+13 Vendedor bloqueado ao reconhecer receita
+14 Gestor reconhece receita
+15 tarefa comercial concluída
+
+SEGURANÇA
+O cenário usa workspace descartável de staging e registros prefixados CR3.
+Cleanup é best-effort e nunca faz bypass das policies/RLS.
+
+STATUS
+CR3 IMPLEMENTADA E ESTATICAMENTE VALIDADA.
+PROVA E2E CONTRA SUPABASE REAL: BLOCKED por ausência de credenciais de staging.

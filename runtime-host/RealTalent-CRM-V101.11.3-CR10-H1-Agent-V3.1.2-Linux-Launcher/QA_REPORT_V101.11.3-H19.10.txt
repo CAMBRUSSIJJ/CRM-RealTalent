@@ -1,0 +1,73 @@
+RealTalent CRM V101.11.3-H19.10 — Rich Messaging & Reliable Delivery
+QA FINAL
+
+BASE
+V101.11.3-H19.9 — WhatsApp Reliable Messaging & Groups
+
+GATES DE ARQUITETURA
+qa:architecture                                      PASS
+H19.7 WhatsApp Pure Chat                         38/38 PASS
+H19.8 WhatsApp Control Center                    40/40 PASS
+H19.8-H1 WhatsApp Runtime Recovery               28/28 PASS
+H19.9 Reliable Messaging & Groups                37/37 PASS
+H19.10 Rich Messaging & Reliable Delivery        64/64 PASS
+
+AUDITORIAS INDEPENDENTES
+Source Syntax                                      414 arquivos PASS
+Integration Contracts                              382 arquivos PASS
+Migrations                                          54/54 PASS
+Release Manifest                                    88/88 PASS
+Capability Matrix                     38 capacidades / 127 evidências / 83 executáveis PASS
+Repository Local                                   100/100 PASS
+Repository Supabase                                100/100 PASS
+Browser E2E Contracts                               11 fluxos PASS
+CSS Governance                                      65/65 PASS
+Linux release preflight                         375 TS/TSX PASS
+validate:env                                               PASS
+
+RUNTIME
+H19.10 Rich Messaging runtime smoke                  7/7 PASS
+  - Gateway isolado inicia
+  - envio offline entra imediatamente na fila (~7–10 ms no smoke)
+  - fila preserva mídia e reply
+  - mesma idempotencyKey retorna o mesmo evento
+  - timeline persiste uma única mensagem
+  - mídia privada é recuperável pelo Gateway
+  - retry recoloca a mensagem na outbox
+
+H19.8-H1 WhatsApp Runtime Recovery                    5/5 PASS
+Communications Architecture                          6/6 PASS
+Communications Recovery                              5/5 PASS
+Connect Recovery                                     5/5 PASS
+Security Runtime                                    12/12 PASS
+
+BUILD / DEPENDÊNCIAS
+npm ci                                      BLOCKED — timeout de acesso ao registry npm
+typecheck                                   BLOCKED — dependências React/Supabase não instaladas; o tsc disponível reporta módulos ausentes e erros em cascata
+Vitest                                      BLOCKED — vitest não instalado
+Vite build                                  BLOCKED — vite não instalado
+
+BUILD INDEPENDENTE
+build:legacy                                 299 módulos transpilados
+Built bundle audit                           REJECTED — o fallback produz HTML legado/título incorreto
+Ação                                        dist removido do pacote final
+
+ESCOPO H19.10
+- anexos: imagem, vídeo, áudio e documento
+- gravação de voz
+- clipboard/Ctrl+V
+- preview de anexo
+- respostas citadas QR + Cloud
+- ACK real enviado/entregue/lido/falhou
+- outbox offline persistente e retry automático
+- retry manual
+- armazenamento privado de mídia
+- inbound media QR materializada
+- inbound media Cloud materializada quando a Meta/credencial permite
+- Pure Chat preservado
+
+LIMITAÇÕES
+- limite de mídia: 8 MB nesta release
+- criação/gestão de grupos continua QR-only
+- gravação de voz depende de MediaRecorder e permissão do microfone
+- não foi possível executar typecheck/Vitest/Vite oficiais sem node_modules

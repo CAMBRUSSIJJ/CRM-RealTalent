@@ -1,0 +1,70 @@
+RealTalent CRM V101.10.3-H7 — Review Workspace 2.0
+QA Report
+==================================================
+
+Escopo
+------
+- Revisão em dois modos: Lista | Guiada
+- Lista como operação principal de alto volume
+- filtros por status, origem, qualidade e duplicidade
+- seleção múltipla limitada aos registros visíveis/reviewable
+- ações em lote: analisar, reprocessar, aprovar, descartar, enviar e excluir
+- abertura direta de linha na revisão Guiada
+- reprocessamento em lote de enrichment por candidateId + agentJobId
+- preservação do Company Bridge H4, Enrichment H5 e Progressive Processing H6
+
+Validações executadas
+---------------------
+QA Architecture: PASS
+- Source syntax audit: 385 arquivos
+- Integration contract audit: 358 arquivos
+- Migrations: 49/49 com checksum íntegro
+- Release Manifest: 41/41 invariantes
+- Capability Matrix: 18 capacidades / 56 evidências / 37 executáveis
+- Repository Contract: 98 métodos
+- Repository Local: 98/98
+- Repository Supabase: 98/98
+- Browser E2E Contract: 9 fluxos
+- H7 Review Workspace 2.0: 36/36
+
+Regressão histórica: PASS
+- 3.185 linhas OK
+- 0 FAIL
+- typecheck isolado V101.9.7: PASS
+- typecheck isolado V101.9.8: PASS
+
+Runtimes preservados
+--------------------
+- H5 Enrichment Jobs smoke: PASS
+  website=completed / contacts=completed / cnpj=completed / social=completed / retry isolado OK
+- H6 Progressive Processing smoke: PASS
+  publicado durante running / revisão confirmada / sem reentrega
+
+Linux
+-----
+- linux-release-preflight: PASS (351 TS/TSX)
+- bash -n start-linux.sh: PASS
+- bash -n install-prospecting-agent-service.sh: PASS
+
+Gates globais neste contêiner
+-----------------------------
+Os gates globais foram tentados, mas NÃO são marcados como aprovados neste ambiente:
+- npm run typecheck: não executável de forma íntegra porque React/Supabase e demais dependências do projeto não estão instaladas em node_modules.
+- npm test: `vitest: not found`.
+- npm run build: `vite: not found`.
+- npm ci --prefer-offline: tentativa não concluiu dentro do ambiente de montagem e não criou node_modules utilizável.
+
+O start-linux.sh instala/repara as dependências, remove qualquer dist anterior e executa release:verify (typecheck + testes + build + runtimes) antes de iniciar o CRM.
+
+Integridade funcional H7
+------------------------
+- itens enviados/descartados não entram em seleção em lote;
+- seleção usa apenas registros visíveis sob filtros ativos;
+- reprocessamento busca o job original pelo agentJobId/candidateId;
+- tarefas já concluídas não são repetidas pelo reprocessamento em lote;
+- candidatos progressivos e de fechamento passam a persistir agentJobId;
+- envio em lote continua usando CompanyRecord -> ContactRecord -> oportunidade opcional.
+
+Migrations
+----------
+Nenhuma migration nova. Total preservado: 49/49.

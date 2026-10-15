@@ -1,0 +1,24 @@
+RealTalent CRM V100.82.0 — Roteiro Comercial 2.0
+QA executado em 2026-09-22
+
+RESULTADO
+- Gate específico V100.82.0: 55/55 contratos aprovados.
+- Regressão histórica/atual: 27/27 suítes de QA aprovadas.
+- Auditoria sintática: 241 arquivos aprovados.
+- Auditoria de contratos de integração: 212 arquivos aprovados.
+- Migrations: 37/37 arquivos com checksum íntegro.
+- TypeScript isolado: src/domain/types.ts + src/services/playbook-execution.ts compilados sem erro.
+- Migration nova: não.
+- BACKUP_SCHEMA_VERSION: 100.54.
+
+COBERTURA V100.82
+- Biblioteca + visão Executar.
+- Modos Passo a passo, Checklist, Ligação e Reunião.
+- Targeting por segmento, persona, etapa, objetivo, temperatura e papel decisório.
+- Discovery estruturado, objeções prioritárias e agenda de reunião.
+- Persistência local do progresso do checklist por workspace/roteiro.
+- Compatibilidade com playbooks antigos sem os novos campos.
+- Demo principal enriquecida para os quatro modos de execução.
+
+LIMITAÇÃO DO AMBIENTE DE EMPACOTAMENTO
+A tentativa de `npm ci --ignore-scripts --no-audit --no-fund --prefer-offline` falhou por TransportTimeoutError do ambiente. Por isso o typecheck completo do app, Vitest e build Vite não foram marcados como executados nesta sessão. Qualquer node_modules parcial foi removido antes do empacotamento.

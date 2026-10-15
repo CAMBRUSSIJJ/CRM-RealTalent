@@ -1,0 +1,36 @@
+REALTalent Agent V2.5 — Release Manifest
+
+COMPONENTES
+- RealTalent-Agent-Runtime-V2.6
+- RealTalent-CRM-V101.11.3-CR10-H1-Agent-V2.6-Linux-Launcher
+- Blue-Ocean-Service-Studio-V1.20.5-H7.24-Agent-V2.6-Linux-Source-Launcher
+
+CAPACIDADES NOVAS
+- Multimodal Intelligence
+- two-pass visual perception
+- structured visual findings
+- normalized visual grounding regions
+- UI screenshot diagnosis
+- multi-image comparison
+- cross-turn visual_context
+- no-Vision hallucination guard
+
+CAPACIDADES PRESERVADAS
+- Tool-First server-side
+- App Context Bridge
+- native app tools + confirmation
+- Conversation / Project / Operational / Semantic memory separation
+- Intelligence Core + Complexity Classifier + Model Router
+- Verifier / Repair
+- Memory & Knowledge: local embeddings, hybrid RAG, reranking
+- Commercial Readiness
+
+RELEASE HYGIENE
+- node_modules: excluded
+- __pycache__: excluded
+- generated semantic/vector test state: excluded
+- business mutations added in V2.5: none
+
+VALIDATION
+See QA_V2.5.txt and VALIDACAO_V2.5.md.
+Browser E2E is UNVERIFIED in the build environment due administrator URL blocking of localhost.

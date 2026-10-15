@@ -1,0 +1,83 @@
+RealTalent CRM V101.11.3-H19.13 — WhatsApp Work Management
+QA final — 2026-10-08
+
+BASE
+----
+V101.11.3-H19.12 — Communication Workspace Lineage Recovery
+
+OBJETIVO VALIDADO
+-----------------
+- Organizar o WhatsApp sem reintroduzir uma terceira coluna fixa de CRM.
+- Preservar o Pure Chat: histórico + composer continuam sendo a superfície principal da conversa.
+- Disponibilizar Etiquetas, Status, Responsável, Follow-up e Tarefa em uma camada operacional compacta fora do corpo das mensagens.
+- Fazer Tarefa usar o Work Management real do CRM, e Follow-up usar ActivityItem/Próxima ação quando a conversa estiver vinculada ao CRM.
+- Transformar a Inbox em fila operacional com filtros acionáveis.
+
+RESULTADO PRINCIPAL
+-------------------
+PASS qa:architecture
+PASS H19.13 WhatsApp Work Management                 27/27
+
+REGRESSÕES DA LINHA H19
+-----------------------
+PASS H19.7 Pure Chat                                  38/38
+PASS H19.8 Control Center                             40/40
+PASS H19.8-H1 Runtime Recovery                        28/28
+PASS H19.9 Reliable Messaging & Groups                37/37
+PASS H19.10 Rich Messaging & Reliable Delivery        64/64
+PASS H19.10-H1 Media Delivery Fix                     31/31
+PASS H19.11 Contact & Message Normalization            50/50
+PASS H19.12 Communication Workspace Lineage Recovery   19/19
+PASS H19.13 WhatsApp Work Management                   27/27
+TOTAL LINHA H19                                      334/334
+
+GATES ESTRUTURAIS
+-----------------
+PASS Source Syntax                                  416 arquivos
+PASS Integration Contracts                         384 arquivos
+PASS Migrations                                         54/54
+PASS Release Manifest                                   92/92
+PASS Capability Matrix      41 capacidades / 145 evidências / 98 executáveis
+PASS Repository Local                                  100/100
+PASS Repository Supabase                               100/100
+PASS Browser E2E Contract                              11 fluxos
+PASS CSS Governance                                     65/65
+PASS Linux release preflight                       377 TS/TSX
+
+BUILD INDEPENDENTE / HIGIENE
+----------------------------
+PASS registry-independent transpile                  301 módulos
+EXPECTED REJECT built-bundle audit: "HTML legado reapareceu"
+- O dist produzido pelo fallback foi rejeitado pelo auditor e removido.
+- O ZIP final não contém dist legado.
+- O ZIP final não contém node_modules.
+- O ZIP final não contém sessão local .realtalent-whatsapp-browser.
+- O ZIP final não contém .env.local.
+
+GATES OFICIAIS DEPENDENTES DE DEPENDÊNCIAS
+-------------------------------------------
+BLOCKED npm ci — não concluiu dentro da janela do ambiente; node_modules não foi criado.
+NOT PASS typecheck oficial — não executável sem dependências instaladas.
+NOT PASS Vitest oficial — não executável sem dependências instaladas.
+NOT PASS Vite build oficial — não executável sem dependências instaladas.
+
+Esses três gates NÃO são classificados como PASS nesta entrega.
+
+ESCOPO FUNCIONAL H19.13
+-----------------------
+- Etiquetas padrão e personalizadas por conversa, com cor e filtros na Inbox.
+- Status operacional: Novo, Em atendimento, Aguardando cliente, Retorno agendado e Concluído.
+- Responsável por conversa usando membros reais do workspace.
+- Filtros operacionais: Para responder, Follow-ups hoje, Vencidas, Aguardando cliente e Sem responsável.
+- Follow-up com presets/data/hora; quando a conversa está vinculada ao CRM, persiste ActivityItem e atualiza Próxima ação do lead.
+- Tarefa com vencimento, prioridade e responsável, persistida pelo serviço real de Work Management.
+- Indicadores de etiquetas, status, follow-up e tarefa vencida na linha de conversa.
+- Toolbar operacional posicionada entre o cabeçalho e a timeline, sem poluir o corpo das mensagens.
+- Drawer de contexto CRM continua sob demanda; a terceira coluna fixa não retorna.
+
+LIMITAÇÃO CONSCIENTE
+--------------------
+- Etiquetas, status, responsável e metadados visuais de follow-up da conversa usam safeStorage local por workspace nesta release, evitando introduzir uma migration nova sem necessidade.
+- Tarefas usam persistência real do Work Management.
+- Follow-ups vinculados a contatos/leads usam persistência real de atividade do CRM.
+- Sincronização multiusuário dos metadados operacionais do WhatsApp pode ser promovida para Repository/Supabase em uma fase posterior com migration dedicada.

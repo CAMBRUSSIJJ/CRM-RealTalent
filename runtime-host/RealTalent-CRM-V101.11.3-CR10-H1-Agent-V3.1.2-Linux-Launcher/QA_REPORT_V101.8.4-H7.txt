@@ -1,0 +1,38 @@
+RealTalent CRM V101.8.4-H7 — WhatsApp Chat Workspace
+QA REPORT
+
+Objetivo
+- transformar o painel do canal WhatsApp na Central de Comunicação em uma experiência de chat, preservando a timeline unificada e as integrações QR Local / Cloud API existentes.
+
+Validações executadas neste ambiente
+- source_syntax_audit: 298 arquivos aprovados
+- integration_contract_audit: 266 arquivos aprovados
+- migrations: 46/46 checksums íntegros
+- V100.94 Omnichannel Inbox: 45/45
+- V101.8.3 Contact Identity Sync: 17/17
+- V101.8.3 Connect One-Tap: 39/39
+- V101.8.4 Official Communications: 14/14
+- V101.8.4-H2 Communications Gateway: 13/13
+- V101.8.4-H3 OAuth Runtime Fix: 7/7
+- V101.8.4-H4 WhatsApp QR: 12/12
+- V101.8.4-H4 GateFix1 Runtime Dependencies: 5/5
+- V101.8.4-H5 WhatsApp Web QR: 14/14
+- V101.8.4-H6 Single-Pass Dependency Install: 10/10
+- V101.8.4-H7 WhatsApp Chat Workspace: 15/15
+
+Comportamentos H7 cobertos
+- seleção do canal WhatsApp troca para uma conversa WhatsApp compatível;
+- painel principal usa visualização de chat;
+- eventos são ordenados cronologicamente;
+- entrada e saída usam bolhas diferentes;
+- estados sent/delivered/read/queued/failed são representados;
+- composer usa sendOfficialWhatsApp e conta conectada selecionável;
+- Enter envia e Shift+Enter quebra linha;
+- botão Sincronizar permanece dentro do chat;
+- layout responsivo mobile incluído;
+- timeline unificada permanece como fonte única de dados.
+
+Limitação deste ambiente de montagem
+- npm run check avançou por todos os audits históricos e atuais até typecheck.
+- typecheck não pôde ser concluído aqui porque o ZIP de origem não inclui node_modules; erros observados foram de resolução de react/lucide/@supabase e JSX types ausentes.
+- start-linux.sh preserva a instalação H6 em passo único e executará typecheck + Vitest + build no Linux do usuário após instalar as dependências.

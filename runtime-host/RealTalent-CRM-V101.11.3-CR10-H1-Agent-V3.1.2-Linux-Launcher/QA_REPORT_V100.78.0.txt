@@ -1,0 +1,32 @@
+RealTalent CRM V100.78.0 — Propostas + Catálogo 2.0
+QA executado em: 2026-09-20
+
+RESULTADO
+- Gate específico V100.78.0: 36/36 contratos aprovados.
+- Auditoria sintática: 239 arquivos aprovados.
+- Auditoria de contratos de integração: 210 arquivos aprovados.
+- Integridade de migrations: 37/37 arquivos com checksum íntegro.
+- Regressão estática: 23 gates históricos/atuais aprovados, de V100.56.4 a V100.78.0.
+- Nenhuma migration nova.
+- BACKUP_SCHEMA_VERSION preservado em 100.54.
+
+ESCOPO V100.78
+1. Propostas sincronizadas com a etapa Proposta do Pipeline.
+2. Reconhecimento tolerante a nomes Proposta / Proposal / Orçamento / Quote.
+3. Criação de proposta exige etapa de Proposta configurada.
+4. Lead fora da etapa é movido automaticamente antes da gravação.
+5. Se a gravação falhar, o CRM tenta restaurar a etapa anterior.
+6. Stage change automático continua alimentando o mecanismo de automações.
+7. Workspace ativo mostra somente propostas vigentes de leads ativos na etapa operacional.
+8. Propostas históricas permanecem preservadas nos demais módulos e dados.
+9. Catálogo com busca, categoria, status, edição, duplicação e disponibilidade.
+10. Contagem de uso por item e bloqueio visual de exclusão quando já utilizado.
+11. Padronização responsiva de hero, toolbar, cards, tabela e catálogo.
+
+VALIDAÇÕES NÃO EXECUTADAS NESTE EMPACOTAMENTO
+- npm ci não concluiu: TransportTimeoutError do ambiente de transporte.
+- Consequentemente, typecheck completo, Vitest e build Vite não foram marcados como aprovados.
+- node_modules parcial foi removido antes do empacotamento.
+
+OBSERVAÇÃO SOBRE REGRESSÃO
+Os gates V100.76 e V100.77 foram ajustados para operar como testes de regressão em versões sucessoras: continuam validando todos os contratos funcionais originais, mas deixam de exigir que package/health permaneçam presos à versão antiga.

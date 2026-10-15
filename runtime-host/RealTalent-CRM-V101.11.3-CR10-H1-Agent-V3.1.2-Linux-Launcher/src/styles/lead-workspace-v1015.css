@@ -1,0 +1,84 @@
+/* RealTalent CRM V101.5 — Lead Workspace 3.0
+   Progressive disclosure: Foco by default, Completo on demand. */
+.sales-workspace-v1015{width:min(1120px,98vw);background:var(--surface-soft,#f3f5f8)}
+.sales-workspace-v1015 .sales-workspace-v1013__header{min-height:78px;padding-block:11px}
+.sales-workspace-v1015 .lead-drawer__identity{min-width:0}
+.sales-workspace-v1015 .lead-drawer__identity>div{min-width:0}
+.sales-workspace-v1015 .lead-drawer__identity h2{margin-block:2px;font-size:20px}
+.sales-workspace-v1015 .lead-drawer__identity p{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.sales-workspace-v1015__header-actions{gap:8px}
+.sales-workspace-v1015__mode-switch{display:inline-flex;align-items:center;padding:3px;border:1px solid var(--border);border-radius:10px;background:var(--surface-soft)}
+.sales-workspace-v1015__mode-switch button{min-height:28px;padding:0 10px;border:0;border-radius:7px;background:transparent;color:var(--muted);font-size:9px;font-weight:800;cursor:pointer}
+.sales-workspace-v1015__mode-switch button.is-active{background:var(--surface);color:var(--text);box-shadow:0 1px 4px rgba(20,35,65,.10)}
+
+.sales-workspace-v1015__command-bar{position:relative;z-index:3;min-height:52px;padding:7px 14px;gap:7px;border-bottom:1px solid var(--border);background:color-mix(in srgb,var(--surface) 94%,transparent);backdrop-filter:blur(10px)}
+.sales-workspace-v1015__command-bar .button:first-child{min-width:108px}
+.sales-workspace-v1015--focus .sales-workspace-v1013__body{grid-template-columns:minmax(0,1fr) 306px;gap:12px;padding:12px}
+.sales-workspace-v1015--complete .sales-workspace-v1013__body{grid-template-columns:minmax(0,1fr) 330px}
+.sales-workspace-v1015--focus .sales-workspace-v1013__main{gap:10px}
+.sales-workspace-v1015--focus .sales-workspace-v1013__primary{padding:15px 17px;box-shadow:none}
+.sales-workspace-v1015--focus .sales-workspace-v1013__primary h3{font-size:18px}
+.sales-workspace-v1015--focus .sales-workspace-v1013__primary p{max-width:610px}
+.sales-workspace-v1015--focus .sales-workspace-v1013__signal-row{margin-top:8px}
+
+.sales-workspace-v1015__strategy-card{padding:0;overflow:hidden}
+.sales-workspace-v1015__strategy-summary{min-height:72px;padding:13px 14px;display:flex;align-items:center;justify-content:space-between;gap:14px}
+.sales-workspace-v1015__strategy-summary>div:first-child{min-width:0;display:grid;gap:2px}
+.sales-workspace-v1015__strategy-summary strong{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:12px}
+.sales-workspace-v1015__strategy-summary p{margin:0;color:var(--muted);font-size:9px}
+.sales-workspace-v1015__strategy-summary-actions{display:flex;align-items:center;gap:7px;flex:0 0 auto}
+.sales-workspace-v1015__strategy-expanded{padding:0 14px 14px;border-top:1px solid var(--border)}
+.sales-workspace-v1015__strategy-expanded>.sales-workspace-v1013__strategy-grid{padding-top:12px}
+.sales-workspace-v1015__disclosure{display:inline-flex;align-items:center;justify-content:center;gap:4px;min-height:30px;padding:0 7px;border:0;border-radius:8px;background:transparent;color:var(--muted);font-size:9px;font-weight:800;cursor:pointer;white-space:nowrap}
+.sales-workspace-v1015__disclosure:hover{background:var(--surface-soft);color:var(--text)}
+.sales-workspace-v1015__section-title .lead-section-title-actions{display:flex;align-items:center;gap:4px;flex-wrap:wrap;justify-content:flex-end}
+.sales-workspace-v1015__details-expanded{display:grid;gap:0}
+
+.sales-workspace-v1015--focus .sales-workspace-v1013__summary{padding:13px 14px}
+.sales-workspace-v1015--focus .sales-workspace-v1013__facts{gap:7px}
+.sales-workspace-v1015--focus .sales-workspace-v1013__facts>div{min-height:56px;padding:8px 9px;background:var(--surface)}
+.sales-workspace-v1015--focus .sales-workspace-v1013__facts span{font-size:7px}
+.sales-workspace-v1015--focus .sales-workspace-v1013__facts strong{font-size:9px}
+
+.sales-workspace-v1015__attention{min-height:52px;padding:10px 12px;display:grid;grid-template-columns:auto minmax(0,1fr) auto;align-items:center;gap:10px;border:1px solid #ead7aa;border-radius:12px;background:#fffaf0;color:#735617}
+.sales-workspace-v1015__attention>div{min-width:0;display:grid;gap:2px}
+.sales-workspace-v1015__attention strong{font-size:10px}
+.sales-workspace-v1015__attention span{color:#8a7345;font-size:8px;line-height:1.35}
+.sales-workspace-v1015__attention button{border:0;background:transparent;color:#8b6416;font-size:9px;font-weight:800;cursor:pointer}
+
+.sales-workspace-v1015--focus .sales-workspace-v1013__context-panel{border-radius:14px;box-shadow:none}
+.sales-workspace-v1015--focus .sales-workspace-v1013__context-content,.sales-workspace-v1015--focus .sales-workspace-v1013__history-content,.sales-workspace-v1015--focus .sales-workspace-v1013__notes-content{padding:12px;gap:13px}
+.sales-workspace-v1015--focus .sales-workspace-v1013__context-list>div{padding:8px;border-color:color-mix(in srgb,var(--border) 80%,transparent);background:var(--surface)}
+.sales-workspace-v1015--focus .sales-workspace-v1013__context-content>section{padding-bottom:11px}
+.sales-workspace-v1015--focus .sales-workspace-v1013__mini-list article{padding:8px;background:var(--surface)}
+.sales-workspace-v1015--focus .sales-workspace-v1013__footer{min-height:48px;padding-block:6px}
+.sales-workspace-v1015--focus .sales-workspace-v1013__footer .button{min-height:30px}
+
+html[data-theme="dark"] .sales-workspace-v1015__attention{border-color:#63552e;background:#2b2619;color:#eadfb8}
+html[data-theme="dark"] .sales-workspace-v1015__attention span{color:#b9aa7c}
+html[data-theme="dark"] .sales-workspace-v1015__attention button{color:#ddc576}
+
+@media (max-width:980px){
+  .sales-workspace-v1015--focus .sales-workspace-v1013__body,.sales-workspace-v1015--complete .sales-workspace-v1013__body{grid-template-columns:1fr}
+  .sales-workspace-v1015__mode-switch{margin-left:auto}
+}
+@media (max-width:720px){
+  .sales-workspace-v1015{width:100vw}
+  .sales-workspace-v1015 .sales-workspace-v1013__header{align-items:flex-start}
+  .sales-workspace-v1015__header-actions{align-items:center}
+  .sales-workspace-v1015__mode-switch button{padding-inline:8px}
+  .sales-workspace-v1015__command-bar{overflow-x:auto;flex-wrap:nowrap;justify-content:flex-start}
+  .sales-workspace-v1015__command-bar .button{flex:0 0 auto;width:auto}
+  .sales-workspace-v1015__strategy-summary{align-items:stretch;flex-direction:column}
+  .sales-workspace-v1015__strategy-summary-actions{display:grid;grid-template-columns:minmax(0,1fr) auto}
+  .sales-workspace-v1015__strategy-summary-actions .button{width:100%}
+  .sales-workspace-v1015__section-title{align-items:flex-start}
+  .sales-workspace-v1015__section-title .lead-section-title-actions{justify-content:flex-start}
+}
+@media (max-width:520px){
+  .sales-workspace-v1015__mode-switch{order:3;width:100%}
+  .sales-workspace-v1015__mode-switch button{flex:1}
+  .sales-workspace-v1015__header-actions{flex-wrap:wrap;justify-content:flex-end}
+  .sales-workspace-v1015__attention{grid-template-columns:auto 1fr}
+  .sales-workspace-v1015__attention button{grid-column:2;justify-self:start;padding:0}
+}

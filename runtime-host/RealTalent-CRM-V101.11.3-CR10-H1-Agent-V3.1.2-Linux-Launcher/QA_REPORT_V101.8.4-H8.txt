@@ -1,0 +1,51 @@
+RealTalent CRM V101.8.4-H8 — WhatsApp History Sync
+QA / Release Gate
+==================================================
+
+Objetivo
+-------
+Corrigir a conexão QR que estava ativa mas não importava as conversas/histórico do WhatsApp Web para a Central de Comunicação.
+
+Implementação verificada
+------------------------
+- History sync via whatsapp-web.js: client.getChats() + chat.fetchMessages().
+- Sync manual: até 60 chats recentes / 80 mensagens por chat por padrão.
+- Sync incremental de background: até 20 chats / 25 mensagens por chat.
+- Importação inicial automática após evento ready.
+- Deduplicação por externalMessageId.
+- Captura de mensagens enviadas pelo celular via message_create.
+- Atualização de ACK: queued/sent/delivered/read/failed.
+- Preservação de threadId, peerAddress, chatName, isGroup e messageType.
+- Matching de CRM por sender + recipients + peerAddress.
+- Conversas sem Lead separadas por thread/número, sem criação automática de Lead.
+- Workspace de chat abre conversas externas não vinculadas.
+- Grupos podem ser importados, mas envio para grupos fica bloqueado nesta versão.
+- Timeline local: frontend até 3000 eventos; gateway até 5000.
+- Migração automática de sessão/store/chave da H7/H6/H5 quando a H8 está limpa.
+
+Gates executados
+---------------
+- Source syntax audit: 299 arquivos aprovados.
+- Integration contract audit: 267 arquivos aprovados.
+- Migrations: 46/46 checksums íntegros.
+- V101.8.3 Connect One-Tap: 39/39.
+- V101.8.3-H1 Contact Identity Sync: 17/17.
+- V101.8.4-H2 Local Communications Gateway: 13/13.
+- V101.8.4-H3 OAuth Runtime/Test Fix: 7/7.
+- V101.8.4-H4 WhatsApp QR Local: 12/12.
+- V101.8.4-H4 GateFix1: 5/5.
+- V101.8.4-H5 WhatsApp Web QR Reliability: 14/14.
+- V101.8.4-H6 Single-Pass Dependency Install: 10/10.
+- V101.8.4-H7 WhatsApp Chat Workspace: 15/15.
+- V101.8.4-H8 WhatsApp History Sync: 21/21.
+- start-linux.sh: bash -n aprovado.
+- Gateway/bridge MJS: node --check aprovado.
+- TS/TSX modificados: transpile/syntax check aprovado.
+
+Limitação do ambiente de montagem
+---------------------------------
+O typecheck global chega a ser executado, mas este ambiente não possui node_modules do projeto; por isso aparecem erros de módulos ausentes (React, lucide-react, Supabase etc.). Não foram detectados erros adicionais específicos dos services modificados da H8. O launcher Linux instala as dependências antes de executar typecheck, Vitest e build na máquina do usuário.
+
+Limitação do WhatsApp Web
+-------------------------
+A H8 importa o histórico que a sessão vinculada do WhatsApp Web disponibiliza. O WhatsApp pode limitar a quantidade/idade do histórico entregue a um novo dispositivo vinculado. A H8 não tenta contornar essa limitação.

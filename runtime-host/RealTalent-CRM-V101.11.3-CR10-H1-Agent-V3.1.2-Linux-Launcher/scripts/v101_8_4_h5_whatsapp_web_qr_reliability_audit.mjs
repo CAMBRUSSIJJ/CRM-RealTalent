@@ -1,0 +1,28 @@
+import fs from 'node:fs'
+const checks=[]
+const ok=(name,pass)=>{checks.push([name,Boolean(pass)]);console.log(`${pass?'OK  ':'FAIL'} ${name}`)}
+const read=p=>fs.readFileSync(p,'utf8')
+const pkg=JSON.parse(read('package.json'))
+const browserBridge=read('scripts/whatsapp-browser-qr-bridge.mjs')
+const legacyBridge=read('scripts/whatsapp-qr-bridge.mjs')
+const gateway=read('scripts/realtalent-communications-gateway.mjs')
+const panel=read('src/features/settings/whatsapp-integration-panel.tsx')
+const launcher=(read('start-linux.sh') + '\n' + (fs.existsSync('start-linux-legacy.sh') ? read('start-linux-legacy.sh') : '') + '\n' + (fs.existsSync('scripts/start.mjs') ? read('scripts/start.mjs') : ''))
+const index=read('index.html')
+ok('baseline V101.8.4 preservada',['101.8.4','101.9.0','101.9.1','101.9.2','101.9.3','101.9.4','101.9.5','101.9.6','101.9.7','101.9.8','101.9.9','101.10.0','101.10.1','101.10.2','101.10.3','101.10.4','101.10.5','101.10.6','101.10.7','101.10.8','101.10.9','101.11.0','101.11.1','101.11.2','101.11.3'].includes(pkg.version))
+ok('H4 Baileys permanece como baseline histórica',legacyBridge.includes('useMultiFileAuthState')&&pkg.dependencies?.['@whiskeysockets/baileys']==='7.0.0-rc14')
+ok('gateway usa motor browser QR da H5',gateway.includes("./whatsapp-browser-qr-bridge.mjs")&&gateway.includes('createWhatsAppBrowserQrBridge'))
+ok('H5 usa whatsapp-web.js com LocalAuth',browserBridge.includes("import('whatsapp-web.js')")&&browserBridge.includes('new LocalAuth'))
+ok('sessão browser é persistida localmente',browserBridge.includes('.realtalent-whatsapp-browser')&&browserBridge.includes('clientId'))
+ok('Chromium usa flags Linux seguras de compatibilidade',browserBridge.includes('--no-sandbox')&&browserBridge.includes('--disable-dev-shm-usage'))
+ok('QR é renderizado e atualizado pelo WhatsApp Web',browserBridge.includes("client.on('qr'")&&browserBridge.includes('QRCode.toDataURL'))
+ok('autenticação e ready são tratados separadamente',browserBridge.includes("client.on('authenticated'")&&browserBridge.includes("client.on('ready'"))
+ok('falha de autenticação é exposta ao usuário',browserBridge.includes("client.on('auth_failure'")&&browserBridge.includes('O WhatsApp recusou a autenticação'))
+ok('mensagens recebidas entram na timeline',browserBridge.includes("client.on('message'")&&browserBridge.includes('live_inbound')&&browserBridge.includes('ingestMessage'))
+ok('envio usa client.sendMessage',browserBridge.includes('client.sendMessage(chatId'))
+ok('motor browser está declarado como dependência runtime',pkg.dependencies?.['whatsapp-web.js']==='1.34.7'&&launcher.includes("require.resolve('whatsapp-web.js')"))
+ok('interface informa motor WhatsApp Web Chromium',panel.includes('WhatsApp Web real em Chromium')&&panel.includes('Motor: WhatsApp Web (Chromium)'))
+ok('release marker H5 existe',launcher.includes('V101.8.4-H5 — WhatsApp Web QR Reliability')&&index.includes('V101.8.4-H5 — WhatsApp Web QR Reliability'))
+const pass=checks.filter(([,v])=>v).length
+console.log(`\nV101.8.4-H5 WhatsApp Web QR Reliability: ${pass}/${checks.length} contratos aprovados.`)
+if(pass!==checks.length)process.exit(1)

@@ -1,0 +1,53 @@
+RealTalent CRM V100.98.0 — Prospecting Engine
+QA REPORT
+
+Escopo desta release
+--------------------
+- Motor de providers para o Garimpo, sem remover Data Layer/revisão humana.
+- Google Places API (New) por gateway server-side quando GOOGLE_MAPS_SERVER_KEY está configurada.
+- Consulta individual por CNPJ via provider configurável (BrasilAPI como padrão do protótipo).
+- Instagram em modo assistido.
+- RT_Capture/Extensão, CSV/JSON, captura manual, deduplicação e aprovação preservados.
+- Gateway local no Vite e gateway hospedado via Supabase Edge Function.
+- Resultados diretos entram no fluxo já analisados, mas não viram Lead sem revisão/aprovação.
+
+Validações executadas neste pacote
+-----------------------------------
+PASS — source_syntax_audit.mjs: 272 arquivos
+PASS — integration_contract_audit.mjs: 241 arquivos
+PASS — verify-migrations.mjs: 41/41 migrations com checksum íntegro
+PASS — v100_98_prospecting_engine_audit.mjs: 62/62 contratos
+PASS — linux-release-preflight.mjs: 239 arquivos TS/TSX e regressões Linux
+PASS — todos os 43 scripts históricos v100_*_audit.mjs, de V100.56.4 a V100.98.0
+PASS — V100.88 Garimpo 2.0: 78/78
+PASS — V100.94 Omnichannel Inbox: 45/45
+PASS — V100.95 Workspace Personalization: 40/40
+PASS — V100.96 Guided Selling & Help: 36/36
+PASS — V100.97 Product & Revenue Workspace: 54/54
+PASS — sintaxe Bash: start-linux.sh, start-linux-dev.sh, install-linux.sh, configure-google-places.sh
+
+Proteções Linux
+---------------
+- Porta dedicada: 4181.
+- .env.local existente é preservado.
+- Google Places é opcional; ausência da chave não impede o CRM de abrir.
+- O launcher executa preflight e build real antes de abrir o navegador.
+- O launcher bloqueia o HTML legado "Carregando RealTalent CRM" e dependência esm.sh.
+- O launcher confirma que dist/index.html pertence à V100.98 antes de iniciar o CRM.
+
+Limitação de validação deste ambiente
+-------------------------------------
+O ambiente de geração não possui acesso confiável ao registry npm para completar uma instalação limpa das dependências. Por isso o build Vite/npm completo não foi alegado como executado aqui. O pacote foi deliberadamente configurado para executar npm ci/install, preflight e npm run build no Linux do usuário ANTES de abrir o navegador. Se o build real falhar, o launcher interrompe e mostra o erro no terminal em vez de abrir uma tela quebrada.
+
+Configuração opcional do Google Places
+--------------------------------------
+Executar:
+  chmod +x configure-google-places.sh
+  ./configure-google-places.sh
+  ./start-linux.sh
+
+A chave é salva apenas em .env.local dentro do diretório local da release e não é incluída no ZIP.
+
+CNPJ
+----
+A consulta é estritamente individual por CNPJ de 14 dígitos. Não há crawler, enumeração ou varredura em massa no provider cadastral.

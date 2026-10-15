@@ -1,0 +1,55 @@
+RealTalent CRM V100.72.0 — Calling Intelligence Workspace
+==========================================================
+
+Escopo validado
+---------------
+- Pré-call Brief
+- Call Health
+- Next Best Question
+- Live Conversation Signals
+- Integração com Preparar Ligações
+- Integração com Modo Foco / wrap-up
+- Compatibilidade com padrões de UI V100.71
+- Compatibilidade com migrations e contratos existentes
+
+Validações executadas no ambiente de empacotamento
+--------------------------------------------------
+PASS  source_syntax_audit.mjs — 231 arquivos verificados
+PASS  integration_contract_audit.mjs — contratos verificados em 202 arquivos
+PASS  verify-migrations.mjs — 37 migrations e checksums preservados
+PASS  V100.69 audit — 43/43
+PASS  V100.70 audit — 36/36
+PASS  Hotfix Sparkles audit
+PASS  V100.71 audit — 25/25
+PASS  V100.72 audit — 21/21
+PASS  conjunto completo scripts/v100_*_audit.mjs
+PASS  TypeScript isolado do novo serviço calling-intelligence-workspace.ts
+PASS  smoke test: Live Conversation Signals + restrição opt-out do Call Health
+PASS  smoke test: Pré-call Brief + Next Best Question
+
+Comportamentos de segurança/consistência verificados
+-----------------------------------------------------
+- Call Health em estado "restricted" bloqueia a abertura do discador.
+- Alertas de frequência excessiva ficam em "attention" e não retiram a decisão do vendedor.
+- Leads restritos não entram automaticamente na fila preparada.
+- Sinais detectados podem ser incorporados ao registro do wrap-up.
+- A análise nova é local e determinística; não adiciona chamadas a provedores externos.
+- Nenhuma nova migration foi criada nesta versão.
+- Backup schema permanece compatível com a linha anterior.
+
+Limitação do ambiente
+---------------------
+A instalação completa das dependências npm não pôde ser concluída no ambiente de
+empacotamento por timeout de transporte do registry. Portanto, não são declarados
+como executados aqui o build completo do Vite, a suíte Vitest completa nem o
+`npm run typecheck` integral do projeto.
+
+O código novo recebeu verificação sintática, auditoria de integração, verificação
+das migrations, auditorias de regressão, typecheck isolado do serviço e smoke tests.
+Para validação integral no Linux após extrair o ZIP, execute:
+
+  npm install
+  npm run check
+
+Versão: V100.72.0
+Módulo: Calling Intelligence Workspace

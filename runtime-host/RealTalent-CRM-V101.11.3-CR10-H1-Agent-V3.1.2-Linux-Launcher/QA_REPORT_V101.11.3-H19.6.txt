@@ -1,0 +1,64 @@
+RealTalent CRM V101.11.3-H19.6 — WhatsApp Native UX & Follow-up Focus
+QA final — 2026-10-08
+
+BASE
+- V101.11.3-H19.5-H1 — Selection Overlay Runtime Fix
+- Meu Dia: sem alterações nesta release
+- Migrations novas: 0 (baseline preservada: 54)
+
+ESCOPO FUNCIONAL
+- WhatsApp preserva o switch compacto WhatsApp | E-mail no topo.
+- Chat passa a priorizar histórico e conversa mesmo quando o canal está desconectado.
+- Estado técnico de realtime deixa de competir visualmente com Conectado/Desconectado; segue exposto de forma acessível e como estado de runtime.
+- Aviso de desconexão fica compacto e acionável junto ao composer.
+- Conversa única não estica a linha inteira da inbox.
+- Composer e bubbles recebem densidade de mensageiro.
+- Follow-ups consolida navegação e filtros, reduz texto por linha e recolhe ações secundárias.
+- CRM_COMMERCIAL_ACTION é sanitizado antes da renderização.
+- Deduplicação conservadora usa sourceType:sourceId exatos; não mescla eventos apenas por título parecido.
+
+GATES DE RELEASE
+PASS qa:architecture
+PASS H19.2 Communication Workspace                         54/54
+PASS H19.3 WhatsApp Sales Workspace                       66/66
+PASS H19.4 Communication Focus Experience                 57/57
+PASS H19.5 Channel Workspaces & Collaborative Tasks       76/76
+PASS H19.5-H1 Selection Overlay Runtime Fix               18/18
+PASS H19.6 WhatsApp Native UX + Follow-up Focus           70/70
+
+PASS Source Syntax                                        413 arquivos
+PASS Integration Contracts                                381 arquivos
+PASS Migrations                                            54/54
+PASS Release Manifest                                      89/89
+PASS Capability Matrix                         33 capacidades / 106 evidências / 67 executáveis
+PASS Repository Local                                    100/100
+PASS Repository Supabase                                 100/100
+PASS Browser E2E Contract                                  11 fluxos
+PASS CSS Governance                                        65/65
+PASS Linux release preflight                         374 TS/TSX
+
+RUNTIME
+PASS Communications Architecture                            6/6
+PASS Communications Recovery                                5/5
+PASS Connect Recovery                                       5/5
+PASS Security Runtime                                      12/12
+
+BUILD / DEPENDÊNCIAS
+PASS validate:env
+PASS registry-independent transpile: 298 módulos
+FAIL esperado do bundle audit independente: "HTML legado reapareceu".
+- O dist produzido por esse fallback foi removido e NÃO integra o artefato final.
+
+BLOQUEADOS POR INFRAESTRUTURA
+- npm ci: registry indisponível neste ambiente.
+- npm ping: EAI_AGAIN getaddrinfo registry.npmjs.org.
+- typecheck oficial: não executado sem node_modules.
+- Vitest oficial: não executado sem node_modules.
+- Vite build oficial: não executado sem node_modules.
+Esses gates NÃO são classificados como PASS.
+
+INTEGRIDADE DO PACOTE
+- node_modules removido.
+- dist legado removido.
+- sessão local .realtalent-whatsapp-browser removida quando presente.
+- Selection Overlay Runtime Fix H19.5-H1 preservado na late CSS layer.

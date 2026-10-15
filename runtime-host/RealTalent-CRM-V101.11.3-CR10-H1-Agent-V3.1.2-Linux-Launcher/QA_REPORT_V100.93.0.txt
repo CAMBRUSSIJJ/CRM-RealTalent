@@ -1,0 +1,46 @@
+RealTalent CRM V100.93.0 — Full Page UX Audit
+Data: 2026-09-24
+
+OBJETIVO
+Revisar a experiência de página inteira das 15 rotas principais, cobrindo composição, largura útil, overflow, responsividade, navegação, teclado e acessibilidade sem alterar contratos de dados.
+
+ROTAS COBERTAS
+Meu Dia, Leads, Território, Pipeline, Follow-ups, Ligações, Comunicação, Propostas, Agenda, Playbooks, Metas, Automações, Métricas, Garimpo e Configurações.
+
+ALTERAÇÕES PRINCIPAIS
+- AppShell route-scoped (`data-route` + `app-shell--route-*`).
+- Scroll volta ao topo na troca de módulo.
+- Título do navegador sincronizado com a rota.
+- Skip-link "Pular para o conteúdo" e main focável.
+- Topbar com composição reforçada para notebook/tablet/mobile.
+- Busca global: Enter abre o primeiro resultado.
+- Camada final `full-page-audit-v10093.css` para largura, ritmo, overflow e responsividade.
+- Dashboard: resumos horizontais controlados no mobile.
+- Follow-ups: painel de contexto sticky somente no desktop.
+- Configurações: navegação interna sticky somente no desktop.
+- Pipeline: contenção das visualizações e scroll horizontal interno.
+- Território: altura útil de workspace e containment.
+- Garimpo: kanban e resultados contidos na viewport.
+- `prefers-reduced-motion` aplicado globalmente.
+- Build registry-independent corrigido para incluir os 45 módulos CSS; anteriormente concatenava apenas quatro folhas de estilo.
+
+QA EXECUTADO
+PASS — auditoria sintática: 266 arquivos.
+PASS — auditoria de contratos: 236 arquivos.
+PASS — migrations: 39/39, checksums íntegros.
+PASS — gates históricos/atuais: 38/38 scripts `qa:*`.
+PASS — gate V100.92 preservado: 65/65 contratos.
+PASS — gate V100.93: 62/62 contratos.
+PASS — build registry-independent: 178 módulos TypeScript.
+PASS — bundle CSS registry-independent: 45 folhas de estilo, com V100.93 carregada como camada final.
+
+CONTRATOS DE DADOS
+- Nenhuma nova migration.
+- Backup schema preservado em 100.54.
+- Contratos Supabase e limpeza transacional da V100.92 preservados.
+
+LIMITAÇÃO DO AMBIENTE
+O registry npm/hosts externos não ficou acessível a partir deste container, então não foi possível reinstalar as dependências oficiais para executar o Vite e fazer uma inspeção pixel a pixel das telas renderizadas no Chromium. A revisão foi feita sobre a árvore completa de páginas, JSX/TSX, estilos responsivos, composição do AppShell e gates estruturais. O build registry-independent foi gerado integralmente, mas seus imports externos também dependem de acesso de rede quando abertos no navegador.
+
+RESULTADO
+V100.93.0 pronta para teste visual em máquina com acesso às dependências. A base está estruturalmente consistente e os gates locais disponíveis passaram integralmente.

@@ -1,0 +1,33 @@
+import fs from 'node:fs'
+import path from 'node:path'
+const ROOT=path.resolve(path.dirname(new URL(import.meta.url).pathname),'..')
+const read=p=>fs.readFileSync(path.join(ROOT,p),'utf8')
+const page=read('src/features/communications/communications-page.tsx')
+const chat=read('src/features/communications/whatsapp-chat-panel.tsx')
+const start=read('scripts/start.mjs')
+const manifest=JSON.parse(read('release-manifest.json'))
+const checks=[]
+const ok=(name,cond)=>checks.push([name,Boolean(cond)])
+ok('manifest H19.12 lineage',['V101.11.3-H19.12','V101.11.3-H19.13'].includes(manifest.release.buildLabel))
+ok('base H19.11/H19.12',['V101.11.3-H19.11','V101.11.3-H19.12','V101.11.3-H19.13'].includes(manifest.release.hotfixBaseRelease))
+ok('pure chat lineage',page.includes('V101.11.3-H19.7 — WhatsApp Pure Chat'))
+ok('continuous chat lineage',page.includes('V101.11.3-H19.8 — WhatsApp Continuous Chat & Settings Control Center'))
+ok('H19.11 inbox actions',page.includes('whatsapp-inbox-create-actions is-h1911') || page.includes('whatsapp-inbox-create-actions is-h207h2'))
+ok('channel switch',page.includes('communication-channel-switch'))
+ok('WhatsAppChatPanel',page.includes('WhatsAppChatPanel'))
+ok('pure composer',chat.includes('whatsapp-chat__composer--pure'))
+ok('quick replies absent in chat',!chat.includes('Respostas rápidas'))
+ok('follow-up absent in chat',!chat.includes('Criar follow-up'))
+ok('note action absent in chat',!chat.includes('Salvar como nota'))
+ok('connection center preserved',chat.includes('WhatsAppConnectionCenter'))
+ok('rich media preserved',chat.includes('whatsapp-chat__attachment-preview'))
+ok('voice preserved',chat.includes('startRecording'))
+ok('reply preserved',chat.includes('replyingTo'))
+ok('preview recovery exists',start.includes('recoverPreviewPort'))
+ok('source lineage guard exists',start.includes('verifyCommunicationSourceLineage'))
+ok('runtime lineage marker',(start.includes('h19-12-communication-workspace-lineage-recovery')||start.includes('h19-13-whatsapp-work-management')) || start.includes('h19-13-whatsapp-work-management'))
+ok('unknown preview fail closed',start.includes('processo não reconhecido; nada foi encerrado'))
+let pass=0
+for (const [name,value] of checks){ console.log(`${value?'OK  ':'FAIL'} ${name}`); if(value)pass++ }
+console.log(`\nH19.12 Communication Workspace Lineage Recovery: ${pass}/${checks.length}`)
+if(pass!==checks.length) process.exit(1)

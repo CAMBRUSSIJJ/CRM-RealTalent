@@ -1,0 +1,39 @@
+RealTalent CRM V101.3.0 — Unified Sales Workspace
+QA REPORT
+Date: 2026-09-26
+
+RESULT: SOURCE / CONTRACT QA APPROVED
+
+Validated:
+- 54/54 source, integration, migration and historical QA gates: PASS
+- V101.3 Unified Sales Workspace audit: 50/50 contracts: PASS
+- V101.2 Calling Workflow & Strategy audit: 78/78 contracts: PASS
+- V100.62 Deal Intelligence baseline: 47/47 contracts: PASS
+- Source syntax audit: 276 files: PASS
+- Integration contract audit: 245 files: PASS
+- Linux release preflight: 243 TS/TSX files: PASS
+- Supabase migration integrity: PASS (41 migrations)
+- Strict TypeScript validation of new core services (unified-sales-workspace.ts + call-session-config.ts): PASS
+- TypeScript no-check compiler pass for changed TS/TSX integration files: PASS
+- Node syntax for V101.3 release scripts: PASS
+- start-linux.sh shell syntax: PASS
+- RealTalent Connect smoke (pairing -> device -> call -> connected -> ended + origin guard): PASS
+
+Functional contracts added in V101.3:
+- Lead Details promoted to Unified Sales Workspace.
+- Strategy objective and playbook can be selected in lead context.
+- Contextual playbook recommendation is reused by the Calling launcher.
+- Calling receives explicit playbookId/sessionObjective; no duplicate configuration.
+- Next best action, Lead Score and compact Deal Health are visible at the point of work.
+- Context / History / Notes side workspace added.
+- Follow-up, meeting, WhatsApp, email, calling and pipeline navigation remain available.
+- Per-lead strategy preference persists locally without a database migration.
+- V101.2 RealTalent Connect / Phone contract preserved.
+- Backup schema remains 100.54.
+
+Environment limitation:
+- A clean npm dependency install (npm ci) could not be completed because the package registry did not respond in this execution environment. The orphaned install process was terminated and partial node_modules was removed.
+- Therefore the dependency-backed full-project `npm run typecheck`, Vitest suite and Vite production build were not executed here.
+- The release launcher retains its normal dependency installation/build gates for execution on Linux with registry access.
+
+No background process was left running.

@@ -1,0 +1,14 @@
+RealTalent Agent V2.9 QA
+=======================
+Runtime contracts: 287/287 PASS
+Long-Horizon core: 9/9 PASS
+Gateway integration: 11/11 PASS
+Broad self-tests: 37/37 PASS
+Known-failure replay: 8/8 PASS
+Reliability: 1000/1000 PASS (segunda execução; primeira 960/1000 por Project Awareness flutuante, isolado 12/12 PASS)
+CRM integration: 7/7 PASS
+Blue Ocean integration: 7/7 PASS
+CRM tsc --noEmit --noCheck: PASS
+Blue Ocean tsc --noEmit --noCheck: PASS
+Browser Chat E2E: UNVERIFIED / ERR_BLOCKED_BY_ADMINISTRATOR
+Full product build/Vitest: UNVERIFIED

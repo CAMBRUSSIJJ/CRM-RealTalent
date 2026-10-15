@@ -1,0 +1,48 @@
+RealTalent Agent V2.6 — Release Manifest
+
+Primary bundle:
+- RealTalent-Agent-V2.6-Complete-Bundle
+
+Components:
+- RealTalent-Agent-Runtime-V2.6
+- RealTalent-CRM-V101.11.3-CR10-H1-Agent-V2.6-Linux-Launcher
+- Blue-Ocean-Service-Studio-V1.20.5-H7.24-Agent-V2.6-Linux-Source-Launcher
+
+New V2.6 capabilities:
+- Learning & Evaluation Intelligence
+- Failure Memory
+- explicit chat feedback loop
+- versioned Regression Dataset
+- known-failure replay
+- dataset hash / stale-run detection
+- explicit Learning baseline acceptance
+- Learning Release Gate
+- runtime/model/build comparison
+- Verifier -> Failure Memory loop
+
+Preserved:
+- V2.5 Multimodal Intelligence
+- V2.4 Memory & Knowledge
+- V2.3 Intelligence Core
+- V2.2 Grounded App Intelligence
+- Tool-First / App Context Bridge
+- governance / confirmation before writes
+
+Validation summary:
+- Runtime audit 267/267 PASS
+- Learning core 11/11 PASS
+- V2.6 integration 9/9 PASS
+- 29/29 broad self-test files PASS
+- Reliability FULL 1000/1000 PASS
+- Known-Failure Regression PASS
+- CRM integration 5/5 PASS
+- Blue Ocean integration 5/5 PASS
+- Browser Conversation E2E UNVERIFIED because managed Chromium blocks localhost
+- Full product typecheck/Vitest/Vite build UNVERIFIED without installed dependencies
+
+Distribution exclusions:
+- node_modules
+- user learning state
+- Failure Memory data created during tests
+- raw screenshots/pixels from learning state
+- local API secrets

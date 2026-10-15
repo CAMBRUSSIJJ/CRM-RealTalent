@@ -1,0 +1,76 @@
+RealTalent CRM V101.10.9 — CSS & Design System Consolidation
+QA report — 2026-10-06
+
+SCOPE
+- Controlled CSS debt reduction only.
+- No redesign, React business-logic change, data migration, schema change, IndexedDB change, or communications protocol change.
+- First canonicalization wave: Pipeline, Follow-ups, RealTalent Connect.
+
+IMPLEMENTATION VERIFIED
+- src/styles/pipeline.css preserves pipeline-v100.css -> pipeline-v10076.css source order.
+- src/styles/followups.css preserves followups-v100.css -> followups-v10077.css source order.
+- src/styles/realtalent-connect.css preserves five historical Connect layers in their prior cascade order.
+- Historical CSS source files are retained for rollback/audit but removed from runtime imports for these domains.
+- src/main.tsx direct CSS imports reduced from 74 to 68.
+- Registry-independent build excludes superseded CSS and derives CSS order from src/main.tsx.
+- Frozen legacy allowlist prevents silent creation of additional version-suffixed CSS debt.
+- Runtime orchestrator updated to V101.10.9 and refuses to reuse a V101.10.8 dist.
+
+CSS INVENTORY BASELINE
+- CSS files parsed: 101
+- Historical version-suffixed CSS files: 93
+- main.tsx direct CSS imports: 68
+- Heuristic selectors duplicated across CSS files: 1,415
+- CSS parser errors: 0
+
+FINAL CURRENT-ARCHITECTURE GATES
+- Source syntax: PASS — 388 TS/TSX files
+- Integration contracts: PASS — 361 files
+- Migrations: PASS — 49 files/checksums
+- Release Manifest: PASS — 52/52
+- Capability Matrix: PASS — 20 capabilities / 69 evidence items / 44 executables
+- Repository contracts: PASS — Local 99/99; Supabase 99/99
+- Browser E2E contract: PASS — 9 flows catalogued
+- V101.10.7 Security & Runtime Foundation: PASS — 22/22
+- V101.10.7-H1 Lockfile Recovery: PASS — 9/9
+- V101.10.8 Runtime & DX: PASS — 25/25
+- CSS Governance: PASS — 14/14
+- V101.10.9 CSS & Design System Consolidation: PASS — 28/28
+- npm run qa:architecture: PASS
+
+AFFECTED HISTORICAL REGRESSIONS
+- Performance/CSS compatibility V100.60.1: PASS — 29/29
+- Sales Engagement V100.63.0: PASS — 64/64
+- Pipeline V100.76.0: PASS — 42/42
+- Follow-ups V100.77.0: PASS — 37/37
+- Connect MVP V101.8.0: PASS — 38/38
+- Connect Setup V101.8.1: PASS — 34/34
+- Connect Fast Dial V101.8.2: PASS — 30/30
+- Connect One-Tap V101.8.3: PASS — 39/39
+- Design System V101.9.8: PASS — 38/38
+- Remaining historical regression chain V100.56.4 -> V101.9.8: PASS in segmented runs after audit compatibility updates.
+  Note: segmented execution was used because of sandbox command-duration/output constraints; it was not one uninterrupted final command.
+
+DOCTOR / RUNTIME DIAGNOSTIC
+- npm run doctor identifies V101.10.9 correctly.
+- Doctor result in packaging environment: lockfile INCONSISTENT; dependencies absent/incomplete; V101.10.9 dist absent; local services off.
+- Doctor exit code: 2 (expected for invalid lockfile).
+- Non-destructive check: PASS — no runtime-token/state file changes before vs after doctor.
+- No stale dist is packaged; first launch must create a real V101.10.9 build.
+
+KNOWN LIMITATION — NOT MARKED AS PASS
+The source package still carries the inherited incomplete package-lock.json. The registry is unavailable in the packaging sandbox, so the real transitive lock could not be regenerated here. The H1 launcher recovery remains active: on the user's Linux machine with npm registry access, first launch detects the mismatch, executes npm install once, validates the rebuilt lockfile, and returns to npm ci as steady state.
+
+Missing entries detected in the inherited lock include:
+- @whiskeysockets/baileys@7.0.0-rc14
+- qrcode@1.5.4
+- whatsapp-web.js@1.34.7
+
+Therefore the following are deliberately NOT claimed as completed in this packaging environment:
+- full npm ci from the inherited lockfile
+- full Vitest suite using freshly installed real dependencies
+- full Vite production build of V101.10.9
+- npm audit against a freshly resolved dependency tree
+
+RELEASE DECISION
+PASS for source-level architecture, compatibility contracts, CSS parse/governance, runtime-version safety and historical regression contracts. First Linux launch is required to repair the inherited lockfile and produce/verify the actual V101.10.9 production build.

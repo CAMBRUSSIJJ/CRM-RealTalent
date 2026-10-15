@@ -1,0 +1,98 @@
+RealTalent CRM V101.11.3-H20.7 — QA REPORT
+Global UI Final Pass
+Base funcional: V101.11.3-H19.13
+Base visual: V101.11.3-H20.6
+
+RESULTADO PRINCIPAL
+-------------------
+qa:architecture                                      PASS
+H20.7 Global UI Final Pass                           49/49 PASS
+CSS Governance                                       65/65 PASS
+Linux release preflight                          379 TS/TSX PASS
+
+REGRESSÃO H20
+-------------
+H20.3 Global UI & Product Cohesion                    26/26 PASS
+H20.4 Proposals & Prospecting Cohesion                27/27 PASS
+H20.5 Settings & Calling Cohesion                     28/28 PASS
+H20.6 Pipeline, Contacts & Agenda Cohesion            39/39 PASS
+H20.7 Global UI Final Pass                            49/49 PASS
+
+GATES ESTRUTURAIS
+-----------------
+Source Syntax                                  418 arquivos PASS
+Integration Contracts                         386 arquivos PASS
+Migrations                                          54/54 PASS
+Release Manifest                                  97/97 PASS
+Capability Matrix               42 capacidades / 156 evidências / 103 executáveis
+Repository Local                                  100/100 PASS
+Repository Supabase                               100/100 PASS
+Browser E2E Contract                               11 fluxos PASS
+
+RUNTIME CRÍTICO EXECUTADO
+-------------------------
+WhatsApp Media Delivery Fix                          7/7 PASS
+WhatsApp Contact/Message Normalization               8/8 PASS
+RealTalent Connect Resilience                             PASS
+RealTalent Connect MVP                                    PASS
+RealTalent Connect Setup                                  PASS
+RealTalent Connect Fast Dial                              PASS
+RealTalent Connect One-Tap                                PASS
+Connect Recovery                                      5/5 PASS
+Security Runtime                                    12/12 PASS
+Garimpo Search Processing Engine                         PASS
+Garimpo Drawn Territory                                  PASS
+Garimpo Local Discovery                                  PASS
+Garimpo Strict Prospecting Scope                         PASS
+H15 Strict Prospecting Scope                         39/39 PASS
+
+ESCOPO H20.7 VALIDADO
+---------------------
+- Shell global azul/brand; verde não volta como cor de interação.
+- Sidebar, topbar, busca global e navegação móvel coerentes.
+- Focus-visible, hover e disabled padronizados.
+- Forms e selection controls convergidos.
+- Modal e drawer compartilham geometria/overlay.
+- Drawer ganha portal, Escape, focus trap, focus restore e scroll lock.
+- Tabelas, badges, empty states, skeletons, toasts e paginação normalizados.
+- Scrollbars globais padronizadas.
+- Tipografia residual de Comunicação elevada para >= 10px na camada H20.7.
+- Responsividade final para headers, summaries, command bars, modais e drawers.
+- prefers-reduced-motion respeitado.
+- aria-current adicionado à navegação lateral e móvel.
+- H19.13/H20.3-H20.6 preservados.
+- Nenhuma migration nova.
+
+CORREÇÃO DE QA/RELEASE
+----------------------
+O release:verify herdado apontava para o comando inexistente:
+  runtime:prospecting-strict-scope:h1
+Foi corrigido para:
+  runtime:prospecting-strict-scope
+O smoke correto foi executado e passou.
+
+BUILD / DEPENDÊNCIAS
+--------------------
+npm ci          BLOCKED — não concluiu na janela do ambiente; node_modules ausente.
+typecheck       BLOCKED — React/Supabase/tipos ausentes; erros em cascata após TS2307.
+Vitest          BLOCKED — vitest: not found.
+Vite build      BLOCKED — validate:env PASS; vite: not found.
+
+BUILD INDEPENDENTE
+------------------
+Registry-independent transpile: 303 módulos PASS.
+Bundle audit do fallback: FAIL esperado — "HTML legado reapareceu".
+O dist fallback foi removido e NÃO integra o ZIP final.
+
+LIMITAÇÃO
+---------
+Sem Vite oficial não foi possível classificar a entrega como browser pixel-perfect/screenshot QA.
+A validação desta release cobre código, CSS, arquitetura, contratos, runtime, acessibilidade estrutural e higiene do artefato.
+
+HIGIENE DO PACOTE
+-----------------
+node_modules                       AUSENTE
+dist fallback                      AUSENTE
+.env.local                         AUSENTE
+sessão/cache WhatsApp local        AUSENTE
+logs runtime locais                AUSENTE

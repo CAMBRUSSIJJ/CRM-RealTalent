@@ -1,0 +1,114 @@
+{
+  "schemaVersion": 1,
+  "release": "V101.9.9-H3",
+  "modules": [
+    {
+      "id": "shell",
+      "route": "global",
+      "evidence": [
+        "src/components/layout/topbar.tsx",
+        "src/components/layout/sidebar.tsx",
+        "src/styles/ui-polish.css"
+      ]
+    },
+    {
+      "id": "my-day",
+      "route": "dashboard",
+      "evidence": [
+        "src/features/dashboard/dashboard-page.tsx"
+      ]
+    },
+    {
+      "id": "contacts",
+      "route": "leads",
+      "evidence": [
+        "src/features/leads/leads-page.tsx"
+      ]
+    },
+    {
+      "id": "pipeline",
+      "route": "pipeline",
+      "evidence": [
+        "src/features/pipeline/pipeline-page.tsx"
+      ]
+    },
+    {
+      "id": "communications",
+      "route": "communications",
+      "evidence": [
+        "src/features/communications/communications-page.tsx"
+      ]
+    },
+    {
+      "id": "proposals",
+      "route": "proposals",
+      "evidence": [
+        "src/features/proposals/proposals-page.tsx"
+      ]
+    },
+    {
+      "id": "agenda",
+      "route": "agenda",
+      "evidence": [
+        "src/features/agenda/agenda-page.tsx"
+      ]
+    },
+    {
+      "id": "prospecting",
+      "route": "prospecting",
+      "evidence": [
+        "src/features/prospecting/prospecting-page.tsx",
+        "src/services/prospecting-workspace.ts"
+      ]
+    },
+    {
+      "id": "calls",
+      "route": "calls",
+      "evidence": [
+        "src/features/calls/calls-page.tsx"
+      ]
+    },
+    {
+      "id": "followups",
+      "route": "followups",
+      "evidence": [
+        "src/features/followups/followups-page.tsx"
+      ]
+    },
+    {
+      "id": "playbooks",
+      "route": "playbooks",
+      "evidence": [
+        "src/features/playbooks/playbooks-page.tsx"
+      ]
+    },
+    {
+      "id": "territory",
+      "route": "commercial-map",
+      "evidence": [
+        "src/features/commercial-map/commercial-map-page.tsx"
+      ]
+    },
+    {
+      "id": "automations",
+      "route": "automations",
+      "evidence": [
+        "src/features/automations/automations-page.tsx"
+      ]
+    },
+    {
+      "id": "metrics",
+      "route": "metrics",
+      "evidence": [
+        "src/features/metrics/metrics-page.tsx"
+      ]
+    },
+    {
+      "id": "settings",
+      "route": "settings",
+      "evidence": [
+        "src/features/settings/settings-page.tsx"
+      ]
+    }
+  ]
+}

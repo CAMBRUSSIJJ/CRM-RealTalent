@@ -1,0 +1,27 @@
+RealTalent CRM V101.5.5 — Visual System Rollout
+Data: 2026-09-27
+
+ESCOPO
+- Rollout do RealTalent UI System em Meu Dia, Pipeline, Follow-ups e Propostas.
+- Pipeline: ações secundárias agrupadas em menu de overflow; uma ação principal preservada.
+- Compactação de headers/heroes, KPI strips, tabs, toolbars, tabelas, cards e listas.
+- Responsividade 1280 / 980 / 720 px.
+
+QA EXECUTADO
+- V101.5.5 Visual System Rollout: 17/17 contratos aprovados.
+- Regressão histórica: 58/58 scripts qa:* aprovados.
+- Source syntax audit: 289 arquivos aprovados.
+- Integration contract audit: 258 arquivos aprovados.
+- Migrations: 41/41 com checksum íntegro.
+- Linux release preflight: 256 arquivos TS/TSX aprovados.
+- RealTalent Connect resilience smoke: aprovado (idempotência, persistência, restart, retomada, connected, ended, origin guard 403).
+
+LIMITAÇÃO DE AMBIENTE
+- O pacote de trabalho não possui instalação npm completa.
+- node_modules parcial foi removido antes do empacotamento.
+- Typecheck completo, Vitest completo e Vite build/HTTP smoke não foram executados neste ambiente porque tsc/vitest/vite não estão instalados localmente.
+- start-linux.sh mantém esses gates para execução no Linux após npm ci/npm install.
+
+RESULTADO
+- Contratos estáticos, regressão histórica, migrations, preflight Linux e Connect: APROVADOS.
+- Build runtime completo: PENDENTE exclusivamente por dependências npm ausentes no ambiente de empacotamento.

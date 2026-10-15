@@ -1,0 +1,33 @@
+RealTalent CRM V100.70.0 — QA REPORT
+Data: 2026-09-15
+
+ESCOPO
+- Preparar ligações
+- Seleção/filtros
+- Validações pré-sessão
+- Estratégia
+- Configurações
+- Responsividade
+
+VALIDAÇÕES ESTÁTICAS
+[OK] Auditoria sintática do repositório
+[OK] Contratos V100.70.0 do workspace de preparação
+[OK] V100.69.0 preservada como base funcional
+[OK] Backup schema 100.54 preservado
+[OK] Sem migration V100.70
+
+CENÁRIOS COBERTOS NO CÓDIGO
+[OK] lead sem telefone não é selecionável
+[OK] doNotContact não entra na sessão
+[OK] duplicidade de telefone sinalizada
+[OK] contato realizado hoje sinalizado
+[OK] reunião futura sinalizada
+[OK] troca de filtros não apaga seleção
+[OK] lista salva reaplica apenas IDs ainda elegíveis
+[OK] objetivo, modo, playbook, ordem, limite e meta seguem para CallSessionConfig
+[OK] Power assistido não inicia chamada automaticamente
+[OK] CTA bloqueado com fila efetiva vazia
+[OK] layout responsivo desktop/tablet/mobile
+
+OBSERVAÇÃO DE AMBIENTE
+O pacote de origem não inclui node_modules. A instalação de dependências no ambiente de montagem não concluiu dentro da janela disponível; por isso typecheck/test/build completos não foram marcados como executados neste relatório. A auditoria sintática e a auditoria específica da release foram executadas diretamente no código-fonte.

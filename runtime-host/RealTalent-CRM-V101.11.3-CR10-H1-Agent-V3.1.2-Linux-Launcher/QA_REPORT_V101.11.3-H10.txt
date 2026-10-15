@@ -1,0 +1,60 @@
+RealTalent CRM
+V101.11.3-H10 — Progressive Data & Virtualized Canvas
+
+ESCOPO
+- Base: V101.11.3-H9 — Playbook Performance & Interactive Whiteboard.
+- Sem migration SQL nova.
+- Sem redesign do CRM.
+- Hidratação progressiva do WorkspaceSnapshot.
+- Drag imperativo durante pointermove, commit no pointerup.
+- Virtualização viewport-aware do Playbook.
+
+ARQUITETURA DE DADOS
+- snapshot-refresh.ts introduz CORE_SNAPSHOT_SLICES e mapa de slices por rota.
+- bootstrap não chama mais getSnapshot completo.
+- troca de rota hidrata somente slices faltantes.
+- refreshData mantém somente a superfície já hidratada.
+- ações fora da rota podem solicitar snapshots escopados.
+- automations usam fallback escopado em vez de full snapshot.
+- calls usam página limitada no slice inicial.
+
+PLAYBOOK
+- pointermove atualiza transform DOM, não graph React.
+- pointerup faz um commit das posições.
+- viewport mede scroll/resize.
+- nodes/grupos fora da janela + overscan deixam de ser montados.
+- edges só são montados quando os dois endpoints pertencem à janela virtual, reduzindo fan-out invisível.
+- graph completo continua sendo a fonte de verdade para Mapa/Estrutura/Script/Simular.
+
+LIMITAÇÃO DELIBERADA
+A H10 não pagina ainda todas as entidades comerciais. Leads/Contacts/Companies/Opportunities continuam no core para preservar busca global e relações atuais. A mudança elimina a hidratação ansiosa dos históricos/módulos especializados e cria a fundação para paginação por entidade sem quebrar as superfícies atuais.
+
+GATES OFICIAIS
+Os resultados finais são registrados após a execução dos gates. TypeScript/Vitest/Vite dependem da árvore real de node_modules do ambiente.
+
+QA FINAL COMPROVADO
+- H10 Progressive Data & Virtualized Canvas: 63/63 PASS.
+- H9 Performance & Interactive Whiteboard: 50/50 PASS.
+- H8 Canvas Autonomy: 48/48 PASS.
+- H7 Visual Conversation Workspace: 39/39 PASS.
+- H6 Playbook Studio 2.0: 39/39 PASS.
+- qa:architecture: PASS.
+- Source syntax: 406 arquivos PASS.
+- Integration contracts: 374 arquivos PASS.
+- Release Manifest: 77/77 PASS.
+- migrations: 50/50 checksums PASS.
+- CSS Governance: 65/65 PASS.
+- Local Repository parity: 99/99 PASS.
+- Supabase Repository parity: 99/99 PASS.
+- Browser E2E contract catalog: 11 fluxos.
+- Communications recovery smoke: 5/5 PASS.
+- Connect recovery smoke: 5/5 PASS.
+- Security Runtime Foundation: 12/12 PASS.
+- Registry-independent transpile: 291 módulos.
+
+GATES NÃO CLASSIFICADOS COMO PASS NESTE AMBIENTE
+- npm run typecheck: bloqueado pela ausência de node_modules; erros começam em módulos React/Supabase ausentes e cascatas de tipos JSX.
+- npm test: vitest não instalado (status 127).
+- npm run build: validate:env PASS; vite não instalado (status 127).
+
+O transpile registry-independent demonstra que os 291 módulos são transformáveis pelo fallback, mas não substitui o build Vite oficial. O dist gerado por esse fallback não deve ser distribuído como build oficial.

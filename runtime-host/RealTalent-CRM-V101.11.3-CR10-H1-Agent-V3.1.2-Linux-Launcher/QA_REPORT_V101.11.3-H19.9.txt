@@ -1,0 +1,56 @@
+RealTalent CRM V101.11.3-H19.9 — QA
+WhatsApp Reliable Messaging & Groups
+
+BASE
+V101.11.3-H19.8-H1 — WhatsApp Runtime Recovery
+
+RESULTADO
+qa:architecture                                      PASS
+H19.7 WhatsApp Pure Chat                         38/38 PASS
+H19.8 WhatsApp Control Center                    40/40 PASS
+H19.8-H1 WhatsApp Runtime Recovery               28/28 PASS
+H19.9 WhatsApp Reliable Messaging & Groups       37/37 PASS
+
+GATES INDEPENDENTES
+Source Syntax                                 414 arquivos PASS
+Integration Contracts                        382 arquivos PASS
+Migrations                                         54/54 PASS
+Release Manifest                                  87/87 PASS
+Capability Matrix                  37 / 121 / 78 executáveis PASS
+CSS Governance                                     65/65 PASS
+Linux preflight                                375 TS/TSX PASS
+
+RUNTIME
+WhatsApp Runtime Recovery                           5/5 PASS
+Communications Recovery                             5/5 PASS
+Connect Recovery                                    5/5 PASS
+Security Runtime                                  12/12 PASS
+Communications Architecture                         6/6 PASS
+
+BUILD INDEPENDENTE
+build:legacy                                    299 módulos
+Resultado do auditor: dist rejeitado corretamente porque o fallback gera HTML legado.
+dist removido do pacote final.
+
+DEPENDÊNCIAS OFICIAIS
+typecheck / Vitest / Vite build: NÃO CLASSIFICADOS COMO PASS.
+node_modules não estava presente. A tentativa `npm ci --ignore-scripts` excedeu 25 segundos e
+`npm ping https://registry.npmjs.org/` excedeu 12 segundos neste ambiente.
+
+ESCOPO H19.9
+- inbound: message e message_create deixam de registrar o mesmo evento recebido;
+- dedupe live por ID externo;
+- idempotency key no envio local;
+- lock de requisição em voo no gateway;
+- bloqueio de duplo envio no frontend;
+- mensagem otimista para resposta visual imediata;
+- dedupe histórico por externalMessageId;
+- Novo contato cria registro real no CRM e abre conversa;
+- Novo grupo usa whatsapp-web.js / QR local;
+- grupo é persistido como conversa do workspace;
+- envio em grupo usa thread @g.us;
+- Cloud API rejeita grupo explicitamente nesta versão.
+
+LIMITAÇÃO DE RUNTIME H19.9
+Não houve criação física de grupo em conta real durante o QA, porque o ambiente não possui uma
+sessão WhatsApp do usuário pareada. O Runtime Recovery do gateway foi testado empiricamente.

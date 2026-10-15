@@ -1,0 +1,89 @@
+RealTalent CRM V101.10.3-H1 — Drawn Territory Search
+QA Report
+====================================================================
+
+Escopo funcional
+----------------
+- modo "Área do mapa" deixa de ser apenas visual e passa a controlar a busca;
+- preview territorial via Prospecting Agent;
+- desenho de polígono por pontos sobre mapa OpenStreetMap;
+- validação mínima de 3 vértices;
+- persistência de mapPolygon em jobs e campanhas;
+- grid territorial recortado pelo polígono;
+- subdivisão de células densas preserva o recorte;
+- área em km² calculada a partir do polígono;
+- candidatos OSM fora do contorno são descartados;
+- mapa de cobertura mostra o contorno selecionado;
+- jobs/histórico/schema v2 e 49 migrations preservados.
+
+Política territorial da descoberta web
+--------------------------------------
+No modo polígono, descoberta web ampla por texto NÃO cria novas empresas porque
+resultados sem coordenadas verificadas não permitem provar que pertencem ao
+contorno selecionado. Enriquecimento web/CNPJ dos candidatos encontrados dentro
+do território continua funcionando.
+
+Validações aprovadas
+--------------------
+- V101.10.3-H1 audit: 44/44
+- V101.10.3 base audit: 41/41
+- H1 runtime polygon smoke: PASS
+  - 4 células
+  - 26.8 km² no polígono de teste
+  - 2 empresas internas preservadas
+  - empresa externa descartada
+  - descoberta web ampla: 0 no modo polígono
+- V101.10.3 runtime smoke: PASS
+  - 3 empresas únicas
+  - cobertura territorial: 100%
+  - saturação: 99%
+- V101.10.2-H3 runtime smoke: PASS
+  - OSM + web discovery + enrichment
+  - fallback sem Nominatim preservado
+- QA Architecture: PASS
+  - source syntax audit: 384 arquivos
+  - integration contract audit: 357 arquivos
+  - migrations: 49/49
+  - Release Manifest: 35/35
+  - Capability Matrix: 18 capacidades / 46 evidências / 33 executáveis
+  - Repository Local/Supabase: 96/96
+  - Browser E2E Contract: 9/9
+  - H1: 44/44
+- check:legacy: PASS
+  - 3185 OK / 0 FAIL
+- bash -n start-linux.sh: PASS
+- bash -n install-prospecting-agent-service.sh: PASS
+
+Gates globais bloqueados pelo ambiente de montagem
+---------------------------------------------------
+O ZIP-base não contém node_modules. A tentativa de:
+
+  npm ci --offline --no-audit --no-fund
+
+falhou porque @whiskeysockets/baileys não existe no cache npm deste ambiente.
+Por isso os seguintes gates NÃO são declarados como aprovados aqui:
+
+- npm run typecheck
+  O tsc global inicia, mas não consegue resolver dependências como react,
+  react-dom, lucide-react e @supabase/supabase-js sem node_modules; os erros em
+  cascata não constituem uma validação semântica válida da árvore.
+- npm test
+  indisponível aqui: vitest: not found.
+- npm run build
+  validate:env passa, mas vite está indisponível: vite: not found.
+
+O start-linux.sh instala/repara as dependências no Linux do usuário e executa o
+release:verify antes de abrir o CRM. Portanto typecheck + Vitest + Vite build
+continuam sendo gates obrigatórios no ambiente final, não foram removidos nem
+marcados artificialmente como aprovados.
+
+Compatibilidade
+---------------
+- package semver: 101.10.3
+- VERSION / APP_VERSION: 101.10.3
+- Agent runtime: 101.10.3-H1
+- release lineage: V101.10.3 + hotfix H1
+- schema do Agent: v2
+- migrations: 49/49
+- health/runtime preservam module=garimpo-search-processing-engine e registram
+  hotfix=H1 para manter contratos históricos.

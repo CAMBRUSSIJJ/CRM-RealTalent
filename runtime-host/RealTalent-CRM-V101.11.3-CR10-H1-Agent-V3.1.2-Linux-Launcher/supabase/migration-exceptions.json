@@ -1,0 +1,7 @@
+{
+  "nonTransactional": {
+    "202607190004_v100_19_hardening.sql": "Migration histórica anterior ao gate V100.37; preservada sem alteração para manter checksum.",
+    "202607220001_v100_33_geolocation.sql": "Migration histórica anterior ao gate V100.37; preservada sem alteração para manter checksum.",
+    "202607230001_v100_36_automation_webhooks.sql": "Migration histórica anterior ao gate V100.37; preservada sem alteração para manter checksum."
+  }
+}

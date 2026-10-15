@@ -1,0 +1,10 @@
+{
+  "name": "RealTalent CRM",
+  "short_name": "RealTalent",
+  "description": "CRM comercial multiempresa",
+  "start_url": "./",
+  "display": "standalone",
+  "background_color": "#041827",
+  "theme_color": "#04274b",
+  "lang": "pt-BR"
+}

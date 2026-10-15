@@ -1,0 +1,68 @@
+RealTalent CRM V101.11.3-H19.8 — WhatsApp Continuous Chat & Settings Control Center
+QA final — 2026-10-08
+
+ESCOPO
+- Base real: V101.11.3-H19.7 WhatsApp Pure Chat.
+- Meu Dia: sem alterações.
+- Follow-ups H19.6: preservado.
+- H19.5-H1 Selection Overlay Fix: preservado.
+- E-mail dedicado: preservado.
+
+IMPLEMENTAÇÃO H19.8
+- Chat WhatsApp em canvas contínuo (header + histórico flexível + composer ancorado).
+- Removida a descontinuidade de fundo que produzia a grande faixa branca visual.
+- H19.7 Pure Chat preservado: sem proposta, respostas rápidas, estado comercial, Lead ou ações CRM no corpo da conversa.
+- Configurações > WhatsApp reorganizadas em:
+  1. Visão geral
+  2. Contas e conexão
+  3. Mensagens
+  4. Templates
+  5. Equipe
+  6. Diagnóstico
+- QR Local preservado.
+- WhatsApp Cloud API preservado (configurar, testar e revogar).
+- Modo assistido/oficial, código do país, registro de atividade e variável owner preservados.
+- Templates internos transformados em biblioteca com busca, filtro por categoria, editor, duplicação, exclusão, ativo/inativo e restauração.
+- Equipe usa dados reais do módulo Equipes. Não foi simulada distribuição automática ainda inexistente.
+- Webhook e informações técnicas isolados em Diagnóstico.
+
+GATES EMPÍRICOS
+qa:architecture                                      PASS
+Source Syntax                                    413 arquivos PASS
+Integration Contracts                           381 arquivos PASS
+Migrations                                      54 arquivos / checksum íntegro PASS
+Release Manifest                                85/85 PASS
+Capability Matrix                               35 capacidades / 112 evidências / 71 executáveis PASS
+Repository Local                                100/100 PASS
+Repository Supabase                             100/100 PASS
+Browser E2E Contract                            11 fluxos PASS
+CSS Governance                                  65/65 PASS
+Linux release preflight                         374 TS/TSX PASS
+H19.7 WhatsApp Pure Chat                        38/38 PASS
+H19.8 WhatsApp Control Center                   40/40 PASS
+
+RUNTIME
+Communications Architecture                     6/6 PASS
+Communications Recovery                         5/5 PASS
+Connect Recovery                                5/5 PASS
+Security Runtime                               12/12 PASS
+validate:env                                         PASS
+
+BUILD / DEPENDÊNCIAS
+- node_modules não está empacotado.
+- npm ci foi tentado, mas o registry npm não respondeu dentro da janela de execução.
+- npm ping confirmou falha de resolução/rede: EAI_AGAIN em https://registry.npmjs.org/.
+- Consequentemente, typecheck/Vitest/Vite build oficiais NÃO foram classificados como PASS.
+- Build registry-independent percorreu 298 módulos.
+- O bundle gerado pelo fallback foi recusado corretamente pelo auditor: "HTML legado reapareceu".
+- Esse dist foi removido e NÃO integra o ZIP final.
+
+HIGIENE DO ARTEFATO
+- Sem node_modules.
+- Sem dist legado.
+- Sem .realtalent-whatsapp-browser / sessão local.
+- ZIP submetido a unzip -t antes da entrega.
+
+LIMITAÇÕES EXPLÍCITAS
+- A seção Equipe nesta release define referência operacional a partir dos dados reais de Equipes; roteamento/round-robin automático ainda não foi implementado.
+- Não foram adicionadas opções de Automação, Notificações ou Privacidade sem backend/contrato funcional correspondente. A H19.8 prioriza funções já operacionais e organização consistente.

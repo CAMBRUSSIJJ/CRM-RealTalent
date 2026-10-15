@@ -1,0 +1,83 @@
+RealTalent CRM V101.11.3-H20.4 — QA REPORT
+Proposals & Prospecting Cohesion
+Base funcional: V101.11.3-H19.13
+Base visual: V101.11.3-H20.3
+
+RESULTADO PRINCIPAL
+-------------------
+qa:architecture                                      PASS
+H20.4 Proposals & Prospecting Cohesion          27/27 PASS
+H20.3 Global UI & Product Cohesion              26/26 PASS
+H19.13 WhatsApp Work Management                 27/27 PASS
+
+GATES E INVENTÁRIO
+------------------
+Source Syntax                                  418 arquivos PASS
+Release Manifest                                   94/94 PASS
+Capability Matrix               42 capacidades / 150 evidências / 100 executáveis PASS
+CSS Governance                                     65/65 PASS
+Migrations                                          54/54 PASS
+Runtime CSS imports                                    52
+CSS source inventory                              78 arquivos
+CSS source bytes                                  1,582,503
+
+REGRESSÕES DIRETAMENTE RELACIONADAS
+-----------------------------------
+V100.78 Propostas + Catálogo 2.0                   36/36 PASS
+V100.97 Product & Revenue Workspace                54/54 PASS
+V100.88 Garimpo 2.0                                78/78 PASS
+V100.98 Prospecting Engine                         62/62 PASS
+V101.10.6 Garimpo UX Consolidation                 40/40 PASS
+
+H20.4 — ESCOPO VALIDADO
+-----------------------
+PASS Propostas usa WorkspacePageHeader canônico.
+PASS Propostas usa Summary Strip canônico.
+PASS Propostas usa View Strip canônico.
+PASS Propostas usa Command Bar canônica.
+PASS Filtros avançados continuam presentes.
+PASS Cards/Lista continuam presentes.
+PASS Buyer Rooms/Catálogo/Receita/Revenue Intelligence preservados.
+PASS quatro CSS lazy de Propostas deixam de ser feature-owned.
+PASS proposals-workspace.css consolida a ordem histórica.
+PASS Garimpo usa Page Header canônico.
+PASS Garimpo usa Summary Strip canônico.
+PASS Garimpo usa View Strip canônico.
+PASS Buscar/Local/Revisar/Histórico preservados.
+PASS command bar de resultados + filtros preservada.
+PASS tipografia operacional H20.4 não cria sub-10px novos.
+PASS cascade guard usa o mesmo marker H20.4 do runtime.
+PASS Pure Chat / H19.13 preservado.
+
+RUNTIME GARIMPO
+---------------
+runtime:prospecting-engine               PASS
+  3 únicas · cobertura 100% · saturação 99% · OSM 1 · Web 7
+runtime:prospecting-territory            PASS
+  2 internas · 4 células · 26.8 km² · Web ampla 0 · enrichment web 2
+runtime:prospecting-local                PASS
+  2 empresas · web locais 1 · documentos rejeitados 1
+runtime:prospecting-strict-scope         PASS
+  categoria rejeitada 2 · localização rejeitada 2 · documentos rejeitados 1
+runtime:prospecting-search               FAIL HERDADO
+  fallback de área: completed/0; smoke espera 2 resultados.
+  A mesma falha foi reproduzida na H20.3 original, sem alterações H20.4.
+
+BUILD / DEPENDÊNCIAS
+--------------------
+npm ci                   BLOCKED — não concluiu no ambiente; node_modules não foi criado.
+typecheck                BLOCKED — módulos/tipos React e Supabase ausentes.
+Vitest                   BLOCKED — vitest: not found.
+Vite build validate:env      PASS
+Vite build               BLOCKED — vite: not found.
+Registry-independent build   PASS — 303 módulos.
+Bundle audit              FAIL esperado — "HTML legado reapareceu" no fallback.
+dist fallback             REMOVIDO do artefato final.
+
+HIGIENE DO ARTEFATO
+-------------------
+node_modules              AUSENTE
+dist                      AUSENTE
+.env.local                AUSENTE
+sessão WhatsApp local     AUSENTE
+migrations novas          0

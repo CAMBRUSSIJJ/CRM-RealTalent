@@ -1,0 +1,77 @@
+RealTalent CRM
+V101.11.3-H2 — Runtime Service Recovery
+
+ESCOPO
+Hotfix de runtime sobre V101.11.3-H1 — Communications Gateway Recovery.
+Não altera Pipeline, dados, schema, migrations, Teams & Tasks ou UX interna do CRM.
+
+INCIDENTE OBSERVADO NO LINUX
+- O Vite production build do usuário concluiu normalmente (2147 módulos; ~1,16 s).
+- Communications Gateway foi recuperado com sucesso na etapa 3/4.
+- A inicialização passou a falhar em seguida no RealTalent Connect: “RealTalent Connect não ficou pronto”.
+- Isso confirmou que o launcher precisava aplicar ao Connect a mesma disciplina de preflight/recovery já criada para Communications.
+
+CORREÇÕES PRINCIPAIS
+1. PRE-FLIGHT DA PORTA 3001
+- sonda primeiro se já existe Connect saudável com token/protocolo esperados;
+- Connect saudável pode ser reutilizado sem novo spawn.
+
+2. RECUPERAÇÃO SEGURA DE CONNECT ANTIGO
+- inventário Linux usa /proc + cwd + cmdline;
+- reconhece apenas realtalent-connect-server.mjs;
+- encerra automaticamente somente processo da release atual ou processo RealTalent comprovadamente dono da porta 3001;
+- processo fora do escopo é preservado;
+- processo desconhecido na porta nunca é morto automaticamente;
+- SIGTERM possui escalonamento limitado para SIGKILL quando necessário.
+
+3. FAIL-SOFT / MODO DEGRADADO
+- falha do Connect não encerra mais o CRM inteiro;
+- Pipeline, Contatos, Tarefas, Equipes, Comunicações e demais módulos continuam abrindo;
+- Ligações/One-Tap ficam temporariamente indisponíveis;
+- Prospecting Agent continua fail-hard porque é tratado como serviço operacional obrigatório no launcher atual.
+
+4. DIAGNÓSTICO EXPLÍCITO
+- informa ocupação da porta 3001 e PIDs quando disponíveis;
+- lista processos Connect reconhecidos;
+- imprime tail de .realtalent-connect.log;
+- grava boundary START CONNECT no log;
+- npm run doctor diagnostica sem matar/iniciar processos.
+
+5. SECURITY/CORS FIX DESCOBERTO DURANTE O FECHAMENTO
+- origem externa agora é rejeitada com 403 antes de avaliar autenticação runtime;
+- autenticação ausente/inválida continua retornando 401 depois da validação de Origin;
+- Phone API aceita explicitamente as origens CRM allowlisted (ex.: 127.0.0.1:4188) e a própria origem Connect;
+- Access-Control-Allow-Origin continua emitido somente para origens permitidas;
+- origem externa do Phone API continua rejeitada.
+
+QA COMPROVADO APÓS AS CORREÇÕES FINAIS
+- V101.11.3-H2 audit: 38/38 PASS
+- Connect recovery smoke: 5/5 PASS
+- Security Runtime Foundation smoke: 12/12 PASS
+- Connect resilience V101.4 smoke: PASS
+- Connect MVP V101.8 smoke: PASS
+- Connect Setup V101.8.1 smoke: PASS
+- Connect One-Tap V101.8.3 smoke: PASS
+- qa:architecture: PASS
+- Release Manifest: 69/69 PASS
+- Source syntax: 400 arquivos PASS
+- Integration contracts: 368 arquivos PASS
+- Migrations: 50/50 checksums PASS
+- Capability Matrix: 22 capacidades PASS
+- Local Repository: 99/99 PASS
+- Supabase Repository: 99/99 PASS
+- Browser E2E contract: 11 fluxos PASS
+- Linux preflight: 361 TS/TSX PASS
+- check:legacy: PASS (V100.56.4 → V101.9.8, incluindo typechecks isolados V101.9.7/V101.9.8)
+
+LIMITAÇÕES DO AMBIENTE DE GERAÇÃO
+- node_modules não é incluído no pacote final.
+- O sandbox não possui a instalação npm completa para classificar o typecheck/Vitest/Vite oficial desta H2 como PASS.
+- O build Vite do usuário já havia concluído antes do incidente; a H2 altera runtime/Connect e não a UI compilada.
+- A recuperação automática de lockfile/dependências permanece preservada no launcher.
+
+ARTEFATOS EXCLUÍDOS DO ZIP
+- dist de verificação
+- node_modules
+- .env.local
+- .realtalent-* (tokens, sessões, logs/stores locais e browser state)

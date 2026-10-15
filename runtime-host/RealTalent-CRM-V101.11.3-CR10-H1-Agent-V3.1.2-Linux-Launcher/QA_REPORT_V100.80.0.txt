@@ -1,0 +1,35 @@
+RealTalent CRM V100.80.0 — Metas 2.0
+QA / Reliability Report — 2026-09-20
+
+RESULTADO
+- Gate específico V100.80.0: 48/48 contratos aprovados.
+- Regressão histórica/atual: 25/25 suítes de QA estático aprovadas.
+- Auditoria sintática: 239 arquivos aprovados.
+- Auditoria de contratos de integração: 210 arquivos aprovados.
+- Migrations: 37/37 com checksum íntegro.
+- Nenhuma migration nova na V100.80.0.
+- BACKUP_SCHEMA_VERSION preservado em 100.54.
+
+ESCOPO VALIDADO
+- Versão global, package-lock, VERSION, health e título HTML sincronizados.
+- Bridge do Território acompanha a versão corrente do pacote.
+- Data de referência das Metas usa calendário local do navegador, não UTC.
+- Ritmo/esperado/forecast usam dias úteis de segunda a sexta.
+- Necessidade diária usa dias úteis restantes.
+- Comparação histórica usa intervalo anterior equivalente e o mesmo ponto temporal.
+- Presets Hoje/Semana/Mês/Trimestre/Ano/Personalizado.
+- Escopo Equipe vs. Individual explícito.
+- Filtros por responsável, métrica e saúde com persistência local por workspace.
+- Cards exibem ritmo esperado, gap, necessidade diária, forecast e comparação anterior.
+- Visão de equipe exibe metas projetadas para atingir o objetivo.
+- Auditoria Funcional atualizada para refletir Metas 2.0.
+
+VALIDAÇÃO DE DEPENDÊNCIAS
+- Foi executada tentativa de `npm ci --ignore-scripts --no-audit --no-fund`.
+- O ambiente retornou TransportTimeoutError durante o transporte das dependências.
+- Por esse motivo, `npm run typecheck`, `npm run test` (Vitest) e `npm run build` completos NÃO foram considerados executados/aprovados neste empacotamento.
+- Qualquer node_modules parcial foi removido antes da geração do ZIP.
+
+LIMITES CONHECIDOS
+- Dias úteis são segunda a sexta; feriados nacionais/regionais ainda não são descontados.
+- Preferências de aba/filtros são locais ao navegador e não alteram a semântica compartilhada das metas.

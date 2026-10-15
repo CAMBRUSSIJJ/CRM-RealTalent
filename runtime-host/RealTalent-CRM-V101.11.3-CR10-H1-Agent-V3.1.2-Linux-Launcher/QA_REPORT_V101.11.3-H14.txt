@@ -1,0 +1,46 @@
+RealTalent CRM V101.11.3-H14 — Commercial Management Foundation — QA Report
+
+FINAL STATUS: PASS for architecture/contracts/runtime smokes available in this environment.
+
+Primary gate
+- H14 Commercial Management Foundation: 28/28 PASS
+- qa:architecture: PASS
+
+Regression gates directly affected
+- Metas 2.0: 49/49 PASS
+- Teams & Tasks Foundation: 42/42 PASS
+- Selection & Filter System: 32/32 PASS
+
+Architecture
+- Source Syntax: 410 files PASS
+- Integration Contracts: 378 files PASS
+- Migrations: 54/54 PASS
+- Release Manifest: 81/81 PASS
+- Repository contracts: Local 100/100; Supabase 100/100 PASS
+- Browser E2E contracts: 11 flows PASS
+- CSS Governance: 65/65 PASS
+- Linux release preflight: 371 TS/TSX PASS
+
+Runtime
+- Communications recovery: 5/5 PASS
+- Connect recovery: 5/5 PASS
+- Security runtime: 12/12 PASS
+
+Independent transpile
+- build:legacy: 295 modules transpiled PASS as syntax/transpile smoke only.
+- This fallback is not accepted as the official Vite production build and its dist is excluded from the release package.
+
+Official dependency-backed gates
+- npm run typecheck: BLOCKED because node_modules/dependency types are not installed in this environment. Two real source-level errors exposed during this attempt (product commercial_type nullable payload and CrmRepository type name in revenue bridge) were corrected before packaging. Remaining output starts from missing React/Supabase/Lucide dependencies and derivative JSX typing errors.
+- npm test: BLOCKED — vitest not installed.
+- npm run build: BLOCKED after validate:env — vite not installed.
+
+H14 scope verified
+- Product Taxonomy 2.0: controlled category + commercial type.
+- Safe product deletion/archive behavior from prior product lifecycle remains preserved.
+- Metric Registry: canonical grouped metrics for activity, prospecting, conversion and revenue.
+- Goals 3.0: Workspace / Team / User scope.
+- Team goals aggregate member production using member IDs, not label-only scope.
+- Goals retain quarter/year presets and workday-aware forecast/pace behavior.
+- Team 360: Overview / Goals / People / Performance with CRM pipeline, calls and wins.
+- Team member selector standardized to clickable blue selection cards; default team color moved to RealTalent blue.

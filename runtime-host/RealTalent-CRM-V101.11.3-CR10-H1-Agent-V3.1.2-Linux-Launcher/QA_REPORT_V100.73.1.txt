@@ -1,0 +1,13 @@
+RealTalent CRM V100.73.1 — QA Report
+Module: Focus Mode Simplification
+
+Scope:
+- Calling settings tab
+- RealTalent Voice moved before call execution
+- compact Voice status in Focus Mode
+- collapsible Pre-call Brief / Call Health
+- regression preservation of V100.73 Voice controls
+
+Automated contract audit: scripts/v100_73_1_focus_simplification_audit.mjs
+No new database migrations.
+Backup schema remains 100.54.

@@ -1,0 +1,31 @@
+RealTalent CRM V101.8.4 — Official Communications
+Data: 2026-10-01
+
+RESULTADOS EXECUTADOS
+- V101.8.4 Official Communications audit: 14/14
+- V101.8.3 Contact Identity Sync preservado: 17/17
+- V101.8.3 Connect One-Tap preservado: 39/39
+- Source syntax audit: 296 arquivos aprovados
+- Integration contract audit: 264 arquivos aprovados
+- Migrations: 46/46 com checksum íntegro
+- configure-communications.sh: bash -n aprovado
+- start-linux.sh: bash -n aprovado
+
+IMPLEMENTADO
+- Composer oficial de E-mail/WhatsApp dentro da Central de Comunicação
+- Gmail API e Microsoft Graph continuam como transportes de e-mail
+- WhatsApp Cloud API continua como transporte oficial
+- Dispatch imediato após enqueue quando COMMUNICATION_WORKER_SECRET está configurado
+- Fallback para outbox + pg_cron
+- communication-sync-now autenticado para sincronização sob demanda
+- OAuth WhatsApp descobre Business Manager/WABA/phone_number_id
+- OAuth tenta registrar subscribed_apps no WABA
+- Inbound resolve Lead + ContactRecord por e-mail/telefone
+- contact_id adicionado a communication_events e communication_threads
+- Setup backend automatizado por configure-communications.sh
+
+NÃO EXECUTADO NESTE AMBIENTE
+- npm ci/typecheck/Vitest/build completo: npm registry indisponível/timeout durante a instalação.
+- Homologação contra contas reais Google/Microsoft/Meta: exige credenciais e contas do proprietário.
+
+O start-linux.sh executa o gate completo e recompila a aplicação no Linux do usuário.

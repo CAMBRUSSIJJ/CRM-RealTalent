@@ -1,0 +1,23 @@
+{
+  "version": "3.1.1",
+  "description": "Calibration suite for local model roles. Deterministic checks are intentionally small and are complemented by optional human A/B evaluation.",
+  "tasks": [
+    {"id":"general-crm-2sent","role":"general","prompt":"Explique o que é um CRM em exatamente duas frases, em português, sem começar com 'Claro' ou 'Com certeza'.","maxTokens":180,"checks":{"mustIncludeGroups":[["cliente","clientes","relacionamento"],["venda","vendas","comercial"]],"mustNotInclude":["claro!","com certeza!"],"maxChars":500,"sentenceRange":[2,3]}},
+    {"id":"general-direct-3bullets","role":"general","prompt":"Liste, sem introdução e em no máximo 3 bullets, três ações para recuperar uma oportunidade de vendas parada há 10 dias.","maxTokens":180,"checks":{"mustIncludeGroups":[["contato","lig","mensagem","follow-up"],["proposta","obje","necessidade","próximo"],["prazo","data","agenda","tarefa"]],"mustNotInclude":["claro!","vamos lá","com certeza!"],"maxChars":650}},
+    {"id":"general-rewrite","role":"general","prompt":"Reescreva de forma profissional e curta: 'Oi, queria saber se você viu a proposta e se dá pra gente conversar'. Responda somente com a mensagem reescrita.","maxTokens":100,"checks":{"mustIncludeGroups":[["proposta"],["convers","retorno","falar"]],"mustNotInclude":["aqui está","claro","reescrita"],"maxChars":350}},
+    {"id":"reasoning-percent","role":"reasoning","prompt":"Uma equipe enviou 24 propostas. 25% ainda não tiveram resposta. Quantas propostas estão sem resposta? Responda com o número e uma justificativa de uma linha.","maxTokens":120,"checks":{"regex":["\\b6\\b"],"mustIncludeGroups":[["25%","0,25","um quarto","25 por cento"]],"maxChars":400}},
+    {"id":"reasoning-decision","role":"reasoning","prompt":"Plano A custa R$ 400/mês e economiza 6 horas. Plano B custa R$ 550/mês e economiza 12 horas. Se cada hora vale R$ 60, qual plano gera maior ganho líquido mensal? Mostre a conta e escolha um.","maxTokens":220,"checks":{"mustIncludeGroups":[["plano b","B"],["170","R$ 170","170 reais"]],"maxChars":700}},
+    {"id":"reasoning-order","role":"reasoning","prompt":"Ana chegou antes de Bruno. Carlos chegou depois de Bruno. Daniela chegou antes de Ana. Quem chegou primeiro? Responda apenas com o nome e uma frase curta de justificativa.","maxTokens":100,"checks":{"mustIncludeGroups":[["daniela"]],"mustNotInclude":["ana chegou primeiro","bruno chegou primeiro","carlos chegou primeiro"],"maxChars":300}},
+    {"id":"coder-js-fix","role":"coder","prompt":"Corrija apenas a função JavaScript abaixo e devolva somente o código:\nfunction sum(a, b) { return a - b; }","maxTokens":100,"checks":{"regex":["return\\s+a\\s*\\+\\s*b"],"mustNotInclude":["explicação","aqui está"],"maxChars":300}},
+    {"id":"coder-ts-null","role":"coder","prompt":"TypeScript: corrija a função para aceitar string ou null sem erro e retornar string vazia quando null. Devolva somente o código.\nfunction normalize(value: string) { return value.trim(); }","maxTokens":140,"checks":{"regex":["string\\s*\\|\\s*null","value\\s*\\?\\?","if\\s*\\(.*null"],"regexAny":true,"mustIncludeGroups":[["trim"]],"mustNotInclude":["explicação","aqui está"],"maxChars":500}},
+    {"id":"coder-sql","role":"coder","prompt":"Escreva apenas SQL PostgreSQL para listar oportunidades com updated_at há mais de 7 dias, status diferente de 'closed', ordenando as mais antigas primeiro. Tabela opportunities.","maxTokens":180,"checks":{"mustIncludeGroups":[["select"],["opportunities"],["updated_at"],["interval","7 days","7 day"],["order by"]],"mustNotInclude":["explicação"],"maxChars":650}},
+    {"id":"vision-ui","role":"vision","prompt":"Observe a interface. Qual é o texto do botão destacado e em que região aproximada da tela ele fica? Responda em uma frase.","image":"MODEL_CALIBRATION_FIXTURE_V3.1.1.png","maxTokens":100,"checks":{"mustIncludeGroups":[["salvar"],["direita","inferior","baixo","canto"]],"maxChars":350}}
+  ],
+  "humanPrompts": [
+    "Explique em linguagem simples por que uma oportunidade pode ficar parada no pipeline, sem soar como manual.",
+    "Eu disse 'essa tela está estranha'. Responda de forma natural dizendo o que você precisaria observar antes de concluir.",
+    "Me ajude a priorizar meu dia comercial: 2 propostas vencem hoje, 4 follow-ups estão atrasados e tenho uma reunião em 40 minutos.",
+    "Responda de forma curta a um usuário frustrado que diz: 'eu já expliquei isso três vezes e continua errado'.",
+    "Explique a diferença entre memória de conversa e memória de projeto sem usar jargão técnico desnecessário."
+  ]
+}

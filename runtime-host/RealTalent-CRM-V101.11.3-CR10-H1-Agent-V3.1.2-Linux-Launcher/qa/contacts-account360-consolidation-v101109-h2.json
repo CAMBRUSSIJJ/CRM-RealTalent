@@ -1,0 +1,44 @@
+{
+  "release": "V101.10.9-H2",
+  "name": "Contacts & Account 360 CSS Consolidation",
+  "base": "V101.10.9-H1",
+  "strategy": "cascade-preserving canonical runtime stylesheets; legacy source files retained for rollback/audit",
+  "groups": {
+    "contact-record.css": [
+      {
+        "source": "contacts-views-record-v1016.css",
+        "sha256": "af18fe0e4d93977017215e6bffeb01e9ed188cccdc556ac832682cec22c3779b"
+      },
+      {
+        "source": "contacts-experience-completion-v10161.css",
+        "sha256": "bd42459364ca70ac879f12ff18b0dc81f0cbeaa6e0cd350ec1d186fc77daa3c8"
+      }
+    ],
+    "contacts.css": [
+      {
+        "source": "contact-views-v10163.css",
+        "sha256": "a43aed48b78159c1f9f6c648daba4b882610478399476ba9674d288179ff4654"
+      },
+      {
+        "source": "contact-data-grid-view-settings-v10164.css",
+        "sha256": "cefea9626da4c65a45f14c69aceb367298d18cf9566aac0b73d47832a9f1d8de"
+      },
+      {
+        "source": "contact-custom-properties-v10165.css",
+        "sha256": "0e75ce341a13e146693c124a7cdf11f46da0f389b0b071bafa3c5c676a4901f8"
+      }
+    ],
+    "contact-intelligence.css": [
+      {
+        "source": "contact-intelligence-v101105-h3.css",
+        "sha256": "c743366c451ff01827ce35c81a0dac318b9e9a447d76c78004025697d7bdd7bc"
+      }
+    ],
+    "account-360.css": [
+      {
+        "source": "account-intelligence.css",
+        "sha256": "0c5a3b2f16d792bc27b98ec4640767154ee88bec4c6df6e503335034a92282a2"
+      }
+    ]
+  }
+}

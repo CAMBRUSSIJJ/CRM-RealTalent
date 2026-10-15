@@ -1,0 +1,73 @@
+RealTalent CRM V101.9.3 — Person / Company / Opportunity Canonical Model
+QA Report
+=======================================================================
+
+Escopo
+------
+- ContactRecord (Pessoa) como autoridade canônica de identidade
+- CompanyRecord (Empresa) como autoridade canônica empresarial
+- OpportunityRecord (Oportunidade) como autoridade canônica de pipeline/receita
+- Lead como projection comercial legada para compatibilidade
+- CanonicalCommercialGraph + resolução explícita/inversa/identidade
+- projection canonical-first antes da metadata/UI
+- write-through Local e Supabase para mutações legadas
+- Contact/Person Record Page usando resolver canônico
+- inspector window.__REALTALENT_CANONICAL__.inspect()
+- migration 202610020001_v101_9_3_canonical_commercial_model.sql
+
+Resultados executados neste ambiente
+-------------------------------------
+V101.9.3 Canonical Commercial Model audit: 31/31 contratos aprovados
+Linux release preflight: OK (301 arquivos TS/TSX)
+Source syntax audit: 335 arquivos aprovados
+Integration contract audit: 303 arquivos aprovados
+Migrations: 47/47 com checksum íntegro
+TypeScript isolado da camada canonical + snapshot adapter + commercial structure + repository local: OK
+Runtime Canonical Record Graph smoke: OK
+  input snapshot imutável: OK
+  Person authority: OK
+  Company authority: OK
+  Opportunity authority: OK
+  fullyCanonical: 1/1
+  issues: 0
+
+Regressão histórica
+-------------------
+`npm run check` executou toda a cadeia histórica até o typecheck global:
+  audit/checks OK: 3728
+  audit FAIL: 0
+
+Gates históricos com allowlist rígida foram atualizados apenas para reconhecer a
+V101.9.3 como sucessora, preservando as validações funcionais existentes.
+
+Migration V101.9.3
+------------------
+Arquivo: supabase/migrations/202610020001_v101_9_3_canonical_commercial_model.sql
+Checksum no migration-lock: 262f29b231e43348b188cb363b42b45e6fec45090e7faf7d1be6d02588c84a45
+
+A função sync_commercial_structure(uuid) passa a operar canonical-first:
+- registros canônicos existentes não são rebaixados por dados antigos do Lead;
+- o Lead pode preencher lacunas ou originar registros ausentes;
+- ao final, o Lead é reconstruído como projection de Pessoa + Empresa + Oportunidade.
+
+Limitação do ambiente de montagem
+---------------------------------
+`npm ci --no-audit --no-fund` expirou por timeout de rede e não deixou node_modules.
+Por isso o typecheck/Vitest/build globais não puderam ser concluídos aqui.
+O typecheck global chegou a ser iniciado e os erros reportados são consequência das
+dependências ausentes (React, Lucide, Supabase etc.), não de um FAIL nos audits.
+
+O start-linux.sh mantém o gate completo no Linux:
+  npm install -> preflight -> release:verify -> typecheck -> Vitest -> build -> runtime smokes.
+
+Compatibilidade
+---------------
+- UX principal preservada
+- WorkspaceSnapshot continua sendo o contrato consumido pela UI
+- V101.9.2 Universal Record Page preservada
+- V101.9.1 Universal View Engine preservada
+- V101.9.0 Core Metadata Foundation preservada
+- Account 360 / Deal Intelligence preservados
+- RealTalent Connect preservado
+- Comunicação/WhatsApp e migração de sessão preservadas
+- campos específicos de prospecção permanecem no Lead nesta fase

@@ -1,0 +1,75 @@
+RealTalent CRM V101.11.3-H19.3 — WhatsApp Sales Workspace
+QA REPORT — 2026-10-08
+
+BASE
+- Fonte: V101.11.3-H19.2 Communication Workspace & WhatsApp Connection Center
+- Schema baseline: 54 migrations
+- H19.3 migrations novas: 0
+
+ESCOPO H19.3
+- Estados comerciais: Aguardando você / Aguardando cliente / Resolvido
+- Nova mensagem posterior ao estado manual reabre a conversa pela direção real
+- Mensagem -> Follow-up / Nota via createActivity e Tarefa via work_tasks/saveTask
+- originEventKey por mensagem/ação para proteção contra duplicação local
+- Respostas rápidas comerciais no composer
+- Proposta vigente no composer com Buyer Room existente
+- Proposta muda de draft -> sent somente após sucesso do envio WhatsApp
+- Buyer Room registra compartilhamento via WhatsApp
+- Envio continua usando sendOfficialWhatsApp
+- H19.2 Connection Center QR/Cloud preservado
+
+GATES FUNCIONAIS / ARQUITETURA
+PASS  qa:architecture
+PASS  H19.3 WhatsApp Sales Workspace                 66/66
+PASS  H19.2 Communication Workspace                 54/54
+PASS  H15 Strict Prospecting Scope                  39/39
+PASS  H2 Runtime Service Recovery                   38/38
+PASS  H1 Communications Gateway Recovery            41/41
+PASS  Communications Architecture                   44/44
+PASS  Omnichannel Inbox                             45/45
+PASS  Communications 2.0                            61/61
+PASS  WhatsApp 2.0                                  66/66
+PASS  CSS Governance                                65/65
+
+INFRAESTRUTURA / CONTRATOS
+PASS  Source Syntax                                  412 arquivos
+PASS  Integration Contracts                         380 arquivos
+PASS  Migrations                                     54/54 checksums
+PASS  Release Manifest                               85/85
+PASS  Repository Local                              100/100
+PASS  Repository Supabase                           100/100
+PASS  Capability Matrix                    28 / 91 / 57 executáveis
+PASS  Browser E2E Contract                           11 fluxos catalogados
+PASS  Linux release preflight                        373 TS/TSX
+PASS  Registry-independent transpile                 297 módulos
+
+RUNTIME SMOKES
+PASS  Communications Architecture                     6/6
+PASS  Communications Recovery                         5/5
+PASS  Connect Recovery                                5/5
+PASS  Security Runtime                               12/12
+PASS  Strict Prospecting Scope                       smoke aprovado
+
+GATES OFICIAIS DEPENDENTES DE NODE_MODULES
+BLOCKED  npm ci
+Reason: o ambiente de QA não conseguiu resolver registry.npmjs.org; npm registrou EAI_AGAIN ao buscar @whiskeysockets/baileys@7.0.0-rc14. node_modules não ficou disponível.
+
+BLOCKED  typecheck
+- comando executado
+- tsc global encontrou dependências ausentes, começando por react/@types e Supabase; erros derivados de tipos não podem ser classificados com node_modules incompleto
+
+BLOCKED  Vitest
+- comando executado
+- vitest: not found
+
+BLOCKED  Vite build
+- validate:env PASS
+- vite: not found
+
+FALLBACK BUILD
+PASS     build:legacy — 297 módulos TypeScript percorridos
+REJECTED runtime:bundle — auditor detectou HTML legado
+ACTION   dist legado removido do pacote final
+
+OBSERVAÇÃO DE PERSISTÊNCIA
+O estado manual da conversa H19.3 fica no safeStorage por workspace neste release e é invalidado/reinferido quando chega evento posterior. Isso não cria schema novo e não altera o transporte WhatsApp. O estado manual ainda não é sincronizado entre navegadores/dispositivos por banco.

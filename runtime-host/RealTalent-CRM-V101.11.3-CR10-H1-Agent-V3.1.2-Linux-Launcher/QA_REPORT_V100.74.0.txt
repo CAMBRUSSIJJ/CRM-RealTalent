@@ -1,0 +1,48 @@
+RealTalent CRM V100.74.0 — Functional Audit & Reliability Baseline
+Data: 2026-09-20
+
+ESCOPO
+- inventário funcional da base V100.73.1;
+- separação entre implementação local, dependências externas e recursos não implementados;
+- nova matriz visível em Configurações;
+- preservação dos gates de QA anteriores.
+
+RESULTADO DA AUDITORIA ESTÁTICA PRÉ-V100.74
+- source_syntax_audit: APROVADO em 236 arquivos antes das alterações;
+- integration_contract_audit: APROVADO em 207 arquivos;
+- migrations: 37 arquivos com checksum íntegro;
+- QA V100.56.4: 21/21;
+- QA V100.60.0: 41/41;
+- QA V100.60.1: 29/29;
+- QA V100.62.0: 47/47;
+- QA V100.63.0: 64/64;
+- QA V100.68.1: 50/50;
+- QA V100.68.2: 30/30;
+- QA V100.69.0: 43/43;
+- QA V100.70.0: 36/36;
+- QA V100.71.0: 25/25;
+- QA V100.72.0: 21/21;
+- QA V100.73.0: 25/25;
+- QA V100.73.1: 19/19.
+
+OBSERVAÇÃO DE AMBIENTE
+A instalação npm no ambiente de auditoria não concluiu por timeout de transporte, deixando dependências locais incompletas. Por isso typecheck/test/build completos não foram usados como prova final desta execução. O gate sintático usa o TypeScript global e continua válido; os audits Node independentes de node_modules foram executados.
+
+MUDANÇAS V100.74
+- aba Auditoria funcional;
+- matriz de status;
+- resumo de maturidade;
+- filtro por status;
+- exportação JSON;
+- evidência técnica por capability;
+- documentação de limitações e próximos passos.
+
+VALIDAÇÃO PÓS-ALTERAÇÃO
+- source_syntax_audit: APROVADO em 238 arquivos;
+- integration_contract_audit: APROVADO em 209 arquivos;
+- migrations: 37/37 checksums íntegros;
+- 19 suítes históricas/atuais de QA executadas em sequência: 19/19 APROVADAS.
+- QA V100.74.0: 26/26 contratos aprovados.
+
+TYPECHECK/TEST/BUILD
+A instalação de dependências (`npm ci`) não concluiu no ambiente de empacotamento por indisponibilidade/timeout de transporte. O pacote não inclui node_modules incompleto. Execute `npm install` no ambiente Linux com acesso ao registry e então rode `npm run typecheck && npm run test && npm run build`.

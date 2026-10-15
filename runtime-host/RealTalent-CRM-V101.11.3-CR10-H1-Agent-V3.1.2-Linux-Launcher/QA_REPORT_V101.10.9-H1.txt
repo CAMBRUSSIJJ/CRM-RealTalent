@@ -1,0 +1,70 @@
+RealTalent CRM — V101.10.9-H1 Global UI Consolidation
+QA REPORT
+
+ESCOPO
+- Consolidação estrutural do App Shell e das superfícies globais de UI.
+- Nenhuma alteração de regras de negócio, dados, schema, migrations ou integrações.
+- Nenhum redesign intencional nesta H1.
+
+ALTERAÇÕES COMPROVADAS
+- Imports CSS diretos no runtime: 68 -> 59.
+- Folhas canônicas novas:
+  ui-foundation.css
+  app-shell.css
+  workspace-ui.css
+  interaction-ui.css
+  ui-polish.css
+  selection-controls.css
+- Fontes históricas preservadas no repositório para rollback/auditoria.
+- Conteúdo histórico incorporado integralmente e na mesma ordem de cascade.
+- Build registry-independent exclui as folhas versionadas substituídas para evitar duplicação.
+- Runtime H1 reconhece a pasta V101.10.9 como predecessor preferencial para migração de estado local.
+- Gate Selection System separado e registrado como qa:v101.10.5:selection.
+
+QA EXECUTADO
+PASS  source syntax audit: 388 arquivos
+PASS  integration contract audit: 361 arquivos
+PASS  migrations: 49 checksums íntegros
+PASS  Release Manifest: 54/54
+PASS  Local Repository: 99/99
+PASS  Supabase Repository: 99/99
+PASS  Browser E2E Contract: 9 fluxos catalogados
+PASS  CSS Governance: 27/27
+PASS  V101.10.9 baseline: 28/28
+PASS  V101.10.9-H1: 45/45
+PASS  Selection & Filter System: 32/32
+PASS  Design System smoke: 12/12
+PASS  CSS parser: 107 arquivos / 0 parse errors
+PASS  Linux release preflight: 354 TS/TSX
+PASS  qa:architecture completo
+
+REGRESSÃO VISUAL/WORKSPACE DIRETAMENTE RELACIONADA
+PASS  V101.5.4 Visual System Refactor: 16/16
+PASS  V101.5.5 Visual System Rollout: 15/15
+PASS  V101.5.6 Visual Consistency: 18/18
+PASS  V101.6.2 My Day Lock & Global App Bar: 19/19
+PASS  V101.6.6 Workspace UI Standardization: 31/31
+PASS  V101.6.7 Global Workspace UI: 31/31
+PASS  V101.6.8 Workspace Interaction: 36/36
+PASS  V101.6.9 Global Filter & View: 53/53
+PASS  V101.7.0 Workspace Simplification: 31/31
+PASS  V101.7.1 Interaction Surfaces: 27/27
+PASS  V101.7.1 UX Consolidation: 24/24
+PASS  V101.9.8 Design System Consolidation: 38/38
+
+LIMITAÇÕES / NÃO MARCADAS COMO PASS
+- registry.npmjs.org indisponível neste ambiente: EAI_AGAIN getaddrinfo.
+- node_modules não acompanha o pacote.
+- npm run doctor: lockfile inconsistente; dependências ausentes/incompletas; build ausente.
+- Typecheck foi tentado sem node_modules e reportou React/Supabase e JSX types ausentes; isso não é considerado um resultado válido de typecheck da fonte.
+- Vitest e Vite build completos não foram marcados como PASS neste ambiente.
+- O launcher mantém a recuperação automática de lockfile/dependências na primeira execução com acesso ao npm.
+
+DÍVIDA CSS APÓS H1
+- 107 arquivos CSS físicos (inclui fontes legadas preservadas e canônicos).
+- 93 arquivos CSS versionados preservados no repositório.
+- 59 imports diretos no runtime.
+- 47 imports de runtime ainda possuem nomes versionados; próximos alvos: Contacts/Account 360 e módulos de Calling/Prospecting.
+
+CRITÉRIO DE ENTREGA
+A H1 é uma consolidação estrutural conservadora: muda ownership/empacotamento de CSS global, mas preserva o conteúdo e a precedência das regras históricas. Arquivos antigos ainda não foram apagados.

@@ -26,10 +26,6 @@ const plan = async (prompt: string) => {
   })
   const body = await response.json().catch(() => ({})) as any
   if (!response.ok) throw new Error(`Planner HTTP ${response.status}: ${body?.error || 'erro desconhecido'}`)
-
-  // /capabilities/plan returns envelope metadata at the top level and the
-  // normalized capability plan in body.plan. Keep the real HTTP contract here
-  // instead of pretending the steps are top-level fields.
   if (!body?.plan || typeof body.plan !== 'object') {
     throw new Error(`Planner respondeu sem plan normalizado: ${JSON.stringify(body).slice(0, 1200)}`)
   }
@@ -89,8 +85,8 @@ describe('RealTalent Agent — contrato real Meta + Agenda', () => {
     expect(health?.ai?.local?.online).toBe(true)
   })
 
-  it.runIf(e2eEnabled)('entende e executa meta pelo executor real do CRM', async () => {
-    const result = await plan('meta de 40 ligações para amanhã')
+  it.runIf(e2eEnabled)('entende a frase real da UI como meta e executa pelo executor real', async () => {
+    const result = await plan('faça 40 metas de ligação para amanha')
     expect(result?.provider).toBe('ollama')
     const step = result?.plan?.steps?.[0]
     expect(step?.capabilityId).toBe('goals.create')
@@ -99,6 +95,9 @@ describe('RealTalent Agent — contrato real Meta + Agenda', () => {
     expect(args.get('target_value')).toBe('40')
     expect(args.get('period_start')).toBe('2026-10-16')
     expect(args.get('period_end')).toBe('2026-10-16')
+    expect(args.has('record_query')).toBe(false)
+    expect(args.has('contact_query')).toBe(false)
+    expect(args.has('lead_query')).toBe(false)
 
     const { runtime, createGoal, navigate } = executionRuntime()
     const execution = await executeCrmCapabilityStep(step, runtime)

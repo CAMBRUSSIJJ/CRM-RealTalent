@@ -90,12 +90,19 @@ git fetch origin "$BRANCH"
 git reset --hard "origin/$BRANCH"
 echo "✓ Commit $(git rev-parse --short HEAD)"
 
+# Cada rodada começa com logs limpos para não misturar evidência antiga com o erro atual.
+: > "$LAUNCH_LOG"
+: > "$AGENT_LOG"
+: > "$VITE_LOG"
+: > "$OLLAMA_RECOVERY_LOG"
+
 say "2/8 — Habilitando Universal CRM Control"
 node scripts/enable-universal-agent.mjs
 node scripts/harden-universal-agent.mjs
 grep -q "realtalent-crm-universal-executor" src/features/assistant/assistant-drawer.tsx || fail "O Assistant não foi ligado ao executor universal."
 grep -q "realtalent-crm-universal-registry" src/services/realtalent-crm-capability-runtime-client.ts || fail "O planner não foi ligado ao catálogo universal."
 grep -q "semanticDomainAnchor" runtime-host/RealTalent-Agent-Runtime-V3.1.2/gateway-ollama.mjs || fail "O roteador híbrido não foi habilitado."
+grep -q "return pick('leads', 'relação entre contatos explícita')" runtime-host/RealTalent-Agent-Runtime-V3.1.2/gateway-ollama.mjs || fail "O roteador de Contatos não foi alinhado ao AppRoute leads."
 echo "✓ Planner, Assistant, catálogo, executor e roteador híbrido ligados"
 
 say "3/8 — Encerrando somente instâncias antigas do RealTalent"
@@ -105,7 +112,6 @@ sleep 2
 
 say "4/8 — Subindo Ollama + Agent + gates + CRM"
 chmod +x start-ollama-local.sh
-: > "$LAUNCH_LOG"
 REALTALENT_NO_AUTO_OPEN=1 ./start-ollama-local.sh > >(tee "$LAUNCH_LOG") 2>&1 &
 MAIN_PID=$!
 

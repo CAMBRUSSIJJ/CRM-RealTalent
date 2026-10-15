@@ -8,7 +8,41 @@ const executorSource = fs.readFileSync(
   'utf8',
 )
 
+const assistantDrawerSource = fs.readFileSync(
+  path.resolve(process.cwd(), 'src/features/assistant/assistant-drawer.tsx'),
+  'utf8',
+)
+
 const nativeCapabilities = CRM_CAPABILITIES.filter((item) => item.execution === 'native')
+
+/**
+ * Algumas famílias do executor usam um dispatcher por prefixo e deixam o último
+ * comportamento da família como caminho específico da capability. Nesses casos o
+ * id completo não aparece literalmente no arquivo, então exigimos um "witness"
+ * único do executor real. Isso mantém o gate forte: qualquer capability NOVA sem
+ * id literal ou sem witness explícito continuará falhando.
+ */
+const groupedExecutionWitnesses: Record<string, string> = {
+  'proposals.update_status': 'actions.updateProposalStatus(proposal.id, status)',
+  'catalog.update_product': 'actions.updateProduct(product.id, patch as any)',
+  'goals.update': 'actions.updateGoal(goal.id, patch as any)',
+  'playbooks.update': 'actions.updatePlaybook(playbook.id, patch as any)',
+  'automations.run': 'actions.runAutomationRule(rule.id, lead.id)',
+  'teams.update_role': 'actions.updateWorkspaceMemberRole(member.userId, role)',
+  'revenue.update_status': 'actions.updateRevenueEntryStatus(entry.id, status)',
+}
+
+const hasDirectExecutorPath = (id: string) =>
+  executorSource.includes(`'${id}'`) ||
+  executorSource.includes(`\"${id}\"`) ||
+  Boolean(groupedExecutionWitnesses[id] && executorSource.includes(groupedExecutionWitnesses[id]))
+
+const hasOrchestratedExecutorPath = (id: string) => {
+  if (id !== 'agent.undo_last') return false
+  return assistantDrawerSource.includes("step.capabilityId === 'agent.undo_last'") &&
+    assistantDrawerSource.includes('undoCrmAgentOperation(') &&
+    executorSource.includes('export async function undoCrmAgentOperation')
+}
 
 describe('RealTalent Agent — cobertura estrutural de capabilities nativas', () => {
   it('expõe ao Ollama todo o catálogo nativo do CRM', () => {
@@ -17,12 +51,18 @@ describe('RealTalent Agent — cobertura estrutural de capabilities nativas', ()
     expect(catalogIds).toEqual(nativeIds)
   })
 
-  it('mantém todos os ids nativos cobertos pelo executor real', () => {
+  it('mantém todas as capabilities nativas com caminho real de execução', () => {
     const missing = nativeCapabilities
       .map((item) => item.id)
-      .filter((id) => !executorSource.includes(`'${id}'`) && !executorSource.includes(`\"${id}\"`))
+      .filter((id) => !hasDirectExecutorPath(id) && !hasOrchestratedExecutorPath(id))
 
-    expect(missing, `Capabilities nativas sem caminho explícito no executor: ${missing.join(', ')}`).toEqual([])
+    expect(missing, `Capabilities nativas sem caminho real de execução: ${missing.join(', ')}`).toEqual([])
+  })
+
+  it('mantém os witnesses agrupados restritos a capabilities nativas existentes', () => {
+    const nativeIds = new Set(nativeCapabilities.map((item) => item.id))
+    const staleWitnesses = Object.keys(groupedExecutionWitnesses).filter((id) => !nativeIds.has(id))
+    expect(staleWitnesses, `Witnesses órfãos no gate: ${staleWitnesses.join(', ')}`).toEqual([])
   })
 
   it('não publica capability sem metadados mínimos de segurança', () => {

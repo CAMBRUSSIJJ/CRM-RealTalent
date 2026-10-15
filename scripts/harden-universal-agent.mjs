@@ -13,12 +13,19 @@ const patch = (relative, transform) => {
   return after
 }
 
-const gateway = patch('runtime-host/RealTalent-Agent-Runtime-V3.1.2/gateway-ollama.mjs', (source) => source
-  .replace('contato|ana|bruno|pessoa|pessoas', 'com|entre|contato|contatos|pessoa|pessoas'))
+const gateway = patch('runtime-host/RealTalent-Agent-Runtime-V3.1.2/gateway-ollama.mjs', (source) => {
+  let next = source.replace('contato|ana|bruno|pessoa|pessoas', 'com|entre|contato|contatos|pessoa|pessoas')
+  const hasAnchor = "  const has = (pattern) => pattern.test(text)\n\n"
+  if (next.includes(hasAnchor) && !next.includes("notificação, undo ou navegação global explícita")) {
+    next = next.replace(hasAnchor, `${hasAnchor}  if (has(/\\b(notificacao|notificacoes|aviso|avisos|campainha|desfaca|desfazer|undo)\\b/)) return pick('dashboard', 'notificação, undo ou navegação global explícita')\n`)
+  }
+  return next
+})
 
 if (!gateway.includes('const semanticDomainAnchor =')) throw new Error('O roteador híbrido não foi instalado pelo enable-universal-agent.mjs.')
 if (!gateway.includes('requiredSlots: Array.isArray(capability?.requiredSlots)')) throw new Error('requiredSlots não estão chegando ao planner universal.')
 if (gateway.includes('contato|ana|bruno|pessoa|pessoas')) throw new Error('O roteador contém nomes de teste hardcoded; a regra precisa permanecer genérica.')
+if (!gateway.includes("notificação, undo ou navegação global explícita")) throw new Error('O domínio global não recebeu âncora para notificações/undo.')
 
 const matrix = patch('src/services/realtalent-ollama-crm-matrix.integration.test.ts', (source) => {
   let next = source

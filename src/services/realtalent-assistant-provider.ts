@@ -2,7 +2,8 @@
 import type { WorkspaceSnapshot } from '../domain/types'
 import { runRealTalentAssistant, type AssistantAnswer, type AssistantContext, type AssistantIntent } from './realtalent-assistant'
 import { interpretSalesLanguage } from './realtalent-semantic-language-client'
-import { localCapabilityFallback, planCrmCapabilities, type CrmCapabilityPlanningResult } from './realtalent-crm-capability-planner'
+import { localCapabilityFallback, type CrmCapabilityPlanningResult } from './realtalent-crm-capability-planner'
+import { planCrmCapabilitiesViaAgent } from './realtalent-crm-capability-runtime-client'
 import { crmClarificationSuggestions, genericPendingIntent, pendingCapabilityFromPlan, pendingCapabilityContext, validateAndEnrichCapabilitySlots } from './realtalent-crm-slot-filling'
 
 export interface RealTalentAssistantProviderResult {
@@ -98,11 +99,10 @@ export const hybridRealTalentAssistantProvider: RealTalentAssistantProvider = {
       pendingCapability: pendingCapabilityContext(context.pendingCapability),
     }
 
-    // V3.6: the global native-capability planner is the FIRST action-routing layer.
-    // This prevents legacy lexical shortcuts such as "ligação" from turning a goal
-    // request into a contact/task lookup before the Ollama planner sees the request.
-    // currentRoute remains context only and never restricts the catalog.
-    const capabilityRaw = await planCrmCapabilities(prompt, capabilityContext)
+    // V3.6: every native CRM action goes through the global Ollama capability planner
+    // BEFORE legacy lexical/fast-action code. This is what prevents phrases containing
+    // "ligação" from being treated as a contact/task request when the actual intent is a goal.
+    const capabilityRaw = await planCrmCapabilitiesViaAgent(prompt, capabilityContext)
     const capability = capabilityRaw ? validateAndEnrichCapabilitySlots(capabilityRaw, capabilityContext) : null
     if (capability && capability.decision !== 'fallback') {
       return {
@@ -113,8 +113,8 @@ export const hybridRealTalentAssistantProvider: RealTalentAssistantProvider = {
       }
     }
 
-    // Specialized sales-language interpretation remains useful for analytical/read
-    // experiences that intentionally do not map to a native mutation capability.
+    // Specialized sales-language interpretation remains for analytical/read experiences
+    // that intentionally do not map to a native mutation capability.
     const semantic = await interpretSalesLanguage(prompt, context)
     if (semantic?.decision === 'clarify' && semantic.interpretation.intent !== 'unknown') {
       return {
@@ -144,7 +144,7 @@ export const hybridRealTalentAssistantProvider: RealTalentAssistantProvider = {
       }
     }
 
-    // Deterministic parsing is resilience only. It can no longer pre-empt Ollama.
+    // Deterministic parsing is resilience only and can no longer pre-empt Ollama.
     const localOperationalRaw = localCapabilityFallback(prompt, capabilityContext)
     const localOperational = localOperationalRaw ? validateAndEnrichCapabilitySlots(localOperationalRaw, capabilityContext) : null
     if (localOperational) return {
@@ -154,8 +154,8 @@ export const hybridRealTalentAssistantProvider: RealTalentAssistantProvider = {
       mode: 'local-orchestration',
     }
 
-    // Legacy assistant remains only as the final local read/UX compatibility layer.
-    // There is intentionally no OpenAI/remote provider fallback in this local path.
+    // Final compatibility layer for legacy local analysis/read UX. No OpenAI/remote
+    // provider fallback exists in this embedded Ollama path.
     const immediate = runRealTalentAssistant(prompt, snapshot, context)
     return {
       answer: immediate,

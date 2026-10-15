@@ -1,4 +1,4 @@
-// V3.3 regression lineage marker: hybrid-realtalent-agent-v3.3
+// V3.5 regression lineage marker: semantic-model-primary-before-deterministic-resilience
 import type { WorkspaceSnapshot } from '../domain/types'
 import { runRealTalentAssistant, type AssistantAnswer, type AssistantContext, type AssistantIntent } from './realtalent-assistant'
 import { askRemoteRealTalentAgent } from './realtalent-agent-client'
@@ -17,7 +17,6 @@ export interface RealTalentAssistantProvider {
   readonly id: string
   answer(prompt: string, snapshot: WorkspaceSnapshot, context?: AssistantContext): Promise<RealTalentAssistantProviderResult>
 }
-
 
 const capabilityPlanAnswer = (result: CrmCapabilityPlanningResult, context: AssistantContext, seed = ''): AssistantAnswer => {
   const { plan } = result
@@ -88,10 +87,10 @@ const semanticClarification = (semantic: NonNullable<Awaited<ReturnType<typeof i
 }
 
 export const hybridRealTalentAssistantProvider: RealTalentAssistantProvider = {
-  id: 'hybrid-realtalent-agent-v3.4',
+  id: 'hybrid-realtalent-agent-v3.5',
   async answer(prompt, snapshot, context = {}) {
-    // Preserve the zero-latency path only when the request already produced a safe native plan.
-    // Everything else gets a semantic interpretation before lexical compatibility fallbacks.
+    // Preserve the zero-latency path only when the request itself already generated
+    // a complete native plan. This is execution compatibility, not lexical routing.
     const immediate = runRealTalentAssistant(prompt, snapshot, context)
     if (immediate.plan) {
       return {
@@ -102,9 +101,6 @@ export const hybridRealTalentAssistantProvider: RealTalentAssistantProvider = {
       }
     }
 
-    // V3.3 semantic fast/resilience path for a deliberately tiny set of unequivocal
-    // operational actions. It is not the universal router; all other language still
-    // goes through semantic/model planning.
     const capabilityContext = {
       currentRoute: context.currentRoute ?? null,
       focusLeadId: context.focusLeadId ?? null,
@@ -114,15 +110,9 @@ export const hybridRealTalentAssistantProvider: RealTalentAssistantProvider = {
       conversationContext: context.conversationContext ?? '',
       pendingCapability: pendingCapabilityContext(context.pendingCapability),
     }
-    const localOperationalRaw = localCapabilityFallback(prompt, capabilityContext)
-    const localOperational = localOperationalRaw ? validateAndEnrichCapabilitySlots(localOperationalRaw, capabilityContext) : null
-    if (localOperational) return {
-      answer: capabilityPlanAnswer(localOperational, context, context.pendingCapability?.seed || prompt),
-      providerId: 'capability:local-resilience-v3.4',
-      sendsDataExternally: false,
-      mode: 'local-orchestration',
-    }
 
+    // V3.5: semantic interpretation is the primary language path. The page/route is
+    // context only; it cannot narrow the user's explicit intent to the current module.
     const semantic = await interpretSalesLanguage(prompt, context)
     if (semantic?.decision === 'clarify' && semantic.interpretation.intent !== 'unknown') {
       return {
@@ -152,10 +142,9 @@ export const hybridRealTalentAssistantProvider: RealTalentAssistantProvider = {
       }
     }
 
-    // V3.3 CRM Agent Operating Layer + Sales Execution + Prospecting Intelligence: when the sales-language layer does not own the request,
-    // ask the model to plan against the capabilities the CRM actually exposes. This is the
-    // universal path for notifications, contacts, pipeline, tasks, agenda, proposals, goals,
-    // teams, automations, navigation and cross-module actions.
+    // Universal capability planning is the second primary model path. It maps natural
+    // language to the actual capability catalog for goals, agenda, pipeline, contacts,
+    // tasks, proposals, prospecting and cross-module actions.
     const capabilityRaw = await planCrmCapabilities(prompt, capabilityContext)
     const capability = capabilityRaw ? validateAndEnrichCapabilitySlots(capabilityRaw, capabilityContext) : null
     if (capability && capability.decision !== 'fallback') {
@@ -167,8 +156,20 @@ export const hybridRealTalentAssistantProvider: RealTalentAssistantProvider = {
       }
     }
 
-    // V3.1.4-H3 compatibility marker: localFast.intent !== 'unknown' && localFast.intent !== 'help'
-    // Compatibility fallback: keep H3 lexical families available if the local model/runtime is offline.
+    // Deterministic parsing is now resilience only. It is reached after both semantic
+    // model interpretation and capability planning fail/unavailable; it no longer wins
+    // simply because a phrase happens to match a regex family.
+    const localOperationalRaw = localCapabilityFallback(prompt, capabilityContext)
+    const localOperational = localOperationalRaw ? validateAndEnrichCapabilitySlots(localOperationalRaw, capabilityContext) : null
+    if (localOperational) return {
+      answer: capabilityPlanAnswer(localOperational, context, context.pendingCapability?.seed || prompt),
+      providerId: 'capability:local-resilience-v3.5',
+      sendsDataExternally: false,
+      mode: 'local-orchestration',
+    }
+
+    // Compatibility fallback: keep older lexical families only after semantic/capability
+    // planning and the narrow resilience layer did not resolve the request.
     if (immediate.intent !== 'unknown' && immediate.intent !== 'help') {
       return {
         answer: immediate,

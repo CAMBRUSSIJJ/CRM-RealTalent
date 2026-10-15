@@ -1,5 +1,5 @@
 import type { CrmCapabilityArgument, CrmCapabilityPlan, CrmCapabilityPlanStep, CrmCapabilityPlanningContext, CrmCapabilityPlanningResult } from './realtalent-crm-capability-planner'
-import { universalCrmCapabilityById } from './realtalent-crm-universal-capabilities'
+import { universalCrmCapabilityById } from './realtalent-crm-universal-registry'
 import {
   crmCapabilitySlotRulesForModel as baseRulesForModel,
   validateAndEnrichCapabilitySlots as baseValidate,
@@ -33,6 +33,7 @@ const EXTRA_RULES: Record<string, UniversalSlotRule[]> = {
   'cadences.update_state': [slot('cadence_id', 'Qual é a cadência?', ['cadence_id']), slot('action', 'Você quer pausar, retomar ou encerrar a cadência?', ['action'], ['pause','resume','stop'])],
   'calls.register_outcome': [target('Para qual lead/contato foi a ligação?', ['record_query','lead_query','contact_query']), slot('outcome', 'Qual foi o resultado da ligação?', ['outcome'])],
   'calls.delete': [target('Qual registro de ligação você quer excluir?')],
+  'calls.recording_url': [target('Qual ligação possui a gravação que você quer abrir?')],
   'proposals.update': [target('Qual proposta você quer alterar?'), changes(['title','probability','valid_until','expected_close_at','contract_start_at','contract_end_at','contract_term_months','auto_renew','notes','terms'])],
   'proposals.create_revision': [target('Qual proposta deve receber uma nova revisão?')],
   'catalog.reconcile_proposal_items': [slot('legacy_name', 'Qual é o nome legado do item?', ['legacy_name']), slot('product', 'Qual produto real do catálogo substitui esse item?', ['product_query'])],
@@ -41,9 +42,12 @@ const EXTRA_RULES: Record<string, UniversalSlotRule[]> = {
   'buyer_rooms.rotate_token': [target('Qual Buyer Room deve receber um novo link?')],
   'buyer_rooms.delete': [target('Qual Buyer Room você quer excluir?')],
   'automations.create': [slot('name', 'Qual é o nome da automação?', ['name']), slot('trigger', 'Qual evento deve disparar a automação?', ['trigger_type'])],
+  'automations.update': [target('Qual automação você quer alterar?'), changes(['name','trigger_type','enabled','conditions_json','actions_json'])],
   'automations.simulate': [target('Qual automação você quer simular?'), slot('lead', 'Para qual lead você quer simular?', ['lead_query'])],
   'automations.run_checks': [],
   'automations.undo_run': [slot('run', 'Qual execução de automação deve ser desfeita?', ['run_query'])],
+  'teams.create_member': [slot('display_name', 'Qual é o nome do novo membro?', ['display_name']), slot('role', 'Qual papel esse membro terá?', ['role'], ['admin','member','viewer'])],
+  'teams.revoke_invite': [slot('invite', 'Qual convite você quer revogar?', ['invite_query'])],
   'workspace.create': [slot('name', 'Qual será o nome do novo workspace?', ['name'])],
   'workspace.select': [slot('workspace_id', 'Qual workspace você quer selecionar?', ['workspace_id'])],
   'workspace.members': [],
@@ -100,8 +104,6 @@ export function pendingCapabilityFromPlan(plan: CrmCapabilityPlan, seed: string,
 }
 
 export function crmClarificationSuggestions(capabilityId: string, missingSlot?: string) {
-  const extra = EXTRA_RULES[capabilityId]
-  if (!extra) return []
-  const rule = extra.find((item) => !missingSlot || item.key === missingSlot)
+  const rule = (EXTRA_RULES[capabilityId] ?? []).find((item) => !missingSlot || item.key === missingSlot)
   return (rule?.choices ?? []).slice(0, 8)
 }

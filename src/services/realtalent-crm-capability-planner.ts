@@ -92,6 +92,18 @@ const normalizePlan = (value: CrmCapabilityPlan): CrmCapabilityPlan => {
 
 const dateKey = (date: Date) => `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`
 const relativeDateArg = (text: string, now = new Date()) => {
+  const explicitBr = text.match(/\b(\d{1,2})[\/-](\d{1,2})[\/-](\d{4})\b/)
+  if (explicitBr) {
+    const day = Number(explicitBr[1]); const month = Number(explicitBr[2]); const year = Number(explicitBr[3])
+    const parsed = new Date(year, month - 1, day, 12, 0, 0, 0)
+    if (parsed.getFullYear() === year && parsed.getMonth() === month - 1 && parsed.getDate() === day) return dateKey(parsed)
+  }
+  const explicitIso = text.match(/\b(\d{4})-(\d{2})-(\d{2})\b/)
+  if (explicitIso) {
+    const year = Number(explicitIso[1]); const month = Number(explicitIso[2]); const day = Number(explicitIso[3])
+    const parsed = new Date(year, month - 1, day, 12, 0, 0, 0)
+    if (parsed.getFullYear() === year && parsed.getMonth() === month - 1 && parsed.getDate() === day) return dateKey(parsed)
+  }
   const base = new Date(now); base.setHours(12, 0, 0, 0)
   if (/\bamanha\b/.test(text)) { base.setDate(base.getDate() + 1); return dateKey(base) }
   if (/\bhoje\b/.test(text)) return dateKey(base)
@@ -126,8 +138,13 @@ export const localCapabilityFallback = (prompt: string, context: CrmCapabilityPl
   }
 
   const goalVerb = /\b(cri|coloc|defin|estabelec|quero|bota|faz)\w*/.test(text)
-  const implicitGoalOnGoalsPage = context.currentRoute === 'goals' && goalVerb && Boolean(goalMetricFromText(text)) && /\b\d+(?:[.,]\d+)?\b/.test(text)
-  const goalIntent = (/\b(metas?|objetivos?|alvos?)\b/.test(text) && goalVerb) || implicitGoalOnGoalsPage
+  const mentionsGoal = /\b(metas?|objetivos?|alvos?)\b/.test(text)
+  const hasGoalMetric = Boolean(goalMetricFromText(text))
+  const hasGoalNumber = /\b\d+(?:[.,]\d+)?\b/.test(text)
+  const looksLikeReadQuestion = /\b(qual|quais|quanto|quantas|como|onde|quem|por que|porque|mostre|mostrar|ver|veja|consulte|consultar)\b/.test(text)
+  const declarativeGoal = mentionsGoal && hasGoalMetric && hasGoalNumber && !looksLikeReadQuestion
+  const implicitGoalOnGoalsPage = context.currentRoute === 'goals' && goalVerb && hasGoalMetric && hasGoalNumber
+  const goalIntent = (mentionsGoal && goalVerb) || declarativeGoal || implicitGoalOnGoalsPage
   if (goalIntent) {
     const metric = goalMetricFromText(text)
     const target = text.match(/(?:meta|objetivo|alvo)(?:\s+de)?\s+(?:r\$\s*)?(\d+(?:[.,]\d+)?)/)?.[1]

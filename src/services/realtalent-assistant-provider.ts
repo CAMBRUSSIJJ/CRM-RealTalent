@@ -1,7 +1,6 @@
-// V3.5 regression lineage marker: semantic-model-primary-before-deterministic-resilience
+// V3.6 regression lineage marker: universal-capability-planner-first+ollama-only-local-path
 import type { WorkspaceSnapshot } from '../domain/types'
 import { runRealTalentAssistant, type AssistantAnswer, type AssistantContext, type AssistantIntent } from './realtalent-assistant'
-import { askRemoteRealTalentAgent } from './realtalent-agent-client'
 import { interpretSalesLanguage } from './realtalent-semantic-language-client'
 import { localCapabilityFallback, planCrmCapabilities, type CrmCapabilityPlanningResult } from './realtalent-crm-capability-planner'
 import { crmClarificationSuggestions, genericPendingIntent, pendingCapabilityFromPlan, pendingCapabilityContext, validateAndEnrichCapabilitySlots } from './realtalent-crm-slot-filling'
@@ -87,20 +86,8 @@ const semanticClarification = (semantic: NonNullable<Awaited<ReturnType<typeof i
 }
 
 export const hybridRealTalentAssistantProvider: RealTalentAssistantProvider = {
-  id: 'hybrid-realtalent-agent-v3.5',
+  id: 'realtalent-agent-v3.6-ollama-capabilities-first',
   async answer(prompt, snapshot, context = {}) {
-    // Preserve the zero-latency path only when the request itself already generated
-    // a complete native plan. This is execution compatibility, not lexical routing.
-    const immediate = runRealTalentAssistant(prompt, snapshot, context)
-    if (immediate.plan) {
-      return {
-        answer: immediate,
-        providerId: 'local-fast-actions-v3.1.5',
-        sendsDataExternally: false,
-        mode: 'local-orchestration',
-      }
-    }
-
     const capabilityContext = {
       currentRoute: context.currentRoute ?? null,
       focusLeadId: context.focusLeadId ?? null,
@@ -111,14 +98,29 @@ export const hybridRealTalentAssistantProvider: RealTalentAssistantProvider = {
       pendingCapability: pendingCapabilityContext(context.pendingCapability),
     }
 
-    // V3.5: semantic interpretation is the primary language path. The page/route is
-    // context only; it cannot narrow the user's explicit intent to the current module.
+    // V3.6: the global native-capability planner is the FIRST action-routing layer.
+    // This prevents legacy lexical shortcuts such as "ligação" from turning a goal
+    // request into a contact/task lookup before the Ollama planner sees the request.
+    // currentRoute remains context only and never restricts the catalog.
+    const capabilityRaw = await planCrmCapabilities(prompt, capabilityContext)
+    const capability = capabilityRaw ? validateAndEnrichCapabilitySlots(capabilityRaw, capabilityContext) : null
+    if (capability && capability.decision !== 'fallback') {
+      return {
+        answer: capabilityPlanAnswer(capability, context, context.pendingCapability?.seed || prompt),
+        providerId: `capability:${capability.model}`,
+        sendsDataExternally: false,
+        mode: 'local-orchestration',
+      }
+    }
+
+    // Specialized sales-language interpretation remains useful for analytical/read
+    // experiences that intentionally do not map to a native mutation capability.
     const semantic = await interpretSalesLanguage(prompt, context)
     if (semantic?.decision === 'clarify' && semantic.interpretation.intent !== 'unknown') {
       return {
         answer: semanticClarification(semantic.interpretation, context, prompt),
         providerId: `semantic:${semantic.model}`,
-        sendsDataExternally: semantic.provider === 'openai',
+        sendsDataExternally: false,
         mode: 'local-orchestration',
       }
     }
@@ -136,59 +138,28 @@ export const hybridRealTalentAssistantProvider: RealTalentAssistantProvider = {
         return {
           answer: interpreted,
           providerId: `semantic:${semantic.model}`,
-          sendsDataExternally: semantic.provider === 'openai',
+          sendsDataExternally: false,
           mode: 'local-orchestration',
         }
       }
     }
 
-    // Universal capability planning is the second primary model path. It maps natural
-    // language to the actual capability catalog for goals, agenda, pipeline, contacts,
-    // tasks, proposals, prospecting and cross-module actions.
-    const capabilityRaw = await planCrmCapabilities(prompt, capabilityContext)
-    const capability = capabilityRaw ? validateAndEnrichCapabilitySlots(capabilityRaw, capabilityContext) : null
-    if (capability && capability.decision !== 'fallback') {
-      return {
-        answer: capabilityPlanAnswer(capability, context, context.pendingCapability?.seed || prompt),
-        providerId: `capability:${capability.model}`,
-        sendsDataExternally: capability.provider === 'openai',
-        mode: 'local-orchestration',
-      }
-    }
-
-    // Deterministic parsing is now resilience only. It is reached after both semantic
-    // model interpretation and capability planning fail/unavailable; it no longer wins
-    // simply because a phrase happens to match a regex family.
+    // Deterministic parsing is resilience only. It can no longer pre-empt Ollama.
     const localOperationalRaw = localCapabilityFallback(prompt, capabilityContext)
     const localOperational = localOperationalRaw ? validateAndEnrichCapabilitySlots(localOperationalRaw, capabilityContext) : null
     if (localOperational) return {
       answer: capabilityPlanAnswer(localOperational, context, context.pendingCapability?.seed || prompt),
-      providerId: 'capability:local-resilience-v3.5',
+      providerId: 'capability:local-resilience-v3.6',
       sendsDataExternally: false,
       mode: 'local-orchestration',
     }
 
-    // Compatibility fallback: keep older lexical families only after semantic/capability
-    // planning and the narrow resilience layer did not resolve the request.
-    if (immediate.intent !== 'unknown' && immediate.intent !== 'help') {
-      return {
-        answer: immediate,
-        providerId: 'local-language-fallback-v3.1.5',
-        sendsDataExternally: false,
-        mode: 'local-orchestration',
-      }
-    }
-
-    const remote = await askRemoteRealTalentAgent(prompt, snapshot, context)
-    if (remote) return {
-      answer: remote.answer,
-      providerId: `agent:${remote.model}`,
-      sendsDataExternally: true,
-      mode: 'openai-planning',
-    }
+    // Legacy assistant remains only as the final local read/UX compatibility layer.
+    // There is intentionally no OpenAI/remote provider fallback in this local path.
+    const immediate = runRealTalentAssistant(prompt, snapshot, context)
     return {
-      answer: runRealTalentAssistant(prompt, snapshot, context),
-      providerId: 'local-deterministic-v3-realtalent-ai',
+      answer: immediate,
+      providerId: immediate.intent === 'unknown' ? 'local-deterministic-v3-realtalent-ai' : 'local-language-fallback-v3.1.5',
       sendsDataExternally: false,
       mode: 'local-orchestration',
     }

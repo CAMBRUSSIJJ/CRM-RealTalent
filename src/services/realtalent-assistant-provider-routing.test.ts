@@ -1,7 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-const planMock = vi.fn()
-const semanticMock = vi.fn()
+const { planMock, semanticMock } = vi.hoisted(() => ({
+  planMock: vi.fn(),
+  semanticMock: vi.fn(),
+}))
 
 vi.mock('./realtalent-crm-capability-runtime-client', () => ({
   planCrmCapabilitiesViaAgent: (...args: unknown[]) => planMock(...args),

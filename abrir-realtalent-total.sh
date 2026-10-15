@@ -7,8 +7,11 @@ cd "$ROOT"
 BRANCH="preview/v3.5-h1-semantic-agent"
 AGENT_URL="http://127.0.0.1:8791"
 CRM_URL="http://127.0.0.1:4188"
+OLLAMA_URL="${OLLAMA_URL:-http://127.0.0.1:11434}"
+MODEL="${REALTALENT_OLLAMA_MODEL:-qwen3:4b}"
 MATRIX_FILE="src/services/realtalent-ollama-crm-matrix.integration.test.ts"
 LAUNCH_LOG="$ROOT/.realtalent-total.log"
+OLLAMA_RECOVERY_LOG="$ROOT/.realtalent-ollama-recovery.log"
 
 say() { printf '\n\033[1;36m%s\033[0m\n' "$*"; }
 fail() { printf '\n\033[1;31mERRO: %s\033[0m\n' "$*" >&2; exit 1; }
@@ -42,10 +45,28 @@ stop_realtalent_port() {
   done
 }
 
+ensure_ollama_ready() {
+  if ! curl -fsS --max-time 3 "$OLLAMA_URL/api/tags" >/dev/null 2>&1; then
+    say "↻ Ollama saiu do ar; reiniciando antes de continuar a matriz"
+    nohup ollama serve >>"$OLLAMA_RECOVERY_LOG" 2>&1 &
+    for ((i=1; i<=60; i++)); do
+      if curl -fsS --max-time 2 "$OLLAMA_URL/api/tags" >/dev/null 2>&1; then break; fi
+      sleep 1
+      if [[ $i -eq 60 ]]; then fail "Ollama não voltou após a tentativa de recuperação. Veja $OLLAMA_RECOVERY_LOG"; fi
+    done
+  fi
+
+  local payload
+  payload="$(printf '{\"model\":\"%s\",\"prompt\":\"Responda somente OK.\",\"stream\":false,\"think\":false,\"keep_alive\":\"10m\",\"options\":{\"num_predict\":8}}' "$MODEL")"
+  curl -fsS --max-time 300 "$OLLAMA_URL/api/generate" -H 'content-type: application/json' --data-binary "$payload" >/dev/null \
+    || fail "Ollama respondeu ao health, mas o modelo $MODEL não conseguiu aquecer."
+}
+
 say "RealTalent CRM — Universal Control com Ollama"
 command -v git >/dev/null 2>&1 || fail "git não está instalado."
 command -v curl >/dev/null 2>&1 || fail "curl não está instalado."
 command -v npm >/dev/null 2>&1 || fail "npm não está instalado."
+command -v ollama >/dev/null 2>&1 || fail "Ollama não está instalado. Rode o launcher principal uma vez para instalar."
 
 say "1/8 — Sincronizando a versão universal"
 git fetch origin "$BRANCH"
@@ -54,9 +75,11 @@ echo "✓ Commit $(git rev-parse --short HEAD)"
 
 say "2/8 — Habilitando Universal CRM Control"
 node scripts/enable-universal-agent.mjs
+node scripts/harden-universal-agent.mjs
 grep -q "realtalent-crm-universal-executor" src/features/assistant/assistant-drawer.tsx || fail "O Assistant não foi ligado ao executor universal."
 grep -q "realtalent-crm-universal-registry" src/services/realtalent-crm-capability-runtime-client.ts || fail "O planner não foi ligado ao catálogo universal."
-echo "✓ Planner, Assistant, catálogo e executor universal ligados"
+grep -q "semanticDomainAnchor" runtime-host/RealTalent-Agent-Runtime-V3.1.2/gateway-ollama.mjs || fail "O roteador híbrido não foi habilitado."
+echo "✓ Planner, Assistant, catálogo, executor e roteador híbrido ligados"
 
 say "3/8 — Encerrando somente instâncias antigas do RealTalent"
 stop_realtalent_port 4188
@@ -106,10 +129,25 @@ grep -qi '^access-control-allow-origin: http://127.0.0.1:4188' "$CORS_HEADERS" |
 rm -f "$CORS_HEADERS"
 echo "✓ Browser 4188 → Agent 8791 autorizado"
 
-say "7/8 — Rodando matriz semântica UNIVERSAL do Ollama"
+say "7/8 — Rodando matriz semântica UNIVERSAL do Ollama em lotes"
 if [[ -f "$MATRIX_FILE" ]]; then
-  REALTALENT_OLLAMA_MATRIX=1 REALTALENT_AGENT_TEST_URL="$AGENT_URL" npx vitest run "$MATRIX_FILE"
-  echo "✓ Matriz semântica universal aprovada"
+  MATRIX_CASES="$(grep -c "^  { name:" "$MATRIX_FILE" || true)"
+  [[ "$MATRIX_CASES" =~ ^[0-9]+$ ]] && (( MATRIX_CASES > 0 )) || fail "Não consegui contar os casos da matriz universal."
+  BATCH_SIZE=6
+  for ((start=0; start<MATRIX_CASES; start+=BATCH_SIZE)); do
+    end=$((start + BATCH_SIZE))
+    (( end > MATRIX_CASES )) && end="$MATRIX_CASES"
+    ensure_ollama_ready
+    echo
+    echo "🧠 Matriz Ollama: casos $((start + 1))-$end de $MATRIX_CASES"
+    REALTALENT_OLLAMA_MATRIX=1 \
+    REALTALENT_AGENT_TEST_URL="$AGENT_URL" \
+    REALTALENT_MATRIX_FROM="$start" \
+    REALTALENT_MATRIX_TO="$end" \
+      npx vitest run "$MATRIX_FILE"
+  done
+  ensure_ollama_ready
+  echo "✓ Matriz semântica universal aprovada: $MATRIX_CASES/$MATRIX_CASES"
 else
   echo "△ Matriz universal não está presente nesta revisão."
 fi
@@ -117,6 +155,7 @@ fi
 say "8/8 — Abrindo RealTalent CRM"
 echo "✓ Ollama online"
 echo "✓ Agent Universal online"
+echo "✓ Roteamento híbrido ativo"
 echo "✓ Catálogo universal auditado"
 echo "✓ Execução + persistência/readback verificadas estruturalmente"
 echo "✓ CRM: $CRM_URL/#/goals"

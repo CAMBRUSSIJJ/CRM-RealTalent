@@ -1,0 +1,63 @@
+RealTalent CRM V101.0.0 — Territory & UI System
+QA REPORT
+============================================================
+
+ESCOPO
+- Territory 3.0 com Leaflet + OpenStreetMap sem dependência de tiles CARTO.
+- Google Geocoding opcional por gateway local server-side.
+- Google Places (New) preservado no Prospecting Engine pela mesma chave server-side.
+- Configurações > Mapa e Território com diagnóstico de providers.
+- UI System V101 para padronização visual global.
+- Visual Intelligence V100.99, Calling 3.0, Layout Studio e Garimpo preservados.
+
+VALIDAÇÕES EXECUTADAS NESTE AMBIENTE
+[OK] Source syntax audit: 274 arquivos.
+[OK] Integration contract audit: 243 arquivos.
+[OK] Migrations: 41/41 com checksum íntegro.
+[OK] Linux release preflight: 241 arquivos TS/TSX.
+[OK] Bash syntax: start-linux.sh, install-linux.sh, configure-google-maps.sh,
+     configure-google-places.sh e configure-realtalent-connect.sh.
+[OK] V100.94 Omnichannel Inbox: 45/45 contratos.
+[OK] V100.95 Workspace Personalization: 40/40 contratos.
+[OK] V100.96 Guided Selling & Help: 36/36 contratos.
+[OK] V100.97 Product & Revenue Workspace: 54/54 contratos.
+[OK] V100.98 Prospecting Engine: 62/62 contratos.
+[OK] V100.98.1 Workspace Layout Studio: 66/66 contratos.
+[OK] V100.98.2 RealTalent Calling 3.0: 86/86 contratos.
+[OK] V100.99 Visual Intelligence: 56/56 contratos.
+[OK] V101.0 Territory & UI System: 53/53 contratos.
+[OK] Total dos gates recentes acima: 498/498 contratos.
+[OK] Runtime do mapa sem referência a basemaps.cartocdn.com.
+[OK] Runtime do mapa sem marcador "API KEY REQUIRED".
+[OK] Nenhum .env/.env.local ou segredo empacotado.
+
+MAPA
+- O mapa-base funciona sem chave por OpenStreetMap.
+- Modos Claro, Ruas e Escuro usam o mesmo provider com tratamento visual local.
+- Coordenadas persistidas/manuais continuam prioritárias.
+- Sem GOOGLE_MAPS_SERVER_KEY, geocodificação mantém fallback local marcado como aproximado.
+- Com GOOGLE_MAPS_SERVER_KEY, /api/maps/geocode usa Google Geocoding API no gateway local.
+- /api/maps/diagnostics informa renderer, geocodificação e estado do Places.
+- A chave não é exposta em variável VITE_* e não é enviada ao bundle do navegador.
+
+LIMITAÇÕES DE VALIDAÇÃO
+- O container desta sessão não possui todas as dependências npm em cache e o registry externo
+  não ficou acessível. `npm ci --offline` falhou por pacote não armazenado (xmlchars 2.2.0).
+- Portanto, não é correto afirmar que o Vite build/typecheck/Vitest completos foram executados
+  neste container.
+- O start-linux.sh executa npm ci/install, preflight e o BUILD REAL do Vite no Linux do usuário
+  antes de abrir o navegador. Se o build falhar, o CRM não é iniciado.
+- Google Geocoding/Places não foram chamados ao vivo porque nenhuma chave do usuário foi fornecida.
+- Chamadas PSTN reais dependem das credenciais do provider configuradas no RealTalent Connect.
+
+PORTAS PADRÃO
+CRM: http://127.0.0.1:4185
+RealTalent Connect: http://127.0.0.1:3001
+
+COMANDOS LINUX
+cd ~/Downloads
+rm -rf RealTalent-CRM-V101.0.0-Territory-UI-System
+unzip RealTalent-CRM-V101.0.0-Territory-UI-System.zip
+cd RealTalent-CRM-V101.0.0-Territory-UI-System
+chmod +x start-linux.sh
+./start-linux.sh

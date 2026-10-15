@@ -1,0 +1,46 @@
+RealTalent CRM V101.10.0-H1 — Settings Registry Preflight Hotfix
+QA Report
+================================================================
+
+Causa corrigida
+---------------
+O Experience Registry de Settings ainda publicava seletores legados:
+  .settings-v16__hero
+  .settings-v16__body
+
+A Settings Experience 2.0 usa os alvos atuais:
+  .settings-v1100__header
+  .settings-v1100__body
+
+O Linux release preflight validava corretamente que os seletores expostos em
+Configurações > Páginas apontassem para elementos TSX reais, portanto a release
+V101.10.0 falhava antes do typecheck.
+
+Correção
+--------
+- Experience Registry atualizado para os alvos V101.10.0 reais;
+- layout legado NÃO foi reintroduzido;
+- preflight continua rejeitando seletores órfãos;
+- gate específico H1 adicionado;
+- launcher H1 migra a sessão diretamente da V101.10.0 quando disponível.
+
+Resultados executados
+---------------------
+V101.10.0-H1 Settings Registry Preflight: 9/9
+Linux release preflight: OK (347 arquivos TS/TSX)
+Syntax audit: 381 arquivos
+Integration contracts: 354 arquivos
+Migrations: 49/49
+Release Manifest: 28/28
+Capability Matrix: 16 capacidades / 34 evidências / 26 executáveis
+Repository Local: 96/96
+Repository Supabase: 96/96
+Browser Flow Contract: 7/7
+V101.10.0 Settings Experience 2.0: 27/27
+Launcher bash syntax: OK
+
+Limitação deste ambiente
+------------------------
+O pacote não inclui node_modules e esta montagem não executou npm install.
+Por isso typecheck + Vitest + build globais não foram contados como executados aqui.
+O start-linux.sh continua executando esses gates no Linux após a instalação das dependências.

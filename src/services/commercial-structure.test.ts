@@ -9,7 +9,7 @@ import { buildDataQualityIssues, dataQualitySummary, deriveCommercialStructure }
 const snapshot = (): WorkspaceSnapshot => ({
   workspace: DEMO_WORKSPACE, stages: DEFAULT_STAGES, leads: DEMO_LEADS, activities: DEMO_ACTIVITIES, calls: DEMO_CALLS, events: DEMO_EVENTS,
   playbooks: DEMO_PLAYBOOKS, goals: DEMO_GOALS, automationRules: DEMO_AUTOMATION_RULES, automationRuns: DEMO_AUTOMATION_RUNS,
-  companies: DEMO_COMPANIES, contacts: DEMO_CONTACTS, opportunities: DEMO_OPPORTUNITIES, socialProfiles: DEMO_SOCIAL_PROFILES, products: [], proposals: [], revenueEntries: [],
+  companies: DEMO_COMPANIES, contacts: DEMO_CONTACTS, contactRelationships: [], opportunities: DEMO_OPPORTUNITIES, socialProfiles: DEMO_SOCIAL_PROFILES, products: [], proposals: [], revenueEntries: [],
 })
 
 describe('estrutura comercial e qualidade de dados', () => {
@@ -17,7 +17,7 @@ describe('estrutura comercial e qualidade de dados', () => {
     const data = snapshot()
     const result = deriveCommercialStructure(data.leads, data)
     expect(result.companies).toHaveLength(4)
-    expect(result.contacts).toHaveLength(4)
+    expect(result.contacts).toHaveLength(DEMO_CONTACTS.length)
     expect(result.opportunities).toHaveLength(4)
     expect(result.leadLinks).toHaveLength(4)
     expect(result.socialProfiles.length).toBeGreaterThanOrEqual(4)

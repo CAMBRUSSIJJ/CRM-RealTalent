@@ -1,0 +1,55 @@
+RealTalent CRM V101.11.3-CR1 — QA REPORT
+Commercial Readiness — Build & Dependency Closure
+Data: 2026-10-13
+Base: V101.11.3-H22.3-H1
+
+RESULTADO PRINCIPAL
+-------------------
+qa:architecture                                      PASS
+CR1 Build & Dependency Closure                   16/16 PASS
+Lockfile principal                                  PASS
+Source Syntax                                  421 arquivos PASS
+Integration Contracts                         389 arquivos PASS
+Migrations                                          58/58 PASS
+Release Manifest                                  109/109 PASS
+Capability Matrix              49 capacidades / 188 evidências / 127 executáveis
+Repository Local                                  100/100 PASS
+Repository Supabase                               100/100 PASS
+
+MUDANÇA ESTRUTURAL CR1
+----------------------
+- O package-lock principal voltou a ficar sincronizado com package.json.
+- @whiskeysockets/baileys, qrcode e whatsapp-web.js deixaram de bloquear o build do núcleo.
+- Essas três dependências passam a viver no runtime isolado runtime/communications.
+- O launcher diferencia dependências core e runtime de Comunicação.
+- WhatsApp QR continua usando versões fixadas:
+  @whiskeysockets/baileys 7.0.0-rc14
+  qrcode 1.5.4
+  whatsapp-web.js 1.34.7
+- QR/WhatsApp Web continuam lazy-loaded e não bloqueiam boot do Gateway.
+- Marker: rt_readiness=101.11.3-cr1-build-dependency-closure
+
+BUILD INDEPENDENTE
+------------------
+Registry-independent transpile: 306 módulos PASS
+Bundle fallback audit: FAIL esperado — "HTML legado reapareceu"
+dist fallback: REMOVIDO do artefato final
+
+GATES OFICIAIS
+--------------
+npm ci: BLOCKED — tentativa não concluiu dentro da janela do ambiente; acesso ao registry npm continua indisponível/instável nesta sessão.
+typecheck: BLOCKED — node_modules não disponível após npm ci.
+Vitest: BLOCKED — node_modules não disponível após npm ci.
+Vite build: BLOCKED — node_modules não disponível após npm ci.
+
+IMPORTANTE
+----------
+O CR1 resolveu a inconsistência estrutural do lockfile do núcleo. Isso elimina a necessidade de reconstruir o package-lock principal só por causa do WhatsApp QR.
+O runtime de Comunicação ainda precisa baixar suas dependências isoladas na primeira utilização em um ambiente com acesso ao registry npm. Como o registry não respondeu nesta sessão, não foi possível gerar/provar um lock transitivo separado do runtime de Comunicação.
+
+HIGIENE
+-------
+node_modules: AUSENTE
+runtime/communications/node_modules: AUSENTE
+dist: AUSENTE
+sessões .realtalent-*: AUSENTES

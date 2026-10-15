@@ -1,6 +1,7 @@
+import { NativeSelectionSelect } from '../../components/selection'
 import { ShieldCheck, Trash2 } from 'lucide-react'
 import { useEffect, useState } from 'react'
-import { useApp } from '../../app/app-context'
+import { useAppActions, useAppUi } from '../../app/app-context'
 import { Button } from '../../components/ui/button'
 import { Modal } from '../../components/ui/modal'
 import type { PipelineStage } from '../../domain/types'
@@ -18,7 +19,8 @@ interface StageFormValue {
 const emptyValue: StageFormValue = { name: '', color: '#4361ee', probability: 20, outcome: 'active', config: DEFAULT_STAGE_CONFIG }
 
 export function StageModal({ open, stage, leadCount, workspaceId, stageIndex, stageTotal, onClose }: { open: boolean; stage: PipelineStage | null; leadCount: number; workspaceId: string; stageIndex: number; stageTotal: number; onClose(): void }) {
-  const { createStage, updateStage, deleteStage, notify, confirmAction } = useApp()
+  const { notify, confirmAction } = useAppUi()
+  const { createStage, updateStage, deleteStage } = useAppActions()
   const { preferences: crmPreferences, savePreferences: saveCrmPreferences } = usePreferences()
   const [value, setValue] = useState<StageFormValue>(emptyValue)
   const [saving, setSaving] = useState(false)
@@ -76,7 +78,7 @@ export function StageModal({ open, stage, leadCount, workspaceId, stageIndex, st
     onClose={onClose}
     size="lg"
     footer={<>
-      {stage ? <Button variant="danger" disabled={saving || leadCount > 0} onClick={() => void remove()} title={leadCount > 0 ? 'Mova os leads antes de excluir' : undefined}><Trash2 size={16} /> Excluir</Button> : null}
+      {stage ? <Button variant="danger" disabled={saving || leadCount > 0} onClick={() => void remove()} title={leadCount > 0 ? 'Mova as oportunidades antes de excluir' : undefined}><Trash2 size={16} /> Excluir</Button> : null}
       <span className="modal__footer-spacer" />
       <Button variant="ghost" onClick={onClose}>Cancelar</Button>
       <Button loading={saving} onClick={() => void submit()}>Salvar etapa</Button>
@@ -86,7 +88,7 @@ export function StageModal({ open, stage, leadCount, workspaceId, stageIndex, st
       <label className="field field--span-2"><span>Nome da etapa *</span><input autoFocus value={value.name} onChange={(event) => setValue((current) => ({ ...current, name: event.target.value }))} placeholder="Ex.: Reunião marcada" /></label>
       <label className="field"><span>Cor</span><div className="color-field"><input type="color" value={value.color} onChange={(event) => setValue((current) => ({ ...current, color: event.target.value }))} /><code>{value.color}</code></div></label>
       <label className="field"><span>Probabilidade (%)</span><input type="number" min="0" max="100" value={value.probability} onChange={(event) => setValue((current) => ({ ...current, probability: Math.max(0, Math.min(100, Number(event.target.value))) }))} /></label>
-      <label className="field"><span>Resultado da etapa</span><select value={value.outcome} onChange={(event) => setValue((current) => ({ ...current, outcome: event.target.value as StageFormValue['outcome'] }))}><option value="active">Em andamento</option><option value="won">Venda ganha</option><option value="lost">Oportunidade perdida</option></select></label>
+      <label className="field"><span>Resultado da etapa</span><NativeSelectionSelect value={value.outcome} onChange={(event) => setValue((current) => ({ ...current, outcome: event.target.value as StageFormValue['outcome'] }))}><option value="active">Em andamento</option><option value="won">Venda ganha</option><option value="lost">Oportunidade perdida</option></NativeSelectionSelect></label>
       <label className="field"><span>Prazo saudável na etapa</span><div className="field-with-suffix"><input type="number" min="1" max="365" value={value.config.maxDays} onChange={(event) => updateConfig('maxDays', Math.max(1, Math.min(365, Number(event.target.value) || 1)))} /><span>dias</span></div></label>
 
       <div className="stage-rules-heading field--span-2"><ShieldCheck size={18} /><div><strong>Critérios para entrar nesta etapa</strong><span>As regras evitam avanços sem dados mínimos e ajudam a manter o Pipeline confiável.</span></div></div>
@@ -96,7 +98,7 @@ export function StageModal({ open, stage, leadCount, workspaceId, stageIndex, st
       <label className="stage-rule-check"><input type="checkbox" checked={value.config.preventSkipping} onChange={(event) => updateConfig('preventSkipping', event.target.checked)} /><span><strong>Impedir salto de etapas</strong><small>Permite entrar somente a partir da etapa imediatamente anterior.</small></span></label>
       <label className="stage-rule-check field--span-2"><input type="checkbox" checked={value.config.confirmBackward} onChange={(event) => updateConfig('confirmBackward', event.target.checked)} /><span><strong>Confirmar movimentação para trás</strong><small>Solicita confirmação antes de retroceder uma oportunidade.</small></span></label>
       <label className="field field--span-2"><span>Orientação comercial da etapa</span><textarea rows={3} value={value.config.instructions} onChange={(event) => updateConfig('instructions', event.target.value)} placeholder="Ex.: validar decisor, confirmar necessidade e registrar próximo passo antes de avançar." /></label>
-      {stage && leadCount > 0 ? <div className="warning-box field--span-2"><strong>Esta etapa possui {leadCount} lead(s).</strong><span>Mova os cards para outra etapa antes de excluí-la.</span></div> : null}
+      {stage && leadCount > 0 ? <div className="warning-box field--span-2"><strong>Esta etapa possui {leadCount} oportunidade(s).</strong><span>Mova os cards para outra etapa antes de excluí-la.</span></div> : null}
     </div>
   </Modal>
 }

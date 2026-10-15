@@ -1,0 +1,35 @@
+RealTalent CRM V100.90.0 — RealTalent AI
+QA Report — 2026-09-23
+
+ESCOPO
+- RealTalent AI Gateway
+- CRM Context Engine
+- memória comercial derivada da fonte de verdade
+- catálogo de tools/actions e permissões
+- auditoria local de IA
+- integração do Assistant com o gateway
+- Configurações > RealTalent AI
+- regressão histórica, sintaxe, contratos e migrations
+
+RESULTADOS
+- Gate V100.90: 84/84 verificações aprovadas.
+- Regressão histórica/atual: 35/35 suítes aprovadas (V100.56.4 → V100.90.0).
+- Auditoria sintática: 262 arquivos aprovados.
+- Auditoria de contratos: 232 arquivos aprovados.
+- Migrations: 38/38 com checksum íntegro.
+- Serviços centrais RealTalent AI compilados isoladamente com TypeScript 5.8.3 sem erros.
+- Nenhuma migration nova; BACKUP_SCHEMA_VERSION permanece 100.54.
+
+VALIDAÇÃO COM DEPENDÊNCIAS REAIS
+- npm ci --no-audit --no-fund: não concluído por TransportTimeoutError do ambiente.
+- Por isso typecheck global, Vitest completo e build Vite NÃO são declarados como executados/aprovados.
+- node_modules parcial removido antes do empacotamento.
+
+CONTROLES DE SEGURANÇA VERIFICADOS
+- Provider ativo local e determinístico; sendsDataExternally=false.
+- Context envelope declara writeAuthority=false e includesSecrets=false.
+- Gateway não possui APIs genéricas de criação/edição do CRM.
+- Toda tool mutável exige requiresConfirmation=true.
+- send_message e change_pipeline permanecem reservadas/desabilitadas.
+- Trilha de auditoria não persiste o prompt integral.
+- Memória comercial é derivada do CRM e não cria banco paralelo de fatos.

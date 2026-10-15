@@ -137,8 +137,45 @@ fs.mkdirSync(assets, { recursive: true })
 const jsName = `realtalent-crm-${label.toLowerCase()}.js`
 const cssName = `realtalent-crm-${label.toLowerCase()}.css`
 fs.writeFileSync(path.join(assets, jsName), bundle)
-const cssSources = ['index.css', 'motion-system.css', 'actions-system.css', 'experience-system.css']
-  .map((name) => fs.readFileSync(path.join(srcRoot, 'styles', name), 'utf8'))
+const stylesRoot = path.join(srcRoot, 'styles')
+const supersededRuntimeCss = new Set([
+  'pipeline-v100.css', 'pipeline-v10076.css',
+  'followups-v100.css', 'followups-v10077.css',
+  'realtalent-connect-v1018.css', 'realtalent-connect-v10181.css',
+  'realtalent-connect-v10182.css', 'realtalent-connect-v10183.css',
+  'realtalent-connect-v101107.css',
+  'realtalent-ui-system-v10154.css', 'visual-rollout-v10155.css', 'visual-consistency-hotfix-v10156.css',
+  'myday-lock-appbar-v10162.css',
+  'workspace-ui-standardization-v10166.css', 'global-workspace-ui-consistency-v10167.css',
+  'workspace-interaction-architecture-v10168.css', 'global-filter-view-standard-v10169.css',
+  'workspace-simplification-filter-engine-v10170.css',
+  'interaction-surfaces-v10172.css', 'ux-consolidation-v10173.css',
+  'design-system-consolidation-v10198.css', 'ux-recovery-v10199-h3.css', 'workspace-appearance-v10199-h4.css',
+  'selection-filter-system-v101105.css',
+  'contacts-views-record-v1016.css', 'contacts-experience-completion-v10161.css',
+  'contact-views-v10163.css', 'contact-data-grid-view-settings-v10164.css', 'contact-custom-properties-v10165.css',
+  'contact-intelligence-v101105-h3.css', 'account-intelligence.css',
+  'calls-v100.css', 'calls-v100982.css', 'calls-v1012.css',
+  'workspace-metrics-calling-convergence-v10170-h4.css', 'metrics-calling-structural-redesign-v10171.css',
+  'automations-v100.css', 'prospecting-v100.css', 'prospecting-engine-v10098.css',
+  'prospecting-search-automation-v101101.css', 'prospecting-agent-v101102.css',
+  'prospecting-review-v101103-h7.css', 'prospecting-search-ontology-v101103-h8.css',
+  'prospecting-territory-engine-v101103-h9.css', 'prospecting-local-discovery-v101104.css',
+  'prospecting-ux-consolidation-v101106.css', 'prospecting-search-processing-v101103.css',
+])
+const availableCss = fs.readdirSync(stylesRoot)
+  .filter((name) => name.endsWith('.css'))
+  .filter((name) => !supersededRuntimeCss.has(name))
+const mainSource = fs.readFileSync(path.join(srcRoot, 'main.tsx'), 'utf8')
+const mainCssOrder = [...mainSource.matchAll(/import\s+['"]\.\/styles\/([^'"]+\.css)['"]/g)]
+  .map((match) => match[1])
+  .filter((name, index, list) => list.indexOf(name) === index)
+const orderedCss = [
+  ...mainCssOrder.filter((name) => availableCss.includes(name)),
+  ...availableCss.filter((name) => !mainCssOrder.includes(name)).sort(),
+]
+const cssSources = orderedCss
+  .map((name) => `/* source: ${name} */\n${fs.readFileSync(path.join(stylesRoot, name), 'utf8')}`)
   .join('\n\n')
 fs.writeFileSync(path.join(assets, cssName), cssSources)
 for (const file of walk(path.join(root, 'public'))) {

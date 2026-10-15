@@ -1,0 +1,107 @@
+RealTalent CRM V101.11.3-H21.1 — QA REPORT
+Garimpo Coverage & Runtime Truth
+Base: V101.11.3-H20.7-H2
+
+RESULTADO PRINCIPAL
+-------------------
+qa:architecture                                      PASS
+H21.1 Coverage & Runtime Truth                    33/33 PASS
+H15 Strict Prospecting Scope                     39/39 PASS
+V101.10.6 Garimpo UX Consolidation               40/40 PASS
+V101.10.4 Local Discovery                        32/32 PASS
+V101.10.3 Search & Processing Engine             41/41 PASS
+V101.10.3-H6 Progressive Processing              28/28 PASS
+
+GATES ESTRUTURAIS
+-----------------
+Source Syntax                                  418 arquivos PASS
+Integration Contracts                         386 arquivos PASS
+Migrations                                          54/54 PASS
+Release Manifest                                  100/100 PASS
+Capability Matrix              44 capacidades / 164 evidências / 108 executáveis
+Repository Local                                  100/100 PASS
+Repository Supabase                               100/100 PASS
+Browser E2E Contract                               11 fluxos PASS
+CSS Governance                                     65/65 PASS
+Linux release preflight                       379 TS/TSX PASS
+
+H21.1 — ESCOPO VALIDADO
+-----------------------
+PASS Busca possui runId e fase única da execução.
+PASS KPIs separam execução atual da base histórica.
+PASS Polling ativo ocorre a cada 1 segundo.
+PASS Fonte, região, consulta e timeline ficam visíveis no painel ao vivo.
+PASS Resultado aceito entra no job antes de todo o enrichment terminar.
+PASS Enrichment não substitui mais a fase global de descoberta.
+PASS Processed counters contam completed/attention/skipped corretamente.
+PASS OSM exato continua sendo a primeira passagem.
+PASS Segunda passagem de cobertura usa categorias OSM relacionadas quando aplicável.
+PASS Candidato de cobertura nunca vira ready automaticamente sem categoria confirmada.
+PASS Conflito categórico explícito continua rejeitado.
+PASS Diretórios/redes só podem gerar pistas de cobertura com evidência local e categórica.
+PASS Pistas web possuem limite por execução.
+PASS Artigos e rankings continuam rejeitados como empresas.
+PASS UI explica que cobertura aberta não equivale ao catálogo do Google Maps.
+PASS Google Places permanece opcional; não é requisito do motor local.
+PASS Nenhuma migration nova.
+
+SMOKE H21.1
+-----------
+2 empresas aceitas no cenário controlado.
+Studio Davi (hairdresser genérico): ATTENTION / confirmar categoria.
+Salão de Beleza explícito: REJEITADO.
+Cobertura extra: 9 eventos/consultas do cenário controlado.
+Timeline runtime: 46 eventos no smoke.
+
+RUNTIME GARIMPO
+---------------
+Prospecting Agent                                PASS
+OSM + web + fallback sem Nominatim               PASS
+Search & Processing Engine                       PASS
+Drawn Territory                                  PASS
+Coverage Truth                                   PASS
+  tentado 100% / sucesso 98% / falha 2% / saturação 89% medium
+Identity Resolver 2.0                            PASS
+Enrichment Jobs                                  PASS
+Progressive Processing                           PASS
+Search Ontology                                  PASS
+Territory Engine 2.0                             PASS
+Local Discovery                                  PASS
+Strict Prospecting Scope                         PASS
+H21.1 Coverage & Runtime Truth                   PASS
+
+NOTA SOBRE SMOKES HERDADOS
+--------------------------
+Dois fixtures históricos foram alinhados ao Strict Scope H15:
+- fallback sem Nominatim agora retorna cidade coerente com a área simulada;
+- Identity Resolver usa classificação OSM exata de barbearia.
+Isso não relaxa o Strict Scope; o smoke H15 separado continua validando rejeições de categoria, localização e documentos.
+O Coverage Truth também foi adaptado para simular falha na segunda consulta OSM EXATA, pois H21.1 adiciona uma consulta de cobertura entre chamadas exatas.
+
+COBERTURA GOOGLE MAPS
+---------------------
+H21.1 não promete paridade com Google Maps. Google Maps/Places possui catálogo proprietário.
+O ganho desta release vem de:
+- segunda varredura OSM segura;
+- pistas de web pública/diretórios com revisão humana;
+- resultados progressivos;
+- melhor visibilidade do que foi encontrado/rejeitado.
+Google Places continua disponível como provider opcional quando configurado.
+
+BUILD / DEPENDÊNCIAS
+--------------------
+npm ci          BLOCKED — não concluiu na janela do ambiente; node_modules ausente.
+typecheck       BLOCKED — primeiro erro: Cannot find module 'react'.
+Vitest          BLOCKED — vitest: not found.
+Vite build      BLOCKED — validate:env PASS; vite: not found.
+Registry-independent build: PASS — 303 módulos.
+Bundle audit: FAIL esperado do fallback — "HTML legado reapareceu".
+dist fallback: REMOVIDO do artefato final.
+
+HIGIENE
+-------
+node_modules                 AUSENTE
+dist                         AUSENTE
+.env.local                   AUSENTE
+.realtalent-prospecting-agent AUSENTE
+migrations novas             0

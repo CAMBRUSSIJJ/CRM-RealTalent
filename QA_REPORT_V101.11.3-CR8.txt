@@ -1,0 +1,57 @@
+RealTalent CRM V101.11.3-CR8 — QA REPORT
+Commercial Launch Gate & First Customer Readiness
+
+STATIC COMMERCIAL READINESS
+CR1 16/16 PASS
+CR2 15/15 PASS
+CR3 21/21 PASS
+CR4 21/21 PASS
+CR5 24/24 PASS
+CR6 25/25 PASS
+CR7 32/32 PASS
+CR8 32/32 PASS
+
+REPOSITORY GATES
+Migrations          58/58 PASS — checksum íntegro
+Lockfile            PASS — package.json/package-lock sincronizados
+Source Syntax       424 arquivos PASS
+Integration         392 arquivos PASS
+Capability Matrix   56 capacidades / 213 evidências / 141 executáveis
+Release Manifest    111/111 PASS
+
+CR8 RUNTIME GATE
+Sem evidências externas:
+  production-probe  BLOCK
+  staging-e2e       BLOCK
+  restore-drill     BLOCK
+  terms             BLOCK
+  privacy           BLOCK
+  support           BLOCK
+  incident-owner    BLOCK
+  customer-owner    BLOCK
+  customer          BLOCK
+  role-accounts     BLOCK
+  DECISION          NO-GO 0/10
+
+Teste sintético da lógica:
+  DECISION          GO 10/10
+  Observação: valores sintéticos; não contam como evidência de produção.
+
+HARD STOPS REAIS PENDENTES
+- CR7 production probe no domínio final
+- CR3 staging E2E com Admin/Gestor/Vendedor reais de teste
+- backup + restore drill em staging
+- Termos de Uso publicados em HTTPS e revisados pelo responsável adequado
+- Aviso/Política de Privacidade publicado em HTTPS e revisado pelo responsável adequado
+- caixa de suporte monitorada
+- responsável por incidentes
+- responsável pelo onboarding do primeiro cliente
+- primeiro cliente/piloto identificado
+- três contas distintas para validação Admin/Gestor/Vendedor
+
+BUILD GATES
+npm ci / typecheck / Vitest / Vite build não foram reclassificados como PASS nesta CR8.
+A CR8 não adiciona dependências; o bloqueio de instalação externa da CR7 permanece sem nova evidência de resolução.
+
+CURRENT COMMERCIAL DECISION: NO-GO
+Motivo: hard stops externos ainda não comprovados.

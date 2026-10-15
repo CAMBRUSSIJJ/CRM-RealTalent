@@ -1,0 +1,48 @@
+RealTalent CRM V101.9.9-H2 — Duplicate Merge Canonical Value Hotfix
+QA Report
+====================================================================
+
+Erro reproduzido pelo usuário na H1
+-----------------------------------
+Vitest: 1 failed / 302 passed (303 tests)
+Falha: local-crm-repository.test.ts — mescla duplicados preservando todo o histórico vinculado
+Esperado: 9000
+Recebido: 7488.6
+
+Causa raiz
+----------
+mergeLeadRecords() produzia 9000, porém a reconciliação canônica reaplicava o valor antigo da Opportunity antes do tratamento da proposta oficial. A proposta oficial então levava o valor a 7488.6, reduzindo o valor comercial preservado no merge.
+
+Correção
+--------
+- consolidação do maior valor entre Lead principal, duplicado e Opportunities;
+- promoção do valor para a Opportunity sobrevivente antes de synchronizeStructureInDatabase();
+- retarget da Opportunity duplicada quando não existe Opportunity principal;
+- proposta oficial não reduz o valor consolidado;
+- migration Supabase 49 aplica a mesma regra ao RPC merge_duplicate_leads();
+- teste reforçado para Lead.value e Opportunity.value = 9000.
+
+Gates executados nesta montagem
+-------------------------------
+V101.9.9-H2 audit: 13/13
+V101.9.9-H1 audit: 6/6
+V101.9.9 base audit: 19/19
+Release Manifest: 24/24
+Capability Matrix: 15 capacidades / 32 evidências / 25 executáveis
+Repository parity: Local 96/96, Supabase 96/96
+Browser flow contract: 7/7
+Syntax audit: 376 arquivos
+Integration contracts: 347 arquivos
+Migrations: 49/49 com checksum íntegro
+check:legacy: EXIT 0; 3185 linhas OK; 0 FAIL
+Typechecks isolados V101.9.7/V101.9.8: OK via check:legacy
+
+Limitação do ambiente de montagem
+---------------------------------
+`npm ci --prefer-offline --no-audit --no-fund` expirou por timeout de rede e não criou node_modules.
+Por isso o Vitest global da H2 não foi executado neste ambiente. O erro exato reportado na H1 foi corrigido na regra canônica e seu teste foi reforçado; o launcher executará typecheck + Vitest + build no Linux do usuário.
+
+Migration H2
+------------
+202610030001_v101_9_9_h2_duplicate_merge_canonical_value.sql
+SHA256: 6b680b7dd8cb455693b932f28d94c47e22c9622667317d9bef79ea4492ccf91b

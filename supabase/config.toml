@@ -94,6 +94,9 @@ verify_jwt = true
 [functions.communication-dispatch-worker]
 verify_jwt = false
 
+[functions.communication-sync-now]
+verify_jwt = true
+
 [functions.communication-sync-worker]
 verify_jwt = false
 
@@ -145,4 +148,15 @@ verify_jwt = false
 verify_jwt = false
 
 [functions.integration-maintenance-worker]
+verify_jwt = false
+
+# V100.84 — catálogo de calendários autenticado pelo usuário
+[functions.integration-calendar-catalog]
+verify_jwt = true
+
+# V100.98 — motor de prospecção autenticado (Google Places + consulta CNPJ)
+[functions.prospecting-search]
+verify_jwt = true
+
+[functions.communications-gateway]
 verify_jwt = false

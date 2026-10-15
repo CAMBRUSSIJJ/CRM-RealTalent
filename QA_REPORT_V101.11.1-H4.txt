@@ -1,0 +1,70 @@
+RealTalent CRM — QA REPORT V101.11.1-H4
+Transparent Logo & Optimized Motion
+
+Escopo
+- Remover o tile branco apenas da marca usada no login/splash.
+- Preservar o ícone oficial claro para app/PWA.
+- Construir a animação com a própria marca: barras verdes + R + scan único + halo.
+- Usar a marca como indicador de carregamento.
+- Otimizar motion/performance sem alterar autenticação, dados, schema ou módulos do CRM.
+
+Implementação comprovada
+- public/realtalent-logo.png preservado como asset original.
+- public/realtalent-logo-transparent.png: RGBA 408x412.
+- public/realtalent-logo-r.png: camada RGBA 408x412.
+- public/realtalent-logo-bars.png: camada RGBA 408x412.
+- RealTalentBrandMark compõe R, barras, marca final, halo, órbitas, scan e shine.
+- Três barras sobem em timings escalonados.
+- Splash usa loading state da própria marca.
+- View Transition progressiva liga splash -> login quando suportada.
+- Navegadores sem View Transition mantêm fallback normal.
+- `prefers-reduced-motion` continua suportado.
+- Abertura mínima: 1450 ms; reduced-motion: 180 ms.
+- Card de entrada migrou para vidro escuro navy/teal; fundo inteiro permanece dentro da paleta da marca.
+
+Otimizações de motion
+- Loops contínuos priorizam transform/opacity.
+- Scan e shine agora são one-shot, não loops pesados permanentes.
+- Não há blur animado na marca.
+- Background usa gradientes + transform/opacity em baixa frequência.
+- `contain: layout paint` aplicado à marca.
+- `will-change` restrito aos elementos realmente animados.
+
+QA executado
+PASS  source_syntax_audit: 395 arquivos
+PASS  integration_contract_audit: 363 arquivos
+PASS  migrations: 49/49 checksums íntegros
+PASS  Release Manifest: 64/64 invariantes
+PASS  Local Repository: 99/99
+PASS  Supabase Repository: 99/99
+PASS  Browser E2E Contract: 9 fluxos catalogados
+PASS  V101.11.1 base: 34/34
+PASS  V101.11.1-H1: 35/35
+PASS  V101.11.1-H2: 38/38
+PASS  V101.11.1-H3: 33/33
+PASS  V101.11.1-H4: 41/41
+PASS  qa:architecture
+PASS  check:legacy completo, incluindo typecheck isolado V101.9.7/V101.9.8
+PASS  build:legacy: 280 módulos TypeScript
+PASS  CSS parser: 73 folhas / 0 erros
+PASS  build independente de verificação contém os três assets transparentes e os markers H4
+FAIL/EXPECTED  runtime:bundle rejeitou o dist independente porque ele usa o HTML legado com esm.sh; esse dist não será entregue.
+
+Gates npm oficiais no sandbox
+NOT RUN/PASS  npm run typecheck — node_modules ausente; React/Supabase typings não resolvem.
+NOT RUN/PASS  npm test — vitest não instalado.
+NOT RUN/PASS  npm run build — vite não instalado.
+Registry: `npm ping` iniciou, mas o sandbox não concluiu uma instalação real de dependências.
+O pacote final é source-only: o dist de verificação foi removido para impedir uso acidental do bundle legado.
+
+Preservado
+- Login Gate local e sessionStorage.
+- Logout sem apagar contatos, pipeline, configurações ou dados locais.
+- Supabase signInWithPassword / signOut / password recovery.
+- V101.11.0 Communications Architecture.
+- 49 migrations; nenhuma migration nova.
+- Pipeline, Contatos, Calling, Connect, Garimpo, Automações e Comunicações sem mudança funcional.
+
+Limitações
+- O asset original fornecido é 102x103; a variante cinematográfica foi ampliada para 408x412 com transparência para uso visual. Não é um vetor nativo.
+- View Transitions depende do suporte do navegador; fallback normal permanece.

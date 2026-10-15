@@ -1,0 +1,66 @@
+RealTalent CRM V101.11.2 — Teams & Tasks Foundation
+QA REPORT — 2026-10-06
+
+ESCOPO
+- Novas áreas Tarefas e Equipes.
+- Persistência local por workspace e Supabase.
+- Migration/RLS para 6 tabelas do domínio de work management.
+- Relações de tarefas com entidades comerciais.
+- Carga de trabalho por membro.
+- Sem alteração funcional em Communications Gateway, Calling, Pipeline ou Contatos.
+
+ACHADOS / CORREÇÕES DURANTE O FECHAMENTO
+1. Supabase: IDs inicialmente usavam createId(prefixo), incompatível com colunas UUID.
+   CORRIGIDO: cloud usa createUuid(); local continua com IDs prefixados.
+2. Escrita de Team Members apagava memberships anteriores sem validar erro.
+   CORRIGIDO: fail-closed antes da reinserção.
+3. Escrita de relações/checklist apagava estado anterior sem validar erro.
+   CORRIGIDO: erros de delete agora interrompem a substituição.
+4. Edição de tarefa poderia sobrescrever created_by.
+   CORRIGIDO: created_by só é enviado na criação.
+5. Edição de tarefa concluída podia renovar completed_at.
+   CORRIGIDO: timestamp original é preservado.
+6. Launcher ainda mostrava mensagens fixas “Build V101.11.1-H5”.
+   CORRIGIDO: mensagens de build usam V${RELEASE}.
+
+GATES EXECUTADOS E APROVADOS
+- source_syntax_audit: PASS — 400 arquivos.
+- integration_contract_audit: PASS — 368 arquivos.
+- migrations:verify: PASS — 50 migrations, checksums íntegros.
+- release manifest: PASS — 66/66 invariantes.
+- Capability Matrix: PASS — 22 capacidades, 75 evidências, 48 executáveis.
+- Browser E2E Contract: PASS — 11 fluxos catalogados.
+- Repository Contract: PASS — 99/99 Local e 99/99 Supabase (repositório CRM legado).
+- V101.11.2 Teams & Tasks gate: PASS — 42/42 contratos.
+- qa:architecture: PASS.
+- check:legacy: PASS — 113 comandos históricos.
+- Linux release preflight: PASS — 361 arquivos TS/TSX.
+- CSS parser (tinycss2): PASS — 74 arquivos CSS, 0 erros.
+- Registry-independent TypeScript build: PASS — 285 módulos.
+
+IMPORTANTE SOBRE REPOSITORY PARITY
+O resultado 99/99 refere-se ao CrmRepository existente. Teams/Tasks usam uma camada dedicada
+`work-management.ts` (local + Supabase) nesta fundação e não aumentam artificialmente o contrato
+monolítico de 99 métodos.
+
+GATES OFICIAIS NÃO APROVADOS NESTE AMBIENTE
+- npm run typecheck: NÃO APROVADO — node_modules ausente; falha inicialmente em React/Supabase typings.
+- npm test: NÃO APROVADO — vitest não instalado.
+- npm run build: NÃO APROVADO — vite não instalado (validate:env passa antes disso).
+- npm run doctor: estado esperado neste sandbox: lockfile INCONSISTENTE, dependências ausentes,
+  build ausente e serviços locais off.
+
+O launcher mantém o mecanismo de recuperação do lockfile/dependências para a primeira execução
+em um Linux com acesso ao registry npm. Não foi atribuído PASS artificial a gates não executáveis.
+
+LIMITAÇÕES FUNCIONAIS DA V101.11.2
+- TaskComment existe no modelo/migration e é carregado, mas ainda não há composer/thread na UI.
+- Recorrência existe no modelo, mas não há scheduler automático de ocorrências futuras.
+- Sem integração profunda com Meu Dia, Attention Engine ou Automações nesta release.
+- Sem anexos na tarefa nesta release.
+- Esta release NÃO corrige o incidente anterior de inicialização do Communications Gateway/porta 3002.
+
+CONCLUSÃO
+A fundação Teams & Tasks está integrada à navegação e persistência, com migration/RLS e regressão
+arquitetural/histórica aprovadas. A validação final de typecheck/Vitest/Vite deve ser executada no
+Linux do usuário após a recuperação real de dependências.

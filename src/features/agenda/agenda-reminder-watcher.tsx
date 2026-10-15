@@ -1,12 +1,12 @@
 import { useEffect, useState } from 'react'
-import { useApp } from '../../app/app-context'
+import { useAppWorkspace } from '../../app/app-context'
 import { safeStorage } from '../../lib/storage'
 import { agendaReminderMinutes } from '../../services/agenda-workspace'
 
 const time = (value: string) => new Intl.DateTimeFormat('pt-BR', { hour: '2-digit', minute: '2-digit' }).format(new Date(value))
 
 export function AgendaReminderWatcher() {
-  const { snapshot } = useApp()
+  const { snapshot } = useAppWorkspace()
   const [tick, setTick] = useState(Date.now())
 
   useEffect(() => {

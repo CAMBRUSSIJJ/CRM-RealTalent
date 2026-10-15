@@ -1,0 +1,1486 @@
+{
+  "schemaVersion": 1,
+  "releaseFamily": "101.11.x",
+  "policy": {
+    "tiers": {
+      "critical": {
+        "minimumEvidence": 2,
+        "requiresExecutableEvidence": true
+      },
+      "core": {
+        "minimumEvidence": 1,
+        "requiresExecutableEvidence": true
+      },
+      "supporting": {
+        "minimumEvidence": 1,
+        "requiresExecutableEvidence": false
+      }
+    },
+    "evidenceTypes": [
+      "test",
+      "smoke",
+      "contract",
+      "repository",
+      "integration",
+      "browser-flow",
+      "migration"
+    ]
+  },
+  "capabilities": [
+    {
+      "id": "platform.metadata",
+      "name": "Core Metadata Foundation",
+      "tier": "critical",
+      "owner": "platform",
+      "evidence": [
+        {
+          "type": "test",
+          "path": "src/platform/metadata/core-metadata-foundation.test.ts",
+          "command": "test:platform"
+        },
+        {
+          "type": "contract",
+          "command": "qa:v101.9.0"
+        }
+      ]
+    },
+    {
+      "id": "platform.views",
+      "name": "Universal View Engine",
+      "tier": "critical",
+      "owner": "platform",
+      "evidence": [
+        {
+          "type": "test",
+          "path": "src/platform/views/universal-view-engine.test.ts",
+          "command": "test:platform"
+        },
+        {
+          "type": "contract",
+          "command": "qa:v101.9.1"
+        }
+      ]
+    },
+    {
+      "id": "platform.record-page",
+      "name": "Universal Record Page",
+      "tier": "critical",
+      "owner": "platform",
+      "evidence": [
+        {
+          "type": "test",
+          "path": "src/platform/record-page/universal-record-page.test.ts",
+          "command": "test:platform"
+        },
+        {
+          "type": "contract",
+          "command": "qa:v101.9.2"
+        }
+      ]
+    },
+    {
+      "id": "commercial.canonical-model",
+      "name": "Canonical Commercial Model",
+      "tier": "critical",
+      "owner": "commercial-platform",
+      "evidence": [
+        {
+          "type": "test",
+          "path": "src/platform/canonical/canonical-commercial-model.test.ts",
+          "command": "test:platform"
+        },
+        {
+          "type": "migration",
+          "path": "supabase/migrations/202610020001_v101_9_3_canonical_commercial_model.sql",
+          "command": "migrations:verify"
+        }
+      ]
+    },
+    {
+      "id": "platform.events",
+      "name": "Global Event Bus",
+      "tier": "critical",
+      "owner": "platform",
+      "evidence": [
+        {
+          "type": "test",
+          "path": "src/platform/events/global-event-bus.test.ts",
+          "command": "test:platform"
+        },
+        {
+          "type": "contract",
+          "command": "qa:v101.9.4"
+        }
+      ]
+    },
+    {
+      "id": "platform.workflows",
+      "name": "Workflow Runtime 3.0",
+      "tier": "critical",
+      "owner": "automation",
+      "evidence": [
+        {
+          "type": "test",
+          "path": "src/platform/workflows/workflow-runtime.test.ts",
+          "command": "test:platform"
+        },
+        {
+          "type": "smoke",
+          "command": "smoke:v101.9.5"
+        },
+        {
+          "type": "migration",
+          "path": "supabase/migrations/202610020002_v101_9_5_workflow_runtime_3.sql",
+          "command": "migrations:verify"
+        }
+      ]
+    },
+    {
+      "id": "platform.permissions",
+      "name": "Permission Matrix",
+      "tier": "critical",
+      "owner": "security",
+      "evidence": [
+        {
+          "type": "test",
+          "path": "src/platform/permissions/permission-matrix.test.ts",
+          "command": "test:platform"
+        },
+        {
+          "type": "smoke",
+          "command": "smoke:v101.9.6"
+        }
+      ]
+    },
+    {
+      "id": "platform.extensions",
+      "name": "Extension Registry",
+      "tier": "critical",
+      "owner": "integrations",
+      "evidence": [
+        {
+          "type": "test",
+          "path": "src/platform/extensions/extension-registry.test.ts",
+          "command": "test:platform"
+        },
+        {
+          "type": "smoke",
+          "command": "smoke:v101.9.7"
+        }
+      ]
+    },
+    {
+      "id": "platform.design-system",
+      "name": "Design System Consolidation",
+      "tier": "core",
+      "owner": "design-system",
+      "evidence": [
+        {
+          "type": "smoke",
+          "command": "smoke:v101.9.8"
+        },
+        {
+          "type": "contract",
+          "command": "qa:v101.9.8"
+        }
+      ]
+    },
+    {
+      "id": "data.repository-parity",
+      "name": "Local / Supabase Repository Parity",
+      "tier": "critical",
+      "owner": "data",
+      "evidence": [
+        {
+          "type": "repository",
+          "path": "src/repositories/local-crm-repository.test.ts",
+          "command": "test:repository"
+        },
+        {
+          "type": "repository",
+          "path": "src/repositories/repository-performance-v10153.test.ts",
+          "command": "test:repository"
+        },
+        {
+          "type": "contract",
+          "command": "qa:repository-contracts"
+        }
+      ]
+    },
+    {
+      "id": "communications.realtime",
+      "name": "Communications + Realtime",
+      "tier": "critical",
+      "owner": "communications",
+      "evidence": [
+        {
+          "type": "integration",
+          "command": "integration:audit"
+        },
+        {
+          "type": "browser-flow",
+          "flow": "communications-compose",
+          "command": "qa:e2e-contract"
+        }
+      ]
+    },
+    {
+      "id": "calling.connect",
+      "name": "RealTalent Connect",
+      "tier": "critical",
+      "owner": "calling",
+      "evidence": [
+        {
+          "type": "smoke",
+          "command": "runtime:connect-one-tap"
+        },
+        {
+          "type": "browser-flow",
+          "flow": "connect-call",
+          "command": "qa:e2e-contract"
+        }
+      ]
+    },
+    {
+      "id": "workspace.contacts",
+      "name": "Contacts workspace",
+      "tier": "critical",
+      "owner": "commercial",
+      "evidence": [
+        {
+          "type": "browser-flow",
+          "flow": "contacts-open-record",
+          "command": "qa:e2e-contract"
+        },
+        {
+          "type": "integration",
+          "command": "integration:audit"
+        },
+        {
+          "type": "contract",
+          "command": "qa:v101.10.6:h2"
+        }
+      ]
+    },
+    {
+      "id": "workspace.pipeline",
+      "name": "Pipeline workspace",
+      "tier": "critical",
+      "owner": "commercial",
+      "evidence": [
+        {
+          "type": "browser-flow",
+          "flow": "pipeline-open",
+          "command": "qa:e2e-contract"
+        },
+        {
+          "type": "test",
+          "path": "src/platform/views/universal-view-engine.test.ts",
+          "command": "test:platform"
+        },
+        {
+          "type": "contract",
+          "command": "qa:v101.11.3"
+        }
+      ]
+    },
+    {
+      "id": "release.integrity",
+      "name": "Release integrity",
+      "tier": "critical",
+      "owner": "release",
+      "evidence": [
+        {
+          "type": "migration",
+          "path": "supabase/migrations.lock.json",
+          "command": "migrations:verify"
+        },
+        {
+          "type": "contract",
+          "command": "qa:release-manifest"
+        }
+      ]
+    },
+    {
+      "id": "workspace.settings-experience",
+      "name": "Settings Experience 2.0",
+      "tier": "core",
+      "owner": "workspace-ux",
+      "evidence": [
+        {
+          "type": "contract",
+          "command": "qa:v101.10.0"
+        },
+        {
+          "type": "browser-flow",
+          "flow": "settings-permissions",
+          "command": "qa:e2e-contract"
+        }
+      ]
+    },
+    {
+      "id": "workspace.prospecting-automation",
+      "name": "Prospecting Search Automation",
+      "tier": "critical",
+      "owner": "commercial-acquisition",
+      "evidence": [
+        {
+          "type": "test",
+          "path": "src/services/prospecting-search-automation.test.ts",
+          "command": "test"
+        },
+        {
+          "type": "contract",
+          "command": "qa:v101.10.1"
+        },
+        {
+          "type": "browser-flow",
+          "flow": "prospecting-automated-search",
+          "command": "qa:e2e-contract"
+        }
+      ]
+    },
+    {
+      "id": "workspace.prospecting-agent-linux",
+      "name": "Prospecting Agent for Linux",
+      "tier": "critical",
+      "owner": "commercial-acquisition",
+      "evidence": [
+        {
+          "type": "contract",
+          "command": "qa:v101.10.2"
+        },
+        {
+          "type": "smoke",
+          "command": "runtime:prospecting-agent"
+        },
+        {
+          "type": "browser-flow",
+          "flow": "prospecting-linux-agent",
+          "command": "qa:e2e-contract"
+        },
+        {
+          "type": "contract",
+          "command": "qa:v101.10.2:h3"
+        },
+        {
+          "type": "smoke",
+          "command": "runtime:prospecting-search"
+        },
+        {
+          "type": "contract",
+          "command": "qa:v101.10.3"
+        },
+        {
+          "type": "smoke",
+          "command": "runtime:prospecting-engine"
+        },
+        {
+          "type": "contract",
+          "command": "qa:v101.10.3:h1"
+        },
+        {
+          "type": "smoke",
+          "command": "runtime:prospecting-territory"
+        },
+        {
+          "type": "contract",
+          "command": "qa:v101.10.3:h2"
+        },
+        {
+          "type": "smoke",
+          "command": "runtime:prospecting-coverage"
+        },
+        {
+          "type": "contract",
+          "command": "qa:v101.10.3:h3"
+        },
+        {
+          "type": "smoke",
+          "command": "runtime:prospecting-identity"
+        },
+        {
+          "type": "contract",
+          "command": "qa:v101.10.3:h4"
+        },
+        {
+          "type": "contract",
+          "command": "qa:v101.10.3:h5"
+        },
+        {
+          "type": "smoke",
+          "command": "runtime:prospecting-enrichment"
+        },
+        {
+          "type": "contract",
+          "command": "qa:v101.10.3:h6"
+        },
+        {
+          "type": "smoke",
+          "command": "runtime:prospecting-progressive"
+        },
+        {
+          "type": "contract",
+          "command": "qa:v101.10.3:h7"
+        },
+        {
+          "type": "contract",
+          "command": "qa:v101.10.3:h8"
+        },
+        {
+          "type": "smoke",
+          "command": "runtime:prospecting-ontology"
+        },
+        {
+          "type": "contract",
+          "command": "qa:v101.10.3:h9"
+        },
+        {
+          "type": "smoke",
+          "command": "runtime:prospecting-territory2"
+        },
+        {
+          "type": "contract",
+          "command": "qa:v101.10.4"
+        },
+        {
+          "type": "smoke",
+          "command": "runtime:prospecting-local"
+        }
+      ]
+    },
+    {
+      "id": "workspace.selection-system",
+      "name": "Selection & Filter System",
+      "tier": "core",
+      "owner": "design-system",
+      "evidence": [
+        {
+          "type": "integration",
+          "command": "qa:v101.10.5"
+        },
+        {
+          "type": "integration",
+          "path": "src/components/selection/selection-system.tsx",
+          "command": "syntax:audit"
+        },
+        {
+          "type": "contract",
+          "command": "qa:v101.10.6:h2"
+        }
+      ]
+    },
+    {
+      "id": "workspace.prospecting-ux-consolidation",
+      "name": "Garimpo UX Consolidation",
+      "tier": "core",
+      "owner": "prospecting",
+      "evidence": [
+        {
+          "type": "contract",
+          "command": "qa:v101.10.6"
+        },
+        {
+          "type": "integration",
+          "path": "src/features/prospecting/prospecting-page.tsx",
+          "command": "syntax:audit"
+        },
+        {
+          "type": "integration",
+          "path": "src/styles/prospecting-workspace.css",
+          "command": "integration:audit"
+        }
+      ]
+    },
+    {
+      "id": "workspace.tasks",
+      "name": "Task Workspace",
+      "tier": "core",
+      "owner": "work-management",
+      "evidence": [
+        {
+          "type": "migration",
+          "path": "supabase/migrations/202610060001_v101_11_2_teams_tasks_foundation.sql",
+          "command": "migrations:verify"
+        },
+        {
+          "type": "browser-flow",
+          "flow": "tasks-open",
+          "command": "qa:e2e-contract"
+        },
+        {
+          "type": "contract",
+          "command": "qa:v101.11.2"
+        }
+      ]
+    },
+    {
+      "id": "workspace.teams",
+      "name": "Team Workspace & Workload",
+      "tier": "core",
+      "owner": "work-management",
+      "evidence": [
+        {
+          "type": "migration",
+          "path": "supabase/migrations/202610060001_v101_11_2_teams_tasks_foundation.sql",
+          "command": "migrations:verify"
+        },
+        {
+          "type": "browser-flow",
+          "flow": "teams-open",
+          "command": "qa:e2e-contract"
+        },
+        {
+          "type": "contract",
+          "command": "qa:v101.11.2"
+        }
+      ]
+    },
+    {
+      "id": "sales.catalog-first-proposals",
+      "name": "Catalog-First Proposals",
+      "tier": "core",
+      "owner": "commercial-product-studio",
+      "evidence": [
+        {
+          "type": "migration",
+          "path": "supabase/migrations/202610070002_v101_11_3_h12_commercial_product_studio.sql",
+          "command": "migrations:verify"
+        },
+        {
+          "type": "contract",
+          "command": "qa:v101.11.3:h12"
+        }
+      ]
+    },
+    {
+      "id": "sales.product-intelligence",
+      "name": "Commercial Product Intelligence",
+      "tier": "core",
+      "owner": "commercial-product-studio",
+      "evidence": [
+        {
+          "type": "integration",
+          "path": "src/services/product-intelligence.ts",
+          "command": "integration:audit"
+        },
+        {
+          "type": "contract",
+          "command": "qa:v101.11.3:h12"
+        }
+      ]
+    },
+    {
+      "id": "workspace.prospecting-strict-scope",
+      "name": "Garimpo Strict Category & Locality Scope",
+      "tier": "core",
+      "owner": "prospecting-engine",
+      "evidence": [
+        {
+          "type": "integration",
+          "path": "scripts/realtalent-prospecting-agent.mjs",
+          "command": "integration:audit"
+        },
+        {
+          "type": "contract",
+          "command": "qa:v101.11.3:h15"
+        },
+        {
+          "type": "smoke",
+          "command": "runtime:prospecting-strict-scope"
+        }
+      ]
+    },
+    {
+      "id": "communications.workspace-h19",
+      "name": "Communication Workspace H19",
+      "tier": "core",
+      "owner": "communications",
+      "evidence": [
+        {
+          "type": "integration",
+          "path": "src/features/communications/communications-page.tsx",
+          "command": "integration:audit"
+        },
+        {
+          "type": "contract",
+          "command": "qa:v101.11.3:h19.2"
+        }
+      ]
+    },
+    {
+      "id": "communications.whatsapp-connection-center",
+      "name": "WhatsApp Connection Center",
+      "tier": "core",
+      "owner": "communications",
+      "evidence": [
+        {
+          "type": "integration",
+          "path": "src/features/communications/whatsapp-connection-center.tsx",
+          "command": "integration:audit"
+        },
+        {
+          "type": "contract",
+          "command": "qa:v101.11.3:h19.2"
+        },
+        {
+          "type": "smoke",
+          "command": "runtime:communications-recovery"
+        }
+      ]
+    },
+    {
+      "id": "communications.whatsapp-sales-workspace",
+      "name": "WhatsApp Sales Workspace H19.3",
+      "tier": "core",
+      "owner": "communications",
+      "evidence": [
+        {
+          "type": "integration",
+          "path": "src/features/communications/whatsapp-chat-panel.tsx",
+          "command": "integration:audit"
+        },
+        {
+          "type": "integration",
+          "path": "src/services/whatsapp-sales-workspace.ts",
+          "command": "integration:audit"
+        },
+        {
+          "type": "contract",
+          "command": "qa:v101.11.3:h19.3"
+        }
+      ]
+    },
+    {
+      "id": "communications.focus-experience",
+      "name": "Communication Focus Experience H19.4",
+      "tier": "core",
+      "owner": "communications",
+      "evidence": [
+        {
+          "type": "integration",
+          "path": "src/features/communications/communications-page.tsx",
+          "command": "integration:audit"
+        },
+        {
+          "type": "integration",
+          "path": "src/features/communications/whatsapp-chat-panel.tsx",
+          "command": "integration:audit"
+        },
+        {
+          "type": "contract",
+          "command": "qa:v101.11.3:h19.4"
+        }
+      ]
+    },
+    {
+      "id": "communications.channel-workspaces-h19.5",
+      "name": "Dedicated WhatsApp & Email Workspaces H19.5",
+      "tier": "core",
+      "owner": "communications",
+      "evidence": [
+        {
+          "type": "integration",
+          "path": "src/features/communications/communications-page.tsx",
+          "command": "integration:audit"
+        },
+        {
+          "type": "integration",
+          "path": "src/features/communications/email-conversation-panel.tsx",
+          "command": "integration:audit"
+        },
+        {
+          "type": "contract",
+          "command": "qa:v101.11.3:h19.5"
+        }
+      ]
+    },
+    {
+      "id": "workspace.collaborative-tasks-h19.5",
+      "name": "Collaborative Tasks & Interactive Checklist H19.5",
+      "tier": "core",
+      "owner": "work-management",
+      "evidence": [
+        {
+          "type": "integration",
+          "path": "src/features/tasks/task-modal.tsx",
+          "command": "integration:audit"
+        },
+        {
+          "type": "integration",
+          "path": "src/services/work-management.ts",
+          "command": "integration:audit"
+        },
+        {
+          "type": "contract",
+          "command": "qa:v101.11.3:h19.5"
+        }
+      ]
+    },
+    {
+      "id": "communications.whatsapp-native-ux-h19.6",
+      "name": "WhatsApp Native Conversation UX H19.6",
+      "tier": "core",
+      "owner": "communications",
+      "evidence": [
+        {
+          "type": "integration",
+          "path": "src/features/communications/whatsapp-chat-panel.tsx",
+          "command": "integration:audit"
+        },
+        {
+          "type": "integration",
+          "path": "src/features/communications/communications-page.tsx",
+          "command": "integration:audit"
+        },
+        {
+          "type": "contract",
+          "command": "qa:v101.11.3:h19.6"
+        }
+      ]
+    },
+    {
+      "id": "sales.followup-focus-h19.6",
+      "name": "Follow-up Focus & Metadata Sanitization H19.6",
+      "tier": "core",
+      "owner": "followups",
+      "evidence": [
+        {
+          "type": "integration",
+          "path": "src/features/followups/followups-page.tsx",
+          "command": "integration:audit"
+        },
+        {
+          "type": "integration",
+          "path": "src/services/followup-workspace.ts",
+          "command": "integration:audit"
+        },
+        {
+          "type": "contract",
+          "command": "qa:v101.11.3:h19.6"
+        }
+      ]
+    },
+    {
+      "id": "communications.whatsapp-pure-chat-h19.7",
+      "name": "WhatsApp Pure Chat H19.7",
+      "tier": "core",
+      "owner": "communications",
+      "evidence": [
+        {
+          "type": "integration",
+          "path": "src/features/communications/whatsapp-chat-panel.tsx",
+          "command": "integration:audit"
+        },
+        {
+          "type": "integration",
+          "path": "src/features/communications/communications-page.tsx",
+          "command": "integration:audit"
+        },
+        {
+          "type": "contract",
+          "command": "qa:v101.11.3:h19.7"
+        }
+      ]
+    },
+    {
+      "id": "communications.whatsapp-control-center-h19.8",
+      "name": "WhatsApp Continuous Chat & Settings Control Center H19.8",
+      "tier": "core",
+      "owner": "communications",
+      "evidence": [
+        {
+          "type": "integration",
+          "path": "src/features/communications/whatsapp-chat-panel.tsx",
+          "command": "integration:audit"
+        },
+        {
+          "type": "integration",
+          "path": "src/features/settings/whatsapp-integration-panel.tsx",
+          "command": "integration:audit"
+        },
+        {
+          "type": "contract",
+          "command": "qa:v101.11.3:h19.8"
+        }
+      ]
+    },
+    {
+      "id": "communications.whatsapp-runtime-recovery-h19.8-h1",
+      "name": "WhatsApp Runtime Recovery H19.8-H1",
+      "tier": "core",
+      "owner": "communications",
+      "evidence": [
+        {
+          "type": "integration",
+          "path": "scripts/start.mjs",
+          "command": "integration:audit"
+        },
+        {
+          "type": "integration",
+          "path": "scripts/realtalent-communications-supervisor.mjs",
+          "command": "integration:audit"
+        },
+        {
+          "type": "integration",
+          "path": "src/services/runtime-control.ts",
+          "command": "integration:audit"
+        },
+        {
+          "type": "contract",
+          "command": "qa:v101.11.3:h19.8:h1"
+        }
+      ]
+    },
+    {
+      "id": "communications.whatsapp-reliable-messaging-groups-h19.9",
+      "name": "WhatsApp Reliable Messaging & Groups H19.9",
+      "tier": "core",
+      "owner": "communications",
+      "evidence": [
+        {
+          "type": "integration",
+          "path": "scripts/whatsapp-browser-qr-bridge.mjs",
+          "command": "integration:audit"
+        },
+        {
+          "type": "integration",
+          "path": "scripts/realtalent-communications-gateway.mjs",
+          "command": "integration:audit"
+        },
+        {
+          "type": "integration",
+          "path": "src/features/communications/whatsapp-chat-panel.tsx",
+          "command": "integration:audit"
+        },
+        {
+          "type": "integration",
+          "path": "src/features/communications/communications-page.tsx",
+          "command": "integration:audit"
+        },
+        {
+          "type": "contract",
+          "command": "qa:v101.11.3:h19.9"
+        }
+      ]
+    },
+    {
+      "id": "communications.whatsapp-rich-messaging-reliable-delivery-h19.10",
+      "name": "WhatsApp Rich Messaging & Reliable Delivery H19.10",
+      "tier": "core",
+      "owner": "communications",
+      "evidence": [
+        {
+          "type": "integration",
+          "path": "src/features/communications/whatsapp-chat-panel.tsx",
+          "command": "integration:audit"
+        },
+        {
+          "type": "integration",
+          "path": "scripts/whatsapp-browser-qr-bridge.mjs",
+          "command": "integration:audit"
+        },
+        {
+          "type": "integration",
+          "path": "scripts/realtalent-communications-gateway.mjs",
+          "command": "integration:audit"
+        },
+        {
+          "type": "integration",
+          "path": "src/services/whatsapp-workspace.ts",
+          "command": "integration:audit"
+        },
+        {
+          "type": "contract",
+          "command": "qa:v101.11.3:h19.10"
+        },
+        {
+          "type": "smoke",
+          "path": "scripts/v101_11_3_h19_10_rich_messaging_runtime_smoke.mjs",
+          "command": "runtime:communications-h19.10"
+        }
+      ]
+    },
+    {
+      "id": "communications.whatsapp-media-delivery-fix-h19.10-h1",
+      "name": "WhatsApp Media Delivery Fix H19.10-H1",
+      "tier": "core",
+      "owner": "communications",
+      "evidence": [
+        {
+          "type": "integration",
+          "path": "scripts/whatsapp-web-media-hotfix.mjs",
+          "command": "integration:audit"
+        },
+        {
+          "type": "integration",
+          "path": "scripts/whatsapp-browser-qr-bridge.mjs",
+          "command": "integration:audit"
+        },
+        {
+          "type": "integration",
+          "path": "scripts/realtalent-communications-gateway.mjs",
+          "command": "integration:audit"
+        },
+        {
+          "type": "integration",
+          "path": "src/features/communications/whatsapp-chat-panel.tsx",
+          "command": "integration:audit"
+        },
+        {
+          "type": "contract",
+          "command": "qa:v101.11.3:h19.10:h1"
+        },
+        {
+          "type": "smoke",
+          "path": "scripts/v101_11_3_h19_10_h1_media_delivery_fix_smoke.mjs",
+          "command": "runtime:communications-h19.10:h1"
+        }
+      ]
+    },
+    {
+      "id": "communications.whatsapp-contact-message-normalization-h19.11",
+      "name": "WhatsApp Contact & Message Normalization H19.11",
+      "tier": "core",
+      "owner": "communications",
+      "evidence": [
+        {
+          "type": "integration",
+          "path": "scripts/whatsapp-sync-utils.mjs",
+          "command": "integration:audit"
+        },
+        {
+          "type": "integration",
+          "path": "scripts/whatsapp-browser-qr-bridge.mjs",
+          "command": "integration:audit"
+        },
+        {
+          "type": "integration",
+          "path": "scripts/realtalent-communications-gateway.mjs",
+          "command": "integration:audit"
+        },
+        {
+          "type": "integration",
+          "path": "src/services/communication-workspace.ts",
+          "command": "integration:audit"
+        },
+        {
+          "type": "integration",
+          "path": "src/features/communications/communications-page.tsx",
+          "command": "integration:audit"
+        },
+        {
+          "type": "integration",
+          "path": "src/features/communications/whatsapp-chat-panel.tsx",
+          "command": "integration:audit"
+        },
+        {
+          "type": "contract",
+          "command": "qa:v101.11.3:h19.11"
+        },
+        {
+          "type": "smoke",
+          "path": "scripts/v101_11_3_h19_11_whatsapp_normalization_smoke.mjs",
+          "command": "runtime:communications-h19.11"
+        }
+      ]
+    },
+    {
+      "id": "communications.whatsapp-work-management-h19.13",
+      "name": "WhatsApp Work Management H19.13",
+      "tier": "core",
+      "owner": "communications",
+      "evidence": [
+        {
+          "type": "integration",
+          "path": "src/services/whatsapp-work-management.ts",
+          "command": "integration:audit"
+        },
+        {
+          "type": "integration",
+          "path": "src/features/communications/whatsapp-work-toolbar.tsx",
+          "command": "integration:audit"
+        },
+        {
+          "type": "integration",
+          "path": "src/features/communications/communications-page.tsx",
+          "command": "integration:audit"
+        },
+        {
+          "type": "contract",
+          "command": "qa:v101.11.3:h19.13"
+        }
+      ]
+    },
+    {
+      "id": "platform.ui-cohesion",
+      "name": "Global UI & Product Cohesion",
+      "tier": "core",
+      "owner": "design-system",
+      "evidence": [
+        {
+          "type": "contract",
+          "command": "qa:v101.11.3:h20.3"
+        },
+        {
+          "type": "contract",
+          "command": "css:governance"
+        },
+        {
+          "type": "smoke",
+          "command": "qa:v101.11.3:h20.3"
+        },
+        {
+          "type": "contract",
+          "command": "qa:v101.11.3:h20.4"
+        },
+        {
+          "type": "smoke",
+          "command": "qa:v101.11.3:h20.4"
+        },
+        {
+          "type": "contract",
+          "command": "qa:v101.11.3:h20.5"
+        },
+        {
+          "type": "smoke",
+          "command": "qa:v101.11.3:h20.5"
+        },
+        {
+          "type": "contract",
+          "command": "qa:v101.11.3:h20.6"
+        },
+        {
+          "type": "smoke",
+          "command": "qa:v101.11.3:h20.6"
+        },
+        {
+          "type": "contract",
+          "command": "qa:v101.11.3:h20.7"
+        },
+        {
+          "type": "smoke",
+          "command": "qa:v101.11.3:h20.7"
+        },
+        {
+          "type": "contract",
+          "command": "qa:v101.11.3:h20.7:h1"
+        },
+        {
+          "type": "smoke",
+          "command": "qa:v101.11.3:h20.7:h1"
+        }
+      ]
+    },
+    {
+      "id": "communications.whatsapp-conversation-inbox-h20.7-h2",
+      "name": "WhatsApp Conversation-Only Inbox H20.7-H2",
+      "tier": "core",
+      "owner": "communications",
+      "evidence": [
+        {
+          "type": "integration",
+          "path": "src/features/communications/communications-page.tsx",
+          "command": "integration:audit"
+        },
+        {
+          "type": "contract",
+          "command": "qa:v101.11.3:h20.7:h2"
+        }
+      ]
+    },
+    {
+      "id": "workspace.prospecting-coverage-runtime-truth-h21.1",
+      "name": "Garimpo Coverage & Runtime Truth H21.1",
+      "tier": "core",
+      "owner": "prospecting",
+      "evidence": [
+        {
+          "type": "integration",
+          "path": "scripts/realtalent-prospecting-agent.mjs",
+          "command": "integration:audit"
+        },
+        {
+          "type": "integration",
+          "path": "src/features/prospecting/prospecting-page.tsx",
+          "command": "integration:audit"
+        },
+        {
+          "type": "contract",
+          "command": "qa:v101.11.3:h21.1"
+        },
+        {
+          "type": "smoke",
+          "command": "runtime:prospecting-h21.1"
+        }
+      ]
+    },
+    {
+      "id": "security.team-profiles-access-control-h22.1",
+      "name": "Team Profiles & Real Access Control H22.1",
+      "tier": "critical",
+      "owner": "security",
+      "evidence": [
+        {
+          "type": "integration",
+          "path": "src/services/team-access-control.ts",
+          "command": "integration:audit"
+        },
+        {
+          "type": "migration",
+          "path": "supabase/migrations/202610120001_v101_11_3_h22_1_team_profiles_access_control.sql",
+          "command": "migrations:verify"
+        },
+        {
+          "type": "contract",
+          "command": "qa:v101.11.3:h22.1"
+        },
+        {
+          "type": "smoke",
+          "command": "runtime:team-access-h22.1"
+        }
+      ]
+    },
+    {
+      "id": "security.cross-module-access-control-h22.2",
+      "name": "Cross-Module Access Control H22.2",
+      "tier": "critical",
+      "owner": "security",
+      "evidence": [
+        {
+          "type": "integration",
+          "path": "src/features/communications/communications-page.tsx",
+          "command": "integration:audit"
+        },
+        {
+          "type": "integration",
+          "path": "src/features/proposals/proposals-page.tsx",
+          "command": "integration:audit"
+        },
+        {
+          "type": "integration",
+          "path": "src/features/prospecting/prospecting-page.tsx",
+          "command": "integration:audit"
+        },
+        {
+          "type": "integration",
+          "path": "src/features/goals/goals-page.tsx",
+          "command": "integration:audit"
+        },
+        {
+          "type": "migration",
+          "path": "supabase/migrations/202610120002_v101_11_3_h22_2_cross_module_access_control.sql",
+          "command": "migrations:verify"
+        },
+        {
+          "type": "contract",
+          "command": "qa:v101.11.3:h22.2"
+        },
+        {
+          "type": "smoke",
+          "command": "runtime:team-access-h22.2"
+        }
+      ]
+    },
+    {
+      "id": "security.field-governance-approvals-audit-h22.3",
+      "name": "Field-Level Permissions, Approvals & Audit H22.3",
+      "tier": "critical",
+      "owner": "security",
+      "evidence": [
+        {
+          "type": "integration",
+          "path": "src/services/team-access-control.ts",
+          "command": "integration:audit"
+        },
+        {
+          "type": "integration",
+          "path": "src/services/team-governance.ts",
+          "command": "integration:audit"
+        },
+        {
+          "type": "migration",
+          "path": "supabase/migrations/202610120003_v101_11_3_h22_3_field_approvals_audit.sql",
+          "command": "migrations:verify"
+        },
+        {
+          "type": "contract",
+          "command": "qa:v101.11.3:h22.3"
+        },
+        {
+          "type": "smoke",
+          "path": "scripts/v101_11_3_h22_3_governance_runtime_smoke.mjs",
+          "command": "runtime:team-access-h22.3"
+        }
+      ]
+    },
+    {
+      "id": "security.stability-security-closure-h22.3-h1",
+      "name": "Stability & Security Closure H22.3-H1",
+      "tier": "critical",
+      "owner": "security",
+      "evidence": [
+        {
+          "type": "integration",
+          "path": "src/features/proposals/proposals-page.tsx",
+          "command": "integration:audit"
+        },
+        {
+          "type": "integration",
+          "path": "src/services/team-governance.ts",
+          "command": "integration:audit"
+        },
+        {
+          "type": "migration",
+          "path": "supabase/migrations/202610130001_v101_11_3_h22_3_h1_stability_security_closure.sql",
+          "command": "migrations:verify"
+        },
+        {
+          "type": "contract",
+          "command": "qa:v101.11.3:h22.3:h1"
+        }
+      ]
+    },
+    {
+      "id": "platform.commercial-readiness-cr1-build-dependency-closure",
+      "name": "Commercial Readiness CR1 — Build & Dependency Closure",
+      "tier": "critical",
+      "owner": "platform",
+      "evidence": [
+        {
+          "type": "integration",
+          "path": "scripts/start.mjs",
+          "command": "integration:audit"
+        },
+        {
+          "type": "integration",
+          "path": "scripts/communications-runtime-deps.mjs",
+          "command": "integration:audit"
+        },
+        {
+          "type": "contract",
+          "command": "qa:commercial-readiness:cr1"
+        },
+        {
+          "type": "smoke",
+          "path": "scripts/lockfile-integrity.mjs",
+          "command": "lockfile:verify"
+        }
+      ]
+    },
+    {
+      "id": "security.commercial-readiness-cr2-supabase-auth-rls",
+      "name": "Commercial Readiness CR2 — Production Supabase + Auth + RLS Validation",
+      "tier": "critical",
+      "owner": "security",
+      "evidence": [
+        {
+          "type": "contract",
+          "command": "qa:commercial-readiness:cr2"
+        },
+        {
+          "type": "smoke",
+          "path": "scripts/commercial_readiness_cr2_staging_probe.mjs",
+          "command": "runtime:commercial-readiness:cr2"
+        },
+        {
+          "type": "migration",
+          "path": "supabase/migrations.lock.json",
+          "command": "migrations:verify"
+        }
+      ]
+    },
+    {
+      "id": "sales.commercial-readiness-cr3-e2e-workflow",
+      "name": "Commercial Readiness CR3 — End-to-End Commercial Workflow Validation",
+      "tier": "critical",
+      "owner": "sales",
+      "evidence": [
+        {
+          "type": "contract",
+          "command": "qa:commercial-readiness:cr3"
+        },
+        {
+          "type": "smoke",
+          "path": "scripts/commercial_readiness_cr3_staging_e2e_probe.mjs",
+          "command": "runtime:commercial-readiness:cr3"
+        },
+        {
+          "type": "integration",
+          "path": "scripts/start.mjs",
+          "command": "integration:audit"
+        }
+      ]
+    },
+    {
+      "id": "sales.commercial-readiness-cr4-failure-recovery",
+      "name": "Commercial Readiness CR4 — Commercial UX & Failure Recovery",
+      "tier": "critical",
+      "owner": "sales",
+      "evidence": [
+        {
+          "type": "test",
+          "path": "src/services/commercial-failure-recovery.test.ts",
+          "command": "test"
+        },
+        {
+          "type": "contract",
+          "command": "qa:commercial-readiness:cr4"
+        },
+        {
+          "type": "integration",
+          "path": "src/features/proposals/proposals-page.tsx",
+          "command": "integration:audit"
+        }
+      ]
+    },
+    {
+      "id": "platform.commercial-readiness-cr5-observability",
+      "name": "Commercial Readiness CR5 — Performance & Production Observability",
+      "tier": "critical",
+      "owner": "platform",
+      "evidence": [
+        {
+          "type": "contract",
+          "command": "qa:commercial-readiness:cr5"
+        },
+        {
+          "type": "smoke",
+          "path": "scripts/commercial_readiness_cr5_runtime_health.mjs",
+          "command": "runtime:commercial-readiness:cr5"
+        },
+        {
+          "type": "integration",
+          "path": "src/lib/commercial-observability.ts",
+          "command": "integration:audit"
+        }
+      ]
+    },
+    {
+      "id": "platform.commercial-readiness-cr6-performance",
+      "name": "Commercial Readiness CR6 — Performance Optimization & Payload Reduction",
+      "evidence": [
+        {
+          "type": "contract",
+          "command": "qa:commercial-readiness:cr6"
+        },
+        {
+          "type": "smoke",
+          "path": "scripts/commercial_readiness_cr6_payload_budget.mjs",
+          "command": "runtime:commercial-readiness:cr6"
+        },
+        {
+          "type": "integration",
+          "path": "src/app/app.tsx",
+          "command": "integration:audit"
+        }
+      ],
+      "tier": "critical"
+    },
+    {
+      "id": "platform.commercial-readiness-cr7-operations",
+      "name": "Commercial Readiness CR7 — Production Deployment & Operational Readiness",
+      "evidence": [
+        {
+          "type": "contract",
+          "command": "qa:commercial-readiness:cr7"
+        },
+        {
+          "type": "smoke",
+          "path": "scripts/commercial_readiness_cr7_production_probe.mjs",
+          "command": "runtime:commercial-readiness:cr7"
+        },
+        {
+          "type": "contract",
+          "path": "ops/PRODUCTION_RUNBOOK_CR7.md"
+        },
+        {
+          "type": "smoke",
+          "path": "ops/backup-supabase.sh",
+          "command": "backup:production"
+        },
+        {
+          "type": "smoke",
+          "path": "scripts/commercial_readiness_cr7_release_snapshot.mjs",
+          "command": "release:snapshot"
+        }
+      ],
+      "tier": "critical"
+    },
+    {
+      "id": "platform.commercial-readiness-cr8-launch",
+      "name": "Commercial Readiness CR8 — Commercial Launch Gate & First Customer Readiness",
+      "tier": "critical",
+      "owner": "platform",
+      "evidence": [
+        {
+          "type": "contract",
+          "command": "qa:commercial-readiness:cr8"
+        },
+        {
+          "type": "smoke",
+          "path": "scripts/commercial_readiness_cr8_launch_gate.mjs",
+          "command": "runtime:commercial-readiness:cr8"
+        },
+        {
+          "type": "contract",
+          "path": "ops/FIRST_CUSTOMER_RUNBOOK_CR8.md"
+        },
+        {
+          "type": "contract",
+          "path": "ops/LEGAL_READINESS_CR8.md"
+        },
+        {
+          "type": "contract",
+          "path": "ops/ACTIVATION_METRICS_CR8.md"
+        }
+      ]
+    },
+    {
+      "id": "platform.commercial-readiness-cr9-launch-closure",
+      "name": "Commercial Readiness CR9 — Launch Hard-Stop Closure",
+      "tier": "critical",
+      "owner": "platform",
+      "evidence": [
+        {
+          "type": "contract",
+          "command": "qa:commercial-readiness:cr9"
+        },
+        {
+          "type": "smoke",
+          "path": "scripts/commercial_readiness_cr9_launch_hard_stop_closure.mjs",
+          "command": "runtime:commercial-readiness:cr9"
+        },
+        {
+          "type": "contract",
+          "path": "ops/LAUNCH_HARD_STOP_CLOSURE_CR9.md"
+        },
+        {
+          "type": "contract",
+          "path": "ops/evidence/CR9_LATEST.json"
+        }
+      ]
+    },
+    {
+      "id": "release.supabase-staging-bootstrap",
+      "name": "Supabase Staging Bootstrap & Validation",
+      "tier": "critical",
+      "owner": "release-security",
+      "evidence": [
+        {
+          "type": "contract",
+          "command": "qa:commercial-readiness:cr10"
+        },
+        {
+          "type": "smoke",
+          "command": "runtime:commercial-readiness:cr10"
+        },
+        {
+          "type": "migration",
+          "path": "supabase/migrations.lock.json",
+          "command": "migrations:verify"
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,46 @@
+RealTalent CRM — QA REPORT V100.75.0
+Release: Meu Dia 2.0
+Data: 2026-09-20
+
+ESCOPO
+- Personalizar visualização do Meu Dia
+- Presets Essencial / Equilibrado / Completo
+- Mostrar/ocultar e reordenar blocos
+- Visualização Inteligente reposicionável
+- Persistência e migração de preferências antigas
+- Regressão da Auditoria Funcional V100.74
+
+CORREÇÕES PRINCIPAIS
+1. O bloco deal-day-summary agora pertence ao registro de experiência.
+2. DealPortfolioPanel agora é a seção "intelligence" do Meu Dia.
+3. Atualizações de preferências usam setState funcional para evitar perda por closures antigas.
+4. Novas seções são mescladas na ordem canônica sem resetar personalizações antigas.
+5. Auditoria funcional promove Personalizar visualização de Parcial para Funcional.
+
+RESULTADO FUNCIONAL
+- 16 capacidades Funcionais
+- 11 capacidades Parciais
+- 0 Visual apenas
+- 1 Não implementada
+- Maturidade ponderada aproximada: 79%
+
+VALIDAÇÕES ESPERADAS
+- source_syntax_audit.mjs
+- integration_contract_audit.mjs
+- verify-migrations.mjs
+- histórico V100.73.1 / V100.74
+- v100_75_meu_dia_experience_audit.mjs
+- typecheck / vitest / build quando dependências estiverem disponíveis
+
+MIGRATIONS
+Nenhuma migration V100.75. Backup schema preservado em 100.54.
+
+RESULTADO EXECUTADO NESTE EMPACOTAMENTO
+- source syntax: aprovado em 238 arquivos
+- integration contracts: aprovado em 209 arquivos
+- migrations: 37/37 checksums íntegros
+- 20 suítes históricas/atuais de QA estático: aprovadas
+- gate V100.75.0: 29/29 contratos aprovados
+
+LIMITAÇÃO DO AMBIENTE
+`npm ci` não concluiu por timeout de transporte. Uma tentativa de `npm run typecheck` após a instalação incompleta falhou por ausência de dependências (`react`, `lucide-react`, `@supabase/supabase-js` etc.), portanto esse resultado NÃO é tratado como falha de TypeScript do código da V100.75. O `node_modules` incompleto foi removido antes do empacotamento. `typecheck`, `vitest` e `vite build` devem ser executados novamente após `npm install`/`npm ci` concluir normalmente no ambiente local.

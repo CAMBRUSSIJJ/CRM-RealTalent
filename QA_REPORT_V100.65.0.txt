@@ -1,0 +1,31 @@
+RealTalent CRM V100.65.0 — Coaching & Playbooks
+Data: 2026-09-15
+
+Escopo validado
+- Playbooks contextuais por objetivo, etapa, persona, resultado e temperatura.
+- Tipos script, objection, battlecard e checklist.
+- Coaching determinístico por ligação com 7 dimensões e evidências.
+- Dashboard agregado de coaching e objeções.
+- Recomendações adaptativas no Modo Foco.
+- Migration incremental playbooks.guidance (JSONB + GIN).
+
+QA executado
+- source_syntax_audit: 212 arquivos aprovados
+- integration_contract_audit: 183 arquivos aprovados
+- migrations: 36/36 checksums íntegros
+- V100.56.4 regression: 21/21
+- V100.60.0 Sales Experience: 41/41
+- V100.60.1 Performance: 29/29
+- V100.62.0 Deal Intelligence: 47/47
+- V100.63.0 Sales Engagement: 64/64
+- V100.65.0 Coaching & Playbooks: 63/63
+- TypeScript structural smoke: tsc --noEmit --noCheck aprovado
+- Coaching runtime smoke: score 96/100, next step detectado, recomendação contextual 82%
+
+Limitação do ambiente
+- npm install expirou por rede; por isso Vitest, typecheck completo com dependências e Vite build não foram marcados como executados.
+- O ZIP não inclui node_modules nem arquivos .env.
+
+Comparação com V100.63.0
+- Entradas adicionadas/alteradas detectadas por diff: 31
+- Tamanho descompactado sem node_modules: 4.5M

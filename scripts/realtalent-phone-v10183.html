@@ -1,0 +1,181 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#04342C">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="apple-mobile-web-app-title" content="RealTalent Phone">
+  <link rel="manifest" href="/phone/manifest.webmanifest">
+  <link rel="apple-touch-icon" sizes="180x180" href="/phone/icon-180.png">
+  <title>RealTalent Phone — One-Tap</title>
+  <style>
+    *{box-sizing:border-box}html,body{min-height:100%;background:#f5f4ef}body{margin:0;font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;color:#17342f;-webkit-font-smoothing:antialiased}.shell{max-width:560px;margin:auto;min-height:100vh;padding:max(22px,env(safe-area-inset-top)) 18px max(34px,env(safe-area-inset-bottom))}.topbar{display:flex;align-items:center;gap:12px;margin-bottom:18px}.logo{width:44px;height:44px;border-radius:14px;background:#04342c;color:white;display:grid;place-items:center;font-weight:850;letter-spacing:-.02em}.brand{display:grid;gap:1px}.brand strong{font-size:16px}.brand small{color:#6c7772}.transport{margin-left:auto;display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:800;color:#0f7a59}.transport:before{content:"";width:8px;height:8px;border-radius:50%;background:currentColor}.transport.warn{color:#b7791f}.card{background:#fff;border:1px solid #e2e1da;border-radius:18px;padding:18px;box-shadow:0 12px 34px rgba(23,52,47,.07);margin-bottom:14px}.card h1,.card h2,.card h3{margin:0}.muted{color:#6c7772;font-size:14px;line-height:1.5}.field{display:grid;gap:6px;margin:14px 0}.field span{font-size:12px;font-weight:750;color:#51605b}.field input{width:100%;font:inherit;padding:13px 14px;border:1px solid #cfd5d1;border-radius:12px;background:#fff;color:#17342f}.btn{width:100%;border:0;border-radius:12px;padding:14px 16px;font:inherit;font-weight:800;background:#04342c;color:white;margin-top:8px;min-height:48px}.btn.secondary{background:#f0f5f2;color:#0d5f49;border:1px solid #d9e8e1}.btn.ghost{background:#fff;color:#5a6662;border:1px solid #e1e5e2}.btn.danger{background:#fff4f3;color:#b42318;border:1px solid #ffd6d1}.eyebrow{text-transform:uppercase;letter-spacing:.08em;font-size:10px;font-weight:850;color:#71807a}.ready-hero{display:grid;gap:14px}.ready-row{display:flex;align-items:flex-start;gap:12px}.status-icon{width:42px;height:42px;border-radius:13px;background:#e8f7f0;color:#0c7c59;display:grid;place-items:center;font-weight:900}.ready-copy{display:grid;gap:4px;min-width:0}.ready-copy h1{font-size:22px;letter-spacing:-.02em}.ready-copy p{margin:0}.one-tap{border:1px solid #d9e8e1;border-radius:15px;padding:14px;background:#f7fbf9;display:grid;gap:12px}.one-tap-head{display:flex;align-items:flex-start;gap:10px}.bolt{width:34px;height:34px;border-radius:10px;background:#04342c;color:#fff;display:grid;place-items:center;font-size:19px}.one-tap-copy{display:grid;gap:2px;flex:1}.one-tap-copy strong{font-size:15px}.one-tap-copy small{color:#65736e;line-height:1.4}.switch{position:relative;width:48px;height:28px;flex:0 0 auto}.switch input{position:absolute;opacity:0}.switch span{position:absolute;inset:0;border-radius:999px;background:#cfd7d3;transition:.18s}.switch span:after{content:"";position:absolute;width:22px;height:22px;left:3px;top:3px;border-radius:50%;background:#fff;box-shadow:0 1px 4px #0002;transition:.18s}.switch input:checked+span{background:#1d9e75}.switch input:checked+span:after{transform:translateX(20px)}.readiness{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}.readiness div{border:1px solid #e4e7e4;border-radius:12px;padding:10px;display:grid;gap:2px;background:#fff}.readiness b{font-size:12px}.readiness small{font-size:11px;color:#6d7974}.readiness .good b{color:#0c7c59}.readiness .warn b{color:#a15c00}.install-tip{display:none;padding:12px;border-radius:12px;background:#fff8e6;border:1px solid #f1dda8;color:#755319;font-size:12px;line-height:1.45}.install-tip.show{display:block}.call{display:none}.call.active{display:block}.call-top{display:flex;align-items:center;justify-content:space-between;gap:10px}.call-status{font-size:12px;font-weight:800;color:#0c7c59}.call-name{font-size:28px;font-weight:850;letter-spacing:-.03em;margin:8px 0 2px}.company{font-size:14px;color:#66736f}.phone{font-size:18px;margin-top:6px}.opening{display:none;margin:14px 0 4px;padding:12px;border-radius:12px;background:#eaf7f1;color:#0d674f;font-size:13px;font-weight:750}.opening.show{display:block}.context{display:grid;gap:10px;margin:14px 0;padding:12px;border-radius:13px;background:#f8f8f5;border:1px solid #e7e6df}.context div{display:grid;gap:2px}.context small{text-transform:uppercase;letter-spacing:.06em;color:#7a8681;font-size:10px;font-weight:850}.context strong{font-size:14px;line-height:1.35}.fallback{display:none}.fallback.show{display:block}.hint{font-size:12px;line-height:1.45;color:#6c7772;margin-top:10px}.after-call{display:none}.after-call.show{display:block}.after-call-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}.after-call-grid .btn{margin:0}.footer-actions{margin-top:14px;padding-top:12px;border-top:1px solid #edede8}.pair-msg,.call-msg{font-size:12px;line-height:1.45;margin-top:10px;color:#8a4b0f}.call-msg.ok{color:#0c7c59}.hidden{display:none!important}@media(max-width:380px){.readiness{grid-template-columns:1fr}.call-name{font-size:24px}}
+  </style>
+</head>
+<body>
+<main class="shell">
+  <div class="topbar">
+    <div class="logo">RT</div>
+    <div class="brand"><strong>RealTalent Phone</strong><small>Connect One-Tap</small></div>
+    <span class="transport warn" id="transport">Conectando</span>
+  </div>
+
+  <section class="card" id="pair">
+    <span class="eyebrow">Primeiro acesso</span>
+    <h1>Parear celular</h1>
+    <p class="muted">Use o código exibido no CRM. Depois do primeiro pareamento, este iPhone fica reconhecido neste navegador.</p>
+    <label class="field"><span>Nome do dispositivo</span><input id="name" value="Meu iPhone" autocomplete="off"></label>
+    <label class="field"><span>Código de pareamento</span><input id="code" inputmode="numeric" maxlength="6" autocomplete="one-time-code"></label>
+    <button class="btn" id="pairBtn">Conectar ao CRM</button>
+    <div class="pair-msg" id="pairMsg"></div>
+  </section>
+
+  <section class="card ready-hero" id="ready" style="display:none">
+    <div class="ready-row">
+      <div class="status-icon">✓</div>
+      <div class="ready-copy"><span class="eyebrow">RealTalent Connect</span><h1 id="deviceLabel">iPhone conectado</h1><p class="muted" id="readyText">Pronto para receber chamadas do CRM.</p></div>
+    </div>
+
+    <div class="one-tap">
+      <div class="one-tap-head">
+        <div class="bolt">⚡</div>
+        <div class="one-tap-copy"><strong>One-Tap para iPhone</strong><small>Quando o CRM enviar uma chamada Fast Dial, o RealTalent Phone tenta abrir o discador imediatamente. O iOS ainda pode exigir a confirmação final “Ligar”.</small></div>
+        <label class="switch" aria-label="Ativar One-Tap"><input type="checkbox" id="oneTap"><span></span></label>
+      </div>
+      <div class="readiness">
+        <div id="screenState"><b>Tela</b><small>Verificando…</small></div>
+        <div id="installState"><b>Atalho</b><small>Verificando…</small></div>
+        <div id="realtimeState"><b>Tempo real</b><small>Conectando…</small></div>
+        <div id="oneTapState"><b>One-Tap</b><small>Verificando…</small></div>
+      </div>
+      <div class="install-tip" id="installTip">Para ficar mais prático no iPhone: no Safari toque em <b>Compartilhar → Adicionar à Tela de Início</b>. Isso cria um atalho do RealTalent Phone sem instalar um app da App Store.</div>
+    </div>
+
+    <p class="muted">Durante uma sessão de ligações, deixe o RealTalent Phone aberto. O pareamento permanece salvo; não é necessário ler o QR novamente a cada uso.</p>
+    <div class="footer-actions"><button class="btn ghost" id="disconnectBtn">Desconectar deste CRM</button></div>
+  </section>
+
+  <section class="card call" id="call">
+    <div class="call-top"><span class="eyebrow">Chamada enviada pelo CRM</span><span class="call-status" id="callStatus">Recebida</span></div>
+    <div class="call-name" id="callName">Contato</div>
+    <div class="company" id="callCompany"></div>
+    <div class="phone" id="callPhone"></div>
+    <div class="opening" id="opening">Abrindo o Telefone do iPhone…</div>
+    <div class="context"><div><small>Objetivo</small><strong id="callObjective">Avançar a conversa</strong></div><div><small>Roteiro</small><strong id="callPlaybook">Roteiro RealTalent</strong></div></div>
+    <div class="fallback" id="fallback"><button class="btn" id="dialBtn">Ligar agora</button><p class="hint">O iPhone não abriu o discador automaticamente. Toque uma vez aqui e depois confirme “Ligar” no iOS.</p></div>
+    <div class="call-msg" id="callMsg"></div>
+  </section>
+
+  <section class="card after-call" id="afterCall">
+    <span class="eyebrow">Depois da ligação</span>
+    <h2>Pronto para continuar</h2>
+    <p class="muted">Registre o resultado no CRM. Quando você usar “Salvar e próximo”, o próximo contato será enviado automaticamente se a fila Fast Dial estiver ativa.</p>
+    <div class="after-call-grid"><button class="btn secondary" id="answeredBtn">Contato atendeu</button><button class="btn secondary" id="noAnswerBtn">Não atendeu</button></div>
+    <button class="btn ghost" id="endedBtn">Encerrar sessão desta chamada</button>
+  </section>
+</main>
+<script>
+(function(){
+  'use strict';
+  const q=new URLSearchParams(location.search);
+  const $=(s)=>document.querySelector(s);
+  const code=$('#code'); code.value=q.get('code')||'';
+  const workspaceId=q.get('workspace')||'';
+  const isIOS=/iPhone|iPad|iPod/i.test(navigator.userAgent)||(navigator.platform==='MacIntel'&&navigator.maxTouchPoints>1);
+  const standalone=()=>Boolean(window.navigator.standalone)||window.matchMedia('(display-mode: standalone)').matches;
+  let token=localStorage.getItem('rtPhoneToken')||'';
+  let deviceId=localStorage.getItem('rtPhoneDevice')||'';
+  let deviceName=localStorage.getItem('rtPhoneName')||(isIOS?'Meu iPhone':'Meu celular');
+  let current=null;
+  let ws=null;
+  let pollTimer=null;
+  let heartbeatTimer=null;
+  let wakeLock=null;
+  let oneTap=localStorage.getItem('rtPhoneOneTap')!=='0';
+  let autoDialLock=localStorage.getItem('rtPhoneAutoDialLock')||'';
+  let lastDialAt=0;
+  let realtime=false;
+  let pendingAutoDial=false;
+  const pair=$('#pair'),ready=$('#ready'),call=$('#call'),afterCall=$('#afterCall'),transport=$('#transport');
+  $('#name').value=deviceName;
+
+  function platformKind(){return isIOS?'ios':/Android/i.test(navigator.userAgent)?'android':'other'}
+  function visible(){return document.visibilityState==='visible'}
+  function mark(box,good,title,detail){box.classList.toggle('good',good);box.classList.toggle('warn',!good);box.querySelector('b').textContent=title;box.querySelector('small').textContent=detail}
+  function updateReadiness(){
+    mark($('#screenState'),visible(),'Tela',visible()?'Visível e pronta':'Volte ao RealTalent Phone');
+    mark($('#installState'),standalone(),'Atalho',standalone()?'Aberto pela Tela de Início':'Safari / navegador');
+    mark($('#realtimeState'),realtime,'Tempo real',realtime?'WebSocket ativo':'Reconectando');
+    mark($('#oneTapState'),oneTap&&visible()&&realtime,'One-Tap',oneTap?(visible()&&realtime?'Pronto para chamada':'Aguardando tela/tempo real'):'Desativado');
+    $('#installTip').classList.toggle('show',isIOS&&!standalone());
+    $('#readyText').textContent=oneTap&&visible()?'Pronto para receber a próxima chamada do CRM.':'Mantenha esta tela visível durante a sessão de ligações.';
+  }
+  async function keepAwake(){try{if('wakeLock' in navigator&&!wakeLock&&visible())wakeLock=await navigator.wakeLock.request('screen')}catch{}}
+  async function post(url,body){const r=await fetch(url,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(body)});const j=await r.json().catch(()=>({}));if(!r.ok)throw new Error(j.error||'Falha de comunicação');return j}
+  function fire(url,body){try{fetch(url,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(body),keepalive:true}).catch(()=>{})}catch{}}
+  function presence(reason){if(!token)return;fire('/api/phone/v1/heartbeat',{token,oneTapEnabled:oneTap,visibility:document.visibilityState,standalone:standalone(),platformKind:platformKind(),reason,lastInteractionAt:new Date().toISOString()})}
+  function normalizeTel(value){return String(value||'').replace(/[^\d+]/g,'')}
+
+  function showFallback(message){$('#fallback').classList.add('show');$('#opening').classList.remove('show');$('#callStatus').textContent='Confirmação manual';const msg=$('#callMsg');msg.textContent=message||'Toque em “Ligar agora”.';msg.className='call-msg'}
+  function dialCurrent(automatic){
+    if(!current||!current.phone)return;
+    const tel=normalizeTel(current.phone); if(!tel)return;
+    if(automatic&&(!oneTap||!visible())){pendingAutoDial=true;showFallback('One-Tap aguardando esta tela ficar visível.');return}
+    if(automatic&&autoDialLock===current.callId)return;
+    if(automatic){autoDialLock=current.callId;localStorage.setItem('rtPhoneAutoDialLock',autoDialLock)}
+    pendingAutoDial=false;lastDialAt=Date.now();
+    $('#fallback').classList.remove('show');$('#opening').classList.add('show');$('#callStatus').textContent=automatic?'One-Tap':'Abrindo discador';
+    fire('/api/phone/v1/state',{token,callId:current.callId,state:'ringing'});
+    presence(automatic?'one-tap-dial':'manual-dial');
+    // V101.8.3: navegação tel: é disparada imediatamente no mesmo callback que recebe o comando.
+    // O iOS ainda controla a confirmação final e pode bloquear navegações automáticas conforme a política do navegador.
+    location.href='tel:'+tel;
+    setTimeout(()=>{if(current&&Date.now()-lastDialAt>800){$('#opening').classList.remove('show');showFallback('Se a confirmação do iOS não apareceu, toque em “Ligar agora”.')}},1300);
+  }
+
+  function applyCommand(command){
+    if(!command)return;
+    if(['failed','ended'].includes(command.state)){
+      if(current&&command.callId===current.callId){call.classList.remove('active');afterCall.classList.remove('show');current=null}
+      return;
+    }
+    current=command;
+    call.classList.add('active');afterCall.classList.remove('show');
+    $('#callName').textContent=current.displayName||'Contato';$('#callCompany').textContent=current.companyName||'';$('#callPhone').textContent=current.phone||'';$('#callObjective').textContent=current.objective||'Avançar a conversa';$('#callPlaybook').textContent=current.playbookName||'Roteiro RealTalent';$('#callMsg').textContent='';$('#callStatus').textContent=current.fastDial?'Fast Dial recebido':'Chamada recebida';
+    if(current.fastDial&&oneTap&&autoDialLock!==current.callId){dialCurrent(true)}else if(!current.fastDial){showFallback('Chamada assistida: toque em “Ligar agora”.')}
+  }
+
+  async function pairNow(){try{const name=$('#name').value.trim()||(isIOS?'Meu iPhone':'Meu celular');const j=await post('/api/phone/v1/pair',{code:code.value,name,platform:navigator.userAgent,platformKind:platformKind(),oneTapEnabled:oneTap,visibility:document.visibilityState,standalone:standalone(),workspaceId});token=j.token;deviceId=j.deviceId;deviceName=j.label||name;localStorage.setItem('rtPhoneToken',token);localStorage.setItem('rtPhoneDevice',deviceId);localStorage.setItem('rtPhoneName',deviceName);showReady()}catch(e){$('#pairMsg').textContent=e.message}}
+  function connectSocket(){if(!token)return;try{if(ws)ws.close();const protocol=location.protocol==='https:'?'wss:':'ws:';ws=new WebSocket(protocol+'//'+location.host+'/api/phone/v1/ws?token='+encodeURIComponent(token));ws.onopen=()=>{realtime=true;transport.textContent='Conectado';transport.classList.remove('warn');updateReadiness();presence('ws-open')};ws.onmessage=(event)=>{try{const data=JSON.parse(event.data);if(data.type==='call.command')applyCommand(data.command);if(data.type==='hello'&&data.command)applyCommand(data.command)}catch{}};ws.onclose=()=>{realtime=false;transport.textContent='Reconectando';transport.classList.add('warn');updateReadiness();setTimeout(connectSocket,1400)};ws.onerror=()=>{try{ws.close()}catch{}}}catch{startPoll()}}
+  function startPoll(){if(pollTimer)return;const tick=async()=>{if(!token)return;try{const r=await fetch('/api/phone/v1/poll?token='+encodeURIComponent(token));if(r.status===401){clearPhone();location.reload();return}const j=await r.json();applyCommand(j.command)}catch{}pollTimer=setTimeout(()=>{pollTimer=null;tick()},3500)};tick()}
+  function startHeartbeat(){if(heartbeatTimer)clearInterval(heartbeatTimer);heartbeatTimer=setInterval(()=>presence('interval'),10000);presence('start')}
+  function showReady(){pair.style.display='none';ready.style.display='grid';$('#deviceLabel').textContent=deviceName;$('#oneTap').checked=oneTap;void keepAwake();connectSocket();startPoll();startHeartbeat();updateReadiness()}
+  function clearPhone(){token='';deviceId='';localStorage.removeItem('rtPhoneToken');localStorage.removeItem('rtPhoneDevice');localStorage.removeItem('rtPhoneName');localStorage.removeItem('rtPhoneAutoDialLock')}
+  function state(value){if(!current)return;fire('/api/phone/v1/state',{token,callId:current.callId,state:value});const msg=$('#callMsg');msg.textContent=value==='connected'?'Marcado como atendido no CRM.':value==='failed'?'Marcado como não atendido no CRM.':'Sessão encerrada no CRM.';msg.className='call-msg ok';if(value==='failed'||value==='ended'){setTimeout(()=>{call.classList.remove('active');afterCall.classList.remove('show');current=null},700)}}
+
+  $('#pairBtn').onclick=pairNow;
+  $('#oneTap').onchange=(event)=>{oneTap=Boolean(event.target.checked);localStorage.setItem('rtPhoneOneTap',oneTap?'1':'0');presence('toggle-one-tap');updateReadiness()};
+  $('#dialBtn').onclick=()=>dialCurrent(false);
+  $('#answeredBtn').onclick=()=>state('connected');
+  $('#noAnswerBtn').onclick=()=>state('failed');
+  $('#endedBtn').onclick=()=>state('ended');
+  $('#disconnectBtn').onclick=async()=>{if(!confirm('Desconectar este celular do RealTalent CRM?'))return;try{await post('/api/phone/v1/unpair',{token})}catch{}clearPhone();location.reload()};
+
+  document.addEventListener('visibilitychange',()=>{
+    if(visible()){
+      wakeLock=null;void keepAwake();presence('visible');
+      if(current&&Date.now()-lastDialAt>1000){$('#opening').classList.remove('show');afterCall.classList.add('show')}
+      if(pendingAutoDial&&current&&current.fastDial&&oneTap)dialCurrent(true)
+    }else{presence('hidden')}
+    updateReadiness();
+  });
+  window.addEventListener('focus',()=>{presence('focus');updateReadiness()});
+  window.addEventListener('pageshow',()=>{presence('pageshow');updateReadiness()});
+  window.addEventListener('beforeunload',()=>presence('beforeunload'));
+  if(token)showReady();else{transport.textContent='Aguardando pareamento';transport.classList.add('warn');updateReadiness()}
+})();
+</script>
+</body>
+</html>

@@ -6,7 +6,13 @@ import { pageSectionRegistry } from './experience-registry'
 export function PageExperienceBoundary({ route, children }: PropsWithChildren<{ route: AppRoute }>) {
   const rootRef = useRef<HTMLDivElement>(null)
   const { preferences } = useExperience()
-  const page = preferences.pages[route]
+  const storedPage = preferences.pages[route]
+  const page = route === 'dashboard' && storedPage ? {
+    ...storedPage,
+    hiddenSections: [],
+    sectionOrder: pageSectionRegistry.dashboard.map((section) => section.id),
+    sectionSizes: Object.fromEntries(pageSectionRegistry.dashboard.map((section) => [section.id, section.defaultSize ?? 'full'])),
+  } : storedPage
 
   useLayoutEffect(() => {
     const root = rootRef.current
@@ -18,6 +24,7 @@ export function PageExperienceBoundary({ route, children }: PropsWithChildren<{ 
         const order = page.sectionOrder.indexOf(definition.id)
         root.querySelectorAll<HTMLElement>(definition.selector).forEach((element) => {
           element.dataset.experienceSection = definition.id
+          element.dataset.experienceSize = page.sectionSizes?.[definition.id] ?? definition.defaultSize ?? 'full'
           element.hidden = hidden
           element.style.setProperty('--experience-order', String(order < 0 ? definitions.length : order))
         })

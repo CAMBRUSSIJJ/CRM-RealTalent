@@ -1,0 +1,25 @@
+RealTalent CRM V101.1.0 — Typecheck HOTFIX
+==========================================
+
+Origem: V101.1.0 Consolidation & Runtime QA
+Motivo: 8 erros TypeScript reportados em runtime Linux.
+
+Correções aplicadas:
+- registerOverlay cleanup retorna void, não boolean.
+- Agenda trata snapshot nullable ao resolver call target.
+- ModulePlaceholder não exige rotas já implementadas no Record de placeholders.
+- BuyerRoomModal usa useAppUi para confirmAction/notify.
+
+Validações executadas neste ambiente após o patch:
+- source_syntax_audit: 274 arquivos aprovados
+- integration_contract_audit: 243 arquivos aprovados
+- migrations: 41/41 checksums íntegros
+- V101.1 consolidation audit: 71/71
+- gates qa:* históricos/atuais: 48/48
+
+Validação TypeScript completa neste ambiente:
+- NÃO executável com fidelidade porque o node_modules da release não está presente.
+- `npm ci --offline` foi tentado e falhou por cache ausente de xmlchars-2.2.0.tgz.
+- Um `tsc` global sem as dependências do projeto não é representativo e gera erros de módulos ausentes (React/Supabase etc.).
+
+No Linux do usuário, `./start-linux.sh` continua executando o typecheck real com as dependências instaladas e só segue para testes/build se ele passar.

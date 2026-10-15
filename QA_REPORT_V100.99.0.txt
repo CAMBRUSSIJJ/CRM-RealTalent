@@ -1,0 +1,37 @@
+RealTalent CRM V100.99.0 — Visual Intelligence
+QA REPORT
+Data: 2026-09-26
+
+ESCOPO
+- Navegação estável entre Visão executiva, Funil, Perdas, Atividades e Previsão.
+- Barra de visualizações sticky e âncora controlada para evitar que a nova leitura fique fora do viewport.
+- Funil comercial interativo, proporcional, animado e navegável por mouse/teclado.
+- Painel contextual de etapa com conversão, probabilidade, valor, tempo médio e risco.
+- Lista de negócios por etapa respeitando filtros de responsável/origem.
+- Abertura direta do negócio no Pipeline.
+- Edição de etapa reutilizando o StageModal oficial do Pipeline.
+- Tabela analítica anterior preservada como leitura detalhada.
+- RealTalent Calling 3.0 e demais módulos anteriores preservados.
+
+GATES EXECUTADOS
+- Auditoria sintática: 273 arquivos — APROVADO.
+- Auditoria de contratos de integração: 242 arquivos — APROVADO.
+- Migrations: 41 arquivos com checksum íntegro — APROVADO.
+- Linux release preflight: 240 arquivos TS/TSX — APROVADO.
+- V100.99 Visual Intelligence: 56/56 contratos — APROVADO.
+- V100.98.2 RealTalent Calling 3.0: 86/86 contratos — APROVADO.
+- Gates históricos anteriores executados nesta linha: aprovados; total de scripts QA registrados no package: 46.
+- Shell syntax: start-linux.sh, start-linux-dev.sh, install-linux.sh, configure-realtalent-connect.sh e configure-google-places.sh — APROVADO.
+
+REGRESSÃO CORRIGIDA NOS GATES
+O gate histórico da V100.98.2 originalmente exigia que toda release posterior continuasse com número, título e porta exatos da V100.98.2. Ele foi ajustado para validar preservação funcional do Calling 3.0 em releases posteriores, mantendo os 86 contratos da telefonia sem bloquear versionamento futuro.
+
+BUILD / DEPENDÊNCIAS
+A instalação limpa via npm (`npm ci`) não concluiu neste ambiente de execução. Por isso este relatório NÃO afirma execução de typecheck, Vitest ou Vite build final aqui. O launcher Linux mantém o gate obrigatório: instala dependências, executa o preflight, roda `npm run build`, valida que o build corresponde à V100.99 e somente então abre o navegador. Em caso de erro de build, o CRM não é aberto.
+
+PORTAS
+- CRM: 127.0.0.1:4184
+- RealTalent Connect: 127.0.0.1:3001
+
+RESULTADO
+APROVADO nos gates executáveis neste ambiente, com build final condicionado ao gate automático do start-linux.sh no Linux do usuário.

@@ -12,6 +12,7 @@ export interface ProspectRecord {
   [key: string]: unknown
   id: string
   workspaceId: string
+  createdBy: string | null
   name: string
   company: string
   phone: string
@@ -91,7 +92,7 @@ export const prospectSourceLabels: Record<ProspectSource, string> = {
   maps: 'Google Maps',
   instagram: 'Instagram',
   cnpj: 'CNPJ',
-  extension: 'Extensão Chrome',
+  extension: 'RT Capture Browser',
   manual: 'Manual',
 }
 
@@ -123,7 +124,7 @@ export function readProspectingState(workspaceId: string): ProspectingState {
   try {
     const parsed = JSON.parse(raw) as Partial<ProspectingState>
     return {
-      prospects: Array.isArray(parsed.prospects) ? parsed.prospects.map((prospect) => ({ ...prospect, id: uuidPattern.test(prospect.id) ? prospect.id : recordId() })) : [],
+      prospects: Array.isArray(parsed.prospects) ? parsed.prospects.map((prospect) => ({ ...prospect, createdBy: prospect.createdBy ?? null, id: uuidPattern.test(prospect.id) ? prospect.id : recordId() })) : [],
       history: Array.isArray(parsed.history) ? parsed.history.map((item) => ({ ...item, id: uuidPattern.test(item.id) ? item.id : recordId() })) : [],
       lastExtensionSyncAt: typeof parsed.lastExtensionSyncAt === 'string' ? parsed.lastExtensionSyncAt : null,
     }
@@ -141,7 +142,7 @@ const syncTimers = new Map<string, number>()
 const pendingSync = new Map<string, ProspectingState>()
 
 const mapProspectRow = (row: ProspectRow): ProspectRecord => ({
-  id: row.id, workspaceId: row.organization_id, name: row.name, company: row.company, phone: row.phone, email: row.email, city: row.city,
+  id: row.id, workspaceId: row.organization_id, createdBy: row.created_by ?? null, name: row.name, company: row.company, phone: row.phone, email: row.email, city: row.city,
   address: row.address, cnpj: row.cnpj, instagram: row.instagram, website: row.website, bookingUrl: row.booking_url, systemName: row.system_name,
   description: row.description, followers: row.followers, source: row.source, sourceDetail: row.source_detail, status: row.status, confidence: row.confidence,
   duplicateLevel: row.duplicate_level, duplicateLeadId: row.duplicate_lead_id, duplicateReasons: row.duplicate_reasons, notes: row.notes,
@@ -163,7 +164,7 @@ export async function readRemoteProspectingState(workspaceId: string): Promise<P
 const syncRemote = async (workspaceId: string, state: ProspectingState) => {
   const client = getSupabaseClient(); if (!client) return
   const prospectRows: Database['public']['Tables']['prospecting_leads']['Insert'][] = state.prospects.map((item) => ({
-    id: item.id, organization_id: workspaceId, name: item.name, company: item.company, phone: item.phone, email: item.email, city: item.city,
+    id: item.id, organization_id: workspaceId, created_by: item.createdBy, name: item.name, company: item.company, phone: item.phone, email: item.email, city: item.city,
     address: item.address, cnpj: item.cnpj, instagram: item.instagram, website: item.website, booking_url: item.bookingUrl, system_name: item.systemName,
     description: item.description, followers: item.followers, source: item.source, source_detail: item.sourceDetail, status: item.status, confidence: item.confidence,
     duplicate_level: item.duplicateLevel, duplicate_lead_id: item.duplicateLeadId, duplicate_reasons: item.duplicateReasons, notes: item.notes,
@@ -276,7 +277,7 @@ function normalizeCaptureDraft(draft: CaptureDraft): CaptureDraft {
     notes: get('notes', 'observacoes', 'observação'),
   }
 }
-export function createProspect(workspaceId: string, draft: CaptureDraft, fallbackSource: ProspectSource = 'manual', leads: Lead[] = []): ProspectRecord {
+export function createProspect(workspaceId: string, draft: CaptureDraft, fallbackSource: ProspectSource = 'manual', leads: Lead[] = [], createdBy: string | null = null): ProspectRecord {
   draft = normalizeCaptureDraft(draft)
   const now = new Date().toISOString()
   const sourceText = text(draft.source).toLocaleLowerCase('pt-BR')
@@ -286,7 +287,7 @@ export function createProspect(workspaceId: string, draft: CaptureDraft, fallbac
   const followers = followersRaw == null || followersRaw === '' ? null : Number(String(followersRaw).replace(/\D/g, ''))
   const name = text(draft.name) || text(draft.company) || 'Lead sem nome'
   return {
-    id: recordId(), workspaceId, name, company: text(draft.company) || name,
+    id: recordId(), workspaceId, createdBy, name, company: text(draft.company) || name,
     phone: text(draft.phone), email: text(draft.email), city: text(draft.city), address: text(draft.address),
     cnpj: text(draft.cnpj), instagram: text(draft.instagram), website: text(draft.website), bookingUrl: text(draft.bookingUrl),
     systemName: text(draft.systemName), description: text(draft.description), followers: Number.isFinite(followers) ? followers : null,
@@ -308,6 +309,70 @@ export function refreshProspectAnalysis(prospect: ProspectRecord, leads: Lead[])
     analyzedAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
   }
+}
+
+export interface BrowserCapturePayload {
+  url?: string
+  title?: string
+  selection?: string
+}
+
+const decodeUrlLabel = (value: string) => {
+  try { return decodeURIComponent(value.replace(/\+/g, ' ')).replace(/[-_]+/g, ' ').trim() } catch { return value.replace(/[-_]+/g, ' ').trim() }
+}
+
+export function captureDraftFromBrowserPayload(payload: BrowserCapturePayload): CaptureDraft | null {
+  const url = text(payload.url)
+  const title = text(payload.title).replace(/\s+[|·-]\s+(Google Maps|Instagram|Google).*$/i, '').trim()
+  const selection = text(payload.selection).slice(0, 4000)
+  if (!url && !title && !selection) return null
+
+  let parsed: URL | null = null
+  try { parsed = url ? new URL(url) : null } catch { parsed = null }
+  const host = parsed?.hostname.replace(/^www\./i, '').toLocaleLowerCase('pt-BR') ?? ''
+  const rawPath = parsed?.pathname ?? ''
+  const base: CaptureDraft = { source: 'manual', sourceDetail: 'Captura universal do navegador', browserCaptureUrl: url, browserCaptureTitle: title, browserCaptureSelection: selection }
+
+  if (/google\.[^/]+$/.test(host) && rawPath.includes('/maps')) {
+    const placeMatch = rawPath.match(/\/place\/([^/]+)/i)
+    const mapName = placeMatch ? decodeUrlLabel(placeMatch[1]) : title
+    return { ...base, source: 'maps', name: mapName || title, company: mapName || title, sourceDetail: 'Captura universal · Google Maps' }
+  }
+  if (host === 'instagram.com' || host.endsWith('.instagram.com')) {
+    const username = rawPath.split('/').filter(Boolean)[0] ?? ''
+    const label = title || username.replace(/[._]+/g, ' ')
+    return { ...base, source: 'instagram', name: label, company: label, instagram: url || username, sourceDetail: 'Captura universal · Instagram' }
+  }
+  const cnpjMatch = `${url} ${title} ${selection}`.match(/\b\d{2}\.?\d{3}\.?\d{3}[\/-]?\d{4}-?\d{2}\b/)
+  if (cnpjMatch) return { ...base, source: 'cnpj', name: title, company: title, cnpj: cnpjMatch[0], sourceDetail: 'Captura universal · CNPJ' }
+  if (parsed) {
+    const label = title || host.split('.')[0].replace(/[-_]+/g, ' ')
+    return { ...base, source: 'manual', name: label, company: label, website: url, sourceDetail: `Captura universal · ${host || 'URL'}` }
+  }
+  if (selection.includes('|')) return { ...parseQuickCaptureLines(selection)[0], ...base, sourceDetail: 'Captura universal · texto selecionado' }
+  return { ...base, name: title || selection.split(/\r?\n/)[0]?.slice(0, 120), company: title || selection.split(/\r?\n/)[0]?.slice(0, 120), notes: selection, sourceDetail: 'Captura universal · texto' }
+}
+
+export function parseUniversalCaptureInput(value: string): CaptureDraft[] {
+  const trimmed = value.trim()
+  if (!trimmed) return []
+  if (/^https?:\/\//i.test(trimmed)) {
+    const draft = captureDraftFromBrowserPayload({ url: trimmed })
+    return draft ? [draft] : []
+  }
+  if (trimmed.startsWith('{')) {
+    try {
+      const payload = JSON.parse(trimmed) as BrowserCapturePayload
+      const draft = captureDraftFromBrowserPayload(payload)
+      return draft ? [draft] : []
+    } catch { /* use text parser below */ }
+  }
+  return parseQuickCaptureLines(trimmed)
+}
+
+export function buildBrowserCaptureBookmarklet(crmOrigin: string) {
+  const target = `${crmOrigin.replace(/\/$/, '')}/#/prospecting?action=browser-capture&capture=`
+  return `javascript:(()=>{const p={url:location.href,title:document.title,selection:String(getSelection()||'').trim().slice(0,4000)};open(${JSON.stringify(target)}+encodeURIComponent(JSON.stringify(p)),'_blank')})()`
 }
 
 export function parseQuickCaptureLines(value: string): CaptureDraft[] {
@@ -362,6 +427,16 @@ export function parseProspectJson(raw: string): CaptureDraft[] {
   if (Array.isArray(parsed)) return parsed.filter((item): item is CaptureDraft => Boolean(item && typeof item === 'object'))
   if (parsed && typeof parsed === 'object') {
     const object = parsed as Record<string, unknown>
+    if (object.contract === 'realtalent-data-layer/2.5' && Array.isArray(object.records)) {
+      return object.records.flatMap((record) => {
+        if (!record || typeof record !== 'object') return []
+        const entry = record as Record<string, unknown>
+        const data = entry.data && typeof entry.data === 'object' && !Array.isArray(entry.data) ? entry.data as CaptureDraft : {}
+        const source = typeof entry.source === 'string' ? entry.source : data.source
+        const sourceDetail = typeof entry.sourceDetail === 'string' ? entry.sourceDetail : data.sourceDetail
+        return [{ ...data, source, sourceDetail, dataLayerIdentityKey: entry.identityKey, dataLayerQuality: entry.quality } satisfies CaptureDraft]
+      })
+    }
     const list = object.prospects ?? object.leads ?? object.results ?? object.data
     if (Array.isArray(list)) return list.filter((item): item is CaptureDraft => Boolean(item && typeof item === 'object'))
     return [object as CaptureDraft]

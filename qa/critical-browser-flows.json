@@ -1,0 +1,126 @@
+{
+  "schemaVersion": 1,
+  "flows": [
+    {
+      "id": "dashboard-load",
+      "route": "#/dashboard",
+      "critical": true,
+      "expect": {
+        "sourceMarkers": [
+          "route === 'dashboard'",
+          "<DashboardPage"
+        ]
+      }
+    },
+    {
+      "id": "contacts-open-record",
+      "route": "#/contacts",
+      "critical": true,
+      "expect": {
+        "sourceMarkers": [
+          "route === 'leads'",
+          "<LeadsPage"
+        ]
+      }
+    },
+    {
+      "id": "pipeline-open",
+      "route": "#/pipeline",
+      "critical": true,
+      "expect": {
+        "sourceMarkers": [
+          "route === 'pipeline'",
+          "<PipelinePage"
+        ]
+      }
+    },
+    {
+      "id": "communications-compose",
+      "route": "#/communications",
+      "critical": true,
+      "expect": {
+        "sourceMarkers": [
+          "route === 'communications'",
+          "<CommunicationsPage"
+        ]
+      }
+    },
+    {
+      "id": "connect-call",
+      "route": "#/calls",
+      "critical": true,
+      "expect": {
+        "sourceMarkers": [
+          "route === 'calls'",
+          "<CallsPage"
+        ]
+      }
+    },
+    {
+      "id": "automations-runtime",
+      "route": "#/automations",
+      "critical": true,
+      "expect": {
+        "sourceMarkers": [
+          "route === 'automations'",
+          "<AutomationsPage"
+        ]
+      }
+    },
+    {
+      "id": "settings-permissions",
+      "route": "#/settings",
+      "critical": true,
+      "expect": {
+        "sourceMarkers": [
+          "route === 'settings'",
+          "<SettingsPage"
+        ]
+      }
+    },
+    {
+      "id": "prospecting-automated-search",
+      "route": "#/prospecting",
+      "critical": true,
+      "expect": {
+        "sourceMarkers": [
+          "route === 'prospecting'",
+          "<ProspectingPage"
+        ]
+      }
+    },
+    {
+      "id": "prospecting-linux-agent",
+      "route": "#/prospecting",
+      "critical": true,
+      "expect": {
+        "sourceMarkers": [
+          "route === 'prospecting'",
+          "<ProspectingPage"
+        ]
+      }
+    },
+    {
+      "id": "tasks-open",
+      "route": "#/tasks",
+      "critical": true,
+      "expect": {
+        "sourceMarkers": [
+          "route === 'tasks'",
+          "<TasksPage"
+        ]
+      }
+    },
+    {
+      "id": "teams-open",
+      "route": "#/teams",
+      "critical": true,
+      "expect": {
+        "sourceMarkers": [
+          "route === 'teams'",
+          "<TeamsPage"
+        ]
+      }
+    }
+  ]
+}

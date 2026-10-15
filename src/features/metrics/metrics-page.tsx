@@ -1,13 +1,17 @@
+import { NativeSelectionSelect } from '../../components/selection'
 import {
   Activity, AlertTriangle, ArrowDownRight, ArrowRight, ArrowUpRight, BarChart3, CalendarCheck2, ChartNoAxesCombined,
   CircleDollarSign, Clock3, Contact, Crosshair, Download, Filter, Flag, Funnel, Gauge, Goal, Layers3, LineChart, PhoneCall,
-  PieChart, Printer, RotateCcw, SearchCheck, Target, TrendingDown, TrendingUp, Trophy, UsersRound,
+  PieChart, Printer, SearchCheck, Target, TrendingDown, TrendingUp, Trophy, UsersRound,
 } from 'lucide-react'
-import { useMemo, useState } from 'react'
-import { useApp } from '../../app/app-context'
+import { useMemo, useRef, useState } from 'react'
+import { useAppNavigation, useAppUi, useAppWorkspace } from '../../app/app-context'
 import { StatusPill } from '../../components/ui/status-pill'
 import { Button } from '../../components/ui/button'
+import { WorkspaceAdvancedFilterDrawer, WorkspaceFilterChips, WorkspaceFilterMenu, type WorkspaceFilterField } from '../../components/workspace/workspace-filter-system'
 import { formatCurrency } from '../../domain/formatters'
+import { StageModal } from '../pipeline/stage-modal'
+import { VisualFunnel } from './visual-funnel'
 import {
   calculateActivityIntelligence, calculateCommercialMetrics, calculateForecast, calculateFunnelIntelligence, calculateLossAnalysis,
   calculateOwnerPerformance, calculateSourcePerformance, calculateTrend, compareMetric, createMetricsRange, createPreviousMetricsRange,
@@ -42,15 +46,25 @@ function AlertIcon({ alert }: { alert: MetricsAlert }) {
 }
 
 export function MetricsPage() {
-  const { snapshot, notify } = useApp()
+  const { snapshot } = useAppWorkspace()
+  const { notify } = useAppUi()
+  const { navigate } = useAppNavigation()
   const [days, setDays] = useState(30)
   const [tab, setTab] = useState<MetricsTab>('overview')
   const [ownerId, setOwnerId] = useState('')
   const [source, setSource] = useState('')
+  const [stageId, setStageId] = useState('')
+  const [priority, setPriority] = useState('')
+  const [temperature, setTemperature] = useState('')
+  const [status, setStatus] = useState('')
+  const [filtersOpen, setFiltersOpen] = useState(false)
+  const [selectedFunnelStageId, setSelectedFunnelStageId] = useState<string | null>(null)
+  const [editingStageId, setEditingStageId] = useState<string | null>(null)
+  const visualizationAnchorRef = useRef<HTMLDivElement | null>(null)
 
   const range = useMemo(() => createMetricsRange(days), [days])
   const previousRange = useMemo(() => createPreviousMetricsRange(range), [range])
-  const filters = useMemo(() => ({ ownerId: ownerId || null, source: source || null }), [ownerId, source])
+  const filters = useMemo(() => ({ ownerId: ownerId || null, source: source || null, stageId: stageId || null, priority: priority || null, temperature: temperature || null, status: status || null }), [ownerId, priority, source, stageId, status, temperature])
   const current = useMemo(() => calculateCommercialMetrics(snapshot!, range.start, range.end, filters), [filters, range.end, range.start, snapshot])
   const previous = useMemo(() => calculateCommercialMetrics(snapshot!, previousRange.start, previousRange.end, filters), [filters, previousRange.end, previousRange.start, snapshot])
   const funnel = useMemo(() => calculateFunnelIntelligence(snapshot!, filters), [filters, snapshot])
@@ -59,10 +73,12 @@ export function MetricsPage() {
   const forecast = useMemo(() => calculateForecast(snapshot!, range, filters), [filters, range, snapshot])
   const alerts = useMemo(() => generateMetricsAlerts(snapshot!, range, filters), [filters, range, snapshot])
   const trend = useMemo(() => calculateTrend(snapshot!, range, filters), [filters, range, snapshot])
-  const owners = useMemo(() => calculateOwnerPerformance(snapshot!, range), [range, snapshot])
-  const sources = useMemo(() => calculateSourcePerformance(snapshot!, range, ownerId ? { ownerId } : {}), [ownerId, range, snapshot])
+  const owners = useMemo(() => calculateOwnerPerformance(snapshot!, range, filters), [filters, range, snapshot])
+  const sources = useMemo(() => calculateSourcePerformance(snapshot!, range, filters), [filters, range, snapshot])
   const sourceOptions = useMemo(() => [...new Set((snapshot?.leads ?? []).map((lead) => lead.source || 'Não informada'))].sort(), [snapshot?.leads])
   const ownerOptions = useMemo(() => [...new Map((snapshot?.leads ?? []).filter((lead) => lead.ownerId).map((lead) => [lead.ownerId!, { id: lead.ownerId!, name: lead.ownerName || 'Sem nome' }])).values()], [snapshot?.leads])
+  const stageOptions = useMemo(() => [...(snapshot?.stages ?? [])].sort((a, b) => a.order - b.order), [snapshot?.stages])
+  const funnelLeads = useMemo(() => (snapshot?.leads ?? []).filter((lead) => (!ownerId || lead.ownerId === ownerId) && (!source || (lead.source || 'Não informada') === source) && (!stageId || lead.stageId === stageId) && (!priority || lead.priority === priority) && (!temperature || lead.temperature === temperature) && (!status || lead.status === status)), [ownerId, priority, snapshot?.leads, source, stageId, status, temperature])
   const outcomes = useMemo(() => Object.entries(current.calls.reduce<Record<string, number>>((acc, call) => ({ ...acc, [call.outcome]: (acc[call.outcome] ?? 0) + 1 }), {})).map(([key, count]) => ({ key, label: outcomeNames[key] ?? key, count })).sort((a, b) => b.count - a.count), [current.calls])
   const activeGoals = useMemo(() => (snapshot?.goals ?? []).filter((goal) => new Date(`${goal.periodEnd}T23:59:59`) >= new Date() && (!ownerId || goal.userId === ownerId)), [ownerId, snapshot?.goals])
 
@@ -108,37 +124,77 @@ export function MetricsPage() {
   const maxLoss = Math.max(1, ...losses.map((item) => item.count))
   const maxSource = Math.max(1, ...sources.map((item) => item.totalLeads))
   const maxFunnel = Math.max(1, ...funnel.map((item) => item.reachedCount))
+  const editingStage = snapshot?.stages.find((stage) => stage.id === editingStageId) ?? null
+  const editingStageIndex = editingStage ? (snapshot?.stages.findIndex((stage) => stage.id === editingStage.id) ?? 0) : 0
+  const editingStageLeadCount = editingStage ? snapshot?.leads.filter((lead) => lead.stageId === editingStage.id).length ?? 0 : 0
+
+  const activeFilterCount = [ownerId, source, stageId, priority, temperature, status].filter(Boolean).length + (days !== 30 ? 1 : 0)
+  const universalMetricsFilters: WorkspaceFilterField[] = [
+    { key: 'period', label: 'Período', value: String(days), allValue: '30', allLabel: '30 dias', group: 'Tempo', options: [{ value: '7', label: '7 dias' }, { value: '90', label: '90 dias' }, { value: '180', label: '180 dias' }, { value: '365', label: '12 meses' }] },
+    { key: 'owner', label: 'Responsável', value: ownerId, allValue: '', allLabel: 'Toda a equipe', group: 'Escopo', options: ownerOptions.map((owner) => ({ value: owner.id, label: owner.name })) },
+    { key: 'source', label: 'Origem', value: source, allValue: '', allLabel: 'Todas as origens', group: 'Aquisição', options: sourceOptions.map((item) => ({ value: item, label: item })) },
+    { key: 'stage', label: 'Etapa', value: stageId, allValue: '', allLabel: 'Todas as etapas', group: 'Pipeline', options: stageOptions.map((stage) => ({ value: stage.id, label: stage.name })) },
+    { key: 'priority', label: 'Prioridade', value: priority, allValue: '', allLabel: 'Todas', group: 'Qualificação', options: [{ value: 'urgent', label: 'Urgente' }, { value: 'high', label: 'Alta' }, { value: 'medium', label: 'Média' }, { value: 'low', label: 'Baixa' }] },
+    { key: 'temperature', label: 'Temperatura', value: temperature, allValue: '', allLabel: 'Todas', group: 'Qualificação', options: [{ value: 'hot', label: 'Quente' }, { value: 'warm', label: 'Morno' }, { value: 'cold', label: 'Frio' }] },
+    { key: 'status', label: 'Status', value: status, allValue: '', allLabel: 'Todos', group: 'Negócio', options: [{ value: 'active', label: 'Ativo' }, { value: 'won', label: 'Ganho' }, { value: 'lost', label: 'Perdido' }] },
+  ]
+  const changeMetricsQuickFilter = (key: string, value: string) => {
+    if (key === 'owner') setOwnerId(value)
+    else if (key === 'source') setSource(value)
+    else if (key === 'period') setDays(Number(value))
+    else if (key === 'stage') setStageId(value)
+    else if (key === 'priority') setPriority(value)
+    else if (key === 'temperature') setTemperature(value)
+    else if (key === 'status') setStatus(value)
+  }
+  const clearFilters = () => { setOwnerId(''); setSource(''); setStageId(''); setPriority(''); setTemperature(''); setStatus(''); setDays(30) }
+
+  const showTab = (nextTab: MetricsTab) => {
+    setTab(nextTab)
+    window.requestAnimationFrame(() => {
+      visualizationAnchorRef.current?.scrollIntoView({ behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', block: 'start' })
+    })
+  }
 
   return (
-    <div className="page-stack metrics-page metrics-page--intelligence">
-      <section className="metrics-command-bar">
+    <div className={`page-stack metrics-page metrics-page--intelligence metrics-page-v10167 ${filtersOpen ? 'metrics-page-v10167--filters-open' : ''}`}>
+      <section className="workspace-page-header-v10167 metrics-page-header-v10167">
         <div>
           <span className="eyebrow"><BarChart3 size={14} /> Inteligência comercial</span>
-          <h2>Métricas que orientam a operação</h2>
+          <h2>Métricas</h2>
           <p>Compare períodos, encontre gargalos e transforme os dados do CRM em prioridades comerciais.</p>
         </div>
-        <div className="metrics-command-bar__filters">
-          <label><span><UsersRound size={13} /> Responsável</span><select value={ownerId} onChange={(event) => setOwnerId(event.target.value)}><option value="">Toda a equipe</option>{ownerOptions.map((owner) => <option key={owner.id} value={owner.id}>{owner.name}</option>)}</select></label>
-          <label><span><Filter size={13} /> Origem</span><select value={source} onChange={(event) => setSource(event.target.value)}><option value="">Todas as origens</option>{sourceOptions.map((item) => <option key={item} value={item}>{item}</option>)}</select></label>
-          <label><span><CalendarCheck2 size={13} /> Período</span><select value={days} onChange={(event) => setDays(Number(event.target.value))}><option value="7">7 dias</option><option value="30">30 dias</option><option value="90">90 dias</option><option value="180">180 dias</option><option value="365">12 meses</option></select></label>
-          <div className="metrics-report-actions"><Button size="sm" variant="secondary" onClick={() => { setOwnerId(''); setSource(''); setDays(30) }}><RotateCcw size={15} /> Limpar</Button><Button size="sm" variant="secondary" onClick={() => window.print()}><Printer size={15} /> PDF</Button><Button size="sm" onClick={downloadReport}><Download size={15} /> Exportar relatório</Button></div>
-        </div>
+        <div className="workspace-page-header-v10167__actions"><Button size="sm" variant="secondary" onClick={() => window.print()}><Printer size={15} /> PDF</Button><Button size="sm" onClick={downloadReport}><Download size={15} /> Exportar</Button></div>
       </section>
 
-      <nav className="metrics-view-tabs" aria-label="Áreas de métricas">
-        <button className={tab === 'overview' ? 'is-active' : ''} onClick={() => setTab('overview')}><Gauge /> Visão executiva</button>
-        <button className={tab === 'funnel' ? 'is-active' : ''} onClick={() => setTab('funnel')}><Funnel /> Funil</button>
-        <button className={tab === 'losses' ? 'is-active' : ''} onClick={() => setTab('losses')}><TrendingDown /> Perdas</button>
-        <button className={tab === 'activities' ? 'is-active' : ''} onClick={() => setTab('activities')}><Activity /> Atividades</button>
-        <button className={tab === 'forecast' ? 'is-active' : ''} onClick={() => setTab('forecast')}><LineChart /> Previsão</button>
-      </nav>
+      <div ref={visualizationAnchorRef}>
+        <nav className="metrics-section-nav-v10171" aria-label="Áreas analíticas de Métricas">
+          <button type="button" className={tab === 'overview' ? 'is-active' : ''} onClick={() => showTab('overview')}><Gauge size={15}/> Visão executiva</button>
+          <button type="button" className={tab === 'funnel' ? 'is-active' : ''} onClick={() => showTab('funnel')}><Funnel size={15}/> Funil</button>
+          <button type="button" className={tab === 'losses' ? 'is-active' : ''} onClick={() => showTab('losses')}><TrendingDown size={15}/> Perdas</button>
+          <button type="button" className={tab === 'activities' ? 'is-active' : ''} onClick={() => showTab('activities')}><Activity size={15}/> Atividades</button>
+          <button type="button" className={tab === 'forecast' ? 'is-active' : ''} onClick={() => showTab('forecast')}><LineChart size={15}/> Previsão</button>
+        </nav>
+      </div>
+
+      <section className="workspace-data-toolbar-v10167 metrics-toolbar-v10167 metrics-toolbar-v10171 workspace-command-bar-v10169">
+        <div className="metrics-current-scope-v10167"><CalendarCheck2 size={16}/><span><strong>{range.label}</strong><small>{ownerOptions.find((owner) => owner.id === ownerId)?.name ?? 'Toda a equipe'} · {source || 'Todas as origens'}{stageId ? ` · ${stageOptions.find((stage) => stage.id === stageId)?.name ?? 'Etapa'}` : ''}</small></span></div>
+        <div className="workspace-toolbar-actions-v10167"><WorkspaceFilterMenu workspaceKey={`metrics:${snapshot?.workspace.id ?? 'local'}`} fields={universalMetricsFilters} activeCount={activeFilterCount} onOpenAdvanced={() => setFiltersOpen(true)} onClearAll={clearFilters} onChange={changeMetricsQuickFilter} /></div>
+      </section>
+
+      <WorkspaceFilterChips fields={universalMetricsFilters} onChange={changeMetricsQuickFilter} onClearAll={clearFilters} />
+      {filtersOpen ? <WorkspaceAdvancedFilterDrawer title="Filtros do relatório" eyebrow="Métricas" description="O mesmo Filter Engine controla indicadores, gráficos, funil e exportações." onClose={() => setFiltersOpen(false)} onClear={clearFilters}>
+        <div className="metrics-advanced-filter-grid-v10171">
+          {universalMetricsFilters.map((field) => <label className="field" key={field.key}><span>{field.label}</span><NativeSelectionSelect value={field.value} onChange={(event) => changeMetricsQuickFilter(field.key, event.target.value)}><option value={field.allValue ?? 'all'}>{field.allLabel ?? 'Qualquer'}</option>{field.options.map((option) => <option key={`${field.key}-${option.value}`} value={option.value}>{option.label}</option>)}</NativeSelectionSelect></label>)}
+        </div>
+      </WorkspaceAdvancedFilterDrawer> : null}
 
       {tab === 'overview' ? <>
         <section className="metric-grid metrics-executive-grid">
-          <article className="metric-card metric-card--priority"><span className="metric-card__icon"><UsersRound /></span><div><small>Novos leads</small><strong>{current.leads.length}</strong><ComparisonBadge comparison={comparisons.leads} /></div></article>
+          <article className="metric-card metric-card--priority"><span className="metric-card__icon"><UsersRound /></span><div><small>Novos contatos</small><strong>{current.leads.length}</strong><ComparisonBadge comparison={comparisons.leads} /></div></article>
           <article className="metric-card"><span className="metric-card__icon metric-card__icon--green"><CircleDollarSign /></span><div><small>Receita fechada</small><strong>{formatCurrency(current.revenue)}</strong><ComparisonBadge comparison={comparisons.revenue} /></div></article>
           <article className="metric-card"><span className="metric-card__icon metric-card__icon--orange"><Contact /></span><div><small>Taxa de contato</small><strong>{percent(current.contactRate)}</strong><ComparisonBadge comparison={comparisons.contactRate} /></div></article>
-          <article className="metric-card"><span className="metric-card__icon metric-card__icon--purple"><Target /></span><div><small>Conversão de leads</small><strong>{percent(current.conversion)}</strong><ComparisonBadge comparison={comparisons.conversion} /></div></article>
+          <article className="metric-card"><span className="metric-card__icon metric-card__icon--purple"><Target /></span><div><small>Conversão comercial</small><strong>{percent(current.conversion)}</strong><ComparisonBadge comparison={comparisons.conversion} /></div></article>
         </section>
 
         <section className="metrics-kpi-strip">
@@ -151,8 +207,8 @@ export function MetricsPage() {
         <section className="metrics-overview-grid">
           <article className="panel metrics-trend-panel">
             <div className="panel__heading"><div><span className="eyebrow">Evolução do período</span><h3>Geração e avanço comercial</h3></div><ChartNoAxesCombined size={21} /></div>
-            <div className="metrics-legend"><span><i className="is-leads" /> Leads</span><span><i className="is-contacts" /> Contatos</span><span><i className="is-wins" /> Vendas</span></div>
-            <div className="metrics-column-chart">{trend.map((item) => <div className="metrics-column-chart__group" key={item.label}><div><i className="is-leads" style={{ height: `${Math.max(3, item.leads / maxTrend * 100)}%` }} title={`${item.leads} leads`} /><i className="is-contacts" style={{ height: `${Math.max(3, item.contacts / maxTrend * 100)}%` }} title={`${item.contacts} contatos`} /><i className="is-wins" style={{ height: `${Math.max(3, item.wins / maxTrend * 100)}%` }} title={`${item.wins} vendas`} /></div><span>{item.label}</span></div>)}</div>
+            <div className="metrics-legend"><span><i className="is-leads" /> Contatos novos</span><span><i className="is-contacts" /> Contatos</span><span><i className="is-wins" /> Vendas</span></div>
+            <div className="metrics-column-chart">{trend.map((item) => <div className="metrics-column-chart__group" key={item.label}><div><i className="is-leads" style={{ height: `${Math.max(3, item.leads / maxTrend * 100)}%` }} title={`${item.leads} contatos`} /><i className="is-contacts" style={{ height: `${Math.max(3, item.contacts / maxTrend * 100)}%` }} title={`${item.contacts} contatos`} /><i className="is-wins" style={{ height: `${Math.max(3, item.wins / maxTrend * 100)}%` }} title={`${item.wins} vendas`} /></div><span>{item.label}</span></div>)}</div>
           </article>
 
           <article className="panel metrics-alert-panel">
@@ -164,7 +220,7 @@ export function MetricsPage() {
         <section className="metrics-overview-grid">
           <article className="panel">
             <div className="panel__heading"><div><span className="eyebrow">Origem dos melhores leads</span><h3>Qualidade por canal</h3></div><PieChart size={21} /></div>
-            {sources.length ? <div className="metrics-source-table">{sources.slice(0, 6).map((item) => <div key={item.source}><div><strong>{item.source}</strong><small>{item.totalLeads} leads · {item.wins} venda(s)</small></div><div className="metrics-source-table__bar"><i style={{ width: `${Math.max(3, item.totalLeads / maxSource * 100)}%` }} /></div><span>{percent(item.conversion)}</span><b>{formatCurrency(item.revenue)}</b></div>)}</div> : <p className="empty-copy">Nenhuma origem encontrada.</p>}
+            {sources.length ? <div className="metrics-source-table">{sources.slice(0, 6).map((item) => <div key={item.source}><div><strong>{item.source}</strong><small>{item.totalLeads} contatos · {item.wins} venda(s)</small></div><div className="metrics-source-table__bar"><i style={{ width: `${Math.max(3, item.totalLeads / maxSource * 100)}%` }} /></div><span>{percent(item.conversion)}</span><b>{formatCurrency(item.revenue)}</b></div>)}</div> : <p className="empty-copy">Nenhuma origem encontrada.</p>}
           </article>
 
           <article className="panel">
@@ -175,13 +231,31 @@ export function MetricsPage() {
       </> : null}
 
       {tab === 'funnel' ? <>
-        <section className="metrics-summary-banner"><div><span><Funnel /></span><div><small>Pipeline ativo</small><strong>{formatCurrency(current.activePipeline)}</strong></div></div><div><small>Previsão ponderada</small><strong>{formatCurrency(current.weightedPipeline)}</strong></div><div><small>Leads parados</small><strong>{funnel.reduce((sum, item) => sum + item.stalled, 0)}</strong></div><div><small>Tempo médio ativo</small><strong>{funnel.length ? `${averageNumber(funnel.map((item) => item.avgDays)).toFixed(1)} dias` : '0 dias'}</strong></div></section>
-        <section className="panel metrics-funnel-professional">
-          <div className="panel__heading"><div><span className="eyebrow">Funil comercial</span><h3>Volume, conversão e velocidade por etapa</h3></div><Funnel size={21} /></div>
+        <VisualFunnel
+          items={funnel}
+          leads={funnelLeads}
+          selectedStageId={selectedFunnelStageId}
+          onSelectStage={setSelectedFunnelStageId}
+          onEditStage={(stage) => setEditingStageId(stage.id)}
+          onOpenLead={(leadId) => navigate('pipeline', { leadId, action: 'deal-inspector' })}
+          onOpenPipeline={() => navigate('pipeline')}
+        />
+        <section className="metrics-funnel-kpi-row-v10171" aria-label="Resumo do funil"><article><small>Pipeline ativo</small><strong>{formatCurrency(current.activePipeline)}</strong></article><article><small>Previsão ponderada</small><strong>{formatCurrency(current.weightedPipeline)}</strong></article><article><small>Oportunidades paradas</small><strong>{funnel.reduce((sum, item) => sum + item.stalled, 0)}</strong></article><article><small>Ciclo médio ativo</small><strong>{funnel.length ? `${averageNumber(funnel.map((item) => item.avgDays)).toFixed(1)} dias` : '0 dias'}</strong></article></section>
+        <section className="panel metrics-funnel-professional metrics-funnel-professional--secondary">
+          <div className="panel__heading"><div><span className="eyebrow">Leitura detalhada</span><h3>Volume, conversão e velocidade por etapa</h3></div><Funnel size={21} /></div>
           <div className="metrics-funnel-head"><span>Etapa</span><span>Volume alcançado</span><span>Conversão</span><span>Tempo médio</span><span>Em risco</span></div>
-          <div className="metrics-funnel-list">{funnel.map((item) => <article key={item.stage.id}><div><i style={{ background: item.stage.color }} /><span><strong>{item.stage.name}</strong><small>{item.count} atual · {formatCurrency(item.value)}</small></span></div><div className="metrics-funnel-volume"><span><i style={{ width: `${Math.max(4, item.reachedCount / maxFunnel * 100)}%`, background: item.stage.color }} /></span><b>{item.reachedCount}</b></div><strong>{percent(item.conversionFromPrevious)}</strong><strong>{item.avgDays.toFixed(1)} dias</strong><StatusPill tone={item.stalled ? 'warning' : 'success'}>{item.stalled ? `${item.stalled} parado(s)` : 'Saudável'}</StatusPill></article>)}</div>
+          <div className="metrics-funnel-list">{funnel.map((item) => <button type="button" className={selectedFunnelStageId === item.stage.id ? 'is-selected' : ''} key={item.stage.id} aria-pressed={selectedFunnelStageId === item.stage.id} onClick={() => setSelectedFunnelStageId(item.stage.id)}><div><i style={{ background: item.stage.color }} /><span><strong>{item.stage.name}</strong><small>{item.count} atual · {formatCurrency(item.value)}</small></span></div><div className="metrics-funnel-volume"><span><i style={{ width: `${Math.max(4, item.reachedCount / maxFunnel * 100)}%`, background: item.stage.color }} /></span><b>{item.reachedCount}</b></div><strong>{percent(item.conversionFromPrevious)}</strong><strong>{item.avgDays.toFixed(1)} dias</strong><StatusPill tone={item.stalled ? 'warning' : 'success'}>{item.stalled ? `${item.stalled} parado(s)` : 'Saudável'}</StatusPill></button>)}</div>
         </section>
-        <section className="metrics-overview-grid"><article className="panel"><div className="panel__heading"><div><span className="eyebrow">Gargalos</span><h3>Etapas que acumulam oportunidades</h3></div><Clock3 /></div><div className="metrics-risk-list">{[...funnel].sort((a, b) => b.avgDays - a.avgDays).slice(0, 5).map((item) => <div key={item.stage.id}><span style={{ background: item.stage.color }} /><div><strong>{item.stage.name}</strong><small>{item.count} lead(s) na etapa</small></div><b>{item.avgDays.toFixed(1)} dias</b></div>)}</div></article><article className="panel metrics-diagnosis"><div className="panel__heading"><div><span className="eyebrow">Leitura do funil</span><h3>Interpretação operacional</h3></div><Crosshair /></div><ul><li><strong>Maior concentração:</strong> {[...funnel].sort((a, b) => b.count - a.count)[0]?.stage.name ?? 'Sem dados'}.</li><li><strong>Maior tempo parado:</strong> {[...funnel].sort((a, b) => b.avgDays - a.avgDays)[0]?.stage.name ?? 'Sem dados'}.</li><li><strong>Conversão final:</strong> {percent(current.winRate)} entre negócios encerrados.</li><li><strong>Receita ponderada:</strong> {formatCurrency(current.weightedPipeline)} considerando a probabilidade de cada etapa.</li></ul></article></section>
+        <section className="metrics-overview-grid"><article className="panel"><div className="panel__heading"><div><span className="eyebrow">Gargalos</span><h3>Etapas que acumulam oportunidades</h3></div><Clock3 /></div><div className="metrics-risk-list">{[...funnel].sort((a, b) => b.avgDays - a.avgDays).slice(0, 5).map((item) => <div key={item.stage.id}><span style={{ background: item.stage.color }} /><div><strong>{item.stage.name}</strong><small>{item.count} oportunidade(s) na etapa</small></div><b>{item.avgDays.toFixed(1)} dias</b></div>)}</div></article><article className="panel metrics-diagnosis"><div className="panel__heading"><div><span className="eyebrow">Leitura do funil</span><h3>Interpretação operacional</h3></div><Crosshair /></div><ul><li><strong>Maior concentração:</strong> {[...funnel].sort((a, b) => b.count - a.count)[0]?.stage.name ?? 'Sem dados'}.</li><li><strong>Maior tempo parado:</strong> {[...funnel].sort((a, b) => b.avgDays - a.avgDays)[0]?.stage.name ?? 'Sem dados'}.</li><li><strong>Conversão final:</strong> {percent(current.winRate)} entre negócios encerrados.</li><li><strong>Receita ponderada:</strong> {formatCurrency(current.weightedPipeline)} considerando a probabilidade de cada etapa.</li></ul></article></section>
+        <StageModal
+          open={Boolean(editingStage)}
+          stage={editingStage}
+          leadCount={editingStageLeadCount}
+          workspaceId={snapshot?.workspace.id ?? ''}
+          stageIndex={editingStageIndex}
+          stageTotal={snapshot?.stages.length ?? 0}
+          onClose={() => setEditingStageId(null)}
+        />
       </> : null}
 
       {tab === 'losses' ? <>

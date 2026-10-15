@@ -11,6 +11,7 @@ interface AuthContextValue {
   mode: 'local' | 'supabase'
   recoveryMode: boolean
   signIn(email: string, password: string): Promise<void>
+  enterLocal(): Promise<void>
   signUp(email: string, password: string, displayName: string): Promise<{ confirmationRequired: boolean }>
   signOut(): Promise<void>
   requestPasswordReset(email: string): Promise<void>
@@ -22,6 +23,19 @@ interface AuthContextValue {
 
 const AuthContext = createContext<AuthContextValue | null>(null)
 
+const SESSION_BOOT_TIMEOUT_MS = 6000
+const LOCAL_SESSION_KEY = 'realtalent-crm-local-ui-session-v1'
+
+const hasLocalUiSession = () => {
+  try { return window.sessionStorage.getItem(LOCAL_SESSION_KEY) === 'active' } catch { return false }
+}
+const setLocalUiSession = (active: boolean) => {
+  try {
+    if (active) window.sessionStorage.setItem(LOCAL_SESSION_KEY, 'active')
+    else window.sessionStorage.removeItem(LOCAL_SESSION_KEY)
+  } catch { /* Session storage can be unavailable in hardened/private contexts. */ }
+}
+
 const mapUser = (sessionUser: { id: string; email?: string; user_metadata: Record<string, unknown> } | null | undefined): UserProfile | null => sessionUser ? ({
   id: sessionUser.id,
   email: sessionUser.email ?? '',
@@ -31,7 +45,7 @@ const mapUser = (sessionUser: { id: string; email?: string; user_metadata: Recor
 
 export function AuthProvider({ children }: PropsWithChildren) {
   const [user, setUser] = useState<UserProfile | null>(() => {
-    if (effectiveDataMode !== 'local') return null
+    if (effectiveDataMode !== 'local' || !hasLocalUiSession()) return null
     const profile = readLocalProfile()
     return { ...DEMO_USER, id: 'local-user', email: profile.email, displayName: profile.displayName }
   })
@@ -42,7 +56,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
     if (effectiveDataMode !== 'local') return
     const syncProfile = () => {
       const profile = readLocalProfile()
-      setUser({ ...DEMO_USER, id: 'local-user', email: profile.email, displayName: profile.displayName })
+      setUser((current) => current ? { ...DEMO_USER, id: 'local-user', email: profile.email, displayName: profile.displayName } : null)
     }
     window.addEventListener('crm:local-profile-changed', syncProfile)
     return () => window.removeEventListener('crm:local-profile-changed', syncProfile)
@@ -51,13 +65,48 @@ export function AuthProvider({ children }: PropsWithChildren) {
   useEffect(() => {
     if (effectiveDataMode === 'local') return
     const client = getSupabaseClient()
-    if (!client) { setLoading(false); return }
-    void client.auth.getSession().then(({ data }) => { setUser(mapUser(data.session?.user)); setLoading(false) })
+    if (!client) { setUser(null); setLoading(false); return }
+
+    let active = true
+    let settled = false
+    const finishInitialSessionCheck = (nextUser: UserProfile | null) => {
+      if (!active || settled) return
+      settled = true
+      setUser(nextUser)
+      setLoading(false)
+    }
+
+    const timeout = window.setTimeout(() => {
+      if (!active || settled) return
+      console.warn(`[RealTalent auth] sessão inicial excedeu ${SESSION_BOOT_TIMEOUT_MS}ms; exibindo login como fallback seguro.`)
+      finishInitialSessionCheck(null)
+    }, SESSION_BOOT_TIMEOUT_MS)
+
+    void client.auth.getSession()
+      .then(({ data, error }) => {
+        if (error) throw error
+        finishInitialSessionCheck(mapUser(data.session?.user))
+      })
+      .catch((error) => {
+        console.warn('[RealTalent auth] não foi possível restaurar a sessão inicial; exibindo login.', error)
+        finishInitialSessionCheck(null)
+      })
+      .finally(() => window.clearTimeout(timeout))
+
     const { data: listener } = client.auth.onAuthStateChange((event, session) => {
+      if (!active) return
       if (event === 'PASSWORD_RECOVERY') setRecoveryMode(true)
-      setUser(mapUser(session?.user)); setLoading(false)
+      setUser(mapUser(session?.user))
+      setLoading(false)
+      settled = true
+      window.clearTimeout(timeout)
     })
-    return () => listener.subscription.unsubscribe()
+
+    return () => {
+      active = false
+      window.clearTimeout(timeout)
+      listener.subscription.unsubscribe()
+    }
   }, [])
 
   const value = useMemo<AuthContextValue>(() => ({
@@ -65,25 +114,38 @@ export function AuthProvider({ children }: PropsWithChildren) {
     async signIn(email, password) {
       if (effectiveDataMode === 'local') {
         const profile = { email: email.trim().toLowerCase(), displayName: email.split('@')[0] || 'Usuário local' }
-        writeLocalProfile(profile); setUser({ ...DEMO_USER, id: 'local-user', ...profile }); return
+        writeLocalProfile(profile); setLocalUiSession(true); setUser({ ...DEMO_USER, id: 'local-user', ...profile }); return
       }
       const client = getSupabaseClient(); if (!client) throw new Error('Supabase não configurado.')
       const { error } = await client.auth.signInWithPassword({ email: email.trim().toLowerCase(), password }); if (error) throw error
+    },
+    async enterLocal() {
+      if (effectiveDataMode !== 'local') return
+      const profile = readLocalProfile()
+      setLocalUiSession(true)
+      setUser({ ...DEMO_USER, id: 'local-user', email: profile.email, displayName: profile.displayName })
     },
     async signUp(email, password, displayName) {
       if (password.length < 8) throw new Error('Use uma senha com pelo menos 8 caracteres.')
       if (effectiveDataMode === 'local') {
         const profile = { email: email.trim().toLowerCase(), displayName: displayName.trim() || email.split('@')[0] || 'Usuário local' }
-        writeLocalProfile(profile); setUser({ ...DEMO_USER, id: 'local-user', ...profile }); return { confirmationRequired: false }
+        writeLocalProfile(profile); setLocalUiSession(true); setUser({ ...DEMO_USER, id: 'local-user', ...profile }); return { confirmationRequired: false }
       }
       const client = getSupabaseClient(); if (!client) throw new Error('Supabase não configurado.')
       const { data, error } = await client.auth.signUp({ email: email.trim().toLowerCase(), password, options: { data: { full_name: displayName.trim() }, emailRedirectTo: window.location.origin } }); if (error) throw error
       return { confirmationRequired: !data.session }
     },
     async signOut() {
-      if (effectiveDataMode === 'local') return
+      if (effectiveDataMode === 'local') {
+        setLocalUiSession(false)
+        setRecoveryMode(false)
+        setUser(null)
+        return
+      }
       const client = getSupabaseClient(); if (!client) return
       const { error } = await client.auth.signOut(); if (error) throw error
+      setRecoveryMode(false)
+      setUser(null)
     },
     async requestPasswordReset(email) {
       if (effectiveDataMode === 'local') return

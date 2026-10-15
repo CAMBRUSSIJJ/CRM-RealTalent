@@ -1,0 +1,51 @@
+{
+  "schema": "realtalent-cr10-staging-bootstrap/v1",
+  "generatedAt": "2026-10-13T19:46:01.615Z",
+  "decision": "STAGING BLOCKED",
+  "workspaceId": null,
+  "pass": 1,
+  "total": 6,
+  "blocked": [
+    "preflight",
+    "migrations",
+    "accounts",
+    "cr2-auth-rls",
+    "cr3-e2e"
+  ],
+  "checks": [
+    {
+      "id": "static-audit",
+      "ok": true
+    },
+    {
+      "id": "preflight",
+      "ok": false
+    },
+    {
+      "id": "migrations",
+      "ok": false
+    },
+    {
+      "id": "accounts",
+      "ok": false
+    },
+    {
+      "id": "cr2-auth-rls",
+      "ok": false
+    },
+    {
+      "id": "cr3-e2e",
+      "ok": false
+    }
+  ],
+  "evidenceFiles": [
+    "cr10-qa.log",
+    "cr10-preflight.log",
+    "cr10-migrations.log",
+    "cr10-accounts.log",
+    "cr10-cr2-auth-rls.log",
+    "cr10-cr3-e2e.log",
+    "CR10_STAGING_CONTEXT.json"
+  ],
+  "security": "Known secret environment values are redacted and passwords/service_role are not persisted intentionally."
+}

@@ -1,4 +1,4 @@
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.57.4'
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL') ?? ''
 const readSupabaseSecretKey = () => {
@@ -135,6 +135,7 @@ const createContactDraft = async (organizationId: unknown, lead: Row, sourceId: 
 }
 
 const processPostCapture = async (queueEvent: Row, lead: Row) => {
+  if (lead.do_not_contact === true) return 0
   const payload = queueEvent.payload && typeof queueEvent.payload === 'object' && !Array.isArray(queueEvent.payload) ? queueEvent.payload as Row : {}
   const postCapture = payload.postCapture && typeof payload.postCapture === 'object' && !Array.isArray(payload.postCapture) ? payload.postCapture as Row : {}
   if (queueEvent.trigger_type !== 'lead_imported' || postCapture.enabled !== true) return 0
@@ -181,7 +182,23 @@ const rollback = async (mutations: Mutation[]) => {
   return errors
 }
 
+const workflowRuntimeRequired = (actions: Row[]) => actions.some((action) => ['wait', 'branch_if'].includes(String(action.type ?? '')))
+
+const enqueueWorkflowFromWorker = async (input: {
+  rule: Row; lead: Row; triggerType: string; entityId: string; idempotencyKey: string; correlationId: string; input?: Row; context?: Row;
+}) => {
+  const payload = {
+    organization_id: input.rule.organization_id, rule_id: input.rule.id, lead_id: input.lead.id, trigger_type: input.triggerType,
+    entity_id: input.entityId, idempotency_key: input.idempotencyKey.slice(0, 500), correlation_id: input.correlationId.slice(0, 500),
+    status: 'queued', current_step: 0, attempts: 0, max_attempts: 5, next_run_at: new Date().toISOString(),
+    input: input.input ?? {}, context: input.context ?? {}, updated_at: new Date().toISOString(),
+  }
+  const { error } = await supabase.from('workflow_executions').upsert(payload, { onConflict: 'organization_id,idempotency_key', ignoreDuplicates: true })
+  if (error) throw error
+}
+
 const processQueuedRule = async (rule: Row, lead: Row, queueEvent: Row) => {
+  if (lead.do_not_contact === true) return 'skipped'
   const conditions = Array.isArray(rule.conditions) ? rule.conditions as Row[] : []
   const actions = Array.isArray(rule.actions) ? rule.actions as Row[] : []
   const context = { ...(queueEvent.payload as Row ?? {}), integrationSource: 'extension' }
@@ -208,6 +225,16 @@ const processQueuedRule = async (rule: Row, lead: Row, queueEvent: Row) => {
   if (guard.mode === 'simulation') {
     await supabase.from('automation_runs').update({ status: 'success', output: { simulated: true, actionPreview: actions.slice(0, guard.maxActionsPerRun).map((action) => action.type), matchedLeadIds: [lead.id] }, finished_at: new Date().toISOString() }).eq('id', run.id)
     return 'simulated'
+  }
+  if (workflowRuntimeRequired(actions)) {
+    const durableKey = `${String(rule.id)}:${String(queueEvent.trigger_type)}:${String(queueEvent.entity_id)}`
+    const correlationId = String((context as Row).correlationId ?? `wf:${String(queueEvent.id)}:${String(rule.id)}`)
+    await enqueueWorkflowFromWorker({
+      rule, lead, triggerType: String(queueEvent.trigger_type), entityId: String(queueEvent.entity_id), idempotencyKey: durableKey, correlationId,
+      input: { triggerType: queueEvent.trigger_type, queueEventId: queueEvent.id, leadId: lead.id }, context,
+    })
+    await supabase.from('automation_runs').update({ status: 'success', output: { message: 'Workflow persistente enfileirado no Runtime 3.0.', matchedLeadIds: [lead.id], workflowQueued: true, correlationId }, finished_at: new Date().toISOString() }).eq('id', run.id)
+    return 'executed'
   }
 
   const mutations: Mutation[] = []; const warnings: string[] = []; const messages: string[] = []
@@ -288,10 +315,161 @@ const processQueuedRule = async (rule: Row, lead: Row, queueEvent: Row) => {
   }
 }
 
+
+const runtimeGuardCondition = (guard: Guard) => ({
+  id: 'workflow-runtime-guard', field: 'automation_guard', operator: 'equals',
+  value: JSON.stringify({ ...guard, mode: 'live', cooldownHours: 0, maxRunsPerLeadPerDay: 999, maxActionsPerRun: 1 }),
+})
+
+const runtimeWaitMs = (action: Row) => {
+  const days = Math.max(0, Number(action.delayDays ?? 0))
+  const hours = Math.max(0, Number(action.delayHours ?? 0))
+  const minutes = Math.max(0, Number(action.delayMinutes ?? 0))
+  return Math.max(60_000, Math.round((days * 1440 + hours * 60 + minutes) * 60_000))
+}
+
+const upsertRuntimeStep = async (execution: Row, input: {
+  stepIndex: number; stepType: 'action' | 'wait' | 'branch'; actionType?: string | null; status: string;
+  attempt?: number; branchResult?: boolean | null; scheduledFor?: string | null; input?: Row; output?: Row;
+  errorMessage?: string | null; startedAt?: string | null; finishedAt?: string | null;
+}) => {
+  const payload = {
+    organization_id: execution.organization_id, execution_id: execution.id, step_index: input.stepIndex,
+    step_type: input.stepType, action_type: input.actionType ?? null, status: input.status,
+    attempt: input.attempt ?? 0, branch_result: input.branchResult ?? null, scheduled_for: input.scheduledFor ?? null,
+    input: input.input ?? {}, output: input.output ?? {}, error_message: input.errorMessage ?? null,
+    started_at: input.startedAt ?? null, finished_at: input.finishedAt ?? null, updated_at: new Date().toISOString(),
+  }
+  const { error } = await supabase.from('workflow_step_runs').upsert(payload, { onConflict: 'execution_id,step_index' })
+  if (error) throw error
+}
+
+const processWorkflowRuntime = async (now: Date) => {
+  let resumed = 0; let waiting = 0; let succeeded = 0; let failed = 0; let simulated = 0
+  const staleLock = new Date(now.getTime() - 10 * 60_000).toISOString()
+  await supabase.from('workflow_executions').update({ status: 'retrying', locked_at: null, next_run_at: now.toISOString(), last_error: 'Lock expirado; execução devolvida ao runtime.', updated_at: now.toISOString() }).eq('status', 'running').lt('locked_at', staleLock)
+  const { data: due, error: dueError } = await supabase.from('workflow_executions').select('*').in('status', ['queued','waiting','retrying']).lte('next_run_at', now.toISOString()).order('next_run_at', { ascending: true }).order('created_at', { ascending: true }).limit(30)
+  if (dueError) throw dueError
+  for (const execution of due ?? []) {
+    const lockAt = new Date().toISOString()
+    const previousStatus = String(execution.status ?? '')
+    const { data: claimed, error: claimError } = await supabase.from('workflow_executions').update({ status: 'running', locked_at: lockAt, started_at: execution.started_at ?? lockAt, updated_at: lockAt }).eq('id', execution.id).in('status', ['queued','waiting','retrying']).select('*').maybeSingle()
+    if (claimError || !claimed) continue
+    resumed += 1
+    let activeStep = Number(claimed.current_step ?? 0)
+    try {
+      if (previousStatus === 'waiting' && activeStep > 0) {
+        await supabase.from('workflow_step_runs').update({ status: 'succeeded', finished_at: new Date().toISOString(), updated_at: new Date().toISOString() }).eq('execution_id', claimed.id).eq('step_index', activeStep - 1).eq('step_type', 'wait')
+      }
+      const [{ data: rule, error: ruleError }, { data: lead, error: leadError }] = await Promise.all([
+        claimed.rule_id ? supabase.from('automation_rules').select('*').eq('organization_id', claimed.organization_id).eq('id', claimed.rule_id).maybeSingle() : Promise.resolve({ data: null, error: null }),
+        claimed.lead_id ? supabase.from('leads').select('*').eq('organization_id', claimed.organization_id).eq('id', claimed.lead_id).maybeSingle() : Promise.resolve({ data: null, error: null }),
+      ])
+      if (ruleError) throw ruleError
+      if (leadError) throw leadError
+      if (!rule) throw new Error('Regra do workflow não foi encontrada.')
+      if (!rule.enabled) throw new Error('A regra foi pausada durante a execução.')
+      if (!lead) throw new Error('Lead relacionado ao workflow não foi encontrado.')
+      if (lead.do_not_contact === true) {
+        await supabase.from('workflow_executions').update({ status: 'succeeded', locked_at: null, finished_at: new Date().toISOString(), context: { ...(claimed.context as Row ?? {}), skippedReason: 'do_not_contact' }, updated_at: new Date().toISOString() }).eq('id', claimed.id)
+        succeeded += 1
+        continue
+      }
+      const conditions = Array.isArray(rule.conditions) ? rule.conditions as Row[] : []
+      const actions = Array.isArray(rule.actions) ? rule.actions as Row[] : []
+      const context = claimed.context && typeof claimed.context === 'object' && !Array.isArray(claimed.context) ? claimed.context as Row : {}
+      const visibleConditions = conditions.filter((condition) => condition.field !== 'automation_guard')
+      if (!visibleConditions.every((condition) => conditionMatches(condition, lead as Row, context))) {
+        await supabase.from('workflow_executions').update({ status: 'succeeded', locked_at: null, finished_at: new Date().toISOString(), context: { ...context, skippedReason: 'conditions_changed' }, updated_at: new Date().toISOString() }).eq('id', claimed.id)
+        succeeded += 1
+        continue
+      }
+      const guard = readGuard(conditions)
+      const runnableActions = actions.slice(0, guard.maxActionsPerRun)
+      if (guard.mode === 'simulation') {
+        for (let index = activeStep; index < runnableActions.length; index += 1) {
+          const action = runnableActions[index]
+          const type = String(action.type ?? '')
+          await upsertRuntimeStep(claimed as Row, { stepIndex: index, stepType: type === 'wait' ? 'wait' : type === 'branch_if' ? 'branch' : 'action', actionType: type, status: 'skipped', input: action, output: { simulated: true }, finishedAt: new Date().toISOString() })
+        }
+        await supabase.from('workflow_executions').update({ status: 'succeeded', current_step: runnableActions.length, locked_at: null, finished_at: new Date().toISOString(), context: { ...context, simulated: true }, updated_at: new Date().toISOString() }).eq('id', claimed.id)
+        simulated += 1
+        continue
+      }
+      let currentLead = lead as Row
+      while (activeStep < runnableActions.length) {
+        const action = runnableActions[activeStep]
+        const type = String(action.type ?? '')
+        if (type === 'wait') {
+          const scheduledFor = new Date(Date.now() + runtimeWaitMs(action)).toISOString()
+          await upsertRuntimeStep(claimed as Row, { stepIndex: activeStep, stepType: 'wait', actionType: type, status: 'waiting', scheduledFor, input: action, output: { resumeAt: scheduledFor }, startedAt: new Date().toISOString() })
+          await supabase.from('workflow_executions').update({ status: 'waiting', current_step: activeStep + 1, next_run_at: scheduledFor, locked_at: null, attempts: 0, updated_at: new Date().toISOString() }).eq('id', claimed.id)
+          waiting += 1
+          activeStep = actions.length + 1
+          break
+        }
+        if (type === 'branch_if') {
+          const branchCondition = { field: String(action.branchField ?? 'status'), operator: String(action.branchOperator ?? 'equals'), value: String(action.branchValue ?? '') } as Row
+          const matched = conditionMatches(branchCondition, currentLead, context)
+          const skip = matched ? 0 : Math.max(1, Number(action.branchSkip ?? 1))
+          await upsertRuntimeStep(claimed as Row, { stepIndex: activeStep, stepType: 'branch', actionType: type, status: 'succeeded', branchResult: matched, input: action, output: { matched, skippedSteps: skip }, startedAt: new Date().toISOString(), finishedAt: new Date().toISOString() })
+          if (!matched) {
+            for (let skippedIndex = activeStep + 1; skippedIndex < Math.min(runnableActions.length, activeStep + 1 + skip); skippedIndex += 1) {
+              const skippedAction = runnableActions[skippedIndex]
+              const skippedType = String(skippedAction.type ?? '')
+              await upsertRuntimeStep(claimed as Row, { stepIndex: skippedIndex, stepType: skippedType === 'wait' ? 'wait' : skippedType === 'branch_if' ? 'branch' : 'action', actionType: skippedType, status: 'skipped', input: skippedAction, output: { reason: 'branch_false' }, finishedAt: new Date().toISOString() })
+            }
+          }
+          activeStep += 1 + skip
+          await supabase.from('workflow_executions').update({ current_step: activeStep, attempts: 0, updated_at: new Date().toISOString() }).eq('id', claimed.id)
+          continue
+        }
+        const { data: existingStep } = await supabase.from('workflow_step_runs').select('attempt').eq('execution_id', claimed.id).eq('step_index', activeStep).maybeSingle()
+        const stepAttempt = Number(existingStep?.attempt ?? 0) + 1
+        await upsertRuntimeStep(claimed as Row, { stepIndex: activeStep, stepType: 'action', actionType: type, status: 'running', attempt: stepAttempt, input: action, startedAt: new Date().toISOString() })
+        if (type === 'send_webhook') {
+          const webhookId = String(action.value ?? '').trim()
+          const { data: endpoint, error: endpointError } = await supabase.from('automation_webhooks').select('id,enabled').eq('organization_id', claimed.organization_id).eq('id', webhookId).maybeSingle()
+          if (endpointError || !endpoint || endpoint.enabled !== true) throw endpointError ?? new Error('Webhook do workflow não está disponível.')
+          const requestBody = { event: String(claimed.trigger_type), occurredAt: new Date().toISOString(), correlationId: claimed.correlation_id, workspaceId: claimed.organization_id, automation: { id: rule.id, name: rule.name, trigger: rule.trigger_type }, workflowExecutionId: claimed.id, lead: currentLead }
+          const { error: deliveryError } = await supabase.from('webhook_deliveries').insert({ organization_id: claimed.organization_id, webhook_id: endpoint.id, automation_run_id: null, rule_id: rule.id, lead_id: currentLead.id, event_type: String(claimed.trigger_type), correlation_id: `${String(claimed.correlation_id)}:wf:${activeStep}`, status: 'pending', attempts: 0, request_body: requestBody })
+          if (deliveryError && deliveryError.code !== '23505') throw deliveryError
+        } else {
+          const runtimeRule: Row = { ...rule, actions: [action], conditions: [runtimeGuardCondition(guard)] }
+          const runtimeEvent: Row = { id: claimed.id, organization_id: claimed.organization_id, trigger_type: 'workflow_step', entity_id: `${claimed.id}:${activeStep}`, lead_id: claimed.lead_id, payload: context, attempts: stepAttempt }
+          const result = await processQueuedRule(runtimeRule, currentLead, runtimeEvent)
+          if (result === 'skipped') throw new Error(`A etapa ${activeStep + 1} não pôde ser executada.`)
+        }
+        await upsertRuntimeStep(claimed as Row, { stepIndex: activeStep, stepType: 'action', actionType: type, status: 'succeeded', attempt: stepAttempt, input: action, output: { result: 'executed' }, finishedAt: new Date().toISOString() })
+        const { data: refreshedLead } = await supabase.from('leads').select('*').eq('organization_id', claimed.organization_id).eq('id', claimed.lead_id).maybeSingle()
+        if (refreshedLead) currentLead = refreshedLead as Row
+        activeStep += 1
+        await supabase.from('workflow_executions').update({ current_step: activeStep, attempts: 0, updated_at: new Date().toISOString() }).eq('id', claimed.id)
+      }
+      if (activeStep === runnableActions.length) {
+        await supabase.from('workflow_executions').update({ status: 'succeeded', current_step: runnableActions.length, attempts: 0, locked_at: null, finished_at: new Date().toISOString(), updated_at: new Date().toISOString() }).eq('id', claimed.id)
+        succeeded += 1
+      }
+    } catch (runtimeError) {
+      const message = runtimeError instanceof Error ? runtimeError.message : 'Falha no Workflow Runtime 3.0.'
+      const nextAttempts = Number(claimed.attempts ?? 0) + 1
+      const maxAttempts = Number(claimed.max_attempts ?? 5)
+      const exhausted = nextAttempts >= maxAttempts
+      const retryMinutes = Math.min(60, 2 ** Math.max(1, nextAttempts))
+      const retryAt = new Date(Date.now() + retryMinutes * 60_000).toISOString()
+      await upsertRuntimeStep(claimed as Row, { stepIndex: activeStep, stepType: 'action', status: 'failed', attempt: nextAttempts, errorMessage: message, output: { retryAt: exhausted ? null : retryAt }, finishedAt: new Date().toISOString() }).catch(() => undefined)
+      await supabase.from('workflow_executions').update({ status: exhausted ? 'failed' : 'retrying', attempts: nextAttempts, next_run_at: retryAt, locked_at: null, last_error: message.slice(0, 800), finished_at: exhausted ? new Date().toISOString() : null, updated_at: new Date().toISOString() }).eq('id', claimed.id)
+      failed += exhausted ? 1 : 0
+    }
+  }
+  return { resumed, waiting, succeeded, failed, simulated }
+}
+
 Deno.serve(async (request) => {
   if (!CRON_SECRET || request.headers.get('x-automation-secret') !== CRON_SECRET) return json({ error: 'unauthorized' }, 401)
   if (!SUPABASE_URL || !SERVICE_ROLE_KEY) return json({ error: 'runner_not_configured' }, 503)
   const now = new Date()
+  const workflowRuntime = await processWorkflowRuntime(now)
   const { data: rules, error: ruleError } = await supabase.from('automation_rules').select('*').eq('enabled', true).eq('trigger_type', 'activity_overdue')
   if (ruleError) return json({ error: ruleError.message }, 500)
   let executed = 0; let simulated = 0; let skipped = 0; let failed = 0
@@ -332,6 +510,16 @@ Deno.serve(async (request) => {
       if (guard.mode === 'simulation') {
         await supabase.from('automation_runs').update({ status: 'success', output: { simulated: true, actionPreview: actions.slice(0, guard.maxActionsPerRun).map((action) => action.type), matchedLeadIds: [lead.id] }, finished_at: new Date().toISOString() }).eq('id', run.id)
         simulated += 1; continue
+      }
+      if (workflowRuntimeRequired(actions)) {
+        const correlationId = `wf:activity_overdue:${String(activity.id)}:${dayKey(now)}`
+        await enqueueWorkflowFromWorker({
+          rule: rule as Row, lead: lead as Row, triggerType: 'activity_overdue', entityId: String(activity.id), idempotencyKey: eventKey, correlationId,
+          input: { triggerType: 'activity_overdue', activityId: activity.id, activityType: activity.activity_type, leadId: lead.id },
+          context: { activityId: activity.id, activityType: activity.activity_type, attemptCount: attemptCount ?? 0 },
+        })
+        await supabase.from('automation_runs').update({ status: 'success', output: { message: 'Workflow persistente enfileirado no Runtime 3.0.', matchedLeadIds: [lead.id], workflowQueued: true, correlationId }, finished_at: new Date().toISOString() }).eq('id', run.id)
+        executed += 1; continue
       }
 
       const mutations: Mutation[] = []; const warnings: string[] = []; const messages: string[] = []
@@ -454,5 +642,5 @@ Deno.serve(async (request) => {
       failed += 1
     }
   }
-  return json({ executed, simulated, skipped, failed, queuedChecked: queue.length, checkedAt: now.toISOString() })
+  return json({ executed, simulated, skipped, failed, queuedChecked: queue.length, workflowRuntime, checkedAt: now.toISOString() })
 })

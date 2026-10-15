@@ -47,12 +47,16 @@ export function recommendCommercialAction(
     return { kind: 'complete_contact', label: 'Completar telefone antes de prosseguir', shortLabel: 'Completar contato', reason: 'O lead está ativo, mas não possui um telefone utilizável.', urgency: 'high', score: 96, dueAt: null }
   }
 
-  if (lastCall?.outcome === 'wrong_person' || lead.decisionRole === 'influencer' || lead.decisionRole === 'user') {
-    return { kind: 'identify_decision_maker', label: 'Identificar o decisor correto', shortLabel: 'Buscar decisor', reason: 'O contato atual pode não ter autonomia para avançar a oportunidade.', urgency: 'high', score: 92, dueAt }
-  }
-
   if (lastCall?.outcome === 'proposal_requested') {
     return { kind: 'prepare_proposal', label: 'Preparar e enviar a proposta', shortLabel: 'Preparar proposta', reason: 'A última conversa terminou com solicitação explícita de proposta.', urgency: 'critical', score: 100, dueAt }
+  }
+
+  if (lastCall?.outcome === 'callback_requested') {
+    return { kind: 'callback', label: 'Retornar no horário combinado', shortLabel: 'Retornar agora', reason: 'O lead pediu um novo contato; cumprir o horário aumenta a confiança.', urgency: isOverdue(dueAt, now) ? 'critical' : 'high', score: 98, dueAt }
+  }
+
+  if (lastCall?.outcome === 'wrong_person' || ['influencer','user','operational','gatekeeper','unknown'].includes(lead.decisionRole ?? 'unknown')) {
+    return { kind: 'identify_decision_maker', label: 'Identificar o decisor correto', shortLabel: 'Buscar decisor', reason: 'O contato atual pode não ter autonomia para avançar a oportunidade.', urgency: 'high', score: 92, dueAt }
   }
 
   if (lastCall?.outcome === 'proposal_sent' || stageName.includes('proposta')) {
@@ -61,10 +65,6 @@ export function recommendCommercialAction(
 
   if (pendingMeeting || lastCall?.outcome === 'meeting_scheduled') {
     return { kind: 'schedule_meeting', label: pendingMeeting ? 'Confirmar a reunião agendada' : 'Registrar e confirmar a reunião', shortLabel: 'Confirmar reunião', reason: 'Existe um próximo passo de reunião que precisa ser protegido.', urgency: pendingMeeting?.dueAt && isOverdue(pendingMeeting.dueAt, now) ? 'critical' : 'normal', score: 90, dueAt: pendingMeeting?.dueAt ?? dueAt }
-  }
-
-  if (lastCall?.outcome === 'callback_requested') {
-    return { kind: 'callback', label: 'Retornar no horário combinado', shortLabel: 'Retornar agora', reason: 'O lead pediu um novo contato; cumprir o horário aumenta a confiança.', urgency: isOverdue(dueAt, now) ? 'critical' : 'high', score: 98, dueAt }
   }
 
   if (lastCall && noContactOutcomes.includes(lastCall.outcome)) {

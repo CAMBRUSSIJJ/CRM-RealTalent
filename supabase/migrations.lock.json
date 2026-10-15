@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-07-28T18:20:11.799Z",
+  "generatedAt": "2026-10-12T22:00:00.000Z",
   "migrations": [
     {
       "name": "202607160001_v100_foundation.sql",
@@ -124,6 +124,114 @@
     {
       "name": "202607290001_v100_50_user_experience_preferences.sql",
       "sha256": "9cbd2245b24790b0fead392f2759c455774a52d89f0423f3b8f1d50fd50da28b"
+    },
+    {
+      "name": "202609120001_v100_52_architecture_hardening.sql",
+      "sha256": "7017e79c6b729f7adb556be096d4e475371e89fd4deb1114a6890a67a491fe28"
+    },
+    {
+      "name": "202609120002_v100_53_commercial_consistency.sql",
+      "sha256": "e90c828de2e253376a33511ed8e6f10ba5bc9ab908319358474cdf6c5547489a"
+    },
+    {
+      "name": "202609130001_v100_54_account_intelligence_territory.sql",
+      "sha256": "6d375f0137f2f1e1d2448576abefe4d59d5cc7805ff5938b8cb193a235ef0287"
+    },
+    {
+      "name": "202609150001_v100_56_4_full_qa_data_consistency.sql",
+      "sha256": "017558367d6cae5e02e390d402a8dcca014cf170cb41f54c29886bf61db11949"
+    },
+    {
+      "name": "202609150002_v100_65_coaching_playbooks.sql",
+      "sha256": "0291f0bca68cacf2086cf4a35844db67105979c26d48817701d55117be572ae0"
+    },
+    {
+      "name": "202609150003_v100_66_buyer_room_mutual_action_plan.sql",
+      "sha256": "5a540d743d724762145c1b8222c0a36d98268c67a9ef3a191cfca8754990a1fe"
+    },
+    {
+      "name": "202609220001_v100_84_calendar_integration.sql",
+      "sha256": "092c19fba90fe6e82cf6e10e006237cd94d8a1e022c8a48fe0a25cc95afa8c94"
+    },
+    {
+      "name": "202609240001_v100_92_hardening_ux.sql",
+      "sha256": "8d7a54055ab63da5fc9028167593a7d6b32605c1b7ab654d168c650099d84e24"
+    },
+    {
+      "name": "202609240002_v100_94_omnichannel_inbox.sql",
+      "sha256": "2cc83d269b2a1cd1b6e4667795b027c6ae69c32e80910afe4fa51356196f5099"
+    },
+    {
+      "name": "202609250001_v100_97_product_revenue_workspace.sql",
+      "sha256": "7d75721c9d45ab5c24c218be86035c29b323bc1df6d271ac6bf9bba217fb958d"
+    },
+    {
+      "name": "202609270001_v101_6_1_contact_saved_views.sql",
+      "sha256": "20516429bd2db359751a0358ab9e02b6b421ae6c5a8e23d015aed5bbf9bdbd5a"
+    },
+    {
+      "name": "202609280001_v101_6_3_contact_views_2.sql",
+      "sha256": "edd627df97eb5272289cf385a98f476ac39ba5b4227a120d4504bd30a40c4085"
+    },
+    {
+      "name": "202609280002_v101_6_5_contact_custom_properties.sql",
+      "sha256": "e8958e4f0261728a36bb0796034666785c261a253f665a5cb8751986fbd526c9"
+    },
+    {
+      "name": "202610010001_v101_8_3_hotfix1_contact_identity_sync.sql",
+      "sha256": "abc9ee3fd6ce8f4a9ae460202ed81ef03229fb24da21b31e4309bdf1f0afddde"
+    },
+    {
+      "name": "202610010002_v101_8_4_official_communications.sql",
+      "sha256": "5b556ff240f9cd1b9b253e8f90329c78267f9c0e85eb76f90e509522e10364fb"
+    },
+    {
+      "name": "202610020001_v101_9_3_canonical_commercial_model.sql",
+      "sha256": "262f29b231e43348b188cb363b42b45e6fec45090e7faf7d1be6d02588c84a45"
+    },
+    {
+      "name": "202610020002_v101_9_5_workflow_runtime_3.sql",
+      "sha256": "29c3b0d6396fa7ee3920d980627804aff3a9b8dd55047a40ce331a051a6abdf8"
+    },
+    {
+      "name": "202610030001_v101_9_9_h2_duplicate_merge_canonical_value.sql",
+      "sha256": "6b680b7dd8cb455693b932f28d94c47e22c9622667317d9bef79ea4492ccf91b"
+    },
+    {
+      "name": "202610060001_v101_11_2_teams_tasks_foundation.sql",
+      "sha256": "29d219b01a5e237f08bc73315ee9c1ebaf44fb7e732b0deee3bc8c8483e654be"
+    },
+    {
+      "name": "202610070001_v101_11_3_h11_proposal_catalog_pricing.sql",
+      "sha256": "9319fdd327fa42bfd4a302637d4619e3e4763d050f9f51186c9a66c0aa0a9312"
+    },
+    {
+      "name": "202610070002_v101_11_3_h12_commercial_product_studio.sql",
+      "sha256": "52fdc2cfa546283e9f1566d744d6fd29cf9ba540af2c0c8f17092aa15969392e"
+    },
+    {
+      "name": "202610070003_v101_11_3_h13_product_readiness_revenue_bridge.sql",
+      "sha256": "23588b726af74bab292d69df817f0699b974fa8b623fc9fecda13da40c4ae3f3"
+    },
+    {
+      "name": "202610070004_v101_11_3_h14_commercial_management_foundation.sql",
+      "sha256": "90e7b32ec86d7bccca28a98872cd5c9dba7eabded5639ae1ed86ad04d94012b0"
+    },
+    {
+      "name": "202610120001_v101_11_3_h22_1_team_profiles_access_control.sql",
+      "sha256": "f8d8d2626c767849df06841ff3124670bd7303cf7d13b72230626070c925b605"
+    },
+    {
+      "name": "202610120002_v101_11_3_h22_2_cross_module_access_control.sql",
+      "sha256": "5213d77e0ae858d13d80ae8dea5b83e002affc18ce4990633f701874b3b7c3ae"
+    },
+    {
+      "name": "202610120003_v101_11_3_h22_3_field_approvals_audit.sql",
+      "sha256": "cf4b8431c6aabe48f57fb575ed07dd582de5728e47dca2c6f8a8e07329d5d011"
+    },
+    {
+      "name": "202610130001_v101_11_3_h22_3_h1_stability_security_closure.sql",
+      "sha256": "656df1fa871579c8e0304f9d32f0e45260586eb0c8df7ce86776764a14f92625"
     }
   ]
 }

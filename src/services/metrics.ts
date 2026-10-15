@@ -1,19 +1,20 @@
 import type { CallOutcome, GoalMetric, Lead, WorkspaceSnapshot } from '../domain/types'
 
-export const goalMetricLabels: Record<GoalMetric, string> = {
-  calls: 'Ligações realizadas',
-  contacts: 'Contatos efetivos',
-  followups: 'Follow-ups concluídos',
-  meetings: 'Reuniões realizadas',
-  proposals: 'Propostas enviadas',
-  wins: 'Negócios fechados',
-  revenue: 'Receita fechada',
-  new_leads: 'Novos leads',
-}
+export const metricRegistry: Array<{ key: GoalMetric; label: string; group: 'Atividade' | 'Prospecção' | 'Conversão' | 'Receita'; unit: 'number' | 'currency'; description: string }> = [
+  { key: 'calls', label: 'Ligações realizadas', group: 'Atividade', unit: 'number', description: 'Chamadas registradas no período.' },
+  { key: 'contacts', label: 'Conversas realizadas', group: 'Atividade', unit: 'number', description: 'Ligações que geraram contato real.' },
+  { key: 'followups', label: 'Follow-ups concluídos', group: 'Atividade', unit: 'number', description: 'Follow-ups concluídos no CRM.' },
+  { key: 'new_leads', label: 'Leads coletados', group: 'Prospecção', unit: 'number', description: 'Novos leads criados no período.' },
+  { key: 'meetings', label: 'Reuniões realizadas', group: 'Conversão', unit: 'number', description: 'Reuniões concluídas no período.' },
+  { key: 'proposals', label: 'Propostas geradas', group: 'Conversão', unit: 'number', description: 'Leads que chegaram a proposta/negociação.' },
+  { key: 'wins', label: 'Negócios ganhos', group: 'Conversão', unit: 'number', description: 'Negócios marcados como ganhos.' },
+  { key: 'revenue', label: 'Receita ganha', group: 'Receita', unit: 'currency', description: 'Valor dos negócios ganhos no período.' },
+]
 
-export const goalMetricUnits: Record<GoalMetric, 'number' | 'currency'> = {
-  calls: 'number', contacts: 'number', followups: 'number', meetings: 'number', proposals: 'number', wins: 'number', revenue: 'currency', new_leads: 'number',
-}
+export const goalMetricLabels = Object.fromEntries(metricRegistry.map((metric) => [metric.key, metric.label])) as Record<GoalMetric, string>
+export const goalMetricUnits = Object.fromEntries(metricRegistry.map((metric) => [metric.key, metric.unit])) as Record<GoalMetric, 'number' | 'currency'>
+export const goalMetricDefinition = (metric: GoalMetric) => metricRegistry.find((item) => item.key === metric) ?? metricRegistry[0]
+export const metricGroups = ['Atividade', 'Prospecção', 'Conversão', 'Receita'] as const
 
 const contactOutcomes: CallOutcome[] = ['answered', 'callback_requested', 'interested', 'meeting_scheduled', 'proposal_requested', 'proposal_sent', 'sale_completed']
 const proposalOutcomes: CallOutcome[] = ['proposal_requested', 'proposal_sent']
@@ -27,28 +28,28 @@ const inRange = (value: string | null, start: Date, end: Date) => {
   const date = new Date(value)
   return !Number.isNaN(date.getTime()) && date >= start && date <= end
 }
-const ownerMatches = (ownerId: string | null, userId: string | null) => !userId || ownerId === userId
+const ownerMatches = (ownerId: string | null, userId: string | null, userIds: string[] | null = null) => userIds ? Boolean(ownerId && userIds.includes(ownerId)) : (!userId || ownerId === userId)
 const safeRate = (value: number, total: number) => total > 0 ? Math.max(0, Math.min(100, value / total * 100)) : 0
 const average = (values: number[]) => values.length ? values.reduce((sum, value) => sum + value, 0) / values.length : 0
 const differenceInDays = (from: string, to = new Date()) => Math.max(0, (to.getTime() - new Date(from).getTime()) / 86_400_000)
 const differenceInHours = (from: string, to: string) => Math.max(0, (new Date(to).getTime() - new Date(from).getTime()) / 3_600_000)
 
-export function getMetricValue(snapshot: WorkspaceSnapshot, metric: GoalMetric, periodStart: string, periodEnd: string, userId: string | null = null): number {
+export function getMetricValue(snapshot: WorkspaceSnapshot, metric: GoalMetric, periodStart: string, periodEnd: string, userId: string | null = null, userIds: string[] | null = null): number {
   const start = asStart(periodStart)
   const end = asEnd(periodEnd)
-  if (metric === 'calls') return snapshot.calls.filter((call) => ownerMatches(call.userId, userId) && inRange(call.startedAt, start, end)).length
-  if (metric === 'contacts') return snapshot.calls.filter((call) => ownerMatches(call.userId, userId) && inRange(call.startedAt, start, end) && contactOutcomes.includes(call.outcome)).length
-  if (metric === 'followups') return snapshot.activities.filter((activity) => ownerMatches(activity.assignedTo, userId) && activity.type === 'followup' && inRange(activity.completedAt, start, end)).length
-  if (metric === 'meetings') return snapshot.events.filter((event) => ownerMatches(event.assignedTo, userId) && event.status === 'completed' && inRange(event.endsAt, start, end)).length
+  if (metric === 'calls') return snapshot.calls.filter((call) => ownerMatches(call.userId, userId, userIds) && inRange(call.startedAt, start, end)).length
+  if (metric === 'contacts') return snapshot.calls.filter((call) => ownerMatches(call.userId, userId, userIds) && inRange(call.startedAt, start, end) && contactOutcomes.includes(call.outcome)).length
+  if (metric === 'followups') return snapshot.activities.filter((activity) => ownerMatches(activity.assignedTo, userId, userIds) && activity.type === 'followup' && (activity.resolutionStatus ?? 'completed') === 'completed' && inRange(activity.completedAt, start, end)).length
+  if (metric === 'meetings') return snapshot.events.filter((event) => ownerMatches(event.assignedTo, userId, userIds) && event.status === 'completed' && inRange(event.endsAt, start, end)).length
   if (metric === 'proposals') {
-    const ids = new Set(snapshot.calls.filter((call) => ownerMatches(call.userId, userId) && proposalOutcomes.includes(call.outcome) && inRange(call.startedAt, start, end)).map((call) => call.leadId))
+    const ids = new Set(snapshot.calls.filter((call) => ownerMatches(call.userId, userId, userIds) && proposalOutcomes.includes(call.outcome) && inRange(call.startedAt, start, end)).map((call) => call.leadId))
     const proposalStages = new Set(snapshot.stages.filter((stage) => /proposta|negocia/i.test(stage.name)).map((stage) => stage.id))
-    snapshot.leads.filter((lead) => ownerMatches(lead.ownerId, userId) && proposalStages.has(lead.stageId) && inRange(lead.updatedAt, start, end)).forEach((lead) => ids.add(lead.id))
+    snapshot.leads.filter((lead) => ownerMatches(lead.ownerId, userId, userIds) && proposalStages.has(lead.stageId) && inRange(lead.updatedAt, start, end)).forEach((lead) => ids.add(lead.id))
     return ids.size
   }
-  if (metric === 'wins') return snapshot.leads.filter((lead) => ownerMatches(lead.ownerId, userId) && lead.status === 'won' && inRange(lead.updatedAt, start, end)).length
-  if (metric === 'revenue') return snapshot.leads.filter((lead) => ownerMatches(lead.ownerId, userId) && lead.status === 'won' && inRange(lead.updatedAt, start, end)).reduce((sum, lead) => sum + lead.value, 0)
-  return snapshot.leads.filter((lead) => ownerMatches(lead.ownerId, userId) && inRange(lead.createdAt, start, end)).length
+  if (metric === 'wins') return snapshot.leads.filter((lead) => ownerMatches(lead.ownerId, userId, userIds) && lead.status === 'won' && inRange(lead.updatedAt, start, end)).length
+  if (metric === 'revenue') return snapshot.leads.filter((lead) => ownerMatches(lead.ownerId, userId, userIds) && lead.status === 'won' && inRange(lead.updatedAt, start, end)).reduce((sum, lead) => sum + lead.value, 0)
+  return snapshot.leads.filter((lead) => ownerMatches(lead.ownerId, userId, userIds) && inRange(lead.createdAt, start, end)).length
 }
 
 export function goalProgress(snapshot: WorkspaceSnapshot, metric: GoalMetric, targetValue: number, periodStart: string, periodEnd: string, userId: string | null = null): { value: number; percentage: number; expected: number; pace: 'on_track' | 'attention' | 'at_risk' } {
@@ -81,10 +82,21 @@ export const createPreviousMetricsRange = (range: MetricsRange): MetricsRange =>
 export interface MetricsFilters {
   ownerId?: string | null
   source?: string | null
+  stageId?: string | null
+  priority?: string | null
+  temperature?: string | null
+  status?: string | null
 }
 
 const filterSnapshot = (snapshot: WorkspaceSnapshot, filters: MetricsFilters = {}) => {
-  const leads = snapshot.leads.filter((lead) => (!filters.ownerId || lead.ownerId === filters.ownerId) && (!filters.source || (lead.source || 'Não informada') === filters.source))
+  const leads = snapshot.leads.filter((lead) =>
+    (!filters.ownerId || lead.ownerId === filters.ownerId) &&
+    (!filters.source || (lead.source || 'Não informada') === filters.source) &&
+    (!filters.stageId || lead.stageId === filters.stageId) &&
+    (!filters.priority || lead.priority === filters.priority) &&
+    (!filters.temperature || lead.temperature === filters.temperature) &&
+    (!filters.status || lead.status === filters.status)
+  )
   const leadIds = new Set(leads.map((lead) => lead.id))
   return {
     leads,
@@ -205,20 +217,22 @@ export function calculateTrend(snapshot: WorkspaceSnapshot, range: MetricsRange,
   return buckets
 }
 
-export function calculateOwnerPerformance(snapshot: WorkspaceSnapshot, range: MetricsRange) {
+export function calculateOwnerPerformance(snapshot: WorkspaceSnapshot, range: MetricsRange, filters: MetricsFilters = {}) {
+  const scopedLeads = filterSnapshot(snapshot, filters).leads
   const owners = new Map<string, { id: string; name: string }>()
-  snapshot.leads.forEach((lead) => { if (lead.ownerId) owners.set(lead.ownerId, { id: lead.ownerId, name: lead.ownerName || 'Sem nome' }) })
+  scopedLeads.forEach((lead) => { if (lead.ownerId) owners.set(lead.ownerId, { id: lead.ownerId, name: lead.ownerName || 'Sem nome' }) })
   return [...owners.values()].map((owner) => {
-    const data = calculateCommercialMetrics(snapshot, range.start, range.end, { ownerId: owner.id })
-    const activeValue = snapshot.leads.filter((lead) => lead.ownerId === owner.id && lead.status === 'active').reduce((sum, lead) => sum + lead.value, 0)
+    const ownerFilters = { ...filters, ownerId: owner.id }
+    const data = calculateCommercialMetrics(snapshot, range.start, range.end, ownerFilters)
+    const activeValue = filterSnapshot(snapshot, ownerFilters).leads.filter((lead) => lead.status === 'active').reduce((sum, lead) => sum + lead.value, 0)
     const score = Math.round(data.contacts.length * 2 + data.completedMeetings.length * 5 + data.proposals * 7 + data.wins.length * 20)
     return { ...owner, ...data, activeValue, score }
   }).sort((a, b) => b.score - a.score)
 }
 
 export function calculateSourcePerformance(snapshot: WorkspaceSnapshot, range: MetricsRange, filters: MetricsFilters = {}) {
-  const sources = [...new Set(snapshot.leads.map((lead) => lead.source || 'Não informada'))]
-  return sources.map((source) => {
+  const sourceScope = filters.source ? [filters.source] : [...new Set(filterSnapshot(snapshot, { ...filters, source: null }).leads.map((lead) => lead.source || 'Não informada'))]
+  return sourceScope.map((source) => {
     const data = calculateCommercialMetrics(snapshot, range.start, range.end, { ...filters, source })
     return {
       source,
@@ -262,7 +276,7 @@ export function calculateActivityIntelligence(snapshot: WorkspaceSnapshot, range
   const start = asStart(range.start); const end = asEnd(range.end)
   const scoped = filterSnapshot(snapshot, filters)
   const calls = scoped.calls.filter((call) => inRange(call.startedAt, start, end))
-  const completedFollowups = scoped.activities.filter((activity) => activity.type === 'followup' && inRange(activity.completedAt, start, end))
+  const completedFollowups = scoped.activities.filter((activity) => activity.type === 'followup' && (activity.resolutionStatus ?? 'completed') === 'completed' && inRange(activity.completedAt, start, end))
   const overdue = scoped.activities.filter((activity) => activity.dueAt && !activity.completedAt && new Date(activity.dueAt) < new Date())
   const callsByWeekday = new Map<number, { attempts: number; contacts: number }>()
   const callsByHour = new Map<number, { attempts: number; contacts: number }>()

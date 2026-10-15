@@ -1,0 +1,27 @@
+import fs from 'node:fs'
+const root=new URL('../',import.meta.url)
+const read=(p)=>fs.readFileSync(new URL(p,root),'utf8')
+let passed=0;const failures=[]
+const check=(name,ok)=>{if(ok){passed++;console.log('✓',name)}else{failures.push(name);console.error('✗',name)}}
+const integration=read('src/services/integration-framework.ts')
+const comm=read('src/services/communication-workspace.ts')
+const page=read('src/features/communications/communications-page.tsx')
+const wa=read('src/features/settings/whatsapp-integration-panel.tsx')
+const launcher=(read('start-linux.sh') + '\n' + (fs.existsSync('start-linux-legacy.sh') ? read('start-linux-legacy.sh') : '') + '\n' + (fs.existsSync('scripts/start.mjs') ? read('scripts/start.mjs') : ''))
+const gateway=read('scripts/realtalent-communications-gateway.mjs')
+const env=read('src/lib/env.ts')
+check('gateway local existe',gateway.includes('/api/communications/health')&&gateway.includes('/api/communications/send'))
+check('gateway implementa OAuth Google/Microsoft',gateway.includes('/oauth/google/callback')&&gateway.includes('/oauth/microsoft/callback'))
+check('gateway implementa Gmail send/sync',gateway.includes('gmail/v1/users/me/messages/send')&&gateway.includes('gmail/v1/users/me/messages?'))
+check('gateway implementa Microsoft send/sync',gateway.includes('/me/sendMail')&&gateway.includes('mailFolders/inbox/messages'))
+check('gateway implementa WhatsApp Cloud',gateway.includes('graph.facebook.com')&&gateway.includes('/webhooks/whatsapp'))
+check('tokens criptografados fora do navegador',gateway.includes('aes-256-gcm')&&gateway.includes('.realtalent-communications-store.json'))
+check('framework local usa gateway real',integration.includes('beginGatewayOAuth')&&integration.includes('loadGatewayAccounts')&&!integration.includes('Modo demonstração ativado'))
+check('timeline oficial funciona no local',comm.includes('loadGatewayCommunicationEvents')&&comm.includes('sendGatewayCommunication'))
+check('sync oficial local habilitado',comm.includes('syncGatewayCommunications'))
+check('composer oficial não depende do Supabase',page.includes('id="official-communication-composer"')&&page.includes('<OfficialConversationComposer')&&!page.includes("repositoryMode === 'supabase' ? <OfficialConversationComposer"))
+check('WhatsApp configurável no CRM',wa.includes('Validar e conectar')&&wa.includes('configureGatewayWhatsApp'))
+check('launcher sobe gateway',((launcher.includes('realtalent-communications-gateway.mjs'))||(launcher.includes('realtalent-communications-supervisor.mjs')))&&launcher.includes('Communications Gateway'))
+check('frontend conhece endpoint local',env.includes('VITE_COMMUNICATIONS_GATEWAY_URL')||env.includes('communicationsGatewayUrl'))
+if(failures.length){console.error(`\nV101.8.4-H2 Local Communications Gateway: FALHOU (${passed}/13)`);process.exit(1)}
+console.log(`\nV101.8.4-H2 Local Communications Gateway: OK (${passed}/13)`)

@@ -1,13 +1,15 @@
 import { ArrowRight, CheckCircle2, GitMerge, ShieldCheck } from 'lucide-react'
 import { useEffect, useState } from 'react'
-import { useApp } from '../../app/app-context'
+import { useAppActions, useAppUi, useAppWorkspace } from '../../app/app-context'
 import { Button } from '../../components/ui/button'
 import { Modal } from '../../components/ui/modal'
 import { formatCurrency } from '../../domain/formatters'
 import type { DuplicatePair } from '../../services/lead-intelligence'
 
 export function DuplicateMergeModal({ pair, open, onClose }: { pair: DuplicatePair | null; open: boolean; onClose(): void }) {
-  const { snapshot, mergeLeads, notify } = useApp()
+  const { snapshot } = useAppWorkspace()
+  const { notify } = useAppUi()
+  const { mergeLeads } = useAppActions()
   const [primaryId, setPrimaryId] = useState('')
   const [saving, setSaving] = useState(false)
   useEffect(() => { if (pair) setPrimaryId(pair.primary.id) }, [pair])

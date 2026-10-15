@@ -1,0 +1,83 @@
+RealTalent CRM V101.11.3-H19.10-H1 — Media Delivery Fix
+QA FINAL
+
+BASE
+V101.11.3-H19.10 — Rich Messaging & Reliable Delivery
+
+CAUSA CORRIGIDA
+Regressão de mídia do whatsapp-web.js: o objeto MediaData pode carregar __x_id privado e sobrescrever a identidade válida da mensagem durante sendMessage, resultando em:
+Data passed to getter must include an id property (it's how we memoize) but got undefined
+
+GATES DE ARQUITETURA
+qa:architecture                                      PASS
+H19.7 WhatsApp Pure Chat                         38/38 PASS
+H19.8 WhatsApp Control Center                    40/40 PASS
+H19.8-H1 WhatsApp Runtime Recovery               28/28 PASS
+H19.9 Reliable Messaging & Groups                37/37 PASS
+H19.10 Rich Messaging & Reliable Delivery        64/64 PASS
+H19.10-H1 Media Delivery Fix                      31/31 PASS
+
+AUDITORIAS INDEPENDENTES
+Source Syntax                                      414 arquivos PASS
+Integration Contracts                              382 arquivos PASS
+Migrations                                          54/54 PASS
+Release Manifest                                    89/89 PASS
+Capability Matrix                     39 capacidades / 133 evidências / 88 executáveis PASS
+Repository Local                                   100/100 PASS
+Repository Supabase                                100/100 PASS
+Browser E2E Contracts                               11 fluxos PASS
+CSS Governance                                      65/65 PASS
+Linux release preflight                         375 TS/TSX PASS
+validate:env                                               PASS
+
+RUNTIME
+H19.10-H1 Media Delivery Fix smoke                   7/7 PASS
+  - transforma Utils.js afetado
+  - guard entra depois da construção da mensagem
+  - guard entra antes do uso da mensagem
+  - patch é idempotente
+  - upstream já corrigido não é reescrito
+  - layout desconhecido é recusado com segurança
+  - marker da release está presente
+
+H19.10 Rich Messaging runtime smoke                  7/7 PASS
+  - Gateway isolado inicia
+  - envio offline entra imediatamente na fila (~9 ms no smoke final)
+  - fila preserva mídia e reply
+  - idempotência mantém um único evento
+  - timeline persiste uma única mensagem
+  - mídia privada é recuperável
+  - retry mantém a mensagem na outbox
+
+Communications Architecture                          6/6 PASS
+Communications Recovery                              5/5 PASS
+Connect Recovery                                     5/5 PASS
+Security Runtime                                    12/12 PASS
+
+HOTFIX DE MÍDIA
+- patch do vendor aplicado antes do import de whatsapp-web.js
+- remoção de message.__x_id somente quando a propriedade existe
+- detecção de upstream já corrigido
+- recusa de layout vendor desconhecido
+- outbound context associado à idempotencyKey
+- message_create conciliado com envio em andamento
+- erro técnico traduzido para mensagem amigável
+- falha oficial única preserva anexo
+- retry manual preservado
+
+DEPENDÊNCIAS / GATES OFICIAIS
+npm ping                                    BLOCKED — timeout ao acessar registry.npmjs.org
+npm ci                                      BLOCKED — timeout de 45 s ao acessar registry npm
+typecheck                                   BLOCKED — node_modules ausente; React/Supabase e tipos não resolvidos
+Vitest                                      BLOCKED — vitest não instalado
+Vite build                                  BLOCKED — vite não instalado
+
+BUILD INDEPENDENTE
+registry-independent build                   299 módulos transpilados
+Built bundle audit                           REJECTED — fallback produz HTML legado
+Ação                                         dist removido do pacote final
+
+LIMITAÇÕES
+- não há sessão WhatsApp do usuário disponível no ambiente de geração para realizar um envio físico ponta a ponta;
+- a correção foi validada no transform do vendor e nos pipelines de idempotência/falha/retry do CRM;
+- validação final recomendada: enviar uma imagem pela sessão QR pareada e confirmar uma única bolha + ACK normal.

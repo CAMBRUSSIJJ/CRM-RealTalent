@@ -1,0 +1,34 @@
+RealTalent CRM V100.79.0 — Mapa de Contas 2.0
+QA executado em 2026-09-20
+
+RESULTADO
+- Gate específico V100.79.0: 41/41 contratos aprovados.
+- Gates históricos/atuais: 24/24 suítes aprovadas.
+- Auditoria sintática: 239 arquivos aprovados.
+- Auditoria de contratos de integração: 210 arquivos aprovados.
+- Migrations: 37/37 com checksum íntegro.
+- Nenhuma migration nova.
+- BACKUP_SCHEMA_VERSION: 100.54.
+
+AUDITORIA FUNCIONAL
+- Funcional: 17
+- Parcial: 10
+- Visual apenas: 0
+- Não implementado: 1
+- Maturidade ponderada aproximada: 80%.
+
+VALIDAÇÕES DA V100.79
+- Mapas-base Claro, Ruas e Escuro usam fontes distintas.
+- Preferências territoriais são persistidas por workspace.
+- Filtro de risco da conta integra território e Account 360.
+- Resumo territorial expõe risco, ausência de decisor e qualidade geográfica.
+- Account 360 usa Organograma de decisão por níveis.
+- Stakeholders mostram estado de contato.
+- Cards de stakeholders possuem Ligar, WhatsApp e E-mail respeitando doNotContact.
+- Oportunidades relacionadas aparecem no Account 360.
+- Bridge do mapa acompanha a versão 100.79.0.
+
+LIMITAÇÃO DO AMBIENTE DE EMPACOTAMENTO
+npm ci não concluiu por TransportTimeoutError. Portanto typecheck TypeScript,
+Vitest e build Vite completos NÃO foram considerados executados/aprovados nesta
+sessão. Qualquer node_modules parcial foi removido antes do empacotamento.

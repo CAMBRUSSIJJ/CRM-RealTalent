@@ -1,13 +1,13 @@
-import { AlertCircle, CheckCircle2, Info, X } from 'lucide-react'
+import { AlertCircle, AlertTriangle, CheckCircle2, Info, X } from 'lucide-react'
 import type { CSSProperties } from 'react'
-import { useApp } from '../../app/app-context'
+import { useAppUi } from '../../app/app-context'
 
 export function ToastRegion() {
-  const { toasts, dismissToast, notify } = useApp()
+  const { toasts, dismissToast, notify } = useAppUi()
   return (
     <div className="toast-region" aria-live="polite" aria-atomic="false">
       {toasts.map((toast) => {
-        const Icon = toast.type === 'success' ? CheckCircle2 : toast.type === 'error' ? AlertCircle : Info
+        const Icon = toast.type === 'success' ? CheckCircle2 : toast.type === 'error' ? AlertCircle : toast.type === 'warning' ? AlertTriangle : Info
         const style = { '--toast-duration': `${toast.duration}ms` } as CSSProperties
         const runAction = async () => {
           dismissToast(toast.id)
@@ -15,7 +15,7 @@ export function ToastRegion() {
           catch (error) { notify('error', error instanceof Error ? error.message : 'Não foi possível concluir a ação.') }
         }
         return (
-          <div className={`toast toast--${toast.type} ${toast.closing ? 'is-closing' : ''}`} style={style} key={toast.id} role="status">
+          <div data-rt-primitive="toast" className={`toast toast--${toast.type} ${toast.closing ? 'is-closing' : ''}`} style={style} key={toast.id} role="status">
             <Icon size={18} aria-hidden="true" />
             <span className="toast__message">{toast.message}</span>
             {toast.action ? <button className="toast__action" type="button" onClick={() => void runAction()}>{toast.action.label}</button> : null}

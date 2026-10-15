@@ -36,7 +36,7 @@ export function CallDisplayPreferencesModal({ open, value, onClose, onSave }: {
         <div><SlidersHorizontal size={18} /><div><strong>Densidade da fila</strong><span>Altere o espaço usado por cada contato.</span></div></div>
         <div className="segmented-control"><button type="button" className={draft.queueDensity === 'compact' ? 'is-active' : ''} onClick={() => setDraft((current) => ({ ...current, queueDensity: 'compact' }))}>Compacta</button><button type="button" className={draft.queueDensity === 'comfortable' ? 'is-active' : ''} onClick={() => setDraft((current) => ({ ...current, queueDensity: 'comfortable' }))}>Confortável</button></div>
       </section>
-      {callDisplayPreferenceGroups.map((group) => <section className="call-display-group" key={group.title}><h3>{group.title}</h3><div>{group.items.map((item) => <label key={item.key} className="call-display-option"><input type="checkbox" checked={Boolean(draft[item.key])} onChange={() => toggle(item.key)} /><span><strong>{item.label}</strong><small>{item.description}</small></span></label>)}</div></section>)}
+      {callDisplayPreferenceGroups.map((group) => <section className="call-display-group" key={group.title}><h3>{group.title}</h3><div>{group.items.map((item) => { const active = Boolean(draft[item.key]); return <button type="button" key={item.key} className={`call-display-option ${active ? 'is-active' : ''}`} aria-pressed={active} onClick={() => toggle(item.key)}><span><strong>{item.label}</strong><small>{item.description}</small></span><em>{active ? 'Ativo' : 'Oculto'}</em></button> })}</div></section>)}
     </div>
   </Modal>
 }

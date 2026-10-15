@@ -1,0 +1,30 @@
+RealTalent CRM V100.83.0 — Notificações 2.0
+Data: 2026-09-22
+
+RESULTADO
+- Gate específico V100.83.0: 65/65 aprovado.
+- Regressão histórica/atual: 28/28 suítes QA aprovadas.
+- Auditoria sintática: 245 arquivos aprovados.
+- Contratos de integração: 216 arquivos aprovados.
+- Migrations: 37/37 com checksum íntegro.
+- TypeScript isolado: notification-engine.ts + notification-preferences.ts compilados sem erros com tsc 5.8.3.
+- Nenhuma migration V100.83 adicionada.
+- BACKUP_SCHEMA_VERSION preservado em 100.54.
+
+VALIDAÇÃO DE DEPENDÊNCIAS
+- npm ci --ignore-scripts --no-audit --no-fund: não concluiu por TransportTimeoutError do ambiente.
+- npm ci --offline: não concluiu porque xmlchars@2.2.0 não estava disponível no cache local (ENOTCACHED).
+- Por isso, typecheck completo do projeto, Vitest completo e build Vite não foram declarados como executados.
+- Qualquer node_modules parcial foi removido antes do empacotamento.
+
+ENTREGAS PRINCIPAIS
+- Configurações > Notificações.
+- Canal No CRM funcional.
+- Canal Navegador/Desktop funcional mediante permissão real.
+- E-mail e WhatsApp explicitamente marcados como dependentes de integração, sem simulação.
+- Motor único para campainha, contador e Central.
+- Follow-up atrasado, próxima atividade, reunião próxima, proposta sem avanço, lead parado, meta em risco e falha de automação.
+- Frequência em tempo real, horária ou diária.
+- Horário silencioso e parâmetros de antecedência.
+- Deduplicação de avisos no navegador por workspace.
+- Alteração granular do Pipeline permanece não simulada até existir event log confiável.

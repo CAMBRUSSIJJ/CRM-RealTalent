@@ -1,0 +1,46 @@
+RealTalent CRM V101.8.4-H11 — WhatsApp Sync Recovery
+====================================================
+
+Auditoria baseada na captura e gravação de uso real da H10.
+
+Problemas reproduzidos/identificados:
+1. Conta QR marcada como conectada enquanto a sessão WhatsApp Web podia estar iniciando/reconectando.
+2. Sincronização manual podia falhar a conta inteira por erro transitório em getChats()/identidade de uma mensagem.
+3. IDs modernos @lid eram tratados como telefone e apareciam como números gigantes (+1203..., +215...).
+4. Conversas @lid podiam deixar de vincular ao Lead correto.
+5. Mensagens antigas podiam permanecer como [Mensagem WhatsApp] mesmo após nova leitura.
+6. Histórico importado legado podia manter contador de não lidas inflado.
+7. Grupos entravam no history sync padrão sem fluxo específico de CRM.
+8. O aviso visual de QR usava texto genérico de “Histórico oficial indisponível”.
+
+Correções H11:
+- Client.getContactLidAndPhone() para LID -> PN quando o WhatsApp Web disponibiliza o mapeamento.
+- telefones aceitos somente entre 8 e 15 dígitos;
+- LID não resolvido fica como thread técnica e “identidade pendente”, nunca como telefone;
+- retry de getChats() em 3 tentativas;
+- falhas por chat/mensagem isoladas;
+- ensureConnected + waitForConnected + reconexão automática da sessão QR;
+- accounts API reflete liveState real;
+- sync manual/background consegue recuperar QR em status attention;
+- groups desativados por padrão na importação;
+- parser ampliado para mídia/interações/localização/contatos/enquetes/reação;
+- merge por qualidade impede texto real de ser substituído por placeholder e permite enriquecer placeholder antigo;
+- histórico importado legado tratado como lido no CRM;
+- UI diferencia conectado vs reconectando e aviso específico de WhatsApp QR.
+
+Resultados executados no ambiente de montagem:
+- Linux release preflight: OK (265 arquivos TS/TSX)
+- Syntax audit: 299 arquivos aprovados
+- Integration contract audit: 267 arquivos aprovados
+- Migrations: 46/46 checksums íntegros
+- H8 History Sync: 21/21
+- H9 Communications Reliability: 22/22
+- H9 runtime smoke: 4/4
+- H10 Gateway Resilience: 18/18
+- H10 supervisor smoke: 2/2
+- H11 Sync Recovery: 22/22
+- H11 runtime smoke: 7/7
+- Cadeia histórica completa: nenhum FAIL até iniciar typecheck
+
+Limitação deste ambiente:
+O typecheck/Vitest/build completos não puderam rodar aqui porque o ZIP de release não contém node_modules. O ./start-linux.sh executa npm install antes desses gates no Linux do usuário.

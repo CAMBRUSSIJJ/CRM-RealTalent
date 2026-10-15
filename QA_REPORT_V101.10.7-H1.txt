@@ -1,0 +1,63 @@
+RealTalent CRM V101.10.7-H1 — Lockfile Recovery
+Data: 2026-10-06
+Base: V101.10.7 — Security & Runtime Foundation
+
+OBJETIVO
+Corrigir a falha de primeira execução em que `npm ci` encerra com EUSAGE porque package.json e package-lock.json não estão sincronizados.
+
+EVIDÊNCIA DO ERRO RECEBIDO
+- npm ci: EUSAGE
+- mensagem: package.json and package-lock.json ... are in sync
+- entradas diretas ausentes no lockfile: @whiskeysockets/baileys@7.0.0-rc14, qrcode@1.5.4 e whatsapp-web.js@1.34.7
+- a árvore transitiva também aparece como ausente no log do npm.
+
+CAUSA RAIZ
+O package.json da V101.10.7 declara as dependências de runtime do gateway/WhatsApp, mas o package-lock.json empacotado não contém as respectivas entradas node_modules e árvore transitiva. O npm ci é fail-closed por design e se recusa a alterar o lockfile.
+
+CORREÇÃO IMPLEMENTADA
+1. Novo scripts/lockfile-integrity.mjs.
+   - valida estrutura lockfile v2/v3;
+   - compara dependencies/devDependencies/optionalDependencies do package.json com o root do lock;
+   - exige entrada node_modules/<pacote> para cada dependência direta;
+   - para versões pinadas, valida igualdade de versão.
+
+2. start-linux.sh agora verifica o lock ANTES de npm ci.
+   - lock válido: mantém npm ci como caminho normal/determinístico;
+   - lock ausente/incompleto: executa npm install --no-fund --no-audit uma única vez;
+   - depois do repair, valida novamente o lock e recalcula o SHA-256 usado no stamp local;
+   - se um npm ci futuro retornar EUSAGE/mismatch, o recovery é acionado automaticamente;
+   - falhas npm que não sejam inconsistência de lock continuam fail-closed.
+
+3. Dependências críticas são verificadas depois da instalação:
+   - @whiskeysockets/baileys
+   - qrcode
+   - whatsapp-web.js
+
+4. Gate novo:
+   qa:v101.10.7:h1
+
+VALIDAÇÕES EXECUTADAS NESTE AMBIENTE
+- bash -n start-linux.sh: PASS
+- qa_release_manifest: 49/49 PASS
+- V101.10.7 Security & Runtime Foundation: 22/22 PASS
+- V101.10.7-H1 Lockfile Recovery: 9/9 PASS
+- source syntax audit: 388 arquivos PASS
+- integration contract audit: 361 arquivos PASS
+- migrations: 49 checksums PASS
+- repository parity: Local 99/99, Supabase 99/99 PASS
+- browser E2E contract catalog: 9 fluxos PASS
+- qa:architecture completo: PASS
+- checker em lockfile atual quebrado: rejeição esperada PASS
+- checker em lockfile sintético sincronizado: aceitação esperada PASS
+
+LIMITAÇÃO DE VALIDAÇÃO
+O registry npm não respondeu neste ambiente durante `npm install --package-lock-only`; portanto não foi possível gerar aqui a árvore transitiva real nem executar typecheck/Vitest/build com node_modules recém-instalado.
+
+Por isso esta H1 é autocorretiva: na primeira execução em um Linux com acesso ao registry, o launcher executa `npm install` antes de qualquer `npm ci`, reconstrói package-lock.json e instala node_modules. Nas aberturas seguintes, volta ao fluxo normal de npm ci quando for necessária uma reinstalação.
+
+USO RECOMENDADO
+chmod +x start-linux.sh
+./start-linux.sh
+
+Depois da primeira inicialização, para auditoria completa:
+./start-linux.sh --verify

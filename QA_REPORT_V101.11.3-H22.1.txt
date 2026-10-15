@@ -1,0 +1,136 @@
+RealTalent CRM V101.11.3-H22.1 — QA REPORT
+Team Profiles & Real Access Control
+Base: V101.11.3-H21.1-H1
+Data: 2026-10-12
+
+RESULTADO PRINCIPAL
+-------------------
+qa:architecture                                      PASS
+H22.1 Team Profiles & Real Access Control        54/54 PASS
+H22.1 Team Access Runtime                        17/17 PASS
+
+ESCOPO COM ENFORCEMENT DE REGISTRO
+----------------------------------
+Contatos
+- own / team / all aplicado na lista e nos registros.
+- create/edit/delete/export separados.
+- bulk delete valida registro por registro.
+- merge valida edit/delete.
+- import valida ownership.
+- troca de owner exige action=assign.
+
+Pipeline
+- own / team / all aplicado na lista e nos registros.
+- create/edit/delete separados.
+- movimentação e operações em massa validam escopo.
+- troca de owner exige action=assign.
+
+Tarefas
+- own / team / all aplicado na lista e no service.
+- create/edit/delete protegidos.
+- reatribuição de assignee/team exige action=assign.
+- criação delegada exige action=assign.
+
+BACKEND / SUPABASE
+------------------
+Nova migration: 202610120001_v101_11_3_h22_1_team_profiles_access_control.sql
+Migration count: 55
+
+PASS access_profiles + member_access_profiles
+PASS RLS de administração dos perfis
+PASS helper de actions
+PASS helper de scopes
+PASS Leads RLS por Contacts/Pipeline
+PASS Contacts RLS por relationship_owner_id
+PASS Tasks RLS por assignee/team
+PASS assignment trigger separa Editar de Atribuir
+PASS seed SECURITY DEFINER não fica executável por public/anon/authenticated
+
+NAVEGAÇÃO
+---------
+PASS Sidebar esconde módulo sem view
+PASS Mobile nav esconde módulo sem view
+PASS Direct route guard retorna Acesso restrito
+PASS Settings/Teams profile admin não possui bypass de modo Local
+
+PERFIS
+------
+PASS Administrador
+PASS Gestor
+PASS Vendedor
+PASS SDR
+PASS Somente leitura
+PASS perfis personalizados
+PASS duplicação sem editar perfil padrão
+PASS atribuição por membro
+PASS Owner/Admin permanecem Administrador efetivo
+PASS Visualizar como
+PASS UI explicita limite de segurança do modo Local
+
+RUNTIME H22.1
+-------------
+PASS seller recebe Vendedor
+PASS seller pode ver contatos próprios
+PASS seller não vê contato de peer em scope own
+PASS seller não pode excluir contatos
+PASS seller não pode reatribuir contatos
+PASS manager recebe Gestor
+PASS manager vê peer da mesma equipe
+PASS manager pode atribuir dentro da equipe
+PASS manager não vê outsider
+PASS viewer lê tarefas
+PASS viewer não edita tarefas
+PASS assertAccess bloqueia ação proibida
+PASS custom assignment substitui preset
+PASS custom team scope vê teammate
+PASS custom team scope bloqueia outsider
+PASS custom read-only não atribui
+
+GATES ESTRUTURAIS
+-----------------
+Source Syntax                                  420 arquivos PASS
+Integration Contracts                         388 arquivos PASS
+Migrations                                          55/55 PASS
+Release Manifest                                  103/103 PASS
+CSS Governance                                      65/65 PASS
+Linux release preflight                        381 TS/TSX PASS
+Capability Matrix                 45 capacidades / 168 evidências / 111 executáveis
+Repository Local                                  100/100 PASS
+Repository Supabase                               100/100 PASS
+Browser E2E Contract                               11 fluxos PASS
+Registry-independent transpile                    305 módulos PASS
+
+REGRESSÃO
+---------
+PASS H21.1 Garimpo Coverage & Runtime Truth
+PASS H21.1-H1 Communication Lineage Guard
+PASS H20.7-H2 WhatsApp Conversation-Only Inbox
+PASS linha H19 / Pure Chat preservada
+PASS CSS Governance
+
+GATES OFICIAIS DEPENDENTES DE DEPENDÊNCIAS
+-------------------------------------------
+npm ci      BLOCKED — não concluiu na janela do ambiente; node_modules permaneceu ausente.
+typecheck   BLOCKED — módulos/tipos ausentes; primeiro erro raiz: Cannot find module 'react'.
+Vitest      BLOCKED — vitest: not found.
+Vite build  validate:env PASS; build BLOCKED — vite: not found.
+
+BUNDLE FALLBACK
+---------------
+Registry-independent build: PASS, 305 módulos.
+Bundle audit do dist fallback: FAIL esperado — "HTML legado reapareceu".
+dist fallback: REMOVIDO do artefato final.
+
+LIMITES / VERDADE DE SEGURANÇA
+------------------------------
+1. Modo Local aplica o engine dentro da aplicação, mas não é uma fronteira segura entre pessoas porque todos usam o mesmo navegador/dispositivo. Segurança multiusuário real exige autenticação individual + Supabase/RLS.
+2. Contatos, Pipeline e Tarefas têm enforcement granular completo nesta etapa. Demais recursos têm bloqueio real de módulo/rota via action=view; as outras ações da matriz serão propagadas nas próximas fases H22.
+3. leads ainda é backing compartilhado entre Contatos/Pipeline. A RLS dessa tabela aceita autorização equivalente de um dos dois recursos até a separação do backing legado.
+
+HIGIENE FINAL ESPERADA
+----------------------
+node_modules                         AUSENTE
+dist fallback                       AUSENTE
+.env.local                          AUSENTE
+sessão WhatsApp local               AUSENTE
+migrations novas                    1

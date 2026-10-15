@@ -3,7 +3,7 @@ import type { ReactNode } from 'react'
 
 export function EmptyState({ icon: Icon, title, description, action }: { icon: LucideIcon; title: string; description: string; action?: ReactNode }) {
   return (
-    <div className="empty-state">
+    <div data-rt-primitive="empty-state" className="rt-empty-state empty-state">
       <div className="empty-state__icon"><Icon size={24} /></div>
       <h3>{title}</h3>
       <p>{description}</p>

@@ -6,7 +6,7 @@ import type { PipelineCardField } from './pipeline-preferences'
 import { DEFAULT_CARD_FIELDS } from './pipeline-preferences'
 
 const fields: Array<{ key: PipelineCardField; label: string; help: string }> = [
-  { key: 'company', label: 'Empresa', help: 'Nome comercial do lead.' },
+  { key: 'company', label: 'Empresa', help: 'Nome comercial do contato.' },
   { key: 'city', label: 'Cidade', help: 'Localização principal.' },
   { key: 'owner', label: 'Responsável', help: 'Pessoa que conduz a oportunidade.' },
   { key: 'priority', label: 'Prioridade', help: 'Urgente, alta, média ou baixa.' },
@@ -26,7 +26,7 @@ export function PipelineSettingsModal({ open, value, onClose, onSave }: { open: 
 
   const toggle = (field: PipelineCardField) => setSelected((current) => current.includes(field) ? current.filter((item) => item !== field) : [...current, field])
 
-  return <Modal open={open} onClose={onClose} title="Configurar cards" subtitle="Escolha as informações exibidas no Kanban. As preferências ficam salvas neste workspace." size="md" footer={<>
+  return <Modal open={open} onClose={onClose} title="Cards do Pipeline" subtitle="Escolha as informações do Kanban. O CRM também salva automaticamente a última visualização e a densidade usadas neste workspace." size="md" footer={<>
     <Button variant="ghost" onClick={() => setSelected(DEFAULT_CARD_FIELDS)}><RotateCcw size={16} /> Restaurar padrão</Button>
     <span className="modal__footer-spacer" />
     <Button variant="secondary" onClick={onClose}>Cancelar</Button>

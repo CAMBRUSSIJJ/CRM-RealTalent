@@ -1,0 +1,31 @@
+RealTalent CRM V100.84.0 — Calendar Integration 2.0
+Data: 2026-09-22
+
+RESULTADO
+- Gate específico V100.84: 69/69 aprovado.
+- Suítes históricas/atuais V100: 29/29 aprovadas.
+- Auditoria sintática: 247 arquivos aprovados.
+- Contratos de integração: 217 arquivos aprovados.
+- Migrations: 38/38 com checksum íntegro.
+- BACKUP_SCHEMA_VERSION: 100.54 (preservado).
+- Auditoria funcional: 18 funcionais, 9 parciais, 0 visual-only, 1 não implementado.
+
+PRINCIPAIS VALIDAÇÕES V100.84
+- Configurações > Agenda externa e deep link da Agenda.
+- OAuth PKCE, catálogo Google/Microsoft e escopo Google Calendar List.
+- Seleção do calendário alvo e direção bidirecional/unidirecional.
+- Conta padrão pessoal/workspace.
+- Pull incremental Google Sync Token / Microsoft Delta Link.
+- Microsoft pull/create respeitam o calendário selecionado.
+- Fila idempotente por evento + mutação + versão.
+- Google PATCH e recriação em 404.
+- Cancelamento local gera delete externo.
+- Lembretes Google/Microsoft.
+- Metadados internos da Agenda não vazam à descrição externa.
+- Deduplicação da primeira sincronização.
+- Troca de calendário reinicia cursor e agenda renovação do webhook.
+- Backfill publica somente eventos locais ainda não vinculados.
+- Conflitos preservados/resolvíveis com keep_local/keep_external/ignore.
+
+LIMITAÇÃO DO AMBIENTE DE EMPACOTAMENTO
+`npm ci --ignore-scripts --prefer-offline` não concluiu devido a TransportTimeoutError do ambiente. Por isso typecheck completo, Vitest e build Vite não são declarados como executados nesta empacotação. O node_modules parcial foi removido antes do ZIP.

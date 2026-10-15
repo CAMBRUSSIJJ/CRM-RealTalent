@@ -1,0 +1,22 @@
+RealTalent CRM V101.6.1 — Contacts Experience Completion & Meu Dia Fix
+QA final — 2026-09-27
+
+RESULTADOS EXECUTADOS
+- V101.6.1 audit específico: 27/27 contratos aprovados.
+- Regressão histórica/current: 61/61 scripts qa:* aprovados.
+- Auditoria sintática: 291 arquivos aprovados.
+- Auditoria de integração: 260 arquivos aprovados.
+- Migrations: 42/42 com checksum íntegro.
+- Linux release preflight: 258 arquivos TS/TSX; aprovado.
+- RealTalent Connect resilience smoke: aprovado (idempotência → persistência → restart → retomada → connected → ended; origin guard 403).
+
+CORREÇÕES-CHAVE
+- Meu Dia 3.0 ocupa a grade completa e integra a Central do dia ao Layout Studio.
+- Registro completo de Contato: busca e filtros de atividades por canal/tipo.
+- Views de Contatos persistentes/configuráveis, com RLS e proteção de autoria.
+- URL pública #/contacts com alias legado #/leads.
+- Pipeline com linguagem e criação orientadas a Oportunidade, preservando o modelo histórico.
+- Account 360/organograma preservados.
+
+LIMITAÇÃO DO AMBIENTE DE QA
+O ciclo completo npm (typecheck total, Vitest, Vite build, bundle audit e HTTP smoke) não pôde ser executado neste container porque `npm ci --offline` falhou por ausência de `xmlchars@2.2.0` no cache local. A falha é ambiental e foi reproduzida explicitamente; nenhum `node_modules` parcial foi mantido no pacote. O `start-linux.sh` instala dependências e executa o gate completo no Linux antes de servir o CRM.

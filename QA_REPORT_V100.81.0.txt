@@ -1,0 +1,35 @@
+RealTalent CRM V100.81.0 — Revenue Intelligence 2.0
+QA report — 2026-09-20 (America/Sao_Paulo)
+
+RESULTADO
+- Gate específico V100.81.0: 48/48 aprovado.
+- Gates históricos/atuais: 26/26 aprovados até V100.81.0.
+- Auditoria sintática: 239 arquivos aprovados.
+- Contratos de integração: 210 arquivos aprovados.
+- Migrations: 37/37 com checksum íntegro.
+- BACKUP_SCHEMA_VERSION: 100.54, sem migration nova.
+- Serviços revenue-intelligence.ts e revenue-forecast.ts: compilação TypeScript isolada aprovada.
+
+PRINCIPAIS VALIDAÇÕES V100.81
+- Receita realizada separada de receita prevista cadastrada.
+- Bookings separados de receita reconhecida.
+- Pipeline ponderado separado do Forecast RealTalent.
+- Win rate e ticket médio ganho calculados.
+- Cortes por responsável, origem e produto.
+- Receita sem vínculo comercial sinalizada.
+- Competência YYYY-MM-DD preserva o mês sem deslocamento UTC.
+- Lista de receita possui filtros Reconhecida/Prevista/Cancelada.
+- Compatibilidade dos gates históricos V100.68 e V100.80 preservada.
+
+VALIDAÇÃO COMPLETA DE DEPENDÊNCIAS
+- npm ci: NÃO CONCLUÍDO.
+- Motivo: TransportTimeoutError no transporte do ambiente.
+- npm run typecheck completo: não validado com dependências reais; a tentativa sem node_modules falha por ausência de react, lucide-react e @supabase/supabase-js.
+- Vitest: não executado sem dependências instaladas.
+- Vite build: não executado sem dependências instaladas.
+- node_modules parcial foi removido antes do empacotamento.
+
+LIMITAÇÕES DE NEGÓCIO DOCUMENTADAS
+- Perdas não possuem closedLostAt dedicado; updatedAt é usado como referência operacional.
+- Receita por origem/produto depende de lançamentos vinculados a lead/proposta.
+- Esta versão não implementa faturamento, invoice, contas a receber ou conciliação financeira.

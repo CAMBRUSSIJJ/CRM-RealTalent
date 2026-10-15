@@ -87,8 +87,8 @@ export interface Database {
       }
 
       products: {
-        Row: { id: string; organization_id: string; name: string; sku: string; description: string; category: string; active: boolean; unit_price: number; billing_type: 'one_time' | 'recurring'; billing_interval: 'month' | 'quarter' | 'year' | null; tax_rate: number; created_at: string; updated_at: string }
-        Insert: { id?: string; organization_id: string; name: string; sku?: string; description?: string; category?: string; active?: boolean; unit_price?: number; billing_type?: 'one_time' | 'recurring'; billing_interval?: 'month' | 'quarter' | 'year' | null; tax_rate?: number; created_at?: string; updated_at?: string }
+        Row: { id: string; organization_id: string; name: string; sku: string; description: string; category: string; active: boolean; unit_price: number; unit_cost: number; product_kind: 'product' | 'service'; commercial_type: string; unit_label: string; default_discount_percent: number; max_discount_percent: number; min_margin_percent: number; value_proposition: string; target_customer: string; sales_notes: string; pricing_mode: 'fixed' | 'from' | 'quote' | 'free' | 'custom'; lifecycle_status: 'draft' | 'ready' | 'active' | 'archived'; sales_problems: unknown; sales_benefits: unknown; discovery_questions: unknown; objection_notes: unknown; sales_proofs: unknown; competitors: unknown; bundle_items: unknown; billing_type: 'one_time' | 'recurring'; billing_interval: 'month' | 'quarter' | 'year' | null; tax_rate: number; created_at: string; updated_at: string }
+        Insert: { id?: string; organization_id: string; name: string; sku?: string; description?: string; category?: string; active?: boolean; unit_price?: number; unit_cost?: number; product_kind?: 'product' | 'service'; commercial_type?: string; unit_label?: string; default_discount_percent?: number; max_discount_percent?: number; min_margin_percent?: number; value_proposition?: string; target_customer?: string; sales_notes?: string; pricing_mode?: 'fixed' | 'from' | 'quote' | 'free' | 'custom'; lifecycle_status?: 'draft' | 'ready' | 'active' | 'archived'; sales_problems?: unknown; sales_benefits?: unknown; discovery_questions?: unknown; objection_notes?: unknown; sales_proofs?: unknown; competitors?: unknown; bundle_items?: unknown; billing_type?: 'one_time' | 'recurring'; billing_interval?: 'month' | 'quarter' | 'year' | null; tax_rate?: number; created_at?: string; updated_at?: string }
         Update: Partial<Database['public']['Tables']['products']['Insert']>
         Relationships: []
       }
@@ -99,14 +99,14 @@ export interface Database {
         Relationships: []
       }
       sales_proposal_items: {
-        Row: { id: string; organization_id: string; proposal_id: string; product_id: string | null; item_order: number; name: string; description: string; quantity: number; unit_price: number; discount_percent: number; tax_rate: number; billing_type: 'one_time' | 'recurring'; billing_interval: 'month' | 'quarter' | 'year' | null; line_subtotal: number; line_discount: number; line_tax: number; line_total: number; recurring_monthly_total: number; created_at: string; updated_at: string }
-        Insert: { id?: string; organization_id: string; proposal_id: string; product_id?: string | null; item_order?: number; name: string; description?: string; quantity?: number; unit_price?: number; discount_percent?: number; tax_rate?: number; billing_type?: 'one_time' | 'recurring'; billing_interval?: 'month' | 'quarter' | 'year' | null; line_subtotal?: number; line_discount?: number; line_tax?: number; line_total?: number; recurring_monthly_total?: number; created_at?: string; updated_at?: string }
+        Row: { id: string; organization_id: string; proposal_id: string; product_id: string | null; item_order: number; name: string; description: string; quantity: number; unit_price: number; discount_percent: number; tax_rate: number; billing_type: 'one_time' | 'recurring'; billing_interval: 'month' | 'quarter' | 'year' | null; line_subtotal: number; line_discount: number; line_tax: number; line_total: number; recurring_monthly_total: number; pricing_source: 'catalog' | 'manual'; catalog_unit_price: number | null; unit_cost_snapshot: number | null; catalog_discount_percent: number | null; pricing_overridden: boolean; created_at: string; updated_at: string }
+        Insert: { id?: string; organization_id: string; proposal_id: string; product_id?: string | null; item_order?: number; name: string; description?: string; quantity?: number; unit_price?: number; discount_percent?: number; tax_rate?: number; billing_type?: 'one_time' | 'recurring'; billing_interval?: 'month' | 'quarter' | 'year' | null; line_subtotal?: number; line_discount?: number; line_tax?: number; line_total?: number; recurring_monthly_total?: number; pricing_source?: 'catalog' | 'manual'; catalog_unit_price?: number | null; unit_cost_snapshot?: number | null; catalog_discount_percent?: number | null; pricing_overridden?: boolean; created_at?: string; updated_at?: string }
         Update: Partial<Database['public']['Tables']['sales_proposal_items']['Insert']>
         Relationships: []
       }
       revenue_entries: {
-        Row: { id: string; organization_id: string; proposal_id: string | null; lead_id: string | null; opportunity_id: string | null; revenue_type: 'one_time' | 'recurring'; status: 'forecast' | 'recognized' | 'cancelled'; amount: number; recurring_monthly_amount: number; recognized_at: string; competence_date: string; service_period_start: string | null; service_period_end: string | null; adjustment_reason: string; description: string; owner_id: string | null; created_at: string; updated_at: string }
-        Insert: { id?: string; organization_id: string; proposal_id?: string | null; lead_id?: string | null; opportunity_id?: string | null; revenue_type: 'one_time' | 'recurring'; status?: 'forecast' | 'recognized' | 'cancelled'; amount?: number; recurring_monthly_amount?: number; recognized_at?: string; competence_date: string; service_period_start?: string | null; service_period_end?: string | null; adjustment_reason?: string; description?: string; owner_id?: string | null; created_at?: string; updated_at?: string }
+        Row: { id: string; organization_id: string; proposal_id: string | null; lead_id: string | null; opportunity_id: string | null; revenue_type: 'one_time' | 'recurring'; status: 'forecast' | 'recognized' | 'cancelled'; amount: number; recurring_monthly_amount: number; recognized_at: string; competence_date: string; service_period_start: string | null; service_period_end: string | null; adjustment_reason: string; description: string; owner_id: string | null; source: 'manual' | 'proposal_schedule'; schedule_key: string | null; installment_index: number | null; installment_count: number | null; created_at: string; updated_at: string }
+        Insert: { id?: string; organization_id: string; proposal_id?: string | null; lead_id?: string | null; opportunity_id?: string | null; revenue_type: 'one_time' | 'recurring'; status?: 'forecast' | 'recognized' | 'cancelled'; amount?: number; recurring_monthly_amount?: number; recognized_at?: string; competence_date: string; service_period_start?: string | null; service_period_end?: string | null; adjustment_reason?: string; description?: string; owner_id?: string | null; source?: 'manual' | 'proposal_schedule'; schedule_key?: string | null; installment_index?: number | null; installment_count?: number | null; created_at?: string; updated_at?: string }
         Update: Partial<Database['public']['Tables']['revenue_entries']['Insert']>
         Relationships: []
       }
@@ -149,14 +149,14 @@ export interface Database {
         Relationships: []
       }
       playbooks: {
-        Row: { id: string; organization_id: string; kind: 'script' | 'objection'; title: string; category: string; content: string; tags: string[]; active: boolean; created_by: string | null; created_at: string; updated_at: string }
-        Insert: { id?: string; organization_id: string; kind?: 'script' | 'objection'; title: string; category?: string; content: string; tags?: string[]; active?: boolean; created_by?: string | null; created_at?: string; updated_at?: string }
-        Update: { kind?: 'script' | 'objection'; title?: string; category?: string; content?: string; tags?: string[]; active?: boolean; updated_at?: string }
+        Row: { id: string; organization_id: string; kind: 'script' | 'objection' | 'battlecard' | 'checklist'; title: string; category: string; content: string; tags: string[]; guidance: Json; active: boolean; created_by: string | null; created_at: string; updated_at: string }
+        Insert: { id?: string; organization_id: string; kind?: 'script' | 'objection' | 'battlecard' | 'checklist'; title: string; category?: string; content: string; tags?: string[]; guidance?: Json; active?: boolean; created_by?: string | null; created_at?: string; updated_at?: string }
+        Update: { kind?: 'script' | 'objection' | 'battlecard' | 'checklist'; title?: string; category?: string; content?: string; tags?: string[]; guidance?: Json; active?: boolean; updated_at?: string }
         Relationships: []
       }
       goals: {
-        Row: { id: string; organization_id: string; user_id: string | null; metric: string; target_value: number; period_start: string; period_end: string; created_at: string; updated_at: string }
-        Insert: { id?: string; organization_id: string; user_id?: string | null; metric: string; target_value?: number; period_start: string; period_end: string; created_at?: string; updated_at?: string }
+        Row: { id: string; organization_id: string; user_id: string | null; scope: string; team_id: string | null; team_name: string; metric: string; target_value: number; period_start: string; period_end: string; created_at: string; updated_at: string }
+        Insert: { id?: string; organization_id: string; user_id?: string | null; scope?: string; team_id?: string | null; team_name?: string; metric: string; target_value?: number; period_start: string; period_end: string; created_at?: string; updated_at?: string }
         Update: Partial<Database['public']['Tables']['goals']['Insert']>
         Relationships: []
       }
@@ -170,6 +170,18 @@ export interface Database {
         Row: { id: string; organization_id: string; rule_id: string | null; event_key: string; status: string; input: Json; output: Json; error_message: string | null; started_at: string; finished_at: string | null }
         Insert: { id?: string; organization_id: string; rule_id?: string | null; event_key: string; status: string; input?: Json; output?: Json; error_message?: string | null; started_at?: string; finished_at?: string | null }
         Update: Partial<Database['public']['Tables']['automation_runs']['Insert']>
+        Relationships: []
+      }
+      workflow_executions: {
+        Row: { id: string; organization_id: string; rule_id: string | null; lead_id: string | null; trigger_type: string; entity_id: string; idempotency_key: string; correlation_id: string; status: 'queued' | 'running' | 'waiting' | 'retrying' | 'succeeded' | 'failed' | 'cancelled'; current_step: number; attempts: number; max_attempts: number; next_run_at: string; locked_at: string | null; input: Json; context: Json; last_error: string | null; created_by: string | null; started_at: string | null; finished_at: string | null; created_at: string; updated_at: string }
+        Insert: { id?: string; organization_id: string; rule_id?: string | null; lead_id?: string | null; trigger_type: string; entity_id: string; idempotency_key: string; correlation_id: string; status?: 'queued' | 'running' | 'waiting' | 'retrying' | 'succeeded' | 'failed' | 'cancelled'; current_step?: number; attempts?: number; max_attempts?: number; next_run_at?: string; locked_at?: string | null; input?: Json; context?: Json; last_error?: string | null; created_by?: string | null; started_at?: string | null; finished_at?: string | null; created_at?: string; updated_at?: string }
+        Update: Partial<Database['public']['Tables']['workflow_executions']['Insert']>
+        Relationships: []
+      }
+      workflow_step_runs: {
+        Row: { id: string; organization_id: string; execution_id: string; step_index: number; step_type: 'action' | 'wait' | 'branch'; action_type: string | null; status: 'pending' | 'running' | 'waiting' | 'succeeded' | 'failed' | 'skipped'; attempt: number; branch_result: boolean | null; scheduled_for: string | null; input: Json; output: Json; error_message: string | null; started_at: string | null; finished_at: string | null; created_at: string; updated_at: string }
+        Insert: { id?: string; organization_id: string; execution_id: string; step_index: number; step_type: 'action' | 'wait' | 'branch'; action_type?: string | null; status?: 'pending' | 'running' | 'waiting' | 'succeeded' | 'failed' | 'skipped'; attempt?: number; branch_result?: boolean | null; scheduled_for?: string | null; input?: Json; output?: Json; error_message?: string | null; started_at?: string | null; finished_at?: string | null; created_at?: string; updated_at?: string }
+        Update: Partial<Database['public']['Tables']['workflow_step_runs']['Insert']>
         Relationships: []
       }
       realtalent_connect_devices: {
@@ -262,6 +274,60 @@ export interface Database {
         Update: Partial<Database['public']['Tables']['seller_notifications']['Insert']>
         Relationships: []
       }
+      automation_webhooks: {
+        Row: { id: string; organization_id: string; name: string; url: string; method: 'POST' | 'PUT' | 'PATCH'; enabled: boolean; secret_token: string; has_secret: boolean; timeout_seconds: number; max_attempts: number; headers: Json; created_by: string | null; created_at: string; updated_at: string }
+        Insert: { id?: string; organization_id: string; name: string; url: string; method?: 'POST' | 'PUT' | 'PATCH'; enabled?: boolean; secret_token?: string; timeout_seconds?: number; max_attempts?: number; headers?: Json; created_by?: string | null; created_at?: string; updated_at?: string }
+        Update: Partial<Database['public']['Tables']['automation_webhooks']['Insert']>
+        Relationships: []
+      }
+      webhook_deliveries: {
+        Row: { id: string; organization_id: string; webhook_id: string; automation_run_id: string | null; rule_id: string | null; lead_id: string | null; event_type: string; correlation_id: string; status: 'pending' | 'sending' | 'success' | 'failed' | 'cancelled' | 'simulated'; attempts: number; request_body: Json; response_status: number | null; response_body: string; error_message: string; next_attempt_at: string; last_attempt_at: string | null; created_at: string; finished_at: string | null }
+        Insert: { id?: string; organization_id: string; webhook_id: string; automation_run_id?: string | null; rule_id?: string | null; lead_id?: string | null; event_type: string; correlation_id: string; status?: 'pending' | 'sending' | 'success' | 'failed' | 'cancelled' | 'simulated'; attempts?: number; request_body?: Json; response_status?: number | null; response_body?: string; error_message?: string; next_attempt_at?: string; last_attempt_at?: string | null; created_at?: string; finished_at?: string | null }
+        Update: Partial<Database['public']['Tables']['webhook_deliveries']['Insert']>
+        Relationships: []
+      }
+      buyer_rooms: {
+        Row: { id: string; organization_id: string; lead_id: string; opportunity_id: string | null; proposal_id: string; company_id: string | null; title: string; welcome_message: string; status: 'draft' | 'shared' | 'active' | 'completed' | 'archived'; share_token: string; share_enabled: boolean; expires_at: string | null; last_opened_at: string | null; view_count: number; participants: Json; steps: Json; documents: Json; activity: Json; created_at: string; updated_at: string }
+        Insert: { id?: string; organization_id: string; lead_id: string; opportunity_id?: string | null; proposal_id: string; company_id?: string | null; title: string; welcome_message?: string; status?: 'draft' | 'shared' | 'active' | 'completed' | 'archived'; share_token: string; share_enabled?: boolean; expires_at?: string | null; last_opened_at?: string | null; view_count?: number; participants?: Json; steps?: Json; documents?: Json; activity?: Json; created_at?: string; updated_at?: string }
+        Update: Partial<Database['public']['Tables']['buyer_rooms']['Insert']>
+        Relationships: []
+      }
+      communication_events: {
+        Row: { id: string; organization_id: string; thread_id: string | null; lead_id: string | null; contact_id: string | null; account_id: string | null; channel: 'email' | 'whatsapp' | 'instagram' | 'facebook' | 'linkedin' | 'calendar' | 'call' | 'meeting' | 'note' | 'system'; direction: 'inbound' | 'outbound' | 'internal'; event_type: 'message' | 'email' | 'calendar_event' | 'delivery_status' | 'internal_note'; status: 'queued' | 'sent' | 'delivered' | 'read' | 'received' | 'failed' | 'cancelled'; external_message_id: string | null; idempotency_key: string | null; sender_address: string; recipient_addresses: string[]; subject: string; body_text: string; occurred_at: string; metadata: Json; created_at: string }
+        Insert: { id?: string; organization_id: string; thread_id?: string | null; lead_id?: string | null; contact_id?: string | null; account_id?: string | null; channel: 'email' | 'whatsapp' | 'instagram' | 'facebook' | 'linkedin' | 'calendar' | 'call' | 'meeting' | 'note' | 'system'; direction: 'inbound' | 'outbound' | 'internal'; event_type: 'message' | 'email' | 'calendar_event' | 'delivery_status' | 'internal_note'; status?: 'queued' | 'sent' | 'delivered' | 'read' | 'received' | 'failed' | 'cancelled'; external_message_id?: string | null; idempotency_key?: string | null; sender_address?: string; recipient_addresses?: string[]; subject?: string; body_text?: string; occurred_at?: string; metadata?: Json; created_at?: string }
+        Update: Partial<Database['public']['Tables']['communication_events']['Insert']>
+        Relationships: []
+      }
+      companies: {
+        Row: { id: string; organization_id: string; name: string; legal_name: string; cnpj: string; domain: string; website: string; segment: string; phone: string; city: string; state: string; status: 'prospect' | 'customer' | 'inactive'; lead_ids: string[]; created_at: string; updated_at: string }
+        Insert: { id?: string; organization_id: string; name: string; legal_name?: string; cnpj?: string; domain?: string; website?: string; segment?: string; phone?: string; city?: string; state?: string; status?: 'prospect' | 'customer' | 'inactive'; lead_ids?: string[]; created_at?: string; updated_at?: string }
+        Update: Partial<Database['public']['Tables']['companies']['Insert']>
+        Relationships: []
+      }
+      contacts: {
+        Row: { id: string; organization_id: string; company_id: string | null; name: string; job_title: string; phone: string; email: string; decision_role: 'decision_maker' | 'influencer' | 'user' | 'gatekeeper' | 'champion' | 'blocker' | 'unknown'; influence_level: number; consent_status: 'unknown' | 'legitimate_interest' | 'consented' | 'opted_out'; do_not_contact: boolean; do_not_contact_reason: string; lead_ids: string[]; created_at: string; updated_at: string }
+        Insert: { id?: string; organization_id: string; company_id?: string | null; name: string; job_title?: string; phone?: string; email?: string; decision_role?: 'decision_maker' | 'influencer' | 'user' | 'gatekeeper' | 'champion' | 'blocker' | 'unknown'; influence_level?: number; consent_status?: 'unknown' | 'legitimate_interest' | 'consented' | 'opted_out'; do_not_contact?: boolean; do_not_contact_reason?: string; lead_ids?: string[]; created_at?: string; updated_at?: string }
+        Update: Partial<Database['public']['Tables']['contacts']['Insert']>
+        Relationships: []
+      }
+      contact_relationships: {
+        Row: { id: string; organization_id: string; company_id: string; from_contact_id: string; to_contact_id: string; relationship_type: 'reports_to' | 'partner' | 'co_owner' | 'referred_by' | 'works_with' | 'influences' | 'other'; strength: number; notes: string; created_at: string; updated_at: string }
+        Insert: { id?: string; organization_id: string; company_id: string; from_contact_id: string; to_contact_id: string; relationship_type?: 'reports_to' | 'partner' | 'co_owner' | 'referred_by' | 'works_with' | 'influences' | 'other'; strength?: number; notes?: string; created_at?: string; updated_at?: string }
+        Update: Partial<Database['public']['Tables']['contact_relationships']['Insert']>
+        Relationships: []
+      }
+      opportunities: {
+        Row: { id: string; organization_id: string; company_id: string | null; primary_contact_id: string | null; lead_id: string; title: string; stage_id: string; status: 'active' | 'won' | 'lost' | 'archived'; value: number; owner_id: string | null; expected_close_at: string | null; created_at: string; updated_at: string }
+        Insert: { id?: string; organization_id: string; company_id?: string | null; primary_contact_id?: string | null; lead_id: string; title: string; stage_id: string; status?: 'active' | 'won' | 'lost' | 'archived'; value?: number; owner_id?: string | null; expected_close_at?: string | null; created_at?: string; updated_at?: string }
+        Update: Partial<Database['public']['Tables']['opportunities']['Insert']>
+        Relationships: []
+      }
+      social_profiles: {
+        Row: { id: string; organization_id: string; entity_type: 'lead' | 'company' | 'contact'; entity_id: string; network: 'instagram' | 'linkedin' | 'facebook' | 'whatsapp' | 'x' | 'youtube' | 'tiktok' | 'other'; username: string; url: string; external_id: string | null; verified: boolean; source: string; confidence: number; last_checked_at: string | null; created_at: string; updated_at: string }
+        Insert: { id?: string; organization_id: string; entity_type: 'lead' | 'company' | 'contact'; entity_id: string; network: 'instagram' | 'linkedin' | 'facebook' | 'whatsapp' | 'x' | 'youtube' | 'tiktok' | 'other'; username?: string; url: string; external_id?: string | null; verified?: boolean; source?: string; confidence?: number; last_checked_at?: string | null; created_at?: string; updated_at?: string }
+        Update: Partial<Database['public']['Tables']['social_profiles']['Insert']>
+        Relationships: []
+      }
       contact_drafts: {
         Row: { id: string; organization_id: string; lead_id: string; channel: string; subject: string; message: string; status: string; source_type: string; source_id: string | null; created_at: string; used_at: string | null }
         Insert: { id?: string; organization_id: string; lead_id: string; channel: string; subject?: string; message: string; status?: string; source_type?: string; source_id?: string | null; created_at?: string; used_at?: string | null }
@@ -272,6 +338,19 @@ export interface Database {
     Views: Record<string, never>
     Functions: {
 
+      add_buyer_room_public_comment: { Args: { p_share_token: string; p_message: string; p_actor_name?: string }; Returns: boolean }
+      append_buyer_room_activity: { Args: { p_room_id: string; p_event: Json }; Returns: string }
+      enqueue_calendar_backfill: { Args: { p_organization_id: string; p_account_id: string; p_limit?: number }; Returns: number }
+      merge_duplicate_leads_v10066: { Args: { p_organization_id: string; p_primary_lead_id: string; p_duplicate_lead_id: string }; Returns: string }
+      resolve_default_integration_account: { Args: { p_organization_id: string; p_capability: string }; Returns: string | null }
+      resolve_integration_sync_conflict: { Args: { p_conflict_id: string; p_resolution: string }; Returns: boolean }
+      rotate_buyer_room_token: { Args: { p_room_id: string; p_new_token: string }; Returns: string }
+      set_default_integration_account: { Args: { p_organization_id: string; p_capability: string; p_account_id: string; p_scope?: string }; Returns: string }
+      sync_commercial_structure: { Args: { p_organization_id: string }; Returns: Json }
+      track_buyer_room_public_document: { Args: { p_share_token: string; p_document_id: string; p_actor_name?: string }; Returns: boolean }
+      update_buyer_room_public_step: { Args: { p_share_token: string; p_step_id: string; p_completed: boolean; p_actor_name?: string }; Returns: Json }
+      update_calendar_integration_settings: { Args: { p_organization_id: string; p_account_id: string; p_calendar_id: string; p_calendar_name?: string; p_sync_direction?: string; p_sync_enabled?: boolean }; Returns: Json }
+      clear_organization_operational_data: { Args: { p_organization_id: string }; Returns: Json }
       next_sales_proposal_number: { Args: { p_organization_id: string }; Returns: string }
       save_sales_proposal: { Args: { p_organization_id: string; p_proposal_id: string | null; p_lead_id: string; p_title: string; p_forecast_category: string; p_probability: number; p_valid_until: string | null; p_expected_close_at: string | null; p_contract_start_at: string | null; p_contract_end_at: string | null; p_contract_term_months: number; p_auto_renew: boolean; p_post_sale_start_at: string | null; p_post_sale_cadence_name: string; p_notes: string; p_terms: string; p_items: Json }; Returns: string }
       create_sales_proposal_revision: { Args: { p_organization_id: string; p_proposal_id: string }; Returns: string }
@@ -310,6 +389,9 @@ export interface Database {
       retry_automation_event: { Args: { p_event_id: string }; Returns: boolean }
       cancel_automation_event: { Args: { p_event_id: string }; Returns: boolean }
       retry_failed_automation_events: { Args: { p_organization_id: string }; Returns: number }
+      enqueue_workflow_execution: { Args: { p_organization_id: string; p_rule_id: string; p_trigger_type: string; p_entity_id: string; p_lead_id?: string | null; p_idempotency_key: string; p_correlation_id: string; p_input?: Json; p_context?: Json }; Returns: string }
+      retry_workflow_execution: { Args: { p_execution_id: string }; Returns: boolean }
+      cancel_workflow_execution: { Args: { p_execution_id: string }; Returns: boolean }
       move_lead_with_reason: { Args: { p_lead_id: string; p_stage_id: string; p_loss_reason?: string | null }; Returns: Database['public']['Tables']['leads']['Row'] }
       bulk_move_leads_with_reason: { Args: { p_organization_id: string; p_lead_ids: string[]; p_stage_id: string; p_loss_reason?: string | null }; Returns: Database['public']['Tables']['leads']['Row'][] }
       bulk_add_lead_tag: { Args: { p_organization_id: string; p_lead_ids: string[]; p_tag: string }; Returns: number }

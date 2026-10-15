@@ -1,15 +1,15 @@
 import { ArrowRight, CheckCircle2, Construction, Database, Layers3 } from 'lucide-react'
-import { useApp } from '../../app/app-context'
+import { useAppNavigation } from '../../app/app-context'
 import { Button } from '../../components/ui/button'
 import type { AppRoute } from '../../domain/types'
 import { routeTitles } from '../../components/layout/navigation'
 
-const plans: Record<Exclude<AppRoute, 'dashboard' | 'leads' | 'pipeline' | 'followups' | 'calls' | 'agenda' | 'goals' | 'automations' | 'metrics' | 'prospecting' | 'settings'>, string[]> = {
+const plans = {
   playbooks: ['Scripts editáveis', 'Objeções e respostas', 'Versionamento por workspace'],
-}
+} satisfies Partial<Record<AppRoute, string[]>>
 
 export function ModulePlaceholder({ route }: { route: keyof typeof plans }) {
-  const { setRoute } = useApp()
+  const { setRoute } = useAppNavigation()
   const meta = routeTitles[route]
   return (
     <section className="module-placeholder">

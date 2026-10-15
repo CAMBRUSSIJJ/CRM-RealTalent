@@ -1,4 +1,5 @@
-import type { ActivityItem, CallOutcome, CallRecord, Lead, PipelineStage } from '../domain/types'
+import type { ActivityItem, CallOutcome, CallRecord, ContactRecord, Lead, PipelineStage } from '../domain/types'
+import { addBusinessMinutes } from './workday'
 
 export type CallQueueBucket = 'all' | 'overdue' | 'today' | 'upcoming' | 'hot' | 'proposal' | 'without_action'
 
@@ -12,6 +13,9 @@ export interface CallQueueEntry {
   bucket: Exclude<CallQueueBucket, 'all'>
   score: number
   reason: string
+  targetPhone: string
+  targetContactId: string | null
+  targetName: string
 }
 
 export interface CallOutcomeDefinition {
@@ -43,6 +47,35 @@ export const CALL_OUTCOMES: CallOutcomeDefinition[] = [
 export const outcomeDefinition = (outcome: CallOutcome) => CALL_OUTCOMES.find((item) => item.value === outcome) ?? CALL_OUTCOMES[CALL_OUTCOMES.length - 1]
 export const outcomeLabel = (outcome: CallOutcome) => outcomeDefinition(outcome).label
 
+export interface ResolvedCallTarget {
+  phone: string
+  contactId: string | null
+  name: string
+}
+
+/**
+ * Resolve o melhor alvo discável da conta. Prioriza o contato principal quando
+ * ele possui telefone e não está bloqueado, depois outro stakeholder discável
+ * e, por fim, o telefone legado do lead. Um bloqueio global do lead remove a
+ * conta da fila automática.
+ */
+export function resolveLeadCallTarget(lead: Lead, contacts: ContactRecord[] = []): ResolvedCallTarget {
+  if (lead.doNotContact) return { phone: '', contactId: null, name: lead.name }
+  const normalizePhone = (value: string | null | undefined) => (value ?? '').replace(/\D/g, '')
+  const related = contacts.filter((contact) => (lead.companyId && contact.companyId === lead.companyId) || contact.leadIds.includes(lead.id))
+  const callable = related.filter((contact) => Boolean(contact.phone?.trim()) && !contact.doNotContact)
+  const primary = callable.find((contact) => contact.id === lead.primaryContactId || contact.isPrimary)
+  const contact = primary ?? callable[0] ?? null
+  if (contact) return { phone: contact.phone.trim(), contactId: contact.id, name: contact.name || lead.name }
+
+  const legacyPhone = lead.phone?.trim() ?? ''
+  const normalizedLegacy = normalizePhone(legacyPhone)
+  const primaryContact = related.find((contact) => contact.id === lead.primaryContactId || contact.isPrimary)
+  const legacyBelongsToBlockedContact = Boolean(normalizedLegacy) && related.some((contact) => contact.doNotContact && normalizePhone(contact.phone) === normalizedLegacy)
+  if (primaryContact?.doNotContact || legacyBelongsToBlockedContact) return { phone: '', contactId: primaryContact?.id ?? null, name: primaryContact?.name || lead.name }
+  return { phone: legacyPhone, contactId: null, name: lead.name }
+}
+
 const dayStart = (date: Date) => new Date(date.getFullYear(), date.getMonth(), date.getDate()).getTime()
 const dayEnd = (date: Date) => dayStart(date) + 86_400_000 - 1
 
@@ -56,11 +89,11 @@ const bucketForLead = (lead: Lead, stage: PipelineStage | null, now: Date): Excl
   return 'upcoming'
 }
 
-export function buildCallQueue(leads: Lead[], calls: CallRecord[], activities: ActivityItem[], stages: PipelineStage[], now = new Date()): CallQueueEntry[] {
+export function buildCallQueue(leads: Lead[], calls: CallRecord[], activities: ActivityItem[], stages: PipelineStage[], now = new Date(), contacts: ContactRecord[] = []): CallQueueEntry[] {
   const priorityWeight = { low: 10, medium: 30, high: 60, urgent: 100 }
   const temperatureWeight = { cold: 0, warm: 25, hot: 55 }
   return leads
-    .filter((lead) => lead.status === 'active' && Boolean(lead.phone.trim()))
+    .filter((lead) => lead.status === 'active' && Boolean(resolveLeadCallTarget(lead, contacts).phone))
     .map((lead) => {
       const leadCalls = calls.filter((call) => call.leadId === lead.id).sort((a, b) => new Date(b.startedAt).getTime() - new Date(a.startedAt).getTime())
       const stage = stages.find((item) => item.id === lead.stageId) ?? null
@@ -70,7 +103,8 @@ export function buildCallQueue(leads: Lead[], calls: CallRecord[], activities: A
       const pendingCalls = activities.filter((activity) => activity.leadId === lead.id && activity.type === 'call' && !activity.completedAt).length
       const score = priorityWeight[lead.priority] + temperatureWeight[lead.temperature] + Math.min(120, Math.round(hoursLate * 2)) + (pendingCalls ? 35 : 0) + ((stage?.name ?? '').toLowerCase().includes('proposta') ? 30 : 0) - Math.min(35, leadCalls.length * 3)
       const reason = bucket === 'overdue' ? 'Ligação atrasada' : bucket === 'today' ? 'Programada para hoje' : bucket === 'without_action' ? 'Sem próxima ação' : bucket === 'hot' ? 'Lead quente' : bucket === 'proposal' ? 'Retorno de proposta' : 'Próxima ligação'
-      return { lead, stage, attempts: leadCalls.length, lastCall: leadCalls[0] ?? null, pendingCalls, dueAt: lead.nextActionAt, bucket, score, reason }
+      const target = resolveLeadCallTarget(lead, contacts)
+      return { lead, stage, attempts: leadCalls.length, lastCall: leadCalls[0] ?? null, pendingCalls, dueAt: lead.nextActionAt, bucket, score, reason, targetPhone: target.phone, targetContactId: target.contactId, targetName: target.name }
     })
     .sort((a, b) => b.score - a.score || new Date(a.dueAt ?? '2999-01-01').getTime() - new Date(b.dueAt ?? '2999-01-01').getTime())
 }
@@ -103,23 +137,38 @@ export function calculateCallPerformance(calls: CallRecord[], now = new Date()) 
   }
 }
 
-export function defaultNextDate(outcome: CallOutcome, from = new Date(), options?: { defaultFollowupDays: number; businessDays: number[]; businessStart: string }) {
+export function defaultNextDate(
+  outcome: CallOutcome,
+  from = new Date(),
+  options?: { defaultFollowupDays: number; businessDays: number[]; businessStart: string; businessEnd: string },
+) {
   const definition = outcomeDefinition(outcome)
   if (definition.nextDelayHours === null) return null
-  const date = new Date(from)
-  if (options && definition.nextDelayHours === 24) {
-    let remaining = Math.max(0, options.defaultFollowupDays)
+  if (!options) {
+    const date = new Date(from)
+    date.setHours(date.getHours() + definition.nextDelayHours)
+    while (![1, 2, 3, 4, 5].includes(date.getDay())) date.setDate(date.getDate() + 1)
+    return date
+  }
+
+  const allowedDays = options.businessDays.length ? options.businessDays : [1, 2, 3, 4, 5]
+  const atBusinessStart = (base: Date, days: number) => {
+    const date = new Date(base)
+    let remaining = Math.max(0, days)
     while (remaining > 0) {
       date.setDate(date.getDate() + 1)
-      if (options.businessDays.includes(date.getDay())) remaining -= 1
+      if (allowedDays.includes(date.getDay())) remaining -= 1
     }
-    while (!options.businessDays.includes(date.getDay())) date.setDate(date.getDate() + 1)
-    const [hour, minute] = options.businessStart.split(':').map(Number)
-    date.setHours(hour || 9, minute || 0, 0, 0)
-  } else {
-    date.setHours(date.getHours() + definition.nextDelayHours)
-    const allowedDays = options?.businessDays ?? [1, 2, 3, 4, 5]
     while (!allowedDays.includes(date.getDay())) date.setDate(date.getDate() + 1)
+    const [hour, minute] = options.businessStart.split(':').map(Number)
+    date.setHours(Number.isFinite(hour) ? hour : 9, Number.isFinite(minute) ? minute : 0, 0, 0)
+    return date
   }
-  return date
+
+  // Resultados com follow-up padrão respeitam a quantidade de dias úteis configurada.
+  if (definition.nextDelayHours === 24) return atBusinessStart(from, options.defaultFollowupDays)
+  // Prazos expressos em dias (ex.: proposta enviada = 48h) preservam a intenção de dias úteis.
+  if (definition.nextDelayHours > 24 && definition.nextDelayHours % 24 === 0) return atBusinessStart(from, definition.nextDelayHours / 24)
+  // Retornos curtos (ex.: ocupado = 2h) atravessam o fim do expediente corretamente.
+  return addBusinessMinutes(from.toISOString(), definition.nextDelayHours * 60, options)
 }

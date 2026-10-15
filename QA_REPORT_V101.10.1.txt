@@ -1,0 +1,37 @@
+RealTalent CRM V101.10.1 — Prospecting Search Automation
+QA Report
+=======================================================
+
+Escopo
+- automação de busca Google Places
+- paginação via nextPageToken
+- múltiplas regiões
+- meta 20/40/60/80/100
+- deduplicação incremental
+- progresso e cancelamento
+- gateway local + Supabase
+- Data Layer e fluxos assistidos preservados
+
+Gates executados neste ambiente
+- qa:architecture: OK
+- V101.10.1 audit: 26/26
+- Linux release preflight: OK (349 TS/TSX)
+- source syntax audit: 383 arquivos
+- integration contract audit: 356 arquivos
+- migrations: 49/49
+- capability matrix: 17 capacidades / 37 evidências / 28 executáveis
+- repository parity: Local 96/96; Supabase 96/96
+- browser flow contract: 8/8
+- V100.98 Prospecting Engine: 62/62
+- check:legacy: PASS, 0 FAIL
+- typecheck isolado V101.9.7/V101.9.8: OK
+
+Dependências / gates globais
+- npm ci foi tentado com timeout controlado, mas a rede desta montagem expirou.
+- nenhum node_modules parcial foi mantido.
+- por isso typecheck global, Vitest completo e build global não são declarados como executados aqui.
+- start-linux.sh mantém esses gates obrigatórios no Linux do usuário.
+
+Banco
+- nenhuma migration nova
+- 49/49 migrations preservadas com checksum íntegro

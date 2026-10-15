@@ -84,6 +84,22 @@ html[data-contrast="high"] textarea { border-color: #8492a8 !important; }
 .experience-choice-row span { display: grid; gap: 3px; }
 .experience-choice-row strong { font-size: 12px; }
 .experience-choice-row small { color: var(--muted); font-size: 10px; line-height: 1.35; }
+.dashboard-layout-presets { display: grid; grid-template-columns: repeat(3, minmax(0,1fr)); gap: 8px; margin-bottom: 12px; }
+.dashboard-layout-presets > button { min-height: 76px; display: grid; align-content: center; gap: 4px; padding: 11px; border: 1px solid var(--border); border-radius: 12px; color: var(--text); background: var(--surface); text-align: left; cursor: pointer; }
+.dashboard-layout-presets > button:hover { border-color: color-mix(in srgb, var(--blue) 42%, var(--border)); background: color-mix(in srgb, var(--blue) 3%, var(--surface)); }
+.dashboard-layout-presets > button.is-active { border-color: var(--blue); background: color-mix(in srgb, var(--blue) 7%, var(--surface)); box-shadow: 0 0 0 2px color-mix(in srgb, var(--blue) 10%, transparent); }
+.dashboard-layout-presets strong { font-size: 12px; }
+.dashboard-layout-presets small { color: var(--muted); font-size: 10px; line-height: 1.35; }
+.dashboard-intelligence-placement { display: grid; gap: 10px; padding: 13px; border: 1px solid var(--border); border-radius: 13px; background: color-mix(in srgb, var(--blue) 2%, var(--surface)); }
+.dashboard-intelligence-placement > div:first-child { display: grid; gap: 4px; }
+.dashboard-intelligence-placement > div:first-child > strong { font-size: 12px; }
+.dashboard-intelligence-placement > div:first-child > small { color: var(--muted); font-size: 10px; line-height: 1.4; }
+.dashboard-intelligence-placement__buttons { display: grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap: 6px; }
+.dashboard-intelligence-placement__buttons button { min-height: 35px; display: inline-flex; align-items: center; justify-content: center; gap: 6px; padding: 0 9px; border: 1px solid var(--border); border-radius: 9px; color: var(--muted); background: var(--surface); font-size: 10px; font-weight: 800; cursor: pointer; }
+.dashboard-intelligence-placement__buttons button:hover { color: var(--text); border-color: color-mix(in srgb, var(--blue) 42%, var(--border)); }
+.dashboard-intelligence-placement__buttons button.is-active { color: var(--blue); border-color: var(--blue); background: color-mix(in srgb, var(--blue) 8%, var(--surface)); }
+.dashboard-intelligence-placement__buttons button.is-danger.is-active { color: #b33f38; border-color: #dcb5b0; background: #fff3f2; }
+
 .experience-section-list { display: grid; gap: 8px; }
 .experience-section-list article { min-height: 68px; display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 10px 9px 10px 12px; border: 1px solid var(--border); border-radius: 12px; background: var(--surface); }
 .experience-section-list article.is-hidden { opacity: .62; background: var(--warm); }
@@ -146,3 +162,44 @@ html[data-theme="dark"] .notification-item.is-warning > span { background: rgba(
 @media (prefers-reduced-motion: reduce) {
   .experience-drawer, .notification-center, .experience-drawer-backdrop, .notification-center-backdrop { animation: none !important; }
 }
+
+
+/* V100.68.1 — camada global de overlays e feedback.
+   Mantém feedback acima de drawers/modais e evita ações que parecem não responder. */
+.modal-open, .drawer-open, .overlay-open { overflow: hidden; }
+.experience-drawer-layer, .notification-center-layer { z-index: 9200; }
+.assistant-layer { z-index: 9500; }
+.call-workspace-lazy-fallback { z-index: 12900; }
+.modal-backdrop { z-index: 13000; }
+.toast-region { z-index: 14000; }
+
+
+/* V100.68.1 — topbar agrupado: impede quebra de grid após Assistant/Notificações. */
+.topbar__utility-actions, .topbar__primary-actions { display:flex; align-items:center; gap:8px; min-width:0; }
+@media (max-width:1180px) and (min-width:721px) {
+  .topbar__actions { grid-template-columns:minmax(130px,165px) minmax(150px,1fr) auto auto !important; }
+  .topbar__utility-actions { gap:5px; min-width:0; overflow-x:auto; scrollbar-width:none; }
+  .topbar__utility-actions::-webkit-scrollbar { display:none; }
+  .topbar__primary-actions .button { min-width:40px; padding-inline:11px; font-size:0; }
+  .topbar__primary-actions .button svg { margin:0; }
+}
+@media (max-width:720px) {
+  .topbar__actions { grid-template-columns:minmax(0,1fr) auto !important; align-items:center; }
+  .topbar__actions > .workspace-switcher, .topbar__actions > .global-search-wrap { grid-column:1/-1; width:100%; }
+  .topbar__utility-actions { grid-column:1; max-width:100%; overflow-x:auto; scrollbar-width:none; justify-content:flex-start; }
+  .topbar__utility-actions::-webkit-scrollbar { display:none; }
+  .topbar__primary-actions { grid-column:2; justify-self:end; }
+  .topbar__primary-actions .button { min-width:40px; padding-inline:10px; font-size:0; }
+  .topbar__primary-actions .button svg { margin:0; }
+}
+
+@media (max-width: 640px) {
+  .dashboard-layout-presets { grid-template-columns: 1fr; }
+  .dashboard-intelligence-placement__buttons { grid-template-columns: 1fr; }
+}
+
+/* V100.83 — Notification Center controls */
+.notification-center > footer { justify-content:space-between; }
+.notification-center > footer > div { min-width:0; display:flex; align-items:center; gap:8px; }
+.notification-center > footer > button { flex:0 0 auto; min-height:32px; display:inline-flex; align-items:center; gap:6px; padding:0 10px; border:1px solid var(--border); border-radius:9px; color:var(--text); background:var(--surface); font-size:10px; font-weight:800; cursor:pointer; }
+.notification-center > footer > button:hover { border-color:color-mix(in srgb,var(--blue) 45%,var(--border)); color:var(--blue); }

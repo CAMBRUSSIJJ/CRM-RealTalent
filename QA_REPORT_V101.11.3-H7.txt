@@ -1,0 +1,77 @@
+RealTalent CRM
+V101.11.3-H7 — Playbook Visual Conversation Workspace
+
+ESCOPO
+- evolução UX sobre V101.11.3-H6;
+- Playbook Studio passa a workspace full-page na própria página de Playbooks;
+- nenhuma migration nova;
+- nenhuma alteração em Calling/Connect/Communications.
+
+IMPLEMENTAÇÃO
+1. Editor principal
+- PlaybooksPage não usa mais PlaybookStudioModal como editor principal.
+- PlaybookStudioWorkspace ocupa a superfície da página.
+- PlaybookStudioModal H6 permanece apenas como código de compatibilidade/regressão.
+
+2. Mapa full-page
+- mapa é a visualização padrão;
+- canvas possui pan, drag livre e zoom;
+- toolbox e Inspector podem ser recolhidos separadamente;
+- configurações gerais ficam fora do canvas.
+
+3. Inspector + autonomia
+- seleção direta do tipo de nó;
+- edição contextual de título/conteúdo;
+- objetivo em seção avançada;
+- lista dos caminhos de saída editável;
+- cada nó possui + Caminho;
+- quick creator recebe nome do caminho e tipo do próximo nó.
+
+4. Fonte única de verdade
+- Mapa: PlaybookConversationGraph.nodes/edges;
+- Estrutura: graphExecutionOrder(graph);
+- Script: graphToScript(graph);
+- Simular: navega as mesmas edges do graph;
+- save persiste com syncGuidanceFromGraph.
+
+5. Validação leve
+- decisão com menos de dois caminhos gera atenção;
+- objeção sem saída gera atenção;
+- ausência de outcome gera atenção.
+
+GATES COMPROVADOS NESTE AMBIENTE
+- H7 Playbook Visual Conversation Workspace: 39/39 PASS
+- H6 Playbook Studio 2.0: 39/39 PASS
+- H5 Calling Essential Context & Goal Link: 33/33 PASS
+- H4 Calling Visual Hierarchy & Mind Map: 37/37 PASS
+- H3 Calling Workspace 2.0: 32/32 PASS
+- H2 Runtime Service Recovery: 38/38 PASS
+- H1 Communications Gateway Recovery: 41/41 PASS
+- Playbooks 2.0: 55/55 PASS
+- Communications recovery smoke: 5/5 PASS
+- Connect recovery smoke: 5/5 PASS
+- source syntax: 404 arquivos PASS
+- integration contracts: 372 arquivos PASS
+- migrations: 50/50 checksums PASS
+- Release Manifest: 74/74 PASS
+- CSS Governance: 65/65 PASS
+- Repository Local: 99/99 PASS
+- Repository Supabase: 99/99 PASS
+- Browser E2E contract catalog: 11 fluxos PASS
+- qa:architecture: PASS
+
+GATES OFICIAIS NÃO CLASSIFICADOS COMO PASS
+- npm run typecheck: node_modules ausente; erros iniciam em módulos React/Supabase não encontrados.
+- npm test: vitest não instalado (status 127).
+- npm run build: validate:env PASS, Vite não instalado (status 127).
+
+TRANSPILE INDEPENDENTE
+- build-registry-independent percorreu 289 módulos.
+- o HTML fallback é deliberadamente considerado legado por runtime:bundle; por isso o dist desse fallback foi removido e NÃO substitui o build Vite oficial.
+
+EMPACOTAMENTO
+- node_modules excluído;
+- dist fallback excluído;
+- .env.local excluído;
+- .realtalent-* excluídos.
+- launcher preserva recovery de dependências/lockfile e migração de estado priorizando H6.

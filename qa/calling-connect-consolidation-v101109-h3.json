@@ -1,0 +1,56 @@
+{
+  "release": "V101.10.9-H3",
+  "name": "Calling & RealTalent Connect CSS Consolidation",
+  "base": "V101.10.9-H2",
+  "strategy": "cascade-preserving canonical runtime stylesheets; Calling zones remain separated; RealTalent Connect canonical layer retained; legacy sources kept for rollback/audit",
+  "groups": {
+    "calls-core.css": [
+      {
+        "source": "calls-v100.css",
+        "sha256": "664e5bdedd28b1e4c407ce4d9e8d93fa93e3b54ec30c79cd7f16b63dd1e45445"
+      }
+    ],
+    "calling-workspace.css": [
+      {
+        "source": "calls-v100982.css",
+        "sha256": "922d90564b073619b5335bb1c7b66130d4a6681e3c504d97098343f9e250828b"
+      },
+      {
+        "source": "calls-v1012.css",
+        "sha256": "c3325b89bb586310ee5ec153657fb5ab0cfda165e57fdaebca7f34c4503ca80f"
+      }
+    ],
+    "calling-intelligence.css": [
+      {
+        "source": "workspace-metrics-calling-convergence-v10170-h4.css",
+        "sha256": "bb1ebd2ce5d812db49f6829d03813ab615640c6ba72ae292f524d754c84bd5c6"
+      },
+      {
+        "source": "metrics-calling-structural-redesign-v10171.css",
+        "sha256": "ff982faa42776f4bf816e1d3f8dc7d4578f66052a5b139e007b53488bcb5ad28"
+      }
+    ],
+    "realtalent-connect.css": [
+      {
+        "source": "realtalent-connect-v1018.css",
+        "sha256": "086083e773c3a0395004a82ab55bfaf1e863b0f9d45856c05bd50fea10207b18"
+      },
+      {
+        "source": "realtalent-connect-v10181.css",
+        "sha256": "d246f5b9779ae87cb7f5fe9cfae533c2684cea8b040e871ce38299c3c16999ab"
+      },
+      {
+        "source": "realtalent-connect-v10182.css",
+        "sha256": "b7646e2b05fcca39da620f3a4f9a8b4a8bccd49dee479d6a18f813bee9e94410"
+      },
+      {
+        "source": "realtalent-connect-v10183.css",
+        "sha256": "fb7178259a1f33028306f1aa2eb56705e830de2c68ec253500bc6162adfab1bd"
+      },
+      {
+        "source": "realtalent-connect-v101107.css",
+        "sha256": "46deb8137aa38b9454113964448f4c0f747620fcfd47f329dd379ea19747619c"
+      }
+    ]
+  }
+}

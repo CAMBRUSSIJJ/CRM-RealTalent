@@ -1,7 +1,7 @@
-import type { ActivityItem, AutomationRule, AutomationRun, CalendarEvent, CallRecord, CompanyRecord, ContactRecord, Goal, Lead, OpportunityRecord, PipelineStage, Playbook, ProductRecord, ProposalRecord, RevenueEntry, SocialProfile, UserProfile, Workspace } from './types'
+import type { ActivityItem, AutomationRule, AutomationRun, CalendarEvent, CallRecord, CompanyRecord, ContactRecord, ContactRelationship, Goal, Lead, OpportunityRecord, PipelineStage, Playbook, ProductRecord, ProposalRecord, RevenueEntry, SocialProfile, UserProfile, Workspace } from './types'
 
 export const DEMO_USER: UserProfile = {
-  id: 'demo-user',
+  id: 'local-user',
   email: 'demo@realtalent.local',
   displayName: 'Camila',
 }
@@ -71,11 +71,21 @@ export const DEMO_COMPANIES: CompanyRecord[] = [
 ]
 
 export const DEMO_CONTACTS: ContactRecord[] = [
-  { id: 'contact-alpha', workspaceId: DEMO_WORKSPACE.id, companyId: 'company-alpha', name: 'Barbearia Alpha', jobTitle: 'Proprietário', phone: '(51) 99999-1001', email: 'contato@alpha.com.br', decisionRole: 'decision_maker', influenceLevel: 100, consentStatus: 'legitimate_interest', doNotContact: false, doNotContactReason: '', leadIds: ['lead-alpha'], createdAt: isoInDays(-12), updatedAt: isoInDays(-1) },
-  { id: 'contact-bronx', workspaceId: DEMO_WORKSPACE.id, companyId: 'company-bronx', name: 'The Bronx Barber Shop', jobTitle: 'Gerente', phone: '(51) 99826-6560', email: 'contato@thebronx.com.br', decisionRole: 'influencer', influenceLevel: 70, consentStatus: 'legitimate_interest', doNotContact: false, doNotContactReason: '', leadIds: ['lead-bronx'], createdAt: isoInDays(-8), updatedAt: isoInDays(-2) },
-  { id: 'contact-diamond', workspaceId: DEMO_WORKSPACE.id, companyId: 'company-diamond', name: 'Diamond Barbearia', jobTitle: 'Sócio', phone: '(51) 98454-6144', email: 'leo@diamond.com.br', decisionRole: 'decision_maker', influenceLevel: 95, consentStatus: 'consented', doNotContact: false, doNotContactReason: '', leadIds: ['lead-diamond'], createdAt: isoInDays(-18), updatedAt: isoInDays(-1) },
-  { id: 'contact-morada', workspaceId: DEMO_WORKSPACE.id, companyId: 'company-morada', name: 'Morada Barbearia', jobTitle: '', phone: '(51) 99700-3311', email: '', decisionRole: 'unknown', influenceLevel: 20, consentStatus: 'unknown', doNotContact: false, doNotContactReason: '', leadIds: ['lead-morada'], createdAt: isoInDays(-2), updatedAt: isoInDays(-2) },
+  { id: 'contact-alpha', workspaceId: DEMO_WORKSPACE.id, companyId: 'company-alpha', name: 'Carlos Almeida', jobTitle: 'Proprietário', phone: '(51) 99999-1001', email: 'carlos@alpha.com.br', decisionRole: 'economic_buyer', influenceLevel: 100, relationshipStrength: 'strong', relationshipScore: 82, stance: 'supportive', relationshipOwnerId: DEMO_USER.id, relationshipOwnerName: 'Camila', lastContactAt: isoInDays(-1, 10), nextActionAt: isoInDays(0, 13), notes: 'Principal interlocutor. Pediu proposta e demonstrou urgência para reduzir horários vazios.', isPrimary: true, consentStatus: 'legitimate_interest', doNotContact: false, doNotContactReason: '', leadIds: ['lead-alpha'], createdAt: isoInDays(-12), updatedAt: isoInDays(-1) },
+  { id: 'contact-alpha-mariana', workspaceId: DEMO_WORKSPACE.id, companyId: 'company-alpha', name: 'Mariana Almeida', jobTitle: 'Sócia / Financeiro', phone: '(51) 99999-1022', email: 'mariana@alpha.com.br', decisionRole: 'finance', influenceLevel: 88, relationshipStrength: 'developing', relationshipScore: 48, stance: 'neutral', relationshipOwnerId: DEMO_USER.id, relationshipOwnerName: 'Camila', lastContactAt: null, nextActionAt: null, notes: 'Carlos informou que Mariana participa da aprovação financeira.', isPrimary: false, consentStatus: 'legitimate_interest', doNotContact: false, doNotContactReason: '', leadIds: [], createdAt: isoInDays(-4), updatedAt: isoInDays(-1) },
+  { id: 'contact-alpha-joao', workspaceId: DEMO_WORKSPACE.id, companyId: 'company-alpha', name: 'João Ferreira', jobTitle: 'Gerente da operação', phone: '(51) 99999-1033', email: '', decisionRole: 'champion', influenceLevel: 72, relationshipStrength: 'trusted', relationshipScore: 91, stance: 'supportive', relationshipOwnerId: DEMO_USER.id, relationshipOwnerName: 'Camila', lastContactAt: isoInDays(-3, 16), nextActionAt: null, notes: 'Champion operacional. Conhece bem os problemas de no-show e agenda.', isPrimary: false, consentStatus: 'legitimate_interest', doNotContact: false, doNotContactReason: '', leadIds: [], createdAt: isoInDays(-7), updatedAt: isoInDays(-2) },
+  { id: 'contact-bronx', workspaceId: DEMO_WORKSPACE.id, companyId: 'company-bronx', name: 'Rafael Martins', jobTitle: 'Gerente', phone: '(51) 99826-6560', email: 'contato@thebronx.com.br', decisionRole: 'influencer', influenceLevel: 70, relationshipStrength: 'developing', relationshipScore: 52, stance: 'neutral', relationshipOwnerId: DEMO_USER.id, relationshipOwnerName: 'Camila', lastContactAt: isoInDays(-2, 11), nextActionAt: isoInDays(0, 16), notes: 'Ainda precisamos identificar o proprietário ou decisor econômico.', isPrimary: true, consentStatus: 'legitimate_interest', doNotContact: false, doNotContactReason: '', leadIds: ['lead-bronx'], createdAt: isoInDays(-8), updatedAt: isoInDays(-2) },
+  { id: 'contact-diamond', workspaceId: DEMO_WORKSPACE.id, companyId: 'company-diamond', name: 'Leo Martins', jobTitle: 'Sócio', phone: '(51) 98454-6144', email: 'leo@diamond.com.br', decisionRole: 'decision_maker', influenceLevel: 95, relationshipStrength: 'strong', relationshipScore: 78, stance: 'supportive', relationshipOwnerId: DEMO_USER.id, relationshipOwnerName: 'Camila', lastContactAt: isoInDays(-1, 15), nextActionAt: isoInDays(1, 12), notes: 'Decisor principal. Solicitou proposta revisada.', isPrimary: true, consentStatus: 'consented', doNotContact: false, doNotContactReason: '', leadIds: ['lead-diamond'], createdAt: isoInDays(-18), updatedAt: isoInDays(-1) },
+  { id: 'contact-diamond-paula', workspaceId: DEMO_WORKSPACE.id, companyId: 'company-diamond', name: 'Paula Martins', jobTitle: 'Administrativo', phone: '', email: 'paula@diamond.com.br', decisionRole: 'finance', influenceLevel: 65, relationshipStrength: 'weak', relationshipScore: 30, stance: 'unknown', relationshipOwnerId: DEMO_USER.id, relationshipOwnerName: 'Camila', lastContactAt: null, nextActionAt: null, notes: 'Ainda não contatada; possível participante da validação financeira.', isPrimary: false, consentStatus: 'unknown', doNotContact: false, doNotContactReason: '', leadIds: [], createdAt: isoInDays(-3), updatedAt: isoInDays(-1) },
+  { id: 'contact-morada', workspaceId: DEMO_WORKSPACE.id, companyId: 'company-morada', name: 'Contato Morada', jobTitle: '', phone: '(51) 99700-3311', email: '', decisionRole: 'unknown', influenceLevel: 20, relationshipStrength: 'unknown', relationshipScore: 10, stance: 'unknown', relationshipOwnerId: DEMO_USER.id, relationshipOwnerName: 'Camila', lastContactAt: null, nextActionAt: isoInDays(2, 11), notes: 'Precisamos identificar quem decide.', isPrimary: true, consentStatus: 'unknown', doNotContact: false, doNotContactReason: '', leadIds: ['lead-morada'], createdAt: isoInDays(-2), updatedAt: isoInDays(-2) },
 ]
+
+export const DEMO_CONTACT_RELATIONSHIPS: ContactRelationship[] = [
+  { id: 'rel-alpha-carlos-mariana', workspaceId: DEMO_WORKSPACE.id, companyId: 'company-alpha', fromContactId: 'contact-alpha', toContactId: 'contact-alpha-mariana', relationshipType: 'partner', strength: 95, notes: 'Sócios e participantes da decisão.', createdAt: isoInDays(-4), updatedAt: isoInDays(-1) },
+  { id: 'rel-alpha-joao-carlos', workspaceId: DEMO_WORKSPACE.id, companyId: 'company-alpha', fromContactId: 'contact-alpha-joao', toContactId: 'contact-alpha', relationshipType: 'reports_to', strength: 88, notes: 'João responde diretamente ao proprietário.', createdAt: isoInDays(-4), updatedAt: isoInDays(-1) },
+  { id: 'rel-diamond-leo-paula', workspaceId: DEMO_WORKSPACE.id, companyId: 'company-diamond', fromContactId: 'contact-diamond', toContactId: 'contact-diamond-paula', relationshipType: 'works_with', strength: 75, notes: 'Paula apoia validações administrativas e financeiras.', createdAt: isoInDays(-3), updatedAt: isoInDays(-1) },
+]
+
 
 export const DEMO_OPPORTUNITIES: OpportunityRecord[] = DEMO_LEADS.map((lead) => ({
   id: lead.opportunityId ?? `opportunity-${lead.id}`, workspaceId: lead.workspaceId, companyId: lead.companyId ?? null, primaryContactId: lead.primaryContactId ?? null,
@@ -93,9 +103,8 @@ export const DEMO_SOCIAL_PROFILES: SocialProfile[] = [
 
 
 export const DEMO_PRODUCTS: ProductRecord[] = [
-  { id: 'product-setup', workspaceId: DEMO_WORKSPACE.id, name: 'Implantação RealTalent', sku: 'RT-SETUP', description: 'Configuração inicial, Pipeline, cadências e treinamento da equipe.', category: 'Implantação', active: true, unitPrice: 1800, billingType: 'one_time', billingInterval: null, taxRate: 0, createdAt: isoInDays(-30), updatedAt: isoInDays(-4) },
-  { id: 'product-crm', workspaceId: DEMO_WORKSPACE.id, name: 'RealTalent CRM Pro', sku: 'RT-CRM-PRO', description: 'Licença mensal do CRM com automações, mapa e execução comercial.', category: 'Software', active: true, unitPrice: 499, billingType: 'recurring', billingInterval: 'month', taxRate: 0, createdAt: isoInDays(-30), updatedAt: isoInDays(-2) },
-  { id: 'product-connect', workspaceId: DEMO_WORKSPACE.id, name: 'RealTalent Connect', sku: 'RT-CONNECT', description: 'Aplicativo de ligações integrado ao CRM.', category: 'Add-on', active: true, unitPrice: 149, billingType: 'recurring', billingInterval: 'month', taxRate: 0, createdAt: isoInDays(-20), updatedAt: isoInDays(-2) },
+  { id: 'product-setup', workspaceId: DEMO_WORKSPACE.id, name: 'Implantação RealTalent', sku: 'RT-SETUP', description: 'Configuração inicial, Pipeline, cadências e treinamento da equipe.', category: 'Implantação', active: true, unitPrice: 1800, unitCost: 620, kind: 'service', unitLabel: 'projeto', defaultDiscountPercent: 0, billingType: 'one_time', billingInterval: null, taxRate: 0, createdAt: isoInDays(-30), updatedAt: isoInDays(-4) },
+  { id: 'product-crm', workspaceId: DEMO_WORKSPACE.id, name: 'RealTalent CRM Pro', sku: 'RT-CRM-PRO', description: 'Licença mensal do CRM com automações, mapa e execução comercial.', category: 'Software', active: true, unitPrice: 499, unitCost: 95, kind: 'service', unitLabel: 'licença', defaultDiscountPercent: 0, billingType: 'recurring', billingInterval: 'month', taxRate: 0, createdAt: isoInDays(-30), updatedAt: isoInDays(-2) },
 ]
 
 const proposalItem = (id: string, product: ProductRecord, quantity: number, discountPercent = 0) => {
@@ -108,8 +117,20 @@ const proposalItem = (id: string, product: ProductRecord, quantity: number, disc
   return { id, productId: product.id, name: product.name, description: product.description, quantity, unitPrice: product.unitPrice, discountPercent, taxRate: product.taxRate, billingType: product.billingType, billingInterval: product.billingInterval, lineSubtotal: subtotal, lineDiscount: discount, lineTax: tax, lineTotal: total, recurringMonthlyTotal: total * monthlyFactor }
 }
 
-const proposalAlphaItems = [proposalItem('proposal-alpha-item-1', DEMO_PRODUCTS[0], 1), proposalItem('proposal-alpha-item-2', DEMO_PRODUCTS[1], 1, 5)]
-const proposalDiamondItems = [proposalItem('proposal-diamond-item-1', DEMO_PRODUCTS[0], 1, 10), proposalItem('proposal-diamond-item-2', DEMO_PRODUCTS[1], 2, 5), proposalItem('proposal-diamond-item-3', DEMO_PRODUCTS[2], 2)]
+const demoProduct = (id: ProductRecord['id']) => {
+  const product = DEMO_PRODUCTS.find((item) => item.id === id)
+  if (!product) throw new Error(`Produto demo não encontrado: ${id}`)
+  return product
+}
+
+const proposalAlphaItems = [
+  proposalItem('proposal-alpha-item-1', demoProduct('product-setup'), 1),
+  proposalItem('proposal-alpha-item-2', demoProduct('product-crm'), 1, 5),
+]
+const proposalDiamondItems = [
+  proposalItem('proposal-diamond-item-1', demoProduct('product-setup'), 1, 10),
+  proposalItem('proposal-diamond-item-2', demoProduct('product-crm'), 2, 5),
+]
 const totals = (items: ReturnType<typeof proposalItem>[], termMonths = 12) => { const recurringMonthlyTotal = items.reduce((sum, item) => sum + item.recurringMonthlyTotal, 0); const oneTimeTotal = items.filter((item) => item.billingType === 'one_time').reduce((sum, item) => sum + item.lineTotal, 0); return { subtotal: items.reduce((sum, item) => sum + item.lineSubtotal, 0), discountTotal: items.reduce((sum, item) => sum + item.lineDiscount, 0), taxTotal: items.reduce((sum, item) => sum + item.lineTax, 0), total: items.reduce((sum, item) => sum + item.lineTotal, 0), recurringMonthlyTotal, oneTimeTotal, annualRecurringTotal: recurringMonthlyTotal * 12, totalContractValue: oneTimeTotal + recurringMonthlyTotal * termMonths } }
 
 export const DEMO_PROPOSALS: ProposalRecord[] = [
@@ -178,6 +199,7 @@ export const DEMO_GOALS: Goal[] = [
 export const DEMO_PLAYBOOKS: Playbook[] = [
   {
     id: 'playbook-first-contact', workspaceId: DEMO_WORKSPACE.id, kind: 'script', title: 'Outbound consultivo — barbearias e salões', category: 'Prospecção',
+    guidance: { objectives: ['first_meeting'], temperatures: ['cold', 'warm'], executionModes: ['step_by_step', 'checklist', 'call', 'meeting'], segments: ['Barbearias', 'Salões de beleza'], personas: ['Dono', 'Gerente'], discoveryQuestions: ['Como vocês organizam os agendamentos hoje?', 'Onde vocês mais perdem horários: faltas, cancelamentos ou baixa recorrência?', 'Quem além de você participa de uma decisão sobre processo ou sistema?'], objectionPrompts: ['Já tenho sistema', 'Não tenho tempo agora', 'Me manda no WhatsApp'], meetingAgenda: ['Contexto e processo atual', 'Faltas, horários vazios e retorno de clientes', 'Impacto e prioridade', 'Processo de decisão', 'Próximo passo'], coachingFocus: 'ganhar permissão, diagnosticar antes de apresentar e fechar com próximo passo', successCriteria: ['Permissão para continuar', 'Dor ou contexto atual identificado', 'Próximo passo definido'], avoidPhrases: ['Apresentar produto antes de diagnosticar'] },
     content: `Olá, {{nome}}, tudo bem? Aqui é {{responsavel}}. Posso te explicar em 30 segundos o motivo da ligação e você me diz se vale a pena continuarmos?
 
 Eu trabalho exclusivamente com barbearias e salões de beleza. Ajudamos negócios do setor a reduzir faltas, cancelamentos e horários vazios, além de recuperar clientes que demoram para retornar.
@@ -186,32 +208,32 @@ Hoje vocês utilizam algum sistema de agendamento ou concentram a maior parte do
     tags: ['barbearia','salão','outbound','primeiro contato'], active: true, createdAt: isoInDays(-8), updatedAt: isoInDays(-1),
   },
   {
-    id: 'playbook-no-time', workspaceId: DEMO_WORKSPACE.id, kind: 'objection', title: 'Não tenho tempo agora', category: 'Tempo',
+    id: 'playbook-no-time', workspaceId: DEMO_WORKSPACE.id, kind: 'objection', title: 'Não tenho tempo agora', category: 'Tempo', guidance: { objectives: ['first_meeting', 'recover_opportunity'], outcomes: ['callback_requested'], coachingFocus: 'preservar respeito ao tempo e sair com horário concreto' },
     content: 'Sem problema. Não quero atrapalhar sua operação. Posso ser objetivo e combinar um horário melhor para uma conversa de 15 minutos. Para você costuma ser mais tranquilo no começo ou no fim do dia?',
     tags: ['tempo','retorno'], active: true, createdAt: isoInDays(-7), updatedAt: isoInDays(-1),
   },
   {
-    id: 'playbook-already-system', workspaceId: DEMO_WORKSPACE.id, kind: 'objection', title: 'Já tenho sistema', category: 'Solução atual',
+    id: 'playbook-already-system', workspaceId: DEMO_WORKSPACE.id, kind: 'objection', title: 'Já tenho sistema', category: 'Solução atual', guidance: { objectives: ['first_meeting', 'qualify'], coachingFocus: 'não atacar a solução atual; explorar gaps e impacto' },
     content: 'Perfeito. Eu não estou entrando em contato para dizer que você precisa trocar de sistema. Quero entender se, mesmo usando essa ferramenta, ainda existem faltas, clientes que não retornam ou horários difíceis de preencher. Qual é o principal problema que ainda permanece?',
     tags: ['sistema','diagnóstico'], active: true, createdAt: isoInDays(-6), updatedAt: isoInDays(-1),
   },
   {
-    id: 'playbook-no-interest', workspaceId: DEMO_WORKSPACE.id, kind: 'objection', title: 'Não tenho interesse', category: 'Interesse',
+    id: 'playbook-no-interest', workspaceId: DEMO_WORKSPACE.id, kind: 'objection', title: 'Não tenho interesse', category: 'Interesse', guidance: { objectives: ['first_meeting', 'recover_opportunity'], outcomes: ['not_interested'], coachingFocus: 'diagnosticar se é prioridade, timing ou aderência antes de encerrar' },
     content: 'Tranquilo. Só para eu não insistir em algo que não faça sentido: você não tem interesse porque já está satisfeito com o processo atual ou porque esse assunto não é prioridade agora?',
     tags: ['interesse','qualificação'], active: true, createdAt: isoInDays(-6), updatedAt: isoInDays(-1),
   },
   {
-    id: 'playbook-whatsapp', workspaceId: DEMO_WORKSPACE.id, kind: 'objection', title: 'Me manda no WhatsApp', category: 'Canal',
+    id: 'playbook-whatsapp', workspaceId: DEMO_WORKSPACE.id, kind: 'objection', title: 'Me manda no WhatsApp', category: 'Canal', guidance: { objectives: ['first_meeting'], coachingFocus: 'usar o canal pedido sem abandonar a qualificação mínima' },
     content: 'Envio sim. Para eu não te mandar uma mensagem genérica, me diga só uma coisa: hoje o maior desafio está em faltas, horários vazios ou retorno dos clientes?',
     tags: ['whatsapp','diagnóstico'], active: true, createdAt: isoInDays(-5), updatedAt: isoInDays(-1),
   },
   {
-    id: 'playbook-selling', workspaceId: DEMO_WORKSPACE.id, kind: 'objection', title: 'Vocês querem me vender algo?', category: 'Confiança',
+    id: 'playbook-selling', workspaceId: DEMO_WORKSPACE.id, kind: 'objection', title: 'Vocês querem me vender algo?', category: 'Confiança', guidance: { objectives: ['first_meeting'], coachingFocus: 'reduzir resistência e manter transparência sobre o objetivo da conversa' },
     content: 'Existe uma solução comercial, sim, mas esta ligação não é para forçar uma venda. Primeiro precisamos entender se existe um problema real que justifique uma conversa. Caso não exista, encerramos por ali.',
     tags: ['confiança','transparência'], active: true, createdAt: isoInDays(-5), updatedAt: isoInDays(-1),
   },
   {
-    id: 'playbook-partner', workspaceId: DEMO_WORKSPACE.id, kind: 'objection', title: 'Preciso falar com meu sócio', category: 'Decisão',
+    id: 'playbook-partner', workspaceId: DEMO_WORKSPACE.id, kind: 'objection', title: 'Preciso falar com meu sócio', category: 'Decisão', guidance: { objectives: ['identify_decision_maker', 'proposal_followup'], decisionRoles: ['decision_maker', 'economic_buyer'], executionModes: ['call', 'meeting'], personas: ['Dono', 'Sócio', 'Decisor econômico'], discoveryQuestions: ['Como vocês normalmente tomam decisões desse tipo?', 'Quem precisa estar na próxima conversa para evitar retrabalho?'], objectionPrompts: ['Preciso falar com meu sócio'], meetingAgenda: ['Contexto da decisão', 'Critérios de compra', 'Participantes necessários', 'Próximo passo'], coachingFocus: 'mapear processo de decisão e incluir o segundo decisor no próximo passo' },
     content: 'Faz sentido envolver quem participa da decisão. Podemos marcar a conversa em um horário em que vocês dois estejam disponíveis, assim ninguém precisa repassar as informações depois. Qual período costuma funcionar melhor para os dois?',
     tags: ['sócio','decisão'], active: true, createdAt: isoInDays(-4), updatedAt: isoInDays(-1),
   },

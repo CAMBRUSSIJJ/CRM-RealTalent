@@ -1,0 +1,51 @@
+RealTalent CRM V101.9.7 — Extension Registry
+QA Report
+============================================
+
+Escopo
+- ExtensionManifest / ExtensionRegistry
+- providers nativos: Google Workspace, Microsoft 365, Meta Business, WhatsApp Cloud, RealTalent Connect e RealTalent Capture
+- catálogo central de scopes, capabilities e jobs
+- command/action registry
+- feature flags por extensão
+- lifecycle hooks
+- Integration Framework derivado do registry
+- Permission Matrix derivada dos scopes registrados
+- RealTalent Connect integrado ao command/lifecycle registry
+- aba Registro na Central de Integrações
+- inspector global __REALTALENT_EXTENSIONS__
+- nenhuma migration SQL nova
+
+Resultados executados neste ambiente
+------------------------------------
+Extension Registry audit: 40/40 contratos aprovados
+Extension Registry smoke: 11/11 verificações aprovadas
+Linux release preflight: OK (333 arquivos TS/TSX)
+Source syntax audit: 367 arquivos aprovados
+Integration contract audit: 335 arquivos aprovados
+Migrations: 48/48 com checksum íntegro
+TypeScript isolado do Extension Registry: OK
+Regressão histórica antes do typecheck global: 3586 OK / 0 FAIL
+
+Regressões históricas adaptadas
+-------------------------------
+Os gates de Calendar V100.84, WhatsApp V100.85, Omnichannel V100.94 e Permission Matrix V101.9.6 foram atualizados para validar metadata no Extension Registry, onde scopes/capabilities agora vivem. As exigências funcionais foram preservadas.
+
+Compatibilidade
+---------------
+- UX principal preservada
+- ConnectedAccount e filas de integração preservados
+- OAuth PKCE preservado
+- Communications Gateway preservado
+- WhatsApp Cloud e QR preservados
+- RealTalent Connect / One-Tap preservados
+- Permission Matrix preservada
+- Workflow Runtime 3.0 preservado
+- 48 migrations históricas preservadas sem alteração
+
+Limitação do ambiente de montagem
+---------------------------------
+`npm install --no-audit --no-fund` expirou por timeout de rede e não criou node_modules.
+Por isso o typecheck/Vitest/build globais não puderam ser concluídos neste ambiente.
+O typecheck isolado da nova arquitetura passou. O start-linux.sh mantém o gate completo:
+npm install -> preflight -> release:verify -> typecheck -> Vitest -> build -> runtime smokes.

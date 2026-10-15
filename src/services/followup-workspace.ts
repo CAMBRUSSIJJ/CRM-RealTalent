@@ -1,7 +1,7 @@
 import type { ActivityItem, ActivityType } from '../domain/types'
 import { stripAgendaMetadata } from './agenda-workspace'
 
-export type FollowupChannel = 'call' | 'whatsapp' | 'instagram' | 'email' | 'task' | 'meeting'
+export type FollowupChannel = 'call' | 'whatsapp' | 'instagram' | 'linkedin' | 'email' | 'task' | 'meeting'
 export type FollowupOutcome =
   | 'answered'
   | 'no_response'
@@ -15,6 +15,29 @@ export type FollowupOutcome =
   | 'won'
   | 'lost'
 
+export type CadenceExecutionMode = 'manual' | 'assisted'
+export type CadenceEnrollmentState = 'active' | 'paused' | 'stopped' | 'completed'
+
+export interface CadencePolicy {
+  stopOnResponse: boolean
+  stopOnMeeting: boolean
+  stopOnProposal: boolean
+  stopOnWonLost: boolean
+  stopOnNotInterested: boolean
+  pauseOnCallback: boolean
+  continueOnNoResponse: boolean
+}
+
+export const DEFAULT_CADENCE_POLICY: CadencePolicy = {
+  stopOnResponse: true,
+  stopOnMeeting: true,
+  stopOnProposal: true,
+  stopOnWonLost: true,
+  stopOnNotInterested: true,
+  pauseOnCallback: true,
+  continueOnNoResponse: true,
+}
+
 export interface CadenceStepInput {
   id: string
   title: string
@@ -23,6 +46,7 @@ export interface CadenceStepInput {
   type: Extract<ActivityType, 'call' | 'followup' | 'meeting'>
   objective: string
   script: string
+  executionMode?: CadenceExecutionMode
 }
 
 export interface CadenceTemplateInput {
@@ -31,12 +55,13 @@ export interface CadenceTemplateInput {
   category: string
   description: string
   skipWeekends: boolean
+  policy?: CadencePolicy
   steps: CadenceStepInput[]
 }
 
 export interface FollowupMetadata {
   version: 1
-  kind: 'cadence-step' | 'result'
+  kind: 'cadence-step' | 'result' | 'next-action'
   cadenceId?: string
   cadenceName?: string
   cadenceCategory?: string
@@ -45,6 +70,15 @@ export interface FollowupMetadata {
   channel?: FollowupChannel
   objective?: string
   script?: string
+  stepId?: string
+  enrollmentId?: string
+  cadenceState?: CadenceEnrollmentState
+  executionMode?: CadenceExecutionMode
+  policy?: CadencePolicy
+  pauseReason?: string
+  resumeAt?: string
+  stopReason?: string
+  engagementAction?: 'continue' | 'pause' | 'stop'
   outcome?: FollowupOutcome
   outcomeLabel?: string
   resultNote?: string
@@ -52,6 +86,7 @@ export interface FollowupMetadata {
 }
 
 const META_PATTERN = /\n?\[\[CRM_FOLLOWUP_META:([^\]]+)\]\]/g
+const COMMERCIAL_ACTION_PATTERN = /\n?\[\[CRM_COMMERCIAL_ACTION:[^\]]+\]\]/g
 
 export const appendFollowupMetadata = (description: string, metadata: FollowupMetadata) => {
   const clean = stripFollowupMetadata(description).trim()
@@ -71,10 +106,10 @@ export const readFollowupMetadata = (activityOrDescription: ActivityItem | strin
   } catch { return null }
 }
 
-export const stripFollowupMetadata = (description: string | null | undefined) => stripAgendaMetadata((description ?? '').replace(META_PATTERN, '')).trim()
+export const stripFollowupMetadata = (description: string | null | undefined) => stripAgendaMetadata((description ?? '').replace(META_PATTERN, '').replace(COMMERCIAL_ACTION_PATTERN, '')).trim()
 
 export const channelLabel: Record<FollowupChannel, string> = {
-  call: 'Ligação', whatsapp: 'WhatsApp', instagram: 'Instagram', email: 'E-mail', task: 'Tarefa', meeting: 'Reunião',
+  call: 'Ligação', whatsapp: 'WhatsApp', instagram: 'Instagram', linkedin: 'LinkedIn', email: 'E-mail', task: 'Tarefa', meeting: 'Reunião',
 }
 
 export const outcomeLabel: Record<FollowupOutcome, string> = {
@@ -83,8 +118,8 @@ export const outcomeLabel: Record<FollowupOutcome, string> = {
   invalid_contact: 'Contato inválido', not_interested: 'Sem interesse', won: 'Venda realizada', lost: 'Oportunidade perdida',
 }
 
-const step = (id: string, title: string, offsetDays: number, channel: FollowupChannel, type: CadenceStepInput['type'], objective: string, script: string): CadenceStepInput => ({
-  id, title, offsetDays, channel, type, objective, script,
+const step = (id: string, title: string, offsetDays: number, channel: FollowupChannel, type: CadenceStepInput['type'], objective: string, script: string, executionMode: CadenceExecutionMode = 'assisted'): CadenceStepInput => ({
+  id, title, offsetDays, channel, type, objective, script, executionMode,
 })
 
 export const DEFAULT_CADENCE_TEMPLATES: CadenceTemplateInput[] = [
@@ -96,6 +131,18 @@ export const DEFAULT_CADENCE_TEMPLATES: CadenceTemplateInput[] = [
       step('cold-3', 'Reforço de oportunidade', 4, 'instagram', 'followup', 'Retomar com um ângulo diferente e uma observação específica.', 'Evite repetir a primeira mensagem. Traga uma consequência prática da dor.'),
       step('cold-4', 'Contato de valor', 7, 'email', 'followup', 'Compartilhar uma orientação objetiva e propor o próximo passo.', 'Use prova, contexto e um CTA com duas opções de horário.'),
       step('cold-5', 'Encerramento elegante', 10, 'whatsapp', 'followup', 'Encerrar a sequência preservando abertura futura.', 'Se não for prioridade agora, encerre sem culpa e deixe uma porta aberta.'),
+    ],
+  },
+  {
+    id: 'outbound-multichannel', name: 'Outbound multicanal', category: 'Prospecção', description: 'Combina ligação, WhatsApp, e-mail, LinkedIn e tarefa manual com saída automática quando houver resposta.', skipWeekends: true,
+    policy: { ...DEFAULT_CADENCE_POLICY },
+    steps: [
+      step('outbound-1', 'Ligação de abertura', 0, 'call', 'call', 'Validar contato e abrir uma conversa curta.', 'Contextualize em uma frase e faça uma pergunta simples sobre a operação.'),
+      step('outbound-2', 'WhatsApp contextual', 1, 'whatsapp', 'followup', 'Dar contexto após a tentativa de ligação.', 'Olá! Tentei falar com você porque identifiquei uma oportunidade que pode reduzir perdas no processo comercial. Posso te explicar em 2 minutos?'),
+      step('outbound-3', 'Conexão no LinkedIn', 3, 'linkedin', 'followup', 'Criar um segundo ponto de contato sem repetir a mesma abordagem.', 'Abra o perfil, valide função e empresa e envie uma abordagem curta e contextual.'),
+      step('outbound-4', 'E-mail de valor', 5, 'email', 'followup', 'Registrar valor e hipótese comercial em um canal mais formal.', 'Resuma a dor observada, impacto e um CTA objetivo com duas opções de próximo passo.'),
+      step('outbound-5', 'Pesquisa e preparação', 7, 'task', 'followup', 'Revisar sinais da empresa antes da última tentativa.', 'Confira site, redes, stakeholders e histórico. Ajuste a abordagem antes de insistir.' , 'manual'),
+      step('outbound-6', 'Última tentativa', 9, 'call', 'call', 'Obter resposta ou encerrar a prospecção com contexto.', 'Se não houver prioridade agora, encerre com respeito e registre o motivo.'),
     ],
   },
   {
@@ -158,6 +205,22 @@ export const DEFAULT_CADENCE_TEMPLATES: CadenceTemplateInput[] = [
     ],
   },
 ]
+
+export const cadencePolicy = (templateOrMeta?: Pick<CadenceTemplateInput, 'policy'> | Pick<FollowupMetadata, 'policy'> | null): CadencePolicy => ({
+  ...DEFAULT_CADENCE_POLICY,
+  ...(templateOrMeta?.policy ?? {}),
+})
+
+export const withFollowupMetadata = (activityOrDescription: ActivityItem | string, patch: Partial<FollowupMetadata>) => {
+  const description = typeof activityOrDescription === 'string' ? activityOrDescription : activityOrDescription.description
+  const current = readFollowupMetadata(description)
+  if (!current) return description
+  return appendFollowupMetadata(stripFollowupMetadata(description), { ...current, ...patch, version: 1 })
+}
+
+export const cadenceStateLabel: Record<CadenceEnrollmentState, string> = {
+  active: 'Ativa', paused: 'Pausada', stopped: 'Encerrada', completed: 'Concluída',
+}
 
 export const addBusinessDays = (start: Date, offsetDays: number, skipWeekends: boolean) => {
   const result = new Date(start)

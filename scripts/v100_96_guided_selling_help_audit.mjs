@@ -1,0 +1,63 @@
+import fs from 'node:fs'
+import path from 'node:path'
+import { fileURLToPath } from 'node:url'
+
+const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
+const checks = []
+const test = (label, pass) => checks.push({ label, pass: Boolean(pass) })
+const read = (relative) => fs.readFileSync(path.join(root, relative), 'utf8')
+
+const version = read('src/lib/app-version.ts')
+const shell = read('src/components/layout/app-shell.tsx')
+const strip = read('src/features/assistant/guided-selling-strip.tsx')
+const help = read('src/features/help/quick-help-modal.tsx')
+const css = read('src/styles/guided-selling-help-v10096.css')
+const main = read('src/main.tsx')
+const index = read('index.html')
+const launcher = (read('start-linux.sh') + '\n' + (fs.existsSync('start-linux-legacy.sh') ? read('start-linux-legacy.sh') : '') + '\n' + (fs.existsSync('scripts/start.mjs') ? read('scripts/start.mjs') : ''))
+const currentMatch = version.match(/APP_VERSION = '(\d+)\.(\d+)\.(\d+)'/); const shellStripRetired = currentMatch ? (Number(currentMatch[1]) > 101 || (Number(currentMatch[1]) === 101 && (Number(currentMatch[2]) > 7 || (Number(currentMatch[2]) === 7 && Number(currentMatch[3]) >= 0)))) : false
+
+test('APP_VERSION preserva release posterior à V100.96', (() => { const match = version.match(/APP_VERSION = '(\d+)\.(\d+)\./); if (!match) return false; const major=Number(match[1]); const minor=Number(match[2]); return major > 100 || (major === 100 && minor >= 96) })())
+test('GuidedSellingStrip preservado ou retirado do shell em V101.7+', shellStripRetired ? !shell.includes('GuidedSellingStrip') : shell.includes('GuidedSellingStrip'))
+test('renderização global preservada ou retirada em V101.7+', shellStripRetired ? !shell.includes('<GuidedSellingStrip />') : shell.includes('<GuidedSellingStrip />'))
+test('Guided Selling usa contexto do workspace', strip.includes('useAppWorkspace'))
+test('Guided Selling usa preferências comerciais', strip.includes('usePreferences'))
+test('Guided Selling calcula fila de trabalho', strip.includes('buildWorkdayQueue'))
+test('Guided Selling calcula Deal Intelligence', strip.includes('buildDealPortfolio'))
+test('Guided Selling cobre Meu Dia', strip.includes("route === 'dashboard'"))
+test('Guided Selling cobre Pipeline', strip.includes("route === 'pipeline'"))
+test('Guided Selling cobre Leads', strip.includes("route === 'leads'"))
+test('Guided Selling cobre Propostas', strip.includes("route === 'proposals'"))
+test('Guided Selling cobre Comunicação', strip.includes("route === 'communications'"))
+test('Guided Selling cobre Follow-ups', strip.includes("route === 'followups'"))
+test('Guided Selling cobre Ligações', strip.includes("route === 'calls'"))
+test('Guided Selling cobre Agenda', strip.includes("route === 'agenda'"))
+test('Guided Selling cobre Métricas', strip.includes("route === 'metrics'"))
+test('Guided Selling cobre Território', strip.includes("route === 'commercial-map'"))
+test('Guided Selling cobre Garimpo', strip.includes("route === 'prospecting'"))
+test('Explicação Por quê presente', strip.includes('Por quê?'))
+test('Ação para Assistant presente', strip.includes("crm:assistant-open"))
+test('Ação direta de navegação presente', strip.includes('navigate(signal.actionRoute'))
+test('Central de Ajuda tem Jornada do vendedor', help.includes('Jornada do vendedor'))
+test('Jornada possui 8 etapas', (help.match(/\{ id: '[^']+', articleId:/g) ?? []).length === 8)
+test('Central de Ajuda explica objetivo do vendedor', help.includes('Objetivo do vendedor'))
+test('Central preserva Ir para a função', help.includes('Ir para a função'))
+test('Central preserva Perguntar ao Assistant', help.includes('Perguntar ao Assistant'))
+test('Central possui Ajuda desta tela', help.includes('Ajuda desta tela'))
+test('Central preserva Biblioteca', help.includes('Biblioteca'))
+test('Central preserva Tours guiados', help.includes('Tours guiados'))
+test('Progresso da jornada persiste localmente', help.includes('safeStorage.setItem'))
+test('CSS V100.96 importado', main.includes("guided-selling-help-v10096.css"))
+test('CSS do Guided Selling existe', css.includes('.guided-selling-v10096'))
+test('CSS da nova Central de Ajuda existe', css.includes('.help-academy-v10096'))
+test('Index identifica uma release RealTalent atual', index.includes('RealTalent CRM V'))
+test('Launcher usa porta dedicada', /PORT="\$\{PORT:-\d+\}"/.test(launcher))
+test('Launcher valida o build atual', launcher.includes('dist/index.html'))
+
+const failed = checks.filter((item) => !item.pass)
+for (const item of checks) console.log(`${item.pass ? '✓' : '✗'} ${item.label}`)
+if (failed.length) {
+  console.error(`\nV100.96 audit: FALHOU (${checks.length - failed.length}/${checks.length})`)
+  process.exit(1)
+}
+console.log(`\nV100.96 audit: OK (${checks.length}/${checks.length})`)

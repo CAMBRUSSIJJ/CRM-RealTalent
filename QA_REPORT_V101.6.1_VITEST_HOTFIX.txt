@@ -1,0 +1,22 @@
+RealTalent CRM V101.6.1 — Vitest Experience Compatibility Hotfix
+
+Correção do teste:
+- experience-context.test.ts > protege seções essenciais ao normalizar dados antigos
+- Migração explícita: hero -> day; health -> day-health
+- Central do dia continua obrigatória
+- Resumo do dia permanece opcional e respeita preferência legada de ocultação
+
+Validações executadas neste ambiente:
+- V101.6.1 audit: 29/29
+- QA histórico/atual: 61/61 scripts
+- source syntax audit: 291 arquivos
+- integration audit: 260 arquivos
+- migrations: 42/42 checksums íntegros
+- Linux release preflight: 258 TS/TSX
+- RealTalent Connect resilience smoke: aprovado
+
+Validação já comprovada pelo usuário na versão imediatamente anterior:
+- TypeScript typecheck completo: aprovado
+- Vitest: 248/249 aprovados, com única falha corrigida por este hotfix
+
+O Vitest completo não foi reexecutado dentro deste ambiente porque o pacote não inclui node_modules e as dependências npm não estão disponíveis localmente. O start-linux.sh executa o ciclo completo no Linux do usuário.

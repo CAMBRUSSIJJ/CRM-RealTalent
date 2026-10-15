@@ -1,0 +1,29 @@
+RealTalent CRM V101.6.0 — Contacts, Views & Record Workspace
+QA final — 2026-09-27
+
+ESCOPO PRINCIPAL
+- Meu Dia 3.0: área principal de execução + painel lateral "Seu dia em um relance".
+- Leads renomeado visualmente para Contatos, preservando a rota interna `leads` para compatibilidade.
+- Registro completo de contato com Visão geral, Atividades, Notas e Conta & decisores.
+- Quick view/drawer preservado para operação rápida.
+- Account 360 e organograma preservados e acessíveis pelo registro completo.
+- Sistema de novas exibições em Contatos com cards: Tabela, Quadro e Lista compacta.
+- Nenhuma opção Calendário no criador de exibições de Contatos.
+- Busca global e pós-criação direcionam para o registro completo do contato.
+
+RESULTADOS EXECUTADOS
+- V101.6.0 audit: 20/20 contratos aprovados.
+- Gates históricos e atuais: 60/60 scripts `qa:*` aprovados.
+- Source syntax audit: 290 arquivos aprovados.
+- Integration contract audit: 259 arquivos aprovados.
+- Migrations: 41/41 com checksum íntegro.
+- Linux release preflight: 257 arquivos TS/TSX aprovados.
+- RealTalent Connect resilience smoke: aprovado (requestId idempotente → persistência → restart → retomada → connected → ended; origin guard 403).
+- Porta Linux/browser padrão: 4188.
+
+LIMITAÇÃO DO AMBIENTE DE QA
+O diretório de trabalho não contém node_modules. A tentativa `npm ci --offline` falhou porque `xmlchars@2.2.0` não está disponível no cache npm deste ambiente. Por isso NÃO foram declarados como executados/aprovados aqui: typecheck completo com dependências reais, Vitest completo, Vite build, bundle audit e HTTP smoke. O launcher `start-linux.sh` instala as dependências e executa esses gates no Linux antes de servir a release.
+
+INTEGRIDADE DO PACOTE
+- node_modules parcial removido antes do empacotamento.
+- nenhuma migration nova foi adicionada nesta release.

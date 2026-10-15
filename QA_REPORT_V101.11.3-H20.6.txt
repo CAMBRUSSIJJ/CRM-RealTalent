@@ -1,0 +1,106 @@
+RealTalent CRM V101.11.3-H20.6 — QA REPORT
+Core Sales Workspace Cohesion — Pipeline + Contatos + Agenda
+Base: V101.11.3-H20.5 — Settings & Calling Cohesion
+Data: 2026-10-09
+
+RESULTADO PRINCIPAL
+-------------------
+qa:architecture                                      PASS
+H20.6 Core Sales Workspace Cohesion                  39/39 PASS
+H20.5 Settings & Calling Cohesion                    28/28 PASS
+H20.4 Proposals & Prospecting Cohesion               27/27 PASS
+H20.3 Global UI & Product Cohesion                   26/26 PASS
+H19.13 WhatsApp Work Management                      27/27 PASS
+
+ESCOPO H20.6
+------------
+PIPELINE
+- WorkspacePageHeader canônico.
+- WorkspaceSummaryStrip canônico.
+- WorkspaceCommandBar canônica.
+- Oportunidades, valor, Forecast RealTalent, risco e sem próxima ação preservados.
+- Progresso de meta/forecast migrou para WorkspaceSummaryMetric.
+- Saved views e view strip de filtros preservados.
+- Kanban, Lista, Forecast, Agenda e Funil preservados.
+- Intelligence, filtros, ordenação e display preservados.
+- Ação Nova oportunidade movida para o header canônico.
+
+CONTATOS
+- WorkspacePageHeader canônico.
+- WorkspaceSummaryStrip canônico.
+- WorkspaceCommandBar canônica com grupos.
+- Ativos, precisam de ação, sem próxima ação e novos em 7 dias preservados.
+- Visualizações salvas e ordenação por drag preservadas.
+- Configuração avançada de visualização preservada.
+- DataGrid, cards, board, seleção em massa, importação e exportação preservados.
+- Ação Novo contato movida para o header canônico.
+
+AGENDA
+- WorkspacePageHeader canônico.
+- WorkspaceSummaryStrip canônico e acionável.
+- Um único WorkspaceViewStrip para Ano / Mês / Semana / Dia.
+- WorkspaceCommandBar canônica para Hoje, período, busca, filtros, lembretes e integrações.
+- Removida redundância entre quick views, KPIs e seletor temporal.
+- Calendários Ano/Mês/Semana/Dia, edição, inspector, chips e filtros preservados.
+
+PERSONALIZAÇÃO DE PÁGINA
+- Registry atualizado para os seletores H20.6 reais:
+  .contacts-summary-strip-h20
+  .pipeline-summary-strip-h20
+  .agenda-summary-strip-h20
+- Linux preflight volta a reconhecer os blocos atuais.
+
+GATES ESTRUTURAIS
+-----------------
+Source Syntax                                    418 arquivos PASS
+Integration Contracts                           386 arquivos PASS
+Migrations                                           54/54 PASS
+Release Manifest                                      96/96 PASS
+Capability Matrix       42 capacidades / 154 evidências / 102 executáveis
+Repository Local                                  100/100 PASS
+Repository Supabase                               100/100 PASS
+Browser E2E Contract                              11 fluxos PASS
+CSS Governance                                      65/65 PASS
+Linux release preflight                        379 TS/TSX PASS
+
+REGRESSÕES HISTÓRICAS RELEVANTES
+--------------------------------
+Pipeline 2.0                                         42/42 PASS
+Actionable Pipeline                                  38/38 PASS
+Contacts Foundation                                  20/20 PASS
+Contacts + Meu Dia                                   29/29 PASS
+Contact Views                                        22/22 PASS
+Contact Data Grid                                    22/22 PASS
+Calendar 2.0                                         69/69 PASS
+Workspace UI Standardization                         31/31 PASS
+Interaction Architecture                             36/36 PASS
+
+BUILD / DEPENDÊNCIAS
+--------------------
+npm ci       BLOCKED — não concluiu no ambiente e não produziu node_modules.
+typecheck    BLOCKED — dependências/tipos ausentes; primeiro erro: Cannot find module 'react'.
+vitest       BLOCKED — vitest: not found.
+vite build   BLOCKED — validate:env PASS; vite: not found.
+
+Esses gates NÃO são classificados como PASS.
+
+BUILD REGISTRY-INDEPENDENT
+--------------------------
+build:legacy                                      303 módulos PASS
+runtime:bundle                                    FAIL ESPERADO
+Motivo: "HTML legado reapareceu".
+O dist produzido pelo fallback foi removido e NÃO integra o ZIP final.
+
+HIGIENE DO ARTEFATO
+-------------------
+- node_modules ausente.
+- dist fallback ausente.
+- .env.local ausente.
+- sessões/cache locais do WhatsApp ausentes.
+- logs locais de Communications ausentes.
+- nenhuma migration nova introduzida pela H20.6.
+
+LIMITAÇÃO DE VALIDAÇÃO
+----------------------
+Esta release possui auditoria estrutural, contratos, regressões e build registry-independent.
+Sem node_modules/vite no ambiente, o QA não classifica como PASS o build oficial nem uma passagem pixel-perfect em browser real desta release.

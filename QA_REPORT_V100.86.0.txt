@@ -1,0 +1,30 @@
+RealTalent CRM V100.86.0 — Central de Comunicação 2.0
+QA executado em 2026-09-22
+
+RESULTADO
+- Gate V100.86.0: 61/61 contratos aprovados.
+- Regressão histórica/atual: 31/31 suítes aprovadas (V100.56.4 até V100.86.0).
+- Auditoria sintática: 252 arquivos aprovados.
+- Auditoria de contratos de integração: 222 arquivos aprovados.
+- Migrations: 38/38 checksums íntegros.
+- Migration nova: nenhuma.
+- BACKUP_SCHEMA_VERSION: 100.54.
+- Auditoria funcional: 20 funcionais, 8 parciais, 0 visual-only, 1 não implementado; maturidade ponderada aproximada 84%.
+
+ESCOPO VALIDADO
+- nova rota Comunicação registrada em AppRoute, hash routing, navegação, lazy loading e Experience Registry;
+- timeline unificada para atividades, ligações, reuniões/Agenda e communication_events oficiais;
+- filtros por canal, direção, período e busca;
+- leitura oficial resiliente: falha externa não derruba histórico local;
+- canal preferido persistido por workspace;
+- ações rápidas independentes de WhatsApp, E-mail, Ligação e Reunião;
+- e-mail assistido e e-mail oficial Google/Microsoft;
+- e-mail assistido registra preparação sem declarar envio/entrega;
+- modo oficial usa official-communication-send e communication_events;
+- compatibilidade V100.85 WhatsApp 2.0 preservada;
+- nenhuma regressão nos gates de performance/context splitting.
+
+LIMITAÇÃO DO AMBIENTE DE QA
+- npm ci foi tentado e falhou por TransportTimeoutError do ambiente de execução.
+- Por isso typecheck completo, Vitest e build Vite com dependências reais NÃO foram considerados executados/aprovados.
+- O node_modules parcial foi removido antes do empacotamento.

@@ -1,0 +1,34 @@
+RealTalent CRM V101.11.3-H14-UI1 — Commercial Management UI Recovery
+
+CAUSE
+H14 Goals/Teams UI styles were placed in calling-workspace-operational.css, which is route-loaded only by Calling/Playbooks. Goals and Teams therefore rendered new H14 controls without their visual layer.
+
+FIX
+- Moved the H14 Commercial Management visual layer into globally loaded work-management.css.
+- No additional global CSS import; CSS budget preserved.
+- Metric Registry uses polished 2-column cards with blue active state.
+- Workspace / Team / Person scope uses canonical blue selectable cards.
+- Period selector polished.
+- Team 360 tabs use professional segmented control.
+- Team directory selection and workload interaction use blue.
+- Green retained only for semantic success/availability states.
+- Responsive behavior added.
+
+VALIDATION
+- H14-UI1 gate: 15/15 PASS
+- CSS Governance: 65/65 PASS
+- qa:architecture: PASS
+- Source syntax: 410 files PASS
+- Integration contracts: 378 files PASS
+- Migrations: 54/54 PASS
+- Release Manifest: 82/82 PASS
+- Linux preflight: 371 TS/TSX PASS
+- Registry-independent transpile: 295 modules PASS
+
+OFFICIAL NPM GATES IN THIS ENVIRONMENT
+- typecheck: BLOCKED by missing React/ReactDOM/Supabase dependency tree
+- Vitest: BLOCKED (`vitest: not found`)
+- Vite build: BLOCKED (`vite: not found` after validate:env PASS)
+- runtime:bundle on build:legacy fallback: correctly rejected because fallback generates legacy HTML; fallback dist removed from package.
+
+No database migration or business-rule change was introduced by UI1.

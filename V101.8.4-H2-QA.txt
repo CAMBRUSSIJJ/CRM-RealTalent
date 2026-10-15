@@ -1,0 +1,31 @@
+RealTalent CRM V101.8.4-H2 — Local Communications Gateway
+==========================================================
+
+Motivo do hotfix
+- A gravação de 2026-10-01 mostrou que a V101.8.4-H1 abria corretamente, porém “Conectar WhatsApp Business” ainda ativava modo demonstração no repository local.
+- A Central de Comunicação ainda priorizava o modal assistido em vez do composer oficial no modo local.
+
+Validações executadas neste ambiente
+- source_syntax_audit: 297 arquivos aprovados.
+- integration_contract_audit: 265 arquivos aprovados.
+- migrations: 46/46 checksums íntegros.
+- linux-release-preflight: OK (263 arquivos TS/TSX; bindings de Comunicação íntegros).
+- V101.8.3-H1 Contact Identity Sync: 17/17.
+- V101.8.3 Connect One-Tap para iPhone: 39/39.
+- V101.8.4 Official Communications: 14/14.
+- V101.8.4-H2 Local Communications Gateway: 13/13.
+- Communications Gateway runtime smoke: OK.
+- Cadeia histórica npm run check: todos os audits chegaram até typecheck.
+
+Limitação do ambiente de montagem
+- `npm ci` não conseguiu completar neste ambiente por indisponibilidade/timeout de rede.
+- Por isso `typecheck`, Vitest e build não podem ser certificados aqui: o node_modules ficou incompleto e faltam React, lucide-react e @supabase/supabase-js.
+- O ZIP não leva node_modules nem dist. No Linux do usuário, `start-linux.sh` instala as dependências e exige `release:verify` (typecheck + tests + build + smokes) antes de servir a aplicação.
+
+Segurança local
+- Gateway de comunicações escuta por padrão somente 127.0.0.1:3002.
+- CORS limitado ao CRM local.
+- Tokens de contas são criptografados AES-256-GCM fora do navegador.
+- Chave e store são arquivos locais 0600 e não fazem parte do ZIP.
+- OAuth usa PKCE e state efêmero.
+- Webhook WhatsApp pode validar x-hub-signature-256 quando Meta App Secret está configurado.

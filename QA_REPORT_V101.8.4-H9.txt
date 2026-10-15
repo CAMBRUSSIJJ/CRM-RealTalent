@@ -1,0 +1,82 @@
+RealTalent CRM V101.8.4-H9 — Communications Reliability
+QA / AUDITORIA DE CONFIABILIDADE
+Data: 2026-10-02
+
+OBJETIVO
+Corrigir bugs observados no fluxo real WhatsApp QR -> History Sync -> Central de Comunicação -> Chat, sem adicionar novo canal e preservando H8/H7/H6/H5/H4, Official Communications, Contact Identity Sync e Connect One-Tap.
+
+BUGS CORRIGIDOS
+1. CRÍTICO — perda de mensagens após Sincronizar:
+   - H8 podia gravar o histórico pelo bridge e depois sobrescrevê-lo com snapshot antigo do gateway.
+   - H9 faz merge determinístico do store antes de cada gravação.
+
+2. Sincronizações concorrentes:
+   - sync inicial, botão manual e job automático podiam rodar simultaneamente.
+   - mutex por sessão; background incremental e manual completo são serializados.
+
+3. Deduplicação sem escopo:
+   - externalMessageId agora é escopado por workspace + conta + canal.
+
+4. Corrida no envio QR:
+   - message_create e resposta de /send agora são mesclados; leadId/contactId/status não são perdidos.
+
+5. Histórico antigo inflando Não lidas:
+   - mensagens importadas recebem crmReadAt; inbound novo continua não lido.
+
+6. Leitura no CRM:
+   - abrir conversa local pode marcar leitura no CRM sem simular blue tick no WhatsApp.
+
+7. JID/LID moderno:
+   - bridge resolve chat.getContact()/contact.number.
+   - conversas 1:1 usam peerAddress canônico, unificando @lid e @c.us do mesmo número.
+   - números diferentes do mesmo lead continuam separados.
+
+8. Cloud + QR:
+   - Cloud inbound grava peerAddress/thread.
+   - atualização de status é escopada por workspace/conta.
+
+9. Falhas silenciosas de sync:
+   - endpoint retorna falhas por conta e a UI reporta sincronização parcial.
+
+10. Semântica visual:
+   - QR Local deixa de aparecer como integração Oficial.
+
+11. Busca:
+   - busca considera todas as mensagens da conversa, não só o preview mais recente.
+
+12. Vínculo de telefone:
+   - WhatsApp prioriza o peer (outra ponta) e ignora matches curtos (<8 dígitos).
+
+VALIDAÇÕES EXECUTADAS NESTE AMBIENTE
+- H9 audit: 22/22 contratos aprovados.
+- H9 runtime smoke: 4/4 cenários aprovados.
+- Source syntax audit: 299 arquivos aprovados.
+- Integration contract audit: 267 arquivos aprovados.
+- Migrations: 46/46 checksums íntegros.
+- Linux release preflight: OK (265 arquivos TS/TSX; bindings de Comunicação íntegros).
+- npm run check: todos os audits históricos e atuais passaram até o início do typecheck, inclusive:
+  * V100.94 Omnichannel Inbox 45/45
+  * V101.8.3 Connect One-Tap 39/39
+  * V101.8.3-H1 Identity Sync 17/17
+  * V101.8.4 Official Communications 14/14
+  * H4 QR Local 12/12
+  * H4 GateFix1 5/5
+  * H5 QR Reliability 14/14
+  * H6 Single-Pass Install 10/10
+  * H7 WhatsApp Chat 15/15
+  * H8 History Sync 21/21
+  * H9 Communications Reliability 22/22
+
+LIMITAÇÃO DE VALIDAÇÃO NESTE AMBIENTE
+- node_modules não está incluído no ZIP/materialização. Por isso o typecheck local termina em erros de módulos ausentes (react, react-dom, lucide-react, @supabase/supabase-js) e JSX types ausentes.
+- A mesma classe de erros ocorre na H8 original sem node_modules; não foi identificada regressão TypeScript específica da H9 antes do ponto de dependências ausentes.
+- O start-linux.sh preserva o instalador H6: instala/repara node_modules antes de executar typecheck, Vitest, build e smokes no Linux do usuário.
+
+SMOKE H9 — CENÁRIOS
+1. Mesmo externalMessageId em workspaces diferentes não colide.
+2. Evento live + resposta posterior do send são mesclados/enriquecidos.
+3. Snapshot stale não apaga evento novo gravado durante I/O.
+4. ACK/status mais avançado não é rebaixado por snapshot antigo.
+
+RESULTADO
+APROVADA para teste real no Linux, condicionada ao gate do start-linux.sh (typecheck + Vitest + build) após instalação das dependências.

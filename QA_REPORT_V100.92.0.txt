@@ -1,0 +1,32 @@
+RealTalent CRM V100.92.0 — Hardening & UX
+Data: 2026-09-24
+
+RESULTADO DOS GATES EXECUTÁVEIS NESTE AMBIENTE
+- PASS — source_syntax_audit.mjs: 266 arquivos TypeScript/JavaScript validados.
+- PASS — integration_contract_audit.mjs: 236 arquivos auditados.
+- PASS — verify-migrations.mjs: 39 migrations com checksum íntegro.
+- PASS — cadeia histórica + atual de QA baseada em Node: 37 scripts executados sem falha.
+- PASS — 36 relatórios numerados da cadeia somaram 1.783/1.783 contratos; o hotfix V100.70 também passou.
+- PASS — V100.91 Help + Onboarding: 83/83 contratos.
+- PASS — V100.92 Hardening & UX: 65/65 contratos.
+- PASS — build registry-independent a partir do TypeScript: 178 módulos gerados.
+- PASS — contratos Supabase: todas as 43 tabelas de banco referenciadas via .from() estão tipadas; o único .from() adicional é o bucket Storage crm-recordings. Todas as 41 RPCs usadas via .rpc() estão tipadas.
+- PASS — CSS: aliases semânticos adicionados. Restam 9 custom properties intencionalmente dinâmicas por componente/inline style: experience-order, heat-size, marker-color, pin-color, pin-left, pin-top, preview-accent, preview-nav e toast-duration.
+
+ESCOPO VALIDADO NA V100.92
+- Busca global Ctrl/Cmd+K e navegação contextual.
+- Navegação progressiva com Mais ferramentas.
+- Limpeza operacional atômica/transacional e auditoria.
+- Migration V100.92 e lock de 39 migrations.
+- Tipos Supabase atualizados para Account 360, Buyer Room, Webhooks, Calendar e limpeza operacional.
+- Correções de Help, Assistant, execução comercial, Prospecting e toast warning.
+- Tokens semânticos CSS e foco visível.
+- Cinco regressões de Hardening & UX adicionadas à suíte do projeto.
+
+LIMITAÇÃO DO AMBIENTE DE EMPACOTAMENTO
+O registry npm não estava acessível neste runtime, portanto não foi possível reinstalar as dependências oficiais para repetir aqui os três comandos finais que dependem delas: `npm run typecheck`, `npm run test` e o `vite build` padrão. O pacote mantém esses comandos no `npm run check` para execução normal após `npm ci`. Como verificação independente de compilabilidade sintática, o build registry-independent foi executado com sucesso após remover os shims temporários e processou 178 módulos.
+
+ARQUIVOS TEMPORÁRIOS
+- node_modules temporário removido antes do empacotamento.
+- dist temporário de validação removido antes do empacotamento.
+- nenhum shim de teste foi incluído no ZIP final.

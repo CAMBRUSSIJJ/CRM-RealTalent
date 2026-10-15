@@ -1,0 +1,58 @@
+RealTalent CRM V101.11.3-H15 — Strict Prospecting Scope
+QA report — 2026-10-07
+
+ESCOPO
+- Categoria solicitada passa a ser restrição dura no modo padrão (exact).
+- Localidade solicitada passa a ser restrição dura.
+- Artigos, rankings, listicles e diretórios não viram empresas.
+- Web continua disponível para descoberta/enriquecimento, mas todos os candidatos passam pelos mesmos gates.
+- Modo relacionado continua disponível apenas por escolha explícita do usuário.
+
+CASO DE REGRESSÃO PRINCIPAL
+Consulta: barbearias · Rio Grande, RS
+Modo: exact
+Resultado do smoke:
+- Barbearia Porto: ACEITA
+- Barbearia Beta Rio Grande: ACEITA
+- Salão Bella: REJEITADA (categoria)
+- Salão de Beleza Glamour Rio Grande: REJEITADO (categoria)
+- Barbearia Pelotas / Barbearia Central Pelotas: REJEITADAS (localização)
+- “10 melhores barbearias de Rio Grande”: REJEITADO (conteúdo/listicle)
+Resumo: categoria rejeitada=2 · localização rejeitada=2 · documentos rejeitados=1
+
+GATES PASS
+- qa:architecture: PASS
+- H15 Strict Prospecting Scope: 39/39
+- Release Manifest: 83/83
+- Capability Matrix: 25 capacidades · 83 evidências · 52 executáveis
+- Source Syntax: 410 arquivos
+- Integration Contracts: 378 arquivos
+- Migrations: 54/54 checksums íntegros
+- Repository Local: 100/100
+- Repository Supabase: 100/100
+- Browser E2E contracts: 11 fluxos
+- CSS Governance: 65/65
+- Linux release preflight: 371 arquivos TS/TSX
+- Prospecting Ontology smoke: PASS
+- Prospecting Engine smoke: PASS
+- Local Discovery smoke: PASS
+- Communications Recovery: 5/5
+- Connect Recovery: 5/5
+- Security Runtime: 12/12
+
+BUILD / TOOLCHAIN
+- build:legacy: PASS — 295 módulos transpileados.
+- runtime:bundle sobre build:legacy: FALHOU como esperado — fallback gera HTML legado; dist removido do pacote.
+- npm run typecheck: BLOQUEADO neste ambiente sem node_modules (React/ReactDOM/Supabase types ausentes; erros derivados de tipagem também aparecem sem essas definições).
+- npm test: BLOQUEADO — vitest não instalado.
+- npm run build: BLOQUEADO — validate:env passa; vite não instalado.
+
+BANCO
+- Nenhuma migration nova na H15.
+- Baseline permanece em 54 migrations.
+
+PACOTE
+- Sem node_modules.
+- Sem dist fallback.
+- Sem .env.local.
+- Sem estado local do WhatsApp.

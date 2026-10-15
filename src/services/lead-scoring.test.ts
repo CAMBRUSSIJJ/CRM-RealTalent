@@ -13,7 +13,7 @@ const snapshot: WorkspaceSnapshot = {
   playbooks: DEMO_PLAYBOOKS,
   goals: DEMO_GOALS,
   automationRules: [],
-  automationRuns: [], companies: [], contacts: [], opportunities: [], socialProfiles: [], products: [], proposals: [], revenueEntries: [],
+  automationRuns: [], companies: [], contacts: [], contactRelationships: [], opportunities: [], socialProfiles: [], products: [], proposals: [], revenueEntries: [],
 }
 
 describe('Lead Score V100.35', () => {

@@ -1,0 +1,47 @@
+RealTalent CRM V101.11.3-CR10 — Supabase Staging Bootstrap & Validation
+Date: 2026-10-13
+
+STATUS
+- CR10 static contract: 36/36 PASS
+- CR1..CR9 lineage/regression: PASS in this working tree
+- Migrations: 58/58 checksum PASS
+- Source syntax: 424 files PASS
+- Integration contracts: 392 files PASS
+- Release manifest: 111/111 PASS
+- Capability Matrix: 58 capabilities / 220 evidence / 144 executable
+- Repository parity: Local 100/100; Supabase 100/100
+
+STAGING RUNTIME
+- CR2 probe without secrets: BLOCKED correctly (exit 2)
+- CR3 probe without secrets: BLOCKED correctly (exit 2)
+- CR10 orchestrator without secrets: STAGING BLOCKED, 1/6 gates PASS
+- Remote Supabase changes executed in this environment: NO
+
+WHY REMOTE STAGING IS NOT MARKED PASS
+This execution environment has no SUPABASE_ACCESS_TOKEN, database password, project ref,
+publishable key, service_role key, or staging test accounts. No remote project was mutated and no
+credentials were fabricated.
+
+CR10 IMPLEMENTATION
+- .env.cr10.example with staging-only variables
+- staging-linux.sh one-step launcher
+- Supabase CLI link / migration list / mandatory dry-run / db push / remote lint
+- explicit YES_APPLY_STAGING guard before remote migration push
+- optional config push and Edge Functions deploy
+- idempotent Auth Admin bootstrap for Admin / Gestor / Vendedor
+- workspace created/reused through create_organization_with_defaults
+- real organization invite + acceptance path
+- H22 access profiles system-manager / system-seller
+- CR2 and CR3 staging probes rewritten to native HTTP fetch, so they do not require @supabase/supabase-js at runtime
+- sanitized evidence under ops/evidence
+
+SECURITY
+- service_role is terminal/server-side only and is never mapped to VITE_ variables
+- known secrets/passwords/tokens are not intentionally persisted in evidence
+- linked remote db reset is not used
+- migration repair is not automatic
+- destructive remote migration application requires explicit staging confirmation
+
+FINAL DECISION
+CR10 CODE/ORCHESTRATION: PASS
+REAL SUPABASE STAGING: BLOCKED pending account/project credentials configured locally by the operator.

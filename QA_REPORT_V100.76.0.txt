@@ -1,0 +1,30 @@
+RealTalent CRM V100.76.0 — Pipeline 2.0
+Data: 2026-09-20
+
+STATUS DA RELEASE
+- Gate específico V100.76.0: APROVADO — 42/42 contratos.
+- Auditoria sintática: APROVADA — 238 arquivos.
+- Auditoria de contratos de integração: APROVADA — 209 arquivos.
+- Integridade de migrations: APROVADA — 37/37 arquivos com checksum íntegro.
+- Regressão histórica/atual: APROVADA — 21 suítes, de V100.56.4 até V100.76.0.
+
+ESCOPO VALIDADO NA V100.76
+- ações rápidas centralizadas no Pipeline;
+- Ligar, Mensagem, Follow-up, Proposta, Cadência e Abrir;
+- Kanban usando o padrão de ações rápidas;
+- Lista com coluna de ações e operação em massa preservada;
+- Forecast com ações por oportunidade sem button aninhado;
+- orientação contextual para Kanban, Lista, Previsão, Calendário e Funil;
+- persistência da última visualização e densidade;
+- visões salvas preservando escopo Meus negócios/Todos os negócios;
+- migração segura de preferências antigas;
+- nenhuma migration nova;
+- backup schema preservado em 100.54.
+
+VALIDAÇÃO NÃO CONCLUÍDA NESTE AMBIENTE
+`npm ci --prefer-offline --no-audit --no-fund` não concluiu por TransportTimeoutError.
+Como consequência, `npm run typecheck`, `npm run test` (Vitest) e `npm run build` não foram executados neste empacotamento. Nenhum deles deve ser considerado aprovado sem execução real.
+
+HIGIENE DO PACOTE
+- node_modules parcial removido após o timeout;
+- ZIP final não inclui dependências instaladas parcialmente.

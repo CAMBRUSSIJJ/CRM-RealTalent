@@ -1,0 +1,41 @@
+RealTalent CRM V101.11.3-CR9 — QA REPORT
+Generated: 2026-10-13
+
+CR1 Build & Dependency Closure: 16/16
+CR2 static QA 15/15 PASS
+CR3 static QA 21/21 PASS
+CR4 static QA 21/21 PASS
+CR5 24/24 PASS
+CR6 25/25 PASS
+CR7 32/32 PASS
+CR8 32/32 PASS
+CR9 32/32 PASS
+Migrations verificadas: 58 arquivo(s), todos com checksum íntegro.
+Validação sintática aprovada em 424 arquivos.
+Auditoria de contratos aprovada em 392 arquivos.
+Release Manifest: 111/111 invariantes.
+Capability Matrix: 57 capacidades · 217 evidências · 142 executáveis
+Repository Contract: 100 métodos no contrato
+OK   Local parity: 100/100
+OK   Supabase parity: 100/100
+
+CR9 runtime without external credentials:
+PASS cr9-static-audit — CR9 orchestration/audit contract
+BLOCK staging-e2e — CR3 staging E2E with real Supabase roles
+BLOCK production-readiness — CR7 production HTTPS/Auth/readiness probe
+BLOCK backup-restore-drill — explicit staging backup + restore drill evidence
+BLOCK commercial-launch-gate — CR8 10/10 commercial launch gate
+
+CR9 LAUNCH CLOSURE: NO-GO
+Evidence gates: 1/5 PASS
+Hard stops: staging-e2e, production-readiness, backup-restore-drill, commercial-launch-gate
+Evidence written to ops/evidence/CR9_LATEST.json and CR9_LATEST.md
+runtime exit: 2 (expected NO-GO/BLOCKED without staging/production evidence)
+
+Dependency/build gates:
+npm ci: BLOCKED — registry download did not complete within execution window; partial node_modules removed.
+typecheck: BLOCKED — npm ci incomplete.
+Vitest: BLOCKED — npm ci incomplete.
+Vite build: BLOCKED — npm ci incomplete.
+
+Launch decision: NO-GO until CR3 staging, CR7 production, restore drill and CR8 10/10 are real PASS.

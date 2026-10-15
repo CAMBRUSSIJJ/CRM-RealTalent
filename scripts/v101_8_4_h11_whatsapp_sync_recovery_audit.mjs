@@ -1,0 +1,42 @@
+#!/usr/bin/env node
+import fs from 'node:fs'
+const read=p=>fs.readFileSync(p,'utf8')
+const exists=p=>fs.existsSync(p)
+const checks=[]
+const ok=(name,cond)=>{checks.push([name,Boolean(cond)]);console.log(`${cond?'OK  ':'FAIL'} ${name}`)}
+const pkg=JSON.parse(read('package.json'))
+const bridge=read('scripts/whatsapp-browser-qr-bridge.mjs')
+const utils=read('scripts/whatsapp-sync-utils.mjs')
+const store=read('scripts/communications-store-utils.mjs')
+const gateway=read('scripts/realtalent-communications-gateway.mjs')
+const page=read('src/features/communications/communications-page.tsx')
+const comm=read('src/services/communication-workspace.ts')
+const launcher=((read('start-linux.sh') + '\n' + (fs.existsSync('start-linux-legacy.sh') ? read('start-linux-legacy.sh') : '') + '\n' + (fs.existsSync('scripts/start.mjs') ? read('scripts/start.mjs') : '')) + '\n' + (exists?.('start-linux-legacy.sh') ? read('start-linux-legacy.sh') : '') + '\n' + (exists?.('scripts/start.mjs') ? read('scripts/start.mjs') : ''))
+const index=read('index.html')
+
+ok('baseline 101.8.4 preservada',['101.8.4','101.9.0','101.9.1','101.9.2','101.9.3','101.9.4','101.9.5','101.9.6','101.9.7','101.9.8','101.9.9','101.10.0','101.10.1','101.10.2','101.10.3','101.10.4','101.10.5','101.10.6','101.10.7','101.10.8','101.10.9','101.11.0','101.11.1','101.11.2','101.11.3'].includes(pkg.version))
+ok('gateway preserva baseline H11 na release atual',gateway.includes("const VERSION = '101.8.4-h13'")&&launcher.includes('V101.8.4-H11 — WhatsApp Sync Recovery'))
+ok('LID usa API atual de mapeamento do WhatsApp Web',bridge.includes('getContactLidAndPhone')&&bridge.includes('lidCandidates'))
+ok('LID longo não é tratado como telefone',utils.includes('digits.length <= 15')&&comm.includes('digits.length <= 15'))
+ok('grupos não entram por padrão no CRM',bridge.includes('const includeGroups = options.includeGroups === true')&&gateway.includes('includeGroups:false'))
+ok('listagem de chats possui retry/fallback',bridge.includes('fetchChatsWithRetry')&&bridge.includes('fetchRawStoreChats')&&bridge.includes('session.client.getChats()'))
+ok('falha por mensagem não derruba conta inteira',bridge.includes('messagesFailed++')&&bridge.includes('mensagem ${serializedId'))
+ok('sessão QR recupera conexão automaticamente',bridge.includes('scheduleReconnect')&&bridge.includes('ensureConnected')&&bridge.includes('waitForConnected'))
+ok('status de conta reflete estado vivo QR',gateway.includes('liveState:live.state')&&gateway.includes("view.status='attention'"))
+ok('sync manual aceita QR em attention para recuperar',gateway.includes("a.status==='attention'")&&gateway.includes("a.metadata?.transport==='qr'"))
+ok('texto genérico é enriquecido sem rebaixar texto real',store.includes('bodyQuality')&&store.includes('richerBody'))
+ok('parser cobre mídia e interações',utils.includes("'[Resposta interativa]'")&&utils.includes("'[Localização]'"))
+ok('histórico importado legado não infla não lidas',comm.includes('importedQrHistory')&&comm.includes('metadata.crmReadAt'))
+ok('interface não exibe LID gigante como telefone',comm.includes('safeWhatsAppDisplayName')&&comm.includes('WhatsApp · identidade pendente'))
+ok('vínculo de lead ignora peer inválido',page.includes('peerDigits.length <= 15')&&page.includes("item.channel === 'whatsapp' ? []"))
+ok('UI distingue QR conectado de reconectando',page.includes('whatsappQrReconnecting')&&page.includes('↻ WhatsApp QR reconectando'))
+ok('aviso de sync QR não acusa histórico oficial',page.includes('WhatsApp QR precisa de atenção.')&&page.includes('WhatsApp QR em recuperação'))
+ok('launcher preserva migração H10/H11 na release atual',launcher.includes('RealTalent-CRM-V101.8.4-H11-WhatsApp-Sync-Recovery')&&launcher.includes('RealTalent-CRM-V101.8.4-H10-Communications-Gateway-Resilience')&&launcher.includes('Sessão de comunicações encontrada na versão anterior.'))
+ok('launcher exige health da release atual',launcher.includes("j.version!=='101.8.4-h13'"))
+ok('index identifica H11',index.includes('V101.8.4-H11 — WhatsApp Sync Recovery'))
+ok('release notes H11 existem',exists('RELEASE_NOTES_V101.8.4-H11.md'))
+ok('gate H11 e smoke estão no pipeline',String(pkg.scripts['check:legacy']).includes('qa:v101.8.4:h11')&&String(pkg.scripts['release:verify']).includes('runtime:communications-h11'))
+
+const failed=checks.filter(([,pass])=>!pass)
+console.log(`\nV101.8.4-H11 WhatsApp Sync Recovery: ${checks.length-failed.length}/${checks.length} contratos aprovados.`)
+if(failed.length){console.log('Falharam: '+failed.map(([name])=>name).join('; '));process.exit(1)}

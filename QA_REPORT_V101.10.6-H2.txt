@@ -1,0 +1,89 @@
+RealTalent CRM V101.10.6-H2 — Global Selection & Ownership Fix
+QA Report
+================================================================
+
+Escopo
+------
+- rollout real do Selection System em src/features
+- NativeSelectionSelect como bridge funcional para selects legados
+- OwnerPicker canônico para responsável
+- diretório de equipe local sem login
+- reatribuição real de responsável no cadastro e ficha de Contato
+- responsáveis locais reutilizados pelo Garimpo
+- repository contract Local/Supabase ampliado para 99 métodos
+- sem migration SQL nova
+
+Resultados finais
+-----------------
+QA Architecture ................ PASS
+Source syntax .................. 388 arquivos aprovados
+Integration contracts .......... 361 arquivos aprovados
+Migrations ..................... 49/49 checksums íntegros
+Release Manifest ............... 47/47 invariantes
+Capability Matrix .............. 20 capacidades / 69 evidências / 44 executáveis
+Repository Local ............... 99/99
+Repository Supabase ............ 99/99
+Browser E2E Contract ........... 9/9 fluxos catalogados
+V101.10.6 UX Consolidation ..... 40/40
+V101.10.6-H2 Selection/Owner ... 27/27
+V100.60.1 modularidade ......... 29/29
+V101.5.1 ownership integrity ... 44/44
+Legacy regression .............. 3185 OK / 0 FAIL
+Linux release preflight ........ PASS (354 TS/TSX)
+start-linux.sh syntax ........... PASS
+install service syntax ......... PASS
+
+Selection rollout
+-----------------
+- <select> nativo em src/features: 0
+- NativeSelectionSelect em src/features: 148
+- 33 arquivos de feature migrados pelo bridge rico
+- novos fluxos podem usar SelectionSelect / OwnerPicker / EntityPicker / MultiSelection / FilterSelection
+
+Ownership 2.0
+-------------
+- Configurações → Equipe e permissões permite cadastrar membro local
+- nome obrigatório; e-mail opcional
+- e-mail local é gerado quando ausente
+- e-mail duplicado no workspace é bloqueado
+- membro local pode ser Vendedor / Administrador / Somente leitura
+- não exige login no modo local
+- Lead Form usa OwnerPicker
+- Lead Details Drawer usa OwnerPicker e persiste ownerId
+- Garimpo carrega listWorkspaceMembers e usa o diretório na entrada comercial
+- Supabase preserva o fluxo autenticado/convites; criação local sem login é explicitamente bloqueada
+
+Runtimes do Garimpo
+-------------------
+PASS runtime:prospecting-agent
+PASS runtime:prospecting-search
+PASS runtime:prospecting-engine
+PASS runtime:prospecting-territory
+PASS runtime:prospecting-coverage
+PASS runtime:prospecting-identity
+PASS runtime:prospecting-enrichment
+PASS runtime:prospecting-progressive
+PASS runtime:prospecting-ontology
+PASS runtime:prospecting-territory2
+PASS runtime:prospecting-local
+
+Gates globais neste contêiner
+-----------------------------
+TYPECHECK: NOT PASS / ambiente sem dependências
+- comando: npm run typecheck
+- exit code: 2
+- erro raiz: módulos/tipos React, lucide-react, Supabase e demais dependências ausentes porque node_modules não existe
+- os milhares de erros derivados de implicit any/JSX são cascata dessa ausência
+
+VITEST: NOT EXECUTABLE
+- comando: npm test -- --run
+- exit code: 127
+- causa: vitest: not found
+
+BUILD: NOT EXECUTABLE
+- comando: npm run build
+- exit code: 127
+- validate:env passou
+- causa: vite: not found
+
+Esses três gates NÃO foram convertidos artificialmente em PASS. O launcher instala/repara as dependências e executa release:verify no Linux do usuário.

@@ -3,9 +3,11 @@ import type { AppRoute, WorkspaceRole } from '../../domain/types'
 import type { Json } from '../../lib/supabase.types'
 import { getSupabaseClient } from '../../lib/supabase'
 import { safeStorage } from '../../lib/storage'
-import { useApp } from '../../app/app-context'
+import { useAppWorkspace } from '../../app/app-context'
 import { useAuth } from '../auth/auth-context'
-import { pageSectionRegistry } from './experience-registry'
+import { pageSectionRegistry, type ExperienceBlockSize } from './experience-registry'
+import type { NotificationPreferences } from '../../services/notification-preferences'
+export type { NotificationPreferences, NotificationFrequency } from '../../services/notification-preferences'
 
 export type ExperiencePreset = 'sdr' | 'seller' | 'closer' | 'manager' | 'executive' | 'admin' | 'custom'
 export type ContentWidth = 'focused' | 'wide' | 'fluid'
@@ -20,11 +22,12 @@ export interface PageExperiencePreference {
   emphasis: PageEmphasis
   hiddenSections: string[]
   sectionOrder: string[]
+  sectionSizes: Record<string, ExperienceBlockSize>
   dataScope: PageDataScope
 }
 
 export interface ExperiencePreferences {
-  version: 2
+  version: 4
   preset: ExperiencePreset
   global: {
     contentWidth: ContentWidth
@@ -35,12 +38,7 @@ export interface ExperiencePreferences {
     stickyTopbar: boolean
   }
   pages: Partial<Record<AppRoute, PageExperiencePreference>>
-  notifications: {
-    overdueActivities: boolean
-    upcomingEvents: boolean
-    proposalFollowups: boolean
-    automationFailures: boolean
-  }
+  notifications: NotificationPreferences
 }
 
 const routeKeys = Object.keys(pageSectionRegistry) as AppRoute[]
@@ -51,15 +49,16 @@ const defaultPage = (route: AppRoute): PageExperiencePreference => ({
   emphasis: 'balanced',
   hiddenSections: [],
   sectionOrder: pageSectionRegistry[route].map((section) => section.id),
+  sectionSizes: Object.fromEntries(pageSectionRegistry[route].map((section) => [section.id, section.defaultSize ?? 'full'])) as Record<string, ExperienceBlockSize>,
   dataScope: 'mine',
 })
 
 export const createDefaultExperiencePreferences = (role: WorkspaceRole = 'member'): ExperiencePreferences => ({
-  version: 2,
+  version: 4,
   preset: presetByRole[role],
   global: { contentWidth: 'wide', fontScale: 'medium', contrast: 'standard', reduceTransparency: false, showPageSubtitle: true, stickyTopbar: true },
   pages: Object.fromEntries(routeKeys.map((route) => [route, defaultPage(route)])) as Partial<Record<AppRoute, PageExperiencePreference>>,
-  notifications: { overdueActivities: true, upcomingEvents: true, proposalFollowups: true, automationFailures: true },
+  notifications: { inAppEnabled: true, browserEnabled: false, frequency: 'realtime', quietHoursEnabled: true, quietStart: '20:00', quietEnd: '08:00', upcomingWindowHours: 24, proposalSilenceDays: 3, overdueActivities: true, upcomingActivities: true, upcomingEvents: true, proposalFollowups: true, staleLeads: true, goalsAtRisk: true, automationFailures: true },
 })
 
 const presetHidden: Partial<Record<ExperiencePreset, Partial<Record<AppRoute, string[]>>>> = {
@@ -93,13 +92,39 @@ const cleanStringList = (value: unknown, allowed: string[]) => Array.isArray(val
   ? Array.from(new Set(value.filter((item): item is string => typeof item === 'string' && allowed.includes(item))))
   : []
 
+const legacySectionAliases: Partial<Record<AppRoute, Record<string, string>>> = {
+  dashboard: { hero: 'day', health: 'day-health' },
+}
+
+const migrateLegacySectionList = (route: AppRoute, value: unknown) => {
+  if (!Array.isArray(value)) return value
+  const aliases = legacySectionAliases[route] ?? {}
+  return value.map((item) => typeof item === 'string' ? (aliases[item] ?? item) : item)
+}
+
+export const mergeExperienceSectionOrder = (requested: string[], definitionIds: string[]) => {
+  const order = requested.filter((id) => definitionIds.includes(id))
+  const missing = definitionIds.filter((id) => !order.includes(id))
+  // Dados antigos normais já carregam quase todo o registro. Nesse caso, novas seções
+  // entram na posição canônica sem resetar a ordem escolhida pelo usuário. Para payloads
+  // muito incompletos/corrompidos, preservamos primeiro a sequência solicitada e anexamos o restante.
+  if (order.length < Math.max(3, definitionIds.length - 2)) return [...order, ...missing]
+  for (const id of missing) {
+    const definitionIndex = definitionIds.indexOf(id)
+    const previousKnown = [...definitionIds.slice(0, definitionIndex)].reverse().find((candidate) => order.includes(candidate))
+    if (!previousKnown) { order.unshift(id); continue }
+    order.splice(order.indexOf(previousKnown) + 1, 0, id)
+  }
+  return order
+}
+
 export const normalizeExperiencePreferences = (value: Partial<ExperiencePreferences> | null | undefined, role: WorkspaceRole = 'member'): ExperiencePreferences => {
   const defaults = createDefaultExperiencePreferences(role)
   if (!value || typeof value !== 'object') return defaults
   const preset: ExperiencePreset = ['sdr', 'seller', 'closer', 'manager', 'executive', 'admin', 'custom'].includes(String(value.preset)) ? value.preset as ExperiencePreset : defaults.preset
   const global = value.global ?? defaults.global
   const normalized: ExperiencePreferences = {
-    version: 2,
+    version: 4,
     preset,
     global: {
       contentWidth: global.contentWidth === 'focused' || global.contentWidth === 'fluid' ? global.contentWidth : 'wide',
@@ -111,21 +136,39 @@ export const normalizeExperiencePreferences = (value: Partial<ExperiencePreferen
     },
     pages: {},
     notifications: {
+      inAppEnabled: value.notifications?.inAppEnabled !== false,
+      browserEnabled: Boolean(value.notifications?.browserEnabled),
+      frequency: value.notifications?.frequency === 'hourly' || value.notifications?.frequency === 'daily' ? value.notifications.frequency : 'realtime',
+      quietHoursEnabled: value.notifications?.quietHoursEnabled !== false,
+      quietStart: typeof value.notifications?.quietStart === 'string' && /^([01]\d|2[0-3]):[0-5]\d$/.test(value.notifications.quietStart) ? value.notifications.quietStart : '20:00',
+      quietEnd: typeof value.notifications?.quietEnd === 'string' && /^([01]\d|2[0-3]):[0-5]\d$/.test(value.notifications.quietEnd) ? value.notifications.quietEnd : '08:00',
+      upcomingWindowHours: Math.max(1, Math.min(168, Math.round(Number(value.notifications?.upcomingWindowHours) || 24))),
+      proposalSilenceDays: Math.max(1, Math.min(30, Math.round(Number(value.notifications?.proposalSilenceDays) || 3))),
       overdueActivities: value.notifications?.overdueActivities !== false,
+      upcomingActivities: value.notifications?.upcomingActivities !== false,
       upcomingEvents: value.notifications?.upcomingEvents !== false,
       proposalFollowups: value.notifications?.proposalFollowups !== false,
+      staleLeads: value.notifications?.staleLeads !== false,
+      goalsAtRisk: value.notifications?.goalsAtRisk !== false,
       automationFailures: value.notifications?.automationFailures !== false,
     },
   }
   for (const route of routeKeys) {
     const definitionIds = pageSectionRegistry[route].map((section) => section.id)
     const current = value.pages?.[route]
-    const requestedOrder = cleanStringList(current?.sectionOrder, definitionIds)
+    const requestedOrder = cleanStringList(migrateLegacySectionList(route, current?.sectionOrder), definitionIds)
+    const requestedSizes = current?.sectionSizes && typeof current.sectionSizes === 'object' ? current.sectionSizes : {}
+    const sectionSizes = Object.fromEntries(pageSectionRegistry[route].map((section) => {
+      const requested = requestedSizes[section.id]
+      const allowed = section.sizeOptions ?? ['full']
+      return [section.id, allowed.includes(requested as ExperienceBlockSize) ? requested : (section.defaultSize ?? 'full')]
+    })) as Record<string, ExperienceBlockSize>
     normalized.pages[route] = {
       density: current?.density === 'compact' ? 'compact' : 'comfortable',
       emphasis: current?.emphasis === 'focus' ? 'focus' : 'balanced',
-      hiddenSections: cleanStringList(current?.hiddenSections, pageSectionRegistry[route].filter((section) => !section.required).map((section) => section.id)),
-      sectionOrder: [...requestedOrder, ...definitionIds.filter((id) => !requestedOrder.includes(id))],
+      hiddenSections: cleanStringList(migrateLegacySectionList(route, current?.hiddenSections), pageSectionRegistry[route].filter((section) => !section.required).map((section) => section.id)),
+      sectionOrder: mergeExperienceSectionOrder(requestedOrder, definitionIds),
+      sectionSizes,
       dataScope: current?.dataScope === 'team' ? 'team' : 'mine',
     }
   }
@@ -148,7 +191,7 @@ const ExperienceContext = createContext<ExperienceContextValue | null>(null)
 const STORAGE_PREFIX = 'realtalent-crm-v100-50-experience:'
 
 export function ExperienceProvider({ children }: PropsWithChildren) {
-  const { currentWorkspace } = useApp()
+  const { currentWorkspace } = useAppWorkspace()
   const { user, mode } = useAuth()
   const workspaceId = currentWorkspace?.id ?? 'default'
   const role = currentWorkspace?.role ?? 'member'
@@ -220,22 +263,26 @@ export function ExperienceProvider({ children }: PropsWithChildren) {
     return () => { if (saveTimer.current) window.clearTimeout(saveTimer.current) }
   }, [currentWorkspace?.id, mode, preferences, remoteReady, storageKey, user?.id])
 
-  const setNormalized = useCallback((next: ExperiencePreferences) => setPreferences(normalizeExperiencePreferences(next, role)), [role])
+  const mutatePreferences = useCallback((recipe: (current: ExperiencePreferences) => ExperiencePreferences) => {
+    setPreferences((current) => normalizeExperiencePreferences(recipe(current), role))
+  }, [role])
 
   const value = useMemo<ExperienceContextValue>(() => ({
     preferences,
     syncing,
     lastSyncedAt,
-    updateGlobal(patch) { setNormalized({ ...preferences, preset: 'custom', global: { ...preferences.global, ...patch } }) },
-    updateNotifications(patch) { setNormalized({ ...preferences, notifications: { ...preferences.notifications, ...patch } }) },
+    updateGlobal(patch) { mutatePreferences((current) => ({ ...current, preset: 'custom', global: { ...current.global, ...patch } })) },
+    updateNotifications(patch) { mutatePreferences((current) => ({ ...current, notifications: { ...current.notifications, ...patch } })) },
     updatePage(route, patch) {
-      const current = preferences.pages[route] ?? defaultPage(route)
-      setNormalized({ ...preferences, preset: 'custom', pages: { ...preferences.pages, [route]: { ...current, ...patch } } })
+      mutatePreferences((current) => {
+        const currentPage = current.pages[route] ?? defaultPage(route)
+        return { ...current, preset: 'custom', pages: { ...current.pages, [route]: { ...currentPage, ...patch } } }
+      })
     },
-    setPreset(preset) { setNormalized(applyExperiencePreset(preset, role)) },
-    resetPage(route) { setNormalized({ ...preferences, preset: 'custom', pages: { ...preferences.pages, [route]: defaultPage(route) } }) },
-    resetAll() { setNormalized(createDefaultExperiencePreferences(role)) },
-  }), [lastSyncedAt, preferences, role, setNormalized, syncing])
+    setPreset(preset) { setPreferences(normalizeExperiencePreferences(applyExperiencePreset(preset, role), role)) },
+    resetPage(route) { mutatePreferences((current) => ({ ...current, preset: 'custom', pages: { ...current.pages, [route]: defaultPage(route) } })) },
+    resetAll() { setPreferences(createDefaultExperiencePreferences(role)) },
+  }), [lastSyncedAt, mutatePreferences, preferences, role, syncing])
 
   return <ExperienceContext.Provider value={value}>{children}</ExperienceContext.Provider>
 }

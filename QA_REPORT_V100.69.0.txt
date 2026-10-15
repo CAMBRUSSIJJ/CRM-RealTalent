@@ -1,0 +1,36 @@
+RealTalent CRM V100.69.0 — Calling Experience
+QA final — 2026-09-15
+
+RESULTADOS EXECUTADOS
+- source_syntax_audit: 229 arquivos aprovados
+- integration_contract_audit: 200 arquivos aprovados
+- migrations: 37/37 checksums íntegros
+- V100.56.4 Hardening: 21/21
+- V100.60 Sales Experience: 41/41
+- V100.60.1 Performance: 29/29
+- V100.62 Deal Intelligence: 47/47
+- V100.63 Sales Engagement: 64/64
+- V100.65 Coaching & Playbooks: 63/63
+- V100.66 Buyer Room: 69/69
+- V100.67 Assistant: 56/56
+- V100.68 Revenue Intelligence: 65/65
+- V100.68.1 UI Reliability: 50/50
+- V100.68.2 Settings & Pipeline UX: 30/30
+- V100.69 Calling Experience: 43/43
+- Motor call-intelligence compilado e executado isoladamente: OK
+  - smoke: 6 tentativas, 5 conversas, 83% conexão, 1 reunião, 1 venda
+- build registry-independent: 150 módulos transpilados com sucesso
+
+ESCOPO V100.69
+- 3 áreas: Operação / Histórico / Inteligência
+- Operação: próximo contato, KPIs, sessões rápidas e fila priorizada
+- Histórico: período, busca, resultado e detalhe da ligação
+- Inteligência: funil, horários, resultados, coaching, objeções e playbooks
+- Modo Foco e Preparação de Ligações preservados e recontextualizados
+- Playbook automático por contexto ao preparar uma sessão
+- Sem migration nova
+- Sem dependência runtime nova
+- BACKUP_SCHEMA_VERSION preservado em 100.54
+
+LIMITAÇÃO DO AMBIENTE
+A tentativa de `npm install --ignore-scripts --no-audit --no-fund` expirou por timeout de transporte do registry neste ambiente. Portanto, Vitest completo, typecheck semântico com as dependências locais e Vite build padrão não foram marcados como executados. Qualquer node_modules parcial foi removido antes do empacotamento.

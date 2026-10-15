@@ -66,11 +66,11 @@ export const deriveCommercialStructure = (leads: Lead[], existing?: Pick<Workspa
     const currentCompany = companies.get(companyId)
     const website = normalizeUrl(lead.website ?? currentCompany?.website ?? '')
     const company: CompanyRecord = {
-      id: companyId, workspaceId: lead.workspaceId, name: lead.company.trim() || lead.name.trim(), legalName: currentCompany?.legalName ?? '',
-      cnpj: lead.cnpj?.trim() || currentCompany?.cnpj || '', domain: domainFromUrl(website) || currentCompany?.domain || '', website,
-      segment: currentCompany?.segment || lead.tags[0] || '', phone: lead.phone || currentCompany?.phone || '', city: lead.city || currentCompany?.city || '',
-      state: lead.state ?? currentCompany?.state ?? '', status: lead.status === 'won' ? 'customer' : lead.status === 'archived' ? 'inactive' : 'prospect',
-      leadIds: Array.from(new Set([...(currentCompany?.leadIds ?? []), lead.id])), createdAt: currentCompany?.createdAt ?? lead.createdAt, updatedAt: lead.updatedAt || now,
+      id: companyId, workspaceId: lead.workspaceId, name: currentCompany?.name?.trim() || lead.company.trim() || lead.name.trim(), legalName: currentCompany?.legalName ?? '',
+      cnpj: currentCompany?.cnpj || lead.cnpj?.trim() || '', domain: currentCompany?.domain || domainFromUrl(website) || '', website: currentCompany?.website || website,
+      segment: currentCompany?.segment || lead.tags[0] || '', phone: currentCompany?.phone || lead.phone || '', city: currentCompany?.city || lead.city || '',
+      state: currentCompany?.state || lead.state || '', status: currentCompany?.status ?? (lead.status === 'won' ? 'customer' : lead.status === 'archived' ? 'inactive' : 'prospect'),
+      leadIds: Array.from(new Set([...(currentCompany?.leadIds ?? []), lead.id])), createdAt: currentCompany?.createdAt ?? lead.createdAt, updatedAt: currentCompany?.updatedAt ?? lead.updatedAt ?? now,
     }
     companies.set(companyId, company); companyByKey.set(key, companyId)
 
@@ -79,20 +79,25 @@ export const deriveCommercialStructure = (leads: Lead[], existing?: Pick<Workspa
     if (!contactId) contactId = lead.primaryContactId || createId('contact')
     const currentContact = contacts.get(contactId)
     const contact: ContactRecord = {
-      id: contactId, workspaceId: lead.workspaceId, companyId, name: lead.name.trim(), jobTitle: lead.jobTitle?.trim() || currentContact?.jobTitle || '',
-      phone: lead.phone || currentContact?.phone || '', email: lead.email || currentContact?.email || '', decisionRole: lead.decisionRole ?? currentContact?.decisionRole ?? 'unknown',
-      influenceLevel: Math.max(0, Math.min(100, lead.influenceLevel ?? currentContact?.influenceLevel ?? 0)), consentStatus: lead.consentStatus ?? currentContact?.consentStatus ?? 'unknown',
-      doNotContact: Boolean(lead.doNotContact ?? currentContact?.doNotContact), doNotContactReason: lead.doNotContactReason ?? currentContact?.doNotContactReason ?? '',
+      id: contactId, workspaceId: lead.workspaceId, companyId, name: currentContact?.name?.trim() || lead.name.trim(), jobTitle: currentContact?.jobTitle || lead.jobTitle?.trim() || '',
+      phone: currentContact?.phone || lead.phone || '', email: currentContact?.email || lead.email || '', decisionRole: currentContact?.decisionRole ?? lead.decisionRole ?? 'unknown',
+      influenceLevel: Math.max(0, Math.min(100, currentContact?.influenceLevel ?? lead.influenceLevel ?? 0)),
+      relationshipStrength: currentContact?.relationshipStrength ?? 'unknown', relationshipScore: currentContact?.relationshipScore ?? 0, stance: currentContact?.stance ?? 'unknown',
+      relationshipOwnerId: currentContact?.relationshipOwnerId ?? lead.ownerId ?? null, relationshipOwnerName: currentContact?.relationshipOwnerName ?? lead.ownerName ?? '',
+      lastContactAt: currentContact?.lastContactAt ?? lead.lastContactAt ?? null, nextActionAt: currentContact?.nextActionAt ?? lead.nextActionAt ?? null, notes: currentContact?.notes ?? '', isPrimary: currentContact?.isPrimary ?? true,
+      consentStatus: currentContact?.consentStatus ?? lead.consentStatus ?? 'unknown', doNotContact: Boolean(currentContact?.doNotContact ?? lead.doNotContact), doNotContactReason: currentContact?.doNotContactReason ?? lead.doNotContactReason ?? '',
       leadIds: Array.from(new Set([...(currentContact?.leadIds ?? []), lead.id])), createdAt: currentContact?.createdAt ?? lead.createdAt, updatedAt: lead.updatedAt || now,
     }
     contacts.set(contactId, contact); contactByKey.set(cKey, contactId)
 
     const existingOpportunity = [...opportunities.values()].find((item) => item.leadId === lead.id)
     const opportunityId = lead.opportunityId || existingOpportunity?.id || createId('opportunity')
+    const currentOpportunity = opportunities.get(opportunityId) ?? existingOpportunity
     opportunities.set(opportunityId, {
-      id: opportunityId, workspaceId: lead.workspaceId, companyId, primaryContactId: contactId, leadId: lead.id,
-      title: opportunities.get(opportunityId)?.title || `${lead.company || lead.name} — oportunidade`, stageId: lead.stageId, status: lead.status, value: lead.value, ownerId: lead.ownerId,
-      expectedCloseAt: lead.expectedCloseAt ?? null, createdAt: opportunities.get(opportunityId)?.createdAt ?? lead.createdAt, updatedAt: lead.updatedAt || now,
+      id: opportunityId, workspaceId: lead.workspaceId, companyId: currentOpportunity?.companyId ?? companyId, primaryContactId: currentOpportunity?.primaryContactId ?? contactId, leadId: lead.id,
+      title: currentOpportunity?.title || `${lead.company || lead.name} — oportunidade`, stageId: currentOpportunity?.stageId ?? lead.stageId, status: currentOpportunity?.status ?? lead.status, value: currentOpportunity?.value ?? lead.value, ownerId: currentOpportunity?.ownerId ?? lead.ownerId,
+      expectedCloseAt: currentOpportunity?.expectedCloseAt ?? lead.expectedCloseAt ?? null, forecastCategory: currentOpportunity?.forecastCategory, probability: currentOpportunity?.probability, officialProposalId: currentOpportunity?.officialProposalId ?? null, closedWonAt: currentOpportunity?.closedWonAt ?? null,
+      createdAt: currentOpportunity?.createdAt ?? lead.createdAt, updatedAt: currentOpportunity?.updatedAt ?? lead.updatedAt ?? now,
     })
 
     for (const [network, urlRaw] of networkUrls(lead)) {
@@ -122,7 +127,7 @@ export const buildDataQualityIssues = (snapshot: WorkspaceSnapshot): DataQuality
     for (const basic of leadDataIssues(lead)) issues.push(issue({ workspaceId: lead.workspaceId, category: basic.key === 'next_action' ? 'opportunity' : basic.key === 'source' ? 'origin' : basic.key === 'city' ? 'location' : basic.key === 'company' ? 'identity' : 'contact', severity: basic.key === 'next_action' && lead.status === 'active' ? 'high' : 'medium', title: basic.label, description: `${lead.name} precisa de revisão no cadastro.`, leadIds: [lead.id], suggestedAction: 'Abrir o lead e completar a informação.' }))
     if (!lead.companyId || !snapshot.companies.some((company) => company.id === lead.companyId)) issues.push(issue({ workspaceId: lead.workspaceId, category: 'identity', severity: 'high', title: 'Lead sem empresa estruturada', description: `${lead.name} ainda não está ligado a uma empresa oficial.`, leadIds: [lead.id], suggestedAction: 'Executar a sincronização da estrutura comercial.' }))
     if (!lead.primaryContactId || !snapshot.contacts.some((contact) => contact.id === lead.primaryContactId)) issues.push(issue({ workspaceId: lead.workspaceId, category: 'identity', severity: 'high', title: 'Lead sem pessoa estruturada', description: `${lead.name} ainda não está ligado a um contato oficial.`, leadIds: [lead.id], suggestedAction: 'Executar a sincronização da estrutura comercial.' }))
-    if ((lead.decisionRole ?? 'unknown') === 'unknown') issues.push(issue({ workspaceId: lead.workspaceId, category: 'identity', severity: lead.status === 'active' ? 'medium' : 'low', title: 'Papel na decisão não identificado', description: `${lead.name} não está classificado como decisor, influenciador ou usuário.`, leadIds: [lead.id], contactId: lead.primaryContactId ?? null, suggestedAction: 'Identificar o papel da pessoa na decisão de compra.' }))
+    if ((lead.decisionRole ?? 'unknown') === 'unknown') issues.push(issue({ workspaceId: lead.workspaceId, category: 'identity', severity: lead.status === 'active' ? 'medium' : 'low', title: 'Papel na decisão não identificado', description: `${lead.name} ainda não possui papel claro no buying committee.`, leadIds: [lead.id], contactId: lead.primaryContactId ?? null, suggestedAction: 'Identificar o papel da pessoa na decisão de compra.' }))
     if (!lead.sourceDetail?.trim() || !lead.capturedAt) issues.push(issue({ workspaceId: lead.workspaceId, category: 'origin', severity: 'medium', title: 'Origem incompleta', description: `${lead.name} possui origem geral, mas falta detalhe ou data de captura.`, leadIds: [lead.id], suggestedAction: 'Registrar canal, detalhe, URL e data da captura.' }))
     if ((lead.consentStatus ?? 'unknown') === 'unknown') issues.push(issue({ workspaceId: lead.workspaceId, category: 'consent', severity: 'high', title: 'Base de contato não revisada', description: `${lead.name} não possui consentimento ou base de tratamento documentada.`, leadIds: [lead.id], suggestedAction: 'Revisar a base legal e os canais permitidos antes de automatizar contato.' }))
     if (lead.doNotContact) issues.push(issue({ workspaceId: lead.workspaceId, category: 'consent', severity: 'critical', title: 'Contato bloqueado', description: `${lead.name} está marcado para não receber contato${lead.doNotContactReason ? `: ${lead.doNotContactReason}` : '.'}`, leadIds: [lead.id], suggestedAction: 'Manter cadências e automações bloqueadas para este contato.' }))

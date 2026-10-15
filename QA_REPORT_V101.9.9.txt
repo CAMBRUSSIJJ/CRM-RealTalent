@@ -1,0 +1,89 @@
+RealTalent CRM V101.9.9 — QA Architecture Reset
+QA Report
+==================================================
+
+Escopo
+- release-manifest.json como manifesto único de release
+- Capability Matrix orientada a capacidades/evidências
+- gate padrão `qa:architecture`
+- regressão histórica movida para `check:legacy`
+- repository contract parity Local x Supabase
+- catálogo de fluxos críticos de browser
+- harness opcional de Chromium E2E após build
+- nenhuma migration SQL nova
+
+Resultados executados neste ambiente
+------------------------------------
+V101.9.9 QA Architecture Reset audit: 19/19
+Release Manifest: 22/22 invariantes
+Capability Matrix: 15 capacidades / 32 evidências / 25 evidências executáveis
+Repository contract: 96/96 Local e 96/96 Supabase
+Browser E2E contract: 7/7 fluxos críticos catalogados
+Linux release preflight: OK (342 arquivos TS/TSX)
+Source syntax audit: 376 arquivos aprovados
+Integration contract audit: 347 arquivos aprovados
+Migrations: 48/48 com checksum íntegro
+V101.9.8 compatibility audit: 38/38
+Launcher shell syntax: OK
+
+Regressão histórica profunda
+----------------------------
+`npm run check:legacy` foi executado integralmente após migrar os meta-gates antigos
+para `check:legacy`. Resultado: 3.939 checks OK / 0 FAIL.
+
+Mudança do pipeline
+-------------------
+ANTES:
+  npm run check -> mais de uma centena de audits históricos por versão -> typecheck -> Vitest -> build
+
+AGORA:
+  npm run check
+    -> qa:architecture
+       -> syntax
+       -> integration contracts
+       -> migrations
+       -> release manifest
+       -> capability matrix
+       -> repository parity
+       -> critical browser-flow contract
+       -> V101.9.9 architecture audit
+    -> typecheck
+    -> Vitest
+    -> build
+
+A regressão antiga permanece disponível em `npm run check:legacy`, mas deixa de ser
+o gate padrão de cada release.
+
+Browser E2E
+-----------
+O catálogo possui 7 fluxos críticos: Meu Dia, Contatos, Pipeline, Comunicação,
+Ligações/Connect, Automações e Configurações. O contrato estrutural 7/7 foi executado.
+Também foi incluído `npm run e2e:browser:critical`, que usa Chromium/Chrome contra o
+`dist/` depois do build quando esse navegador estiver disponível. O browser real não
+foi executado nesta montagem porque não houve `node_modules`/build.
+
+Limitação do ambiente de montagem
+---------------------------------
+`npm install --no-audit --no-fund` foi tentado com timeout controlado e expirou por
+rede, sem criar `node_modules`. Por isso `npm run check` avançou por toda a nova
+arquitetura de QA e parou no typecheck global por módulos ausentes (React, Lucide e
+Supabase). Vitest/build também não puderam ser executados aqui.
+
+O `start-linux.sh` preserva o gate completo no Linux:
+  npm install -> preflight -> qa:architecture -> typecheck -> Vitest -> build -> runtime smokes.
+
+Compatibilidade
+---------------
+- V101.9.8 Design System Consolidation preservada
+- V101.9.0 a V101.9.8 continuam cobertas em check:legacy
+- Connect One-Tap preservado
+- Comunicação/WhatsApp preservados
+- Permission Matrix / Extension Registry preservados
+- Workflow Runtime preservado
+- 48 migrations preservadas sem alteração
+
+Critério da V101.9.9
+--------------------
+A unidade principal de confiança deixa de ser a presença de strings de versões antigas
+em `npm run check` e passa a ser a capacidade comprovada por teste, smoke, contrato,
+repository parity, integração, migration invariant ou browser flow.

@@ -1,12 +1,12 @@
 import { AlertTriangle, ShieldAlert } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import type { ActionDialogState } from '../../app/app-context'
-import { useApp } from '../../app/app-context'
+import { useAppUi } from '../../app/app-context'
 import { Button } from './button'
 import { Modal } from './modal'
 
 export function ActionDialogCenter() {
-  const { actionDialog, resolveActionDialog } = useApp()
+  const { actionDialog, resolveActionDialog } = useAppUi()
   const [displayedDialog, setDisplayedDialog] = useState<ActionDialogState | null>(actionDialog)
   const [value, setValue] = useState('')
   const [validation, setValidation] = useState('')

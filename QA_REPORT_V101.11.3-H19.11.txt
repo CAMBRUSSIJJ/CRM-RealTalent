@@ -1,0 +1,82 @@
+RealTalent CRM V101.11.3-H19.11 — QA REPORT
+WhatsApp Contact & Message Normalization
+Base: V101.11.3-H19.10-H1
+
+RESULTADO PRINCIPAL
+-------------------
+qa:architecture                                  PASS
+H19.11 Contact & Message Normalization           50/50 PASS
+H19.11 normalization runtime smoke                8/8 PASS
+
+REGRESSÕES WHATSAPP
+-------------------
+H19.7 Pure Chat                                  38/38 PASS
+H19.8 Control Center                             40/40 PASS
+H19.8-H1 Runtime Recovery                        28/28 PASS
+H19.9 Reliable Messaging & Groups                37/37 PASS
+H19.10 Rich Messaging & Reliable Delivery        64/64 PASS
+H19.10-H1 Media Delivery Fix                     31/31 PASS
+
+GATES INDEPENDENTES
+-------------------
+Source Syntax                              414 arquivos PASS
+Integration Contracts                     382 arquivos PASS
+Migrations                                      54/54 PASS
+Release Manifest                               90/90 PASS
+Capability Matrix        40 capacidades / 141 evidências / 95 executáveis
+Repository Local                              100/100 PASS
+Repository Supabase                           100/100 PASS
+Browser E2E Contracts                        11 fluxos PASS
+CSS Governance                                 65/65 PASS
+Linux Preflight                            375 TS/TSX PASS
+
+RUNTIME
+-------
+H19.11 normalization                            8/8 PASS
+H19.10 Rich Messaging                           7/7 PASS
+H19.10-H1 Media Fix                             7/7 PASS
+H19.8-H1 Runtime Recovery                       5/5 PASS
+Communications Architecture                     6/6 PASS
+Communications Recovery                         5/5 PASS
+Connect Recovery                                5/5 PASS
+Security Runtime                              12/12 PASS
+
+ESCOPO VALIDADO H19.11
+----------------------
+- e2e_notification/protocol/ciphertext não entram na timeline.
+- Data URL e Base64 longo não viram texto de conversa.
+- Caption textual real continua preservada.
+- Imagem/sticker/vídeo/áudio/voz/documento preservam tipo de mídia.
+- Agenda WhatsApp usa contatos conhecidos pela sessão QR.
+- Salvar no CRM é seletivo; sem importação automática da agenda.
+- Vinculação evita duplicidade usando telefone normalizado/sufixo.
+- Inbox separa Pessoas, Grupos e Não lidas.
+- Nome de sessão/contato é usado antes de fallback para número.
+- Cabeçalho de grupo abre informação de participantes/admins sob demanda.
+- Player de voz RealTalent substitui o player visual nativo.
+- Pure Chat continua sem proposta/follow-up/tarefa no corpo da conversa.
+
+LIMITAÇÃO DE CONTATOS DO CELULAR
+--------------------------------
+O pareamento WhatsApp Web não dá ao desktop acesso irrestrito à agenda nativa do iPhone/Android.
+A H19.11 sincroniza contatos que a sessão WhatsApp conhece. Agenda nativa completa exigirá integração dedicada (Google/Microsoft/vCard/app móvel).
+
+GATES OFICIAIS DEPENDENTES DE DEPENDÊNCIAS
+-------------------------------------------
+npm ci     BLOCKED — registry.npmjs.org não respondeu dentro do timeout.
+typecheck  BLOCKED — node_modules ausente; React/Supabase/tipos não encontrados.
+vitest     BLOCKED — vitest: not found.
+vite build validate:env PASS; build BLOCKED — vite: not found.
+
+FALLBACK BUILD
+--------------
+build:legacy transpila 299 módulos, porém produz HTML legado com CDN/importmap.
+O artefato foi recusado corretamente e dist/ foi removido do pacote final.
+
+HIGIENE DO ZIP
+--------------
+- sem node_modules/
+- sem dist/
+- sem .realtalent-whatsapp-browser/
+- sem .realtalent-communications-media/
+- sem tokens/chaves/logs/sessões locais

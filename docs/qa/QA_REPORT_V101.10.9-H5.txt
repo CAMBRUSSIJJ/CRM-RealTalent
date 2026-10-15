@@ -1,0 +1,77 @@
+RealTalent CRM V101.10.9-H5 — Dead CSS Removal
+QA report — 2026-10-06
+
+ESCOPO
+- Remoção física exclusivamente de CSS legado já incorporado integralmente às folhas canônicas das ondas V101.10.9, H1, H2, H3 e H4.
+- Nenhuma alteração intencional de UX, regras de negócio, dados, schema, migrations, integrações, Calling, Connect, Garimpo ou Automações.
+- Cada fonte removida foi registrada antes da exclusão em qa/dead-css-removal-v101109-h5.json com owner canônico, tamanho e hashes.
+
+RESULTADO DA REMOÇÃO
+PASS  47 arquivos CSS legados removidos fisicamente de src/styles.
+PASS  CSS físicos em src/styles: 119 -> 72.
+PASS  CSS versionados/legados físicos: 93 -> 47.
+PASS  Imports CSS diretos em src/main.tsx: 48 -> 48 (H5 não altera o cascade runtime).
+PASS  Heurística de seletores duplicados entre arquivos: 4444 -> 709.
+PASS  Referências runtime quebradas aos 47 arquivos removidos: 0.
+PASS  Import escondido em call-workspace-modal.tsx corrigido para calling-workspace.css.
+PASS  Allowlist atualizada apenas com dívida ainda existente.
+
+PROVA DE EQUIVALÊNCIA VISUAL / CASCADE
+Foi reconstruído o bundle independente da base H4 e da H5.
+PASS  H4 CSS bundle: 1.253.004 bytes.
+PASS  H5 CSS bundle: 1.253.004 bytes.
+PASS  SHA-256 H4: 4f3121ef8e83de2edc06fe23bcc0225a51fb3459806cc103e339461082005403
+PASS  SHA-256 H5: 4f3121ef8e83de2edc06fe23bcc0225a51fb3459806cc103e339461082005403
+PASS  Bundle CSS H4 x H5: byte a byte idêntico.
+PASS  tinycss2: 72/72 folhas físicas, 0 erros de parse.
+PASS  tinycss2: bundle CSS final, 0 erros de parse.
+
+ARQUITETURA / CONTRATOS
+PASS  Source syntax audit: 388 arquivos.
+PASS  Integration contracts: 361 arquivos.
+PASS  Migrations: 49 arquivos / checksums íntegros.
+PASS  Release Manifest: 58/58 invariantes.
+PASS  Local Repository contract: 99/99.
+PASS  Supabase Repository contract: 99/99.
+PASS  Browser E2E contract: 9 fluxos.
+PASS  CSS Governance: 65/65.
+PASS  V101.10.9 baseline: 28/28.
+PASS  V101.10.9-H1: 45/45.
+PASS  V101.10.9-H2: 37/37.
+PASS  V101.10.9-H3: 38/38.
+PASS  V101.10.9-H4: 57/57.
+PASS  V101.10.9-H5 Dead CSS Removal: 22/22.
+PASS  qa:architecture.
+
+REGRESSÃO HISTÓRICA
+PASS  check:legacy segmentado — 113/113 comandos.
+      - 62/62 do início da cadeia até V101.5.6.
+      - 51/51 de V101.6.0 até V101.9.8.
+      - Inclui Contacts, Workspace, filtros, Calling, Connect, Communications, Garimpo,
+        Permission Matrix, Extension Registry, Design System e typechecks isolados V101.9.7/V101.9.8.
+
+BUILD / LINUX
+PASS  Registry-independent build: 278 módulos TypeScript.
+PASS  Linux release preflight: 354 arquivos TS/TSX.
+PASS  Bundle CSS gerado e comparado contra H4.
+
+GATES DEPENDENTES DA INSTALAÇÃO NPM REAL
+O sandbox desta auditoria não possui a árvore real de node_modules e não consegue acessar o registry npm.
+Por isso estes gates NÃO são classificados como aprovados:
+- npm run typecheck: não verificável; primeiro bloqueio é módulo/tipagens React ausentes.
+- npm test: vitest não instalado.
+- npm run build: vite não instalado após validate:env.
+- npm audit: não executável de forma representativa sem a árvore instalada.
+
+Esses itens são uma limitação do ambiente de auditoria, não foram convertidos em PASS artificialmente.
+No Linux do usuário, a recuperação automática do lockfile/dependências permanece ativa; após a instalação real, executar npm run doctor e npm run verify.
+
+SEGURANÇA DE EMPACOTAMENTO
+- dist de verificação removido antes do ZIP final.
+- node_modules não incluído.
+- .env.local não incluído.
+- estados runtime .realtalent-* não incluídos.
+- CSS removidos não são reintroduzidos no pacote.
+
+CONCLUSÃO
+A V101.10.9-H5 elimina fisicamente 47 folhas CSS comprovadamente redundantes sem alterar o CSS final entregue ao navegador: o bundle H4 e H5 é byte a byte idêntico. A arquitetura, contratos modernos, regressão histórica e preflight Linux permanecem verdes. Os únicos gates pendentes são os que dependem da instalação npm real no ambiente do usuário.

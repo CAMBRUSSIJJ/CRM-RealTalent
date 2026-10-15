@@ -1,42 +1,11 @@
-import type { ForecastCategory, ProposalLineItem, ProposalRecord, RevenueEntry, WorkspaceSnapshot } from '../domain/types'
+import type { ForecastCategory, ProposalRecord, RevenueEntry, WorkspaceSnapshot } from '../domain/types'
 
-export const calculateProposalLine = (item: Pick<ProposalLineItem, 'quantity' | 'unitPrice' | 'discountPercent' | 'taxRate' | 'billingType' | 'billingInterval'>) => {
-  const quantity = Math.max(0.01, Number(item.quantity || 1))
-  const unitPrice = Math.max(0, Number(item.unitPrice || 0))
-  const discountPercent = Math.min(100, Math.max(0, Number(item.discountPercent || 0)))
-  const taxRate = Math.max(0, Number(item.taxRate || 0))
-  const lineSubtotal = quantity * unitPrice
-  const lineDiscount = lineSubtotal * discountPercent / 100
-  const taxable = lineSubtotal - lineDiscount
-  const lineTax = taxable * taxRate / 100
-  const lineTotal = taxable + lineTax
-  const recurringMonthlyTotal = item.billingType === 'recurring'
-    ? lineTotal * (item.billingInterval === 'year' ? 1 / 12 : item.billingInterval === 'quarter' ? 1 / 3 : 1)
-    : 0
-  return { quantity, unitPrice, discountPercent, taxRate, lineSubtotal, lineDiscount, lineTax, lineTotal, recurringMonthlyTotal }
-}
-
-export const calculateProposalTotals = (items: ProposalLineItem[], contractTermMonths = 12) => {
-  const base = items.reduce((totals, item) => {
-    const line = calculateProposalLine(item)
-    totals.subtotal += line.lineSubtotal
-    totals.discountTotal += line.lineDiscount
-    totals.taxTotal += line.lineTax
-    totals.total += line.lineTotal
-    totals.recurringMonthlyTotal += line.recurringMonthlyTotal
-    if (item.billingType === 'one_time') totals.oneTimeTotal += line.lineTotal
-    return totals
-  }, { subtotal: 0, discountTotal: 0, taxTotal: 0, total: 0, recurringMonthlyTotal: 0, oneTimeTotal: 0 })
-  const term = Math.max(1, Number(contractTermMonths || 12))
-  return {
-    ...base,
-    annualRecurringTotal: base.recurringMonthlyTotal * 12,
-    totalContractValue: base.oneTimeTotal + base.recurringMonthlyTotal * term,
-  }
-}
+export { calculateProposalLine, calculateProposalTotals } from './proposal-pricing'
+import { calculateProposalLine, calculateProposalTotals } from './proposal-pricing'
 
 const monthKey = (value: string | Date | null | undefined) => {
   if (!value) return ''
+  if (typeof value === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(value)) return value.slice(0, 7)
   const date = value instanceof Date ? value : new Date(value)
   if (Number.isNaN(date.getTime())) return ''
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`

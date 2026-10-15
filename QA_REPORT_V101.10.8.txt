@@ -1,0 +1,122 @@
+RealTalent CRM V101.10.8 — Runtime & Developer Experience Consolidation
+QA REPORT
+Data: 2026-10-06
+Base: V101.10.7-H1 — Lockfile Recovery
+
+ESCOPO
+- Refatoração do runtime/Developer Experience.
+- Sem redesign do CRM.
+- Sem migration nova.
+- Sem alteração de schema Supabase.
+- Sem IndexedDB.
+- Sem consolidação CSS nesta release.
+- Sem remoção das integrações/Edge Functions existentes.
+
+IMPLEMENTAÇÃO COMPROVADA
+1. Orquestrador Node: scripts/start.mjs.
+2. Linux wrapper fino: start-linux.sh (13 linhas).
+3. Fallback preservado: start-linux-legacy.sh.
+4. Launchers adicionais: start-macos.sh e start-windows.cmd.
+5. Scripts npm: start, start:dev, verify, rebuild, doctor, health e preview.
+6. Runtime Control em 127.0.0.1:3003:
+   - /health
+   - /readiness
+   - /status autenticado por runtime token
+7. Serviços locais mantidos em loopback por padrão:
+   - CRM 127.0.0.1:4188
+   - RealTalent Connect 127.0.0.1:3001
+   - Communications Gateway 127.0.0.1:3002
+   - Prospecting Agent 127.0.0.1:4319
+   - Runtime Control 127.0.0.1:3003
+8. Cleanup de processos filhos em SIGINT/SIGTERM.
+9. Abertura do navegador compatível com Linux/macOS/Windows.
+10. Migração defensiva de estado local de releases vizinhas somente quando a nova pasta está limpa.
+11. Token de runtime permanece fora do bundle.
+12. Fluxo de lockfile H1 preservado: validar → reparar uma vez se necessário → npm ci em steady-state.
+13. Doctor é não destrutivo: não cria token, não migra estado e não inicia serviços.
+14. Diagnóstico de Connect preserva rede detectada e porta TCP.
+15. Documentação organizada em docs/releases, docs/qa, docs/security e docs/architecture sem mover arquivos históricos exigidos por regressão.
+
+GATES APROVADOS
+- source syntax audit: 388 arquivos.
+- integration contract audit: 361 arquivos.
+- Release Manifest: 50/50 invariantes.
+- migrations: 49 preservadas/checksums validados pelo gate de arquitetura.
+- Local Repository parity: 99/99.
+- Supabase Repository parity: 99/99.
+- V101.10.6 Garimpo UX Consolidation: 40/40.
+- V101.10.6-H2 Global Selection & Ownership Fix: 27/27.
+- V101.10.7 Security & Runtime Foundation: 22/22.
+- V101.10.7-H1 Lockfile Recovery: 9/9.
+- V101.10.8 Runtime & DX: 25/25.
+- qa:architecture: PASS após a refatoração final do wrapper.
+
+REGRESSÃO LEGADA
+O comando monolítico check:legacy excede o limite contínuo do sandbox. A mesma cadeia foi executada em dois segmentos, sem pular gates:
+- Segmento A: início da cadeia → V101.6.8: PASS.
+- Segmento B: V101.6.9 → V101.9.8: PASS.
+Inclui, entre outros:
+- RealTalent Connect MVP: 38/38.
+- Connect Setup & Reliability: 34/34.
+- Connect Fast Dial & Power Queue: 30/30.
+- Connect One-Tap iPhone: 39/39.
+- Contact Identity Sync: 17/17.
+- WhatsApp QR H4: 12/12.
+- Single-Pass Dependency Install H6: 10/10.
+- Permission Matrix: 28/28 + smoke 8/8.
+- Extension Registry: 40/40 + smoke 11/11 + typecheck isolado PASS.
+- Design System Consolidation: 38/38 + smoke 12/12 + typecheck isolado PASS.
+
+SMOKE DO LAUNCHER
+- bash -n start-linux.sh: PASS.
+- bash -n start-linux-legacy.sh: PASS.
+- bash -n start-macos.sh: PASS.
+- node --check scripts/start.mjs: PASS.
+- node --check scripts/runtime-health.mjs: PASS.
+- ./start-linux.sh --help: PASS.
+- npm run doctor / start.mjs --doctor: executado; detecta lockfile inconsistente sem mutação.
+- token antes do doctor: ausente.
+- token depois do doctor: ausente.
+
+LIMITAÇÃO EXTERNA / NÃO MARCADA COMO PASS
+O ambiente desta execução não consegue resolver registry.npmjs.org:
+EAI_AGAIN getaddrinfo registry.npmjs.org
+
+Consequências objetivas:
+- node_modules não pôde ser instalado nesta execução.
+- package-lock.json herdado continua inconsistente até ser regenerado contra o registry real.
+- npm ci real não pôde fechar aqui.
+- npm audit real não pôde ser concluído aqui.
+- Vitest completo da aplicação não foi executado aqui.
+- build Vite completo da V101.10.8 não foi executado aqui.
+- runtime integrado com Communications/WhatsApp/Connect usando dependências reais não foi iniciado aqui.
+
+LOCKFILE ATUAL — DETECÇÃO COMPROVADA
+O checker reporta corretamente estas entradas ausentes do lock herdado:
+- @whiskeysockets/baileys@7.0.0-rc14
+- qrcode@1.5.4
+- whatsapp-web.js@1.34.7
+
+COMPORTAMENTO ESPERADO NA PRIMEIRA EXECUÇÃO COM INTERNET
+1. start.mjs valida o lock.
+2. Detecta inconsistência.
+3. Remove node_modules parcial, se existir.
+4. Executa npm install --no-fund --no-audit uma única vez.
+5. Revalida package-lock.json.
+6. Verifica as dependências runtime críticas.
+7. Persiste hash do lock.
+8. Nas execuções seguintes, usa npm ci quando a árvore precisar ser reconstruída.
+
+RECOMENDAÇÃO DE VALIDAÇÃO NO LINUX DO USUÁRIO
+Primeira abertura:
+  ./start-linux.sh
+
+Depois da recuperação inicial:
+  npm run doctor
+  npm run verify
+
+Fallback temporário durante a transição:
+  ./start-linux.sh --legacy
+
+CONCLUSÃO
+A V101.10.8 reorganiza a infraestrutura de inicialização sem alterar deliberadamente UX, CSS funcional, dados ou schema. Os contratos estáticos, arquiteturais e históricos disponíveis sem dependências externas passaram. A única pendência material é fechar a instalação/build/runtime completo em uma máquina com acesso ao registry npm; essa pendência está explicitamente tratada pelo fluxo de recuperação H1 e não foi mascarada como PASS.

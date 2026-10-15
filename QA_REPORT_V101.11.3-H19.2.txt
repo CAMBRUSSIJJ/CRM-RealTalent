@@ -1,0 +1,61 @@
+RealTalent CRM V101.11.3-H19.2 — Communication Workspace & WhatsApp Connection Center
+QA REPORT FINAL
+Data: 2026-10-08
+
+ESCOPO
+- H19.1 Communication Workspace Visual System
+- H19.2 WhatsApp Connection Center
+- Base: V101.11.3-H15 Strict Prospecting Scope
+- Schema: sem migration nova; baseline permanece em 54 migrations
+
+RESULTADOS PRINCIPAIS
+PASS  npm run qa:architecture
+PASS  H19.2 Communication Workspace & WhatsApp Connection Center: 54/54
+PASS  V100.85 WhatsApp 2.0: 66/66
+PASS  V100.86 Communications 2.0: 61/61
+PASS  V100.94 Omnichannel Inbox: 45/45
+PASS  V101.11.0 Communications Architecture: 44/44
+PASS  V101.11.3-H1 Communications Gateway Recovery: 41/41
+PASS  V101.11.3-H2 Runtime Service Recovery: 38/38
+PASS  V101.11.3-H15 Strict Prospecting Scope: 39/39
+PASS  CSS Governance: 65/65
+PASS  Linux release preflight: 372 TS/TSX
+
+ARQUITETURA / CONTRATOS
+PASS  Source Syntax: 411 arquivos
+PASS  Integration Contracts: 379 arquivos
+PASS  Migrations: 54/54 com checksum íntegro
+PASS  Release Manifest: 84/84 invariantes
+PASS  Capability Matrix: 27 capacidades / 88 evidências / 55 executáveis
+PASS  Repository Contract: 100 métodos
+PASS  Local Repository parity: 100/100
+PASS  Supabase Repository parity: 100/100
+PASS  Browser E2E Contract: 11 fluxos catalogados
+
+RUNTIME SMOKES
+PASS  Communications Recovery: 5/5
+PASS  Connect Recovery: 5/5
+PASS  Security Runtime Foundation: 12/12
+
+BUILD / TOOLCHAIN
+PASS  npm run build:legacy: 296 módulos TypeScript processados
+EXPECTED FAIL  npm run runtime:bundle: o auditor recusou corretamente o HTML legado produzido pelo fallback; esse dist foi removido do pacote final.
+
+GATES OFICIAIS DEPENDENTES DE NODE_MODULES
+BLOCKED  npm run typecheck
+  - React/ReactDOM/Supabase e respectivos type declarations não estão instalados neste pacote de fonte.
+  - O primeiro erro é TS2307: Cannot find module 'react'.
+BLOCKED  npm test
+  - vitest: not found
+BLOCKED  npm run build
+  - validate:env PASS
+  - vite: not found
+
+Nenhum gate bloqueado acima foi marcado artificialmente como PASS.
+
+CORREÇÕES DE REGRESSÃO DURANTE QA
+- Gates históricos H4–H14 foram atualizados apenas para reconhecer H19.2 como sucessora, preservando seus contratos funcionais.
+- Preflight Linux inicialmente detectou o seletor legado .omnichannel-hero sem alvo TSX. O novo hero preserva a classe de lineage e o preflight final passou.
+
+CONCLUSÃO
+A H19.2 está aprovada nos contratos de arquitetura, comunicação, runtime e Linux disponíveis sem instalar dependências npm. A entrega preserva WhatsApp 2.0, Communications 2.0, Omnichannel Inbox, gateway/recovery, identidade comercial e H15 Garimpo estrito.

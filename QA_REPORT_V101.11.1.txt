@@ -1,0 +1,59 @@
+RealTalent CRM — V101.11.1 Login Experience & Reliability
+==========================================================
+
+ESCOPO
+- Corrigir a inicialização de autenticação que podia ficar presa em "Validando sua sessão...".
+- Criar uma entrada animada com a logo RealTalent e aplicar a mesma linguagem visual ao login real.
+- Preservar UX do CRM, dados, schema, integrações e a V101.11.0 Communications Architecture.
+
+ADICIONADO
+1. BrandSplash RealTalent exibido em toda inicialização normal do CRM.
+2. Asset oficial de autenticação em public/realtalent-logo.png (512x512).
+3. RealTalentBrandMark reutilizável com entrada, halo, órbita e brilho discreto.
+4. login-experience.css carregado no final do cascade e restrito às superfícies de splash/auth.
+5. Paleta RealTalent explícita: #04342C, #1D9E75, #F1EFE8 e #2C2C2A.
+6. Suporte a prefers-reduced-motion e layouts responsivos <=900px / <=520px.
+
+CORRIGIDO / HARDENING
+1. auth.getSession() possui timeout determinístico de 6 segundos.
+2. Falha/rejeição na restauração da sessão cai para login em vez de deixar authLoading preso.
+3. AuthState listener encerra loading e cancela timeout.
+4. Resposta tardia de getSession() não pode sobrescrever um estado de autenticação já resolvido.
+5. PASSWORD_RECOVERY tardio sincroniza o AuthPage corretamente.
+6. Buyer Room continua fora do bloqueio de autenticação/splash do CRM.
+7. Modo local preserva a semântica existente: mostra a animação de marca, mas não cria login falso.
+
+VALIDAÇÃO COMPROVADA
+- qa:architecture: PASS.
+- qa:v101.11.1: 34/34 PASS.
+- qa:v101.11.0: 44/44 PASS.
+- Release Manifest: 60/60 PASS.
+- Source syntax: 395 arquivos PASS.
+- Integration contracts: 363 arquivos PASS.
+- Migrations: 49/49 checksums íntegros.
+- Repository contracts: Local 99/99 + Supabase 99/99.
+- Browser E2E contract catalog: 9 fluxos.
+- check:legacy: PASS; 113 comandos internos executados após o comando agregador.
+- typecheck isolado V101.9.7: PASS.
+- typecheck isolado V101.9.8: PASS.
+- Build registry-independent: PASS; 280 módulos TypeScript, bundle JS + CSS + logo.
+- CSS parser: 73 arquivos-fonte, 0 erros.
+- CSS bundle: 1.262.774 bytes, 0 erros de parsing.
+- Bundle contém .rt-splash, rt-logo-enter e .auth-card.
+
+GATES OFICIAIS NÃO APROVADOS NESTE SANDBOX
+- npm run typecheck: FAIL por ausência de node_modules/tipagens reais (React, Supabase, JSX etc.).
+- npm test -- --run: indisponível; vitest não instalado.
+- npm run build: indisponível; vite não instalado após validate:env.
+- npm registry: não respondeu dentro do timeout; não foi possível reconstruir a árvore npm aqui.
+- npm audit: não executado de forma confiável sem árvore npm/registry.
+
+Observação: esses itens são limitações do ambiente desta execução, não foram convertidos em PASS artificialmente. O mecanismo de recuperação do lockfile/runtime das versões anteriores permanece preservado para execução no Linux do usuário.
+
+SEM ALTERAÇÃO
+- 49 migrations.
+- schema Supabase.
+- repositories/dados do CRM.
+- Pipeline, Contatos, Meu Dia, Ligações, Garimpo e Automações.
+- Communications Architecture V101.11.0.
+- autenticação local sem barreira remota fictícia.

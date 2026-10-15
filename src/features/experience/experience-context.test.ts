@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { applyExperiencePreset, createDefaultExperiencePreferences, normalizeExperiencePreferences } from './experience-context'
+import { applyExperiencePreset, createDefaultExperiencePreferences, mergeExperienceSectionOrder, normalizeExperiencePreferences } from './experience-context'
 
  describe('preferências de experiência V100.51.1', () => {
   it('protege seções essenciais ao normalizar dados antigos', () => {
@@ -16,9 +16,8 @@ import { applyExperiencePreset, createDefaultExperiencePreferences, normalizeExp
         },
       },
     }, 'member')
-    expect(normalized.pages.dashboard?.hiddenSections).toEqual(['health'])
-    expect(normalized.pages.dashboard?.sectionOrder.slice(0, 2)).toEqual(['execution', 'hero'])
-    expect(normalized.pages.dashboard?.sectionOrder).toContain('insights')
+    expect(normalized.pages.dashboard?.hiddenSections).toEqual([])
+    expect(normalized.pages.dashboard?.sectionOrder).toEqual(['day', 'day-health'])
     expect(normalized.pages.dashboard?.dataScope).toBe('team')
   })
 
@@ -26,9 +25,16 @@ import { applyExperiencePreset, createDefaultExperiencePreferences, normalizeExp
     const preset = applyExperiencePreset('executive', 'viewer')
     expect(preset.global.contentWidth).toBe('focused')
     expect(preset.global.fontScale).toBe('large')
-    expect(preset.pages.dashboard?.hiddenSections).toContain('execution')
     const normalized = normalizeExperiencePreferences(preset, 'viewer')
-    expect(normalized.pages.dashboard?.hiddenSections).not.toContain('execution')
+    expect(normalized.pages.dashboard?.hiddenSections).toEqual([])
+    expect(normalized.pages.dashboard?.sectionOrder).toEqual(['day', 'day-health'])
+  })
+
+  it('insere novas seções na posição do registro sem destruir a ordem personalizada', () => {
+    expect(mergeExperienceSectionOrder(['hero', 'health', 'score', 'execution', 'summary', 'insights'], ['hero', 'health', 'score', 'execution', 'intelligence', 'summary', 'insights']))
+      .toEqual(['hero', 'health', 'score', 'execution', 'intelligence', 'summary', 'insights'])
+    expect(mergeExperienceSectionOrder(['execution', 'hero'], ['hero', 'health', 'score', 'execution', 'intelligence', 'summary', 'insights']).slice(0, 2))
+      .toEqual(['execution', 'hero'])
   })
 
   it('cria preferências completas para todas as rotas', () => {
@@ -37,5 +43,6 @@ import { applyExperiencePreset, createDefaultExperiencePreferences, normalizeExp
     expect(Object.keys(defaults.pages).length).toBeGreaterThanOrEqual(14)
     expect(defaults.pages.settings?.sectionOrder).toContain('content')
     expect(defaults.pages.dashboard?.dataScope).toBe('mine')
+    expect(defaults.pages.dashboard?.sectionOrder).toEqual(['day', 'day-health'])
   })
 })

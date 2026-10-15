@@ -20,7 +20,7 @@ where jobname = 'realtalent-automation-runner';
 
 select cron.schedule(
   'realtalent-automation-runner',
-  '*/2 * * * *',
+  '* * * * *',
   $$
   select net.http_post(
     url := (select decrypted_secret from vault.decrypted_secrets where name = 'realtalent_project_url' order by created_at desc limit 1) || '/functions/v1/automation-runner',
@@ -33,5 +33,6 @@ select cron.schedule(
   $$
 );
 
+-- Workflow Runtime 3.0 usa resolução de 1 minuto para waits/retries persistentes.
 -- Verificação:
 select jobid, jobname, schedule, active from cron.job where jobname = 'realtalent-automation-runner';

@@ -1,0 +1,26 @@
+RealTalent CRM V101.10.5-H1 — ReactNode TypeScript Hotfix
+========================================================
+
+Erro corrigido
+--------------
+src/features/prospecting/prospecting-page.tsx:1052
+TS2304: Cannot find name 'ReactNode'
+
+Correção aplicada
+-----------------
+- `ReactNode` importado explicitamente como type de `react`.
+- `let mapPane: ReactNode` preservado.
+- Nenhuma regra funcional do Garimpo/Selection System alterada.
+
+Validações executadas
+---------------------
+- busca no log de typecheck por TS2304/ReactNode: 0 ocorrências
+- qa:v101.10.5: 31/31 PASS
+- syntax:audit: 387 arquivos PASS
+- integration:audit: 360 arquivos PASS
+- migrations:verify: 49/49 PASS
+- qa:release-manifest: 45/45 PASS
+
+Observação de ambiente
+----------------------
+O typecheck global completo continua dependente de node_modules. Neste contêiner, dependências React/lucide/Supabase não estão instaladas. O erro específico TS2304 de ReactNode, porém, não aparece mais após a correção.

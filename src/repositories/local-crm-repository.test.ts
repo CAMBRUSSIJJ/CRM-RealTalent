@@ -197,7 +197,7 @@ describe('operações V100.3', () => {
     await repository.initialize()
     const rule = await repository.createAutomationRule({
       workspaceId: DEMO_WORKSPACE.id, name: 'Regra de teste', enabled: true, triggerType: 'manual', conditions: [],
-      actions: [{ id: 'action-test', type: 'create_note', value: 'Nota automática' }], createdBy: 'demo-user',
+      actions: [{ id: 'action-test', type: 'create_note', value: 'Nota automática' }], createdBy: 'local-user',
     })
     const first = await repository.startAutomationRun({ workspaceId: DEMO_WORKSPACE.id, ruleId: rule.id, eventKey: 'test:event:1', input: { leadId: 'lead-alpha' } })
     expect(first?.status).toBe('running')
@@ -234,14 +234,14 @@ describe('operações V100.4', () => {
     expect((await repository.listWorkspaceMembers(DEMO_WORKSPACE.id)).find((item) => item.userId === 'seller-1')?.role).toBe('viewer')
     await repository.removeWorkspaceMember(DEMO_WORKSPACE.id, 'seller-1')
     expect((await repository.listWorkspaceMembers(DEMO_WORKSPACE.id)).some((item) => item.userId === 'seller-1')).toBe(false)
-    await expect(repository.removeWorkspaceMember(DEMO_WORKSPACE.id, 'demo-user')).rejects.toThrow('proprietário')
+    await expect(repository.removeWorkspaceMember(DEMO_WORKSPACE.id, 'local-user')).rejects.toThrow('proprietário')
   })
 
   it('exporta snapshot completo do workspace', async () => {
     const repository = new LocalCrmRepository()
     await repository.initialize()
     const backup = await repository.exportWorkspace(DEMO_WORKSPACE.id)
-    expect(backup.version).toBe('100.50')
+    expect(backup.version).toBe('100.54')
     expect((backup.snapshot as { leads: unknown[] }).leads.length).toBeGreaterThan(0)
     expect(Array.isArray(backup.members)).toBe(true)
   })
@@ -314,6 +314,8 @@ describe('base confiável V100.21', () => {
     const call = await repository.createCall({ workspaceId: DEMO_WORKSPACE.id, leadId: duplicate.id, userId: null, outcome: 'answered', durationSeconds: 30, notes: '', transcript: '', recordingPath: null, startedAt: '2026-07-19T12:00:00.000Z', endedAt: '2026-07-19T12:00:30.000Z' })
     const merged = await repository.mergeLeads(DEMO_WORKSPACE.id, 'lead-alpha', duplicate.id)
     expect(merged.value).toBe(9000)
+    const opportunities = await repository.listOpportunities(DEMO_WORKSPACE.id)
+    expect(opportunities.find((item) => item.leadId === 'lead-alpha')?.value).toBe(9000)
     expect(merged.tags).toContain('duplicado')
     expect((await repository.listActivities(DEMO_WORKSPACE.id)).find((item) => item.id === activity.id)?.leadId).toBe('lead-alpha')
     expect((await repository.listCalls(DEMO_WORKSPACE.id)).find((item) => item.id === call.id)?.leadId).toBe('lead-alpha')
@@ -358,5 +360,74 @@ describe('primeiro acesso e utilização por terceiros V100.21', () => {
     expect(snapshot.leads).toHaveLength(0)
     expect(snapshot.activities).toHaveLength(0)
     expect(snapshot.stages).toHaveLength(6)
+  })
+})
+
+describe('V101.8.3-H1 — identidade Lead ↔ ContactRecord', () => {
+  beforeEach(() => { localStorage.clear() })
+
+  it('trata ContactRecord como fonte canônica ao abrir uma base legada divergente', async () => {
+    const repository = new LocalCrmRepository()
+    await repository.initialize()
+    const snapshot = await repository.getSnapshot(DEMO_WORKSPACE.id)
+    const lead = snapshot.leads.find((item) => item.id === 'lead-alpha')!
+    const contact = snapshot.contacts.find((item) => item.id === lead.primaryContactId)!
+    expect(lead.name).toBe(contact.name)
+    expect(lead.phone).toBe(contact.phone)
+    expect(lead.email).toBe(contact.email)
+    expect(lead.jobTitle).toBe(contact.jobTitle)
+    expect(lead.decisionRole).toBe(contact.decisionRole)
+  })
+
+  it('propaga edição do Lead para o ContactRecord primário', async () => {
+    const repository = new LocalCrmRepository()
+    await repository.initialize()
+    const changed = await repository.updateLead('lead-alpha', {
+      name: 'Carlos Almeida Atualizado', phone: '(51) 98888-1111', email: 'CARLOS.NOVO@ALPHA.COM.BR', jobTitle: 'CEO',
+      decisionRole: 'decision_maker', influenceLevel: 96, consentStatus: 'consented', doNotContact: true, doNotContactReason: 'Solicitação do contato',
+    })
+    const contact = (await repository.listContacts(DEMO_WORKSPACE.id)).find((item) => item.id === changed.primaryContactId)!
+    expect(contact.name).toBe('Carlos Almeida Atualizado')
+    expect(contact.phone).toBe('(51) 98888-1111')
+    expect(contact.email).toBe('carlos.novo@alpha.com.br')
+    expect(contact.jobTitle).toBe('CEO')
+    expect(contact.decisionRole).toBe('decision_maker')
+    expect(contact.influenceLevel).toBe(96)
+    expect(contact.consentStatus).toBe('consented')
+    expect(contact.doNotContact).toBe(true)
+    expect(contact.doNotContactReason).toBe('Solicitação do contato')
+  })
+
+  it('propaga edição do ContactRecord somente para Leads onde ele é contato primário', async () => {
+    const repository = new LocalCrmRepository()
+    await repository.initialize()
+    const secondaryBefore = (await repository.listLeads(DEMO_WORKSPACE.id)).find((item) => item.id === 'lead-bronx')!
+    await repository.updateContact('contact-alpha', {
+      name: 'Carlos Pessoa', phone: '(51) 97777-2222', email: 'PESSOA@ALPHA.COM.BR', jobTitle: 'Sócio-diretor',
+      decisionRole: 'economic_buyer', influenceLevel: 91, consentStatus: 'legitimate_interest', doNotContact: false, doNotContactReason: '',
+    })
+    const leads = await repository.listLeads(DEMO_WORKSPACE.id)
+    const lead = leads.find((item) => item.id === 'lead-alpha')!
+    const untouched = leads.find((item) => item.id === 'lead-bronx')!
+    expect(lead.name).toBe('Carlos Pessoa')
+    expect(lead.phone).toBe('(51) 97777-2222')
+    expect(lead.email).toBe('pessoa@alpha.com.br')
+    expect(lead.jobTitle).toBe('Sócio-diretor')
+    expect(lead.decisionRole).toBe('economic_buyer')
+    expect(lead.influenceLevel).toBe(91)
+    expect(untouched.name).toBe(secondaryBefore.name)
+    expect(untouched.email).toBe(secondaryBefore.email)
+  })
+
+  it('não mistura campos comerciais da oportunidade com a identidade da pessoa', async () => {
+    const repository = new LocalCrmRepository()
+    await repository.initialize()
+    const before = (await repository.listContacts(DEMO_WORKSPACE.id)).find((item) => item.id === 'contact-alpha')!
+    await repository.updateLead('lead-alpha', { value: 25000, priority: 'urgent', temperature: 'hot', notes: 'Negociação estratégica' })
+    const after = (await repository.listContacts(DEMO_WORKSPACE.id)).find((item) => item.id === 'contact-alpha')!
+    expect(after.name).toBe(before.name)
+    expect(after.email).toBe(before.email)
+    expect(after.phone).toBe(before.phone)
+    expect(after.notes).toBe(before.notes)
   })
 })

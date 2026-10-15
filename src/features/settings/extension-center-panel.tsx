@@ -1,6 +1,7 @@
+import { NativeSelectionSelect } from '../../components/selection'
 import { Activity, AlertTriangle, CheckCircle2, Clock3, Monitor, Pause, Play, Puzzle, RefreshCw, RotateCw, Save, Settings2, ShieldCheck, Unplug } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
-import { useApp } from '../../app/app-context'
+import { useAppUi, useAppWorkspace } from '../../app/app-context'
 import { Button } from '../../components/ui/button'
 import { StatusPill } from '../../components/ui/status-pill'
 import { formatDateTime } from '../../domain/formatters'
@@ -39,7 +40,8 @@ const sourceLabels: Record<string, string> = {
 const allSources = ['google_maps', 'google_search', 'instagram', 'cnpj']
 
 export function ExtensionCenterPanel({ state, loading, canManage, onRefresh }: ExtensionCenterPanelProps) {
-  const { currentWorkspace, repositoryMode, notify, confirmAction } = useApp()
+  const { currentWorkspace, repositoryMode } = useAppWorkspace()
+  const { notify, confirmAction } = useAppUi()
   const [tab, setTab] = useState<ExtensionTab>('installations')
   const [busy, setBusy] = useState('')
   const [revealedToken, setRevealedToken] = useState('')
@@ -142,8 +144,8 @@ export function ExtensionCenterPanel({ state, loading, canManage, onRefresh }: E
           <label className="settings-toggle"><input type="checkbox" checked={settings.enabled} onChange={(event) => setSettings((current) => ({ ...current, enabled: event.target.checked }))} /><span><strong>Integração ativa</strong><small>Bloqueia ou libera todos os envios desta extensão.</small></span></label>
           <label className="settings-toggle"><input type="checkbox" checked={settings.requireConfirmation} onChange={(event) => setSettings((current) => ({ ...current, requireConfirmation: event.target.checked }))} /><span><strong>Exigir revisão</strong><small>O vendedor confirma antes de enviar ao CRM.</small></span></label>
           <label className="settings-toggle"><input type="checkbox" checked={settings.closeTabAfterAnalysis} onChange={(event) => setSettings((current) => ({ ...current, closeTabAfterAnalysis: event.target.checked }))} /><span><strong>Fechar abas analisadas</strong><small>Reduz o consumo durante o processamento em massa.</small></span></label>
-          <label className="field"><span>Destino padrão</span><select value={settings.destination} onChange={(event) => setSettings((current) => ({ ...current, destination: event.target.value as 'garimpo' | 'crm' }))}><option value="garimpo">Revisão no Garimpo</option><option value="crm">Direto para Leads</option></select></label>
-          <label className="field"><span>Duplicidades</span><select value={settings.duplicatePolicy} onChange={(event) => setSettings((current) => ({ ...current, duplicatePolicy: event.target.value as 'skip' | 'update' | 'create' }))}><option value="skip">Ignorar duplicado</option><option value="update">Atualizar existente</option><option value="create">Criar mesmo assim</option></select></label>
+          <label className="field"><span>Destino padrão</span><NativeSelectionSelect value={settings.destination} onChange={(event) => setSettings((current) => ({ ...current, destination: event.target.value as 'garimpo' | 'crm' }))}><option value="garimpo">Revisão no Garimpo</option><option value="crm">Direto para Leads</option></NativeSelectionSelect></label>
+          <label className="field"><span>Duplicidades</span><NativeSelectionSelect value={settings.duplicatePolicy} onChange={(event) => setSettings((current) => ({ ...current, duplicatePolicy: event.target.value as 'skip' | 'update' | 'create' }))}><option value="skip">Ignorar duplicado</option><option value="update">Atualizar existente</option><option value="create">Criar mesmo assim</option></NativeSelectionSelect></label>
           <label className="field"><span>Máximo por lote</span><input type="number" min="1" max="100" value={settings.maxBatchSize} onChange={(event) => setSettings((current) => ({ ...current, maxBatchSize: Math.max(1, Math.min(100, Number(event.target.value) || 1)) }))} /></label>
           <label className="field"><span>Intervalo entre páginas (ms)</span><input type="number" min="300" max="60000" step="100" value={settings.processIntervalMs} onChange={(event) => setSettings((current) => ({ ...current, processIntervalMs: Math.max(300, Math.min(60000, Number(event.target.value) || 1200)) }))} /></label>
           <label className="field"><span>Versão mínima</span><input value={settings.minimumVersion} placeholder="Ex.: 8.6.0" onChange={(event) => setSettings((current) => ({ ...current, minimumVersion: event.target.value }))} /></label>

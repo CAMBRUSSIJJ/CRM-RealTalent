@@ -1,176 +1,116 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type PropsWithChildren } from 'react'
-import type { ActivityItem, AppRoute, AuditLog, AutomationRule, AutomationRun, CalendarEvent, CallRecord, CommercialStructureSyncResult, Goal, Lead, PipelineStage, Playbook, ProductRecord, ProposalRecord, ProposalStatus, RevenueEntry, RepositoryHealth, Workspace, WorkspaceInvite, WorkspaceMember, WorkspaceRole, WorkspaceSnapshot } from '../domain/types'
+import type { ActivityItem, AppRoute, AuditLog, AutomationRule, AutomationRun, CalendarEvent, CallRecord, CommercialStructureSyncResult, CompanyRecord, ContactRecord, ContactRelationship, Goal, Lead, PipelineStage, Playbook, ProductRecord, ProposalRecord, ProposalStatus, RevenueEntry, RepositoryHealth, Workspace, WorkspaceInvite, WorkspaceMember, WorkspaceRole, WorkspaceSnapshot } from '../domain/types'
 import { createRepository } from '../repositories/create-repository'
 import type {
-  CommercialActionResult, CommercialActivityResult, NewActivityInput, NewAutomationRuleInput, NewCalendarEventInput, NewCallInput, NewGoalInput, NewLeadInput, NewPlaybookInput, NewProductInput, NewProposalInput, NewRevenueEntryInput, NewStageInput, RegisterActivityOutcomeInput, RegisterCallOutcomeInput, UpdateActivityInput,
-  UpdateAutomationRuleInput, UpdateCalendarEventInput, UpdateGoalInput, UpdateLeadInput, UpdatePlaybookInput, UpdateProductInput, UpdateProposalInput, UpdateStageInput,
+  CommercialActionResult, CommercialActivityResult, OperationalDataClearResult, NewActivityInput, NewAutomationRuleInput, NewCalendarEventInput, NewCallInput, NewCompanyInput, NewContactInput, NewContactRelationshipInput, NewGoalInput, NewLeadInput, NewPlaybookInput, NewProductInput, NewProposalInput, NewRevenueEntryInput, NewStageInput, RegisterActivityOutcomeInput, RegisterCallOutcomeInput, UpdateActivityInput,
+  UpdateAutomationRuleInput, UpdateCalendarEventInput, UpdateCompanyInput, UpdateContactInput, UpdateContactRelationshipInput, UpdateGoalInput, UpdateLeadInput, UpdatePlaybookInput, UpdateProductInput, UpdateProposalInput, UpdateStageInput,
 } from '../repositories/crm-repository'
 import { importV99Backup } from '../services/v99-importer'
 import { parseLeadCsv } from '../services/lead-csv'
 import { safeStorage } from '../lib/storage'
 import { useAuth } from '../features/auth/auth-context'
-import { getSupabaseClient } from '../lib/supabase'
 import { automationCorrelationId, automationEventKey, automationLoopDetected, conditionMatches, ruleMatches, type AutomationEvent } from '../services/automation-engine'
 import { actionLabels, automationRunForLeadToday, conditionFieldLabels, describeAutomationAction, latestAutomationRunForLead, operatorLabels, readAutomationGuard, triggerLabels, validateAutomationRule, visibleAutomationConditions, type AutomationSimulationResult } from '../services/automation-workspace'
-import { addBusinessDays, appendFollowupMetadata, readFollowupMetadata, type CadenceTemplateInput } from '../services/followup-workspace'
+import { addBusinessDays, appendFollowupMetadata, cadencePolicy, readFollowupMetadata, type CadenceTemplateInput } from '../services/followup-workspace'
+import { buildCadenceOutcomePatches, buildCadenceStatePatches } from '../services/sales-engagement'
 import { createId } from '../lib/id'
 import { goalProgress } from '../services/metrics'
 import { recordDiagnostic } from '../lib/diagnostics'
 import { recordContactDraft, recordSellerNotification } from '../services/automation-operations'
 import { dispatchAutomationWebhook } from '../services/automation-webhooks'
+import { createAutomationEventExecutor } from '../services/automation-event-executor'
 import { queueCalendarMutation } from '../services/calendar-integration'
 import { normalizeSnapshotForRender } from '../services/snapshot-safety'
+import { restoreWorkspaceBackupToRepository } from '../services/workspace-backup-restore'
+import { routeContextFromHash, routeFromHash, routeToHash, type RouteContext } from './route-state'
+import { closeTransientOverlays } from './overlay-manager'
+import { buyerRoomPatchForProposal } from '../services/buyer-room'
+import { primaryProposalPipelineStage } from '../services/proposal-pipeline'
+import { createWorkspaceShellSnapshot, loadProgressiveWorkspaceSnapshot, loadSnapshotPatch, loadWorkspaceSnapshotSlices, snapshotSlicesForRoute, type SnapshotSlice } from '../services/snapshot-refresh'
+import { ensureProposalRevenueSchedule } from '../services/revenue-contract-bridge'
+import {
+  createDomainEvent, createEventRefreshCoordinator, domainEventBus, installEventInspector,
+  useGlobalRealtimeBridge,
+  type DomainEventName, type DomainEventSource,
+} from '../platform/events'
+import { assertFieldWrite, assertPermission, can as canPermission, type PermissionAction, type PermissionRequest, type PermissionResource, type PermissionSubject } from '../platform/permissions'
+import { accessActionAllowed, accessCanApprove, accessRecordAllowed, accessScopeFor, assertAccess as assertTeamAccess, assertSensitiveField, defaultAccessProfiles, loadTeamAccessControl, resolveMemberAccess, type EffectiveMemberAccess } from '../services/team-access-control'
+import { approvalStatusForEntity, proposalApprovalReasons, recordTeamSecurityAudit, requestTeamApproval } from '../services/team-governance'
+import { loadWorkManagement } from '../services/work-management'
+import { readAgendaMetadata } from '../services/agenda-workspace'
 
-export interface ToastAction { label: string; run: () => void | Promise<void> }
-export interface ToastOptions { action?: ToastAction; duration?: number; persistent?: boolean }
-export interface ToastMessage { id: number; type: 'success' | 'error' | 'info'; message: string; closing?: boolean; action?: ToastAction; duration: number }
-
-export type ActionDialogTone = 'default' | 'warning' | 'danger'
-export interface ConfirmActionOptions {
-  title: string
-  description: string
-  confirmLabel?: string
-  cancelLabel?: string
-  tone?: ActionDialogTone
-  details?: string[]
-}
-export interface PromptActionOptions extends ConfirmActionOptions {
-  label: string
-  initialValue?: string
-  placeholder?: string
-  inputType?: 'text' | 'datetime-local'
-  required?: boolean
-}
-export interface ActionDialogState extends ConfirmActionOptions {
-  id: number
-  kind: 'confirm' | 'prompt'
-  label?: string
-  initialValue?: string
-  placeholder?: string
-  inputType?: 'text' | 'datetime-local'
-  required?: boolean
-}
-
-interface LeadClassificationInput { leadId: string; priority: Lead['priority']; temperature: Lead['temperature']; score?: number }
-
-type ActivityCreatePayload = Omit<NewActivityInput, 'workspaceId' | 'sourceType' | 'sourceId'>
-type CallCreatePayload = Omit<NewCallInput, 'workspaceId' | 'userId'>
-type RegisterCallOutcomePayload = Omit<RegisterCallOutcomeInput, 'workspaceId' | 'userId'>
-type RegisterActivityOutcomePayload = Omit<RegisterActivityOutcomeInput, 'workspaceId' | 'userId'>
-type EventCreatePayload = Omit<NewCalendarEventInput, 'workspaceId'>
-type PlaybookCreatePayload = Omit<NewPlaybookInput, 'workspaceId'>
-type ProductCreatePayload = Omit<NewProductInput, 'workspaceId'>
-type ProposalCreatePayload = Omit<NewProposalInput, 'workspaceId'>
-type RevenueCreatePayload = Omit<NewRevenueEntryInput, 'workspaceId'>
-type GoalCreatePayload = Omit<NewGoalInput, 'workspaceId'>
-type AutomationRuleCreatePayload = Omit<NewAutomationRuleInput, 'workspaceId' | 'createdBy'>
-
-interface AppContextValue {
-  route: AppRoute
-  setRoute(route: AppRoute): void
-  repositoryMode: 'local' | 'supabase'
-  health: RepositoryHealth | null
-  workspaces: Workspace[]
-  currentWorkspace: Workspace | null
-  canWrite: boolean
-  snapshot: WorkspaceSnapshot | null
-  loading: boolean
-  error: string | null
-  toasts: ToastMessage[]
-  dismissToast(id: number): void
-  actionDialog: ActionDialogState | null
-  confirmAction(options: ConfirmActionOptions): Promise<boolean>
-  promptAction(options: PromptActionOptions): Promise<string | null>
-  resolveActionDialog(value: boolean | string | null): void
-  setCurrentWorkspace(id: string): Promise<void>
-  createWorkspace(name: string): Promise<void>
-  listWorkspaceMembers(): Promise<WorkspaceMember[]>
-  createWorkspaceInvite(email: string, role: Exclude<WorkspaceRole, 'owner'>): Promise<WorkspaceInvite>
-  listWorkspaceInvites(): Promise<WorkspaceInvite[]>
-  revokeWorkspaceInvite(inviteId: string): Promise<void>
-  updateWorkspaceMemberRole(userId: string, role: Exclude<WorkspaceRole, 'owner'>): Promise<void>
-  removeWorkspaceMember(userId: string): Promise<void>
-  listAuditLogs(limit?: number): Promise<AuditLog[]>
-  exportWorkspace(): Promise<Record<string, unknown>>
-  refresh(): Promise<void>
-  reinitialize(): Promise<void>
-  synchronizeCommercialStructure(): Promise<CommercialStructureSyncResult>
-  createLead(input: Omit<NewLeadInput, 'workspaceId'>): Promise<Lead>
-  updateLead(leadId: string, input: UpdateLeadInput): Promise<Lead>
-  moveLead(leadId: string, stageId: string, lossReason?: string | null): Promise<Lead>
-  bulkMoveLeads(leadIds: string[], stageId: string, lossReason?: string | null): Promise<Lead[]>
-  mergeLeads(primaryLeadId: string, duplicateLeadId: string): Promise<Lead>
-  deleteLead(leadId: string): Promise<void>
-  bulkUpdateLeads(leadIds: string[], input: UpdateLeadInput): Promise<number>
-  reclassifyLeads(updates: LeadClassificationInput[], silent?: boolean): Promise<number>
-  bulkAddLeadTag(leadIds: string[], tag: string): Promise<number>
-  bulkDeleteLeads(leadIds: string[]): Promise<number>
-  createStage(input: Omit<NewStageInput, 'workspaceId'>): Promise<PipelineStage>
-  updateStage(stageId: string, input: UpdateStageInput): Promise<PipelineStage>
-  deleteStage(stageId: string): Promise<void>
-  createActivity(input: ActivityCreatePayload): Promise<ActivityItem>
-  createActivities(inputs: ActivityCreatePayload[]): Promise<ActivityItem[]>
-  updateActivity(activityId: string, input: UpdateActivityInput): Promise<ActivityItem>
-  completeActivity(activityId: string, completed: boolean): Promise<ActivityItem>
-  registerActivityOutcome(input: RegisterActivityOutcomePayload): Promise<CommercialActivityResult>
-  deleteActivity(activityId: string): Promise<void>
-  createCadence(leadIds: string[], firstDueAt: string, template: CadenceTemplateInput): Promise<number>
-  createCall(input: CallCreatePayload, recording?: Blob | null): Promise<CallRecord>
-  registerCallOutcome(input: RegisterCallOutcomePayload, recording?: Blob | null): Promise<CommercialActionResult>
-  deleteCall(callId: string): Promise<void>
-  createCalendarEvent(input: EventCreatePayload): Promise<CalendarEvent>
-  createCalendarEvents(inputs: EventCreatePayload[]): Promise<CalendarEvent[]>
-  updateCalendarEvent(eventId: string, input: UpdateCalendarEventInput): Promise<CalendarEvent>
-  deleteCalendarEvent(eventId: string): Promise<void>
-  createPlaybook(input: PlaybookCreatePayload): Promise<Playbook>
-  updatePlaybook(playbookId: string, input: UpdatePlaybookInput): Promise<Playbook>
-  deletePlaybook(playbookId: string): Promise<void>
-  createProduct(input: ProductCreatePayload): Promise<ProductRecord>
-  updateProduct(productId: string, input: UpdateProductInput): Promise<ProductRecord>
-  deleteProduct(productId: string): Promise<void>
-  createProposal(input: ProposalCreatePayload): Promise<ProposalRecord>
-  updateProposal(proposalId: string, input: UpdateProposalInput): Promise<ProposalRecord>
-  createProposalRevision(proposalId: string): Promise<ProposalRecord>
-  updateProposalStatus(proposalId: string, status: ProposalStatus): Promise<ProposalRecord>
-  setOfficialProposal(proposalId: string): Promise<ProposalRecord>
-  closeOpportunityFromProposal(proposalId: string): Promise<ProposalRecord>
-  deleteProposal(proposalId: string): Promise<void>
-  createRevenueEntry(input: RevenueCreatePayload): Promise<RevenueEntry>
-  updateRevenueEntryStatus(entryId: string, status: RevenueEntry['status']): Promise<RevenueEntry>
-  createGoal(input: GoalCreatePayload): Promise<Goal>
-  updateGoal(goalId: string, input: UpdateGoalInput): Promise<Goal>
-  deleteGoal(goalId: string): Promise<void>
-  createAutomationRule(input: AutomationRuleCreatePayload): Promise<AutomationRule>
-  updateAutomationRule(ruleId: string, input: UpdateAutomationRuleInput): Promise<AutomationRule>
-  deleteAutomationRule(ruleId: string): Promise<void>
-  simulateAutomationRule(ruleId: string, leadId: string): Promise<AutomationSimulationResult>
-  runAutomationRule(ruleId: string, leadId: string): Promise<number>
-  runAutomationChecks(): Promise<number>
-  undoAutomationRun(runId: string): Promise<AutomationRun>
-  restoreWorkspaceBackup(file: File): Promise<{ imported: number; warnings: string[] }>
-  importLegacyBackup(file: File): Promise<{ imported: number; warnings: string[] }>
-  importLeadFile(file: File): Promise<{ imported: number; warnings: string[] }>
-  notify(type: ToastMessage['type'], message: string, options?: ToastOptions): void
-}
+import type { ActionDialogState, AppContextValue, ConfirmActionOptions, PromptActionOptions, ToastMessage, ToastOptions } from './app-context-types'
+export type { ActionDialogState, ActionDialogTone, ConfirmActionOptions, PromptActionOptions, ToastAction, ToastMessage, ToastOptions } from './app-context-types'
 
 const AppContext = createContext<AppContextValue | null>(null)
+
+type AppNavigationKeys = 'route' | 'routeContext' | 'setRoute' | 'navigate' | 'clearRouteContext'
+type AppWorkspaceKeys = 'repositoryMode' | 'health' | 'workspaces' | 'currentWorkspace' | 'currentUserId' | 'teamAccess' | 'canWrite' | 'can' | 'canTeamAccess' | 'teamAccessScope' | 'canTeamAccessRecord' | 'snapshot' | 'loading' | 'routeDataLoading' | 'loadedSnapshotSlices' | 'error'
+type AppUiKeys = 'toasts' | 'dismissToast' | 'actionDialog' | 'confirmAction' | 'promptAction' | 'resolveActionDialog' | 'notify'
+
+export type AppNavigationContextValue = Pick<AppContextValue, AppNavigationKeys>
+export type AppWorkspaceContextValue = Pick<AppContextValue, AppWorkspaceKeys>
+export type AppUiContextValue = Pick<AppContextValue, AppUiKeys>
+export type AppActionsContextValue = Omit<AppContextValue, AppNavigationKeys | AppWorkspaceKeys | AppUiKeys>
+
+const AppNavigationContext = createContext<AppNavigationContextValue | null>(null)
+const AppWorkspaceContext = createContext<AppWorkspaceContextValue | null>(null)
+const AppUiContext = createContext<AppUiContextValue | null>(null)
+const AppActionsContext = createContext<AppActionsContextValue | null>(null)
 const ACTIVE_WORKSPACE_KEY = 'realtalent-crm-v100-active-workspace'
 
 export function AppProvider({ children }: PropsWithChildren) {
-  const { user, loading: authLoading, mode: authMode } = useAuth()
+  const { user, loading: authLoading } = useAuth()
   const repository = useRef(createRepository()).current
-  const [route, setRoute] = useState<AppRoute>('dashboard')
+  const [route, setRouteState] = useState<AppRoute>(() => routeFromHash(window.location.hash))
+  const routeRef = useRef(route)
+  routeRef.current = route
+  const [routeContext, setRouteContext] = useState<RouteContext>(() => routeContextFromHash(window.location.hash))
+  const navigate = useCallback((nextRoute: AppRoute, context: RouteContext = {}) => {
+    closeTransientOverlays()
+    setRouteState(nextRoute); setRouteContext(context)
+    const nextHash = routeToHash(nextRoute, context)
+    if (window.location.hash !== nextHash) window.history.pushState({ route: nextRoute, context }, '', nextHash)
+  }, [])
+  const setRoute = useCallback((nextRoute: AppRoute) => navigate(nextRoute), [navigate])
+  const clearRouteContext = useCallback((keys?: Array<keyof RouteContext>) => {
+    setRouteContext((current) => {
+      const next = keys?.length
+        ? Object.fromEntries(Object.entries(current).filter(([key]) => !keys.includes(key as keyof RouteContext))) as RouteContext
+        : {}
+      const nextHash = routeToHash(route, next)
+      if (window.location.hash !== nextHash) window.history.replaceState({ route, context: next }, '', nextHash)
+      return next
+    })
+  }, [route])
   const [health, setHealth] = useState<RepositoryHealth | null>(null)
   const [workspaces, setWorkspaces] = useState<Workspace[]>([])
   const [currentWorkspace, setCurrentWorkspaceState] = useState<Workspace | null>(null)
+  const [teamAccess, setTeamAccess] = useState<EffectiveMemberAccess | null>(null)
   const [snapshot, setSnapshot] = useState<WorkspaceSnapshot | null>(null)
   const [loading, setLoading] = useState(true)
+  const [routeDataLoading, setRouteDataLoading] = useState(false)
+  const [loadedSnapshotSlices, setLoadedSnapshotSlices] = useState<SnapshotSlice[]>([])
+  const loadedSnapshotSlicesRef = useRef(new Set<SnapshotSlice>())
+  const routeHydrationRevision = useRef(0)
   const [error, setError] = useState<string | null>(null)
   const [toasts, setToasts] = useState<ToastMessage[]>([])
   const toastId = useRef(0)
   const toastTimers = useRef(new Map<number, number>())
+  const recentToastKeys = useRef(new Map<string, number>())
   const [actionDialog, setActionDialog] = useState<ActionDialogState | null>(null)
   const actionDialogId = useRef(0)
+
+  useEffect(() => {
+    const syncRouteFromLocation = () => { closeTransientOverlays(); setRouteState(routeFromHash(window.location.hash)); setRouteContext(routeContextFromHash(window.location.hash)) }
+    if (!window.location.hash) window.history.replaceState({ route: 'dashboard' }, '', routeToHash('dashboard'))
+    window.addEventListener('popstate', syncRouteFromLocation)
+    window.addEventListener('hashchange', syncRouteFromLocation)
+    return () => {
+      window.removeEventListener('popstate', syncRouteFromLocation)
+      window.removeEventListener('hashchange', syncRouteFromLocation)
+    }
+  }, [])
   const actionDialogResolver = useRef<((value: boolean | string | null) => void) | null>(null)
 
   const dismissToast = useCallback((id: number) => {
@@ -182,6 +122,13 @@ export function AppProvider({ children }: PropsWithChildren) {
   }, [])
 
   const notify = useCallback((type: ToastMessage['type'], message: string, options?: ToastOptions) => {
+    const now = Date.now()
+    const toastKey = `${type}:${message}:${options?.action?.label ?? ''}`
+    const lastSeen = recentToastKeys.current.get(toastKey) ?? 0
+    if (now - lastSeen < 1800) return
+    recentToastKeys.current.set(toastKey, now)
+    for (const [key, timestamp] of recentToastKeys.current) if (now - timestamp > 12_000) recentToastKeys.current.delete(key)
+
     const id = ++toastId.current
     const duration = Math.max(2200, options?.duration ?? (options?.action ? 7000 : 4200))
     setToasts((current) => [...current.slice(-3), { id, type, message, action: options?.action, duration }])
@@ -214,22 +161,36 @@ export function AppProvider({ children }: PropsWithChildren) {
     resolve?.(value)
   }, [])
 
-  const canWrite = currentWorkspace?.role !== 'viewer'
-  const assertWritable = useCallback(() => {
-    if (currentWorkspace?.role === 'viewer') throw new Error('Seu perfil está em modo somente leitura. Solicite permissão de vendedor ou administrador para alterar dados.')
-  }, [currentWorkspace?.role])
+  const permissionSubject = useMemo<PermissionSubject | null>(() => currentWorkspace ? ({ workspaceId: currentWorkspace.id, userId: user?.id ?? null, role: currentWorkspace.role }) : null, [currentWorkspace, user?.id])
+  const can = useCallback((action: PermissionAction, resource: PermissionResource, field?: string) => Boolean(permissionSubject && canPermission(permissionSubject, { action, resource, ...(field ? { field } : {}) })), [permissionSubject, teamAccess])
+  const canTeamAccess = useCallback((action: import('../domain/types').TeamAccessAction, resource: import('../domain/types').TeamAccessResource) => accessActionAllowed(teamAccess, action, resource), [teamAccess])
+  const teamAccessScope = useCallback((resource: import('../domain/types').TeamAccessResource) => accessScopeFor(teamAccess, resource), [teamAccess])
+  const canTeamAccessRecord = useCallback((resource: import('../domain/types').TeamAccessResource, ownerId?: string | null, teamId?: string | null) => accessRecordAllowed(teamAccess, resource, ownerId, teamId), [teamAccess])
+  const canWrite = can('update', 'lead') && (canTeamAccess('edit','contacts') || canTeamAccess('edit','pipeline'))
+  const assertAuthorized = useCallback((request: PermissionRequest) => {
+    if (!permissionSubject) throw new Error('Selecione um workspace.')
+    return assertPermission(permissionSubject, request)
+  }, [permissionSubject])
+  const assertWritable = useCallback(() => { assertAuthorized({ action: 'update', resource: 'lead' }) }, [assertAuthorized])
 
   const loadWorkspace = useCallback(async (workspace: Workspace) => {
     setLoading(true); setError(null)
     try {
-      const nextSnapshot = await repository.getSnapshot(workspace.id)
-      setCurrentWorkspaceState(workspace); setSnapshot(normalizeSnapshotForRender(nextSnapshot)); safeStorage.setItem(ACTIVE_WORKSPACE_KEY, workspace.id)
+      const [progressive, accessSnapshot, workManagement] = await Promise.all([
+        loadProgressiveWorkspaceSnapshot(repository, workspace, routeRef.current),
+        loadTeamAccessControl(repository.mode, workspace.id).catch(() => ({ profiles: defaultAccessProfiles(workspace.id), assignments: [] })),
+        loadWorkManagement(repository.mode, workspace.id).catch(() => ({ teams: [], memberships: [], tasks: [], relations: [], checklistItems: [], comments: [] })),
+      ])
+      loadedSnapshotSlicesRef.current = new Set(progressive.slices)
+      setLoadedSnapshotSlices(progressive.slices)
+      setTeamAccess(resolveMemberAccess(workspace.id, user?.id ?? null, workspace.role, accessSnapshot, workManagement.memberships))
+      setCurrentWorkspaceState(workspace); setSnapshot(normalizeSnapshotForRender(progressive.snapshot)); safeStorage.setItem(ACTIVE_WORKSPACE_KEY, workspace.id)
     } catch (loadError) {
       const message = loadError instanceof Error ? loadError.message : 'Falha ao carregar o workspace.'
       recordDiagnostic({ severity: 'error', source: 'workspace', message, route: window.location.hash || 'dashboard', workspaceId: workspace.id })
       setError(message); notify('error', message)
     } finally { setLoading(false) }
-  }, [notify, repository])
+  }, [notify, repository, user?.id])
 
   const bootstrap = useCallback(async () => {
     setLoading(true); setError(null)
@@ -255,314 +216,110 @@ export function AppProvider({ children }: PropsWithChildren) {
 
   useEffect(() => {
     if (authLoading) return
-    if (authMode === 'supabase' && !user) {
-      setWorkspaces([]); setCurrentWorkspaceState(null); setSnapshot(null); setError(null); setLoading(false); return
+    if (!user) {
+      loadedSnapshotSlicesRef.current.clear(); setLoadedSnapshotSlices([]); setRouteDataLoading(false); setWorkspaces([]); setCurrentWorkspaceState(null); setTeamAccess(null); setSnapshot(null); setError(null); setLoading(false); return
     }
     void bootstrap()
-  }, [authLoading, authMode, bootstrap, user])
+  }, [authLoading, bootstrap, user])
+
+  useEffect(() => {
+    if (!currentWorkspace) return
+    const refreshAccess = async (event?: Event) => {
+      const custom = event as CustomEvent<{ workspaceId?: string }>
+      if (custom.detail?.workspaceId && custom.detail.workspaceId !== currentWorkspace.id) return
+      try {
+        const [accessSnapshot, workManagement] = await Promise.all([loadTeamAccessControl(repository.mode,currentWorkspace.id), loadWorkManagement(repository.mode,currentWorkspace.id)])
+        setTeamAccess(resolveMemberAccess(currentWorkspace.id,user?.id ?? null,currentWorkspace.role,accessSnapshot,workManagement.memberships))
+      } catch {
+        setTeamAccess(resolveMemberAccess(currentWorkspace.id,user?.id ?? null,currentWorkspace.role,{profiles:defaultAccessProfiles(currentWorkspace.id),assignments:[]},[]))
+      }
+    }
+    const handler = (event: Event) => { void refreshAccess(event) }
+    window.addEventListener('realtalent:team-access-changed', handler)
+    return () => window.removeEventListener('realtalent:team-access-changed', handler)
+  }, [currentWorkspace, repository.mode, user?.id])
 
   const refreshData = useCallback(async () => {
     if (!currentWorkspace) return
-    const nextSnapshot = await repository.getSnapshot(currentWorkspace.id)
-    setSnapshot(normalizeSnapshotForRender(nextSnapshot)); setHealth(await repository.health())
-  }, [currentWorkspace, repository])
+    const slices = [...loadedSnapshotSlicesRef.current]
+    const patch = await loadSnapshotPatch(repository, currentWorkspace.id, slices.length ? slices : snapshotSlicesForRoute(route))
+    setSnapshot((current) => current && current.workspace.id === currentWorkspace.id ? normalizeSnapshotForRender({ ...current, ...patch }) : current)
+    setHealth(await repository.health())
+  }, [currentWorkspace, repository, route])
+
+  const refreshSlices = useCallback(async (slices: SnapshotSlice[], workspaceId = currentWorkspace?.id) => {
+    if (!workspaceId || !slices.length) return
+    const routeSlices = new Set(snapshotSlicesForRoute(routeRef.current))
+    const activeSlices = [...new Set(slices)].filter((slice) => loadedSnapshotSlicesRef.current.has(slice) || routeSlices.has(slice))
+    if (!activeSlices.length) return
+    const patch = await loadSnapshotPatch(repository, workspaceId, activeSlices)
+    for (const slice of activeSlices) loadedSnapshotSlicesRef.current.add(slice)
+    setLoadedSnapshotSlices([...loadedSnapshotSlicesRef.current])
+    setSnapshot((current) => current && current.workspace.id === workspaceId ? normalizeSnapshotForRender({ ...current, ...patch }) : current)
+  }, [currentWorkspace?.id, repository])
 
   useEffect(() => {
-    if (repository.mode !== 'supabase' || !currentWorkspace) return
-    const client = getSupabaseClient(); if (!client) return
-    let timer: number | null = null
-    const scheduleRefresh = () => {
-      if (timer) window.clearTimeout(timer)
-      timer = window.setTimeout(() => { void refreshData() }, 220)
-    }
-    const channel = client.channel(`crm-v100-workspace-${currentWorkspace.id}`)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'leads', filter: `organization_id=eq.${currentWorkspace.id}` }, scheduleRefresh)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'pipeline_stages', filter: `organization_id=eq.${currentWorkspace.id}` }, scheduleRefresh)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'activities', filter: `organization_id=eq.${currentWorkspace.id}` }, scheduleRefresh)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'calls', filter: `organization_id=eq.${currentWorkspace.id}` }, scheduleRefresh)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'calendar_events', filter: `organization_id=eq.${currentWorkspace.id}` }, scheduleRefresh)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'playbooks', filter: `organization_id=eq.${currentWorkspace.id}` }, scheduleRefresh)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'products', filter: `organization_id=eq.${currentWorkspace.id}` }, scheduleRefresh)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'sales_proposals', filter: `organization_id=eq.${currentWorkspace.id}` }, scheduleRefresh)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'revenue_entries', filter: `organization_id=eq.${currentWorkspace.id}` }, scheduleRefresh)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'goals', filter: `organization_id=eq.${currentWorkspace.id}` }, scheduleRefresh)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'automation_rules', filter: `organization_id=eq.${currentWorkspace.id}` }, scheduleRefresh)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'automation_runs', filter: `organization_id=eq.${currentWorkspace.id}` }, scheduleRefresh)
-      .subscribe()
-    return () => { if (timer) window.clearTimeout(timer); void client.removeChannel(channel) }
-  }, [currentWorkspace, refreshData, repository.mode])
+    if (!currentWorkspace?.id || !snapshot) return
+    const required = snapshotSlicesForRoute(route)
+    const missing = required.filter((slice) => !loadedSnapshotSlicesRef.current.has(slice))
+    if (!missing.length) { setRouteDataLoading(false); return }
+    const revision = ++routeHydrationRevision.current
+    setRouteDataLoading(true)
+    void loadSnapshotPatch(repository, currentWorkspace.id, missing).then((patch) => {
+      if (revision !== routeHydrationRevision.current) return
+      for (const slice of missing) loadedSnapshotSlicesRef.current.add(slice)
+      setLoadedSnapshotSlices([...loadedSnapshotSlicesRef.current])
+      setSnapshot((current) => current && current.workspace.id === currentWorkspace.id ? normalizeSnapshotForRender({ ...current, ...patch }) : current)
+    }).catch((routeError) => {
+      recordDiagnostic({ severity: 'warning', source: 'snapshot-hydration', message: routeError instanceof Error ? routeError.message : 'Falha ao carregar dados do módulo.', route, workspaceId: currentWorkspace.id })
+      notify('error', routeError instanceof Error ? routeError.message : 'Não foi possível carregar os dados deste módulo.')
+    }).finally(() => { if (revision === routeHydrationRevision.current) setRouteDataLoading(false) })
+  }, [currentWorkspace?.id, notify, repository, route, snapshot?.workspace.id])
 
+  useEffect(() => {
+    installEventInspector()
+    if (!currentWorkspace?.id) return
+    const coordinator = createEventRefreshCoordinator({ workspaceId: currentWorkspace.id, refreshSlices })
+    const unsubscribe = domainEventBus.subscribe('*', coordinator.onEvent)
+    return () => { unsubscribe(); coordinator.dispose() }
+  }, [currentWorkspace?.id, refreshSlices])
 
-  const executeAutomationEvent = useCallback(async (
-    event: AutomationEvent,
-    options: { ruleId?: string; forceRule?: boolean; refreshAfter?: boolean; baseSnapshot?: WorkspaceSnapshot } = {},
+  const publishDomainChange = useCallback(async (
+    name: DomainEventName,
+    options: { entityType?: string; entityId?: string | null; source?: DomainEventSource; payload?: Record<string, unknown> } = {},
   ) => {
-    if (!currentWorkspace) return 0
-    const base = options.baseSnapshot ?? await repository.getSnapshot(currentWorkspace.id)
-    const candidates = options.ruleId ? base.automationRules.filter((rule) => rule.id === options.ruleId) : base.automationRules
-    const rules = candidates.filter((rule) => options.forceRule
-      ? rule.triggerType === event.triggerType && visibleAutomationConditions(rule.conditions).every((condition) => conditionMatches(condition, event))
-      : ruleMatches(rule, event))
-    let executed = 0
-    for (const rule of rules) {
-      const guard = readAutomationGuard(rule.conditions)
-      const validation = validateAutomationRule(rule, base.stages)
-      const correlationId = automationCorrelationId(event)
-      const chainDepth = Math.max(0, Number(event.chainDepth ?? 0))
-      const eventKey = options.forceRule
-        ? `${automationEventKey(rule.id, event)}:manual:${Date.now()}:${Math.random().toString(36).slice(2, 7)}`
-        : automationEventKey(rule.id, event)
-      const run = await repository.startAutomationRun({
-        workspaceId: currentWorkspace.id, ruleId: rule.id, eventKey,
-        input: {
-          triggerType: event.triggerType, entityId: event.entityId, leadId: event.lead?.id ?? null,
-          callOutcome: event.callOutcome ?? null, stageId: event.stageId ?? null, activityType: event.activityType ?? null,
-          eventStatus: event.eventStatus ?? null, mode: guard.mode, correlationId, chainDepth, originRuleIds: event.originRuleIds ?? [],
-        },
-      })
-      if (!run) continue
-      const runStartedAt = Date.now()
-      const preview = rule.actions.slice(0, guard.maxActionsPerRun).map((action) => describeAutomationAction(action, base.stages))
-      const loopReason = automationLoopDetected(rule.id, event, guard.maxChainDepth)
-      if (!options.forceRule && loopReason) {
-        await repository.finishAutomationRun(run.id, 'success', {
-          message: loopReason === 'rule_cycle' ? 'Execução bloqueada: a regra já participou desta cadeia.' : 'Execução bloqueada: profundidade máxima da cadeia atingida.',
-          skippedReason: loopReason, actionPreview: preview, correlationId, chainDepth, durationMs: Date.now() - runStartedAt,
-        })
-        continue
-      }
-      if (validation.errors.length) {
-        const message = validation.errors.join(' ')
-        await repository.finishAutomationRun(run.id, 'failed', { message, actionPreview: preview, warnings: validation.warnings, correlationId, chainDepth, durationMs: Date.now() - runStartedAt }, message)
-        continue
-      }
-      if (guard.mode === 'simulation' && !options.forceRule) {
-        await repository.finishAutomationRun(run.id, 'success', {
-          message: `Simulação concluída: ${preview.length} ação(ões) seriam executadas.`, simulated: true,
-          actionPreview: preview, matchedLeadIds: event.lead ? [event.lead.id] : [], warnings: validation.warnings, correlationId, chainDepth, durationMs: Date.now() - runStartedAt,
-        })
-        executed += 1
-        continue
-      }
-      if (event.lead) {
-        const currentRuns = (await repository.listAutomationRuns(currentWorkspace.id)).filter((item) => item.id !== run.id)
-        const loopWindowStart = Date.now() - guard.loopWindowMinutes * 60_000
-        const repeatedInChain = currentRuns.some((item) => item.ruleId === rule.id && item.input.correlationId === correlationId && new Date(item.startedAt).getTime() >= loopWindowStart && item.status !== 'undone')
-        if (!options.forceRule && repeatedInChain) {
-          await repository.finishAutomationRun(run.id, 'success', {
-            message: 'Execução ignorada pela janela anti-loop.', skippedReason: 'loop_window', actionPreview: preview,
-            matchedLeadIds: [event.lead.id], warnings: validation.warnings, correlationId, chainDepth, durationMs: Date.now() - runStartedAt,
-          })
-          continue
-        }
-        const todayRuns = automationRunForLeadToday(currentRuns, rule.id, event.lead.id)
-        if (!options.forceRule && todayRuns.length >= guard.maxRunsPerLeadPerDay) {
-          await repository.finishAutomationRun(run.id, 'success', {
-            message: 'Execução ignorada pelo limite diário de segurança.', skippedReason: 'daily_limit', actionPreview: preview,
-            matchedLeadIds: [event.lead.id], warnings: validation.warnings, correlationId, chainDepth, durationMs: Date.now() - runStartedAt,
-          })
-          continue
-        }
-        const latest = latestAutomationRunForLead(currentRuns, rule.id, event.lead.id)
-        if (!options.forceRule && latest && guard.cooldownHours > 0 && Date.now() - new Date(latest.startedAt).getTime() < guard.cooldownHours * 3_600_000) {
-          await repository.finishAutomationRun(run.id, 'success', {
-            message: 'Execução ignorada pelo intervalo de segurança.', skippedReason: 'cooldown', actionPreview: preview,
-            matchedLeadIds: [event.lead.id], warnings: validation.warnings, correlationId, chainDepth, durationMs: Date.now() - runStartedAt,
-          })
-          continue
-        }
-      }
-      const mutations: NonNullable<AutomationRun['output']['mutations']> = []
-      const warnings = [...validation.warnings]
-      const actionMessages: string[] = []
-      const webhookDeliveryIds: string[] = []
-      const webhookRequests: string[] = []
-      const workingActivities = await repository.listActivities(currentWorkspace.id)
-      const workingEvents = await repository.listCalendarEvents(currentWorkspace.id)
-      let currentLead = event.lead ? { ...event.lead, tags: [...event.lead.tags] } : null
-      const dueFor = (action: AutomationRule['actions'][number]) => {
-        const now = new Date()
-        const due = new Date(now)
-        due.setDate(due.getDate() + Math.max(0, Number(action.delayDays ?? 0)))
-        due.setHours(due.getHours() + Math.max(0, Number(action.delayHours ?? 0)))
-        due.setMinutes(0, 0, 0)
-        if (due.getTime() <= now.getTime()) due.setHours(due.getHours() + 1)
-        return due
-      }
-      const createActivityAction = async (type: ActivityItem['type'], title: string, dueAt: string | null, completedAt: string | null = null) => {
-        const relatedLeadId = currentLead?.id ?? null
-        const duplicate = guard.preventDuplicates && workingActivities.some((activity) => {
-          if (activity.leadId !== relatedLeadId || activity.type !== type || activity.title.toLocaleLowerCase('pt-BR') !== title.toLocaleLowerCase('pt-BR')) return false
-          if (completedAt) return Boolean(activity.completedAt)
-          if (activity.completedAt) return false
-          if (!dueAt || !activity.dueAt) return dueAt === activity.dueAt
-          return new Date(activity.dueAt).toDateString() === new Date(dueAt).toDateString()
-        })
-        if (duplicate) { actionMessages.push(`Duplicidade evitada: ${title}`); return null }
-        const activity = await repository.createActivity({
-          workspaceId: currentWorkspace.id, leadId: relatedLeadId, type, title,
-          description: `Criado pela automação “${rule.name}”.`, dueAt, completedAt, assignedTo: currentLead?.ownerId ?? null,
-          sourceType: 'system', sourceId: run.id,
-        })
-        workingActivities.unshift(activity)
-        mutations.push({ kind: 'activity_create', activityId: activity.id })
-        actionMessages.push(title)
-        return activity
-      }
-      const executeAction = async (action: AutomationRule['actions'][number]) => {
-        const lead = currentLead
-        if (!lead && !['internal_alert', 'create_note', 'send_webhook'].includes(action.type)) throw new Error('A automação exige um lead relacionado.')
-        if (action.type === 'create_followup' || action.type === 'create_call') {
-          const title = action.value.trim() || `${actionLabels[action.type]} — ${rule.name}`
-          await createActivityAction(action.type === 'create_call' ? 'call' : 'followup', title, dueFor(action).toISOString())
-        } else if (action.type === 'create_meeting') {
-          const starts = dueFor(action); const ends = new Date(starts.getTime() + Math.max(15, Number(action.durationMinutes ?? 30)) * 60_000)
-          const title = action.value.trim() || `Reunião — ${rule.name}`
-          const duplicate = guard.preventDuplicates && workingEvents.some((item) => item.leadId === lead?.id && item.status !== 'cancelled' && item.title.toLocaleLowerCase('pt-BR') === title.toLocaleLowerCase('pt-BR') && new Date(item.startsAt).toDateString() === starts.toDateString())
-          if (duplicate) { actionMessages.push(`Duplicidade evitada: ${title}`); return }
-          const calendarEvent = await repository.createCalendarEvent({
-            workspaceId: currentWorkspace.id, leadId: lead!.id, title, description: `Criado pela automação “${rule.name}”.`,
-            startsAt: starts.toISOString(), endsAt: ends.toISOString(), allDay: false, location: '', status: 'tentative', assignedTo: lead!.ownerId,
-          })
-          workingEvents.unshift(calendarEvent); mutations.push({ kind: 'event_create', eventId: calendarEvent.id }); actionMessages.push(title)
-        } else if (action.type === 'create_note') {
-          await createActivityAction('note', action.value.trim() || `Nota automática — ${rule.name}`, null, new Date().toISOString())
-        } else if (action.type === 'internal_alert') {
-          const title = action.value.trim() || `Lead exige atenção — ${rule.name}`
-          await recordSellerNotification({
-            workspaceId: currentWorkspace.id, userId: lead?.ownerId ?? null, leadId: lead?.id ?? null, title,
-            body: lead ? `${lead.name}${lead.company ? ` · ${lead.company}` : ''} está pronto para a próxima ação.` : 'A automação gerou um aviso operacional.',
-            severity: 'warning', actionRoute: 'automations', sourceType: 'automation_run', sourceId: run.id,
-          })
-          await createActivityAction('followup', `Alerta interno — ${title}`, new Date().toISOString())
-        } else if (action.type === 'assisted_whatsapp' || action.type === 'assisted_email') {
-          const channel = action.type === 'assisted_whatsapp' ? 'WhatsApp' : 'e-mail'
-          const firstName = lead!.name.trim().split(/\s+/)[0] || 'tudo bem'
-          const defaultMessage = action.type === 'assisted_whatsapp'
-            ? `Olá, ${firstName}! Tudo bem? Analisei ${lead!.company ? `a ${lead!.company}` : 'seu perfil'} e gostaria de conversar rapidamente sobre como podemos apoiar seu processo comercial. Posso te explicar em poucos minutos?`
-            : `Olá, ${firstName}!\n\nAnalisei ${lead!.company ? `a ${lead!.company}` : 'seu perfil'} e identifiquei uma oportunidade de conversa sobre o processo comercial. Podemos marcar uma conversa rápida?\n\nAtenciosamente,\nEquipe RealTalent`
-          const message = action.value.trim() || defaultMessage
-          await recordContactDraft({
-            workspaceId: currentWorkspace.id, leadId: lead!.id, channel: action.type === 'assisted_whatsapp' ? 'whatsapp' : 'email',
-            subject: action.type === 'assisted_email' ? `Contato RealTalent — ${lead!.company || lead!.name}` : '', message,
-            sourceType: 'automation_run', sourceId: run.id,
-          })
-          await createActivityAction('followup', `${channel} preparado — ${rule.name}`, new Date().toISOString())
-        } else if (action.type === 'send_webhook') {
-          webhookRequests.push(action.value)
-          actionMessages.push('Webhook preparado para despacho após a confirmação da execução')
-        } else if (action.type === 'add_tag' || action.type === 'remove_tag') {
-          const before = { tags: [...lead!.tags] }
-          const tag = action.value.trim(); if (!tag) throw new Error('A tag da automação está vazia.')
-          const tags = action.type === 'add_tag' ? Array.from(new Set([...lead!.tags, tag])) : lead!.tags.filter((item) => item.toLocaleLowerCase('pt-BR') !== tag.toLocaleLowerCase('pt-BR'))
-          currentLead = await repository.updateLead(lead!.id, { tags })
-          mutations.push({ kind: 'lead_update', leadId: currentLead.id, before }); actionMessages.push(`${actionLabels[action.type]}: ${tag}`)
-        } else if (action.type === 'set_priority') {
-          const priority = action.value as Lead['priority']
-          if (!['low', 'medium', 'high', 'urgent'].includes(priority)) throw new Error('Prioridade inválida na automação.')
-          const before = { priority: lead!.priority }; currentLead = await repository.updateLead(lead!.id, { priority })
-          mutations.push({ kind: 'lead_update', leadId: currentLead.id, before }); actionMessages.push(`Prioridade: ${priority}`)
-        } else if (action.type === 'set_temperature') {
-          const temperature = action.value as Lead['temperature']
-          if (!['cold', 'warm', 'hot'].includes(temperature)) throw new Error('Temperatura inválida na automação.')
-          const before = { temperature: lead!.temperature }; currentLead = await repository.updateLead(lead!.id, { temperature })
-          mutations.push({ kind: 'lead_update', leadId: currentLead.id, before }); actionMessages.push(`Temperatura: ${temperature}`)
-        } else if (action.type === 'assign_owner') {
-          const ownerName = action.value.trim(); if (!ownerName) throw new Error('Informe o responsável da automação.')
-          const ownerReference = base.leads.find((item) => item.ownerId && item.ownerName.toLocaleLowerCase('pt-BR') === ownerName.toLocaleLowerCase('pt-BR'))
-          const before = { ownerId: lead!.ownerId, ownerName: lead!.ownerName }
-          currentLead = await repository.updateLead(lead!.id, { ownerId: ownerReference?.ownerId ?? null, ownerName })
-          mutations.push({ kind: 'lead_update', leadId: currentLead.id, before }); actionMessages.push(`Responsável: ${ownerName}`)
-        } else if (action.type === 'move_stage' || action.type === 'mark_lost') {
-          const target = action.type === 'mark_lost' ? base.stages.find((stage) => stage.isLost) : base.stages.find((stage) => stage.id === action.value)
-          const before = { stageId: lead!.stageId, status: lead!.status }
-          if (action.type === 'mark_lost' && !target) {
-            currentLead = await repository.updateLead(lead!.id, { status: 'lost' })
-            mutations.push({ kind: 'lead_update', leadId: currentLead.id, before }); actionMessages.push('Marcado como perdido')
-          } else {
-            if (!target) throw new Error('A etapa configurada não existe.')
-            currentLead = await repository.moveLead(lead!.id, target.id)
-            mutations.push({ kind: 'lead_update', leadId: currentLead.id, before }); actionMessages.push(`Movido para ${target.name}`)
-          }
-        } else if (action.type === 'start_cadence') {
-          const cadenceName = action.value.trim() || 'Cadência automática'
-          for (const [index, offset] of [0, 2, 5].entries()) {
-            const due = new Date(); due.setDate(due.getDate() + offset); due.setMinutes(0, 0, 0)
-            await createActivityAction(index === 1 ? 'call' : 'followup', `${cadenceName} · Etapa ${index + 1}`, due.toISOString())
-          }
-        } else if (action.type === 'end_cadence') {
-          const pending = workingActivities.filter((activity) => activity.leadId === lead?.id && !activity.completedAt && ['followup', 'call', 'meeting'].includes(activity.type))
-          for (const activity of pending) {
-            await repository.completeActivity(activity.id, true)
-            mutations.push({ kind: 'activity_update', activityId: activity.id, before: { completedAt: activity.completedAt } })
-            activity.completedAt = new Date().toISOString()
-          }
-          actionMessages.push(`${pending.length} atividade(s) pendente(s) encerrada(s)`)
-        }
-      }
-      let completedOutput: AutomationRun['output'] | null = null
-      try {
-        for (const action of rule.actions.slice(0, guard.maxActionsPerRun)) {
-          try { await executeAction(action) }
-          catch (actionError) {
-            const message = actionError instanceof Error ? actionError.message : 'Falha em uma ação da automação.'
-            warnings.push(`${actionLabels[action.type]}: ${message}`)
-            if (guard.stopOnError) throw actionError
-          }
-        }
-        completedOutput = {
-          message: `${actionMessages.length} ação(ões) processada(s).`, mutations, matchedLeadIds: currentLead ? [currentLead.id] : [],
-          actionPreview: actionMessages, warnings: [...warnings], correlationId, chainDepth, durationMs: Date.now() - runStartedAt, webhookDeliveryIds,
-        }
-        await repository.finishAutomationRun(run.id, 'success', completedOutput)
-        executed += 1
-      } catch (automationError) {
-        const message = automationError instanceof Error ? automationError.message : 'Falha ao executar automação.'
-        const rollbackWarnings: string[] = []
-        for (const mutation of [...mutations].reverse()) {
-          try {
-            if (mutation.kind === 'activity_create' && mutation.activityId) await repository.deleteActivity(mutation.activityId)
-            if (mutation.kind === 'activity_update' && mutation.activityId && mutation.before) await repository.updateActivity(mutation.activityId, { completedAt: mutation.before.completedAt ?? null })
-            if (mutation.kind === 'event_create' && mutation.eventId) await repository.deleteCalendarEvent(mutation.eventId)
-            if (mutation.kind === 'lead_update' && mutation.leadId && mutation.before) await repository.updateLead(mutation.leadId, mutation.before)
-          } catch (rollbackError) {
-            rollbackWarnings.push(rollbackError instanceof Error ? rollbackError.message : 'Falha ao restaurar uma alteração parcial.')
-          }
-        }
-        const rollbackMessage = rollbackWarnings.length ? 'Algumas alterações parciais não puderam ser restauradas.' : 'Alterações parciais restauradas automaticamente.'
-        await repository.finishAutomationRun(run.id, 'failed', { message: `${message} ${rollbackMessage}`, mutations: rollbackWarnings.length ? mutations : [], matchedLeadIds: currentLead ? [currentLead.id] : [], actionPreview: actionMessages, warnings: [...warnings, ...rollbackWarnings], correlationId, chainDepth, durationMs: Date.now() - runStartedAt, webhookDeliveryIds }, message)
-      }
-      if (completedOutput && webhookRequests.length) {
-        for (const webhookId of webhookRequests) {
-          try {
-            const delivery = await dispatchAutomationWebhook({
-              workspaceId: currentWorkspace.id, webhookId, runId: run.id, rule, lead: currentLead,
-              eventType: event.triggerType, correlationId,
-            })
-            webhookDeliveryIds.push(delivery.id)
-          } catch (webhookError) {
-            warnings.push(`Webhook: ${webhookError instanceof Error ? webhookError.message : 'Não foi possível criar a entrega.'}`)
-          }
-        }
-        try {
-          await repository.finishAutomationRun(run.id, 'success', {
-            ...completedOutput,
-            message: `${actionMessages.length} ação(ões) processada(s); ${webhookDeliveryIds.length} webhook(s) enfileirado(s).`,
-            warnings: [...warnings], webhookDeliveryIds, durationMs: Date.now() - runStartedAt,
-          })
-        } catch {
-          notify('info', 'A automação foi concluída, mas o vínculo final com o log de webhook precisa ser revisado.')
-        }
-      }
+    if (!currentWorkspace?.id) return
+    await domainEventBus.publish(createDomainEvent({
+      name, workspaceId: currentWorkspace.id, source: options.source ?? 'ui',
+      entityType: options.entityType ?? null, entityId: options.entityId ?? null, payload: options.payload ?? {},
+    }))
+  }, [currentWorkspace?.id])
+
+  const refreshRealtimeSlice = useCallback(async (slice: SnapshotSlice, workspaceId: string) => {
+    try { await refreshSlices([slice], workspaceId) }
+    catch (realtimeError) {
+      recordDiagnostic({ severity: 'warning', source: 'realtime', message: realtimeError instanceof Error ? realtimeError.message : 'Falha ao atualizar dados em tempo real.', route: window.location.hash || 'dashboard', workspaceId })
     }
-    if (executed && options.refreshAfter !== false) await refreshData()
-    return executed
-  }, [currentWorkspace, notify, refreshData, repository])
+  }, [refreshSlices])
+
+  useGlobalRealtimeBridge(currentWorkspace?.id, repository.mode)
+
+
+
+  const executeAutomationEvent = useMemo(() => createAutomationEventExecutor({ workspaceId: currentWorkspace?.id ?? null, repository, notify, refreshData: () => refreshSlices(['commercial', 'activities', 'events', 'automationRuns']) }), [currentWorkspace?.id, notify, refreshSlices, repository])
 
   const value = useMemo<AppContextValue>(() => ({
-    route, setRoute, repositoryMode: repository.mode, health, workspaces, currentWorkspace, canWrite, snapshot, loading, error, toasts, dismissToast, actionDialog, confirmAction, promptAction, resolveActionDialog,
+    route, routeContext, setRoute, navigate, clearRouteContext, repositoryMode: repository.mode, health, workspaces, currentWorkspace, canWrite, can, snapshot, loading, routeDataLoading, loadedSnapshotSlices, error, toasts, dismissToast, actionDialog, confirmAction, promptAction, resolveActionDialog,
     reinitialize: bootstrap,
-    async synchronizeCommercialStructure() { assertWritable(); if (!currentWorkspace) throw new Error('Selecione um workspace.'); const result = await repository.synchronizeCommercialStructure(currentWorkspace.id); await refreshData(); notify('success', `Estrutura sincronizada: ${result.leadsLinked} lead(s) vinculados.`); return result },
+    async synchronizeCommercialStructure() { assertAuthorized({ action: 'manage', resource: 'workspace' }); if (!currentWorkspace) throw new Error('Selecione um workspace.'); const result = await repository.synchronizeCommercialStructure(currentWorkspace.id); await publishDomainChange('commercial.structure.changed', { entityType: 'workspace', entityId: currentWorkspace.id }); notify('success', `Estrutura sincronizada: ${result.leadsLinked} lead(s) vinculados.`); return result },
+    async createCompany(input) { assertAuthorized({ action: 'create', resource: 'company' }); if (!currentWorkspace) throw new Error('Selecione um workspace.'); const company = await repository.createCompany({ ...input, workspaceId: currentWorkspace.id }); await publishDomainChange('commercial.record.created', { entityType: 'company', entityId: company.id }); notify('success', 'Empresa adicionada ao CRM.'); return company },
+    async updateCompany(companyId, input) { if (!permissionSubject) throw new Error('Selecione um workspace.'); assertFieldWrite(permissionSubject, 'company', Object.keys(input)); const company = await repository.updateCompany(companyId, input); await publishDomainChange('commercial.record.updated', { entityType: 'company', entityId: company.id }); return company },
+    async createContact(input) { assertAuthorized({ action: 'create', resource: 'contact' }); if (input.phone) assertSensitiveField(teamAccess,'contact_phone','edit'); if (input.email) assertSensitiveField(teamAccess,'contact_email','edit'); if (!currentWorkspace) throw new Error('Selecione um workspace.'); const contact = await repository.createContact({ ...input, workspaceId: currentWorkspace.id }); await publishDomainChange('commercial.record.created', { entityType: 'contact', entityId: contact.id }); notify('success', 'Pessoa adicionada à conta.'); return contact },
+    async updateContact(contactId, input) { if (!permissionSubject) throw new Error('Selecione um workspace.'); assertFieldWrite(permissionSubject, 'contact', Object.keys(input)); if (input.phone !== undefined) assertSensitiveField(teamAccess,'contact_phone','edit'); if (input.email !== undefined) assertSensitiveField(teamAccess,'contact_email','edit'); if (!currentWorkspace) throw new Error('Selecione um workspace.'); const contact = await repository.updateContact(contactId, input); await publishDomainChange('commercial.record.updated', { entityType: 'contact', entityId: contact.id }); notify('success', 'Stakeholder atualizado.'); return contact },
+    async deleteContact(contactId) { assertAuthorized({ action: 'delete', resource: 'contact' }); if (!currentWorkspace) throw new Error('Selecione um workspace.'); await repository.deleteContact(contactId); await publishDomainChange('commercial.record.deleted', { entityType: 'contact', entityId: contactId }); notify('success', 'Pessoa removida da conta.') },
+    async createContactRelationship(input) { assertWritable(); if (!currentWorkspace) throw new Error('Selecione um workspace.'); const relationship = await repository.createContactRelationship({ ...input, workspaceId: currentWorkspace.id }); await publishDomainChange('commercial.record.created', { entityType: 'contact_relationship', entityId: relationship.id }); notify('success', 'Relação adicionada ao mapa da conta.'); return relationship },
+    async updateContactRelationship(relationshipId, input) { assertWritable(); if (!currentWorkspace) throw new Error('Selecione um workspace.'); const relationship = await repository.updateContactRelationship(relationshipId, input); await publishDomainChange('commercial.record.updated', { entityType: 'contact_relationship', entityId: relationship.id }); notify('success', 'Relação atualizada.'); return relationship },
+    async deleteContactRelationship(relationshipId) { assertWritable(); if (!currentWorkspace) throw new Error('Selecione um workspace.'); await repository.deleteContactRelationship(relationshipId); await publishDomainChange('commercial.record.deleted', { entityType: 'contact_relationship', entityId: relationshipId }); notify('success', 'Relação removida.') },
     async setCurrentWorkspace(id) {
       const workspace = workspaces.find((item) => item.id === id); if (!workspace) throw new Error('Workspace não encontrado.'); await loadWorkspace(workspace)
     },
@@ -570,121 +327,187 @@ export function AppProvider({ children }: PropsWithChildren) {
       const workspace = await repository.createWorkspace(name); setWorkspaces(await repository.listWorkspaces()); await loadWorkspace(workspace); notify('success', 'Workspace criado com etapas padrão.')
     },
     async listWorkspaceMembers() { if (!currentWorkspace) return []; return repository.listWorkspaceMembers(currentWorkspace.id) },
-    async createWorkspaceInvite(email, role) { assertWritable(); if (!currentWorkspace) throw new Error('Selecione um workspace.'); const invite = await repository.createWorkspaceInvite(currentWorkspace.id, email, role); notify('success', 'Convite criado.'); return invite },
+    async createWorkspaceMember(input) { assertAuthorized({ action: 'manage', resource: 'workspace' }); if (!currentWorkspace) throw new Error('Selecione um workspace.'); const member = await repository.createWorkspaceMember(currentWorkspace.id, input); notify('success', `${member.displayName} adicionado à equipe local.`); return member },
+    async createWorkspaceInvite(email, role) { assertAuthorized({ action: 'manage', resource: 'workspace' }); if (!currentWorkspace) throw new Error('Selecione um workspace.'); const invite = await repository.createWorkspaceInvite(currentWorkspace.id, email, role); notify('success', 'Convite criado.'); return invite },
     async listWorkspaceInvites() { if (!currentWorkspace) return []; return repository.listWorkspaceInvites(currentWorkspace.id) },
-    async revokeWorkspaceInvite(inviteId) { assertWritable(); await repository.revokeWorkspaceInvite(inviteId); notify('success', 'Convite revogado.') },
-    async updateWorkspaceMemberRole(userId, role) { assertWritable(); if (!currentWorkspace) throw new Error('Selecione um workspace.'); await repository.updateWorkspaceMemberRole(currentWorkspace.id, userId, role); setWorkspaces(await repository.listWorkspaces()); notify('success', 'Permissão atualizada.') },
-    async removeWorkspaceMember(userId) { assertWritable(); if (!currentWorkspace) throw new Error('Selecione um workspace.'); await repository.removeWorkspaceMember(currentWorkspace.id, userId); notify('success', 'Membro removido.') },
-    async listAuditLogs(limit = 100) { if (!currentWorkspace) return []; return repository.listAuditLogs(currentWorkspace.id, limit) },
-    async exportWorkspace() { if (!currentWorkspace) throw new Error('Selecione um workspace.'); return repository.exportWorkspace(currentWorkspace.id) },
+    async revokeWorkspaceInvite(inviteId) { assertAuthorized({ action: 'manage', resource: 'workspace' }); await repository.revokeWorkspaceInvite(inviteId); notify('success', 'Convite revogado.') },
+    async updateWorkspaceMemberRole(userId, role) { assertAuthorized({ action: 'manage', resource: 'workspace' }); if (!currentWorkspace) throw new Error('Selecione um workspace.'); await repository.updateWorkspaceMemberRole(currentWorkspace.id, userId, role); setWorkspaces(await repository.listWorkspaces()); notify('success', 'Permissão atualizada.') },
+    async removeWorkspaceMember(userId) { assertAuthorized({ action: 'manage', resource: 'workspace' }); if (!currentWorkspace) throw new Error('Selecione um workspace.'); await repository.removeWorkspaceMember(currentWorkspace.id, userId); notify('success', 'Membro removido.') },
+    async listAuditLogs(limit = 100) { assertAuthorized({ action: 'read', resource: 'audit' }); if (!currentWorkspace) return []; return repository.listAuditLogs(currentWorkspace.id, limit) },
+    async exportWorkspace() { assertAuthorized({ action: 'export', resource: 'workspace' }); if (!currentWorkspace) throw new Error('Selecione um workspace.'); return repository.exportWorkspace(currentWorkspace.id) },
+    async clearOperationalData(): Promise<OperationalDataClearResult> { assertAuthorized({ action: 'manage', resource: 'workspace' }); if (!currentWorkspace) throw new Error('Selecione um workspace.'); const result = await repository.clearOperationalData(currentWorkspace.id); await refreshData(); return result },
     async refresh() {
       try { await refreshData(); notify('success', 'Dados atualizados.') }
       catch (refreshError) { notify('error', refreshError instanceof Error ? refreshError.message : 'Não foi possível atualizar.') }
     },
-    async createLead(input) { assertWritable();
+    async refreshAgentExecutionState(slices = snapshotSlicesForRoute(routeRef.current)) {
       if (!currentWorkspace) throw new Error('Selecione um workspace.')
-      const lead = await repository.createLead({ ...input, workspaceId: currentWorkspace.id }); await executeAutomationEvent({ triggerType: 'lead_created', entityId: lead.id, lead }, { refreshAfter: false }); await refreshData(); notify('success', 'Lead criado com sucesso.'); return lead
+      const requested = [...new Set(slices)]
+      const patch = await loadSnapshotPatch(repository, currentWorkspace.id, requested)
+      const base = snapshot && snapshot.workspace.id === currentWorkspace.id ? snapshot : createWorkspaceShellSnapshot(currentWorkspace)
+      const fresh = normalizeSnapshotForRender({ ...base, ...patch })
+      for (const slice of requested) loadedSnapshotSlicesRef.current.add(slice)
+      setLoadedSnapshotSlices([...loadedSnapshotSlicesRef.current])
+      setSnapshot(fresh)
+      setHealth(await repository.health())
+      return fresh
     },
-    async updateLead(leadId, input) { assertWritable(); const lead = await repository.updateLead(leadId, input); await refreshData(); notify('success', 'Lead atualizado.'); return lead },
-    async moveLead(leadId, stageId, lossReason) { assertWritable();
+    async createLead(input) { assertAuthorized({ action: 'create', resource: 'lead' });
+      if (input.phone) assertSensitiveField(teamAccess,'contact_phone','edit'); if (input.email) assertSensitiveField(teamAccess,'contact_email','edit'); if (Number(input.value||0)!==0) assertSensitiveField(teamAccess,'deal_value','edit');
+      if (!currentWorkspace) throw new Error('Selecione um workspace.')
+      const resource = accessActionAllowed(teamAccess,'create','contacts') ? 'contacts' : 'pipeline'
+      assertTeamAccess(teamAccess, 'create', resource, input.ownerId ?? user?.id ?? null)
+      const lead = await repository.createLead({ ...input, workspaceId: currentWorkspace.id }); await executeAutomationEvent({ triggerType: 'lead_created', entityId: lead.id, lead }, { refreshAfter: false }); await refreshSlices(['commercial', 'activities', 'events', 'automationRuns']); notify('success', 'Registro comercial criado com sucesso.'); return lead
+    },
+    async updateLead(leadId, input) { if (!permissionSubject) throw new Error('Selecione um workspace.'); assertFieldWrite(permissionSubject, 'lead', Object.keys(input)); if (input.phone !== undefined) assertSensitiveField(teamAccess,'contact_phone','edit'); if (input.email !== undefined) assertSensitiveField(teamAccess,'contact_email','edit'); if (input.value !== undefined) assertSensitiveField(teamAccess,'deal_value','edit'); const currentLead = snapshot?.leads.find((item) => item.id === leadId); const resource = accessActionAllowed(teamAccess,'edit','contacts') ? 'contacts' : 'pipeline'; assertTeamAccess(teamAccess,'edit',resource,currentLead?.ownerId); if (input.ownerId !== undefined && input.ownerId !== currentLead?.ownerId) { assertTeamAccess(teamAccess,'assign',resource,currentLead?.ownerId); assertTeamAccess(teamAccess,'assign',resource,input.ownerId) } const lead = await repository.updateLead(leadId, input); await publishDomainChange('commercial.record.updated', { entityType: 'lead', entityId: lead.id }); notify('success', 'Contato atualizado.'); return lead },
+    async moveLead(leadId, stageId, lossReason) { assertAuthorized({ action: 'update', resource: 'opportunity' });
+      const currentLead = snapshot?.leads.find((item) => item.id === leadId); assertTeamAccess(teamAccess,'edit','pipeline',currentLead?.ownerId)
       const lead = await repository.moveLead(leadId, stageId, lossReason)
       await executeAutomationEvent({ triggerType: 'stage_changed', entityId: `${lead.id}:${stageId}:${lead.updatedAt}`, lead, stageId }, { refreshAfter: false })
       if (lead.status === 'won') await executeAutomationEvent({ triggerType: 'opportunity_won', entityId: `${lead.id}:${lead.updatedAt}`, lead, stageId }, { refreshAfter: false })
       if (lead.status === 'lost') await executeAutomationEvent({ triggerType: 'opportunity_lost', entityId: `${lead.id}:${lead.updatedAt}`, lead, stageId }, { refreshAfter: false })
-      await refreshData(); notify('success', 'Lead movido no Pipeline.'); return lead
+      await publishDomainChange('pipeline.opportunity.moved', { entityType: 'opportunity', entityId: lead.opportunityId ?? lead.id, payload: { leadId: lead.id, stageId } }); notify('success', 'Oportunidade movida no Pipeline.'); return lead
     },
     async bulkMoveLeads(leadIds, stageId, lossReason) { assertWritable();
       if (!currentWorkspace) throw new Error('Selecione um workspace.')
+      for (const leadId of leadIds) { const currentLead = snapshot?.leads.find((item) => item.id === leadId); assertTeamAccess(teamAccess,'edit','pipeline',currentLead?.ownerId) }
       const leads = await repository.bulkMoveLeads(currentWorkspace.id, leadIds, stageId, lossReason)
       for (const lead of leads) {
         await executeAutomationEvent({ triggerType: 'stage_changed', entityId: `${lead.id}:${stageId}:${lead.updatedAt}`, lead, stageId }, { refreshAfter: false })
         if (lead.status === 'won') await executeAutomationEvent({ triggerType: 'opportunity_won', entityId: `${lead.id}:${lead.updatedAt}`, lead, stageId }, { refreshAfter: false })
         if (lead.status === 'lost') await executeAutomationEvent({ triggerType: 'opportunity_lost', entityId: `${lead.id}:${lead.updatedAt}`, lead, stageId }, { refreshAfter: false })
       }
-      await refreshData(); notify('success', `${leads.length} lead(s) movido(s) no Pipeline.`); return leads
+      await publishDomainChange('pipeline.opportunity.moved', { entityType: 'opportunity', payload: { leadIds: leads.map((item) => item.id), stageId } }); notify('success', `${leads.length} oportunidade(s) movida(s) no Pipeline.`); return leads
     },
-    async deleteLead(leadId) { assertWritable(); await repository.deleteLead(leadId); await refreshData(); notify('success', 'Lead removido.') },
+    async deleteLead(leadId) { assertAuthorized({ action: 'delete', resource: 'lead' }); const currentLead = snapshot?.leads.find((item) => item.id === leadId); const resource = accessActionAllowed(teamAccess,'delete','contacts') ? 'contacts' : 'pipeline'; assertTeamAccess(teamAccess,'delete',resource,currentLead?.ownerId); await repository.deleteLead(leadId); await refreshData(); notify('success', 'Lead removido.') },
     async mergeLeads(primaryLeadId, duplicateLeadId) { assertWritable();
       if (!currentWorkspace) throw new Error('Selecione um workspace.')
+      const primaryLead = snapshot?.leads.find((item) => item.id === primaryLeadId)
+      const duplicateLead = snapshot?.leads.find((item) => item.id === duplicateLeadId)
+      assertTeamAccess(teamAccess,'edit','contacts',primaryLead?.ownerId)
+      assertTeamAccess(teamAccess,'delete','contacts',duplicateLead?.ownerId)
       const lead = await repository.mergeLeads(currentWorkspace.id, primaryLeadId, duplicateLeadId)
-      await refreshData(); notify('success', 'Cadastros mesclados com histórico preservado.'); return lead
+      await refreshSlices(['commercial', 'activities', 'calls', 'events', 'proposals', 'buyerRooms']); notify('success', 'Cadastros mesclados com histórico preservado.'); return lead
     },
     async bulkUpdateLeads(leadIds, input) { assertWritable();
       if (!currentWorkspace) throw new Error('Selecione um workspace.')
-      const count = await repository.bulkUpdateLeads(currentWorkspace.id, leadIds, input); await refreshData(); notify('success', `${count} lead(s) atualizado(s).`); return count
+      const resource = accessActionAllowed(teamAccess,'edit','pipeline') ? 'pipeline' : 'contacts'
+      for (const leadId of leadIds) { const currentLead = snapshot?.leads.find((item) => item.id === leadId); assertTeamAccess(teamAccess,'edit',resource,currentLead?.ownerId); if (input.ownerId !== undefined && input.ownerId !== currentLead?.ownerId) { assertTeamAccess(teamAccess,'assign',resource,currentLead?.ownerId); assertTeamAccess(teamAccess,'assign',resource,input.ownerId) } }
+      const count = await repository.bulkUpdateLeads(currentWorkspace.id, leadIds, input); await refreshSlices(['commercial']); notify('success', `${count} lead(s) atualizado(s).`); return count
     },
     async reclassifyLeads(updates, silent = false) { assertWritable();
       if (!currentWorkspace) throw new Error('Selecione um workspace.')
       const unique = Array.from(new Map(updates.map((item) => [item.leadId, item])).values())
       let count = 0
+      const resource = accessActionAllowed(teamAccess,'edit','pipeline') ? 'pipeline' : 'contacts'
       for (const item of unique) {
         const current = snapshot?.leads.find((lead) => lead.id === item.leadId)
         if (!current || current.status !== 'active' || (current.priority === item.priority && current.temperature === item.temperature)) continue
+        assertTeamAccess(teamAccess,'edit',resource,current.ownerId)
         await repository.updateLead(item.leadId, { priority: item.priority, temperature: item.temperature })
         count += 1
       }
-      if (count) await refreshData()
+      if (count) await refreshSlices(['commercial'])
       if (count && !silent) notify('success', `${count} lead(s) reclassificado(s) pelo Lead Score.`)
       return count
     },
     async bulkAddLeadTag(leadIds, tag) { assertWritable();
       if (!currentWorkspace) throw new Error('Selecione um workspace.')
-      const count = await repository.bulkAddLeadTag(currentWorkspace.id, leadIds, tag); await refreshData(); notify('success', `Tag adicionada em ${count} lead(s).`); return count
+      const resource = accessActionAllowed(teamAccess,'edit','pipeline') ? 'pipeline' : 'contacts'
+      for (const leadId of leadIds) { const currentLead = snapshot?.leads.find((item) => item.id === leadId); assertTeamAccess(teamAccess,'edit',resource,currentLead?.ownerId) }
+      const count = await repository.bulkAddLeadTag(currentWorkspace.id, leadIds, tag); await refreshSlices(['commercial']); notify('success', `Tag adicionada em ${count} lead(s).`); return count
     },
     async bulkDeleteLeads(leadIds) { assertWritable();
       if (!currentWorkspace) throw new Error('Selecione um workspace.')
+      const resource = accessActionAllowed(teamAccess,'delete','contacts') ? 'contacts' : 'pipeline'
+      for (const leadId of leadIds) { const currentLead = snapshot?.leads.find((item) => item.id === leadId); assertTeamAccess(teamAccess,'delete',resource,currentLead?.ownerId) }
       const count = await repository.bulkDeleteLeads(currentWorkspace.id, leadIds); await refreshData(); notify('success', `${count} lead(s) removido(s).`); return count
     },
     async createStage(input) { assertWritable();
       if (!currentWorkspace) throw new Error('Selecione um workspace.')
-      const stage = await repository.createStage({ ...input, workspaceId: currentWorkspace.id }); await refreshData(); notify('success', 'Etapa criada.'); return stage
+      const stage = await repository.createStage({ ...input, workspaceId: currentWorkspace.id }); await publishDomainChange('pipeline.structure.changed', { entityType: 'pipeline_stage', entityId: stage.id }); notify('success', 'Etapa criada.'); return stage
     },
-    async updateStage(stageId, input) { assertWritable(); const stage = await repository.updateStage(stageId, input); await refreshData(); notify('success', 'Etapa atualizada.'); return stage },
-    async deleteStage(stageId) { assertWritable(); await repository.deleteStage(stageId); await refreshData(); notify('success', 'Etapa removida.') },
+    async updateStage(stageId, input) { assertWritable(); const stage = await repository.updateStage(stageId, input); await publishDomainChange('pipeline.structure.changed', { entityType: 'pipeline_stage', entityId: stage.id }); notify('success', 'Etapa atualizada.'); return stage },
+    async deleteStage(stageId) { assertWritable(); await repository.deleteStage(stageId); await publishDomainChange('pipeline.structure.changed', { entityType: 'pipeline_stage', entityId: stageId }); notify('success', 'Etapa removida.') },
     async createActivity(input) { assertWritable();
       if (!currentWorkspace) throw new Error('Selecione um workspace.')
-      const activity = await repository.createActivity({ ...input, workspaceId: currentWorkspace.id, sourceType: 'manual', sourceId: null }); await refreshData(); notify('success', 'Atividade criada.'); return activity
+      const activity = await repository.createActivity({ ...input, workspaceId: currentWorkspace.id, sourceType: 'manual', sourceId: null }); await publishDomainChange('activity.created', { entityType: 'activity', entityId: activity.id }); notify('success', 'Atividade criada.'); return activity
     },
     async createActivities(inputs) { assertWritable();
       if (!currentWorkspace) throw new Error('Selecione um workspace.')
       if (!inputs.length) return []
       const created = await repository.createActivities(inputs.map((input) => ({ ...input, workspaceId: currentWorkspace.id, sourceType: 'system', sourceId: 'bulk-activity' })))
-      await refreshData(); notify('success', `${created.length} atividade(s) adicionada(s) à rotina comercial.`); return created
+      await refreshSlices(['activities', 'commercial']); notify('success', `${created.length} atividade(s) adicionada(s) à rotina comercial.`); return created
     },
-    async updateActivity(activityId, input) { assertWritable(); const activity = await repository.updateActivity(activityId, input); await refreshData(); notify('success', 'Atividade atualizada.'); return activity },
+    async updateActivity(activityId, input) { assertWritable(); const activity = await repository.updateActivity(activityId, input); await publishDomainChange('activity.updated', { entityType: 'activity', entityId: activity.id }); notify('success', 'Atividade atualizada.'); return activity },
     async completeActivity(activityId, completed) { assertWritable();
       const activity = await repository.completeActivity(activityId, completed)
       if (completed && currentWorkspace) {
         const lead = activity.leadId ? (await repository.listLeads(currentWorkspace.id)).find((item) => item.id === activity.leadId) ?? null : null
         await executeAutomationEvent({ triggerType: 'activity_completed', entityId: `${activity.id}:${activity.updatedAt}`, lead, activityId: activity.id, activityType: activity.type }, { refreshAfter: false })
       }
-      await refreshData(); notify('success', completed ? 'Atividade concluída.' : 'Atividade reaberta.'); return activity
+      await publishDomainChange('activity.completed', { entityType: 'activity', entityId: activity.id, payload: { completed } }); notify('success', completed ? 'Atividade concluída.' : 'Atividade reaberta.'); return activity
     },
     async registerActivityOutcome(input) { assertWritable();
       if (!currentWorkspace) throw new Error('Selecione um workspace.')
-      const result = await repository.registerActivityOutcome({ ...input, workspaceId: currentWorkspace.id, userId: user?.id ?? null })
-      const base = await repository.getSnapshot(currentWorkspace.id)
+      const shouldCreateMeeting = Boolean(input.createNext && input.nextType === 'meeting' && input.nextAt)
+      let createdMeetingEvent: CalendarEvent | null = null
+      const result = await repository.registerActivityOutcome({
+        ...input,
+        createNext: shouldCreateMeeting ? false : input.createNext,
+        nextType: shouldCreateMeeting ? null : input.nextType,
+        nextTitle: shouldCreateMeeting ? null : input.nextTitle,
+        nextDescription: shouldCreateMeeting ? null : input.nextDescription,
+        nextAt: shouldCreateMeeting ? null : input.nextAt,
+        workspaceId: currentWorkspace.id,
+        userId: user?.id ?? null,
+      })
+      const engagementBase = await loadWorkspaceSnapshotSlices(repository, currentWorkspace, ['activities'])
+      const completedSource = engagementBase.activities.find((item) => item.id === result.activity.id) ?? result.activity
+      const engagementPatches = buildCadenceOutcomePatches(engagementBase.activities, completedSource, input.outcome, input.nextAt)
+      for (const patch of engagementPatches) {
+        await repository.updateActivity(patch.id, {
+          description: patch.description,
+          ...(patch.dueAt !== undefined ? { dueAt: patch.dueAt } : {}),
+          ...(patch.resolutionStatus ? { resolutionStatus: patch.resolutionStatus } : {}),
+          ...(patch.resolutionReason !== undefined ? { resolutionReason: patch.resolutionReason } : {}),
+        })
+      }
+      if (shouldCreateMeeting && input.nextAt) {
+        const starts = new Date(input.nextAt)
+        const ends = new Date(starts.getTime() + 30 * 60_000)
+        createdMeetingEvent = await repository.createCalendarEvent({
+          workspaceId: currentWorkspace.id, leadId: result.lead.id, title: input.nextTitle?.trim() || `Reunião — ${result.lead.name}`,
+          description: input.nextDescription ?? `Reunião criada a partir do resultado comercial da atividade ${result.activity.id}.`,
+          startsAt: starts.toISOString(), endsAt: ends.toISOString(), allDay: false, location: '', status: 'confirmed', assignedTo: result.lead.ownerId,
+        })
+      }
+      const base = await loadWorkspaceSnapshotSlices(repository, currentWorkspace, ['commercial', 'stages', 'calls', 'automationRules'])
       const lead = base.leads.find((item) => item.id === result.lead.id) ?? result.lead
       await executeAutomationEvent({ triggerType: 'activity_completed', entityId: `${result.activity.id}:${result.activity.updatedAt}`, lead, activityId: result.activity.id, activityType: result.activity.type }, { refreshAfter: false, baseSnapshot: base })
+      if (createdMeetingEvent) await executeAutomationEvent({ triggerType: 'meeting_scheduled', entityId: createdMeetingEvent.id, lead, eventStatus: createdMeetingEvent.status }, { refreshAfter: false, baseSnapshot: base })
       if (lead.status === 'won') await executeAutomationEvent({ triggerType: 'opportunity_won', entityId: result.resultActivityId, lead }, { refreshAfter: false, baseSnapshot: base })
       if (lead.status === 'lost') await executeAutomationEvent({ triggerType: 'opportunity_lost', entityId: result.resultActivityId, lead }, { refreshAfter: false, baseSnapshot: base })
-      await refreshData()
+      await refreshSlices(['activities', 'commercial', 'events', 'automationRuns'])
       notify(result.idempotent ? 'info' : 'success', result.idempotent ? 'Este resultado já havia sido registrado; nenhum dado foi duplicado.' : 'Resultado salvo e rotina comercial sincronizada.')
       return result
     },
-    async deleteActivity(activityId) { assertWritable(); await repository.deleteActivity(activityId); await refreshData(); notify('success', 'Atividade removida.') },
+    async deleteActivity(activityId) { assertWritable(); await repository.deleteActivity(activityId); await publishDomainChange('activity.deleted', { entityType: 'activity', entityId: activityId }); notify('success', 'Atividade removida.') },
     async createCadence(leadIds, firstDueAt, template) { assertWritable();
       if (!currentWorkspace) throw new Error('Selecione um workspace.')
       const first = new Date(firstDueAt); if (Number.isNaN(first.getTime())) throw new Error('Informe uma data válida.')
       if (!leadIds.length) throw new Error('Selecione pelo menos um lead.')
       if (!template.steps.length) throw new Error('A cadência precisa ter pelo menos uma etapa.')
-      const base = await repository.getSnapshot(currentWorkspace.id)
+      const base = await loadWorkspaceSnapshotSlices(repository, currentWorkspace, ['commercial', 'activities'])
       const cadenceId = createId('cadence')
       let skipped = 0
+      let blocked = 0
       const activities: NewActivityInput[] = []
       for (const leadId of leadIds) {
+        const lead = base.leads.find((item) => item.id === leadId)
+        if (lead?.doNotContact) { blocked += 1; continue }
         const duplicate = base.activities.some((activity) => {
-          if (activity.leadId !== leadId || activity.completedAt) return false
+          if (activity.leadId !== leadId || activity.completedAt || !['pending', undefined].includes(activity.resolutionStatus)) return false
           const meta = readFollowupMetadata(activity)
           return meta?.kind === 'cadence-step' && meta.cadenceName === template.name
         })
@@ -693,32 +516,51 @@ export function AppProvider({ children }: PropsWithChildren) {
           const step = template.steps[index]
           const due = addBusinessDays(first, Math.max(0, step.offsetDays), template.skipWeekends)
           const description = appendFollowupMetadata(step.objective, {
-            version: 1, kind: 'cadence-step', cadenceId, cadenceName: template.name, cadenceCategory: template.category,
-            stepIndex: index + 1, stepTotal: template.steps.length, channel: step.channel, objective: step.objective, script: step.script,
+            version: 1, kind: 'cadence-step', cadenceId, enrollmentId: `${cadenceId}:${leadId}`, cadenceName: template.name, cadenceCategory: template.category,
+            stepId: step.id, stepIndex: index + 1, stepTotal: template.steps.length, channel: step.channel, objective: step.objective, script: step.script,
+            cadenceState: 'active', executionMode: step.executionMode ?? 'assisted', policy: cadencePolicy(template), engagementAction: 'continue',
           })
           activities.push({ workspaceId: currentWorkspace.id, leadId, type: step.type, title: step.title, description, dueAt: due.toISOString(), completedAt: null, assignedTo: user?.id ?? null, sourceType: 'manual', sourceId: cadenceId })
         }
       }
       const created = activities.length ? (await repository.createActivities(activities)).length : 0
-      await refreshData()
-      if (created) notify('success', `${created} etapa(s) criada(s) em ${leadIds.length - skipped} lead(s).${skipped ? ` ${skipped} lead(s) já estavam nessa cadência.` : ''}`)
-      else notify('info', 'Os leads selecionados já possuem esta cadência ativa.')
+      await refreshSlices(['activities', 'commercial'])
+      const appliedLeads = Math.max(0, leadIds.length - skipped - blocked)
+      if (created) notify('success', `${created} etapa(s) criada(s) em ${appliedLeads} lead(s).${skipped ? ` ${skipped} lead(s) já estavam nessa cadência.` : ''}${blocked ? ` ${blocked} lead(s) foram ignorados por “Não entrar em contato”.` : ''}`)
+      else if (blocked === leadIds.length) notify('info', 'Nenhuma cadência foi criada: todos os leads selecionados estão bloqueados para contato.')
+      else notify('info', `Os leads elegíveis já possuem esta cadência ativa.${blocked ? ` ${blocked} lead(s) bloqueado(s) foram ignorados.` : ''}`)
       return created
+    },
+    async updateCadenceState(cadenceId, action, leadId = null) { assertWritable();
+      if (!currentWorkspace) throw new Error('Selecione um workspace.')
+      const base = await loadWorkspaceSnapshotSlices(repository, currentWorkspace, ['activities'])
+      const patches = buildCadenceStatePatches(base.activities, cadenceId, action, leadId)
+      for (const patch of patches) {
+        await repository.updateActivity(patch.id, {
+          description: patch.description,
+          ...(patch.dueAt !== undefined ? { dueAt: patch.dueAt } : {}),
+          ...(patch.resolutionStatus ? { resolutionStatus: patch.resolutionStatus } : {}),
+          ...(patch.resolutionReason !== undefined ? { resolutionReason: patch.resolutionReason } : {}),
+        })
+      }
+      await refreshSlices(['activities', 'commercial'])
+      notify(patches.length ? 'success' : 'info', patches.length ? `${patches.length} etapa(s) atualizada(s) na cadência.` : 'Nenhuma etapa pendente encontrada para esta cadência.')
+      return patches.length
     },
     async createCall(input, recording) { assertWritable();
       if (!currentWorkspace) throw new Error('Selecione um workspace.')
       const call = await repository.createCall({ ...input, workspaceId: currentWorkspace.id, userId: user?.id ?? null }, recording)
-      const base = await repository.getSnapshot(currentWorkspace.id)
+      const base = await loadWorkspaceSnapshotSlices(repository, currentWorkspace, ['commercial', 'stages', 'calls', 'automationRules'])
       const lead = base.leads.find((item) => item.id === call.leadId) ?? null
       const attemptCount = base.calls.filter((item) => item.leadId === call.leadId).length
       await executeAutomationEvent({ triggerType: 'call_outcome', entityId: call.id, lead, callOutcome: call.outcome, attemptCount }, { refreshAfter: false, baseSnapshot: base })
       if (call.outcome === 'proposal_sent') await executeAutomationEvent({ triggerType: 'proposal_sent', entityId: call.id, lead, callOutcome: call.outcome, attemptCount }, { refreshAfter: false, baseSnapshot: base })
-      await refreshData(); notify('success', 'Ligação salva no histórico.'); return call
+      await publishDomainChange('call.recorded', { entityType: 'call', entityId: call.id, payload: { leadId: call.leadId, outcome: call.outcome } }); notify('success', 'Ligação salva no histórico.'); return call
     },
     async registerCallOutcome(input, recording) { assertWritable();
       if (!currentWorkspace) throw new Error('Selecione um workspace.')
       const result = await repository.registerCallOutcome({ ...input, workspaceId: currentWorkspace.id, userId: user?.id ?? null }, recording)
-      const base = await repository.getSnapshot(currentWorkspace.id)
+      const base = await loadWorkspaceSnapshotSlices(repository, currentWorkspace, ['commercial', 'stages', 'calls', 'automationRules'])
       const lead = base.leads.find((item) => item.id === result.lead.id) ?? result.lead
       const attemptCount = base.calls.filter((item) => item.leadId === result.call.leadId).length
       await executeAutomationEvent({ triggerType: 'call_outcome', entityId: result.call.id, lead, callOutcome: result.call.outcome, attemptCount }, { refreshAfter: false, baseSnapshot: base })
@@ -726,18 +568,32 @@ export function AppProvider({ children }: PropsWithChildren) {
       if (result.calendarEventId) await executeAutomationEvent({ triggerType: 'meeting_scheduled', entityId: result.calendarEventId, lead, eventStatus: 'confirmed' }, { refreshAfter: false, baseSnapshot: base })
       if (lead.status === 'won') await executeAutomationEvent({ triggerType: 'opportunity_won', entityId: result.call.id, lead }, { refreshAfter: false, baseSnapshot: base })
       if (lead.status === 'lost') await executeAutomationEvent({ triggerType: 'opportunity_lost', entityId: result.call.id, lead }, { refreshAfter: false, baseSnapshot: base })
-      await refreshData()
+      await publishDomainChange('call.recorded', { entityType: 'call', entityId: result.call.id, payload: { leadId: result.call.leadId, outcome: result.call.outcome, idempotent: result.idempotent } })
       notify(result.idempotent ? 'info' : 'success', result.idempotent ? 'Este resultado já havia sido registrado; nenhum dado foi duplicado.' : 'Resultado salvo e CRM sincronizado.')
       return result
     },
-    async deleteCall(callId) { assertWritable(); await repository.deleteCall(callId); await refreshData(); notify('success', 'Ligação removida.') },
+    async deleteCall(callId) { assertWritable(); await repository.deleteCall(callId); await publishDomainChange('call.deleted', { entityType: 'call', entityId: callId }); notify('success', 'Ligação removida.') },
+    async resolveCallRecordingUrl(callId) { return repository.getCallRecordingUrl(callId) },
+    async loadOlderCalls(limit = 200) {
+      if (!currentWorkspace) return 0
+      const oldest = snapshot?.calls.reduce<string | null>((current, call) => !current || new Date(call.startedAt).getTime() < new Date(current).getTime() ? call.startedAt : current, null) ?? null
+      const older = await repository.listCallsPage(currentWorkspace.id, oldest, limit)
+      if (older.length) setSnapshot((current) => {
+        if (!current || current.workspace.id !== currentWorkspace.id) return current
+        const merged = new Map(current.calls.map((call) => [call.id, call]))
+        for (const call of older) merged.set(call.id, call)
+        return normalizeSnapshotForRender({ ...current, calls: [...merged.values()].sort((a, b) => new Date(b.startedAt).getTime() - new Date(a.startedAt).getTime()) })
+      })
+      return older.length
+    },
     async createCalendarEvent(input) { assertWritable();
       if (!currentWorkspace) throw new Error('Selecione um workspace.')
       const event = await repository.createCalendarEvent({ ...input, workspaceId: currentWorkspace.id })
       const lead = event.leadId ? (await repository.listLeads(currentWorkspace.id)).find((item) => item.id === event.leadId) ?? null : null
-      await executeAutomationEvent({ triggerType: 'meeting_scheduled', entityId: event.id, lead, eventStatus: event.status }, { refreshAfter: false })
+      const agendaType = readAgendaMetadata(event)?.type
+      if (!agendaType || agendaType === 'meeting') await executeAutomationEvent({ triggerType: 'meeting_scheduled', entityId: event.id, lead, eventStatus: event.status }, { refreshAfter: false })
       void queueCalendarMutation(currentWorkspace.id, event.id, 'create', event).catch(() => undefined)
-      await refreshData(); notify('success', 'Compromisso criado na Agenda.'); return event
+      await publishDomainChange('calendar.event.changed', { entityType: 'calendar_event', entityId: event.id, payload: { operation: 'create' } }); notify('success', 'Compromisso criado na Agenda.'); return event
     },
     async createCalendarEvents(inputs) { assertWritable();
       if (!currentWorkspace) throw new Error('Selecione um workspace.')
@@ -746,13 +602,11 @@ export function AppProvider({ children }: PropsWithChildren) {
       try {
         for (const input of inputs) events.push(await repository.createCalendarEvent({ ...input, workspaceId: currentWorkspace.id }))
       } catch (error) {
-        // Uma série precisa ser tudo-ou-nada para não deixar a agenda pela
-        // metade quando uma das ocorrências falhar.
         await Promise.allSettled([...events].reverse().map((event) => repository.deleteCalendarEvent(event.id)))
         throw error
       }
       for (const event of events) void queueCalendarMutation(currentWorkspace.id, event.id, 'create', event).catch(() => undefined)
-      await refreshData(); notify('success', `${events.length} compromisso(s) criado(s) na Agenda.`); return events
+      await publishDomainChange('calendar.event.changed', { entityType: 'calendar_event', payload: { operation: 'create_many', eventIds: events.map((item) => item.id) } }); notify('success', `${events.length} compromisso(s) criado(s) na Agenda.`); return events
     },
     async updateCalendarEvent(eventId, input) { assertWritable();
       if (!currentWorkspace) throw new Error('Selecione um workspace.')
@@ -763,43 +617,106 @@ export function AppProvider({ children }: PropsWithChildren) {
         await executeAutomationEvent({ triggerType: 'meeting_cancelled', entityId: `${event.id}:${event.updatedAt}`, lead, eventStatus: event.status }, { refreshAfter: false })
       }
       void queueCalendarMutation(currentWorkspace.id, event.id, 'update', event).catch(() => undefined)
-      await refreshData(); notify('success', 'Compromisso atualizado.'); return event
+      await publishDomainChange('calendar.event.changed', { entityType: 'calendar_event', entityId: event.id, payload: { operation: 'update' } }); notify('success', 'Compromisso atualizado.'); return event
     },
-    async deleteCalendarEvent(eventId) { assertWritable(); if (!currentWorkspace) throw new Error('Selecione um workspace.'); const before = (await repository.listCalendarEvents(currentWorkspace.id)).find((item) => item.id === eventId) ?? null; await queueCalendarMutation(currentWorkspace.id, eventId, 'delete', before).catch(() => undefined); await repository.deleteCalendarEvent(eventId); await refreshData(); notify('success', 'Compromisso removido.') },
+    async deleteCalendarEvent(eventId) { assertWritable(); if (!currentWorkspace) throw new Error('Selecione um workspace.'); const before = (await repository.listCalendarEvents(currentWorkspace.id)).find((item) => item.id === eventId) ?? null; await queueCalendarMutation(currentWorkspace.id, eventId, 'delete', before).catch(() => undefined); await repository.deleteCalendarEvent(eventId); await publishDomainChange('calendar.event.changed', { entityType: 'calendar_event', entityId: eventId, payload: { operation: 'delete' } }); notify('success', 'Compromisso removido.') },
 
     async createPlaybook(input) { assertWritable();
       if (!currentWorkspace) throw new Error('Selecione um workspace.')
-      const playbook = await repository.createPlaybook({ ...input, workspaceId: currentWorkspace.id }); await refreshData(); notify('success', 'Playbook criado.'); return playbook
+      const playbook = await repository.createPlaybook({ ...input, workspaceId: currentWorkspace.id }); await refreshSlices(['playbooks']); notify('success', 'Playbook criado.'); return playbook
     },
-    async updatePlaybook(playbookId, input) { assertWritable(); const playbook = await repository.updatePlaybook(playbookId, input); await refreshData(); notify('success', 'Playbook atualizado.'); return playbook },
-    async deletePlaybook(playbookId) { assertWritable(); await repository.deletePlaybook(playbookId); await refreshData(); notify('success', 'Playbook removido.') },
-    async createProduct(input) { assertWritable(); if (!currentWorkspace) throw new Error('Selecione um workspace.'); const product = await repository.createProduct({ ...input, workspaceId: currentWorkspace.id }); await refreshData(); notify('success', 'Produto ou serviço cadastrado.'); return product },
-    async updateProduct(productId, input) { assertWritable(); const product = await repository.updateProduct(productId, input); await refreshData(); notify('success', 'Produto atualizado.'); return product },
-    async deleteProduct(productId) { assertWritable(); await repository.deleteProduct(productId); await refreshData(); notify('success', 'Produto removido.') },
-    async createProposal(input) { assertWritable(); if (!currentWorkspace) throw new Error('Selecione um workspace.'); const proposal = await repository.createProposal({ ...input, workspaceId: currentWorkspace.id }); await refreshData(); notify('success', 'Proposta criada.'); return proposal },
-    async updateProposal(proposalId, input) { assertWritable(); const proposal = await repository.updateProposal(proposalId, input); await refreshData(); notify('success', 'Proposta atualizada.'); return proposal },
-    async createProposalRevision(proposalId) { assertWritable(); const proposal = await repository.createProposalRevision(proposalId); await refreshData(); notify('success', `Revisão v${proposal.version} criada.`); return proposal },
-    async updateProposalStatus(proposalId, status) { assertWritable(); const proposal = await repository.updateProposalStatus(proposalId, status); const lead = snapshot?.leads.find((item) => item.id === proposal.leadId); if (lead && status === 'sent') await executeAutomationEvent({ triggerType: 'proposal_sent', entityId: `${proposal.id}:${proposal.updatedAt}`, lead }, { refreshAfter: false }); await refreshData(); notify('success', status === 'accepted' ? 'Aceite registrado. Fechamento e receita continuam separados.' : 'Status da proposta atualizado.'); return proposal },
-    async setOfficialProposal(proposalId) { assertWritable(); const proposal = await repository.setOfficialProposal(proposalId); await refreshData(); notify('success', 'Proposta definida como oficial do forecast.'); return proposal },
-    async closeOpportunityFromProposal(proposalId) { assertWritable(); const proposal = await repository.closeOpportunityFromProposal(proposalId); const lead = snapshot?.leads.find((item) => item.id === proposal.leadId); if (lead) await executeAutomationEvent({ triggerType: 'opportunity_won', entityId: `${proposal.id}:${proposal.updatedAt}`, lead }, { refreshAfter: false }); await refreshData(); notify('success', 'Oportunidade fechada como ganha. Receita ainda deve ser reconhecida na competência correta.'); return proposal },
-    async deleteProposal(proposalId) { assertWritable(); await repository.deleteProposal(proposalId); await refreshData(); notify('success', 'Proposta removida.') },
-    async createRevenueEntry(input) { assertWritable(); if (!currentWorkspace) throw new Error('Selecione um workspace.'); const entry = await repository.createRevenueEntry({ ...input, workspaceId: currentWorkspace.id }); await refreshData(); notify('success', 'Receita registrada.'); return entry },
-    async updateRevenueEntryStatus(entryId, status) { assertWritable(); const entry = await repository.updateRevenueEntryStatus(entryId, status); await refreshData(); notify('success', 'Receita atualizada.'); return entry },
-    async createGoal(input) { assertWritable();
+    async updatePlaybook(playbookId, input) { assertWritable(); const playbook = await repository.updatePlaybook(playbookId, input); await refreshSlices(['playbooks']); notify('success', 'Playbook atualizado.'); return playbook },
+    async deletePlaybook(playbookId) { assertWritable(); await repository.deletePlaybook(playbookId); await refreshSlices(['playbooks']); notify('success', 'Playbook removido.') },
+    async createProduct(input) { assertWritable(); assertTeamAccess(teamAccess,'create','proposals'); if(input.unitCost!==undefined) assertSensitiveField(teamAccess,'proposal_cost','edit'); if(input.defaultDiscountPercent!==undefined||input.maxDiscountPercent!==undefined) assertSensitiveField(teamAccess,'proposal_discount','edit'); if(input.minMarginPercent!==undefined) assertSensitiveField(teamAccess,'proposal_margin','edit'); if (!currentWorkspace) throw new Error('Selecione um workspace.'); const product = await repository.createProduct({ ...input, workspaceId: currentWorkspace.id }); await refreshSlices(['products']); notify('success', 'Produto ou serviço cadastrado.'); return product },
+    async updateProduct(productId, input) { assertWritable(); assertTeamAccess(teamAccess,'edit','proposals'); if(input.unitCost!==undefined) assertSensitiveField(teamAccess,'proposal_cost','edit'); if(input.defaultDiscountPercent!==undefined||input.maxDiscountPercent!==undefined) assertSensitiveField(teamAccess,'proposal_discount','edit'); if(input.minMarginPercent!==undefined) assertSensitiveField(teamAccess,'proposal_margin','edit'); const product = await repository.updateProduct(productId, input); await refreshSlices(['products']); notify('success', 'Produto atualizado.'); return product },
+    async reconcileProposalItems(legacyName, productId) { assertWritable(); assertTeamAccess(teamAccess,'edit','proposals'); if (!currentWorkspace) throw new Error('Selecione um workspace.'); const count = await repository.reconcileProposalItems(currentWorkspace.id, legacyName, productId); if (count) { await refreshSlices(['proposals', 'products']); await publishDomainChange('proposal.changed', { entityType: 'proposal', entityId: productId, payload: { operation: 'catalog_reconcile', legacyName, count } }) } notify('success', count ? `${count} item(ns) históricos vinculados ao catálogo.` : 'Nenhum item histórico encontrado para reconciliar.'); return count },
+    async deleteProduct(productId) { assertWritable(); assertTeamAccess(teamAccess,'delete','proposals'); await repository.deleteProduct(productId); await refreshSlices(['products']); notify('success', 'Produto removido.') },
+    async createProposal(input) {
+      assertWritable()
       if (!currentWorkspace) throw new Error('Selecione um workspace.')
-      const goal = await repository.createGoal({ ...input, workspaceId: currentWorkspace.id }); await refreshData(); notify('success', 'Meta criada.'); return goal
+      const proposalStage = primaryProposalPipelineStage(snapshot?.stages ?? [])
+      if (!proposalStage) throw new Error('Configure uma etapa de Proposta no Pipeline antes de criar propostas.')
+      const lead = snapshot?.leads.find((item) => item.id === input.leadId)
+      const proposalOwnerId = input.ownerId ?? lead?.ownerId ?? user?.id ?? null
+      assertTeamAccess(teamAccess,'create','proposals',proposalOwnerId)
+      if (input.items.some((item)=>Number(item.discountPercent||0)!==0)) assertSensitiveField(teamAccess,'proposal_discount','edit')
+      if (proposalOwnerId && proposalOwnerId !== user?.id) assertTeamAccess(teamAccess,'assign','proposals',proposalOwnerId)
+      const preApprovalReasons = proposalApprovalReasons(teamAccess,input.items,snapshot?.products??[],input.totalContractValue)
+      const governedInput = preApprovalReasons.length && !accessCanApprove(teamAccess,'proposals') ? { ...input, isOfficial:false, status:'draft' as ProposalStatus } : input
+      let movedLead: Lead | null = null
+      if (lead && lead.stageId !== proposalStage.id && lead.status === 'active') movedLead = await repository.moveLead(lead.id, proposalStage.id)
+      let proposal: ProposalRecord
+      try {
+        proposal = await repository.createProposal({ ...governedInput, workspaceId: currentWorkspace.id })
+      } catch (error) {
+        if (movedLead && lead) await repository.moveLead(lead.id, lead.stageId).catch(() => undefined)
+        throw error
+      }
+      if (movedLead) await executeAutomationEvent({ triggerType: 'stage_changed', entityId: `${movedLead.id}:${proposalStage.id}:${movedLead.updatedAt}`, lead: movedLead, stageId: proposalStage.id }, { refreshAfter: false })
+      await publishDomainChange('proposal.changed', { entityType: 'proposal', entityId: proposal.id, payload: { operation: 'create' } })
+      const governanceReasons = proposalApprovalReasons(teamAccess,proposal.items,snapshot?.products??[],proposal.totalContractValue)
+      if (currentWorkspace && governanceReasons.length && !accessCanApprove(teamAccess,'proposals')) {
+        await requestTeamApproval(repository.mode,currentWorkspace.id,{requesterId:user?.id??null,requesterName:user?.displayName??user?.email??'Usuário',resource:'proposals',kind:'proposal_policy',entityType:'proposal',entityId:proposal.id,reason:governanceReasons.join(' '),payload:{totalContractValue:proposal.totalContractValue,discountTotal:proposal.discountTotal}})
+        notify('warning','Proposta criada como rascunho e enviada para aprovação comercial.')
+      } else {
+        if (currentWorkspace && governanceReasons.length && accessCanApprove(teamAccess,'proposals')) await recordTeamSecurityAudit(repository.mode,currentWorkspace.id,{userId:user?.id,userName:user?.displayName??user?.email??'Gestor',action:'proposal_policy_override',entityType:'proposal',entityId:proposal.id,metadata:{reasons:governanceReasons}})
+        notify('success', movedLead ? `Proposta criada e negócio movido para ${proposalStage.name}.` : 'Proposta criada.')
+      }
+      return proposal
     },
-    async updateGoal(goalId, input) { assertWritable(); const goal = await repository.updateGoal(goalId, input); await refreshData(); notify('success', 'Meta atualizada.'); return goal },
-    async deleteGoal(goalId) { assertWritable(); await repository.deleteGoal(goalId); await refreshData(); notify('success', 'Meta removida.') },
+    async updateProposal(proposalId, input) { assertWritable(); if (input.items?.some((item)=>Number(item.discountPercent||0)!==0)) assertSensitiveField(teamAccess,'proposal_discount','edit'); const currentProposal=snapshot?.proposals.find((item)=>item.id===proposalId); const proposalOwner=currentProposal?.ownerId ?? snapshot?.leads.find((item)=>item.id===currentProposal?.leadId)?.ownerId ?? null; assertTeamAccess(teamAccess,'edit','proposals',proposalOwner); const candidateItems=input.items??currentProposal?.items??[]; const candidateTcv=input.totalContractValue??currentProposal?.totalContractValue??0; const preApprovalReasons=proposalApprovalReasons(teamAccess,candidateItems,snapshot?.products??[],candidateTcv); const governedInput=preApprovalReasons.length&&!accessCanApprove(teamAccess,'proposals')?{...input,isOfficial:false,status:'draft' as ProposalStatus}:input; const proposal = await repository.updateProposal(proposalId, governedInput); if (currentWorkspace) { const room = (await repository.listBuyerRooms(currentWorkspace.id)).find((item) => item.proposalId === proposal.id); if (room) await repository.updateBuyerRoom(room.id, buyerRoomPatchForProposal(room, proposal)) } await publishDomainChange('proposal.changed', { entityType: 'proposal', entityId: proposal.id, payload: { operation: 'update' } }); const governanceReasons=proposalApprovalReasons(teamAccess,proposal.items,snapshot?.products??[],proposal.totalContractValue); if(currentWorkspace&&governanceReasons.length&&!accessCanApprove(teamAccess,'proposals')){await requestTeamApproval(repository.mode,currentWorkspace.id,{requesterId:user?.id??null,requesterName:user?.displayName??user?.email??'Usuário',resource:'proposals',kind:'proposal_policy',entityType:'proposal',entityId:proposal.id,reason:governanceReasons.join(' '),payload:{totalContractValue:proposal.totalContractValue,discountTotal:proposal.discountTotal}});notify('warning','Proposta atualizada e enviada para aprovação comercial.')}else{if(currentWorkspace&&governanceReasons.length&&accessCanApprove(teamAccess,'proposals'))await recordTeamSecurityAudit(repository.mode,currentWorkspace.id,{userId:user?.id,userName:user?.displayName??user?.email??'Gestor',action:'proposal_policy_override',entityType:'proposal',entityId:proposal.id,metadata:{reasons:governanceReasons}});notify('success','Proposta atualizada.')} return proposal },
+    async createProposalRevision(proposalId) { assertWritable(); const currentProposal=snapshot?.proposals.find((item)=>item.id===proposalId); assertTeamAccess(teamAccess,'create','proposals',currentProposal?.ownerId ?? snapshot?.leads.find((item)=>item.id===currentProposal?.leadId)?.ownerId ?? null); const rooms = currentWorkspace ? await repository.listBuyerRooms(currentWorkspace.id) : []; const inheritedRoom = rooms.find((item) => item.proposalId === proposalId) ?? null; const proposal = await repository.createProposalRevision(proposalId); if (inheritedRoom) { await repository.updateBuyerRoom(inheritedRoom.id, buyerRoomPatchForProposal(inheritedRoom, proposal)); await repository.recordBuyerRoomActivity(inheritedRoom.id, { type: 'status_changed', actorName: 'Equipe RealTalent', description: `Buyer Room atualizada para a revisão v${proposal.version}.`, metadata: { previousProposalId: proposalId, proposalId: proposal.id } }) } await publishDomainChange('proposal.changed', { entityType: 'proposal', entityId: proposal.id, payload: { operation: 'revision' } }); notify('success', `Revisão v${proposal.version} criada.`); return proposal },
+    async updateProposalStatus(proposalId, status) {
+      assertWritable()
+      const currentProposal=snapshot?.proposals.find((item)=>item.id===proposalId)
+      assertTeamAccess(teamAccess,'edit','proposals',currentProposal?.ownerId ?? snapshot?.leads.find((item)=>item.id===currentProposal?.leadId)?.ownerId ?? null)
+      if (currentWorkspace && currentProposal && ['sent','viewed','accepted'].includes(status) && !accessCanApprove(teamAccess,'proposals')) {
+        const reasons=proposalApprovalReasons(teamAccess,currentProposal.items,snapshot?.products??[],currentProposal.totalContractValue)
+        if (reasons.length) { const approval=await approvalStatusForEntity(repository.mode,currentWorkspace.id,'proposal_policy','proposal',proposalId); if (approval!=='approved') { if(approval!=='pending') await requestTeamApproval(repository.mode,currentWorkspace.id,{requesterId:user?.id??null,requesterName:user?.displayName??user?.email??'Usuário',resource:'proposals',kind:'proposal_policy',entityType:'proposal',entityId:proposalId,reason:reasons.join(' '),payload:{totalContractValue:currentProposal.totalContractValue,discountTotal:currentProposal.discountTotal}}); throw new Error(`Esta proposta exige aprovação antes de avançar. Solicitação ${approval==='pending'?'já está pendente':'foi enviada ao gestor'}. ${reasons.join(' ')}`) } }
+      }
+      const proposal = await repository.updateProposalStatus(proposalId, status)
+      if (currentWorkspace) {
+        const room = (await repository.listBuyerRooms(currentWorkspace.id)).find((item) => item.proposalId === proposal.id)
+        if (room) { await repository.updateBuyerRoom(room.id, buyerRoomPatchForProposal(room, proposal)); await repository.recordBuyerRoomActivity(room.id, { type: 'status_changed', actorName: 'Equipe RealTalent', description: `Proposta atualizada para ${status}.`, metadata: { proposalStatus: status } }) }
+      }
+      const lead = snapshot?.leads.find((item) => item.id === proposal.leadId)
+      if (lead && status === 'sent') await executeAutomationEvent({ triggerType: 'proposal_sent', entityId: `${proposal.id}:${proposal.updatedAt}`, lead }, { refreshAfter: false })
+      if (status === 'accepted') {
+        const createdRevenue = await ensureProposalRevenueSchedule(repository, proposal)
+        if (createdRevenue.length) { await refreshSlices(['revenue']); await publishDomainChange('revenue.changed', { entityType: 'revenue', entityId: proposal.id, payload: { operation: 'proposal_schedule', count: createdRevenue.length } }) }
+      }
+      await publishDomainChange('proposal.changed', { entityType: 'proposal', entityId: proposal.id, payload: { operation: 'status', status } })
+      notify('success', status === 'accepted' ? 'Aceite registrado. O plano de receita foi criado sem reconhecer competências automaticamente.' : 'Status da proposta atualizado.')
+      return proposal
+    },
+    async setOfficialProposal(proposalId) { assertWritable(); const currentProposal=snapshot?.proposals.find((item)=>item.id===proposalId); assertTeamAccess(teamAccess,'edit','proposals',currentProposal?.ownerId ?? snapshot?.leads.find((item)=>item.id===currentProposal?.leadId)?.ownerId ?? null); if(currentWorkspace&&currentProposal&&!accessCanApprove(teamAccess,'proposals')){const reasons=proposalApprovalReasons(teamAccess,currentProposal.items,snapshot?.products??[],currentProposal.totalContractValue);if(reasons.length){const approval=await approvalStatusForEntity(repository.mode,currentWorkspace.id,'proposal_policy','proposal',proposalId);if(approval!=='approved'){if(approval!=='pending')await requestTeamApproval(repository.mode,currentWorkspace.id,{requesterId:user?.id??null,requesterName:user?.displayName??user?.email??'Usuário',resource:'proposals',kind:'proposal_policy',entityType:'proposal',entityId:proposalId,reason:reasons.join(' '),payload:{totalContractValue:currentProposal.totalContractValue,discountTotal:currentProposal.discountTotal}});throw new Error(`Esta proposta exige aprovação antes de virar oficial. Solicitação ${approval==='pending'?'já está pendente':'foi enviada ao gestor'}. ${reasons.join(' ')}`)}}} const proposal = await repository.setOfficialProposal(proposalId); await publishDomainChange('proposal.changed', { entityType: 'proposal', entityId: proposal.id, payload: { operation: 'official' } }); notify('success', 'Proposta definida como oficial do forecast.'); return proposal },
+    async closeOpportunityFromProposal(proposalId) { assertWritable(); const currentProposal=snapshot?.proposals.find((item)=>item.id===proposalId); assertTeamAccess(teamAccess,'edit','proposals',currentProposal?.ownerId ?? snapshot?.leads.find((item)=>item.id===currentProposal?.leadId)?.ownerId ?? null); if (!currentWorkspace) throw new Error('Selecione um workspace.'); if(currentProposal&&!accessCanApprove(teamAccess,'proposals')){const reasons=proposalApprovalReasons(teamAccess,currentProposal.items,snapshot?.products??[],currentProposal.totalContractValue);if(reasons.length){const approval=await approvalStatusForEntity(repository.mode,currentWorkspace.id,'proposal_policy','proposal',proposalId);if(approval!=='approved'){if(approval!=='pending')await requestTeamApproval(repository.mode,currentWorkspace.id,{requesterId:user?.id??null,requesterName:user?.displayName??user?.email??'Usuário',resource:'proposals',kind:'proposal_policy',entityType:'proposal',entityId:proposalId,reason:reasons.join(' '),payload:{totalContractValue:currentProposal.totalContractValue,discountTotal:currentProposal.discountTotal}});throw new Error('A proposta precisa de aprovação comercial antes de fechar a oportunidade como ganha.')}}} const proposal = await repository.closeOpportunityFromProposal(proposalId); const room = (await repository.listBuyerRooms(currentWorkspace.id)).find((item) => item.proposalId === proposal.id); if (room) { await repository.updateBuyerRoom(room.id, buyerRoomPatchForProposal(room, proposal)); await repository.recordBuyerRoomActivity(room.id, { type: 'status_changed', actorName: 'Equipe RealTalent', description: 'Negócio ganho; Buyer Room avançou para implantação.', metadata: { closedWon: true } }) } const createdRevenue = await ensureProposalRevenueSchedule(repository, proposal); if (createdRevenue.length) await refreshSlices(['revenue']); const freshSnapshot = await loadWorkspaceSnapshotSlices(repository, currentWorkspace, ['commercial', 'stages', 'automationRules']); const lead = freshSnapshot.leads.find((item) => item.id === proposal.leadId); if (lead) await executeAutomationEvent({ triggerType: 'opportunity_won', entityId: `${proposal.id}:${proposal.updatedAt}`, lead }, { refreshAfter: false, baseSnapshot: freshSnapshot }); await publishDomainChange('proposal.changed', { entityType: 'proposal', entityId: proposal.id, payload: { operation: 'close_won' } }); notify('success', 'Oportunidade fechada como ganha. O plano contratual permanece separado do reconhecimento por competência.'); return proposal },
+    async deleteProposal(proposalId) { assertWritable(); const currentProposal=snapshot?.proposals.find((item)=>item.id===proposalId); assertTeamAccess(teamAccess,'delete','proposals',currentProposal?.ownerId ?? snapshot?.leads.find((item)=>item.id===currentProposal?.leadId)?.ownerId ?? null); await repository.deleteProposal(proposalId); await publishDomainChange('proposal.changed', { entityType: 'proposal', entityId: proposalId, payload: { operation: 'delete' } }); notify('success', 'Proposta removida.') },
+    async createBuyerRoom(input) { assertWritable(); const proposal=snapshot?.proposals.find((item)=>item.id===input.proposalId); assertTeamAccess(teamAccess,'create','proposals',proposal?.ownerId ?? snapshot?.leads.find((item)=>item.id===input.leadId)?.ownerId ?? null); if (!currentWorkspace) throw new Error('Selecione um workspace.'); const room = await repository.createBuyerRoom({ ...input, workspaceId: currentWorkspace.id }); await publishDomainChange('buyer-room.changed', { entityType: 'buyer_room', entityId: room.id, payload: { operation: 'create' } }); notify('success', 'Buyer Room criada.'); return room },
+    async updateBuyerRoom(roomId, input) { assertWritable(); const currentRoom=snapshot?.buyerRooms?.find((item)=>item.id===roomId); const proposal=snapshot?.proposals.find((item)=>item.id===currentRoom?.proposalId); assertTeamAccess(teamAccess,'edit','proposals',proposal?.ownerId ?? snapshot?.leads.find((item)=>item.id===currentRoom?.leadId)?.ownerId ?? null); if (!currentWorkspace) throw new Error('Selecione um workspace.'); const room = await repository.updateBuyerRoom(roomId, input); await publishDomainChange('buyer-room.changed', { entityType: 'buyer_room', entityId: room.id, payload: { operation: 'update' } }); notify('success', 'Buyer Room atualizada.'); return room },
+    async rotateBuyerRoomToken(roomId) { assertWritable(); const currentRoom=snapshot?.buyerRooms?.find((item)=>item.id===roomId); const proposal=snapshot?.proposals.find((item)=>item.id===currentRoom?.proposalId); assertTeamAccess(teamAccess,'edit','proposals',proposal?.ownerId ?? snapshot?.leads.find((item)=>item.id===currentRoom?.leadId)?.ownerId ?? null); if (!currentWorkspace) throw new Error('Selecione um workspace.'); const room = await repository.rotateBuyerRoomToken(roomId); await publishDomainChange('buyer-room.changed', { entityType: 'buyer_room', entityId: room.id, payload: { operation: 'rotate_token' } }); notify('success', 'Link público regenerado. O link anterior deixou de funcionar.'); return room },
+    async recordBuyerRoomActivity(roomId, event) { assertWritable(); const currentRoom=snapshot?.buyerRooms?.find((item)=>item.id===roomId); const proposal=snapshot?.proposals.find((item)=>item.id===currentRoom?.proposalId); assertTeamAccess(teamAccess,'edit','proposals',proposal?.ownerId ?? snapshot?.leads.find((item)=>item.id===currentRoom?.leadId)?.ownerId ?? null); if (!currentWorkspace) throw new Error('Selecione um workspace.'); const room = await repository.recordBuyerRoomActivity(roomId, event); await publishDomainChange('buyer-room.changed', { entityType: 'buyer_room', entityId: room.id, payload: { operation: 'activity' } }); return room },
+    async deleteBuyerRoom(roomId) { assertWritable(); const room=snapshot?.buyerRooms?.find((item)=>item.id===roomId); const proposal=snapshot?.proposals.find((item)=>item.id===room?.proposalId); assertTeamAccess(teamAccess,'delete','proposals',proposal?.ownerId ?? snapshot?.leads.find((item)=>item.id===room?.leadId)?.ownerId ?? null); if (!currentWorkspace) throw new Error('Selecione um workspace.'); await repository.deleteBuyerRoom(roomId); await publishDomainChange('buyer-room.changed', { entityType: 'buyer_room', entityId: roomId, payload: { operation: 'delete' } }); notify('success', 'Buyer Room removida.') },
+    async createRevenueEntry(input) { assertWritable(); assertSensitiveField(teamAccess,'revenue_amount','edit'); assertTeamAccess(teamAccess,'create','proposals',input.ownerId ?? user?.id ?? null); if (!currentWorkspace) throw new Error('Selecione um workspace.'); const entry = await repository.createRevenueEntry({ ...input, workspaceId: currentWorkspace.id }); await publishDomainChange('revenue.changed', { entityType: 'revenue', entityId: entry.id, payload: { operation: 'create' } }); notify('success', 'Receita registrada.'); return entry },
+    async updateRevenueEntryStatus(entryId, status) { assertWritable(); const currentEntry=snapshot?.revenueEntries.find((item)=>item.id===entryId); assertTeamAccess(teamAccess,'edit','proposals',currentEntry?.ownerId ?? null); const entry = await repository.updateRevenueEntryStatus(entryId, status); await publishDomainChange('revenue.changed', { entityType: 'revenue', entityId: entry.id, payload: { operation: 'status', status } }); notify('success', 'Receita atualizada.'); return entry },
+    async createGoal(input) { assertWritable();
+      const goalOwner=input.scope==='team' ? null : input.userId ?? user?.id ?? null
+      assertTeamAccess(teamAccess,'create','goals',goalOwner,input.teamId ?? null)
+      if ((input.scope==='team' || (input.userId && input.userId!==user?.id)) && !accessActionAllowed(teamAccess,'assign','goals')) throw new Error('Permissão negada: o perfil não permite atribuir metas.')
+      if (!currentWorkspace) throw new Error('Selecione um workspace.')
+      const goal = await repository.createGoal({ ...input, workspaceId: currentWorkspace.id }); await publishDomainChange('goal.changed', { entityType: 'goal', entityId: goal.id, payload: { operation: 'create' } }); notify('success', 'Meta criada.'); return goal
+    },
+    async updateGoal(goalId, input) { assertWritable(); const currentGoal=snapshot?.goals.find((item)=>item.id===goalId); assertTeamAccess(teamAccess,'edit','goals',currentGoal?.scope==='team'?null:currentGoal?.userId,currentGoal?.teamId ?? null); if ((input.teamId!==undefined && input.teamId!==currentGoal?.teamId) || (input.userId!==undefined && input.userId!==currentGoal?.userId) || (input.scope!==undefined && input.scope!==currentGoal?.scope)) assertTeamAccess(teamAccess,'assign','goals',input.scope==='team'?null:(input.userId ?? currentGoal?.userId ?? null),input.teamId ?? currentGoal?.teamId ?? null); const goal = await repository.updateGoal(goalId, input); await publishDomainChange('goal.changed', { entityType: 'goal', entityId: goal.id, payload: { operation: 'update' } }); notify('success', 'Meta atualizada.'); return goal },
+    async deleteGoal(goalId) { assertWritable(); const currentGoal=snapshot?.goals.find((item)=>item.id===goalId); assertTeamAccess(teamAccess,'delete','goals',currentGoal?.scope==='team'?null:currentGoal?.userId,currentGoal?.teamId ?? null); await repository.deleteGoal(goalId); await publishDomainChange('goal.changed', { entityType: 'goal', entityId: goalId, payload: { operation: 'delete' } }); notify('success', 'Meta removida.') },
     async createAutomationRule(input) { assertWritable();
       if (!currentWorkspace) throw new Error('Selecione um workspace.')
-      const rule = await repository.createAutomationRule({ ...input, workspaceId: currentWorkspace.id, createdBy: user?.id ?? null }); await refreshData(); notify('success', 'Automação criada.'); return rule
+      const rule = await repository.createAutomationRule({ ...input, workspaceId: currentWorkspace.id, createdBy: user?.id ?? null }); await publishDomainChange('automation.changed', { entityType: 'automation_rule', entityId: rule.id, payload: { operation: 'create' } }); notify('success', 'Automação criada.'); return rule
     },
-    async updateAutomationRule(ruleId, input) { assertWritable(); const rule = await repository.updateAutomationRule(ruleId, input); await refreshData(); notify('success', 'Automação atualizada.'); return rule },
-    async deleteAutomationRule(ruleId) { assertWritable(); await repository.deleteAutomationRule(ruleId); await refreshData(); notify('success', 'Automação removida.') },
+    async updateAutomationRule(ruleId, input) { assertWritable(); const rule = await repository.updateAutomationRule(ruleId, input); await publishDomainChange('automation.changed', { entityType: 'automation_rule', entityId: rule.id, payload: { operation: 'update' } }); notify('success', 'Automação atualizada.'); return rule },
+    async deleteAutomationRule(ruleId) { assertWritable(); await repository.deleteAutomationRule(ruleId); await publishDomainChange('automation.changed', { entityType: 'automation_rule', entityId: ruleId, payload: { operation: 'delete' } }); notify('success', 'Automação removida.') },
     async simulateAutomationRule(ruleId, leadId) {
       if (!currentWorkspace) throw new Error('Selecione um workspace.')
-      const base = await repository.getSnapshot(currentWorkspace.id)
+      const base = await loadWorkspaceSnapshotSlices(repository, currentWorkspace, ['commercial', 'stages', 'calls', 'automationRules'])
       const rule = base.automationRules.find((item) => item.id === ruleId)
       const lead = base.leads.find((item) => item.id === leadId)
       if (!rule || !lead) throw new Error('Automação ou lead não encontrado.')
@@ -823,7 +740,7 @@ export function AppProvider({ children }: PropsWithChildren) {
     },
     async runAutomationRule(ruleId, leadId) { assertWritable();
       if (!currentWorkspace) throw new Error('Selecione um workspace.')
-      const base = await repository.getSnapshot(currentWorkspace.id); const rule = base.automationRules.find((item) => item.id === ruleId); const lead = base.leads.find((item) => item.id === leadId)
+      const base = await loadWorkspaceSnapshotSlices(repository, currentWorkspace, ['commercial', 'stages', 'calls', 'automationRules']); const rule = base.automationRules.find((item) => item.id === ruleId); const lead = base.leads.find((item) => item.id === leadId)
       if (!rule || !lead) throw new Error('Automação ou lead não encontrado.')
       const callOutcome = rule.conditions.find((condition) => condition.field === 'call_outcome')?.value
       const stageId = rule.conditions.find((condition) => condition.field === 'stage_id')?.value ?? lead.stageId
@@ -836,7 +753,7 @@ export function AppProvider({ children }: PropsWithChildren) {
     },
     async runAutomationChecks() { assertWritable();
       if (!currentWorkspace) throw new Error('Selecione um workspace.')
-      const base = await repository.getSnapshot(currentWorkspace.id)
+      const base = await loadWorkspaceSnapshotSlices(repository, currentWorkspace, ['commercial', 'stages', 'activities', 'calls', 'goals', 'automationRules'])
       const now = new Date(); const dayKey = now.toISOString().slice(0, 10); let count = 0
       for (const activity of base.activities.filter((item) => item.dueAt && !item.completedAt && new Date(item.dueAt).getTime() < now.getTime())) {
         const lead = base.leads.find((item) => item.id === activity.leadId) ?? null
@@ -861,7 +778,7 @@ export function AppProvider({ children }: PropsWithChildren) {
           count += await executeAutomationEvent({ triggerType: 'goal_at_risk', entityId: `${goal.id}:${dayKey}`, lead: null, now: now.toISOString() }, { refreshAfter: false, baseSnapshot: base })
         }
       }
-      if (count) await refreshData()
+      if (count) await refreshSlices(['commercial'])
       notify(count ? 'success' : 'info', count ? `${count} automação(ões) processada(s) nas checagens.` : 'Nenhuma regra elegível nas checagens operacionais.')
       return count
     },
@@ -871,91 +788,24 @@ export function AppProvider({ children }: PropsWithChildren) {
       const mutations = [...(run.output.mutations ?? [])].reverse()
       for (const mutation of mutations) {
         if (mutation.kind === 'activity_create' && mutation.activityId) await repository.deleteActivity(mutation.activityId)
-        if (mutation.kind === 'activity_update' && mutation.activityId && mutation.before) await repository.updateActivity(mutation.activityId, { completedAt: mutation.before.completedAt ?? null })
+        if (mutation.kind === 'activity_update' && mutation.activityId && mutation.before) await repository.updateActivity(mutation.activityId, { completedAt: mutation.before.completedAt ?? null, resolutionStatus: mutation.before.resolutionStatus ?? (mutation.before.completedAt ? 'completed' : 'pending'), resolutionReason: mutation.before.resolutionReason ?? null })
         if (mutation.kind === 'event_create' && mutation.eventId) await repository.deleteCalendarEvent(mutation.eventId)
         if (mutation.kind === 'lead_update' && mutation.leadId && mutation.before) await repository.updateLead(mutation.leadId, mutation.before)
       }
       const updated = await repository.finishAutomationRun(run.id, 'undone', { ...run.output, message: 'Execução desfeita com restauração dos registros reversíveis.' })
-      await refreshData(); notify('success', 'Execução desfeita.'); return updated
+      await refreshSlices(['commercial', 'activities', 'events', 'automationRuns']); notify('success', 'Execução desfeita.'); return updated
     },
     async restoreWorkspaceBackup(file) { assertWritable();
       if (!currentWorkspace) throw new Error('Selecione um workspace.')
-      const parsed = JSON.parse(await file.text()) as { workspace?: { snapshot?: WorkspaceSnapshot }; snapshot?: WorkspaceSnapshot }
-      const source = parsed.workspace?.snapshot ?? parsed.snapshot
-      if (!source || !Array.isArray(source.leads) || !Array.isArray(source.stages)) throw new Error('O arquivo não contém um snapshot completo reconhecível.')
-      const target = await repository.getSnapshot(currentWorkspace.id)
-      const warnings: string[] = []
-      const created = { leads: [] as string[], activities: [] as string[], calls: [] as string[], events: [] as string[], playbooks: [] as string[], goals: [] as string[], rules: [] as string[] }
-      const stageMap = new Map(source.stages.map((stage) => {
-        const matched = target.stages.find((item) => item.name.trim().toLocaleLowerCase('pt-BR') === stage.name.trim().toLocaleLowerCase('pt-BR'))
-          ?? target.stages.find((item) => item.isWon === stage.isWon && item.isLost === stage.isLost)
-          ?? target.stages[0]
-        return [stage.id, matched?.id ?? '']
-      }))
-      const leadMap = new Map<string, string>()
-      const keyForLead = (lead: Lead) => `${lead.phone.replace(/\D/g, '')}|${lead.email.trim().toLocaleLowerCase('pt-BR')}|${lead.name.trim().toLocaleLowerCase('pt-BR')}|${lead.company.trim().toLocaleLowerCase('pt-BR')}`
-      let imported = 0
-      try {
-        for (const lead of source.leads) {
-          const existing = target.leads.find((item) => keyForLead(item) === keyForLead(lead))
-          if (existing) { leadMap.set(lead.id, existing.id); warnings.push(`${lead.name}: lead já existente; dados operacionais vinculados ao cadastro atual.`); continue }
-          const restored = await repository.createLead({
-            workspaceId: currentWorkspace.id, name: lead.name, company: lead.company, phone: lead.phone, email: lead.email, city: lead.city,
-            source: lead.source, stageId: stageMap.get(lead.stageId) || target.stages[0].id, status: lead.status, temperature: lead.temperature,
-            priority: lead.priority, ownerId: null, ownerName: lead.ownerName || 'Equipe', value: lead.value, nextActionAt: lead.nextActionAt, notes: lead.notes, tags: lead.tags,
-          })
-          leadMap.set(lead.id, restored.id); created.leads.push(restored.id); imported += 1
-        }
-        for (const activity of source.activities.filter((item) => item.sourceType !== 'call' && item.sourceType !== 'calendar')) {
-          const restored = await repository.createActivity({ workspaceId: currentWorkspace.id, leadId: activity.leadId ? leadMap.get(activity.leadId) ?? null : null, type: activity.type, title: activity.title, description: activity.description, dueAt: activity.dueAt, completedAt: activity.completedAt, assignedTo: null, sourceType: activity.sourceType, sourceId: activity.sourceId })
-          created.activities.push(restored.id); imported += 1
-        }
-        for (const call of source.calls) {
-          const leadId = leadMap.get(call.leadId); if (!leadId) { warnings.push('Uma ligação sem lead correspondente foi ignorada.'); continue }
-          const restored = await repository.createCall({ workspaceId: currentWorkspace.id, leadId, userId: null, outcome: call.outcome, durationSeconds: call.durationSeconds, notes: call.notes, transcript: call.transcript, recordingPath: null, consentAt: call.consentAt ?? null, startedAt: call.startedAt, endedAt: call.endedAt })
-          created.calls.push(restored.id); imported += 1
-          if (call.recordingPath) warnings.push(`Ligação de ${source.leads.find((lead) => lead.id === call.leadId)?.name ?? 'lead'}: metadados restaurados sem o arquivo de áudio.`)
-        }
-        for (const event of source.events) {
-          const restored = await repository.createCalendarEvent({ workspaceId: currentWorkspace.id, leadId: event.leadId ? leadMap.get(event.leadId) ?? null : null, title: event.title, description: event.description, startsAt: event.startsAt, endsAt: event.endsAt, allDay: event.allDay, location: event.location, status: event.status, assignedTo: null })
-          created.events.push(restored.id); imported += 1
-        }
-        for (const playbook of source.playbooks) {
-          if (target.playbooks.some((item) => item.kind === playbook.kind && item.title.toLocaleLowerCase('pt-BR') === playbook.title.toLocaleLowerCase('pt-BR'))) continue
-          const restored = await repository.createPlaybook({ workspaceId: currentWorkspace.id, kind: playbook.kind, title: playbook.title, category: playbook.category, content: playbook.content, tags: playbook.tags, active: playbook.active })
-          created.playbooks.push(restored.id); imported += 1
-        }
-        for (const goal of source.goals) {
-          if (target.goals.some((item) => item.metric === goal.metric && item.periodStart === goal.periodStart && item.periodEnd === goal.periodEnd)) continue
-          const restored = await repository.createGoal({ workspaceId: currentWorkspace.id, userId: null, userName: goal.userName || 'Equipe', metric: goal.metric, targetValue: goal.targetValue, periodStart: goal.periodStart, periodEnd: goal.periodEnd })
-          created.goals.push(restored.id); imported += 1
-        }
-        for (const rule of source.automationRules) {
-          if (target.automationRules.some((item) => item.name.toLocaleLowerCase('pt-BR') === rule.name.toLocaleLowerCase('pt-BR'))) continue
-          const actions = rule.actions.map((action) => action.type === 'move_stage' ? { ...action, value: stageMap.get(action.value) ?? action.value } : action)
-          const conditions = rule.conditions.map((condition) => condition.field === 'stage_id' ? { ...condition, value: stageMap.get(condition.value) ?? condition.value } : condition)
-          const restored = await repository.createAutomationRule({ workspaceId: currentWorkspace.id, name: rule.name, enabled: false, triggerType: rule.triggerType, conditions, actions, createdBy: user?.id ?? null })
-          created.rules.push(restored.id); imported += 1
-        }
-        if (source.automationRules.some((rule) => rule.enabled)) warnings.push('Automações restauradas em modo desativado para revisão segura.')
-      } catch (restoreError) {
-        await Promise.allSettled(created.rules.reverse().map((id) => repository.deleteAutomationRule(id)))
-        await Promise.allSettled(created.goals.reverse().map((id) => repository.deleteGoal(id)))
-        await Promise.allSettled(created.playbooks.reverse().map((id) => repository.deletePlaybook(id)))
-        await Promise.allSettled(created.events.reverse().map((id) => repository.deleteCalendarEvent(id)))
-        await Promise.allSettled(created.calls.reverse().map((id) => repository.deleteCall(id)))
-        await Promise.allSettled(created.activities.reverse().map((id) => repository.deleteActivity(id)))
-        await Promise.allSettled(created.leads.reverse().map((id) => repository.deleteLead(id)))
-        throw restoreError
-      }
-      await refreshData(); notify('success', `${imported} registro(s) restaurado(s) com validação.`)
-      return { imported, warnings }
+      const result = await restoreWorkspaceBackupToRepository({ file, workspaceId: currentWorkspace.id, userId: user?.id ?? null, repository })
+      await refreshData(); notify('success', `${result.imported} registro(s) restaurado(s) com validação.`)
+      return result
     },
     async importLegacyBackup(file) { assertWritable();
       if (!currentWorkspace || !snapshot) throw new Error('Selecione um workspace.')
       const result = importV99Backup(await file.text(), currentWorkspace.id, snapshot.stages)
       const imported = await repository.importLeads(currentWorkspace.id, result.leads)
-      const base = await repository.getSnapshot(currentWorkspace.id)
+      const base = await loadWorkspaceSnapshotSlices(repository, currentWorkspace, ['commercial', 'stages', 'automationRules'])
       for (const importedLead of result.leads) {
         const lead = base.leads.find((item) => item.id === importedLead.id)
         if (lead) await executeAutomationEvent({ triggerType: 'lead_imported', entityId: lead.id, lead }, { refreshAfter: false, baseSnapshot: base })
@@ -964,10 +814,12 @@ export function AppProvider({ children }: PropsWithChildren) {
     },
     async importLeadFile(file) { assertWritable();
       if (!currentWorkspace || !snapshot) throw new Error('Selecione um workspace.')
+      assertTeamAccess(teamAccess,'create','contacts',user?.id ?? null)
       const text = await file.text(); const result = file.name.toLowerCase().endsWith('.json') || text.trim().startsWith('{') || text.trim().startsWith('[')
         ? importV99Backup(text, currentWorkspace.id, snapshot.stages) : parseLeadCsv(text, currentWorkspace.id, snapshot.stages)
+      for (const importedLead of result.leads) assertTeamAccess(teamAccess,'create','contacts',importedLead.ownerId ?? user?.id ?? null)
       const imported = await repository.importLeads(currentWorkspace.id, result.leads)
-      const base = await repository.getSnapshot(currentWorkspace.id)
+      const base = await loadWorkspaceSnapshotSlices(repository, currentWorkspace, ['commercial', 'stages', 'automationRules'])
       for (const importedLead of result.leads) {
         const lead = base.leads.find((item) => item.id === importedLead.id)
         if (lead) await executeAutomationEvent({ triggerType: 'lead_imported', entityId: lead.id, lead }, { refreshAfter: false, baseSnapshot: base })
@@ -975,11 +827,61 @@ export function AppProvider({ children }: PropsWithChildren) {
       await refreshData(); notify('success', `${imported} lead(s) importado(s).`); return { imported, warnings: result.warnings }
     },
     notify,
-  }), [actionDialog, assertWritable, bootstrap, canWrite, confirmAction, currentWorkspace, dismissToast, error, executeAutomationEvent, health, loadWorkspace, loading, notify, promptAction, refreshData, repository, resolveActionDialog, route, snapshot, toasts, user?.id, workspaces])
+  }), [actionDialog, assertAuthorized, assertWritable, bootstrap, can, canWrite, confirmAction, currentWorkspace, dismissToast, error, executeAutomationEvent, health, loadWorkspace, loading, routeDataLoading, loadedSnapshotSlices, notify, promptAction, refreshData, refreshSlices, publishDomainChange, repository, resolveActionDialog, route, snapshot, teamAccess, toasts, user?.id, workspaces, permissionSubject])
 
-  return <AppContext.Provider value={value}>{children}</AppContext.Provider>
+  const latestValueRef = useRef(value)
+  latestValueRef.current = value
+  const actionWrapperCache = useRef(new Map<PropertyKey, (...args: any[]) => any>())
+
+  const navigationValue = useMemo<AppNavigationContextValue>(() => ({
+    route, routeContext, setRoute, navigate, clearRouteContext,
+  }), [route, routeContext, setRoute, navigate, clearRouteContext])
+
+  const workspaceValue = useMemo<AppWorkspaceContextValue>(() => ({
+    repositoryMode: repository.mode, health, workspaces, currentWorkspace, currentUserId: user?.id ?? null, teamAccess, canWrite, can, canTeamAccess, teamAccessScope, canTeamAccessRecord, snapshot, loading, routeDataLoading, loadedSnapshotSlices, error,
+  }), [repository.mode, health, workspaces, currentWorkspace, user?.id, teamAccess, canWrite, can, canTeamAccess, teamAccessScope, canTeamAccessRecord, snapshot, loading, routeDataLoading, loadedSnapshotSlices, error])
+
+  const uiValue = useMemo<AppUiContextValue>(() => ({
+    toasts, dismissToast, actionDialog, confirmAction, promptAction, resolveActionDialog, notify,
+  }), [toasts, dismissToast, actionDialog, confirmAction, promptAction, resolveActionDialog, notify])
+
+  const actionsValue = useMemo<AppActionsContextValue>(() => new Proxy({} as AppActionsContextValue, {
+    get(_target, property: PropertyKey) {
+      const cached = actionWrapperCache.current.get(property)
+      if (cached) return cached
+      const wrapper = (...args: any[]) => {
+        const current = latestValueRef.current as unknown as Record<PropertyKey, unknown>
+        const action = current[property]
+        if (typeof action !== 'function') throw new Error(`Ação do CRM indisponível: ${String(property)}`)
+        return (action as (...actionArgs: any[]) => any)(...args)
+      }
+      actionWrapperCache.current.set(property, wrapper)
+      return wrapper
+    },
+  }), [])
+
+  return (
+    <AppContext.Provider value={value}>
+      <AppNavigationContext.Provider value={navigationValue}>
+        <AppWorkspaceContext.Provider value={workspaceValue}>
+          <AppUiContext.Provider value={uiValue}>
+            <AppActionsContext.Provider value={actionsValue}>
+              {children}
+            </AppActionsContext.Provider>
+          </AppUiContext.Provider>
+        </AppWorkspaceContext.Provider>
+      </AppNavigationContext.Provider>
+    </AppContext.Provider>
+  )
 }
 
-export const useApp = () => {
-  const value = useContext(AppContext); if (!value) throw new Error('useApp deve ser usado dentro de AppProvider.'); return value
+const requireContext = <T,>(value: T | null, name: string): T => {
+  if (!value) throw new Error(`${name} deve ser usado dentro de AppProvider.`)
+  return value
 }
+
+export const useApp = () => requireContext(useContext(AppContext), 'useApp')
+export const useAppNavigation = () => requireContext(useContext(AppNavigationContext), 'useAppNavigation')
+export const useAppWorkspace = () => requireContext(useContext(AppWorkspaceContext), 'useAppWorkspace')
+export const useAppUi = () => requireContext(useContext(AppUiContext), 'useAppUi')
+export const useAppActions = () => requireContext(useContext(AppActionsContext), 'useAppActions')

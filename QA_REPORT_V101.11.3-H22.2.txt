@@ -1,0 +1,103 @@
+RealTalent CRM V101.11.3-H22.2 — QA REPORT
+Cross-Module Access Control
+Base: V101.11.3-H22.1
+
+RESULTADO PRINCIPAL
+-------------------
+qa:architecture                                      PASS
+H22.1 Team Profiles & Real Access Control            54/54 PASS
+H22.2 Cross-Module Access Control                    75/75 PASS
+H22.1 Team Access runtime                            17/17 PASS
+H22.2 Cross-Module Access runtime                    25/25 PASS
+
+ESCOPO VALIDADO H22.2
+---------------------
+- Comunicações/WhatsApp filtram conversas por escopo de registro.
+- Nova conversa/contato/grupo exige create.
+- Responder/editar conversa exige edit; responder não força create.
+- Troca de responsável em Comunicação exige assign.
+- WhatsApp, E-mail e composer oficial entram em readOnly sem edit.
+- Propostas filtram por owner da proposta ou contato relacionado.
+- Propostas separam create/edit/delete/export/assign.
+- Revenue e Buyer Rooms herdam o escopo comercial correspondente.
+- Catálogo respeita ações do recurso Propostas.
+- Garimpo persiste createdBy/created_by e aplica own/team/all.
+- Garimpo separa create/edit/delete/export/assign.
+- Metas aplicam escopo por usuário/equipe/workspace.
+- Alterar pessoa/equipe/scope da meta exige assign.
+- AppContext impõe ações centrais de Propostas/Revenue/Buyer Room/Metas.
+
+BANCO / SUPABASE
+----------------
+Migration: 202610120002_v101_11_3_h22_2_cross_module_access_control.sql
+- RLS: communication_threads/events/outbox.
+- RLS: sales_proposals/items, products, revenue_entries, buyer_rooms.
+- RLS: prospecting_batches/leads/events.
+- RLS: goals.
+- rt_cross_module_guard protege INSERT/UPDATE/DELETE, inclusive writes via SECURITY DEFINER.
+- rt_communication_owner exige membership da organização.
+- mudança de proposal.owner_id exige assign.
+- mudança de goal user/team/scope exige assign.
+- policy permissiva histórica prospecting_events_write é removida.
+- guard transversal não fica executável diretamente por authenticated.
+
+GATES ESTRUTURAIS
+-----------------
+Source Syntax                                  420 arquivos PASS
+Integration Contracts                         388 arquivos PASS
+Migrations                                          56/56 PASS
+Release Manifest                                  105/105 PASS
+Capability Matrix               46 capacidades / 175 evidências / 117 executáveis
+Repository Local                                  100/100 PASS
+Repository Supabase                               100/100 PASS
+Browser E2E Contract                               11 fluxos PASS
+CSS Governance                                     65/65 PASS
+Linux release preflight                        381 TS/TSX PASS
+Registry-independent transpile                  305 módulos PASS
+
+REGRESSÕES DIRETAMENTE RELACIONADAS
+-----------------------------------
+H19.13 WhatsApp Work Management                   27/27 PASS
+H20.7-H2 Conversation-Only Inbox                  24/24 PASS
+H11 Proposal & Catalog Pricing                    70/70 PASS
+H12 Commercial Product Studio                     62/62 PASS
+H13 Product Readiness & Revenue Bridge            73/73 PASS
+H14 Commercial Management Foundation              28/28 PASS
+H15 Strict Prospecting Scope                      39/39 PASS
+H21.1 Garimpo Coverage & Runtime Truth            33/33 PASS
+
+RUNTIME CRÍTICO
+---------------
+WhatsApp normalization                              8/8 PASS
+WhatsApp Media Delivery Fix                         7/7 PASS
+Communications realtime bus                         7/7 PASS
+Security Runtime                                   12/12 PASS
+Garimpo H21.1                                          PASS
+
+GATES OFICIAIS DEPENDENTES DE DEPENDÊNCIAS
+-------------------------------------------
+npm ci          BLOCKED — não concluiu na janela do ambiente; node_modules não foi produzido.
+typecheck       BLOCKED — módulos/tipos React, Supabase e dependências ausentes.
+Vitest          BLOCKED — vitest: not found.
+Vite build      BLOCKED — validate:env PASS; vite: not found.
+
+BUNDLE
+------
+Registry-independent build                         305 módulos PASS
+Bundle audit                                        FAIL esperado — "HTML legado reapareceu"
+dist fallback                                       REMOVIDO
+
+HIGIENE DO ARTEFATO
+-------------------
+node_modules                                        AUSENTE
+dist                                                AUSENTE
+.env.local                                          AUSENTE
+.realtalent-whatsapp-browser                        AUSENTE
+.realtalent-communications-media                    AUSENTE
+
+LIMITAÇÃO IMPORTANTE
+--------------------
+O contrato RLS/migration foi auditado estaticamente neste ambiente, mas não foi aplicado contra
+uma instância Supabase real nesta sessão. Isolamento multiusuário real exige login individual,
+Supabase ativo e aplicação da migration H22.2 no banco. Em modo Local, permissões servem para
+configuração/experiência e guards da aplicação, não para isolamento criptográfico entre pessoas.

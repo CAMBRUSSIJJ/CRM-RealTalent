@@ -1,0 +1,120 @@
+/* RealTalent V100.60 — Proposal Experience */
+.proposals-hero--workspace h2 { margin-bottom:6px; }
+.proposal-view-switch { display:flex; gap:3px; padding:3px; border:1px solid var(--border); border-radius:11px; background:var(--surface-soft); }
+.proposal-view-switch button { min-height:30px; padding:0 9px; border:0; border-radius:8px; display:flex; align-items:center; gap:5px; color:var(--muted); background:transparent; font-size:10px; font-weight:800; }
+.proposal-view-switch button.is-active { color:var(--blue); background:var(--surface); box-shadow:var(--shadow-soft); }
+.proposal-card-grid { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:14px; padding:4px 0; }
+.proposal-work-card { overflow:hidden; border:1px solid var(--border); border-radius:17px; background:var(--surface); box-shadow:var(--shadow-soft); }
+.proposal-work-card.is-official { border-top:3px solid #4169e8; }
+.proposal-work-card__body { width:100%; padding:16px; border:0; display:grid; gap:10px; color:inherit; background:transparent; text-align:left; }
+.proposal-work-card__body > header { display:flex; align-items:center; justify-content:space-between; gap:8px; color:var(--muted); font-size:9px; font-weight:800; }
+.proposal-work-card h3 { margin:0; font-size:15px; }
+.proposal-work-card p { margin:0; min-height:28px; color:var(--muted); font-size:10px; }
+.proposal-work-card__money { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
+.proposal-work-card__money > span { padding:9px; display:grid; gap:2px; border-radius:11px; background:var(--surface-soft); }
+.proposal-work-card__money small,.proposal-work-card__next small { color:var(--muted); font-size:8px; text-transform:uppercase; letter-spacing:.05em; }
+.proposal-work-card__money strong { font-size:13px; }
+.proposal-work-card__signals { display:flex; justify-content:space-between; gap:8px; color:#708099; font-size:9px; }
+.proposal-work-card__signals .is-danger { color:#b42318; font-weight:800; }
+.proposal-work-card__next { padding:10px 11px; display:grid; gap:2px; border-radius:11px; background:var(--blue-soft); }
+.proposal-work-card__next strong { color:#2b4fb6; font-size:10px; }
+.proposal-work-card > footer { padding:10px 12px; display:flex; justify-content:space-between; align-items:center; gap:8px; border-top:1px solid var(--border); }
+.proposal-work-card > footer > button:not(.button) { width:34px; height:30px; border:0; border-radius:8px; color:var(--muted); background:var(--surface-soft); font-weight:900; }
+.proposal-table__open { border:0; padding:0; display:grid; gap:2px; color:inherit; background:transparent; text-align:left; }
+.proposal-table__open span,.proposal-table__open small { color:var(--muted); }
+
+.proposal360 { display:grid; gap:16px; }
+.proposal360-official { display:inline-flex; align-items:center; gap:5px; padding:7px 9px; border-radius:9px; color:#765c12; background:#fff6d8; font-size:10px; font-weight:800; }
+.proposal360-next { display:grid; gap:1px; color:var(--muted); font-size:9px; }
+.proposal360-next strong { color:var(--text); font-size:11px; }
+.proposal360-hero { padding:18px; display:flex; align-items:center; justify-content:space-between; gap:20px; border:1px solid var(--border); border-radius:17px; background:linear-gradient(135deg,var(--surface),var(--surface-soft)); }
+.proposal360-hero h3 { margin:8px 0 3px; font-size:22px; }
+.proposal360-hero p { margin:0; color:var(--muted); font-size:11px; }
+.proposal360-status { display:flex; gap:6px; }
+.proposal360-money { display:grid; grid-template-columns:repeat(3,minmax(100px,1fr)); gap:8px; }
+.proposal360-money > div { padding:11px; display:grid; gap:2px; border:1px solid var(--border); border-radius:12px; background:var(--surface); }
+.proposal360-money span { color:var(--muted); font-size:8px; font-weight:800; text-transform:uppercase; }
+.proposal360-money strong { font-size:14px; }
+.proposal360-grid { display:grid; grid-template-columns:1.1fr .9fr; gap:14px; }
+.proposal360-section { box-shadow:none; }
+.proposal360-section > header { margin-bottom:12px; }
+.proposal360-section h3 { margin:3px 0 0; font-size:14px; }
+.proposal360-timeline { display:grid; }
+.proposal360-timeline > div { min-height:46px; display:grid; grid-template-columns:16px 1fr; gap:8px; position:relative; }
+.proposal360-timeline > div::before { content:""; position:absolute; left:5px; top:15px; bottom:-4px; width:1px; background:var(--border); }
+.proposal360-timeline > div:last-child::before { display:none; }
+.proposal360-timeline > div > span { width:11px; height:11px; margin-top:3px; border-radius:50%; background:var(--blue); box-shadow:0 0 0 4px var(--blue-soft); z-index:1; }
+.proposal360-timeline > div > div { display:grid; gap:2px; }
+.proposal360-timeline strong { font-size:10px; }
+.proposal360-timeline small { color:var(--muted); font-size:9px; }
+.proposal360-facts { display:grid; gap:8px; }
+.proposal360-facts > div { padding:9px; display:flex; align-items:center; gap:8px; border-radius:10px; background:var(--surface-soft); }
+.proposal360-facts span { display:grid; gap:1px; }
+.proposal360-facts small { color:var(--muted); font-size:8px; }
+.proposal360-facts strong { font-size:10px; }
+.proposal360-items { display:grid; }
+.proposal360-items > div { padding:10px 0; display:flex; justify-content:space-between; gap:15px; border-bottom:1px solid var(--border); }
+.proposal360-items > div:last-child { border-bottom:0; }
+.proposal360-items > div > span { display:grid; gap:2px; }
+.proposal360-items strong { font-size:11px; }
+.proposal360-items small { color:var(--muted); font-size:9px; }
+.proposal360-stakeholders { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:8px; }
+.proposal360-stakeholders > div { padding:10px; display:grid; grid-template-columns:34px 1fr; gap:8px; align-items:center; border-radius:11px; background:var(--surface-soft); }
+.proposal360-stakeholders > div > span:nth-child(2) { display:grid; gap:1px; min-width:0; }
+.proposal360-stakeholders strong { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:10px; }
+.proposal360-stakeholders small { color:var(--muted); font-size:8px; }
+.proposal360-stakeholders em { grid-column:2; color:#536684; font-size:8px; font-style:normal; font-weight:700; }
+.proposal360-empty { padding:12px; display:flex; align-items:center; gap:8px; color:var(--muted); border-radius:10px; background:var(--surface-soft); font-size:10px; }
+.proposal360-secondary-actions { display:flex; flex-wrap:wrap; gap:8px; }
+
+.proposal-wizard { display:grid; gap:18px; }
+.proposal-wizard__steps { display:grid; grid-template-columns:repeat(4,1fr); gap:6px; padding:5px; border:1px solid var(--border); border-radius:14px; background:var(--surface-soft); }
+.proposal-wizard__steps button { min-height:48px; border:0; border-radius:10px; display:flex; align-items:center; gap:8px; padding:0 10px; color:var(--muted); background:transparent; text-align:left; }
+.proposal-wizard__steps button > span { width:24px; height:24px; display:grid; place-items:center; border-radius:8px; border:1px solid var(--border); background:var(--surface); font-size:9px; font-weight:800; }
+.proposal-wizard__steps button strong { font-size:10px; }
+.proposal-wizard__steps button.is-active { color:var(--blue); background:var(--surface); box-shadow:var(--shadow-soft); }
+.proposal-wizard__steps button.is-active > span,.proposal-wizard__steps button.is-complete > span { color:#fff; border-color:var(--blue); background:var(--blue); }
+.proposal-editor--wizard { display:block; }
+.proposal-wizard__panel { max-width:1180px; margin:0 auto; padding:4px 2px; }
+.proposal-wizard__panel > header { margin-bottom:16px; }
+.proposal-wizard__panel > header h3 { margin:4px 0; font-size:20px; }
+.proposal-wizard__panel > header p { margin:0; color:var(--muted); font-size:11px; }
+.proposal-wizard__client { margin-top:14px; padding:12px; display:grid; grid-template-columns:40px 1fr auto; gap:10px; align-items:center; border:1px solid var(--border); border-radius:13px; background:var(--surface-soft); }
+.proposal-wizard__client > span:nth-child(2) { display:grid; gap:2px; }
+.proposal-wizard__client strong { font-size:11px; }
+.proposal-wizard__client small { color:var(--muted); font-size:9px; }
+.proposal-wizard__client em { color:var(--blue); font-size:10px; font-style:normal; font-weight:800; }
+.proposal-review { display:grid; gap:14px; }
+.proposal-review__hero { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+.proposal-review__hero > div,.proposal-review__money > div { padding:12px; display:grid; gap:3px; border:1px solid var(--border); border-radius:12px; background:var(--surface-soft); }
+.proposal-review__hero small,.proposal-review__money span { color:var(--muted); font-size:8px; font-weight:800; text-transform:uppercase; }
+.proposal-review__hero strong { font-size:13px; }
+.proposal-review__hero span { color:var(--muted); font-size:9px; }
+.proposal-review__money { display:grid; grid-template-columns:repeat(4,1fr); gap:8px; }
+.proposal-review__money strong { font-size:14px; }
+.proposal-review__items { border:1px solid var(--border); border-radius:12px; overflow:hidden; }
+.proposal-review__items > div { padding:10px 12px; display:flex; justify-content:space-between; gap:10px; border-bottom:1px solid var(--border); }
+.proposal-review__items > div:last-child { border-bottom:0; }
+.proposal-review__items span { display:grid; gap:2px; }
+.proposal-review__items strong { font-size:10px; }
+.proposal-review__items small { color:var(--muted); font-size:8px; }
+.proposal-review__conditions { display:grid; grid-template-columns:repeat(4,1fr); gap:8px; }
+.proposal-review__conditions > span { padding:9px; display:grid; gap:2px; border-radius:10px; background:var(--surface-soft); color:var(--muted); font-size:8px; }
+.proposal-review__conditions strong { color:var(--text); font-size:10px; }
+
+html[data-theme="dark"] .proposal360-official { color:#ead98c; background:#44391b; }
+
+@media (max-width:1180px) {
+  .proposal-card-grid { grid-template-columns:repeat(2,minmax(0,1fr)); }
+  .proposal360-money { grid-template-columns:1fr; }
+  .proposal360-grid { grid-template-columns:1fr; }
+}
+@media (max-width:760px) {
+  .proposal-review__hero { grid-template-columns:1fr; }
+  .proposal-card-grid,.proposal360-stakeholders { grid-template-columns:1fr; }
+  .proposal-wizard__steps { grid-template-columns:1fr 1fr; }
+  .proposal-wizard__steps button { min-height:40px; }
+  .proposal-review__money,.proposal-review__conditions { grid-template-columns:1fr 1fr; }
+  .proposal360-hero { align-items:flex-start; flex-direction:column; }
+  .proposal360-money { width:100%; grid-template-columns:repeat(3,1fr); }
+}

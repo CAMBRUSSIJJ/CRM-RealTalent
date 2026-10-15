@@ -1,0 +1,47 @@
+{
+  "schema": "realtalent-cr9-launch-hard-stop-closure/v1",
+  "generatedAt": "2026-10-13T19:35:15.340Z",
+  "decision": "NO-GO",
+  "pass": 1,
+  "total": 5,
+  "hardStops": [
+    "staging-e2e",
+    "production-readiness",
+    "backup-restore-drill",
+    "commercial-launch-gate"
+  ],
+  "checks": [
+    {
+      "id": "cr9-static-audit",
+      "ok": true,
+      "detail": "CR9 orchestration/audit contract"
+    },
+    {
+      "id": "staging-e2e",
+      "ok": false,
+      "detail": "CR3 staging E2E with real Supabase roles"
+    },
+    {
+      "id": "production-readiness",
+      "ok": false,
+      "detail": "CR7 production HTTPS/Auth/readiness probe"
+    },
+    {
+      "id": "backup-restore-drill",
+      "ok": false,
+      "detail": "explicit staging backup + restore drill evidence"
+    },
+    {
+      "id": "commercial-launch-gate",
+      "ok": false,
+      "detail": "CR8 10/10 commercial launch gate"
+    }
+  ],
+  "evidenceFiles": [
+    "cr9-qa.log",
+    "cr3-staging-e2e.log",
+    "cr7-production-readiness.log",
+    "cr8-launch-gate.log"
+  ],
+  "security": "Evidence logs are sanitized; customer content and known secret environment values are not intentionally persisted."
+}

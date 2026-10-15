@@ -1,17 +1,18 @@
+import { NativeSelectionSelect } from '../../components/selection'
 import { CalendarDays, Check, ChevronLeft, ChevronRight, Layers3, Minus, Plus, Search, UsersRound } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
-import { useApp } from '../../app/app-context'
+import { useAppActions, useAppUi, useAppWorkspace } from '../../app/app-context'
 import { Button } from '../../components/ui/button'
 import { Modal } from '../../components/ui/modal'
 import { createId } from '../../lib/id'
-import { DEFAULT_CADENCE_TEMPLATES, channelLabel, type CadenceStepInput, type CadenceTemplateInput, type FollowupChannel } from '../../services/followup-workspace'
+import { DEFAULT_CADENCE_TEMPLATES, cadencePolicy, channelLabel, type CadenceStepInput, type CadenceTemplateInput, type FollowupChannel } from '../../services/followup-workspace'
 
 const defaultStart = () => {
   const date = new Date(); date.setHours(date.getHours() + 1, 0, 0, 0)
   return new Date(date.getTime() - date.getTimezoneOffset() * 60000).toISOString().slice(0, 16)
 }
 
-const cloneTemplate = (template: CadenceTemplateInput): CadenceTemplateInput => JSON.parse(JSON.stringify(template)) as CadenceTemplateInput
+const cloneTemplate = (template: CadenceTemplateInput): CadenceTemplateInput => { const cloned = JSON.parse(JSON.stringify(template)) as CadenceTemplateInput; return { ...cloned, policy: cadencePolicy(cloned), steps: cloned.steps.map((step) => ({ ...step, executionMode: step.executionMode ?? 'assisted' })) } }
 const channelType = (channel: FollowupChannel): CadenceStepInput['type'] => channel === 'call' ? 'call' : channel === 'meeting' ? 'meeting' : 'followup'
 
 interface Props {
@@ -21,7 +22,9 @@ interface Props {
 }
 
 export function CadenceModal({ open, onClose, initialLeadIds = [] }: Props) {
-  const { snapshot, createCadence, notify } = useApp()
+  const { snapshot } = useAppWorkspace()
+  const { notify } = useAppUi()
+  const { createCadence } = useAppActions()
   const [screen, setScreen] = useState<'template' | 'configure' | 'leads'>('template')
   const [template, setTemplate] = useState<CadenceTemplateInput>(() => cloneTemplate(DEFAULT_CADENCE_TEMPLATES[0]))
   const [selectedLeadIds, setSelectedLeadIds] = useState<string[]>([])
@@ -40,17 +43,17 @@ export function CadenceModal({ open, onClose, initialLeadIds = [] }: Props) {
 
   const activeLeads = useMemo(() => {
     const query = leadQuery.trim().toLowerCase()
-    return (snapshot?.leads ?? []).filter((lead) => lead.status === 'active' && (!query || `${lead.name} ${lead.company} ${lead.city} ${lead.phone}`.toLowerCase().includes(query)))
+    return (snapshot?.leads ?? []).filter((lead) => lead.status === 'active' && !lead.doNotContact && (!query || `${lead.name} ${lead.company} ${lead.city} ${lead.phone}`.toLowerCase().includes(query)))
   }, [leadQuery, snapshot])
 
   const selectTemplate = (item: CadenceTemplateInput) => { setTemplate(cloneTemplate(item)); setScreen('configure') }
   const updateStep = (id: string, patch: Partial<CadenceStepInput>) => setTemplate((current) => ({ ...current, steps: current.steps.map((item) => item.id === id ? { ...item, ...patch } : item) }))
   const removeStep = (id: string) => setTemplate((current) => ({ ...current, steps: current.steps.filter((item) => item.id !== id) }))
-  const addStep = () => setTemplate((current) => ({ ...current, steps: [...current.steps, { id: createId('step'), title: 'Nova etapa', offsetDays: (current.steps.at(-1)?.offsetDays ?? 0) + 2, channel: 'whatsapp', type: 'followup', objective: 'Defina o objetivo desta tentativa.', script: 'Defina a orientação ou mensagem sugerida.' }] }))
+  const addStep = () => setTemplate((current) => ({ ...current, steps: [...current.steps, { id: createId('step'), title: 'Nova etapa', offsetDays: (current.steps.at(-1)?.offsetDays ?? 0) + 2, channel: 'whatsapp', type: 'followup', objective: 'Defina o objetivo desta tentativa.', script: 'Defina a orientação ou mensagem sugerida.', executionMode: 'assisted' }] }))
   const toggleLead = (leadId: string) => setSelectedLeadIds((current) => current.includes(leadId) ? current.filter((id) => id !== leadId) : [...current, leadId])
 
   const submit = async () => {
-    if (!selectedLeadIds.length) { notify('error', 'Selecione pelo menos um lead.'); return }
+    if (!selectedLeadIds.length) { notify('error', 'Selecione pelo menos um contato.'); return }
     if (!template.name.trim()) { notify('error', 'Informe o nome da cadência.'); return }
     if (!template.steps.length) { notify('error', 'Inclua pelo menos uma etapa.'); return }
     if (template.steps.some((item) => !item.title.trim() || item.offsetDays < 0)) { notify('error', 'Revise os títulos e intervalos das etapas.'); return }
@@ -62,7 +65,7 @@ export function CadenceModal({ open, onClose, initialLeadIds = [] }: Props) {
     finally { setBusy(false) }
   }
 
-  const subtitle = screen === 'template' ? 'Escolha uma estratégia pronta ou personalize antes de aplicar.' : screen === 'configure' ? 'Defina canais, intervalos, objetivos e orientação de cada etapa.' : 'Selecione os leads que entrarão na sequência.'
+  const subtitle = screen === 'template' ? 'Escolha uma estratégia pronta ou personalize antes de aplicar.' : screen === 'configure' ? 'Defina canais, intervalos, objetivos e orientação de cada etapa.' : 'Selecione os contatos que entrarão na sequência.'
 
   return <Modal open={open} onClose={onClose} title="Iniciar cadência profissional" subtitle={subtitle} size="lg" footer={<>
     {screen !== 'template' ? <Button variant="ghost" onClick={() => setScreen(screen === 'leads' ? 'configure' : 'template')}><ChevronLeft size={16} /> Voltar</Button> : null}
@@ -87,6 +90,13 @@ export function CadenceModal({ open, onClose, initialLeadIds = [] }: Props) {
         <label className="field"><span>Categoria</span><input value={template.category} maxLength={50} onChange={(event) => setTemplate((current) => ({ ...current, category: event.target.value }))} /></label>
         <label className="field field--span-2"><span>Descrição</span><input value={template.description} maxLength={180} onChange={(event) => setTemplate((current) => ({ ...current, description: event.target.value }))} /></label>
         <label className="cadence-weekend-toggle field--span-2"><input type="checkbox" checked={template.skipWeekends} onChange={(event) => setTemplate((current) => ({ ...current, skipWeekends: event.target.checked }))} /><span><strong>Pausar em finais de semana</strong><small>As etapas que caírem no sábado ou domingo serão movidas para o próximo dia útil.</small></span></label>
+        <div className="cadence-policy-grid field--span-2">
+          <strong>Regras de saída e pausa</strong>
+          <label><input type="checkbox" checked={cadencePolicy(template).stopOnResponse} onChange={(event) => setTemplate((current) => ({ ...current, policy: { ...cadencePolicy(current), stopOnResponse: event.target.checked } }))} /><span>Parar quando o lead responder</span></label>
+          <label><input type="checkbox" checked={cadencePolicy(template).pauseOnCallback} onChange={(event) => setTemplate((current) => ({ ...current, policy: { ...cadencePolicy(current), pauseOnCallback: event.target.checked } }))} /><span>Pausar quando pedir retorno</span></label>
+          <label><input type="checkbox" checked={cadencePolicy(template).stopOnMeeting} onChange={(event) => setTemplate((current) => ({ ...current, policy: { ...cadencePolicy(current), stopOnMeeting: event.target.checked } }))} /><span>Encerrar quando reunião for marcada</span></label>
+          <label><input type="checkbox" checked={cadencePolicy(template).stopOnProposal} onChange={(event) => setTemplate((current) => ({ ...current, policy: { ...cadencePolicy(current), stopOnProposal: event.target.checked } }))} /><span>Encerrar quando solicitar proposta</span></label>
+        </div>
       </section>
 
       <div className="cadence-builder__heading"><div><span className="eyebrow">Sequência</span><h3>{template.steps.length} etapas configuradas</h3></div><Button size="sm" variant="secondary" onClick={addStep}><Plus size={15} /> Adicionar etapa</Button></div>
@@ -96,7 +106,8 @@ export function CadenceModal({ open, onClose, initialLeadIds = [] }: Props) {
           <div className="cadence-step-editor__content">
             <div className="cadence-step-editor__row">
               <label className="field"><span>Título</span><input value={item.title} onChange={(event) => updateStep(item.id, { title: event.target.value })} /></label>
-              <label className="field"><span>Canal</span><select value={item.channel} onChange={(event) => { const channel = event.target.value as FollowupChannel; updateStep(item.id, { channel, type: channelType(channel) }) }}>{Object.entries(channelLabel).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label>
+              <label className="field"><span>Canal</span><NativeSelectionSelect value={item.channel} onChange={(event) => { const channel = event.target.value as FollowupChannel; updateStep(item.id, { channel, type: channelType(channel) }) }}>{Object.entries(channelLabel).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</NativeSelectionSelect></label>
+              <label className="field"><span>Execução</span><NativeSelectionSelect value={item.executionMode ?? 'assisted'} onChange={(event) => updateStep(item.id, { executionMode: event.target.value as 'manual' | 'assisted' })}><option value="assisted">Assistida</option><option value="manual">Manual</option></NativeSelectionSelect></label>
               <label className="field cadence-offset-field"><span>Dia</span><input type="number" min="0" max="365" value={item.offsetDays} onChange={(event) => updateStep(item.id, { offsetDays: Math.max(0, Number(event.target.value) || 0) })} /></label>
               <button type="button" className="icon-button" disabled={template.steps.length === 1} onClick={() => removeStep(item.id)} aria-label="Remover etapa"><Minus size={17} /></button>
             </div>

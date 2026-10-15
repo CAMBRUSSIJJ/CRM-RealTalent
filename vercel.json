@@ -5,6 +5,30 @@
   "outputDirectory": "dist",
   "rewrites": [
     {
+      "source": "/api/runtime/agent",
+      "destination": "/api/runtime-agent"
+    },
+    {
+      "source": "/api/runtime/agent/:path*",
+      "destination": "/api/runtime-agent?__rt_path=:path*"
+    },
+    {
+      "source": "/api/runtime/communications",
+      "destination": "/api/runtime-communications"
+    },
+    {
+      "source": "/api/runtime/communications/:path*",
+      "destination": "/api/runtime-communications?__rt_path=:path*"
+    },
+    {
+      "source": "/api/runtime/prospecting",
+      "destination": "/api/runtime-prospecting"
+    },
+    {
+      "source": "/api/runtime/prospecting/:path*",
+      "destination": "/api/runtime-prospecting?__rt_path=:path*"
+    },
+    {
       "source": "/(.*)",
       "destination": "/index.html"
     }
@@ -24,7 +48,7 @@
       "headers": [
         {
           "key": "Content-Security-Policy",
-          "value": "default-src 'self'; script-src 'self' 'unsafe-inline' https://esm.sh https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; img-src 'self' data: blob: https:; connect-src 'self' https://esm.sh https://*.supabase.co wss://*.supabase.co; media-src 'self' blob:; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'"
+          "value": "default-src 'self'; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; img-src 'self' data: blob: https:; connect-src 'self' https://*.supabase.co wss://*.supabase.co; media-src 'self' blob:; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'"
         },
         {
           "key": "X-Content-Type-Options",
@@ -45,6 +69,18 @@
         {
           "key": "Cross-Origin-Opener-Policy",
           "value": "same-origin"
+        },
+        {
+          "key": "Strict-Transport-Security",
+          "value": "max-age=63072000; includeSubDomains; preload"
+        },
+        {
+          "key": "Cross-Origin-Resource-Policy",
+          "value": "same-origin"
+        },
+        {
+          "key": "X-Permitted-Cross-Domain-Policies",
+          "value": "none"
         }
       ]
     },
@@ -57,5 +93,10 @@
         }
       ]
     }
-  ]
+  ],
+  "functions": {
+    "api/runtime-*.mjs": {
+      "maxDuration": 60
+    }
+  }
 }

@@ -11,6 +11,7 @@ import type {
   Workspace,
   WorkspaceSnapshot,
 } from '../domain/types'
+import { adaptWorkspaceSnapshotWithMetadata } from '../platform/records/workspace-snapshot-adapter'
 
 const asString = (value: unknown, fallback = '') => typeof value === 'string' ? value : value == null ? fallback : String(value)
 const asNullableString = (value: unknown) => {
@@ -45,7 +46,7 @@ const statusValues: LeadStatus[] = ['active', 'won', 'lost', 'archived']
 const temperatureValues: LeadTemperature[] = ['cold', 'warm', 'hot']
 const priorityValues: LeadPriority[] = ['low', 'medium', 'high', 'urgent']
 const consentValues: ConsentStatus[] = ['unknown', 'legitimate_interest', 'consented', 'opted_out']
-const decisionValues: DecisionRole[] = ['decision_maker', 'influencer', 'user', 'unknown']
+const decisionValues: DecisionRole[] = ['decision_maker', 'economic_buyer', 'champion', 'influencer', 'technical_evaluator', 'finance', 'procurement', 'gatekeeper', 'blocker', 'user', 'operational', 'unknown']
 const geocodeStatusValues: GeocodeStatus[] = ['pending', 'exact', 'approximate', 'incomplete', 'not_found', 'manual']
 const geocodePrecisionValues: GeocodePrecision[] = ['rooftop', 'range_interpolated', 'street', 'district', 'city', 'manual', 'unknown']
 
@@ -159,7 +160,7 @@ export const normalizeSnapshotForRender = (input: WorkspaceSnapshot): WorkspaceS
     .map((stage, index) => normalizeStage(stage, workspace.id, index))
     .sort((left, right) => left.order - right.order)
   const fallbackStageId = stages.find((stage) => !stage.isWon && !stage.isLost)?.id ?? stages[0]?.id ?? ''
-  return {
+  const normalized: WorkspaceSnapshot = {
     ...input,
     workspace,
     stages,
@@ -173,10 +174,13 @@ export const normalizeSnapshotForRender = (input: WorkspaceSnapshot): WorkspaceS
     automationRuns: arrayOrEmpty(raw.automationRuns),
     companies: arrayOrEmpty(raw.companies),
     contacts: arrayOrEmpty(raw.contacts),
+    contactRelationships: arrayOrEmpty(raw.contactRelationships),
     opportunities: arrayOrEmpty(raw.opportunities),
     socialProfiles: arrayOrEmpty(raw.socialProfiles),
     products: arrayOrEmpty(raw.products),
     proposals: arrayOrEmpty(raw.proposals),
+    buyerRooms: arrayOrEmpty(raw.buyerRooms),
     revenueEntries: arrayOrEmpty(raw.revenueEntries),
   }
+  return adaptWorkspaceSnapshotWithMetadata(normalized)
 }

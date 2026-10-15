@@ -1,0 +1,72 @@
+RealTalent CRM V101.10.9-H4 — Garimpo & Automations CSS Consolidation
+QA report — 2026-10-06
+
+ESCOPO
+- Consolidação CSS de Automações e Garimpo.
+- Nenhuma alteração intencional em dados, migrations, schema, agentes, jobs, regras de automação, filas ou integrações.
+- CSS legado mantido fisicamente para rollback/auditoria; ownership runtime transferido para folhas canônicas.
+
+FOLHAS CANÔNICAS
+- automations.css <- automations-v100.css
+- prospecting-core.css <- prospecting-v100.css
+- prospecting-engine.css <- prospecting-engine-v10098.css
+- prospecting-workspace.css <- search automation + agent + review + ontology + territory + local discovery + UX consolidation
+- prospecting-processing.css <- prospecting-search-processing-v101103.css
+
+RESULTADOS COMPROVADOS
+PASS  Source syntax audit: 388 arquivos
+PASS  Integration contracts: 361 arquivos
+PASS  Migrations: 49 arquivos / checksums íntegros
+PASS  Release Manifest: 57/57 invariantes
+PASS  CSS Governance: 61/61
+PASS  V101.10.9 baseline: 28/28
+PASS  V101.10.9-H1: 45/45
+PASS  V101.10.9-H2: 37/37
+PASS  V101.10.9-H3: 38/38
+PASS  V101.10.9-H4: 57/57
+PASS  qa:architecture
+PASS  check:legacy V100.56.4 -> V101.9.8
+PASS  Linux release preflight: 354 TS/TSX
+PASS  Registry-independent build: 278 módulos TypeScript
+
+GARIMPO RUNTIME SMOKES
+PASS  Prospecting Agent
+PASS  Prospecting Search Runtime
+PASS  Garimpo Search & Processing Engine
+PASS  Drawn Territory Search
+PASS  Coverage Truth
+PASS  Identity Resolver 2.0
+PASS  Independent Enrichment Jobs
+PASS  Progressive Processing
+PASS  Search Ontology
+PASS  Territory Engine 2.0
+PASS  Local Discovery Experience
+
+BUNDLE / OWNERSHIP CSS
+- Imports CSS diretos em src/main.tsx: 48
+- Imports CSS versionados ainda ativos: 25
+- CSS físicos em src/styles: 119
+- CSS versionados/legados preservados: 93
+- Folhas canônicas rastreadas: 21
+- 11 folhas H4 substituídas aparecem 0 vezes como top-level source no bundle de verificação.
+- automations.css e prospecting-workspace.css aparecem uma única vez como top-level source no bundle de verificação.
+
+LIMITAÇÕES DO AMBIENTE
+O ambiente de execução desta auditoria não possui as dependências reais instaladas e o package-lock.json herdado permanece inconsistente.
+
+NOT PASS / NÃO VALIDADO COMO APROVADO:
+- npm run typecheck: falha por módulos/tipagens ausentes (primeiro erro: Cannot find module 'react').
+- npm run test: vitest não encontrado.
+- npm run build: vite não encontrado após validate:env.
+- npm audit: não executado de forma útil sem a árvore instalada.
+
+O launcher mantém a recuperação automática do lockfile/dependências na primeira execução em um Linux com acesso ao registry npm. Após a instalação real, executar `npm run doctor` e `npm run verify` para fechar esses gates no ambiente do usuário.
+
+SEGURANÇA DE EMPACOTAMENTO
+- dist de verificação removido antes do ZIP.
+- node_modules não incluído.
+- .env.local removido do ZIP; o launcher pode migrar/criar configuração local no ambiente do usuário.
+- nenhum estado runtime .realtalent-* incluído.
+
+CONCLUSÃO
+A H4 passou nos contratos arquiteturais, regressão histórica e smokes executáveis específicos de Garimpo. A consolidação CSS está comprovadamente cascade-preserving pelos manifests/hash/equivalence checks. Os gates dependentes da instalação npm real permanecem explicitamente pendentes e não foram classificados como PASS.

@@ -15,6 +15,28 @@ const capabilities:Record<Provider,Record<string,boolean>>={
   meta:{lead_ads:true,pages:true,instagram:true,webhooks:true},
   whatsapp_cloud:{messages:true,templates:true,delivery_status:true,webhooks:true},
 }
+
+const discoverWhatsApp=async(accessToken:string)=>{
+  const version=Deno.env.get('META_GRAPH_VERSION')||'v23.0'
+  const businessesResponse=await fetch(`https://graph.facebook.com/${version}/me/businesses?fields=id,name&limit=50`,{headers:{authorization:`Bearer ${accessToken}`}})
+  const businesses=await businessesResponse.json().catch(()=>({})) as any
+  const candidates:any[]=[]
+  if(!businessesResponse.ok)return {candidates,error:String(businesses?.error?.message||'Não foi possível descobrir o Business Manager')}
+  for(const business of businesses.data||[]){
+    const wabaResponse=await fetch(`https://graph.facebook.com/${version}/${encodeURIComponent(String(business.id))}/owned_whatsapp_business_accounts?fields=id,name&limit=50`,{headers:{authorization:`Bearer ${accessToken}`}})
+    const wabas=await wabaResponse.json().catch(()=>({})) as any
+    if(!wabaResponse.ok)continue
+    for(const waba of wabas.data||[]){
+      const phoneResponse=await fetch(`https://graph.facebook.com/${version}/${encodeURIComponent(String(waba.id))}/phone_numbers?fields=id,display_phone_number,verified_name,quality_rating,code_verification_status&limit=50`,{headers:{authorization:`Bearer ${accessToken}`}})
+      const phones=await phoneResponse.json().catch(()=>({})) as any
+      if(!phoneResponse.ok)continue
+      for(const phone of phones.data||[])candidates.push({business_id:String(business.id),business_name:String(business.name||''),waba_id:String(waba.id),waba_name:String(waba.name||''),phone_number_id:String(phone.id||''),display_phone_number:String(phone.display_phone_number||''),verified_name:String(phone.verified_name||''),quality_rating:String(phone.quality_rating||''),code_verification_status:String(phone.code_verification_status||'')})
+      try{await fetch(`https://graph.facebook.com/${version}/${encodeURIComponent(String(waba.id))}/subscribed_apps`,{method:'POST',headers:{authorization:`Bearer ${accessToken}`}})}catch{/* webhook may be configured later */}
+    }
+  }
+  return {candidates,error:''}
+}
+
 Deno.serve(async(request)=>{
   const url=new URL(request.url);const code=url.searchParams.get('code');const state=url.searchParams.get('state');const providerError=url.searchParams.get('error_description')||url.searchParams.get('error')
   if(!state)return redirect('error','','Estado OAuth ausente')
@@ -44,18 +66,24 @@ Deno.serve(async(request)=>{
     const displayName=String(profile.name||profile.displayName||email||`${provider} ${externalId}`)
     const scopes=typeof token.scope==='string'?token.scope.split(/[ ,]+/).filter(Boolean):[]
     const expiresIn=Number(token.expires_in||0);const expiresAt=expiresIn>0?new Date(Date.now()+expiresIn*1000).toISOString():null
+    const whatsappDiscovery=provider==='whatsapp_cloud'?await discoverWhatsApp(String(token.access_token)):{candidates:[],error:''}
+    const whatsappPrimary=whatsappDiscovery.candidates[0]||null
     const {data:membership}=await admin.from('organization_members').select('role').eq('organization_id',stored.organization_id).eq('user_id',stored.user_id).maybeSingle()
     if(!membership||!['owner','admin'].includes(membership.role))throw new Error('Usuário sem permissão para esta organização')
     const {data:account,error:accountError}=await admin.from('integration_connected_accounts').upsert({
       organization_id:stored.organization_id,provider,external_account_id:externalId,display_name:displayName,status:'connected',scopes,
       has_credential:true,token_expires_at:expiresAt,last_error:null,connected_by_user_id:stored.user_id,access_mode:'personal',
       allowed_user_ids:[],allowed_roles:[],capabilities:capabilities[provider],connection_mode:'live',revoked_at:null,
-      metadata:{email,provider_profile:{id:externalId,name:displayName}},
+      metadata:{email,provider_profile:{id:externalId,name:displayName},...(provider==='whatsapp_cloud'?{phone_number_id:whatsappPrimary?.phone_number_id||'',display_phone_number:whatsappPrimary?.display_phone_number||'',waba_id:whatsappPrimary?.waba_id||'',waba_name:whatsappPrimary?.waba_name||'',business_id:whatsappPrimary?.business_id||'',business_name:whatsappPrimary?.business_name||'',verified_name:whatsappPrimary?.verified_name||'',whatsapp_candidates:whatsappDiscovery.candidates,whatsapp_discovery_error:whatsappDiscovery.error}: {})},
     },{onConflict:'organization_id,provider,external_account_id'}).select('id').single()
     if(accountError||!account)throw new Error(accountError?.message||'Falha ao salvar a conta')
     const {error:vaultError}=await admin.rpc('store_integration_oauth_token',{p_account_id:account.id,p_access_token:token.access_token,p_refresh_token:typeof token.refresh_token==='string'?token.refresh_token:'',p_token_type:typeof token.token_type==='string'?token.token_type:'Bearer',p_expires_at:expiresAt,p_encryption_key:encryptionKey})
     if(vaultError)throw new Error(vaultError.message)
     await admin.from('integration_audit_events').insert({organization_id:stored.organization_id,account_id:account.id,provider,event_type:'oauth_connected',severity:'security',actor_user_id:stored.user_id,message:'Conta conectada com PKCE e estado OAuth de uso único',metadata:{external_account_id:externalId,credential_version:1}})
+    if(provider==='whatsapp_cloud'){
+      await admin.rpc('enqueue_integration_sync_job_system',{p_organization_id:stored.organization_id,p_account_id:account.id,p_job_type:'whatsapp_account_sync',p_idempotency_key:`oauth:${account.id}:whatsapp_account_sync:${Date.now()}`,p_payload:{source:'oauth_connected',initial_sync:true}})
+      await admin.rpc('enqueue_integration_sync_job_system',{p_organization_id:stored.organization_id,p_account_id:account.id,p_job_type:'whatsapp_template_sync',p_idempotency_key:`oauth:${account.id}:whatsapp_template_sync:${Date.now()}`,p_payload:{source:'oauth_connected',initial_sync:true}})
+    }
     if(provider==='google'||provider==='microsoft'){
       const capabilityList=['email_send','mail_sync','calendar_sync','calendar_write']
       for(const capability of capabilityList){

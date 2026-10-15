@@ -1,15 +1,159 @@
 <!doctype html>
 <html lang="pt-BR">
   <head>
+    <!-- V101.10.5 — Selection & Filter System -->
+    <meta name="realtalent-release-v101107" content="V101.10.7 — Security & Runtime Foundation" />
+    <meta name="realtalent-release-v101106h2" content="V101.10.6-H2 — Global Selection & Ownership Fix" />
+    <meta name="realtalent-release-v101106" content="V101.10.6 — Garimpo UX Consolidation" />
+    <meta name="realtalent-release-v101105" content="V101.10.5 — Selection & Filter System" />
+    <!-- Preserved release marker: V101.10.4 — Local Discovery Experience -->
+    <meta name="realtalent-release-v101104" content="V101.10.4 — Local Discovery Experience" />
+
+    <!-- V101.10.3-H9 — Territory Engine 2.0 -->
+    <meta name="realtalent-release-h9" content="V101.10.3-H9 — Territory Engine 2.0" />
+    <!-- V101.10.3-H7 — Review Workspace 2.0 -->
+    <meta name="realtalent-release-h7" content="V101.10.3-H7 — Review Workspace 2.0" />
+    <!-- V101.10.3-H6 — Progressive Processing -->
+    <meta name="realtalent-release-h6" content="V101.10.3-H6 — Progressive Processing" />
+    <!-- V101.10.3-H5 — Independent Enrichment Jobs -->
+    <meta name="realtalent-release-h5" content="V101.10.3-H5 — Independent Enrichment Jobs" />
+    <!-- V101.10.3-H4 — Data Integrity & Canonical Company Bridge -->
+    <meta name="realtalent-release-h4" content="V101.10.3-H4 — Data Integrity & Canonical Company Bridge" />
+    <!-- V101.10.3-H1 — Drawn Territory Search -->
+    <meta name="realtalent-release-h1" content="V101.10.3-H1 — Drawn Territory Search" />
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="theme-color" content="#17264a" />
+    <meta name="theme-color" content="#04274b" />
     <link rel="manifest" href="./manifest.webmanifest" />
     <meta name="description" content="RealTalent CRM — operação comercial com Garimpo, Leads, Pipeline, Follow-up, Ligações, Agenda, Metas, Métricas e Automações." />
-    <title>RealTalent CRM V100.51.1 — Visual System Premium</title>
-  </head>
+    <!-- Compatibility baseline: RealTalent CRM V101.7.1 — Metrics & Calling Structural Redesign -->
+    <!-- Preserved release marker: RealTalent CRM V101.7.1 — Interaction Surfaces 2.0 -->
+    <!-- Preserved release marker: RealTalent CRM V101.8.0 — RealTalent Connect MVP -->
+    <!-- Preserved release marker: RealTalent CRM V101.8.1 — RealTalent Connect Setup & Reliability -->
+    <!-- Preserved release marker: RealTalent CRM V101.8.2 — Connect Fast Dial & Power Queue -->
+    <!-- Preserved release marker: RealTalent CRM V101.8.3 — Connect One-Tap para iPhone -->
+    <!-- Preserved hotfix marker: RealTalent CRM V101.8.4-H3 — OAuth Runtime & Test Contract Fix -->
+    <!-- Current hotfix marker: RealTalent CRM V101.8.4-H4 — WhatsApp QR Local -->
+    <!-- Preserved hotfix marker: RealTalent CRM V101.8.4-H5 — WhatsApp Web QR Reliability -->
+    <!-- Preserved hotfix marker: RealTalent CRM V101.8.4-H6 — Single-Pass Dependency Install -->
+    <!-- Preserved hotfix marker: RealTalent CRM V101.8.4-H7 — WhatsApp Chat Workspace -->
+    <!-- Preserved hotfix marker: RealTalent CRM V101.8.4-H8 — WhatsApp History Sync -->
+    <!-- Preserved hotfix marker: RealTalent CRM V101.8.4-H9 — Communications Reliability -->
+    <!-- Preserved hotfix marker: RealTalent CRM V101.8.4-H10 — Communications Gateway Resilience -->
+    <!-- Preserved hotfix marker: RealTalent CRM V101.8.4-H11 — WhatsApp Sync Recovery -->
+    <!-- Preserved hotfix marker: RealTalent CRM V101.8.4-H12 — WhatsApp Realtime -->
+    <!-- Preserved hotfix marker: RealTalent CRM V101.8.4-H13 — WhatsApp Real History Bridge -->
+    <!-- Preserved hotfix marker: RealTalent CRM V101.8.4-H14 — WhatsApp Conversation Composer -->
+    <!-- Preserved hotfix marker: RealTalent CRM V101.8.4-H15 — WhatsApp Contact Identity -->
+    <!-- Preserved release marker: RealTalent CRM V101.9.1 — Universal View Engine -->
+    <!-- Preserved release marker: RealTalent CRM V101.9.2 — Universal Record Page -->
+    <!-- Preserved release marker: RealTalent CRM V101.9.3 — Person / Company / Opportunity Canonical Model -->
+    <!-- Preserved release marker: RealTalent CRM V101.9.4 — Global Event Bus -->
+    <!-- Preserved release marker: RealTalent CRM V101.9.5 — Workflow Runtime 3.0 -->
+    <!-- Preserved release marker: RealTalent CRM V101.9.6 — Permission Matrix -->
+    <!-- Preserved release marker: RealTalent CRM V101.9.7 — Extension Registry -->
+    <!-- Preserved release marker: RealTalent CRM V101.9.8 — Design System Consolidation -->
+    <!-- Preserved release marker: RealTalent CRM V101.9.9 — QA Architecture Reset -->
+    <!-- Preserved hotfix marker: RealTalent CRM V101.10.0-H1 — Settings Registry Preflight Hotfix -->
+    <!-- Preserved release marker: RealTalent CRM V101.10.1 — Prospecting Search Automation -->
+    <!-- Preserved release marker: RealTalent CRM V101.10.2 — Prospecting Agent for Linux -->
+    <!-- Preserved hotfix marker: RealTalent CRM V101.10.2-H1 — Prospecting Agent UX & Launch Flow -->
+    <!-- Preserved hotfix marker: RealTalent CRM V101.10.2-H2 — Prospecting Agent CSS Build Hotfix -->
+    <!-- Preserved hotfix marker: RealTalent CRM V101.10.2-H3 — Prospecting Agent Search Runtime Fix -->
+    <!-- Preserved release marker: RealTalent CRM V101.10.3 — Garimpo Search & Processing Engine -->
+    <!-- Current release marker: RealTalent CRM V101.10.5 — Selection & Filter System -->
+    <!-- Preserved release marker: RealTalent CRM V101.10.0 — Settings Experience 2.0 -->
+    <!-- Preserved hotfix marker: RealTalent CRM V101.8.3-H1 — Contact Identity Sync -->
+    <!-- Preserved release marker: RealTalent CRM V101.10.8 — Runtime & Developer Experience Consolidation -->
+    <title>RealTalent CRM V101.11.3</title>
+    <meta name="realtalent-release-h101105" content="V101.10.5-H3 — Contact Intelligence & Language Standardization" />
+    <meta name="realtalent-release-v101109" content="V101.10.9 — CSS & Design System Consolidation" />
+    <meta name="realtalent-release-v101109-h2" content="V101.10.9-H2 — Contacts & Account 360 CSS Consolidation" />
+    <meta name="realtalent-release-v101109-h3" content="V101.10.9-H3 — Calling & RealTalent Connect CSS Consolidation" />
+    <meta name="realtalent-release-v101109-h4" content="V101.10.9-H4 — Garimpo & Automations CSS Consolidation" />
+    <meta name="realtalent-release-v101109-h5" content="V101.10.9-H5 — Dead CSS Removal" />
+      <meta name="realtalent-release-v101110" content="V101.11.0 — Communications Architecture" />
+      <meta name="realtalent-release-v101111" content="V101.11.1 — Login Experience & Reliability" />
+    <!-- V101.11.1-H1 — Login Gate & Logout -->
+    <!-- V101.11.1-H2 — Cinematic Login & Brand Motion -->
+    <!-- V101.11.1-H3 — Official Logo Motion -->
+    <!-- V101.11.1-H4 — Transparent Logo & Optimized Motion -->
+    <!-- V101.11.1-H5 — Full Canvas & Orbit Field -->
+    <!-- V101.11.2 — Teams & Tasks Foundation -->
+    <meta name="realtalent-release-v101112" content="V101.11.2 — Teams & Tasks Foundation" />
+    <!-- V101.11.3 — Actionable Pipeline Experience -->
+    <meta name="realtalent-release-v101113" content="V101.11.3 — Actionable Pipeline Experience" />
+    <!-- V101.11.3-H1 — Communications Gateway Recovery -->
+    <meta name="realtalent-release-v101113h1" content="V101.11.3-H1 — Communications Gateway Recovery" />
+    <!-- V101.11.3-H2 — Runtime Service Recovery -->
+    <meta name="realtalent-release-v101113h2" content="V101.11.3-H2 — Runtime Service Recovery" />
+    <!-- V101.11.3-H3 — Calling Workspace 2.0 -->
+    <meta name="realtalent-release-v101113h3" content="V101.11.3-H3 — Calling Workspace 2.0" />
+    <!-- V101.11.3-H4 — Calling Visual Hierarchy & Mind Map -->
+    <meta name="realtalent-release-v101113h4" content="V101.11.3-H4 — Calling Visual Hierarchy & Mind Map" />
+    <!-- V101.11.3-H5 — Calling Essential Context & Goal Link -->
+    <meta name="realtalent-release-v101113h5" content="V101.11.3-H5 — Calling Essential Context & Goal Link" />
+    <!-- V101.11.3-H6 — Playbook Studio 2.0 -->
+    <meta name="realtalent-release-v101113h6" content="V101.11.3-H6 — Playbook Studio 2.0" />
+    <!-- V101.11.3-H8 — Playbook Canvas Autonomy -->
+    <meta name="realtalent-release-v101113h8" content="V101.11.3-H8 — Playbook Canvas Autonomy" />
+    <!-- V101.11.3-H9 — Playbook Performance & Interactive Whiteboard -->
+    <meta name="realtalent-release-v101113h9" content="V101.11.3-H9 — Playbook Performance & Interactive Whiteboard" />
+    <!-- V101.11.3-H10 — Progressive Data & Virtualized Canvas -->
+    <meta name="realtalent-release-v101113h10" content="V101.11.3-H10 — Progressive Data & Virtualized Canvas" />
+    <!-- V101.11.3-H11 — Proposal & Catalog Pricing 3.0 -->
+    <meta name="realtalent-release-v101113h11" content="V101.11.3-H11 — Proposal & Catalog Pricing 3.0" />
+    <!-- V101.11.3-H12 — Commercial Product Studio & Catalog-First Proposals -->
+    <meta name="realtalent-release-v101113h12" content="V101.11.3-H12 — Commercial Product Studio & Catalog-First Proposals" />
+    <!-- V101.11.3-H13 — Product Readiness & Revenue Bridge -->
+    <meta name="realtalent-release-v101113h13" content="V101.11.3-H13 — Product Readiness & Revenue Bridge" />
+    <!-- V101.11.3-H7 — Playbook Visual Conversation Workspace -->
+    <meta name="realtalent-release-v101113h7" content="V101.11.3-H7 — Playbook Visual Conversation Workspace" />
+    <!-- V101.11.3-H14 — Commercial Management Foundation -->
+    <meta name="realtalent-release-v101113h14" content="V101.11.3-H14 — Commercial Management Foundation" />
+    <!-- V101.11.3-H14-UI1 — Commercial Management UI Recovery -->
+    <meta name="realtalent-release-v101113h14ui1" content="V101.11.3-H14-UI1 — Commercial Management UI Recovery" />
+    <!-- V101.11.3-H15 — Strict Prospecting Scope -->
+    <meta name="realtalent-release-v101113h15" content="V101.11.3-H15 — Strict Prospecting Scope" />
+    <!-- V101.11.3-H19.2 — Communication Workspace & WhatsApp Connection Center -->
+    <meta name="realtalent-release-v101113h192" content="V101.11.3-H19.2 — Communication Workspace & WhatsApp Connection Center" />
+    <!-- V101.11.3-H19.3 — WhatsApp Sales Workspace -->
+    <meta name="realtalent-release-v101113h193" content="V101.11.3-H19.3 — WhatsApp Sales Workspace" />
+    <!-- V101.11.3-H19.5 — Channel Workspaces & Collaborative Tasks -->
+    <meta name="realtalent-release-v101113h195" content="V101.11.3-H19.5 — Channel Workspaces & Collaborative Tasks" />
+    <!-- V101.11.3-H19.7 — WhatsApp Pure Chat -->
+    <meta name="realtalent-release-v101113h197" content="V101.11.3-H19.7 — WhatsApp Pure Chat" />
+    <!-- V101.11.3-H19.9 — WhatsApp Reliable Messaging & Groups -->
+    <meta name="realtalent-release-v101113h199" content="V101.11.3-H19.9 — WhatsApp Reliable Messaging & Groups" />
+    <!-- V101.11.3-H19.8-H1 — WhatsApp Runtime Recovery -->
+    <meta name="realtalent-release-v101113h198h1" content="V101.11.3-H19.8-H1 — WhatsApp Runtime Recovery" />
+    <!-- V101.11.3-H19.8 — WhatsApp Continuous Chat & Settings Control Center -->
+    <meta name="realtalent-release-v101113h198" content="V101.11.3-H19.8 — WhatsApp Continuous Chat & Settings Control Center" />
+    <!-- V101.11.3-H19.6 — WhatsApp Native UX & Follow-up Focus -->
+    <meta name="realtalent-release-v101113h196" content="V101.11.3-H19.6 — WhatsApp Native UX & Follow-up Focus" />
+    <!-- V101.11.3-H19.4 — Communication Focus Experience -->
+    <meta name="realtalent-release-v101113h194" content="V101.11.3-H19.4 — Communication Focus Experience" />
+    <!-- V101.11.3-H19.10-H1 — Media Delivery Fix -->
+    <meta name="realtalent-release-v101113h1910h1" content="V101.11.3-H19.10-H1 — Media Delivery Fix" />
+    <!-- V101.11.3-H19.11 — WhatsApp Contact & Message Normalization -->
+    <meta name="realtalent-release-v101113h1911" content="V101.11.3-H19.11 — WhatsApp Contact & Message Normalization" />
+    <!-- V101.11.3-H19.10 — Rich Messaging & Reliable Delivery -->
+    <meta name="realtalent-release-v101113h1910" content="V101.11.3-H19.10 — Rich Messaging & Reliable Delivery" />
+    <!-- V101.11.3-H22.1 — Team Profiles & Real Access Control -->
+    <meta name="realtalent-release-v101113h221" content="V101.11.3-H22.1 — Team Profiles & Real Access Control" />
+    <!-- V101.11.3-H22.2 — Cross-Module Access Control -->
+    <meta name="realtalent-release-v101113h222" content="V101.11.3-H22.2 — Cross-Module Access Control" />
+    <!-- V101.11.3-H22.3-H1 — Stability & Security Closure -->
+    <meta name="realtalent-release-v101113h223h1" content="V101.11.3-H22.3-H1 — Stability & Security Closure" />
+    <!-- V101.11.3-H22.3 — Field-Level Permissions + Approvals + Audit Log -->
+    <meta name="realtalent-release-v101113h223" content="V101.11.3-H22.3 — Field-Level Permissions + Approvals + Audit Log" />
+    <!-- V101.11.3-H21.1 — Garimpo Coverage & Runtime Truth -->
+    <meta name="realtalent-release-v101113h211" content="V101.11.3-H21.1 — Garimpo Coverage & Runtime Truth" />
+</head>
   <body>
     <div id="root"></div>
+    <script src="/boot-guard.js"></script>
     <script type="module" src="/src/main.tsx"></script>
-  </body>
+  <!-- V101.11.3-H12 — Commercial Product Studio & Catalog-First Proposals -->
+</body>
 </html>

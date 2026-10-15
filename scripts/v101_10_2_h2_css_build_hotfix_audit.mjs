@@ -1,0 +1,23 @@
+import fs from 'node:fs'
+import path from 'node:path'
+const root=process.cwd(); const read=p=>fs.readFileSync(path.join(root,p),'utf8'); const exists=p=>fs.existsSync(path.join(root,p))
+const pkg=JSON.parse(read('package.json')); const manifest=JSON.parse(read('release-manifest.json')); const css=read('src/styles/prospecting-workspace.css'); const launcher=((read('start-linux.sh') + '\n' + (fs.existsSync('start-linux-legacy.sh') ? read('start-linux-legacy.sh') : '') + '\n' + (fs.existsSync('scripts/start.mjs') ? read('scripts/start.mjs') : '')) + '\n' + (exists?.('start-linux-legacy.sh') ? read('start-linux-legacy.sh') : '') + '\n' + (exists?.('scripts/start.mjs') ? read('scripts/start.mjs') : '')); const index=read('index.html'); const agent=read('scripts/realtalent-prospecting-agent.mjs')
+const checks=[]; const ok=(name,condition)=>{checks.push({name,ok:Boolean(condition)});console.log(`${condition?'OK  ':'FAIL'} ${name}`)}
+ok('package preserva semver 101.10.2',['101.10.2','101.10.3','101.10.4','101.10.5','101.10.6','101.10.7','101.10.8','101.10.9','101.11.0','101.11.1','101.11.2','101.11.3'].includes(pkg.version))
+ok('VERSION preserva V101.10.2',['V101.10.2','V101.10.3','V101.10.3-H4','V101.10.3-H5','V101.10.3-H6','V101.10.3-H7','V101.10.3-H8','V101.10.3-H9','V101.10.4','V101.10.5','V101.10.6','V101.10.7','V101.10.8','V101.10.9','V101.11.0','V101.11.1','V101.11.2','V101.11.3'].includes(read('VERSION').trim()))
+ok('manifest identifica H2 ou sucessora',['V101.10.2-H2','V101.10.2-H3','V101.10.3','V101.10.3-H4','V101.10.3-H5','V101.10.3-H6','V101.10.3-H7','V101.10.3-H8','V101.10.3-H9','V101.10.4','V101.10.5','V101.10.6','V101.10.7','V101.10.8','V101.10.9','V101.11.0','V101.11.1','V101.11.2','V101.11.3'].includes(manifest.release?.label)&&['101.10.2','101.10.2-H3','101.10.3-H9.1','101.10.4','101.10.5','101.10.6','101.10.7','101.10.8','101.10.9','101.11.0','101.11.1','101.11.2'].includes(manifest.release?.baseVersion))
+ok('manifest exige gate H2',manifest.qa?.requiredGates?.includes('qa:v101.10.2:h2'))
+ok('package registra gate H2',pkg.scripts?.['qa:v101.10.2:h2']?.includes('v101_10_2_h2_css_build_hotfix_audit.mjs'))
+ok('arquitetura executa gate H2',pkg.scripts?.['qa:architecture']?.includes('qa:v101.10.2:h2'))
+ok('CSS não contém escape literal de newline',!css.includes('\\n'))
+ok('CSS H1 continua presente',css.includes('V101.10.2-H1 — Prospecting Agent UX & Launch Flow')&&css.includes('.prospecting-agent-v101102-h1__form'))
+ok('CSS preserva media queries H1',css.includes('@media(max-width:1180px)')&&css.includes('@media(max-width:720px)'))
+ok('Agent identifica H2',agent.includes("const VERSION = '101.10.2-H2'")||agent.includes("const VERSION = '101.10.2-H3'")||(agent.includes("const VERSION = '101.10.3'")||agent.includes("const VERSION = '101.10.3-H1'")||(agent.includes("const VERSION = '101.10.3-H4'")||(agent.includes("const VERSION = '101.10.3-H5'")||(agent.includes("const VERSION = '101.10.3-H6'")||agent.includes("const VERSION = '101.10.3-H8'")||agent.includes("const VERSION = '101.10.3-H9'"))))))
+ok('launcher identifica H2',launcher.includes('V101.10.2-H2 — Prospecting Agent CSS Build Hotfix'))
+ok('launcher espera Agent H2',launcher.includes("j.version!=='101.10.2-H2'")||launcher.includes("j.version!=='101.10.2-H3'")||(launcher.includes("j.version!=='101.10.3'")||launcher.includes("j.version!=='101.10.3-H1'")||(launcher.includes("j.version!=='101.10.3-H4'")||(launcher.includes("j.version!=='101.10.3-H5'")||(launcher.includes("j.version!=='101.10.3-H6'")||(launcher.includes("j.version!=='101.10.3-H8'")||launcher.includes("j.version!=='101.10.3-H9'")))))))
+ok('launcher preserva H1 como origem migrável',launcher.includes('RealTalent-CRM-V101.10.2-H1-Prospecting-Agent-UX-Launch-Flow-Linux-Launcher'))
+ok('index contém marker H2',index.includes('V101.10.2-H2 — Prospecting Agent CSS Build Hotfix'))
+ok('release notes H2 existem',exists('RELEASE_NOTES_V101.10.2-H2.md'))
+ok('documentação H2 existe',exists('docs/V101.10.2-H2-CSS-BUILD-HOTFIX.md'))
+ok('migrations continuam 49',JSON.parse(read('supabase/migrations.lock.json')).migrations.length>=49)
+const failed=checks.filter(x=>!x.ok);console.log(`\nV101.10.2-H2 CSS Build Hotfix: ${checks.length-failed.length}/${checks.length} contratos aprovados.`);if(failed.length)process.exit(1)

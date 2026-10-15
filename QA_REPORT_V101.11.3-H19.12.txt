@@ -1,0 +1,74 @@
+RealTalent CRM V101.11.3-H19.12 — Communication Workspace Lineage Recovery
+QA final — 2026-10-08
+
+BASE
+- V101.11.3-H19.11 — WhatsApp Contact & Message Normalization
+- Migrations novas: 0 (baseline preservada: 54)
+
+CAUSA CORRIGIDA
+- A entrega H19-Communications-3 foi produzida sobre uma base anterior à linhagem H19.7→H19.11 e reintroduziu a Central antiga.
+- Sintomas visuais observados: rail fixo "Contexto CRM", respostas rápidas/ações comerciais dentro do chat, navegação antiga e rt_ui=h19-communications-3.
+- H19.12 volta a usar H19.11 como base direta e adiciona gates para impedir regressão de source/launcher.
+
+ESCOPO H19.12
+- Pure Chat H19.7 preservado.
+- Continuous Chat + Settings Control Center H19.8 preservados.
+- Runtime Recovery H19.8-H1 preservado.
+- Reliable Messaging & Groups H19.9 preservado.
+- Rich Messaging / outbox / ACK / reply / voz H19.10 preservados.
+- Media Delivery Fix H19.10-H1 preservado.
+- Contact & Message Normalization H19.11 preservada.
+- Contexto comercial permanece disponível sob demanda via Lead Context Drawer; não volta como terceira coluna fixa.
+- Launcher valida a linhagem da Central antes de subir a UI.
+- Launcher recupera :4188 apenas quando identifica preview Vite pertencente a release RealTalent; processo desconhecido é preservado e bloqueia o start com diagnóstico.
+- URL atual: rt_ui=101.11.3-h19-12-communication-workspace-lineage-recovery.
+
+GATES DE RELEASE
+PASS qa:architecture
+PASS H19.7  WhatsApp Pure Chat                         38/38
+PASS H19.8  WhatsApp Control Center                    40/40
+PASS H19.8-H1 WhatsApp Runtime Recovery                28/28
+PASS H19.9  Reliable Messaging & Groups                37/37
+PASS H19.10 Rich Messaging & Reliable Delivery         64/64
+PASS H19.10-H1 Media Delivery Fix                      31/31
+PASS H19.11 Contact & Message Normalization             50/50
+PASS H19.12 Communication Workspace Lineage Recovery    19/19
+
+INFRAESTRUTURA / CONTRATOS
+PASS Source Syntax                                      414 arquivos
+PASS Integration Contracts                              382 arquivos
+PASS Migrations                                          54/54
+PASS Release Manifest                                    91/91
+PASS Capability Matrix                    40 capacidades / 141 evidências / 95 executáveis
+PASS Repository Local                                   100/100
+PASS Repository Supabase                                100/100
+PASS Browser E2E Contract                                11 fluxos
+PASS CSS Governance                                      65/65
+PASS Linux release preflight                        375 TS/TSX
+
+RUNTIME
+PASS H19.11 normalization                                 8/8
+PASS H19.10 Rich Messaging                                7/7
+PASS H19.10-H1 Media Fix                                  7/7
+PASS H19.8-H1 Runtime Recovery                            5/5
+PASS Communications Architecture                          6/6
+PASS Communications Recovery                              5/5
+PASS Connect Recovery                                     5/5
+PASS Security Runtime                                    12/12
+
+BUILD / DEPENDÊNCIAS
+PASS validate:env
+PASS registry-independent transpile: 299 módulos
+REJECTED runtime:bundle independente — o fallback gera HTML legado; dist removido do artefato final.
+
+GATES OFICIAIS DEPENDENTES DE NODE_MODULES
+BLOCKED/FAIL typecheck — node_modules ausente; primeira causa: Cannot find module 'react' e tipos dependentes.
+BLOCKED npm test — vitest: not found.
+BLOCKED npm run build — validate:env PASS; vite: not found.
+Esses gates NÃO são classificados como PASS.
+
+INTEGRIDADE DE ENTREGA
+- node_modules não integra o artefato.
+- dist fallback não integra o artefato.
+- .realtalent-whatsapp-browser e mídia/runtime local não integram o artefato.
+- H19.12 é sucessora direta da H19.11; a antiga H19-Communications-3 não é base desta release.

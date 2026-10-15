@@ -3,8 +3,11 @@ export type AppRoute =
   | 'leads'
   | 'commercial-map'
   | 'pipeline'
+  | 'tasks'
+  | 'teams'
   | 'followups'
   | 'calls'
+  | 'communications'
   | 'proposals'
   | 'agenda'
   | 'playbooks'
@@ -22,10 +25,16 @@ export type GeocodeStatus = 'pending' | 'exact' | 'approximate' | 'incomplete' |
 export type GeocodePrecision = 'rooftop' | 'range_interpolated' | 'street' | 'district' | 'city' | 'manual' | 'unknown'
 export type ActivityType = 'call' | 'followup' | 'meeting' | 'note' | 'stage_change' | 'email' | 'whatsapp'
 export type ActivitySourceType = 'manual' | 'calendar' | 'call' | 'system' | 'gmail' | 'outlook' | 'whatsapp'
+export type ActivityResolutionStatus = 'pending' | 'completed' | 'cancelled' | 'superseded'
 export type CallOutcome = 'answered' | 'no_answer' | 'busy' | 'voicemail' | 'callback_requested' | 'interested' | 'meeting_scheduled' | 'proposal_requested' | 'proposal_sent' | 'wrong_person' | 'invalid_number' | 'not_interested' | 'sale_completed' | 'other'
 export type CalendarEventStatus = 'confirmed' | 'tentative' | 'completed' | 'cancelled'
-export type PlaybookKind = 'script' | 'objection'
-export type DecisionRole = 'decision_maker' | 'influencer' | 'user' | 'unknown'
+export type PlaybookKind = 'script' | 'objection' | 'battlecard' | 'checklist'
+export type PlaybookObjective = 'first_meeting' | 'identify_decision_maker' | 'qualify' | 'proposal_followup' | 'recover_opportunity'
+export type PlaybookExecutionMode = 'step_by_step' | 'checklist' | 'call' | 'meeting'
+export type DecisionRole = 'decision_maker' | 'economic_buyer' | 'champion' | 'influencer' | 'technical_evaluator' | 'finance' | 'procurement' | 'gatekeeper' | 'blocker' | 'user' | 'operational' | 'unknown'
+export type RelationshipStrength = 'unknown' | 'weak' | 'developing' | 'strong' | 'trusted'
+export type StakeholderStance = 'unknown' | 'supportive' | 'neutral' | 'opposed'
+export type ContactRelationshipType = 'reports_to' | 'partner' | 'co_owner' | 'referred_by' | 'works_with' | 'influences' | 'other'
 export type ConsentStatus = 'unknown' | 'legitimate_interest' | 'consented' | 'opted_out'
 export type SocialNetwork = 'instagram' | 'linkedin' | 'facebook' | 'whatsapp' | 'website' | 'google_business' | 'other'
 export type SocialEntityType = 'company' | 'contact'
@@ -35,13 +44,23 @@ export type DataQualityCategory = 'duplicate' | 'identity' | 'contact' | 'origin
 
 export type ProductBillingType = 'one_time' | 'recurring'
 export type ProductBillingInterval = 'month' | 'quarter' | 'year' | null
+export type ProductPricingMode = 'fixed' | 'from' | 'quote' | 'free' | 'custom'
+export type ProductLifecycleStatus = 'draft' | 'ready' | 'active' | 'archived'
+export type ProductCommercialType = 'software' | 'service' | 'subscription' | 'license' | 'addon' | 'bundle' | 'training' | 'consulting' | 'implementation' | 'support' | 'other'
+export type RevenueSource = 'manual' | 'proposal_schedule'
 export type ProposalStatus = 'draft' | 'sent' | 'viewed' | 'accepted' | 'rejected' | 'expired' | 'cancelled'
 export type ForecastCategory = 'pipeline' | 'best_case' | 'commit' | 'closed' | 'omitted'
 export type RevenueType = 'one_time' | 'recurring'
 export type RevenueStatus = 'forecast' | 'recognized' | 'cancelled'
 export type ProposalRole = 'official' | 'alternative'
+export type BuyerRoomStatus = 'draft' | 'shared' | 'active' | 'completed' | 'archived'
+export type BuyerRoomStepStatus = 'pending' | 'in_progress' | 'completed' | 'blocked'
+export type BuyerRoomStepOwner = 'seller' | 'buyer' | 'shared'
+export type BuyerRoomDocumentKind = 'proposal' | 'document' | 'link'
+export type BuyerRoomActivityType = 'created' | 'shared' | 'opened' | 'step_updated' | 'document_opened' | 'comment' | 'status_changed' | 'token_rotated'
 
 export type GoalMetric = 'calls' | 'contacts' | 'followups' | 'meetings' | 'proposals' | 'wins' | 'revenue' | 'new_leads'
+export type GoalScope = 'workspace' | 'team' | 'user'
 export type AutomationTriggerType =
   | 'lead_created'
   | 'lead_imported'
@@ -94,7 +113,13 @@ export type AutomationActionType =
   | 'assisted_whatsapp'
   | 'assisted_email'
   | 'send_webhook'
+  | 'wait'
+  | 'branch_if'
 export type AutomationRunStatus = 'running' | 'success' | 'failed' | 'undone'
+export type TaskStatus = 'todo' | 'in_progress' | 'blocked' | 'completed' | 'cancelled'
+export type TaskPriority = 'low' | 'normal' | 'high' | 'urgent'
+export type TaskRelationEntity = 'contact' | 'company' | 'opportunity' | 'lead' | 'pipeline' | 'playbook' | 'meeting'
+export type TaskRecurrence = 'none' | 'daily' | 'weekly' | 'monthly'
 
 export interface UserProfile {
   id: string
@@ -123,6 +148,143 @@ export interface WorkspaceInvite {
   acceptedAt: string | null
   revokedAt: string | null
   createdAt: string
+}
+
+export interface Team {
+  id: string
+  workspaceId: string
+  name: string
+  description: string
+  leaderId: string | null
+  color: string
+  active: boolean
+  createdAt: string
+  updatedAt: string
+}
+
+export interface TeamMembership {
+  id: string
+  workspaceId: string
+  teamId: string
+  userId: string
+  role: 'leader' | 'member'
+  allocationPercent: number
+  createdAt: string
+}
+
+export type TeamAccessScope = 'none' | 'own' | 'team' | 'all'
+export type TeamAccessAction = 'view' | 'create' | 'edit' | 'delete' | 'export' | 'assign' | 'approve'
+export type TeamAccessResource = 'contacts' | 'pipeline' | 'tasks' | 'communications' | 'proposals' | 'prospecting' | 'goals' | 'settings'
+
+export type TeamSensitiveField = 'contact_phone' | 'contact_email' | 'deal_value' | 'proposal_discount' | 'proposal_margin' | 'proposal_cost' | 'proposal_total' | 'revenue_amount'
+export type TeamFieldAccessLevel = 'hidden' | 'view' | 'edit'
+
+export interface TeamApprovalPolicy {
+  proposalDiscountPercent: number | null
+  proposalMinMarginPercent: number | null
+  proposalTotalValue: number | null
+  exportRequiresApproval: boolean
+}
+
+export type TeamApprovalStatus = 'pending' | 'approved' | 'rejected' | 'cancelled'
+export type TeamApprovalKind = 'proposal_policy' | 'data_export'
+
+export interface TeamApprovalRequest {
+  id: string
+  workspaceId: string
+  requesterId: string | null
+  requesterName: string
+  approverId: string | null
+  approverName: string
+  resource: TeamAccessResource
+  kind: TeamApprovalKind
+  entityType: string
+  entityId: string | null
+  reason: string
+  payload: Record<string, unknown>
+  status: TeamApprovalStatus
+  decidedAt: string | null
+  createdAt: string
+  updatedAt: string
+}
+
+export interface TeamAccessRule {
+  resource: TeamAccessResource
+  scope: TeamAccessScope
+  actions: TeamAccessAction[]
+}
+
+export interface TeamAccessProfile {
+  id: string
+  workspaceId: string
+  name: string
+  description: string
+  systemKey: 'administrator' | 'manager' | 'seller' | 'sdr' | 'viewer' | null
+  isSystem: boolean
+  rules: TeamAccessRule[]
+  fieldAccess: Record<TeamSensitiveField, TeamFieldAccessLevel>
+  approvalPolicy: TeamApprovalPolicy
+  createdAt: string
+  updatedAt: string
+}
+
+export interface MemberAccessAssignment {
+  workspaceId: string
+  userId: string
+  profileId: string
+  updatedAt: string
+}
+
+export interface WorkTask {
+  id: string
+  workspaceId: string
+  title: string
+  description: string
+  status: TaskStatus
+  priority: TaskPriority
+  startsAt: string | null
+  dueAt: string | null
+  completedAt: string | null
+  assigneeId: string | null
+  assigneeName: string
+  teamId: string | null
+  recurrence: TaskRecurrence
+  tags: string[]
+  createdBy: string | null
+  createdAt: string
+  updatedAt: string
+}
+
+export interface TaskRelation {
+  id: string
+  workspaceId: string
+  taskId: string
+  entityType: TaskRelationEntity
+  entityId: string
+  entityLabel: string
+  createdAt: string
+}
+
+export interface TaskChecklistItem {
+  id: string
+  workspaceId: string
+  taskId: string
+  title: string
+  completed: boolean
+  position: number
+  createdAt: string
+  updatedAt: string
+}
+
+export interface TaskComment {
+  id: string
+  workspaceId: string
+  taskId: string
+  authorId: string | null
+  authorName: string
+  body: string
+  createdAt: string
+  updatedAt: string
 }
 
 export interface AuditLog {
@@ -242,10 +404,32 @@ export interface ContactRecord {
   email: string
   decisionRole: DecisionRole
   influenceLevel: number
+  relationshipStrength?: RelationshipStrength
+  relationshipScore?: number
+  stance?: StakeholderStance
+  relationshipOwnerId?: string | null
+  relationshipOwnerName?: string
+  lastContactAt?: string | null
+  nextActionAt?: string | null
+  notes?: string
+  isPrimary?: boolean
   consentStatus: ConsentStatus
   doNotContact: boolean
   doNotContactReason: string
   leadIds: string[]
+  createdAt: string
+  updatedAt: string
+}
+
+export interface ContactRelationship {
+  id: string
+  workspaceId: string
+  companyId: string
+  fromContactId: string
+  toContactId: string
+  relationshipType: ContactRelationshipType
+  strength: number
+  notes: string
   createdAt: string
   updatedAt: string
 }
@@ -319,6 +503,39 @@ export interface ProductRecord {
   category: string
   active: boolean
   unitPrice: number
+  /** V100.97 — custo unitário para leitura de margem. Opcional para preservar workspaces antigos. */
+  unitCost?: number
+  /** Produto físico/digital ou serviço. */
+  kind?: 'product' | 'service'
+  /** Classificação comercial controlada para filtros, ofertas e analytics. */
+  commercialType?: ProductCommercialType
+  /** Unidade comercial exibida em propostas (unidade, licença, hora, projeto...). */
+  unitLabel?: string
+  /** Desconto padrão sugerido ao inserir o item em uma proposta. */
+  defaultDiscountPercent?: number
+  /** Limite comercial recomendado; acima dele a proposta pede revisão/aprovação. */
+  maxDiscountPercent?: number
+  /** Margem bruta comercial mínima recomendada para negociação. */
+  minMarginPercent?: number
+  /** Proposta de valor usada por vendedor, Playbook e Product Studio. */
+  valueProposition?: string
+  /** Perfil de cliente ideal / público principal do produto. */
+  targetCustomer?: string
+  /** Conhecimento comercial livre legado; mantido para compatibilidade. */
+  salesNotes?: string
+  /** Como o preço deve ser interpretado no catálogo. */
+  pricingMode?: ProductPricingMode
+  /** Ciclo de vida comercial independente da existência do registro. */
+  lifecycleStatus?: ProductLifecycleStatus
+  /** Conhecimento estruturado consumido por Playbook, Calling e Product Studio. */
+  salesProblems?: string[]
+  salesBenefits?: string[]
+  discoveryQuestions?: string[]
+  objectionNotes?: string[]
+  salesProofs?: string[]
+  competitors?: string[]
+  /** Oferta reutilizável: componentes do catálogo e respectivas quantidades. */
+  bundleItems?: Array<{ productId: string; quantity: number }>
   billingType: ProductBillingType
   billingInterval: ProductBillingInterval
   taxRate: number
@@ -342,6 +559,16 @@ export interface ProposalLineItem {
   lineTax: number
   lineTotal: number
   recurringMonthlyTotal: number
+  /** Origem comercial do preço desta linha. */
+  pricingSource?: 'catalog' | 'manual'
+  /** Preço de tabela capturado quando o produto foi inserido. */
+  catalogUnitPrice?: number
+  /** Custo unitário capturado no momento da proposta. */
+  unitCostSnapshot?: number
+  /** Desconto padrão capturado do catálogo. */
+  catalogDiscountPercent?: number
+  /** Verdadeiro quando preço/cobrança/desconto divergem do snapshot do catálogo. */
+  pricingOverridden?: boolean
 }
 
 export interface ProposalRecord {
@@ -391,6 +618,73 @@ export interface ProposalRecord {
   updatedAt: string
 }
 
+
+export interface BuyerRoomParticipant {
+  id: string
+  contactId: string | null
+  name: string
+  email: string
+  jobTitle: string
+  decisionRole: DecisionRole | 'seller'
+  side: 'seller' | 'buyer'
+  required: boolean
+  acknowledgedAt: string | null
+}
+
+export interface BuyerRoomStep {
+  id: string
+  title: string
+  description: string
+  owner: BuyerRoomStepOwner
+  ownerContactId: string | null
+  dueAt: string | null
+  status: BuyerRoomStepStatus
+  completedAt: string | null
+  order: number
+}
+
+export interface BuyerRoomDocument {
+  id: string
+  kind: BuyerRoomDocumentKind
+  title: string
+  url: string
+  proposalId: string | null
+  visible: boolean
+  addedAt: string
+}
+
+export interface BuyerRoomActivity {
+  id: string
+  type: BuyerRoomActivityType
+  actorName: string
+  description: string
+  occurredAt: string
+  metadata: Record<string, string | number | boolean | null>
+}
+
+export interface BuyerRoom {
+  id: string
+  workspaceId: string
+  leadId: string
+  opportunityId: string | null
+  proposalId: string
+  companyId: string | null
+  title: string
+  welcomeMessage: string
+  status: BuyerRoomStatus
+  shareToken: string
+  shareEnabled: boolean
+  expiresAt: string | null
+  lastOpenedAt: string | null
+  viewCount: number
+  participants: BuyerRoomParticipant[]
+  steps: BuyerRoomStep[]
+  documents: BuyerRoomDocument[]
+  activity: BuyerRoomActivity[]
+  createdAt: string
+  updatedAt: string
+}
+
 export interface RevenueEntry {
   id: string
   workspaceId: string
@@ -408,6 +702,12 @@ export interface RevenueEntry {
   adjustmentReason: string
   description: string
   ownerId: string | null
+  /** Origem do lançamento: manual ou plano de receita gerado pela proposta. */
+  source?: RevenueSource
+  /** Chave idempotente de uma competência gerada automaticamente. */
+  scheduleKey?: string | null
+  installmentIndex?: number | null
+  installmentCount?: number | null
   createdAt: string
   updatedAt: string
 }
@@ -421,7 +721,7 @@ export interface DashboardStats {
 }
 
 
-export type CommunicationChannel = 'email' | 'whatsapp' | 'calendar' | 'call' | 'meeting' | 'note' | 'system'
+export type CommunicationChannel = 'email' | 'whatsapp' | 'instagram' | 'facebook' | 'linkedin' | 'calendar' | 'call' | 'meeting' | 'note' | 'system'
 export type CommunicationDirection = 'inbound' | 'outbound' | 'internal'
 export type CommunicationStatus = 'queued' | 'sent' | 'delivered' | 'read' | 'received' | 'failed' | 'cancelled'
 export type CommunicationEventType = 'message' | 'email' | 'calendar_event' | 'delivery_status' | 'internal_note'
@@ -430,6 +730,7 @@ export interface CommunicationEvent {
   id: string
   workspaceId: string
   leadId: string | null
+  contactId?: string | null
   accountId: string | null
   threadId: string | null
   channel: CommunicationChannel
@@ -454,11 +755,16 @@ export interface ActivityItem {
   id: string
   workspaceId: string
   leadId: string | null
+  contactId?: string | null
   type: ActivityType
   title: string
   description: string
   dueAt: string | null
   completedAt: string | null
+  resolutionStatus?: ActivityResolutionStatus
+  resolutionReason?: string | null
+  originEventKey?: string | null
+  purpose?: string | null
   assignedTo: string | null
   sourceType: ActivitySourceType
   sourceId: string | null
@@ -470,6 +776,7 @@ export interface CallRecord {
   id: string
   workspaceId: string
   leadId: string
+  contactId?: string | null
   userId: string | null
   outcome: CallOutcome
   durationSeconds: number
@@ -487,6 +794,7 @@ export interface CalendarEvent {
   id: string
   workspaceId: string
   leadId: string | null
+  contactId?: string | null
   title: string
   description: string
   startsAt: string
@@ -499,6 +807,64 @@ export interface CalendarEvent {
   updatedAt: string
 }
 
+export type PlaybookConversationNodeType = 'stage' | 'statement' | 'question' | 'decision' | 'objection' | 'action' | 'outcome' | 'note'
+export type PlaybookConversationNodeColor = 'blue' | 'sky' | 'violet' | 'amber' | 'rose' | 'slate'
+
+export interface PlaybookConversationNode {
+  id: string
+  type: PlaybookConversationNodeType
+  title: string
+  content: string
+  objective?: string
+  x: number
+  y: number
+  groupId?: string
+  color?: PlaybookConversationNodeColor
+}
+
+export interface PlaybookConversationGroup {
+  id: string
+  title: string
+  x: number
+  y: number
+  width: number
+  height: number
+}
+
+export interface PlaybookConversationEdge {
+  id: string
+  sourceId: string
+  targetId: string
+  label?: string
+}
+
+export interface PlaybookConversationGraph {
+  version: 1
+  rootNodeId: string
+  nodes: PlaybookConversationNode[]
+  edges: PlaybookConversationEdge[]
+  groups?: PlaybookConversationGroup[]
+  defaultView?: 'map' | 'structure' | 'script' | 'execution'
+}
+
+export interface PlaybookGuidance {
+  objectives?: PlaybookObjective[]
+  stageIds?: string[]
+  decisionRoles?: DecisionRole[]
+  outcomes?: CallOutcome[]
+  temperatures?: LeadTemperature[]
+  coachingFocus?: string
+  successCriteria?: string[]
+  avoidPhrases?: string[]
+  executionModes?: PlaybookExecutionMode[]
+  segments?: string[]
+  personas?: string[]
+  discoveryQuestions?: string[]
+  objectionPrompts?: string[]
+  meetingAgenda?: string[]
+  conversationGraph?: PlaybookConversationGraph
+}
+
 export interface Playbook {
   id: string
   workspaceId: string
@@ -507,6 +873,7 @@ export interface Playbook {
   category: string
   content: string
   tags: string[]
+  guidance?: PlaybookGuidance
   active: boolean
   createdAt: string
   updatedAt: string
@@ -515,6 +882,10 @@ export interface Playbook {
 export interface Goal {
   id: string
   workspaceId: string
+  /** Escopo canônico da meta. Metas legadas sem scope são inferidas pelo userId. */
+  scope?: GoalScope
+  teamId?: string | null
+  teamName?: string
   userId: string | null
   userName: string
   metric: GoalMetric
@@ -538,7 +909,12 @@ export interface AutomationAction {
   value: string
   delayDays?: number
   delayHours?: number
+  delayMinutes?: number
   durationMinutes?: number
+  branchField?: Exclude<AutomationConditionField, 'automation_guard'>
+  branchOperator?: AutomationConditionOperator
+  branchValue?: string
+  branchSkip?: number
 }
 
 export interface AutomationGuard {
@@ -570,7 +946,7 @@ export interface AutomationMutation {
   leadId?: string
   activityId?: string
   eventId?: string
-  before?: Partial<Pick<Lead, 'tags' | 'priority' | 'temperature' | 'stageId' | 'status' | 'ownerId' | 'ownerName'>> & { completedAt?: string | null }
+  before?: Partial<Pick<Lead, 'tags' | 'priority' | 'temperature' | 'stageId' | 'status' | 'ownerId' | 'ownerName'>> & { completedAt?: string | null; resolutionStatus?: ActivityResolutionStatus; resolutionReason?: string | null }
 }
 
 export interface AutomationRunOutput {
@@ -613,10 +989,12 @@ export interface WorkspaceSnapshot {
   automationRuns: AutomationRun[]
   companies: CompanyRecord[]
   contacts: ContactRecord[]
+  contactRelationships: ContactRelationship[]
   opportunities: OpportunityRecord[]
   socialProfiles: SocialProfile[]
   products: ProductRecord[]
   proposals: ProposalRecord[]
+  buyerRooms?: BuyerRoom[]
   revenueEntries: RevenueEntry[]
 }
 

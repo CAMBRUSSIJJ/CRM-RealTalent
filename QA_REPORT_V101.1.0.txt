@@ -1,0 +1,69 @@
+RealTalent CRM V101.1.0 — Consolidation & Runtime QA
+Data: 2026-09-26
+
+OBJETIVO
+- Consolidar a base V101 antes de novas features.
+- Corrigir regressões de contrato acumuladas entre V100.x e V101.
+- Transformar o launcher Linux em um gate real de release.
+
+CORREÇÕES DE CONSOLIDAÇÃO
+1. BACKUP_SCHEMA_VERSION restaurado para 100.54.
+2. Gates históricos que tratavam V101 como versão inferior a V100 foram corrigidos para comparação semântica.
+3. Gate histórico V100.79 foi atualizado para reconhecer a migração intencional de CARTO para OpenStreetMap/Leaflet na V101.
+4. README volta a preservar explicitamente os marcos V100.92.0 e V100.93.0.
+5. V101.0 passou a ser validada como capability preservada, sem exigir que a release atual continue exatamente em 101.0.0.
+6. Novo gate V101.1 cobre metadados, backup, rotas, AppShell, boot guard, mapa, Calling, Layout Studio, Visual Intelligence, Garimpo e Guided Selling.
+7. Novo bundle audit impede HTML legado, esm.sh, assets ausentes e divergência de versão.
+8. Novo smoke HTTP valida o build via vite preview antes de abrir o CRM.
+9. O launcher final serve o build aprovado com vite preview, em vez de abrir um runtime diferente do que foi validado.
+
+VALIDAÇÕES EXECUTADAS NESTE AMBIENTE
+- Auditoria sintática: 274 arquivos aprovados.
+- Auditoria de contratos de integração: 243 arquivos aprovados.
+- Migrations: 41/41 com checksum íntegro.
+- Linux preflight: 241 arquivos TS/TSX aprovados.
+- Gates source/históricos: 48/48 aprovados.
+- Gate V101.1: 71/71 contratos aprovados.
+- Gate de preservação V101.0: 53/53 contratos aprovados.
+- V100.92 Hardening & UX: 65/65 contratos aprovados.
+- V100.93 Full Page UX Audit: 62/62 contratos aprovados.
+- Sintaxe Bash: start-linux.sh, install-linux.sh e configuradores aprovada.
+
+REGRESSÕES ENCONTRADAS E CORRIGIDAS
+- BACKUP_SCHEMA_VERSION havia desaparecido de src/lib/app-version.ts.
+- Diversos gates V100.x usavam somente o minor da versão e falhavam ao chegar em V101.
+- O gate V100.79 ainda exigia CARTO Light/Dark, apesar da V101 ter removido CARTO por decisão arquitetural.
+- O histórico do README não continha os marcadores literais exigidos por gates V100.92/V100.93/V100.94/V100.95.
+- Gates antigos assumiam que o launcher precisava conter literalmente "npm run build"; V101.1 documenta que release:verify executa esse build e os gates seguintes.
+
+GATE DE RUNTIME EMBUTIDO NA RELEASE
+O comando ./start-linux.sh executa, nesta ordem:
+1. Instalação de dependências (quando necessário).
+2. Linux preflight.
+3. npm run release:verify.
+4. Todos os gates históricos e V101.1.
+5. TypeScript typecheck.
+6. Vitest.
+7. Build Vite real.
+8. Bundle audit do dist.
+9. HTTP smoke do build em vite preview.
+10. RealTalent Connect.
+11. Servidor final do mesmo build aprovado.
+
+LIMITAÇÃO DO AMBIENTE DE EMPACOTAMENTO
+- A instalação npm completa não pôde ser concluída neste ambiente porque registry.npmjs.org respondeu EAI_AGAIN (DNS/rede).
+- Por isso typecheck, Vitest, build Vite, bundle audit e HTTP smoke não foram executados aqui após instalação limpa.
+- Esses gates NÃO foram removidos nem simulados: são obrigatórios no start-linux.sh e o CRM não é aberto no Linux se qualquer um falhar.
+
+PORTAS
+- CRM: http://127.0.0.1:4186
+- RealTalent Connect: http://127.0.0.1:3001
+- Smoke test temporário: 4196
+
+COMANDO LINUX
+cd ~/Downloads
+rm -rf RealTalent-CRM-V101.1.0-Consolidation-Runtime-QA
+unzip RealTalent-CRM-V101.1.0-Consolidation-Runtime-QA.zip
+cd RealTalent-CRM-V101.1.0-Consolidation-Runtime-QA
+chmod +x start-linux.sh
+./start-linux.sh

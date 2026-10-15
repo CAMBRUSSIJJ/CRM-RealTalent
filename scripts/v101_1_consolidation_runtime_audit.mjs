@@ -1,0 +1,86 @@
+import fs from 'node:fs'
+import path from 'node:path'
+
+const root=process.cwd()
+const read=(f)=>fs.readFileSync(path.join(root,f),'utf8')
+const exists=(f)=>fs.existsSync(path.join(root,f))
+const checks=[]
+const check=(label,pass)=>checks.push({label,pass:Boolean(pass)})
+
+const pkg=JSON.parse(read('package.json'))
+const lock=JSON.parse(read('package-lock.json'))
+const health=JSON.parse(read('public/health.json'))
+const runtime=JSON.parse(read('public/runtime-version.json'))
+const version=read('src/lib/app-version.ts')
+const index=read('index.html')
+const main=read('src/main.tsx')
+const app=read('src/app/app.tsx')
+const navigation=read('src/components/layout/navigation.ts')
+const shell=read('src/components/layout/app-shell.tsx')
+const boot=read('public/boot-guard.js')
+const mapRuntime=read('public/commercial-map-runtime.js')
+const mapPage=read('src/features/commercial-map/commercial-map-page.tsx')
+const launcher=((read('start-linux.sh') + '\n' + (fs.existsSync('start-linux-legacy.sh') ? read('start-linux-legacy.sh') : '') + '\n' + (fs.existsSync('scripts/start.mjs') ? read('scripts/start.mjs') : '')) + '\n' + (exists?.('start-linux-legacy.sh') ? read('start-linux-legacy.sh') : '') + '\n' + (exists?.('scripts/start.mjs') ? read('scripts/start.mjs') : ''))
+const readme=read('README.md')
+
+check('package V101.1+ preserva baseline',Number(pkg.version.split('.')[0])>101||(Number(pkg.version.split('.')[0])===101&&Number(pkg.version.split('.')[1])>=1))
+check('lock acompanha pacote',lock.version===pkg.version&&lock.packages?.['']?.version===pkg.version)
+check('VERSION acompanha pacote',read('VERSION').trim()===`V${pkg.version}`)
+check('APP_VERSION acompanha pacote',version.includes(`APP_VERSION = '${pkg.version}'`))
+check('backup schema 100.54 restaurado',version.includes("BACKUP_SCHEMA_VERSION = '100.54'"))
+check('health acompanha pacote',health.version===pkg.version)
+check('runtime acompanha pacote',runtime.version===pkg.version)
+check('runtime usa porta >= 4186',runtime.default_port>=4186)
+check('Connect preserva porta 3001',runtime.connect_port===3001)
+check('index identifica release',index.includes(`RealTalent CRM V${pkg.version}`))
+check('index usa boot guard',index.includes('/boot-guard.js'))
+check('index não usa esm.sh',!index.includes('esm.sh'))
+check('main monta ErrorBoundary',main.includes('<ErrorBoundary>'))
+check('boot guard trata error',boot.includes("window.addEventListener('error'"))
+check('boot guard trata rejection',boot.includes("window.addEventListener('unhandledrejection'"))
+check('boot guard possui timeout',boot.includes('Tempo limite de inicialização excedido'))
+
+const navRoutes=[...navigation.matchAll(/route:\s*'([^']+)'/g)].map((m)=>m[1])
+const uniqueRoutes=[...new Set(navRoutes)]
+check('navegação preserva ao menos 15 rotas',uniqueRoutes.length>=15)
+for(const route of uniqueRoutes){
+  check(`rota ${route} possui título`,navigation.includes(`${route}: {`)||navigation.includes(`'${route}': {`))
+  if(route!=='settings') check(`rota ${route} integrada ao app`,app.includes(`route === '${route}'`))
+}
+check('rota settings integrada ao app',app.includes("route === 'settings'"))
+check('AppShell preserva skip-link',shell.includes('href="#main-content"'))
+check('AppShell preserva main-content',shell.includes('id="main-content"'))
+check('AppShell retorna ao topo',shell.includes('window.scrollTo'))
+
+check('mapa não usa CARTO',!mapRuntime.includes('basemaps.cartocdn.com'))
+check('mapa usa OpenStreetMap',mapRuntime.includes('tile.openstreetmap.org/{z}/{x}/{y}.png'))
+check('mapa não contém API KEY REQUIRED',!mapRuntime.includes('API KEY REQUIRED'))
+check('bridge do mapa acompanha pacote',mapPage.includes('version: APP_VERSION'))
+
+check('Calling 3.0 preservado',exists('scripts/realtalent-connect-server.mjs')&&exists('src/styles/calling-workspace.css'))
+check('Layout Studio preservado',exists('src/styles/workspace-layout-studio-v100981.css'))
+check('Visual Intelligence preservado',exists('src/features/metrics/visual-funnel.tsx'))
+check('Prospecting Engine preservado',exists('src/services/prospecting-provider-gateway.ts'))
+check('Guided Selling preservado',exists('src/features/assistant/guided-selling-strip.tsx'))
+check('Omnichannel preservado',exists('src/styles/omnichannel-v10094.css'))
+check('UI System preservado',exists('src/styles/design-system-v101.css'))
+
+check('README registra V100.92',readme.includes('V100.92.0'))
+check('README registra V100.93',readme.includes('V100.93.0'))
+check('release notes V101.1 existem',exists('RELEASE_NOTES_V101.1.0.md'))
+check('documentação V101.1 existe',exists('docs/V101.1-CONSOLIDATION-RUNTIME-QA.md'))
+check('bundle audit registrado',String(pkg.scripts['runtime:bundle']||'').includes('built_bundle_audit.mjs'))
+check('HTTP smoke registrado',String(pkg.scripts['runtime:http']||'').includes('http_smoke.mjs'))
+check('release verify registrado',String(pkg.scripts['release:verify']).includes('runtime:bundle')&&String(pkg.scripts['release:verify']).includes('runtime:http'))
+check('npm check inclui V101.1',String(pkg.scripts['check:legacy']).includes('qa:v101.1.0'))
+check('launcher usa release:verify',launcher.includes('npm run release:verify'))
+check('launcher serve build com vite preview',launcher.includes('vite preview'))
+
+for(const item of checks) console.log(`${item.pass?'OK':'FAIL'}  ${item.label}`)
+const failed=checks.filter((item)=>!item.pass)
+if(failed.length){
+  console.error(`\nV101.1.0 Consolidation & Runtime QA falhou: ${checks.length-failed.length}/${checks.length}.`)
+  for(const item of failed) console.error(`- ${item.label}`)
+  process.exit(1)
+}
+console.log(`\nV101.1.0 Consolidation & Runtime QA: ${checks.length}/${checks.length} contratos aprovados.`)

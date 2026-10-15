@@ -1,0 +1,78 @@
+RealTalent CRM — QA REPORT V101.11.1-H5
+Full Canvas & Orbit Field
+
+ESCOPO
+- Corrigir o corte visual observado na tela de entrada H4.
+- Fazer o ambiente azul/teal ocupar a viewport inteira.
+- Levar a linguagem orbital da logo para a página inteira.
+- Preservar Login Gate, logout, Supabase, modo local, dados e migrations.
+
+ACHADO / CAUSA COMPROVADA
+- src/styles/core-v100.css ainda define .auth-showcase::before / ::after como círculos decorativos.
+- core-v100 também define overflow:hidden na coluna .auth-showcase.
+- Na composição H4, os círculos antigos continuavam existindo e eram recortados exatamente no limite da coluna esquerda, produzindo a borda vertical observada na captura do usuário.
+
+CORREÇÕES
+1. Canvas
+- .auth-page e .rt-splash agora cobrem 100% da largura e 100dvh, com fallback 100vh.
+- background-repeat:no-repeat e background-size:cover explícitos.
+- .auth-form-area e .auth-showcase usam 100dvh no desktop.
+
+2. Legado visual
+- .auth-showcase::before e .auth-showcase::after de core-v100 são neutralizados na folha canônica de login.
+- .auth-showcase deixa de recortar o ambiente visual da página.
+
+3. Orbit Field
+- campo orbital page-level com pointer-events:none e contain:paint.
+- órbita frame quase contornando a viewport.
+- órbita wide cruzando a tela.
+- órbita corner saindo do canto superior direito.
+- pontos orbitais luminosos azul/teal.
+- loops lentos: 68s / 58s / 46s, usando transform/opacity.
+- o mesmo campo orbital é usado no splash e na tela de entrada.
+
+4. Acessibilidade / performance
+- prefers-reduced-motion congela as órbitas.
+- nenhum listener de ponteiro ou JS por frame foi adicionado.
+- elementos decorativos são aria-hidden e não interceptam interação.
+
+PRESERVADO
+- H4 Transparent Logo & Optimized Motion.
+- H3 Official Logo Motion.
+- H2 Cinematic Login.
+- H1 Login Gate & Logout.
+- Autenticação Supabase por senha.
+- Sessão local via sessionStorage.
+- Sair da conta sem apagar dados.
+- 49 migrations, sem migration nova.
+- Communications Architecture V101.11.0.
+
+QA COMPROVADO NESTE AMBIENTE
+- Source syntax: PASS — 395 arquivos.
+- Integration contracts: PASS — 363 arquivos.
+- Migrations: PASS — 49/49 checksums.
+- Release Manifest: PASS — 65/65.
+- Repository Contract: PASS — Local 99/99 e Supabase 99/99.
+- V101.11.0 Communications: PASS — 44/44.
+- V101.11.1 base: PASS — 34/34.
+- H1 Login Gate: PASS — 35/35.
+- H2 Cinematic Login: PASS — 38/38.
+- H3 Official Logo: PASS — 33/33.
+- H4 Transparent Logo: PASS — 41/41.
+- H5 Full Canvas & Orbit Field: PASS — 34/34.
+- qa:architecture: PASS.
+- check:legacy: PASS — 113/113 comandos.
+- Linux preflight: PASS — 356 arquivos TS/TSX.
+- CSS source parse: PASS — 73 arquivos / 0 erros.
+- build:legacy: PASS — 280 módulos; bundle CSS 1,276,974 bytes / 0 erros de parsing.
+
+GATES OFICIAIS NÃO APROVADOS NESTE SANDBOX
+- npm run typecheck: não classificável; node_modules/tipagens React/Supabase ausentes.
+- npm test: Vitest não instalado.
+- npm run build: Vite não instalado.
+Esses resultados não foram convertidos artificialmente em PASS.
+
+EMPACOTAMENTO
+- dist gerado apenas para verificação será removido antes do ZIP.
+- node_modules não será incluído.
+- .env.local e estados .realtalent-* não serão incluídos.

@@ -1,0 +1,103 @@
+RealTalent CRM V101.10.7 — Security & Runtime Foundation
+QA Report
+================================================================
+
+Base
+----
+V101.10.6-H2 — Global Selection & Ownership Fix
+
+Escopo
+------
+H1 — Gateway Security
+H2 — Connect Pairing Security
+H3 — Webhook Hardening
+H4 — Lockfile + Fast Launcher
+
+Resultados comprovados neste ambiente
+-------------------------------------
+QA Architecture ..................... PASS
+Source syntax ....................... 388 arquivos aprovados
+Integration contracts ............... 361 arquivos aprovados
+Migrations .......................... 49/49 checksums íntegros
+Release Manifest .................... 48/48 invariantes
+Capability Matrix ................... 20 capacidades / 69 evidências / 44 executáveis
+Repository Local .................... 99/99
+Repository Supabase ................. 99/99
+Browser E2E Contract ................ 9/9 fluxos catalogados
+V101.10.6 UX Consolidation .......... 40/40
+V101.10.6-H2 Selection/Owner ........ 27/27
+V101.10.7 Security Foundation ....... 22/22
+Linux release preflight ............. PASS (354 TS/TSX)
+start-linux.sh syntax ................ PASS
+Connect/Communications security smoke 12/12
+Lockfile root consistency ........... PASS / 0 divergências
+Node syntax dos serviços alterados .. PASS
+
+Security smoke exercitado
+--------------------------
+PASS Connect rejeita API sem token (401)
+PASS Connect aceita token de runtime
+PASS Connect inicia em local-only
+PASS Connect rejeita Host indevido (421)
+PASS endpoint de pairing exige token do CRM
+PASS brute force de pairing recebe 429 + Retry-After
+PASS Communications rejeita API sem token (401)
+PASS Communications aceita token de runtime
+PASS Gateway anuncia webhooks fail-closed
+PASS webhook Meta sem secret retorna 503
+PASS callback OAuth escapa HTML de erro
+PASS Communications rejeita Host indevido (421)
+
+Nota do smoke
+-------------
+O registry npm não estava acessível neste contêiner. Para permitir apenas a carga do
+Communications Gateway durante o smoke, foi usado temporariamente um stub mínimo de
+`qrcode`; ele foi removido imediatamente depois. Nenhuma sessão WhatsApp Web foi
+iniciada e esse stub não faz parte do ZIP final.
+
+Gates que NÃO puderam ser executados aqui
+-----------------------------------------
+NPM CI ............................... NÃO CONCLUÍDO
+NPM AUDIT ............................ NÃO EXECUTÁVEL
+TYPECHECK COMPLETO ................... NÃO EXECUTÁVEL
+VITEST COMPLETO ...................... NÃO EXECUTÁVEL
+BUILD VITE COMPLETO .................. NÃO EXECUTÁVEL
+
+Causa
+-----
+`npm ping --registry=https://registry.npmjs.org/` expirou neste ambiente. Sem acesso
+ao registry e sem `node_modules` pré-instalado, não é tecnicamente possível baixar
+Vite, React, Vitest, qrcode, whatsapp-web.js/Puppeteer e demais dependências para os
+gates completos.
+
+Não foi atribuído PASS artificial a esses gates. No Linux com acesso ao npm, use:
+
+  ./start-linux.sh --verify
+
+Esse modo executa preflight, npm audit, release:verify e build. A abertura normal usa
+`npm ci` determinístico quando necessário e, depois do primeiro build V101.10.7,
+reutiliza o build aprovado.
+
+Controles de segurança implementados
+------------------------------------
+- listener principal do Connect preso a 127.0.0.1
+- LAN desligada por padrão e segundo listener só após ação explícita
+- runtime token fora do bundle do navegador
+- validação de Host e Origin nos serviços locais
+- pairing: 5 minutos / 5 falhas / bloqueio padrão 60 s
+- webhook Meta fail-closed
+- comparação timing-safe para segredos/tokens
+- callback OAuth com escaping e CSP
+- limite de body nas APIs locais
+- QR do Connect trafega pelo proxy autenticado
+- WebSocket do CRM protegido
+- npm audit reativado
+- npm ci e lock hash no launcher
+
+Compatibilidade / dados
+-----------------------
+- UX principal preservada
+- nenhuma migration SQL nova
+- nenhuma migração para IndexedDB nesta release
+- launcher procura V101.10.6-H2 para reaproveitar sessão/configuração anterior
+- histórico e fila do Prospecting Agent continuam preservados

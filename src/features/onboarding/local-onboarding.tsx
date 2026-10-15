@@ -19,6 +19,7 @@ export function LocalOnboarding({ onComplete }: LocalOnboardingProps) {
     setSaving(true); setError('')
     try {
       configureLocalExperience({ displayName, companyName, email, mode })
+      try { localStorage.setItem('realtalent.crm.help.tour.pending.v10091', '1') } catch { /* storage unavailable */ }
       window.dispatchEvent(new CustomEvent('crm:local-profile-changed'))
       void Promise.resolve(onComplete()).catch((completeError) => {
         setError(completeError instanceof Error ? completeError.message : 'Não foi possível abrir o CRM.')

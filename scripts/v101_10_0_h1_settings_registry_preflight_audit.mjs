@@ -1,0 +1,16 @@
+import fs from 'node:fs'
+import path from 'node:path'
+const root=process.cwd(); const read=p=>fs.readFileSync(path.join(root,p),'utf8')
+const registry=read('src/features/experience/experience-registry.ts'); const settings=read('src/features/settings/settings-page.tsx'); const preflight=read('scripts/linux-release-preflight.mjs'); const pkg=JSON.parse(read('package.json')); const manifest=JSON.parse(read('release-manifest.json')); const launcher=(read('start-linux.sh') + '\n' + (fs.existsSync('start-linux-legacy.sh') ? read('start-linux-legacy.sh') : '') + '\n' + (fs.existsSync('scripts/start.mjs') ? read('scripts/start.mjs') : ''))
+const checks=[]; const check=(label,ok)=>checks.push({label,ok:Boolean(ok)})
+check('registry Settings usa header canônico/sucessor', (registry.includes("selector: '.settings-v1100__header'") || registry.includes("selector: '.rt-workspace-page-header, .settings-command-bar-h20'")) && !registry.includes("selector: '.settings-v16__hero'"))
+check('registry Settings usa body V101.10', registry.includes("selector: '.settings-v1100__body'") && !registry.includes("selector: '.settings-v16__body'"))
+check('alvos novos existem no TSX', (settings.includes('settings-v1100__header') || settings.includes('<WorkspacePageHeader')) && settings.includes('settings-v1100__body') && settings.includes('settings-command-bar-h20'))
+check('preflight continua validando seletores expostos', preflight.includes('seletor de página sem alvo TSX'))
+check('gate H1 registrado', String(pkg.scripts?.['qa:v101.10.0:h1']||'').includes('v101_10_0_h1_settings_registry_preflight_audit.mjs'))
+check('gate H1 participa da arquitetura', String(pkg.scripts?.['qa:architecture']||'').includes('qa:v101.10.0:h1'))
+check('manifest exige H1', manifest.qa?.requiredGates?.includes('qa:v101.10.0:h1'))
+check('launcher migra sessão da V101.10.0', launcher.includes('RealTalent-CRM-V101.10.0-Settings-Experience-2-Linux-Launcher'))
+check('launcher identifica H1', launcher.includes('V101.10.0-H1 — Settings Registry Preflight Hotfix'))
+for(const item of checks) console.log(`${item.ok?'OK  ':'FAIL'} ${item.label}`)
+const failed=checks.filter(x=>!x.ok); console.log(`\nV101.10.0-H1 Settings Registry Preflight Hotfix: ${checks.length-failed.length}/${checks.length} contratos aprovados.`); if(failed.length) process.exit(1)

@@ -1,0 +1,56 @@
+RealTalent CRM — QA REPORT
+V101.11.1-H1 — Login Gate & Logout
+Base: V101.11.1 — Login Experience & Reliability
+
+ESCOPO
+- Corrigir o modo local que abria diretamente no CRM sem passar pela tela de entrada.
+- Reaproveitar a lógica de gate mostrada na referência: entrada explícita antes do workspace.
+- Permitir sair da conta/sessão também no modo local.
+- Não apagar dados locais ao sair.
+- Preservar autenticação Supabase, animação RealTalent e V101.11.0 Communications Architecture.
+
+IMPLEMENTAÇÃO
+1. Sessão local de UI separada do perfil persistido.
+   - sessionStorage key: realtalent-crm-local-ui-session-v1
+   - perfil local continua persistido como antes.
+   - nova sessão do navegador sem session flag => user=null => AuthPage.
+2. Ação enterLocal() abre o workspace local explicitamente.
+3. signOut() local remove apenas a sessão de UI e define user=null.
+4. App.tsx usa AuthPage para qualquer modo quando não existe user.
+5. AppProvider não executa bootstrap de workspace enquanto user=null.
+6. Sidebar mostra “Sair da conta” em local e Supabase.
+7. AuthPage local mostra perfil salvo + botão “Abrir workspace local” e explica que os dados não são apagados ao sair.
+8. Launcher rejeita dist pré-H1 para impedir reutilização de um build que ainda abria direto no CRM.
+
+GATES COMPROVADOS
+- Source syntax: 395 arquivos — PASS
+- Integration contracts: 363 arquivos — PASS
+- Migrations: 49/49 checksums — PASS
+- Release Manifest: 61/61 — PASS
+- Local Repository parity: 99/99 — PASS
+- Supabase Repository parity: 99/99 — PASS
+- V101.11.0 Communications Architecture: 44/44 — PASS
+- V101.11.1 Login Experience & Reliability: 34/34 — PASS
+- V101.11.1-H1 Login Gate & Logout: 35/35 — PASS
+- qa:architecture — PASS
+- check:legacy — PASS (cadeia histórica completa, incluindo typechecks isolados V101.9.7/V101.9.8)
+- Linux release preflight: 356 TS/TSX — PASS
+- Registry-independent build: 280 TypeScript modules — PASS
+
+GATES NÃO APROVADOS NESTE SANDBOX
+- npm run typecheck: não concluído por ausência de dependências React/Supabase/JSX no node_modules.
+- npm test: vitest não instalado.
+- npm run build: vite não instalado.
+Essas limitações são de dependências do ambiente de execução, não foram mascaradas como PASS.
+
+GARANTIAS DE NÃO DESTRUIÇÃO
+- Nenhuma migration nova.
+- Nenhuma alteração de schema.
+- Logout local não remove LOCAL_PROFILE_KEY, contatos, pipeline, preferências ou dados do repository.
+- Communications, Connect, Calling, Garimpo e demais módulos preservados pela regressão.
+
+COMPORTAMENTO ESPERADO
+- Nova sessão de navegador: splash/animação -> tela de entrada -> “Abrir workspace local”.
+- Refresh na mesma sessão: mantém a sessão local ativa.
+- Clique em “Sair da conta”: volta imediatamente à tela de entrada.
+- Fechar a sessão/navegador e abrir novamente: exige entrada explícita novamente.

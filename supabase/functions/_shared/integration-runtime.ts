@@ -42,6 +42,38 @@ const sanitizeHtml = (value: string) => value
   .replace(/<script[\s\S]*?<\/script>/gi, '')
   .replace(/\son[a-z]+\s*=\s*(["']).*?\1/gi, '')
   .replace(/javascript:/gi, '')
+const CRM_AGENDA_META_PATTERN = /\n?\[\[CRM_AGENDA_META:([^\]]+)\]\]/g
+const stripAgendaMetadata = (value: string) => String(value || '').replace(CRM_AGENDA_META_PATTERN, '').trim()
+const readAgendaMetadata = (value: string) => {
+  const matches = [...String(value || '').matchAll(CRM_AGENDA_META_PATTERN)]
+  const encoded = matches.at(-1)?.[1]
+  if (!encoded) return null
+  try { const parsed = JSON.parse(decodeURIComponent(encoded)); return parsed && typeof parsed === 'object' ? parsed as Record<string, unknown> : null } catch { return null }
+}
+const inferAgendaType = (title: string, description: string) => {
+  const text = `${title} ${description}`.toLowerCase()
+  if (text.includes('ligaç') || text.includes('telefon')) return 'call'
+  if (text.includes('follow') || text.includes('acompanh')) return 'followup'
+  if (text.includes('retorno') || text.includes('retornar')) return 'return'
+  if (text.includes('tarefa') || text.includes('preparar') || text.includes('enviar')) return 'task'
+  return 'meeting'
+}
+const appendAgendaMetadata = (description: string, metadata: Record<string, unknown> | null) => {
+  const clean = stripAgendaMetadata(description)
+  if (!metadata) return clean
+  const encoded = encodeURIComponent(JSON.stringify(metadata))
+  return `${clean}${clean ? '\n' : ''}[[CRM_AGENDA_META:${encoded}]]`
+}
+const externalReminderMinutes = (provider: 'google' | 'microsoft', external: any): number | null => {
+  if (provider === 'google') {
+    if (external?.reminders?.useDefault) return null
+    const popup = (external?.reminders?.overrides || []).find((item: any) => item?.method === 'popup')
+    return Number.isFinite(Number(popup?.minutes)) ? Math.max(0, Number(popup.minutes)) : null
+  }
+  if (external?.isReminderOn === false) return 0
+  return Number.isFinite(Number(external?.reminderMinutesBeforeStart)) ? Math.max(0, Number(external.reminderMinutesBeforeStart)) : null
+}
+const nextDateOnly = (value: string) => { const date = new Date(`${value.slice(0,10)}T00:00:00Z`); date.setUTCDate(date.getUTCDate() + 1); return date.toISOString().slice(0,10) }
 const toIso = (value: unknown, fallback = new Date().toISOString()) => {
   const parsed = new Date(String(value || ''))
   return Number.isNaN(parsed.getTime()) ? fallback : parsed.toISOString()
@@ -146,7 +178,8 @@ async function applyExternalCalendarEvent(admin: any, account: any, provider: 'g
   const externalId = String(external.id || '')
   if (!externalId) return 0
   const { data: link } = await admin.from('calendar_external_links').select('*').eq('account_id', account.id).eq('external_event_id', externalId).maybeSingle()
-  const { data: local } = link?.event_id ? await admin.from('calendar_events').select('*').eq('id', link.event_id).maybeSingle() : { data: null }
+  let local: any = null
+  if (link?.event_id) { const result = await admin.from('calendar_events').select('*').eq('id', link.event_id).maybeSingle(); local = result.data || null }
   const deleted = provider === 'google' ? external.status === 'cancelled' : Boolean(external['@removed']) || Boolean(external.isCancelled)
   const externalUpdatedAt = toIso(provider === 'google' ? external.updated : external.lastModifiedDateTime)
   const externalVersion = String(provider === 'google' ? external.etag || '' : external.changeKey || '')
@@ -158,15 +191,34 @@ async function applyExternalCalendarEvent(admin: any, account: any, provider: 'g
   }
   if (deleted) {
     if (local) await admin.from('calendar_events').update({ status: 'cancelled', updated_at: new Date().toISOString() }).eq('id', local.id)
-    await admin.from('calendar_external_links').update({ etag: externalVersion || link?.etag || null, external_updated_at: externalUpdatedAt, last_synced_at: new Date().toISOString(), conflict_status: 'clear' }).eq('account_id', account.id).eq('external_event_id', externalId)
+    if (link) await admin.from('calendar_external_links').update({ etag: externalVersion || link?.etag || null, external_updated_at: externalUpdatedAt, last_synced_at: new Date().toISOString(), conflict_status: 'clear' }).eq('id', link.id)
     return 1
   }
-  const starts = provider === 'google' ? external.start?.dateTime || `${external.start?.date}T00:00:00Z` : String(external.start?.dateTime || new Date().toISOString())
-  const ends = provider === 'google' ? external.end?.dateTime || `${external.end?.date}T23:59:59Z` : String(external.end?.dateTime || starts)
-  const title = provider === 'google' ? external.summary || 'Evento' : external.subject || 'Evento'
-  const description = provider === 'google' ? external.description || '' : external.bodyPreview || stripHtml(String(external.body?.content || ''))
+  const startsRaw = provider === 'google' ? external.start?.dateTime || `${external.start?.date}T00:00:00Z` : String(external.start?.dateTime || new Date().toISOString())
+  const endsRaw = provider === 'google' ? external.end?.dateTime || `${external.end?.date}T00:00:00Z` : String(external.end?.dateTime || startsRaw)
+  const starts = toIso(startsRaw)
+  const ends = toIso(endsRaw)
+  const title = String(provider === 'google' ? external.summary || 'Evento' : external.subject || 'Evento')
+  const externalDescription = String(provider === 'google' ? external.description || '' : external.bodyPreview || stripHtml(String(external.body?.content || '')))
   const allDay = provider === 'google' ? Boolean(external.start?.date) : Boolean(external.isAllDay)
-  const location = provider === 'google' ? external.location || '' : external.location?.displayName || ''
+  const location = String(provider === 'google' ? external.location || '' : external.location?.displayName || '')
+
+  // Em uma primeira sincronização, vincula um evento local exatamente equivalente antes de criar outro.
+  if (!local && !link) {
+    const { data: candidates } = await admin.from('calendar_events').select('*').eq('organization_id', account.organization_id).eq('title', title).eq('starts_at', starts).eq('ends_at', ends).limit(2)
+    if (Array.isArray(candidates) && candidates.length === 1) {
+      const candidate = candidates[0]
+      const { data: existingLink } = await admin.from('calendar_external_links').select('id').eq('event_id', candidate.id).eq('account_id', account.id).maybeSingle()
+      if (!existingLink) local = candidate
+    }
+  }
+
+  const reminder = externalReminderMinutes(provider, external)
+  const existingMeta = readAgendaMetadata(String(local?.description || ''))
+  const metadata = existingMeta
+    ? { ...existingMeta, ...(reminder === null ? {} : { reminderMinutes: reminder }) }
+    : reminder === null ? null : { version: 1, type: inferAgendaType(title, externalDescription), calendar: 'personal', reminderMinutes: reminder, recurrence: 'none' }
+  const description = appendAgendaMetadata(externalDescription, metadata)
   let eventId = local?.id || null
   const timestamp = new Date().toISOString()
   if (eventId) {
@@ -176,7 +228,7 @@ async function applyExternalCalendarEvent(admin: any, account: any, provider: 'g
     if (error) throw new Error(error.message)
     eventId = created?.id
   }
-  const fingerprint = await sha256Hex(JSON.stringify({ title, description, starts, ends, allDay, location }))
+  const fingerprint = await sha256Hex(JSON.stringify({ title, description: stripAgendaMetadata(description), starts, ends, allDay, location }))
   await admin.from('calendar_external_links').upsert({
     organization_id: account.organization_id, event_id: eventId, account_id: account.id, provider,
     external_event_id: externalId, external_calendar_id: provider === 'google' ? String(account.metadata?.calendar_id || 'primary') : String(account.metadata?.calendar_id || 'default'),
@@ -185,7 +237,7 @@ async function applyExternalCalendarEvent(admin: any, account: any, provider: 'g
   }, { onConflict: 'event_id,account_id' })
   await admin.from('communication_events').upsert({
     organization_id: account.organization_id, lead_id: local?.lead_id || null, account_id: account.id, channel: 'calendar', direction: 'internal', event_type: 'calendar_event', status: 'received',
-    external_message_id: `${provider === 'google' ? 'gcal' : 'mscal'}:${externalId}`, subject: title, body_text: description, occurred_at: starts,
+    external_message_id: `${provider === 'google' ? 'gcal' : 'mscal'}:${externalId}`, subject: title, body_text: externalDescription, occurred_at: starts,
     metadata: { calendar_event_id: eventId, provider, external_updated_at: externalUpdatedAt },
   }, { onConflict: 'organization_id,channel,external_message_id' })
   return 1
@@ -541,7 +593,9 @@ async function calendarPull(admin: any, account: any, token: string, provider: '
   }
   const start = new Date(Date.now() - 90 * 86_400_000).toISOString()
   const end = new Date(Date.now() + 365 * 86_400_000).toISOString()
-  let endpoint = String(subscription?.sync_cursor || '') || `https://graph.microsoft.com/v1.0/me/calendarView/delta?startDateTime=${encodeURIComponent(start)}&endDateTime=${encodeURIComponent(end)}&$top=250&$select=id,changeKey,subject,body,bodyPreview,start,end,isAllDay,location,isCancelled,lastModifiedDateTime`
+  const calendarId = String(account.metadata?.calendar_id || 'default')
+  const deltaBase = calendarId === 'default' ? 'https://graph.microsoft.com/v1.0/me/calendarView/delta' : `https://graph.microsoft.com/v1.0/me/calendars/${encodeURIComponent(calendarId)}/calendarView/delta`
+  let endpoint = String(subscription?.sync_cursor || '') || `${deltaBase}?startDateTime=${encodeURIComponent(start)}&endDateTime=${encodeURIComponent(end)}`
   let deltaLink = ''
   let pages = 0
   while (endpoint && pages < 50) {
@@ -557,7 +611,7 @@ async function calendarPull(admin: any, account: any, token: string, provider: '
     deltaLink = String(data['@odata.deltaLink'] || deltaLink)
     pages += 1
   }
-  if (deltaLink) await saveSubscriptionCursor(admin, account, resourceType, 'microsoft_delta_link', deltaLink, { start, end })
+  if (deltaLink) await saveSubscriptionCursor(admin, account, resourceType, 'microsoft_delta_link', deltaLink, { start, end, calendar_id: calendarId })
   return count
 }
 
@@ -633,7 +687,7 @@ async function calendarPush(admin: any, account: any, token: string, provider: '
     if (!externalId) return null
     const endpoint = provider === 'google'
       ? `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(calendarId)}/events/${encodeURIComponent(externalId)}`
-      : `https://graph.microsoft.com/v1.0/me/events/${encodeURIComponent(externalId)}?$select=id,changeKey,subject,body,bodyPreview,start,end,isAllDay,location,isCancelled,lastModifiedDateTime`
+      : `https://graph.microsoft.com/v1.0/me/events/${encodeURIComponent(externalId)}?$select=id,changeKey,subject,body,bodyPreview,start,end,isAllDay,location,isCancelled,lastModifiedDateTime,reminderMinutesBeforeStart,isReminderOn`
     const response = await fetch(endpoint, { headers: { authorization: `Bearer ${token}` } })
     if (response.status === 404) return { id: externalId, status: 'cancelled', '@removed': { reason: 'deleted' } }
     const data = await response.json().catch(() => ({})) as any
@@ -657,12 +711,30 @@ async function calendarPush(admin: any, account: any, token: string, provider: '
     return 1
   }
   if (!event) throw new Error('Evento local não encontrado')
+  const rawDescription = stripAgendaMetadata(String(event.description || ''))
+  const agendaMeta = readAgendaMetadata(String(event.description || ''))
+  const reminderMinutes = Number(agendaMeta?.reminderMinutes ?? 30)
+
   if (provider === 'google') {
-    const body = { summary: event.title, description: event.description || '', location: event.location || '', start: event.all_day ? { date: String(event.starts_at || event.startsAt).slice(0, 10) } : { dateTime: event.starts_at || event.startsAt }, end: event.all_day ? { date: String(event.ends_at || event.endsAt).slice(0, 10) } : { dateTime: event.ends_at || event.endsAt } }
-    const endpoint = externalId ? `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(calendarId)}/events/${encodeURIComponent(externalId)}` : `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(calendarId)}/events`
+    const startValue = String(event.starts_at || event.startsAt)
+    const endValue = String(event.ends_at || event.endsAt)
+    const startDate = startValue.slice(0, 10)
+    let endDate = endValue.slice(0, 10)
+    if (event.all_day ?? event.allDay) if (endDate <= startDate) endDate = nextDateOnly(startDate)
+    const body = {
+      summary: event.title, description: rawDescription, location: event.location || '',
+      start: (event.all_day ?? event.allDay) ? { date: startDate } : { dateTime: startValue },
+      end: (event.all_day ?? event.allDay) ? { date: endDate } : { dateTime: endValue },
+      reminders: reminderMinutes > 0 ? { useDefault: false, overrides: [{ method: 'popup', minutes: Math.min(40320, reminderMinutes) }] } : { useDefault: false, overrides: [] },
+    }
+    const base = `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(calendarId)}/events`
     const headers: Record<string, string> = { authorization: `Bearer ${token}`, 'content-type': 'application/json' }
     if (!force && externalId && link?.etag) headers['if-match'] = String(link.etag)
-    const response = await fetch(endpoint, { method: externalId ? 'PUT' : 'POST', headers, body: JSON.stringify(body) })
+    let response = await fetch(externalId ? `${base}/${encodeURIComponent(externalId)}` : base, { method: externalId ? 'PATCH' : 'POST', headers, body: JSON.stringify(body) })
+    if (response.status === 404 && externalId) {
+      delete headers['if-match']
+      response = await fetch(base, { method: 'POST', headers, body: JSON.stringify(body) })
+    }
     const result = await response.json().catch(() => ({})) as any
     if (response.status === 412) {
       const external = await fetchExternal()
@@ -673,11 +745,22 @@ async function calendarPush(admin: any, account: any, token: string, provider: '
     const timestamp = new Date().toISOString()
     await admin.from('calendar_external_links').upsert({ organization_id: account.organization_id, event_id: eventId, account_id: account.id, provider: 'google', external_event_id: String(result.id), external_calendar_id: calendarId, etag: result.etag || null, external_updated_at: toIso(result.updated), last_local_updated_at: event.updated_at || event.updatedAt || timestamp, conflict_status: 'clear', last_synced_at: timestamp }, { onConflict: 'event_id,account_id' })
   } else {
-    const body = { subject: event.title, body: { contentType: 'HTML', content: sanitizeHtml(String(event.description || '').replace(/\n/g, '<br>')) }, start: { dateTime: event.starts_at || event.startsAt, timeZone: 'UTC' }, end: { dateTime: event.ends_at || event.endsAt, timeZone: 'UTC' }, location: { displayName: event.location || '' }, isAllDay: Boolean(event.all_day ?? event.allDay) }
-    const endpoint = externalId ? `https://graph.microsoft.com/v1.0/me/events/${encodeURIComponent(externalId)}` : 'https://graph.microsoft.com/v1.0/me/events'
+    const body = {
+      subject: event.title,
+      body: { contentType: 'HTML', content: sanitizeHtml(rawDescription.replace(/\n/g, '<br>')) },
+      start: { dateTime: event.starts_at || event.startsAt, timeZone: 'UTC' }, end: { dateTime: event.ends_at || event.endsAt, timeZone: 'UTC' },
+      location: { displayName: event.location || '' }, isAllDay: Boolean(event.all_day ?? event.allDay),
+      isReminderOn: reminderMinutes > 0, reminderMinutesBeforeStart: Math.max(0, Math.min(40320, reminderMinutes)),
+    }
+    const eventBase = 'https://graph.microsoft.com/v1.0/me/events'
+    const createBase = calendarId === 'default' ? 'https://graph.microsoft.com/v1.0/me/calendar/events' : `https://graph.microsoft.com/v1.0/me/calendars/${encodeURIComponent(calendarId)}/events`
     const headers: Record<string, string> = { authorization: `Bearer ${token}`, 'content-type': 'application/json' }
     if (!force && externalId && link?.etag) headers['if-match'] = String(link.etag)
-    const response = await fetch(endpoint, { method: externalId ? 'PATCH' : 'POST', headers, body: JSON.stringify(body) })
+    let response = await fetch(externalId ? `${eventBase}/${encodeURIComponent(externalId)}` : createBase, { method: externalId ? 'PATCH' : 'POST', headers, body: JSON.stringify(body) })
+    if (response.status === 404 && externalId) {
+      delete headers['if-match']
+      response = await fetch(createBase, { method: 'POST', headers, body: JSON.stringify(body) })
+    }
     const result = response.status === 204 ? await fetchExternal() || { id: externalId, changeKey: link?.etag } : await response.json().catch(() => ({})) as any
     if (response.status === 412) {
       const external = await fetchExternal()
@@ -722,10 +805,12 @@ export async function processProviderJob(admin: any, job: any, provider: Provide
   const token = await ensureFreshToken(admin, account)
   if (job.job_type === 'google_mail_pull') return googleMailPull(admin, account, token, job.payload)
   if (job.job_type === 'microsoft_mail_pull') return microsoftMailPull(admin, account, token)
-  if (job.job_type === 'google_calendar_pull') return calendarPull(admin, account, token, 'google')
-  if (job.job_type === 'microsoft_calendar_pull') return calendarPull(admin, account, token, 'microsoft')
-  if (job.job_type === 'google_calendar_push') return calendarPush(admin, account, token, 'google', job.payload)
-  if (job.job_type === 'microsoft_calendar_push') return calendarPush(admin, account, token, 'microsoft', job.payload)
+  const calendarEnabled = account.metadata?.calendar_sync_enabled !== false
+  const calendarDirection = String(account.metadata?.calendar_sync_direction || 'two_way')
+  if (job.job_type === 'google_calendar_pull') return calendarEnabled && calendarDirection !== 'crm_to_provider' ? calendarPull(admin, account, token, 'google') : 0
+  if (job.job_type === 'microsoft_calendar_pull') return calendarEnabled && calendarDirection !== 'crm_to_provider' ? calendarPull(admin, account, token, 'microsoft') : 0
+  if (job.job_type === 'google_calendar_push') return calendarEnabled && calendarDirection !== 'provider_to_crm' ? calendarPush(admin, account, token, 'google', job.payload) : 0
+  if (job.job_type === 'microsoft_calendar_push') return calendarEnabled && calendarDirection !== 'provider_to_crm' ? calendarPush(admin, account, token, 'microsoft', job.payload) : 0
   if (provider === 'meta' && ['meta_account_sync', 'meta_leads_pull'].includes(job.job_type)) return metaTask(account, token, job.job_type)
   if (provider === 'whatsapp_cloud' && ['whatsapp_account_sync', 'whatsapp_template_sync'].includes(job.job_type)) return whatsappTask(account, token, job.job_type)
   if (job.job_type === 'google_subscription_renew') return renewGoogleSubscriptions(admin, account, token)

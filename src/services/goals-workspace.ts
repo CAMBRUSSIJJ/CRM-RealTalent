@@ -1,24 +1,62 @@
 import type { ActivityItem, Goal, GoalMetric, Lead, WorkspaceSnapshot } from '../domain/types'
-import { getMetricValue, goalProgress } from './metrics'
+import { getMetricValue } from './metrics'
 
 const ACTIVE_CONTACT_OUTCOMES = new Set(['answered', 'callback_requested', 'interested', 'meeting_scheduled', 'proposal_requested', 'proposal_sent', 'sale_completed'])
+const DAY_MS = 86_400_000
+const DEFAULT_WORKING_DAYS = [1, 2, 3, 4, 5]
 
-const dateOnly = (date: Date) => date.toISOString().slice(0, 10)
+export const localDateKey = (date = new Date()) => `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`
 const atStart = (value: string) => new Date(`${value}T00:00:00`)
 const atEnd = (value: string) => new Date(`${value}T23:59:59.999`)
+const addDays = (value: string, days: number) => { const date = atStart(value); date.setDate(date.getDate() + days); return localDateKey(date) }
+const calendarDaysInclusive = (startValue: string, endValue: string) => Math.max(0, Math.round((atStart(endValue).getTime() - atStart(startValue).getTime()) / DAY_MS) + 1)
 const clampRate = (value: number, fallback: number) => Number.isFinite(value) && value > 0 ? Math.min(1, value) : fallback
+const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value))
+
+export type GoalPeriodPreset = 'day' | 'week' | 'month' | 'quarter' | 'year' | 'custom'
+
+export function getGoalPeriodBounds(preset: Exclude<GoalPeriodPreset, 'custom'>, baseDate = new Date()) {
+  const start = new Date(baseDate); start.setHours(0, 0, 0, 0)
+  const end = new Date(start)
+  if (preset === 'week') {
+    const mondayOffset = start.getDay() === 0 ? -6 : 1 - start.getDay()
+    start.setDate(start.getDate() + mondayOffset)
+    end.setTime(start.getTime()); end.setDate(end.getDate() + 6)
+  } else if (preset === 'month') {
+    start.setDate(1)
+    end.setTime(start.getTime()); end.setMonth(end.getMonth() + 1); end.setDate(0)
+  } else if (preset === 'quarter') {
+    const quarterStart = Math.floor(start.getMonth() / 3) * 3
+    start.setMonth(quarterStart, 1)
+    end.setTime(start.getTime()); end.setMonth(end.getMonth() + 3); end.setDate(0)
+  } else if (preset === 'year') {
+    start.setMonth(0, 1)
+    end.setTime(start.getTime()); end.setFullYear(end.getFullYear() + 1); end.setDate(0)
+  }
+  return { start: localDateKey(start), end: localDateKey(end) }
+}
 
 export interface GoalInsight {
   goal: Goal
   value: number
   percentage: number
   expected: number
+  expectedPercentage: number
   pace: 'on_track' | 'attention' | 'at_risk'
+  paceRatio: number
+  paceGap: number
   remaining: number
   forecast: number
   forecastPercentage: number
+  projectedToHit: boolean
+  workdaysTotal: number
+  workdaysElapsed: number
   workdaysRemaining: number
   dailyRequired: number
+  previousValue: number
+  previousDeltaPercentage: number | null
+  previousPeriodStart: string
+  previousPeriodEnd: string
 }
 
 export interface FunnelRates {
@@ -52,38 +90,78 @@ export interface RoutineActivityInput {
   assignedTo: string | null
 }
 
-export function countBusinessDays(startValue: string | Date, endValue: string | Date): number {
+export interface GoalInsightOptions {
+  workingDays?: number[]
+  riskThreshold?: number
+  /** Team scope: only production from these users contributes to the goal. */
+  userIds?: string[]
+}
+
+export function countBusinessDays(startValue: string | Date, endValue: string | Date, workingDays = DEFAULT_WORKING_DAYS): number {
   const start = typeof startValue === 'string' ? atStart(startValue) : new Date(startValue)
   const end = typeof endValue === 'string' ? atEnd(endValue) : new Date(endValue)
   if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime()) || end < start) return 0
+  const activeDays = new Set(workingDays)
   const cursor = new Date(start); cursor.setHours(12, 0, 0, 0)
   const finish = new Date(end); finish.setHours(12, 0, 0, 0)
   let count = 0
   while (cursor <= finish) {
-    const day = cursor.getDay()
-    if (day !== 0 && day !== 6) count += 1
+    if (activeDays.has(cursor.getDay())) count += 1
     cursor.setDate(cursor.getDate() + 1)
   }
   return count
 }
 
-export function getGoalInsight(snapshot: WorkspaceSnapshot, goal: Goal, now = new Date()): GoalInsight {
-  const progress = goalProgress(snapshot, goal.metric, goal.targetValue, goal.periodStart, goal.periodEnd, goal.userId)
-  const start = atStart(goal.periodStart).getTime()
-  const end = atEnd(goal.periodEnd).getTime()
-  const elapsed = Math.max(0.01, Math.min(1, (now.getTime() - start) / Math.max(1, end - start)))
-  const forecast = progress.value / elapsed
-  const remaining = Math.max(0, goal.targetValue - progress.value)
-  const workdaysRemaining = Math.max(1, countBusinessDays(now, goal.periodEnd))
-  const dailyRequired = remaining / workdaysRemaining
+export function getGoalInsight(snapshot: WorkspaceSnapshot, goal: Goal, now = new Date(), options: GoalInsightOptions = {}): GoalInsight {
+  const workingDays = options.workingDays?.length ? options.workingDays : DEFAULT_WORKING_DAYS
+  const riskThreshold = clamp(options.riskThreshold ?? 0.75, 0.5, 0.99)
+  const today = localDateKey(now)
+  const scopedUserIds = options.userIds?.length ? options.userIds : null
+  const value = getMetricValue(snapshot, goal.metric, goal.periodStart, goal.periodEnd, goal.userId, scopedUserIds)
+  const percentage = goal.targetValue > 0 ? Math.min(999, Math.round((value / goal.targetValue) * 100)) : 0
+  const workdaysTotal = Math.max(1, countBusinessDays(goal.periodStart, goal.periodEnd, workingDays))
+  const comparableEnd = today < goal.periodStart ? null : today > goal.periodEnd ? goal.periodEnd : today
+  const workdaysElapsed = comparableEnd ? Math.min(workdaysTotal, countBusinessDays(goal.periodStart, comparableEnd, workingDays)) : 0
+  const elapsedFraction = clamp(workdaysElapsed / workdaysTotal, 0, 1)
+  const expected = goal.targetValue * elapsedFraction
+  const expectedPercentage = Math.round(elapsedFraction * 100)
+  const paceRatio = expected <= 0 ? 1 : value / expected
+  const pace = percentage >= 100 || paceRatio >= 1 ? 'on_track' : paceRatio >= riskThreshold ? 'attention' : 'at_risk'
+  const paceGap = value - expected
+  const remaining = Math.max(0, goal.targetValue - value)
+  const workdaysRemaining = today > goal.periodEnd ? 0 : Math.max(0, countBusinessDays(today < goal.periodStart ? goal.periodStart : today, goal.periodEnd, workingDays))
+  const dailyRequired = remaining <= 0 ? 0 : remaining / Math.max(1, workdaysRemaining)
+  const forecast = elapsedFraction > 0 ? value / elapsedFraction : 0
+  const forecastPercentage = goal.targetValue ? Math.round((forecast / goal.targetValue) * 100) : 0
+
+  const totalCalendarDays = Math.max(1, calendarDaysInclusive(goal.periodStart, goal.periodEnd))
+  const elapsedCalendarDays = today < goal.periodStart ? 0 : today > goal.periodEnd ? totalCalendarDays : clamp(calendarDaysInclusive(goal.periodStart, today), 0, totalCalendarDays)
+  const previousPeriodStart = addDays(goal.periodStart, -totalCalendarDays)
+  const previousPeriodEnd = elapsedCalendarDays > 0 ? addDays(previousPeriodStart, elapsedCalendarDays - 1) : previousPeriodStart
+  const previousValue = elapsedCalendarDays > 0 ? getMetricValue(snapshot, goal.metric, previousPeriodStart, previousPeriodEnd, goal.userId, scopedUserIds) : 0
+  const previousDeltaPercentage = previousValue > 0 ? Math.round(((value - previousValue) / previousValue) * 100) : value > 0 ? 100 : null
+
   return {
     goal,
-    ...progress,
+    value,
+    percentage,
+    expected,
+    expectedPercentage,
+    pace,
+    paceRatio,
+    paceGap,
     remaining,
     forecast,
-    forecastPercentage: goal.targetValue ? Math.round((forecast / goal.targetValue) * 100) : 0,
+    forecastPercentage,
+    projectedToHit: percentage >= 100 || forecastPercentage >= 100,
+    workdaysTotal,
+    workdaysElapsed,
     workdaysRemaining,
     dailyRequired,
+    previousValue,
+    previousDeltaPercentage,
+    previousPeriodStart,
+    previousPeriodEnd,
   }
 }
 
@@ -117,10 +195,10 @@ const goalGap = (snapshot: WorkspaceSnapshot, goals: Goal[], metric: GoalMetric)
   .filter((goal) => goal.metric === metric)
   .reduce((sum, goal) => sum + Math.max(0, goal.targetValue - getMetricValue(snapshot, metric, goal.periodStart, goal.periodEnd, goal.userId)), 0)
 
-export function buildRoutinePlan(snapshot: WorkspaceSnapshot, activeGoals: Goal[], now = new Date()): RoutinePlan {
+export function buildRoutinePlan(snapshot: WorkspaceSnapshot, activeGoals: Goal[], now = new Date(), workingDays = DEFAULT_WORKING_DAYS): RoutinePlan {
   const rates = calculateFunnelRates(snapshot, 90, now)
-  const periodEnd = activeGoals.reduce((latest, goal) => goal.periodEnd > latest ? goal.periodEnd : latest, dateOnly(now))
-  const workdaysRemaining = Math.max(1, countBusinessDays(now, periodEnd))
+  const periodEnd = activeGoals.reduce((latest, goal) => goal.periodEnd > latest ? goal.periodEnd : latest, localDateKey(now))
+  const workdaysRemaining = Math.max(1, countBusinessDays(localDateKey(now), periodEnd, workingDays))
 
   const revenueGap = goalGap(snapshot, activeGoals, 'revenue')
   const directWins = goalGap(snapshot, activeGoals, 'wins')
@@ -157,7 +235,7 @@ const priorityScore = (lead: Lead) => {
 }
 
 const routineTaskExistsToday = (activities: ActivityItem[], leadId: string, now: Date) => {
-  const today = dateOnly(now)
+  const today = localDateKey(now)
   return activities.some((activity) => activity.leadId === leadId && !activity.completedAt && activity.dueAt?.slice(0, 10) === today && /rotina de metas/i.test(activity.title))
 }
 

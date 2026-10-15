@@ -1,0 +1,47 @@
+RealTalent CRM
+V101.11.1-H2 — Cinematic Login & Brand Motion
+
+ESCOPO
+Hotfix visual da entrada/autenticação sobre a V101.11.1-H1. Não altera dados, migrations, schema, autenticação Supabase, sessão local ou logout.
+
+ALTERAÇÕES PRINCIPAIS
+- Fundo da autenticação passou a ser full-screen em azul/teal + cores RealTalent.
+- Removida a divisão visual bege/verde do canvas externo.
+- Logo RT passa a ser o elemento central da animação: reveal, depth echoes, scan, pulse e float.
+- Splash de inicialização usa a mesma linguagem visual.
+- Card de entrada continua claro/glass para contraste e legibilidade.
+- Motion reduzido continua suportado via prefers-reduced-motion.
+
+GATES EXECUTADOS
+- V101.11.1 Login Experience & Reliability: 34/34 PASS
+- V101.11.1-H1 Login Gate & Logout: 35/35 PASS
+- V101.11.1-H2 Cinematic Login & Brand Motion: 38/38 PASS
+- Source syntax: 395 arquivos PASS
+- Integration contracts: 363 arquivos PASS
+- Release Manifest: 62/62 PASS
+- qa:architecture: PASS
+- check:legacy: PASS (cadeia histórica até V101.9.8)
+- Linux release preflight: 356 TS/TSX PASS
+- Build registry-independent: 280 módulos PASS
+- CSS source parse: 73 arquivos / 0 erros
+- CSS built bundle parse: 0 erros
+
+GATES OFICIAIS NÃO MARCADOS COMO PASS NESTE SANDBOX
+- npm run typecheck: node_modules/tipagens React/Supabase ausentes.
+- npm run test: vitest não instalado.
+- npm run build: vite não instalado.
+Essas limitações são do ambiente desta execução; o launcher continua com recuperação de dependências/lockfile para o Linux do usuário.
+
+SEGURANÇA / DADOS
+- 49 migrations preservadas.
+- Nenhuma mudança de schema.
+- Login Gate local preservado.
+- Supabase signInWithPassword preservado.
+- Sair da conta preservado e não destrutivo.
+- Communications Architecture V101.11.0 preservada.
+
+PACOTE
+- dist de verificação removido antes do ZIP.
+- node_modules não incluído.
+- .env.local não incluído.
+- estados .realtalent-* não incluídos.

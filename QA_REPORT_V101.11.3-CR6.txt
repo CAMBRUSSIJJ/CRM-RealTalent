@@ -1,0 +1,43 @@
+RealTalent CRM V101.11.3-CR6 — Performance Optimization & Payload Reduction
+Date: 2026-10-13
+
+STATUS
+- CR1: 16/16 PASS
+- CR2: 15/15 PASS
+- CR3: 21/21 PASS
+- CR4: 21/21 PASS
+- CR5: 24/24 PASS
+- CR6: 25/25 PASS
+- Migrations: 58/58 PASS; checksums intact
+- Source Syntax: 424 files PASS
+- Integration Contracts: 392 files PASS
+- Lockfile integrity: PASS
+- Release Manifest: 111/111 PASS
+
+CR6 IMPLEMENTATION
+- Removed route-specific CSS for Prospecting, Contacts and Proposals from global main.tsx boot imports.
+- Route chunks now load their own CSS via Promise.all dynamic imports.
+- Added deduplicated idle prefetch for likely commercial next routes.
+- Preserved progressive workspace snapshot/slice loading.
+- Preserved CR5 local-first observability.
+- Added source payload budgets and post-build dist budgets.
+
+SOURCE BUDGETS
+- Prospecting: 168446 / 190000 B PASS
+- Proposals: 135948 / 150000 B PASS
+- Contacts: 102622 / 120000 B PASS
+- App Context: 94822 / 410000 B PASS
+
+POST-BUILD BUDGETS (when dist exists)
+- individual JS <= 400000 B
+- individual CSS <= 300000 B
+- initial index-referenced JS+CSS <= 900000 B
+
+BLOCKED / NOT CLAIMED
+- npm ci: BLOCKED by registry/download window
+- typecheck: BLOCKED because full dependency installation did not complete
+- Vitest: BLOCKED because full dependency installation did not complete
+- Vite build: BLOCKED because full dependency installation did not complete
+- dist bundle budget: BLOCKED until Vite produces dist/
+
+No partial node_modules is shipped in the package.

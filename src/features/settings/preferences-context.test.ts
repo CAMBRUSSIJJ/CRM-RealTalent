@@ -30,4 +30,18 @@ describe('normalização segura das preferências', () => {
     expect(preferences.commercial.pipelineStagePolicies.proposal.instructions).toBe('Confirmar decisor')
     expect(preferences.commercial.requireNextActionForActiveLeads).toBe(true)
   })
+
+  it('migra navegação antiga para menu principal e protege Configurações', () => {
+    const preferences = normalizePreferences({ navigation: { visibleRoutes: ['dashboard', 'leads', 'settings'], order: ['leads', 'dashboard', 'settings'] } as never }, 'RealTalent')
+    expect(preferences.navigation.primaryRoutes).toEqual(expect.arrayContaining(['dashboard', 'leads', 'settings']))
+    expect(preferences.navigation.primaryRoutes).not.toContain('followups')
+  })
+
+  it('preserva escolha entre menu principal e Mais ferramentas somente para rotas visíveis', () => {
+    const preferences = normalizePreferences({ navigation: { visibleRoutes: ['dashboard', 'pipeline', 'followups', 'settings'], primaryRoutes: ['dashboard', 'followups', 'commercial-map', 'settings'] } as never }, 'RealTalent')
+    expect(preferences.navigation.primaryRoutes).toEqual(expect.arrayContaining(['dashboard', 'followups', 'settings']))
+    expect(preferences.navigation.primaryRoutes).not.toContain('commercial-map')
+    expect(preferences.navigation.primaryRoutes).not.toContain('pipeline')
+  })
+
 })

@@ -1,0 +1,57 @@
+RealTalent CRM V101.10.9-H3 — Calling & RealTalent Connect CSS Consolidation
+QA REPORT
+
+Scope
+- CSS-only consolidation for Calling/Ligações + RealTalent Connect ownership.
+- No business logic, data model, migrations, pairing protocol, dialer contract, queue logic, call scripts, or integrations changed.
+
+Canonical runtime layers
+- calls-core.css <- calls-v100.css
+- calling-workspace.css <- calls-v100982.css + calls-v1012.css
+- calling-intelligence.css <- workspace-metrics-calling-convergence-v10170-h4.css + metrics-calling-structural-redesign-v10171.css
+- realtalent-connect.css retained as canonical <- V101.8 / V101.8.1 / V101.8.2 / V101.8.3 / V101.10.7 layers
+
+Verified
+- qa:architecture: PASS
+- check:legacy V100.56.4 -> V101.9.8: PASS
+- Release Manifest: 56/56
+- CSS Governance: 45/45
+- V101.10.9 baseline: 28/28
+- V101.10.9-H1: 45/45
+- V101.10.9-H2: 37/37
+- V101.10.9-H3: 38/38
+- V101.2 Calling Workflow & Strategy: 78/78
+- V101.7.0 Metrics & Calling Hotfix 4: 32/32
+- V101.7.1 Metrics & Calling Structural Redesign: 33/33
+- V100.98.2 RealTalent Calling 3.0: 86/86
+- V100.99 Visual Intelligence: 56/56
+- Connect MVP: 38/38
+- Connect Setup & Reliability: 34/34
+- Connect Fast Dial: 30/30
+- Connect One-Tap: 39/39
+- Source syntax: 388 files PASS
+- Integration contracts: 361 files PASS
+- Migrations: 49 checksums PASS
+- Local/Supabase repository contracts remain covered by qa:architecture
+- CSS parser (tinycss2): 114 files / 0 parse errors
+- registry-independent build: PASS, 278 TypeScript modules transpiled
+- bundle ownership: canonical Calling/Connect CSS present once as top-level sources; superseded H3 Calling source files absent as top-level bundle sources
+
+Runtime CSS inventory
+- CSS files in repository: 114
+- Direct src/main.tsx CSS imports: 54
+- Versioned CSS imports still in bootstrap: 36
+- Version-suffixed legacy CSS files retained: 93
+- Canonical runtime styles tracked: 16
+
+Known environment limitation
+- node_modules is absent in the execution environment.
+- npm run doctor reports lockfile INCONSISTENT, dependencies absent/incomplete, no official V101.10.9 dist.
+- npm run typecheck cannot be treated as a product failure here because React/Supabase/type packages are unavailable; first error is TS2307 Cannot find module react.
+- Official Vite build, full Vitest suite and npm audit were therefore not marked PASS in this environment.
+- The H1 lockfile recovery path remains intact for first run on Linux with registry access.
+
+Packaging policy
+- The registry-independent dist used for verification was removed before packaging.
+- No node_modules is included.
+- Legacy CSS source files are retained for rollback/audit; they are not runtime-owned where superseded by canonical H3 layers.

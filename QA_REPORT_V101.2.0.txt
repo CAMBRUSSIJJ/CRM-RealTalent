@@ -1,0 +1,78 @@
+RealTalent CRM V101.2.0 — Calling Workflow & Strategy
+QA REPORT
+Data: 2026-09-26
+
+ESCOPO DA RELEASE
+- Strategy Hub em Playbooks para padronizar objetivo, modo e roteiro da prospecção.
+- Seleção automática ou manual do Roteiro da sessão na preparação de chamadas.
+- Interface de preparação com divulgação progressiva: validações e Call Health só ocupam espaço quando há algo acionável.
+- Context Workspace recolhível no Modo Foco: Resumo, Histórico e Notas.
+- Autosave de rascunho de notas por lead e ação para fixar informação importante no histórico.
+- Assistant opcional durante a conversa e layout em largura total quando oculto.
+- RealTalent Phone companion integrado ao RealTalent Connect via LAN.
+- Pareamento persistente do dispositivo, descoberta no Voice Dialer e envio da chamada da fila ao celular.
+- Abertura do discador nativo por tel: e sincronização explícita de ringing/connected/failed/ended.
+- Twilio Agent Bridge preservado como provider PSTN para chamadas controladas pelo provider.
+- Runtime Linux atualizado para porta CRM 4187; Connect permanece na porta 3001.
+
+VALIDAÇÕES EXECUTADAS NESTE AMBIENTE
+1. Source syntax audit
+   PASS — 275 arquivos.
+
+2. Integration contract audit
+   PASS — 244 arquivos.
+
+3. Migrations
+   PASS — 41/41 migrations com checksum íntegro.
+
+4. Linux release preflight
+   PASS — 242 arquivos TS/TSX; imports Lucide e contratos críticos validados.
+
+5. QA histórico + atual
+   PASS — 50/50 scripts qa:*.
+   Inclui gates de V100.56.4 até V101.2.0.
+
+6. Gate específico V101.2
+   PASS — 78/78 contratos.
+
+7. TypeScript direcionado aos serviços alterados
+   PASS — calling-strategy.ts, voice-dialer.ts, call-session-intelligence.ts e domain/types.ts compilados em strict mode com TypeScript global.
+
+8. Shell/Node syntax
+   PASS — start-linux.sh e configure-realtalent-connect.sh com bash -n.
+   PASS — RealTalent Connect e scripts de smoke/auditoria com node --check.
+
+9. RealTalent Connect runtime smoke
+   PASS — servidor real iniciado localmente sem Twilio.
+   PASS — origin guard rejeitou origem externa com HTTP 403.
+   PASS — código de pareamento obtido.
+   PASS — RealTalent Phone pareado.
+   PASS — dispositivo apareceu online.
+   PASS — chamada criada para connect:phone:<device>.
+   PASS — comando entregue ao companion.
+   PASS — estado connected retornou ao CRM.
+   PASS — estado ended retornou ao CRM.
+
+10. Persistência do RealTalent Phone
+    PASS — token/dispositivo persistiram em storage local restrito e foram reconhecidos após reinicialização do Connect.
+
+LIMITAÇÃO DE VALIDAÇÃO NESTE AMBIENTE
+O npm registry não ficou disponível de forma confiável. Uma tentativa de npm ci online expirou e o modo offline confirmou ausência do pacote xmlchars-2.2.0 no cache. Portanto, não foi possível executar aqui o typecheck completo do projeto, a suíte Vitest completa e o build Vite de produção da V101.2.
+
+O launcher mantém esses gates obrigatórios no Linux do usuário:
+preflight -> todos os QA -> typecheck completo -> Vitest -> build Vite -> bundle audit -> HTTP smoke -> RealTalent Connect smoke -> inicialização.
+Se qualquer etapa falhar, o CRM não abre.
+
+LIMITAÇÃO TÉCNICA EXPLÍCITA DO REALTALENT PHONE
+O companion V101.2 é uma aplicação web local, não um APK/IPA nativo. Ele consegue receber o comando do CRM e abrir o discador do celular via tel:, mas navegadores móveis não podem controlar automaticamente uma chamada SIM nativa. Por isso, atendimento/não atendimento/término são confirmados no companion. Para controle integral da chamada pelo software, use um provider PSTN como o Twilio Agent Bridge.
+
+SEGURANÇA
+- CRM continua servido somente em 127.0.0.1.
+- Connect escuta a LAN para permitir o celular, mas a Voice API exige origem local autorizada.
+- Endpoints de lista/pareamento administrativo são restritos ao CRM local.
+- tokens dos dispositivos não são expostos na lista de devices.
+- arquivo persistente de devices é criado com permissão 0600.
+- nenhuma chave Twilio é enviada ao navegador.
+
+RESULTADO
+A fonte V101.2.0 está pronta para validação final no Linux real através de ./start-linux.sh.

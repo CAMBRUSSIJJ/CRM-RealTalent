@@ -1,0 +1,67 @@
+REALTALENT CRM — QA REPORT
+V100.62.0 — Deal Intelligence & Next Best Action
+Base: V100.60.1 — Performance & Architecture
+Date: 2026-09-15
+
+SCOPE VALIDATED
+- Deal Health 0–100 with six weighted components
+- Seller probability vs RealTalent probability
+- Risk Engine and explainable reasons
+- Next Best Action / Action Engine
+- Deal Momentum
+- Account Coverage / relationship risk
+- Meu Dia 2.0
+- Pipeline Intelligence / Smart Pipeline
+- Deal Inspector and event-backed timeline
+- Shared Deal Intelligence engine in Dashboard, Pipeline and Lead drawer
+- Advanced weights/thresholds in Settings
+- Versioned RealTalent Connect conversation signal contract
+
+AUTOMATED STRUCTURAL QA
+- Source syntax audit: PASS — 208 files
+- Integration contract audit: PASS — 179 files
+- Migration checksum verification: PASS — 35/35 migrations
+- V100.56.4 regression audit: PASS — 21/21 contracts
+- V100.60.0 Sales Experience audit: PASS — 41/41 contracts
+- V100.60.1 Performance & Architecture audit: PASS — 29/29 contracts
+- V100.62.0 Deal Intelligence audit: PASS — 47/47 contracts
+
+RUNTIME SERVICE SMOKE
+- Deal Intelligence core transpiled with the globally available TypeScript compiler and executed directly in Node.
+- Demo portfolio: PASS — 4 active deals
+- Average health in deterministic demo snapshot: 57/100
+- RealTalent predicted value in deterministic demo snapshot: 14,673
+- Health and RealTalent probability range validation: PASS
+- Same-day overdue next action (time-sensitive, not only integer-day difference): PASS
+
+REALTALENT CONNECT CONTRACT SMOKE
+- Valid `realtalent.connect.conversation.v1` payload accepted: PASS
+- Buying signal normalization: PASS
+- Meeting next action + confidence normalization: PASS
+- Payload with invalid schema rejected: PASS
+
+DATA / COMPATIBILITY
+- Database migrations remain at 35; V100.62.0 adds no migration.
+- Backup schema remains 100.54.
+- No new runtime dependency was added for Deal Intelligence.
+- Conversation audio/transcription is deliberately outside the CRM; only normalized structured signals are accepted from RealTalent Connect.
+- Deal Health is derived/recalculable and is not persisted as fabricated historical truth.
+- Deal Inspector timeline uses real CRM events; it does not fabricate historical score-change events.
+
+PACKAGE HYGIENE
+- node_modules: excluded / absent from project package
+- .env, .env.local, .env.production, .env.development: excluded / absent
+- .env.example is retained intentionally as configuration documentation.
+
+VALIDATION LIMITATION IN THIS ENVIRONMENT
+`npm install` / dependency installation timed out because of the execution environment's network access. Therefore the following dependency-dependent gates were NOT executed here and are NOT being reported as passing:
+- npm run typecheck (project TypeScript 6.0.3)
+- npm test (Vitest)
+- npm run build (Vite)
+
+Run the complete local gate after dependencies install successfully:
+
+  npm install
+  npm run check
+
+The structural audits and isolated runtime service smoke tests above do not replace the full Vite/Vitest/typecheck pipeline.

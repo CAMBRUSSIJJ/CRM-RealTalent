@@ -1,0 +1,25 @@
+RealTalent CRM V100.60.0 — Sales Experience Suite
+QA final da fonte
+
+PASSOU
+- source_syntax_audit: 195 arquivos TS/TSX analisados, sem erro sintático/import local ausente/botão sem ação detectável
+- integration_contract_audit: 166 arquivos analisados, contratos compartilhados preservados
+- verify-migrations: 35/35 migrations com checksum íntegro
+- v100_56_4_regression_audit: 21/21 contratos críticos do hardening de dados
+- v100_60_experience_audit: 40/40 contratos da nova experiência comercial
+- TypeScript transpilation smoke (noCheck/noEmit): aprovado em todo o diretório src
+- JSON manifests: package.json, package-lock.json e migrations.lock.json válidos
+
+ESCOPO VALIDADO
+- Lead rápido + empresa existente + ações pós-salvamento
+- edição inline da ficha comercial
+- Overlay Manager global para modais/drawers transitórios
+- Account Relationship Map: nodes/edges, zoom, pan, fit, drag e gaps
+- Proposal Workspace: Cards/Lista/KPIs
+- Proposal 360 + follow-up real + ações contextuais
+- editor de proposta em quatro etapas
+- metadados de versão alinhados em app/health/Território
+
+LIMITAÇÃO DO AMBIENTE DE GERAÇÃO
+- npm install não concluiu por timeout de rede neste ambiente, portanto os gates que dependem de node_modules (vitest, typecheck completo com @types do projeto e vite build) não foram declarados como executados.
+- O projeto mantém os scripts npm run typecheck, npm test, npm run build e npm run check para execução após npm install no computador de destino.

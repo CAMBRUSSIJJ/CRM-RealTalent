@@ -4,7 +4,7 @@
   "description": "CRM comercial multiempresa",
   "start_url": "./",
   "display": "standalone",
-  "background_color": "#f4f6fa",
-  "theme_color": "#17264a",
+  "background_color": "#041827",
+  "theme_color": "#04274b",
   "lang": "pt-BR"
 }

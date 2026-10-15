@@ -1,0 +1,6 @@
+/* V101.5.3 — Performance & Repository Parity */
+.call-recording-lazy{display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:10px 0}
+.call-recording-lazy small{color:var(--text-muted,#64748b);font-size:12px;line-height:1.4}
+.call-recording-lazy small[role="alert"]{color:var(--danger,#b91c1c)}
+.calls-history-load-more{display:flex;justify-content:center;padding:16px;border-top:1px solid var(--border,#e2e8f0)}
+@media (max-width:720px){.call-recording-lazy{align-items:stretch;flex-direction:column}.call-recording-lazy .button,.calls-history-load-more .button{width:100%;justify-content:center}}

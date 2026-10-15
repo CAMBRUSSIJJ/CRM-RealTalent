@@ -1,0 +1,72 @@
+RealTalent CRM V101.9.4 — Global Event Bus
+QA Report
+==================================================
+
+Escopo
+-----
+- DomainEventBus único para mutações locais, Supabase Realtime e Communications SSE
+- EventRefreshCoordinator com invalidação por SnapshotSlice
+- projeções compartilhadas: Pipeline, Follow-ups, Meu Dia, Comunicação, Notificações e Métricas
+- BroadcastChannel entre abas
+- transporte realtime compartilhado
+- inspector window.__REALTALENT_EVENTS__
+- Central de Comunicação sem SSE próprio
+- nenhuma migration SQL nova
+
+Resultados executados neste ambiente
+------------------------------------
+V101.9.4 Global Event Bus audit: 30/30 contratos aprovados
+Linux release preflight: OK (312 arquivos TS/TSX)
+Source syntax audit: 346 arquivos aprovados
+Integration contract audit: 314 arquivos aprovados
+Migrations: 47/47 com checksum íntegro
+TypeScript isolado do núcleo Event Bus: OK
+AppContext principal: 69.429 bytes (< 70 KB)
+
+Runtime smoke do Event Bus: OK
+- evento duplicado entregue somente uma vez
+- deduplicated = 1
+- revisões das 6 projeções avançaram uma única vez
+- call.recorded consolidou em 1 refresh:
+  activities + automationRuns + calls + commercial + events
+- isolamento por workspace coberto também por teste Vitest incluído no projeto
+
+Regressão histórica
+-------------------
+O `npm run check` alcançou o typecheck com:
+- 3.004 checks OK
+- 0 FAIL antes do typecheck
+
+Durante a migração arquitetural, gates históricos que procuravam implementações
+textuais em locais antigos foram atualizados para validar a mesma capacidade no
+Global Event Bus. O limite histórico de 70 KB do AppContext foi preservado por
+extração real da infraestrutura Supabase + SSE para `use-global-realtime-bridge.ts`;
+o gate não foi relaxado.
+
+Typecheck / Vitest / build globais
+---------------------------------
+A montagem não possui node_modules. Uma tentativa de `npm install --no-audit --no-fund`
+ficou bloqueada por timeout de rede e não criou node_modules. O typecheck global
+foi iniciado e reportou módulos ausentes (`react`, `react-dom`, `lucide-react`,
+`@supabase/supabase-js` e respectivos tipos), com erros de tipagem em cascata.
+Por isso Vitest e build globais não foram executados neste ambiente.
+
+O `start-linux.sh` mantém o gate completo no Linux do usuário:
+npm install -> preflight -> release:verify/check -> typecheck -> Vitest -> build -> runtime smokes.
+
+Compatibilidade preservada
+--------------------------
+- V101.9.3 Canonical Commercial Model
+- V101.9.2 Universal Record Page
+- V101.9.1 Universal View Engine
+- V101.9.0 Core Metadata Foundation
+- Lead como projection comercial legada
+- Connect One-Tap
+- Communications Gateway / WhatsApp
+- release channel técnico official-communications
+- 47 migrations existentes, sem nova migration na V101.9.4
+
+Inspector
+---------
+window.__REALTALENT_EVENTS__.inspect()
+window.__REALTALENT_EVENTS__.clear()

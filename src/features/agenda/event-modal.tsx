@@ -1,6 +1,7 @@
-import { AlertTriangle, Bell, CalendarDays, Clock3, Repeat2, Save, Trash2, Users } from 'lucide-react'
+import { NativeSelectionSelect } from '../../components/selection'
+import { AlertTriangle, Bell, CalendarDays, ChevronDown, ChevronUp, Clock3, Repeat2, Save, SlidersHorizontal, Trash2, Users } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
-import { useApp } from '../../app/app-context'
+import { useAppActions, useAppUi, useAppWorkspace } from '../../app/app-context'
 import { Button } from '../../components/ui/button'
 import { Modal } from '../../components/ui/modal'
 import type { CalendarEvent, CalendarEventStatus } from '../../domain/types'
@@ -43,7 +44,9 @@ const recurrenceLabel: Record<AgendaRecurrence, string> = {
 }
 
 export function EventModal({ open, event, initialDate, initialLeadId = '', onClose }: { open: boolean; event?: CalendarEvent | null; initialDate?: Date | null; initialLeadId?: string; onClose(): void }) {
-  const { snapshot, createCalendarEvent, createCalendarEvents, updateCalendarEvent, deleteCalendarEvent, notify, confirmAction } = useApp()
+  const { snapshot } = useAppWorkspace()
+  const { notify, confirmAction } = useAppUi()
+  const { createCalendarEvent, createCalendarEvents, updateCalendarEvent, deleteCalendarEvent } = useAppActions()
   const { preferences } = usePreferences()
   const [leadId, setLeadId] = useState('')
   const [title, setTitle] = useState('')
@@ -60,6 +63,7 @@ export function EventModal({ open, event, initialDate, initialLeadId = '', onClo
   const [recurrence, setRecurrence] = useState<AgendaRecurrence>('none')
   const [recurrenceCount, setRecurrenceCount] = useState('4')
   const [busy, setBusy] = useState(false)
+  const [advancedOpen, setAdvancedOpen] = useState(false)
 
   const owners = useMemo(() => {
     const unique = new Map<string, string>()
@@ -87,6 +91,7 @@ export function EventModal({ open, event, initialDate, initialLeadId = '', onClo
     setReminderMinutes(String(metadata?.reminderMinutes ?? preferences.commercial.meetingReminderMinutes))
     setRecurrence('none')
     setRecurrenceCount('4')
+    setAdvancedOpen(Boolean(event))
   }, [event, initialDate, initialLeadId, open, preferences.commercial.meetingReminderMinutes])
 
   const selectedLead = snapshot?.leads.find((lead) => lead.id === leadId) ?? null
@@ -166,35 +171,42 @@ export function EventModal({ open, event, initialDate, initialLeadId = '', onClo
     finally { setBusy(false) }
   }
 
-  return <Modal open={open} onClose={onClose} size="lg" title={event ? 'Editar compromisso' : 'Novo compromisso'} subtitle={event ? 'As alterações serão sincronizadas com o histórico e o Follow-up.' : 'Organize reunião, ligação, retorno ou tarefa com integração ao lead.'} footer={<>{event ? <Button variant="danger" disabled={busy} onClick={() => void remove()}><Trash2 size={16} /> Excluir</Button> : null}<span className="modal__footer-spacer" /><Button variant="secondary" onClick={onClose}>Cancelar</Button><Button loading={busy} onClick={() => void submit()}><Save size={16} /> {event ? 'Salvar alterações' : recurrence === 'none' ? 'Criar compromisso' : 'Criar recorrência'}</Button></>}>
-    <div className="agenda-event-form">
-      <section className="agenda-event-form__main">
+  return <Modal open={open} onClose={onClose} size="lg" title={event ? 'Editar compromisso' : 'Novo compromisso'} subtitle={event ? 'As alterações serão sincronizadas com o histórico e o Follow-up.' : 'Organize reunião, ligação, retorno ou tarefa com integração ao contato.'} footer={<>{event ? <Button variant="danger" disabled={busy} onClick={() => void remove()}><Trash2 size={16} /> Excluir</Button> : null}<span className="modal__footer-spacer" /><Button variant="secondary" onClick={onClose}>Cancelar</Button><Button loading={busy} onClick={() => void submit()}><Save size={16} /> {event ? 'Salvar alterações' : recurrence === 'none' ? 'Criar compromisso' : 'Criar recorrência'}</Button></>}>
+    <div className="agenda-event-form agenda-event-form-v10166">
+      <section className="agenda-event-form__main agenda-event-form-v10166__main">
         <div className="agenda-type-picker">
           {(Object.keys(agendaEventTypeLabel) as AgendaEventType[]).map((type) => <button type="button" key={type} className={eventType === type ? 'is-active' : ''} onClick={() => setType(type)}><span className={`agenda-type-dot agenda-type-dot--${type}`} />{agendaEventTypeLabel[type]}</button>)}
         </div>
 
-        <div className="form-grid">
+        <div className="form-grid agenda-event-basic-v10166">
           <label className="field field--span-2"><span>Título</span><input value={title} onChange={(change) => setTitle(change.target.value)} maxLength={240} placeholder="Ex.: Reunião de diagnóstico" /></label>
-          <label className="field field--span-2"><span>Lead relacionado</span><select value={leadId} onChange={(change) => setLead(change.target.value)}><option value="">Sem lead</option>{snapshot?.leads.map((lead) => <option key={lead.id} value={lead.id}>{lead.name}{lead.company ? ` — ${lead.company}` : ''}</option>)}</select></label>
+          <label className="field field--span-2"><span>Contato relacionado</span><NativeSelectionSelect value={leadId} onChange={(change) => setLead(change.target.value)}><option value="">Sem contato</option>{snapshot?.leads.map((lead) => <option key={lead.id} value={lead.id}>{lead.name}{lead.company ? ` — ${lead.company}` : ''}</option>)}</NativeSelectionSelect></label>
           <label className="field"><span>Início</span><input type="datetime-local" value={startsAt} onChange={(change) => setStartsAt(change.target.value)} /></label>
           <label className="field"><span>Término</span><input type="datetime-local" value={endsAt} onChange={(change) => setEndsAt(change.target.value)} /></label>
-          <label className="field"><span>Status</span><select value={status} onChange={(change) => setStatus(change.target.value as CalendarEventStatus)}><option value="confirmed">Confirmado</option><option value="tentative">Aguardando confirmação</option><option value="completed">Concluído</option><option value="cancelled">Cancelado</option></select></label>
-          <label className="field"><span>Local ou link</span><input value={location} onChange={(change) => setLocation(change.target.value)} placeholder="Google Meet, endereço..." /></label>
-          <label className="consent-check field--span-2"><input type="checkbox" checked={allDay} onChange={(change) => setAllDay(change.target.checked)} /><span>Evento de dia inteiro</span></label>
-          <label className="field field--span-2"><span>Descrição e pauta</span><textarea rows={5} value={description} onChange={(change) => setDescription(change.target.value)} placeholder="Contexto, objetivo, pauta e preparação necessária" /></label>
         </div>
-      </section>
 
-      <aside className="agenda-event-form__settings">
-        <div className="agenda-setting-card"><CalendarDays size={17} /><label><span>Agenda</span><select value={calendar} onChange={(change) => setCalendar(change.target.value as AgendaCalendar)}>{(Object.keys(agendaCalendarLabel) as AgendaCalendar[]).map((item) => <option key={item} value={item}>{agendaCalendarLabel[item]}</option>)}</select></label></div>
-        <div className="agenda-setting-card"><Users size={17} /><label><span>Responsável</span><select value={assignedTo} onChange={(change) => setAssignedTo(change.target.value)}><option value="">Sem responsável</option>{owners.map((owner) => <option key={owner.id} value={owner.id}>{owner.name}</option>)}</select></label></div>
-        <div className="agenda-setting-card"><Bell size={17} /><label><span>Lembrete</span><select value={reminderMinutes} onChange={(change) => setReminderMinutes(change.target.value)}>{[0,10,30,60,120,1440].map((minutes) => <option key={minutes} value={minutes}>{agendaReminderLabel(minutes)}</option>)}</select></label></div>
-        <div className="agenda-setting-card"><Repeat2 size={17} /><label><span>Recorrência</span><select value={recurrence} disabled={Boolean(event)} onChange={(change) => setRecurrence(change.target.value as AgendaRecurrence)}>{(Object.keys(recurrenceLabel) as AgendaRecurrence[]).map((item) => <option key={item} value={item}>{recurrenceLabel[item]}</option>)}</select></label></div>
-        {!event && recurrence !== 'none' ? <div className="agenda-setting-card"><Clock3 size={17} /><label><span>Quantidade de ocorrências</span><input type="number" min="2" max="24" value={recurrenceCount} onChange={(change) => setRecurrenceCount(change.target.value)} /></label></div> : null}
-        {selectedLead ? <div className="agenda-lead-preview"><span>Lead selecionado</span><strong>{selectedLead.name}</strong><small>{selectedLead.company || selectedLead.city || 'Sem empresa informada'}</small></div> : null}
-        {conflicts.length ? <div className="agenda-conflict-warning"><AlertTriangle size={18} /><div><strong>{conflicts.length} conflito(s) de horário</strong><span>{conflicts.slice(0, 2).map((item) => item.title).join(', ')}</span></div></div> : <div className="agenda-availability-ok"><Clock3 size={17} /><span>Horário livre para este responsável.</span></div>}
-        {event && readAgendaMetadata(event)?.recurrenceId ? <p className="agenda-series-note">Esta alteração afeta somente esta ocorrência da série.</p> : null}
-      </aside>
+        {selectedLead ? <div className="agenda-contact-preview-v10166"><span className="agenda-contact-preview-v10166__avatar">{selectedLead.name.split(/\s+/).filter(Boolean).slice(0,2).map((part) => part[0]).join('').toUpperCase()}</span><div><small>Contato relacionado</small><strong>{selectedLead.name}</strong><span>{selectedLead.company || selectedLead.city || 'Sem empresa informada'}</span></div></div> : null}
+        {conflicts.length ? <div className="agenda-conflict-warning"><AlertTriangle size={18} /><div><strong>{conflicts.length} conflito(s) de horário</strong><span>{conflicts.slice(0, 2).map((item) => item.title).join(', ')}</span></div></div> : <div className="agenda-availability-ok agenda-availability-ok-v10166"><Clock3 size={17} /><span>Horário livre para este responsável.</span></div>}
+
+        <button className="agenda-more-options-v10166" type="button" onClick={() => setAdvancedOpen((current) => !current)} aria-expanded={advancedOpen}><SlidersHorizontal size={16}/><span><strong>Mais opções</strong><small>Responsável, lembrete, recorrência, local, status e descrição.</small></span>{advancedOpen ? <ChevronUp size={16}/> : <ChevronDown size={16}/>}</button>
+
+        {advancedOpen ? <div className="agenda-event-advanced-v10166">
+          <div className="form-grid">
+            <label className="field"><span>Status</span><NativeSelectionSelect value={status} onChange={(change) => setStatus(change.target.value as CalendarEventStatus)}><option value="confirmed">Confirmado</option><option value="tentative">Aguardando confirmação</option><option value="completed">Concluído</option><option value="cancelled">Cancelado</option></NativeSelectionSelect></label>
+            <label className="field"><span>Local ou link</span><input value={location} onChange={(change) => setLocation(change.target.value)} placeholder="Google Meet, endereço..." /></label>
+            <label className="consent-check field--span-2"><input type="checkbox" checked={allDay} onChange={(change) => setAllDay(change.target.checked)} /><span>Evento de dia inteiro</span></label>
+            <label className="field field--span-2"><span>Descrição e pauta</span><textarea rows={4} value={description} onChange={(change) => setDescription(change.target.value)} placeholder="Contexto, objetivo, pauta e preparação necessária" /></label>
+          </div>
+          <div className="agenda-event-settings-grid-v10166">
+            <div className="agenda-setting-card"><CalendarDays size={17} /><label><span>Agenda</span><NativeSelectionSelect value={calendar} onChange={(change) => setCalendar(change.target.value as AgendaCalendar)}>{(Object.keys(agendaCalendarLabel) as AgendaCalendar[]).map((item) => <option key={item} value={item}>{agendaCalendarLabel[item]}</option>)}</NativeSelectionSelect></label></div>
+            <div className="agenda-setting-card"><Users size={17} /><label><span>Responsável</span><NativeSelectionSelect value={assignedTo} onChange={(change) => setAssignedTo(change.target.value)}><option value="">Sem responsável</option>{owners.map((owner) => <option key={owner.id} value={owner.id}>{owner.name}</option>)}</NativeSelectionSelect></label></div>
+            <div className="agenda-setting-card"><Bell size={17} /><label><span>Lembrete</span><NativeSelectionSelect value={reminderMinutes} onChange={(change) => setReminderMinutes(change.target.value)}>{[0,10,30,60,120,1440].map((minutes) => <option key={minutes} value={minutes}>{agendaReminderLabel(minutes)}</option>)}</NativeSelectionSelect></label></div>
+            <div className="agenda-setting-card"><Repeat2 size={17} /><label><span>Recorrência</span><NativeSelectionSelect value={recurrence} disabled={Boolean(event)} onChange={(change) => setRecurrence(change.target.value as AgendaRecurrence)}>{(Object.keys(recurrenceLabel) as AgendaRecurrence[]).map((item) => <option key={item} value={item}>{recurrenceLabel[item]}</option>)}</NativeSelectionSelect></label></div>
+            {!event && recurrence !== 'none' ? <div className="agenda-setting-card"><Clock3 size={17} /><label><span>Quantidade de ocorrências</span><input type="number" min="2" max="24" value={recurrenceCount} onChange={(change) => setRecurrenceCount(change.target.value)} /></label></div> : null}
+          </div>
+          {event && readAgendaMetadata(event)?.recurrenceId ? <p className="agenda-series-note">Esta alteração afeta somente esta ocorrência da série.</p> : null}
+        </div> : null}
+      </section>
     </div>
   </Modal>
 }

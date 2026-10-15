@@ -1,0 +1,32 @@
+RealTalent CRM V101.5.2 — UI Runtime QA & Accessibility
+QA final da release
+
+ESCOPO
+- Focus trap e restauração de foco para overlays compartilhados.
+- Semântica ARIA e navegação por teclado no Lead Workspace.
+- Abertura semântica de Leads em tabela/cards.
+- Correção de interações estruturais em Métricas e Follow-ups.
+- Roving tabindex em abas de Comunicação e Ligações.
+- Legibilidade, touch targets, safe-area, 100dvh, overscroll e reduced motion.
+- Preservação integral do hardening de dados/Calling da V101.5.1.
+
+GATES EXECUTADOS E APROVADOS
+- V101.5.2 UI Runtime QA & Accessibility: 37/37 contratos.
+- Regressão completa: 55/55 scripts de QA registrados no package.json.
+- Auditoria sintática: 286 arquivos aprovados.
+- Auditoria de contratos de integração: 255 arquivos aprovados.
+- Migrations: 41/41 com checksum íntegro.
+- RealTalent Connect resilience smoke: aprovado (requestId idempotente → persistência → restart → retomada → connected → ended; origin guard 403).
+- TypeScript direcionado: src/lib/keyboard-navigation.ts aprovado com tsc global, sem emissão.
+
+TESTES ADICIONADOS
+- src/components/ui/modal.test.tsx — contrato acessível do Modal.
+- src/lib/keyboard-navigation.test.ts — navegação roving/Home/End e ativação por teclado.
+
+LIMITAÇÃO DO AMBIENTE
+`npm ci --offline --no-audit --no-fund` não pôde concluir porque `xmlchars@2.2.0` não existe no cache npm local (ENOTCACHED). Por isso, neste ambiente, não foram executados o Vitest completo, o typecheck completo dependente de node_modules, o Vite build nem o HTTP smoke sobre bundle construído. Os arquivos de teste foram adicionados e passam nas auditorias estáticas, mas não são declarados como executados pelo Vitest.
+
+O resíduo parcial de node_modules gerado pela tentativa de instalação foi removido antes do empacotamento.
+
+E2E
+A V101.5.2 melhora contratos de runtime e acessibilidade, mas não declara cobertura browser E2E completa. Playwright/Chromium/WebKit/Firefox permanece como próximo nível de QA quando as dependências puderem ser instaladas no CI.

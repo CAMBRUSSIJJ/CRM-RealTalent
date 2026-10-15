@@ -1,0 +1,24 @@
+RealTalent CRM V101.5.6 — Visual Consistency Hotfix
+Data: 2026-09-27
+
+Escopo validado
+- remoção do verde como cor de ação primária;
+- azul/navy como accent funcional único;
+- sidebar clara padronizada;
+- sidebar acompanha o tema escuro;
+- topbar, inputs, modais, drawers e superfícies do tema escuro alinhados;
+- Garimpo sem ilhas brancas principais no dark mode;
+- Lead Workspace/drawer no mesmo sistema visual;
+- sem alteração de lógica comercial.
+
+Resultados
+- QA específico V101.5.6: 18/18 contratos aprovados.
+- Regressão histórica/current: 59/59 gates qa:* aprovados.
+- Auditoria sintática: 289 arquivos aprovados.
+- Auditoria de integração: 258 arquivos aprovados.
+- Migrations: 41/41 com checksum íntegro.
+- Linux release preflight: 256 arquivos TS/TSX aprovados.
+- RealTalent Connect resilience smoke: aprovado.
+
+Limitação ambiental
+- O pacote não inclui node_modules. Typecheck/Vitest/Vite build/HTTP bundle smoke dependem da instalação npm completa no Linux pelo start-linux.sh.

@@ -1,4 +1,4 @@
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.57.4'
 import { finishGeocodeJob, geocodeLeadRecord, GOOGLE_MAPS_API_KEY, persistGeocodeOutcome } from '../_shared/lead-geocoding.ts'
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL') ?? ''

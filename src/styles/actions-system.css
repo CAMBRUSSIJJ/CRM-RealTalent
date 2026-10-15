@@ -100,3 +100,10 @@
 @media (prefers-reduced-motion: reduce) {
   .bulk-bar, .pipeline-bulk-bar, .prospecting-bulkbar, .leads-bulk-bar { animation: none !important; }
 }
+
+/* V100.60.1 — lightweight fallback while the call workspace chunk is loading */
+.call-workspace-lazy-fallback {
+  position: fixed; z-index: 11050; inset: 0; display: grid; place-items: center;
+  color: var(--text); background: color-mix(in srgb, var(--surface) 92%, transparent);
+  backdrop-filter: blur(6px); font-size: 12px; font-weight: 800;
+}

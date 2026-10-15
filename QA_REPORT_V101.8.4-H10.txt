@@ -1,0 +1,50 @@
+RealTalent CRM V101.8.4-H10 — Communications Gateway Resilience
+QA Report
+===============================================================
+
+Problema reproduzido/analisado
+- CRM em 127.0.0.1:4188 podia permanecer ativo enquanto o Communications Gateway :3002 encerrava.
+- O launcher validava o gateway apenas uma vez e não supervisionava o processo depois.
+- A interface então mostrava "Gateway local de comunicações indisponível" mesmo tendo sido aberta pelo start-linux.sh.
+
+Correções H10
+- supervisor dedicado do Communications Gateway com restart e backoff;
+- startup espera health H10 real por até 15 segundos;
+- migração automática de sessão/configuração H9 → H10;
+- tratamento explícito de unhandledRejection/uncaughtException;
+- background sync com rejection capturada;
+- shutdown gracioso das sessões WhatsApp Web/Chromium;
+- listeners WhatsApp ready/message/message_create/message_ack protegidos;
+- GETs do frontend toleram restart transitório com até 3 tentativas;
+- mensagem de indisponibilidade corrigida;
+- audit H2 atualizado para aceitar gateway iniciado por supervisor sem perder a capacidade original.
+
+Validação executada
+- Linux release preflight: OK (265 arquivos TS/TSX)
+- Syntax audit: 299 arquivos aprovados
+- Integration contracts: 267 arquivos aprovados
+- Migrations: 46/46 checksums íntegros
+- Contact Identity Sync: 17/17
+- Official Communications: 14/14
+- Local Communications Gateway H2: 13/13
+- OAuth H3: 7/7
+- WhatsApp QR H4: 12/12
+- Runtime Dependency GateFix1: 5/5
+- WhatsApp Web QR H5: 14/14
+- Single-Pass Installer H6: 10/10
+- WhatsApp Chat H7: 15/15
+- WhatsApp History Sync H8: 21/21
+- Communications Reliability H9: 22/22
+- Communications Gateway Resilience H10: 18/18
+- Supervisor runtime smoke H10: 2/2
+  * child gateway forçado a sair com code 23
+  * supervisor registrou a queda
+  * supervisor iniciou uma segunda instância automaticamente
+
+Gate histórico completo
+- Nenhum FAIL/FALHOU antes do typecheck.
+- O typecheck deste ambiente não concluiu porque o ZIP não contém node_modules e este ambiente não instalou React/Lucide/Supabase.
+- O start-linux.sh instala/valida as dependências antes do typecheck no Linux do usuário.
+
+Observação importante
+- A H10 ainda deve ser iniciada por ./start-linux.sh. A diferença é que, depois de iniciada, o gateway passa a ser supervisionado e reiniciado automaticamente se cair.

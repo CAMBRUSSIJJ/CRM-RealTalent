@@ -1,0 +1,37 @@
+RealTalent CRM V101.9.9-H1 — Realtime Type Hotfix
+=================================================
+
+Issue reproduced from Linux typecheck
+-------------------------------------
+TS2322 at src/features/communications/communications-page.tsx:526:
+RealtimeTransportState included "disabled", while WhatsAppChatPanel accepted only
+CommunicationsRealtimeState (connecting | live | offline).
+
+Fix
+---
+- WhatsAppChatPanel now consumes RealtimeTransportState directly.
+- "disabled" is rendered explicitly as "Tempo real desativado".
+- No cast was added at the call site; the component contract was fixed at the source.
+- Added qa:v101.9.9:h1 regression gate.
+
+Executed in assembly environment
+---------------------------------
+V101.9.9-H1 Realtime Type Contract: 6/6
+QA Architecture:
+- Syntax: 376 files
+- Integration contracts: 347 files
+- Migrations: 48/48
+- Release Manifest: 23/23
+- Capability Matrix: 15 capabilities / 32 evidences / 25 executable
+- Repository parity: Local 96/96; Supabase 96/96
+- Browser E2E contract: 7 flows
+- V101.9.9 architecture audit: 19/19
+
+Global typecheck limitation in this environment
+-----------------------------------------------
+`npm install --no-audit --no-fund` timed out and did not create node_modules, so the
+full project typecheck/Vitest/build could not be rerun here. The reported TS2322 was
+fixed at the type contract itself and is now guarded by qa:v101.9.9:h1.
+
+No SQL migration was added. Application semantic version remains 101.9.9; H1 is an
+artifact hotfix label.

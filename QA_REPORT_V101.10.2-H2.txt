@@ -1,0 +1,38 @@
+RealTalent CRM V101.10.2-H2 — Prospecting Agent CSS Build Hotfix
+===============================================================
+
+Origem do hotfix
+- Linux do usuário: 76/76 test files e 326/326 testes passaram na H1.
+- O vite build falhou no Lightning CSS com: Unexpected token Ident("n").
+- Causa localizada em src/styles/prospecting-agent-v101102.css: sequências literais \\n haviam sido gravadas no CSS H1.
+
+Correção H2
+- Todas as sequências literais \\n no stylesheet do Prospecting Agent foram convertidas em quebras de linha reais.
+- Nenhuma lógica TS/TSX do Garimpo foi alterada para corrigir o build.
+- Prospecting Agent preservado; runtime identificado como 101.10.2-H2.
+- Novo gate qa:v101.10.2:h2 impede reintrodução de escapes literais no CSS.
+
+Validações executadas nesta árvore
+- CSS literal \\n: 0 ocorrências
+- tinycss2: 65 regras, 0 parse errors
+- V101.10.2-H2 audit: 17/17
+- Release Manifest: 32/32
+- Capability Matrix: 18 capacidades / 40 evidências / 30 executáveis
+- Repository Local: 96/96
+- Repository Supabase: 96/96
+- Browser E2E Contract: 9/9
+- V101.10.2: 34/34
+- V101.10.2-H1: 23/23
+- source syntax audit: 384 arquivos
+- integration contract audit: 357 arquivos
+- migrations: 49/49
+- Linux release preflight: OK (350 TS/TSX)
+- Prospecting Agent smoke: health + queue API OK
+- check:legacy: 3185 OK / 0 FAIL
+- bash -n start-linux.sh: PASS
+
+Limitação deste ambiente
+- npm install foi tentado, mas expirou por rede antes de criar node_modules.
+- Portanto o H2 não teve typecheck/Vitest/vite build global executado neste ambiente.
+- O erro específico do build foi removido estruturalmente do CSS e validado por parser CSS.
+- O launcher executará typecheck/test/build no Linux do usuário.

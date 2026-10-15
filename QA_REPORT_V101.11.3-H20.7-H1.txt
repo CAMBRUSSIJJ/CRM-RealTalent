@@ -1,0 +1,57 @@
+RealTalent CRM V101.11.3-H20.7-H1 — QA REPORT
+Appearance & Sidebar Truth
+Base: V101.11.3-H20.7
+
+RESULTADO PRINCIPAL
+-------------------
+qa:architecture                                      PASS
+H20.7 Global UI Final Pass                         49/49 PASS
+H20.7-H1 Appearance & Sidebar Truth                22/22 PASS
+Workspace Appearance H4                            22/22 PASS
+CSS Governance                                     65/65 PASS
+
+GATES ESTRUTURAIS
+-----------------
+Source Syntax                                418 arquivos PASS
+Integration Contracts                       386 arquivos PASS
+Migrations                                        54/54 PASS
+Release Manifest                                 98/98 PASS
+Capability Matrix       42 capacidades / 158 evidências / 104 executáveis PASS
+Repository Local                               100/100 PASS
+Repository Supabase                            100/100 PASS
+Browser E2E Contract                           11 fluxos PASS
+Linux Preflight                            379 TS/TSX PASS
+
+ESCOPO VALIDADO H20.7-H1
+------------------------
+- Tokens H20 canônicos funcionam apenas como fallback e não sobrescrevem aparência escolhida.
+- Accent customizado controla botões/seleções e aliases semânticos.
+- Topbar respeita topbarColor / --rt-shell-topbar.
+- Sidebar respeita sidebarColor / --rt-shell-sidebar.
+- Busca global não recebe fundo branco do primitive Input.
+- Busca global usa contraste derivado da topbar escolhida.
+- Preset RealTalent usa identidade azul oficial.
+- Verde permanece somente como preset opcional/sucesso semântico.
+- Cores em Empresa e marca usam a mesma fonte de verdade de Aparência.
+- Configurações deixa a navegação ordenável e fica fixa no rodapé da sidebar.
+- Editor de navegação não move/oculta Configurações como ferramenta comum.
+- Mobile mantém Configurações como utilidade fixa no menu Mais.
+
+BUILD / DEPENDÊNCIAS
+--------------------
+Build registry-independent: 303 módulos PASS de transpile.
+Bundle audit: fallback REJEITADO por "HTML legado reapareceu"; dist removido.
+
+npm ci: BLOCKED — não concluiu dentro da janela do ambiente e não produziu node_modules.
+typecheck oficial: BLOCKED — dependências ausentes.
+Vitest oficial: BLOCKED — dependências ausentes.
+Vite build oficial: BLOCKED — dependências ausentes.
+Esses gates NÃO são classificados como PASS.
+
+HIGIENE
+-------
+- node_modules ausente.
+- dist fallback removido.
+- .realtalent-whatsapp-browser ausente.
+- .realtalent-communications-media removido do pacote.
+- .env.local ausente.

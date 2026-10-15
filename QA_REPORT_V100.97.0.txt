@@ -1,0 +1,29 @@
+RealTalent CRM V100.97.0 — Product & Revenue Workspace
+QA REPORT
+
+Escopo entregue
+- Catálogo com Produto/Serviço, preço, custo, unidade comercial e desconto padrão.
+- Margem comercial de referência por item.
+- Indicadores de catálogo: ativos, recorrência, margem média e adoção em propostas.
+- Desconto padrão aplicado ao inserir item do catálogo em proposta.
+- Personalização de blocos do Catálogo em Configurações > Páginas.
+- Forecast com visões rápidas Executivo, Vendas, Receita e Completa.
+- Presets de Forecast preservam outras preferências da página.
+- Persistência local/Supabase atualizada para os campos V100.97.
+- Migration V100.97 com constraints de tipo, custo e desconto.
+- Launcher Linux dedicado na porta 4180 com preflight + build obrigatório.
+
+Validações executadas neste ambiente
+- Auditoria sintática: 270 arquivos aprovados.
+- Auditoria de contratos: 240 arquivos aprovados.
+- Migrations: 41/41 com checksum íntegro.
+- Gate V100.97: 54/54 contratos aprovados.
+- Gates históricos/atuais de release: 42/42 aprovados.
+- Linux release preflight: 238 arquivos TS/TSX; sem imports de marcas incompatíveis; bindings da Comunicação íntegros.
+- start-linux.sh: sintaxe Bash válida.
+
+Limitação do ambiente de geração
+O registry npm não está acessível de forma confiável neste container e o cache local não contém todas as dependências (por exemplo xmlchars). Por isso não foi possível executar aqui `npm ci`, `tsc`, Vitest e o build Vite final com as dependências oficiais. O launcher Linux executa o build real obrigatoriamente na máquina do usuário antes de abrir o CRM; se houver erro de compilação, ele interrompe e mostra o erro no terminal em vez de abrir uma tela quebrada.
+
+Observação de domínio
+A margem exibida é uma margem comercial de referência baseada em preço e custo cadastrados. Ela não substitui margem contábil, apuração fiscal ou custos indiretos.

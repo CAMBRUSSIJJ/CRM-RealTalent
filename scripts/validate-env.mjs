@@ -31,8 +31,18 @@ const errors = []
 const warnings = []
 
 if (!['local', 'supabase', 'auto'].includes(mode)) errors.push('VITE_DATA_MODE deve ser local, supabase ou auto.')
-const hostedBuild = String(values.VERCEL ?? '') === '1' || String(values.CI_PRODUCTION ?? '') === '1'
-if (hostedBuild && mode !== 'supabase') errors.push('Build hospedado exige VITE_DATA_MODE=supabase para impedir publicação acidental em modo local.')
+const productionIntent = ['production', 'prod'].includes(String(values.VITE_APP_ENV ?? values.NODE_ENV ?? '').trim().toLowerCase())
+const hostedBuild = String(values.VERCEL ?? '') === '1' || String(values.CI_PRODUCTION ?? '') === '1' || productionIntent
+if (hostedBuild && mode !== 'supabase') errors.push('Build de produção/hospedado exige VITE_DATA_MODE=supabase para impedir publicação acidental em modo local/auto.')
+const publicAppUrl = String(values.VITE_PUBLIC_APP_URL ?? '').trim()
+if (hostedBuild && publicAppUrl) {
+  try {
+    const parsed = new URL(publicAppUrl)
+    if (parsed.protocol !== 'https:') errors.push('VITE_PUBLIC_APP_URL deve usar HTTPS em produção.')
+    if (['localhost', '127.0.0.1'].includes(parsed.hostname)) errors.push('VITE_PUBLIC_APP_URL não pode apontar para localhost em produção.')
+  } catch { errors.push('VITE_PUBLIC_APP_URL não é uma URL válida.') }
+}
+if (hostedBuild && !publicAppUrl) warnings.push('VITE_PUBLIC_APP_URL não foi definido; defina o domínio canônico para produção.')
 const intendsSupabase = mode === 'supabase' || (mode === 'auto' && Boolean(url || key))
 if (intendsSupabase) {
   if (!url || /SEU-PROJETO|localhost:3000/i.test(url)) errors.push('VITE_SUPABASE_URL está ausente ou ainda contém um valor de exemplo.')
@@ -53,6 +63,28 @@ if (intendsSupabase) {
   }
 }
 if (mode === 'local') warnings.push('Modo local ativo: os dados ficam somente no navegador e não são compartilhados com a equipe.')
+
+
+const browserSecretNames = ['VITE_OPENAI_API_KEY','VITE_REALTALENT_AGENT_RUNTIME_TOKEN','VITE_REALTALENT_RUNTIME_TOKEN','VITE_REALTALENT_PROSPECTING_RUNTIME_TOKEN','VITE_SUPABASE_SERVICE_ROLE_KEY']
+for (const name of browserSecretNames) if (String(values[name] ?? '').trim()) errors.push(`${name} é segredo e não pode ser exposto no bundle Vite.`)
+const validateHttpsServerUrl = (name) => {
+  const value = String(values[name] ?? '').trim()
+  if (!value) return false
+  try { const parsed = new URL(value); if (hostedBuild && parsed.protocol !== 'https:') errors.push(`${name} deve usar HTTPS em produção.`); if (['localhost','127.0.0.1'].includes(parsed.hostname) && hostedBuild) errors.push(`${name} não pode usar localhost em produção.`) }
+  catch { errors.push(`${name} não é uma URL válida.`) }
+  return true
+}
+if (hostedBuild) {
+  const requiredUrls = ['REALTALENT_AGENT_UPSTREAM_URL','REALTALENT_COMMUNICATIONS_UPSTREAM_URL','REALTALENT_PROSPECTING_UPSTREAM_URL']
+  const requiredTokens = ['REALTALENT_AGENT_RUNTIME_TOKEN','REALTALENT_RUNTIME_TOKEN','REALTALENT_PROSPECTING_RUNTIME_TOKEN']
+  for (const name of requiredUrls) if (!validateHttpsServerUrl(name)) errors.push(`${name} é obrigatório para deploy hospedado completo.`)
+  for (const name of requiredTokens) if (String(values[name] ?? '').trim().length < 24) errors.push(`${name} é obrigatório e deve ter pelo menos 24 caracteres.`)
+  const publicGatewayVars = ['VITE_AGENT_GATEWAY_URL','VITE_COMMUNICATIONS_GATEWAY_URL','VITE_PROSPECTING_GATEWAY_URL']
+  for (const name of publicGatewayVars) {
+    const value = String(values[name] ?? '').trim()
+    if (value && /localhost|127\.0\.0\.1/i.test(value)) errors.push(`${name} não pode apontar para localhost em produção.`)
+  }
+}
 
 console.log('RealTalent CRM — validação de ambiente')
 console.log(`Modo: ${mode}`)

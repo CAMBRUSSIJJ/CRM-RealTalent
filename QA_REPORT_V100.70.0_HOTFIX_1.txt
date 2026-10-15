@@ -1,0 +1,15 @@
+RealTalent CRM V100.70.0 — Hotfix 1
+
+Problema reproduzido: PipelinePage renderizava <Sparkles /> sem importar Sparkles de lucide-react.
+Correção: import adicionado.
+Regressão: auditoria v100_70_0_sparkles_hotfix_audit.mjs adicionada.
+
+Validações executadas sem dependências externas:
+- source_syntax_audit.mjs
+- v100_69_calling_experience_audit.mjs
+- v100_70_call_preparation_workspace_audit.mjs
+- v100_70_0_sparkles_hotfix_audit.mjs
+- integration_contract_audit.mjs
+- verify-migrations.mjs
+
+Observação: build npm completa depende de node_modules instalados no ambiente de execução.

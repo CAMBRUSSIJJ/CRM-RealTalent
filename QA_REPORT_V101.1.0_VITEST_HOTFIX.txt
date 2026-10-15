@@ -1,0 +1,44 @@
+RealTalent CRM V101.1.0 — Vitest HOTFIX
+Data: 2026-09-26
+
+EVIDÊNCIA RECEBIDA DO LINUX DO USUÁRIO
+- TypeScript typecheck passou (tsc -p tsconfig.typecheck.json --noEmit).
+- Vitest executou 56 arquivos de teste.
+- Antes deste hotfix: 55 arquivos passaram e 1 falhou.
+- Antes deste hotfix: 236 testes passaram e 2 falharam.
+- Falhas concentradas em src/repositories/local-crm-repository.test.ts:
+  1) merge de duplicados esperava value=9000 e recebeu 7488.6;
+  2) initialize() de instalação existente alterava o JSON persistido.
+
+CORREÇÕES APLICADAS
+1) mergeLeads
+- Preserva o maior valor comercial conhecido entre o lead consolidado e a proposta oficial.
+- O mesmo valor consolidado é aplicado à oportunidade resolvida.
+- Evita redução silenciosa de 9000 para 7488.6 durante fusão de duplicados.
+
+2) initialize
+- readDatabase() continua normalizando campos opcionais em memória.
+- initialize() não regrava a instalação somente por essas normalizações.
+- A persistência ocorre quando synchronizeStructureInDatabase() efetivamente altera a estrutura comercial (leads/empresas/contatos/relacionamentos/oportunidades).
+
+VALIDAÇÕES EXECUTADAS NESTE AMBIENTE
+- source_syntax_audit: 274 arquivos aprovados.
+- integration_contract_audit: 243 arquivos aprovados.
+- migrations: 41/41 com checksum íntegro.
+- linux-release-preflight: 241 arquivos TS/TSX aprovados.
+- V101.1 Consolidation gate: 71/71.
+- V101.1 Vitest HOTFIX gate: 7/7.
+- Todos os gates qa:* registrados: 49/49.
+- Compilação TypeScript direcionada de src/repositories/local-crm-repository.ts com tsc global: aprovada.
+- Verificação funcional direcionada em JavaScript transpilado:
+  * initialize-idempotent = true;
+  * merged-value = 9000;
+  * merge-value-preserved = true.
+
+LIMITAÇÃO
+- A suíte Vitest completa não foi reexecutada neste ambiente porque o pacote não possui node_modules instalados e o registry npm não está disponível de forma confiável aqui.
+- O start-linux.sh continua executando typecheck + Vitest + build antes de abrir o CRM no Linux do usuário.
+
+ESCOPO
+- Nenhuma funcionalidade nova.
+- Versão lógica preservada em 101.1.0.

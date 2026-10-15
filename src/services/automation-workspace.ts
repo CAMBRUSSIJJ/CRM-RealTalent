@@ -45,6 +45,24 @@ export const triggerLabels: Record<AutomationTriggerType, string> = {
   manual: 'Execução manual',
 }
 
+export const triggerHelp: Record<AutomationTriggerType, string> = {
+  lead_created: 'Começa quando um novo contato é criado manualmente ou por uma integração.',
+  lead_imported: 'Começa quando um lead entra por importação, extensão ou outra fonte de captura.',
+  stage_changed: 'Começa quando uma oportunidade muda de etapa no Pipeline.',
+  activity_completed: 'Começa depois que uma atividade comercial é concluída.',
+  activity_overdue: 'Começa quando uma atividade fica vencida e ainda não foi concluída.',
+  call_outcome: 'Começa quando uma ligação recebe um resultado, como não atendeu ou reunião marcada.',
+  meeting_scheduled: 'Começa quando uma reunião é criada na Agenda.',
+  meeting_cancelled: 'Começa quando uma reunião é cancelada.',
+  proposal_sent: 'Começa quando uma proposta é registrada como enviada.',
+  date_reached: 'Começa quando uma data ou horário monitorado é alcançado.',
+  lead_stale: 'Começa nas checagens quando um lead ativo fica sem movimentação comercial.',
+  goal_at_risk: 'Começa quando uma meta monitorada entra em ritmo de risco.',
+  opportunity_won: 'Começa quando a oportunidade é marcada como ganha.',
+  opportunity_lost: 'Começa quando a oportunidade é marcada como perdida.',
+  manual: 'Só executa quando alguém inicia a regra manualmente.',
+}
+
 export const conditionFieldLabels: Record<Exclude<AutomationConditionField, 'automation_guard'>, string> = {
   status: 'Status do lead',
   temperature: 'Temperatura',
@@ -61,6 +79,24 @@ export const conditionFieldLabels: Record<Exclude<AutomationConditionField, 'aut
   attempt_count: 'Quantidade de tentativas',
   event_status: 'Status do evento',
   activity_type: 'Tipo da atividade',
+}
+
+export const conditionFieldHelp: Record<Exclude<AutomationConditionField, 'automation_guard'>, string> = {
+  status: 'Restringe a regra pelo estado comercial atual do lead.',
+  temperature: 'Filtra leads frios, mornos ou quentes.',
+  priority: 'Executa somente na prioridade escolhida.',
+  stage_id: 'Restringe a automação a uma etapa específica do Pipeline.',
+  source: 'Usa a origem do lead, como indicação, extensão ou campanha.',
+  city: 'Filtra pela cidade registrada no lead.',
+  call_outcome: 'Usa o resultado da ligação que disparou o evento.',
+  owner_name: 'Restringe pelo responsável comercial.',
+  tag: 'Verifica as tags atribuídas ao lead.',
+  value: 'Compara o valor financeiro da oportunidade.',
+  days_without_contact: 'Usa a quantidade de dias sem contato comercial real.',
+  has_next_action: 'Verifica se já existe uma próxima atividade pendente.',
+  attempt_count: 'Usa a quantidade de tentativas de ligação registradas.',
+  event_status: 'Filtra pelo status de um compromisso da Agenda.',
+  activity_type: 'Restringe pelo tipo da atividade que gerou o evento.',
 }
 
 export const operatorLabels: Record<AutomationConditionOperator, string> = {
@@ -92,6 +128,30 @@ export const actionLabels: Record<AutomationActionType, string> = {
   assisted_whatsapp: 'Preparar WhatsApp assistido',
   assisted_email: 'Preparar e-mail assistido',
   send_webhook: 'Enviar webhook',
+  wait: 'Aguardar',
+  branch_if: 'Condição / ramificação',
+}
+
+export const actionHelp: Record<AutomationActionType, string> = {
+  create_followup: 'Cria uma próxima ação de follow-up para o lead.',
+  create_call: 'Agenda uma atividade de ligação.',
+  create_meeting: 'Cria uma reunião na Agenda do CRM.',
+  add_tag: 'Adiciona uma tag sem remover as já existentes.',
+  remove_tag: 'Remove uma tag específica quando ela existir.',
+  set_priority: 'Altera a prioridade comercial do lead.',
+  set_temperature: 'Atualiza a temperatura comercial do lead.',
+  assign_owner: 'Define ou altera o responsável comercial.',
+  move_stage: 'Move a oportunidade para outra etapa do Pipeline.',
+  start_cadence: 'Cria uma sequência estruturada de contatos.',
+  end_cadence: 'Encerra as atividades pendentes da cadência atual.',
+  create_note: 'Registra uma nota interna no histórico comercial.',
+  internal_alert: 'Gera um aviso interno para o vendedor.',
+  mark_lost: 'Marca a oportunidade como perdida e encerra o fluxo.',
+  assisted_whatsapp: 'Prepara uma mensagem para revisão humana antes do envio.',
+  assisted_email: 'Prepara um e-mail para revisão humana antes do envio.',
+  send_webhook: 'Enfileira um evento para um webhook externo configurado.',
+  wait: 'Pausa o workflow de forma persistente e retoma depois, mesmo com o CRM fechado.',
+  branch_if: 'Avalia uma condição durante a execução e, se for falsa, pula as próximas etapas configuradas.',
 }
 
 const safeNumber = (value: unknown, fallback: number) => {
@@ -130,12 +190,23 @@ export function withAutomationGuard(conditions: AutomationCondition[], guard: Au
   ]
 }
 
+export function duplicateAutomationRuleInput(rule: AutomationRule) {
+  const guard = readAutomationGuard(rule.conditions)
+  return {
+    name: `${rule.name} — cópia`,
+    enabled: false,
+    triggerType: rule.triggerType,
+    conditions: withAutomationGuard(visibleAutomationConditions(rule.conditions).map((condition) => ({ ...condition, id: createId('condition') })), { ...guard, mode: 'simulation' as const }),
+    actions: rule.actions.map((action) => ({ ...action, id: createId('action') })),
+  }
+}
+
 export function automationRuleRisk(rule: Pick<AutomationRule, 'triggerType' | 'conditions' | 'actions'>) {
   const guard = readAutomationGuard(rule.conditions)
   let score = 0
   if (rule.actions.length >= 5) score += 2
   if (['lead_created', 'stage_changed', 'call_outcome', 'activity_completed'].includes(rule.triggerType)) score += 1
-  if (rule.actions.some((action) => ['move_stage', 'mark_lost', 'end_cadence', 'send_webhook'].includes(action.type))) score += 2
+  if (rule.actions.some((action) => ['move_stage', 'mark_lost', 'end_cadence', 'send_webhook', 'wait', 'branch_if'].includes(action.type))) score += 2
   if (!visibleAutomationConditions(rule.conditions).length) score += 2
   if (guard.mode === 'simulation') score -= 2
   if (guard.cooldownHours >= 12) score -= 1
@@ -160,6 +231,13 @@ export function validateAutomationRule(rule: Pick<AutomationRule, 'name' | 'trig
   for (const action of rule.actions) {
     if (['move_stage'].includes(action.type) && !stages.some((stage) => stage.id === action.value)) errors.push('Uma ação aponta para uma etapa que não existe mais.')
     if (['add_tag', 'remove_tag', 'create_followup', 'create_call', 'create_meeting', 'create_note', 'internal_alert', 'start_cadence', 'assisted_whatsapp', 'assisted_email', 'send_webhook'].includes(action.type) && !action.value.trim()) errors.push(`${actionLabels[action.type]} precisa de um título ou valor.`)
+    if (action.type === 'wait' && Number(action.delayDays ?? 0) <= 0 && Number(action.delayHours ?? 0) <= 0 && Number(action.delayMinutes ?? 0) <= 0) errors.push('A etapa Aguardar precisa de uma duração maior que zero.')
+    if (action.type === 'branch_if') {
+      if (!action.branchField) errors.push('A ramificação precisa de um campo para avaliar.')
+      if (!action.branchOperator) errors.push('A ramificação precisa de um operador.')
+      if (!['is_empty', 'is_not_empty'].includes(action.branchOperator ?? '') && !(action.branchValue ?? '').trim()) errors.push('A ramificação precisa de um valor para comparar.')
+      if (!Number.isFinite(Number(action.branchSkip ?? 1)) || Number(action.branchSkip ?? 1) < 1) errors.push('A ramificação precisa pular pelo menos uma etapa quando a condição for falsa.')
+    }
   }
   if (rule.triggerType === 'stage_changed' && rule.actions.some((action) => action.type === 'move_stage') && !conditions.some((condition) => condition.field === 'stage_id')) warnings.push('Mover etapa após qualquer mudança pode criar um fluxo difícil de controlar. Adicione uma condição de etapa.')
   if (rule.triggerType === 'opportunity_lost' && rule.actions.some((action) => action.type === 'mark_lost')) warnings.push('A oportunidade já estará perdida quando este gatilho ocorrer.')
@@ -187,6 +265,11 @@ export function describeAutomationAction(action: AutomationAction, stages: Pipel
   if (action.type === 'end_cadence') return 'Concluir atividades pendentes da cadência atual'
   if (action.type === 'assisted_whatsapp' || action.type === 'assisted_email') return `${actionLabels[action.type]} com a mensagem “${action.value}”`
   if (action.type === 'send_webhook') return `Enviar evento para o webhook configurado`
+  if (action.type === 'wait') {
+    const parts = [action.delayDays ? `${action.delayDays}d` : '', action.delayHours ? `${action.delayHours}h` : '', action.delayMinutes ? `${action.delayMinutes}min` : ''].filter(Boolean)
+    return `Aguardar ${parts.join(' ') || '1 min'} antes de continuar`
+  }
+  if (action.type === 'branch_if') return `Se ${conditionFieldLabels[action.branchField ?? 'status']} ${operatorLabels[action.branchOperator ?? 'equals']} ${action.branchValue ?? ''}; se falso, pular ${Math.max(1, Number(action.branchSkip ?? 1))} etapa(s)`
   return `${actionLabels[action.type]}${action.value ? `: ${action.value}` : ''}`
 }
 
@@ -218,14 +301,14 @@ export const AUTOMATION_RECIPES: AutomationRecipeDefinition[] = [
     actions: [{ type: 'add_tag', value: 'Origem: Extensão' }, { type: 'create_followup', value: 'Validar e realizar primeiro contato', delayHours: 1 }],
   },
   {
-    id: 'new-lead-first-action', category: 'Entrada', name: 'Novo lead com primeira ação',
+    id: 'new-lead-first-action', category: 'Entrada', name: 'Novo contato com primeira ação',
     description: 'Adiciona tag de entrada e cria o primeiro follow-up no mesmo dia.', triggerType: 'lead_created',
     conditions: [{ field: 'status', operator: 'equals', value: 'active' }],
-    actions: [{ type: 'add_tag', value: 'Novo lead' }, { type: 'create_followup', value: 'Realizar primeiro contato', delayDays: 0 }],
+    actions: [{ type: 'add_tag', value: 'Novo contato' }, { type: 'create_followup', value: 'Realizar primeiro contato', delayDays: 0 }],
   },
   {
     id: 'new-lead-cadence', category: 'Entrada', name: 'Cadência automática de primeiro contato',
-    description: 'Prepara uma sequência de três contatos para todo novo lead ativo. A receita começa em simulação para revisão segura.', triggerType: 'lead_created',
+    description: 'Prepara uma sequência de três contatos para todo novo contato ativo. A receita começa em simulação para revisão segura.', triggerType: 'lead_created',
     conditions: [{ field: 'status', operator: 'equals', value: 'active' }],
     actions: [{ type: 'start_cadence', value: 'Cadência de primeiro contato' }],
   },
@@ -296,6 +379,26 @@ export const AUTOMATION_RECIPES: AutomationRecipeDefinition[] = [
     actions: [{ type: 'end_cadence', value: '' }, { type: 'add_tag', value: 'Analisar perda' }, { type: 'create_note', value: 'Oportunidade perdida; revisar motivo e origem.' }],
   },
 ]
+
+export interface AutomationSuggestion {
+  recipeId: string
+  title: string
+  reason: string
+  priority: 'high' | 'medium'
+}
+
+export function suggestAutomationRecipes(snapshot: WorkspaceSnapshot): AutomationSuggestion[] {
+  const activeTriggers = new Set(snapshot.automationRules.filter((rule) => rule.enabled).map((rule) => rule.triggerType))
+  const suggestions: AutomationSuggestion[] = []
+  const overdue = snapshot.activities.filter((item) => item.dueAt && !item.completedAt && new Date(item.dueAt).getTime() < Date.now()).length
+  const hot = snapshot.leads.filter((lead) => lead.status === 'active' && lead.temperature === 'hot').length
+  const upcomingMeetings = snapshot.events.filter((event) => event.status !== 'cancelled' && new Date(event.startsAt).getTime() > Date.now()).length
+  if (snapshot.leads.some((lead) => lead.status === 'active') && !activeTriggers.has('lead_created')) suggestions.push({ recipeId: 'new-lead-first-action', title: 'Organizar a entrada de novos leads', reason: 'Há leads ativos, mas nenhuma regra ligada para garantir a primeira ação após a entrada.', priority: 'high' })
+  if (overdue > 0 && !activeTriggers.has('activity_overdue')) suggestions.push({ recipeId: 'overdue-activity', title: 'Tratar atividades vencidas', reason: `${overdue} atividade(s) estão vencidas sem uma automação ativa de recuperação.`, priority: 'high' })
+  if (hot > 0 && !activeTriggers.has('lead_stale')) suggestions.push({ recipeId: 'stale-hot-lead', title: 'Proteger leads quentes', reason: `${hot} lead(s) quente(s) podem receber alerta e retomada automática quando ficarem parados.`, priority: 'medium' })
+  if (upcomingMeetings > 0 && !activeTriggers.has('meeting_scheduled')) suggestions.push({ recipeId: 'meeting-confirmation', title: 'Confirmar reuniões automaticamente', reason: `${upcomingMeetings} reunião(ões) futura(s) podem ganhar uma tarefa de confirmação automática.`, priority: 'medium' })
+  return suggestions.slice(0, 3)
+}
 
 export function createAutomationRecipe(recipeId: string) {
   const recipe = AUTOMATION_RECIPES.find((item) => item.id === recipeId)

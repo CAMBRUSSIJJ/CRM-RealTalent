@@ -1,6 +1,7 @@
 export type DataMode = 'local' | 'supabase' | 'auto'
 
 const clean = (value: string | undefined) => value?.trim() ?? ''
+const hosted = Boolean(import.meta.env.PROD)
 
 export const env = {
   appName: clean(import.meta.env.VITE_APP_NAME) || 'RealTalent CRM',
@@ -9,6 +10,13 @@ export const env = {
   supabasePublishableKey: clean(import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY),
   releaseChannel: clean(import.meta.env.VITE_RELEASE_CHANNEL) || 'development',
   commitSha: clean(import.meta.env.VITE_COMMIT_SHA) || 'local',
+  agentGatewayUrl: clean(import.meta.env.VITE_AGENT_GATEWAY_URL) || (hosted ? '/api/runtime/agent' : 'http://127.0.0.1:8791'),
+  agentControlUrl: clean(import.meta.env.VITE_AGENT_CONTROL_URL),
+  blueOceanUrl: clean(import.meta.env.VITE_BLUE_OCEAN_URL) || (hosted ? '' : 'http://127.0.0.1:4173/'),
+  communicationsGatewayUrl: clean(import.meta.env.VITE_COMMUNICATIONS_GATEWAY_URL) || (hosted ? '/api/runtime/communications' : '/__rt/communications'),
+  prospectingGatewayUrl: clean(import.meta.env.VITE_PROSPECTING_GATEWAY_URL) || (hosted ? '/api/runtime/prospecting' : 'http://127.0.0.1:4319'),
+  connectGatewayUrl: clean(import.meta.env.VITE_REALTALENT_CONNECT_URL) || (hosted ? '' : 'http://localhost:3001'),
+  hosted,
 }
 
 export const hasSupabaseConfig = Boolean(

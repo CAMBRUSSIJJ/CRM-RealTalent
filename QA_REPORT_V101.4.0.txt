@@ -1,0 +1,38 @@
+RealTalent CRM V101.4.0 — Calling Production Ready
+QA date: 2026-09-26
+
+RESULT
+- V101.4 source-contract audit: 50/50 approved.
+- Historical/current QA scripts: 52/52 approved.
+- Source syntax audit: 277 files approved.
+- Integration contract audit: 246 files approved.
+- Migrations: 41/41 checksums intact; no new migration required.
+- Linux release preflight: 244 TS/TSX files approved.
+- RealTalent Connect resilience smoke: APPROVED.
+  requestId idempotency -> runtime persistence -> real process restart -> same call restored -> connected -> ended -> origin guard 403.
+- Call Runtime Journal isolated TypeScript/lifecycle test: APPROVED.
+  begin -> bind external call -> connected event -> recoverable lookup -> saved marker.
+- Targeted TypeScript compile for voice-dialer.ts + call-runtime-v1014.ts: APPROVED under strict mode.
+
+IMPLEMENTED RELIABILITY CONTRACTS
+1. Stable attemptId per call attempt.
+2. requestId propagation from CRM to RealTalent Connect.
+3. Duplicate POSTs reuse the existing call instead of dialing twice.
+4. Connect persists active calls, phone commands and request mappings in a private local runtime store.
+5. Connect restores runtime after process restart.
+6. Phone pairing code renews automatically after expiry.
+7. Call state is separated from transport health: healthy / degraded / recovered.
+8. Polling tolerates transient failures and can resume after reconnect.
+9. The Focus workspace can manually re-probe/reconnect the Connect layer.
+10. If Connect is unavailable, the operator can explicitly fall back to the system dialer without losing CRM context.
+11. Wrap-up is protected from concurrent/repeated save and recognizes repository idempotency.
+12. Actual fallback channel/device is recorded correctly in call notes.
+13. Assisted wrap-up recommends the next closing action/checklist based on outcome.
+
+FULL NPM GATE LIMITATION IN THIS BUILD ENVIRONMENT
+The source package intentionally contains no node_modules. A complete `npm run typecheck`, Vitest run and Vite production build require the locked npm dependencies.
+- `npm ci --offline` failed because `xmlchars@2.2.0` was not present in the local npm cache (ENOTCACHED).
+- A normal `npm ci` also failed in this environment with npm's own `Exit handler never called!` error before dependency installation completed.
+- Any partial node_modules created by that attempt was removed before packaging.
+
+This limitation is environmental, not reported as a passing build. On the target Linux machine, `./start-linux.sh` remains the authoritative full release gate: it installs dependencies, runs historical + V101.4 checks, typecheck, Vitest, Vite build, bundle audit, HTTP smoke and Connect resilience smoke before serving the CRM.

@@ -1,0 +1,160 @@
+/* RealTalent Contacts / Record — canonical runtime stylesheet. Historical source layers retained below in original cascade order. */
+
+/* source: contacts-views-record-v1016.css */
+/* V101.6.0 — Contacts, Views & Record Workspace */
+
+/* Saved views creator */
+.contact-view-tabs-v1016{position:relative;overflow:visible}
+.contact-view-creator-v1016{position:relative;flex:0 0 auto}
+.contact-view-creator-v1016__popover{position:absolute;right:0;top:calc(100% + 8px);z-index:85;width:min(560px,92vw);padding:14px;border:1px solid var(--border);border-radius:16px;background:var(--surface);box-shadow:0 22px 54px rgba(14,28,24,.16)}
+.contact-view-creator-v1016__heading{display:flex;align-items:flex-start;justify-content:space-between;gap:14px;padding-bottom:12px;border-bottom:1px solid var(--border)}
+.contact-view-creator-v1016__heading>div{display:grid;gap:3px}.contact-view-creator-v1016__heading strong{font-size:14px}.contact-view-creator-v1016__heading span{color:var(--muted);font-size:11px}.contact-view-creator-v1016__heading>button{width:30px;height:30px;border:0;border-radius:9px;background:transparent;color:var(--muted)}
+.contact-view-creator-v1016__heading>button:hover{background:var(--surface-soft);color:var(--text)}
+.contact-view-creator-v1016__cards{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;padding-top:12px}
+.contact-view-creator-v1016__cards>button{min-height:132px;padding:14px;border:1px solid var(--border);border-radius:14px;background:var(--surface);display:grid;align-content:start;justify-items:start;gap:8px;text-align:left;color:var(--text)}
+.contact-view-creator-v1016__cards>button:hover{border-color:var(--border-strong);background:var(--surface-soft);box-shadow:var(--shadow-sm)}
+.contact-view-creator-v1016__cards>button>span{width:38px;height:38px;display:grid;place-items:center;border-radius:11px;background:var(--accent-soft);color:var(--navy)}
+.contact-view-creator-v1016__cards strong{font-size:13px}.contact-view-creator-v1016__cards small{color:var(--muted);font-size:11px;line-height:1.45}
+
+/* Contact board */
+.contact-board-v1016{display:flex;gap:12px;overflow:auto;padding:14px;align-items:flex-start;background:var(--surface-subtle)}
+.contact-board-v1016__column{width:286px;min-width:286px;min-height:480px;padding:10px;border:1px solid var(--border);border-radius:15px;background:var(--surface-soft)}
+.contact-board-v1016__column>header{height:38px;display:flex;align-items:center;gap:8px;padding:0 4px 8px;border-bottom:1px solid var(--border)}
+.contact-board-v1016__column>header strong{flex:1;font-size:12px}.contact-board-v1016__column>header em{min-width:22px;height:22px;display:grid;place-items:center;border-radius:8px;background:var(--surface);font-size:10px;font-style:normal;color:var(--muted)}
+.contact-board-v1016__dot{width:8px;height:8px;border-radius:50%}
+.contact-board-v1016__column>div{display:grid;gap:9px;padding-top:10px}
+.contact-board-v1016__card{padding:12px;border:1px solid var(--border);border-radius:13px;background:var(--surface);box-shadow:none}
+.contact-board-v1016__card:hover{border-color:var(--border-strong);box-shadow:var(--shadow-soft)}
+.contact-board-v1016__open{width:100%;padding:0;border:0;background:transparent;display:flex;align-items:center;gap:9px;text-align:left}
+.contact-board-v1016__open>span:last-child{display:grid;gap:2px;min-width:0}.contact-board-v1016__open strong{font-size:12px}.contact-board-v1016__open small{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--muted);font-size:10px}
+.contact-board-v1016__meta{display:flex;align-items:center;gap:6px;margin-top:10px}
+.contact-board-v1016__card dl{margin:10px 0 0;padding-top:9px;border-top:1px solid var(--border);display:grid;gap:7px}.contact-board-v1016__card dl>div{display:flex;justify-content:space-between;gap:12px}.contact-board-v1016__card dt{font-size:10px;color:var(--muted)}.contact-board-v1016__card dd{margin:0;font-size:10px;font-weight:700;text-align:right}
+.contact-board-v1016__card footer{display:flex;gap:6px;margin-top:10px}.contact-board-v1016__card footer button{flex:1;min-height:30px;padding:0 8px;border:1px solid var(--border);border-radius:9px;background:var(--surface);font-size:10px;color:var(--text-2)}.contact-board-v1016__card footer button:hover{background:var(--surface-soft)}
+.contact-board-v1016__empty{min-height:90px;display:grid;place-items:center;padding:12px;border:1px dashed var(--border-strong);border-radius:12px;color:var(--muted);font-size:11px;text-align:center}
+
+/* Full contact record */
+.contact-record-v1016{display:grid;gap:14px;min-width:0}
+.contact-record-v1016__topbar{min-height:48px;display:flex;align-items:center;justify-content:space-between;gap:12px;padding:0 2px}
+.contact-record-v1016__back{height:36px;padding:0 10px;border:0;border-radius:10px;background:transparent;color:var(--text-2);display:inline-flex;align-items:center;gap:7px;font-weight:700}.contact-record-v1016__back:hover{background:var(--surface-soft);color:var(--text)}
+.contact-record-v1016__top-actions{display:flex;gap:8px}
+.contact-record-v1016__layout{display:grid;grid-template-columns:290px minmax(0,1fr) 300px;gap:14px;align-items:start}
+.contact-record-v1016__left,.contact-record-v1016__right,.contact-record-v1016__main,.contact-record-v1016__stack{display:grid;gap:14px;min-width:0}
+.contact-record-card{border:1px solid var(--border);border-radius:16px;background:var(--surface);box-shadow:none;overflow:hidden}
+.contact-record-card>header{min-height:52px;padding:14px 16px;display:flex;align-items:flex-start;justify-content:space-between;gap:12px;border-bottom:1px solid var(--border)}
+.contact-record-card>header h3{margin:0;font-size:14px}.contact-record-card>header p{margin:4px 0 0;color:var(--muted);font-size:11px}.contact-record-card>header>button{border:0;background:transparent;color:var(--navy);font-size:11px;font-weight:700}
+.contact-record-card--identity{padding:18px;text-align:center;justify-items:center}.contact-record-card--identity>div:first-of-type{display:grid;gap:3px}.contact-record-card--identity h2{margin:0;font-size:20px}.contact-record-card--identity p{margin:0;color:var(--muted);font-size:12px}
+.contact-record-v1016__avatar{width:56px;height:56px;display:grid;place-items:center;border-radius:16px;background:var(--accent-soft);color:var(--navy);font-size:15px;font-weight:800}
+.contact-record-v1016__channels{width:100%;display:grid;grid-template-columns:repeat(5,1fr);gap:5px;margin-top:14px}.contact-record-v1016__channels button{min-height:54px;border:1px solid var(--border);border-radius:11px;background:var(--surface);display:grid;place-items:center;align-content:center;gap:4px;color:var(--text-2)}.contact-record-v1016__channels button span{font-size:9px}.contact-record-v1016__channels button:hover:not(:disabled){background:var(--surface-soft);color:var(--navy)}.contact-record-v1016__channels button:disabled{opacity:.4}
+.contact-record-v1016__facts{margin:0;padding:12px 16px 16px;display:grid;gap:12px}.contact-record-v1016__facts>div{display:grid;gap:3px}.contact-record-v1016__facts dt{font-size:10px;color:var(--muted)}.contact-record-v1016__facts dd{margin:0;font-size:12px;font-weight:650;overflow-wrap:anywhere}
+.contact-record-v1016__tabs{min-height:50px;padding:5px 7px;display:flex;gap:4px;border:1px solid var(--border);border-radius:14px;background:var(--surface)}.contact-record-v1016__tabs button{min-height:38px;padding:0 13px;border:0;border-radius:10px;background:transparent;color:var(--text-2);font-size:12px;font-weight:700}.contact-record-v1016__tabs button:hover{background:var(--surface-soft)}.contact-record-v1016__tabs button.is-active{background:var(--accent-soft);color:var(--navy)}
+.contact-record-v1016__insight{padding-bottom:14px}.contact-record-v1016__insight>p{margin:14px 16px 0;color:var(--text-2);font-size:12px;line-height:1.55}.contact-record-v1016__insight-actions{display:flex;gap:8px;padding:12px 16px 0}
+.contact-record-v1016__timeline{display:grid;padding:4px 16px 14px}.contact-record-v1016__timeline article{display:grid;grid-template-columns:30px minmax(0,1fr);gap:9px;padding:12px 0;border-bottom:1px solid var(--border)}.contact-record-v1016__timeline article:last-child{border:0}.contact-record-v1016__timeline-icon{width:28px;height:28px;display:grid;place-items:center;border-radius:9px;background:var(--surface-soft);color:var(--text-2)}.contact-record-v1016__timeline article div{display:grid;gap:3px}.contact-record-v1016__timeline strong{font-size:12px}.contact-record-v1016__timeline p{margin:0;color:var(--text-2);font-size:11px;line-height:1.45}.contact-record-v1016__timeline small{color:var(--muted);font-size:10px}.contact-record-v1016__timeline--full{padding-top:6px}
+.contact-record-v1016__next-grid{padding:14px 16px 16px;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:9px}.contact-record-v1016__next-grid button{min-height:76px;padding:11px;border:1px solid var(--border);border-radius:12px;background:var(--surface);display:flex;align-items:flex-start;gap:9px;text-align:left;color:var(--text)}.contact-record-v1016__next-grid button:hover{background:var(--surface-soft)}.contact-record-v1016__next-grid button>span{display:grid;gap:4px}.contact-record-v1016__next-grid strong{font-size:11px}.contact-record-v1016__next-grid small{font-size:10px;color:var(--muted)}
+.contact-record-v1016__notes{padding-bottom:16px}.contact-record-v1016__notes textarea{margin:16px;width:calc(100% - 32px);min-height:240px;padding:12px;border:1px solid var(--border);border-radius:12px;background:var(--surface);resize:vertical;line-height:1.55}.contact-record-v1016__notes>div{padding:0 16px}
+.contact-record-v1016__stakeholders{display:grid;padding:10px 16px 16px}.contact-record-v1016__stakeholders article{min-height:54px;display:grid;grid-template-columns:auto minmax(0,1fr) auto;align-items:center;gap:9px;border-bottom:1px solid var(--border)}.contact-record-v1016__stakeholders article:last-child{border:0}.contact-record-v1016__stakeholders article>div{display:grid;gap:2px}.contact-record-v1016__stakeholders strong{font-size:12px}.contact-record-v1016__stakeholders small{font-size:10px;color:var(--muted)}
+.contact-record-v1016__related{padding:14px 16px 16px;display:flex;align-items:center;gap:10px}.contact-record-v1016__related>div{display:grid;gap:3px}.contact-record-v1016__related strong{font-size:12px}.contact-record-v1016__related small{font-size:10px;color:var(--muted)}
+.contact-record-v1016__opportunity{display:flex;justify-content:space-between;gap:12px;padding:12px 16px;border-bottom:1px solid var(--border)}.contact-record-v1016__opportunity>div{display:grid;gap:3px}.contact-record-v1016__opportunity strong{font-size:11px}.contact-record-v1016__opportunity small{font-size:10px;color:var(--muted)}.contact-record-v1016__opportunity b{font-size:11px}
+.contact-record-v1016__account-health{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;padding:14px 16px}.contact-record-v1016__account-health>div{padding:9px;border:1px solid var(--border);border-radius:10px;background:var(--surface-soft);display:grid;gap:3px}.contact-record-v1016__account-health small{font-size:9px;color:var(--muted)}.contact-record-v1016__account-health strong{font-size:14px}.contact-record-v1016__right .button{margin:0 16px 16px;width:calc(100% - 32px)}
+.contact-record-v1016__empty{min-height:140px;display:grid;place-items:center;align-content:center;gap:6px;padding:20px;text-align:center;color:var(--muted)}.contact-record-v1016__empty strong{color:var(--text);font-size:12px}.contact-record-v1016__empty span{font-size:10px}.contact-record-v1016__empty--small{min-height:80px}
+
+/* Meu Dia 3.0 */
+.myday-v1016{display:grid;grid-template-columns:minmax(0,1fr) 330px;gap:16px;align-items:stretch}
+.myday-v1016__main{display:grid;gap:14px;min-width:0}
+.myday-v1016__hero{min-height:150px;padding:22px;border:1px solid var(--border);border-radius:18px;background:var(--surface);display:flex;align-items:flex-start;justify-content:space-between;gap:20px}.myday-v1016__hero>div:first-child{max-width:720px}.myday-v1016__hero h2{margin:7px 0 8px;font-size:30px;letter-spacing:-.035em}.myday-v1016__hero p{margin:0;color:var(--text-2);font-size:14px;line-height:1.55}.myday-v1016__hero>div:last-child{display:flex;gap:8px;align-items:center}
+.myday-v1016__starters{display:grid;gap:8px}.myday-v1016__starters>button{min-height:62px;padding:10px 14px;border:1px solid #b7d0ff;border-radius:13px;background:#f8fbff;display:grid;grid-template-columns:32px minmax(0,1fr) auto;align-items:center;gap:10px;text-align:left;color:var(--text)}.myday-v1016__starters>button:hover{background:#f2f7ff}.myday-v1016__starters>button>span{width:30px;height:30px;display:grid;place-items:center;border-radius:9px;background:var(--accent-soft);color:var(--navy)}.myday-v1016__starters>button>div{display:grid;gap:3px}.myday-v1016__starters strong{font-size:12px}.myday-v1016__starters small{font-size:10px;color:var(--muted)}
+.myday-v1016__cards{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}.myday-v1016__cards>button{min-height:126px;padding:14px;border:1px solid var(--border);border-radius:15px;background:var(--surface);display:grid;align-content:start;justify-items:start;gap:8px;text-align:left;color:var(--text)}.myday-v1016__cards>button:hover{border-color:var(--border-strong);background:var(--surface-soft)}.myday-v1016__cards>button svg{width:32px;height:32px;padding:7px;border-radius:10px;background:var(--surface-soft);color:var(--navy)}.myday-v1016__cards strong{font-size:12px}.myday-v1016__cards span{font-size:10px;color:var(--muted)}
+.myday-v1016__glance{border:1px solid var(--border);border-radius:18px;background:var(--surface);overflow:hidden;min-height:100%}.myday-v1016__glance>header{padding:18px 18px 12px}.myday-v1016__glance>header h3{margin:0 0 4px;font-size:15px}.myday-v1016__glance>header span{color:var(--muted);font-size:10px}.myday-v1016__glance>nav{display:flex;gap:0;padding:0 12px;border-bottom:1px solid var(--border);overflow-x:auto}.myday-v1016__glance>nav button{min-height:38px;padding:0 9px;border:0;border-bottom:2px solid transparent;background:transparent;color:var(--muted);font-size:10px;white-space:nowrap}.myday-v1016__glance>nav button.is-active{border-bottom-color:var(--navy);color:var(--text);font-weight:700}
+.myday-v1016__glance-stats{display:grid;padding:18px}.myday-v1016__glance-stats>div{min-height:92px;padding:12px 0;border-bottom:1px solid var(--border);display:grid;align-content:center;gap:5px}.myday-v1016__glance-stats>div:last-child{border:0}.myday-v1016__glance-stats strong{font-size:28px;font-weight:500;letter-spacing:-.03em}.myday-v1016__glance-stats span{font-size:11px;color:var(--muted)}
+.myday-v1016__glance-list{display:grid;padding:8px 14px 16px}.myday-v1016__glance-list button{min-height:58px;padding:9px 4px;border:0;border-bottom:1px solid var(--border);background:transparent;display:flex;align-items:center;gap:9px;text-align:left}.myday-v1016__glance-list button>span{display:grid;gap:2px}.myday-v1016__glance-list strong{font-size:11px}.myday-v1016__glance-list small,.myday-v1016__glance-list p{font-size:10px;color:var(--muted)}
+.myday-v1016 .health-strip{grid-column:1/-1;margin-top:0}
+
+@media(max-width:1260px){.contact-record-v1016__layout{grid-template-columns:260px minmax(0,1fr)}.contact-record-v1016__right{grid-column:1/-1;grid-template-columns:repeat(3,minmax(0,1fr))}.myday-v1016{grid-template-columns:minmax(0,1fr) 290px}}
+@media(max-width:980px){.contact-record-v1016__layout{grid-template-columns:1fr}.contact-record-v1016__left{grid-template-columns:1fr 1fr}.contact-record-v1016__right{grid-template-columns:1fr 1fr}.myday-v1016{grid-template-columns:1fr}.myday-v1016__glance{min-height:auto}.myday-v1016__glance-stats{grid-template-columns:repeat(3,1fr);gap:12px}.myday-v1016__glance-stats>div{min-height:80px;border:1px solid var(--border);border-radius:12px;padding:12px}}
+@media(max-width:720px){.contact-view-creator-v1016__popover{position:fixed;left:12px;right:12px;top:auto;bottom:78px;width:auto}.contact-view-creator-v1016__cards{grid-template-columns:1fr}.contact-record-v1016__topbar{align-items:flex-start;flex-direction:column}.contact-record-v1016__top-actions{width:100%}.contact-record-v1016__top-actions .button{flex:1}.contact-record-v1016__left,.contact-record-v1016__right{grid-template-columns:1fr}.contact-record-v1016__channels{grid-template-columns:repeat(5,1fr)}.contact-record-v1016__next-grid,.myday-v1016__cards{grid-template-columns:1fr}.myday-v1016__hero{min-height:0;padding:17px;flex-direction:column}.myday-v1016__hero h2{font-size:24px}.myday-v1016__hero>div:last-child{width:100%}.myday-v1016__hero .button{flex:1}.myday-v1016__glance-stats{grid-template-columns:1fr}.contact-board-v1016{padding:10px}}
+
+html[data-theme="dark"] .contact-record-card,html[data-theme="dark"] .contact-record-v1016__tabs,html[data-theme="dark"] .myday-v1016__hero,html[data-theme="dark"] .myday-v1016__cards>button,html[data-theme="dark"] .myday-v1016__glance,html[data-theme="dark"] .contact-view-creator-v1016__popover,html[data-theme="dark"] .contact-view-creator-v1016__cards>button,html[data-theme="dark"] .contact-board-v1016__card{background:var(--surface);border-color:var(--border)}
+
+/* source: contacts-experience-completion-v10161.css */
+/* V101.6.1 — Contacts Experience Completion & Meu Dia Fix */
+/* Meu Dia 3.0 is one full-width experience block. This prevents the legacy 12-column layout studio from squeezing it into one grid cell. */
+.route-transition[data-route="dashboard"] .dashboard-v10051 > .myday-v1016{
+  grid-column:1/-1!important;
+  width:100%;
+  order:var(--experience-order,0);
+}
+.route-transition[data-route="dashboard"] .myday-v1016 [data-experience-section]{order:initial}
+.myday-v1016{grid-template-columns:minmax(0,1fr) minmax(300px,340px);align-items:start}
+.myday-v1016__main{min-width:0}
+.myday-v1016__glance{position:sticky;top:92px;align-self:start;min-width:0}
+.myday-v1016__hero{min-width:0}
+.myday-v1016__starters,.myday-v1016__cards,.myday-v1016 .health-strip{min-width:0}
+
+/* Contact record activity workspace */
+.contact-record-v10161__activity-tools{padding:12px 16px;border-bottom:1px solid var(--border);display:grid;gap:10px;background:var(--surface-subtle)}
+.contact-record-v10161__activity-search{height:38px;display:flex;align-items:center;gap:8px;padding:0 11px;border:1px solid var(--border);border-radius:11px;background:var(--surface)}
+.contact-record-v10161__activity-search input{width:100%;border:0;outline:0;background:transparent;font-size:12px;color:var(--text)}
+.contact-record-v10161__activity-filters{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.contact-record-v10161__activity-filters button{min-height:31px;padding:0 10px;border:1px solid transparent;border-radius:9px;background:transparent;color:var(--text-2);font-size:10px;font-weight:700}
+.contact-record-v10161__activity-filters button:hover{background:var(--surface);border-color:var(--border)}
+.contact-record-v10161__activity-filters button.is-active{background:var(--accent-soft);border-color:color-mix(in srgb,var(--accent) 24%,var(--border));color:var(--navy)}
+.contact-record-v10161__activity-count{margin-left:auto;color:var(--muted);font-size:10px}
+.contact-record-v10161__timeline-kind{display:inline-flex;align-items:center;gap:5px;color:var(--text-2);font-size:10px;font-weight:750}
+.contact-record-v10161__timeline-kind svg{color:var(--navy)}
+.contact-record-v10161__related-actions{display:flex;align-items:center;gap:5px}
+.contact-record-v10161__related-actions button{min-height:30px;padding:0 8px;border:1px solid var(--border);border-radius:9px;background:var(--surface);color:var(--text-2);font-size:10px;font-weight:700}
+.contact-record-v10161__related-actions button:hover{background:var(--surface-soft);color:var(--text)}
+
+/* Saved contact views: cards choose the visualization, then configuration captures the real working state. */
+.contact-view-creator-v10161__config{margin-top:12px;padding-top:12px;border-top:1px solid var(--border);display:grid;gap:12px}
+.contact-view-creator-v10161__config-head{display:flex;align-items:center;justify-content:space-between;gap:10px}
+.contact-view-creator-v10161__config-head strong{font-size:13px}.contact-view-creator-v10161__config-head span{font-size:10px;color:var(--muted)}
+.contact-view-creator-v10161__grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.contact-view-creator-v10161__grid .field--wide{grid-column:1/-1}
+.contact-view-creator-v10161__columns{grid-column:1/-1;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px;padding:10px;border:1px solid var(--border);border-radius:12px;background:var(--surface-subtle)}
+.contact-view-creator-v10161__columns>strong{grid-column:1/-1;font-size:10px;color:var(--text-2)}
+.contact-view-creator-v10161__columns label{min-height:30px;display:flex;align-items:center;gap:7px;font-size:10px;color:var(--text-2)}
+.contact-view-creator-v10161__flags{grid-column:1/-1;display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+.contact-view-creator-v10161__flags label{display:flex;align-items:center;gap:7px;font-size:10px;color:var(--text-2)}
+.contact-view-creator-v10161__footer{display:flex;justify-content:flex-end;gap:8px}
+.contact-saved-view-v10161{position:relative;display:flex;align-items:center;border-radius:10px}
+.contact-saved-view-v10161>button:first-child{min-height:34px;padding:0 9px 0 12px;border:0;border-radius:10px 0 0 10px;background:transparent;color:var(--text-2);font-size:12px;font-weight:750}
+.contact-saved-view-v10161>button:first-child.is-active{background:var(--accent-soft);color:var(--navy)}
+.contact-saved-view-v10161__menu-trigger{width:28px;height:34px;border:0;border-radius:0 10px 10px 0;background:transparent;color:var(--muted)}
+.contact-saved-view-v10161:hover,.contact-saved-view-v10161:focus-within{background:var(--surface-soft)}
+.contact-saved-view-v10161__menu{position:absolute;top:38px;right:0;z-index:95;width:190px;padding:6px;border:1px solid var(--border);border-radius:12px;background:var(--surface);box-shadow:var(--shadow-soft);display:grid}
+.contact-saved-view-v10161__menu button{min-height:34px;padding:0 9px;border:0;border-radius:8px;background:transparent;text-align:left;color:var(--text-2);font-size:10px}
+.contact-saved-view-v10161__menu button:hover{background:var(--surface-soft);color:var(--text)}
+.contact-saved-view-v10161__menu button.is-danger{color:var(--danger)}
+.contact-view-scope-v10161{display:inline-flex;align-items:center;gap:4px;margin-left:4px;padding:2px 5px;border-radius:999px;background:var(--surface-soft);color:var(--muted);font-size:8px;font-weight:700}
+
+@media(max-width:1100px){.myday-v1016{grid-template-columns:minmax(0,1fr) 300px}.myday-v1016__glance{position:static}}
+@media(max-width:980px){.myday-v1016{grid-template-columns:1fr}.contact-record-v10161__activity-count{margin-left:0;width:100%}}
+@media(max-width:720px){.contact-view-creator-v10161__grid{grid-template-columns:1fr}.contact-view-creator-v10161__columns{grid-template-columns:1fr}.contact-view-creator-v10161__grid .field--wide,.contact-view-creator-v10161__columns,.contact-view-creator-v10161__flags{grid-column:auto}}
+
+
+/* V101.10.5-H3 — Contact Intelligence: compact timeline + activity semantics. */
+.contact-record-v10161__timeline-head{display:flex;align-items:center;justify-content:space-between;gap:8px;min-width:0}
+.contact-record-v10161__timeline-head>small{white-space:nowrap;color:var(--muted);font-size:9px}
+.contact-record-v10161__timeline-details{justify-self:start;display:inline-flex;align-items:center;gap:3px;padding:2px 0;border:0;background:transparent;color:var(--rt-color-brand,#1D9E75);font-size:10px;font-weight:750;cursor:pointer}
+.contact-record-v10161__timeline-details svg{transition:transform .14s ease}.contact-record-v10161__timeline-details svg.is-open{transform:rotate(180deg)}
+.contact-record-v1016__timeline--compact{padding:4px 12px 10px}
+.contact-record-v1016__timeline--compact article{grid-template-columns:32px minmax(0,1fr);gap:10px;padding:10px 6px;border-radius:10px;border-bottom:1px solid var(--border);border-left:3px solid transparent}
+.contact-record-v1016__timeline--compact article:hover{background:var(--surface-subtle)}
+.contact-record-v1016__timeline--compact .contact-record-v1016__timeline-icon{width:30px;height:30px;border-radius:9px}
+.contact-record-v1016__timeline--compact .contact-record-v10161__timeline-kind{width:max-content;padding:3px 6px;border-radius:999px;font-size:9px;background:var(--surface-soft);color:var(--text-2)}
+.contact-record-v1016__timeline--compact .contact-record-v10161__timeline-kind svg{width:11px;height:11px}
+.contact-record-v1016__timeline--compact strong{font-size:12px;line-height:1.35}
+.contact-record-v1016__timeline--compact p{font-size:10.5px;line-height:1.4;color:var(--text-2);margin-top:1px}
+.contact-record-v1016__timeline--compact p.is-clamped{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.contact-record-v1016__timeline--compact article[data-kind="call"]{border-left-color:#4B7BEC}.contact-record-v1016__timeline--compact article[data-kind="call"] .contact-record-v1016__timeline-icon{background:#EEF3FF;color:#3B63C6}.contact-record-v1016__timeline--compact article[data-kind="email"]{border-left-color:#8B5CF6}.contact-record-v1016__timeline--compact article[data-kind="email"] .contact-record-v1016__timeline-icon{background:#F4EEFF;color:#7040C5}.contact-record-v1016__timeline--compact article[data-kind="whatsapp"]{border-left-color:#20A66A}.contact-record-v1016__timeline--compact article[data-kind="whatsapp"] .contact-record-v1016__timeline-icon{background:#EAF8F0;color:#168452}.contact-record-v1016__timeline--compact article[data-kind="meeting"]{border-left-color:#E59A3A}.contact-record-v1016__timeline--compact article[data-kind="meeting"] .contact-record-v1016__timeline-icon{background:#FFF5E7;color:#B56C12}.contact-record-v1016__timeline--compact article[data-kind="task"]{border-left-color:#7B8794}.contact-record-v1016__timeline--compact article[data-kind="task"] .contact-record-v1016__timeline-icon{background:#F1F3F5;color:#596673}.contact-record-v1016__timeline--compact article[data-kind="note"]{border-left-color:#D6A52E}.contact-record-v1016__timeline--compact article[data-kind="note"] .contact-record-v1016__timeline-icon{background:#FFF8DF;color:#9C7412}.contact-record-v1016__timeline--compact article[data-kind="stage"]{border-left-color:#1D9E75}.contact-record-v1016__timeline--compact article[data-kind="stage"] .contact-record-v1016__timeline-icon{background:#EAF7F2;color:#147A5E}
+
+.contact-record-v1016__notes-workspace{display:grid;gap:14px}
+.contact-record-v1016__brief-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;padding:14px 16px 10px}
+.contact-record-v1016__brief-grid>div{min-width:0;padding:9px 10px;border:1px solid var(--border);border-radius:10px;background:var(--surface-subtle);display:grid;gap:3px}
+.contact-record-v1016__brief-grid small{font-size:9px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);font-weight:800}.contact-record-v1016__brief-grid strong{font-size:11px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.contact-record-v1016__brief-signal{margin:0 16px 14px;padding:10px 11px;border-radius:10px;background:#F3F8F5;border:1px solid #DDECE5;display:grid;gap:3px}.contact-record-v1016__brief-signal span{font-size:9px;text-transform:uppercase;letter-spacing:.05em;color:#5C756B;font-weight:800}.contact-record-v1016__brief-signal strong{font-size:11px;color:#24433A;font-weight:650;line-height:1.4}
+.contact-record-v1016__notes-tools{display:flex;align-items:center;gap:6px;flex-wrap:wrap;padding:10px 16px;border-bottom:1px solid var(--border);background:var(--surface-subtle)}
+.contact-record-v1016__notes-tools>span{font-size:9px;text-transform:uppercase;letter-spacing:.06em;font-weight:800;color:var(--muted);margin-right:2px}.contact-record-v1016__notes-tools button{min-height:28px;padding:0 9px;border:1px solid var(--border);border-radius:8px;background:var(--surface);color:var(--text-2);font-size:10px;font-weight:700;cursor:pointer}.contact-record-v1016__notes-tools button:hover{border-color:#B9DCCF;background:#EDF8F4;color:#0D6B50}.contact-record-v1016__notes-tools button:disabled{opacity:.5;cursor:not-allowed}
+.contact-record-v1016__notes textarea{margin:14px 16px 8px;width:calc(100% - 32px);min-height:220px;padding:13px;border:1px solid var(--border);border-radius:11px;background:var(--surface);resize:vertical;line-height:1.55;font-size:12px;color:var(--text)}
+.contact-record-v1016__notes-footer{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:0 16px 14px}.contact-record-v1016__notes-footer small{color:var(--muted);font-size:9px}
+@media(max-width:720px){.contact-record-v1016__brief-grid{grid-template-columns:1fr 1fr}.contact-record-v1016__timeline--compact article{padding-inline:2px}}

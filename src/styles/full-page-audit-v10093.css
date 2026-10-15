@@ -1,0 +1,151 @@
+/* V100.93.0 — Full Page UX Audit
+   Camada final, deliberadamente route-scoped. Evita sobrescrever detalhes funcionais dos módulos
+   e corrige a experiência da página inteira: largura, ritmo, overflow, foco e responsividade. */
+
+.skip-link{position:fixed;z-index:100000;left:16px;top:12px;transform:translateY(-160%);padding:10px 14px;border-radius:10px;background:var(--text);color:var(--surface);font-size:12px;font-weight:800;text-decoration:none;box-shadow:var(--shadow);transition:transform var(--motion-duration-fast) var(--motion-ease-enter)}
+.skip-link:focus{transform:translateY(0);outline:3px solid color-mix(in srgb,var(--blue) 45%,transparent);outline-offset:2px}
+#main-content:focus{outline:none}
+
+/* Estrutura global da página inteira */
+.app-content{width:100%;padding-inline:clamp(16px,2.15vw,34px);padding-bottom:clamp(32px,5vw,64px)}
+.app-content>.page-stack,.app-content>.communications-v10086,.app-content>.settings-v16,.app-content>.prospecting-page{width:100%;min-width:0}
+.page-stack{gap:clamp(14px,1.4vw,20px)}
+.page-stack>*,.panel>*,.toolbar-card>*{min-width:0}
+.panel,.toolbar-card{max-width:100%}
+.panel h2,.panel h3,.toolbar-card h2,.toolbar-card h3{overflow-wrap:anywhere}
+.panel p,.toolbar-card p{max-width:78ch}
+
+/* Módulos densos ganham largura real de workspace sem estourar a viewport. */
+.app-shell--route-pipeline .app-content,
+.app-shell--route-commercial-map .app-content,
+.app-shell--route-prospecting .app-content,
+.app-shell--route-settings .app-content{max-width:1920px}
+.app-shell--route-leads .app-content,
+.app-shell--route-agenda .app-content,
+.app-shell--route-followups .app-content,
+.app-shell--route-proposals .app-content{max-width:1780px}
+
+/* Topbar: mantém contexto e ações dentro da mesma largura útil em telas reais de notebook. */
+.topbar{width:100%}
+.topbar__inner{width:100%;min-width:0;display:flex;align-items:center;justify-content:space-between;gap:clamp(12px,1.5vw,24px)}
+.topbar__title{min-width:145px;max-width:310px}
+.topbar__title h1,.topbar__title p{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.topbar__actions{min-width:0;flex:1 1 auto;justify-content:flex-end}
+.global-search-wrap{position:relative;min-width:180px;max-width:360px;flex:1 1 260px}
+.global-search{width:100%;min-width:0}
+.global-search-results{width:min(540px,calc(100vw - 32px));max-height:min(560px,70vh);overflow:auto}
+.topbar__utility-actions{scrollbar-width:none}
+.topbar__utility-actions::-webkit-scrollbar{display:none}
+
+/* Ações e filtros devem quebrar sem cortar conteúdo. */
+.toolbar-card,.toolbar-card__filters,.toolbar-card__actions{min-width:0}
+.toolbar-card__actions{flex-wrap:wrap}
+.search-field{min-width:0}
+.search-field input{min-width:0}
+select,input,textarea{max-width:100%}
+
+/* Tabelas/quadro: o módulo pode rolar horizontalmente; a página inteira não. */
+.app-shell--route-leads .leads-data-panel,
+.app-shell--route-pipeline .pipeline-board,
+.app-shell--route-pipeline .pipeline-list-view,
+.app-shell--route-proposals .proposals-page,
+.app-shell--route-metrics .metrics-page,
+.app-shell--route-settings .settings-v16__content{min-width:0;max-width:100%}
+.app-shell--route-pipeline .pipeline-board{overscroll-behavior-inline:contain}
+
+/* Dashboard: leitura vertical mais clara em páginas longas. */
+.app-shell--route-dashboard .workday-hero,
+.app-shell--route-dashboard .health-strip,
+.app-shell--route-dashboard .deal-day-summary,
+.app-shell--route-dashboard .portfolio-signal-bar{scroll-margin-top:96px}
+.app-shell--route-dashboard .dashboard-execution-grid,
+.app-shell--route-dashboard .dashboard-bottom-grid{align-items:start}
+
+/* Leads: tabela e ferramentas ficam contidas e os filtros não espremem ações. */
+.app-shell--route-leads .leads-toolbar{align-items:flex-start}
+.app-shell--route-leads .leads-toolbar .toolbar-card__filters{flex:1 1 560px}
+.app-shell--route-leads .leads-toolbar .toolbar-card__actions{flex:0 1 auto;justify-content:flex-end}
+.app-shell--route-leads .leads-data-panel{overflow:hidden}
+
+/* Follow-ups: a coluna de contexto acompanha a fila em desktop, volta ao fluxo em telas menores. */
+@media (min-width:1181px){
+  .app-shell--route-followups .followup-workspace-layout>aside,
+  .app-shell--route-followups .followup-context{position:sticky;top:98px;align-self:start;max-height:calc(100vh - 120px);overflow:auto}
+}
+
+/* Agenda: evita células comprimidas e mantém controles legíveis. */
+.app-shell--route-agenda .agenda-page,.app-shell--route-agenda .calendar-shell{min-width:0}
+.app-shell--route-agenda .calendar-grid{min-width:0}
+
+/* Pipeline: inteligência e board não competem por largura. */
+.app-shell--route-pipeline .pipeline-intelligence-shell,.app-shell--route-pipeline .pipeline-action-center,.app-shell--route-pipeline .pipeline-summary-v1008{max-width:100%}
+.app-shell--route-pipeline .pipeline-view-switcher{overflow-x:auto;overscroll-behavior-inline:contain;scrollbar-width:thin}
+
+/* Território/Garimpo: workspaces visuais usam toda a altura útil sem forçar scroll duplo. */
+.app-shell--route-commercial-map .commercial-map-workspace{min-height:min(720px,calc(100vh - 250px))}
+.app-shell--route-commercial-map .commercial-map-side{overscroll-behavior:contain}
+.app-shell--route-prospecting .prospecting-kanban{max-width:100%;overflow-x:auto;overscroll-behavior-inline:contain}
+.app-shell--route-prospecting .prospecting-results-panel{overflow:hidden}
+
+/* Configurações: navegação e conteúdo permanecem previsíveis em páginas extensas. */
+@media (min-width:1181px){
+  .app-shell--route-settings .settings-v16__nav{position:sticky;top:96px;align-self:start;max-height:calc(100vh - 118px);overflow:auto;overscroll-behavior:contain}
+}
+
+/* Targets e foco: melhora uso por teclado sem alterar aparência padrão. */
+.sidebar__item,.sidebar__more-toggle,.icon-button,.text-button,.health-item,.followup-view-tabs button,.pipeline-view-switcher button{min-height:40px}
+.sidebar__item:focus-visible,.sidebar__more-toggle:focus-visible,.health-item:focus-visible{outline:3px solid color-mix(in srgb,var(--blue) 42%,transparent);outline-offset:2px}
+
+@media (max-width:1380px){
+  .topbar__title{max-width:220px}
+  .workspace-switcher__trigger{min-width:138px}
+  .global-search-wrap{max-width:280px}
+  .app-content{padding-inline:20px}
+}
+
+@media (max-width:1180px){
+  .topbar__inner{align-items:flex-start}
+  .topbar__title{max-width:190px;padding-top:5px}
+  .topbar__actions{min-width:0}
+  .app-content{padding-inline:18px}
+  .app-shell--route-commercial-map .commercial-map-workspace{min-height:auto}
+}
+
+@media (max-width:900px){
+  .topbar{padding-block:10px}
+  .topbar__inner{display:grid;grid-template-columns:minmax(0,1fr);gap:8px}
+  .topbar__title{max-width:none;padding:0}
+  .topbar__title p{display:none}
+  .topbar__actions{width:100%;justify-content:stretch}
+  .app-content{padding-top:16px}
+  .toolbar-card{align-items:stretch}
+  .toolbar-card__filters,.toolbar-card__actions{width:100%}
+  .app-shell--route-leads .leads-toolbar .toolbar-card__actions{justify-content:flex-start}
+}
+
+@media (max-width:720px){
+  .app-content{padding-inline:12px;padding-bottom:88px}
+  .page-stack{gap:12px}
+  .panel,.toolbar-card{border-radius:13px}
+  .topbar__title h1{font-size:18px}
+  .global-search-results{position:fixed;left:12px;right:12px;top:136px;width:auto;max-height:55vh}
+  .toolbar-card__actions>.button{flex:1 1 auto}
+  .app-shell--route-dashboard .health-strip,
+  .app-shell--route-dashboard .deal-day-summary,
+  .app-shell--route-dashboard .portfolio-signal-bar{overflow-x:auto;grid-auto-flow:column;grid-auto-columns:minmax(190px,78vw);scroll-snap-type:x proximity;overscroll-behavior-inline:contain}
+  .app-shell--route-dashboard .health-strip>* ,
+  .app-shell--route-dashboard .deal-day-summary>* ,
+  .app-shell--route-dashboard .portfolio-signal-bar>*{scroll-snap-align:start}
+}
+
+@media (max-width:480px){
+  .app-content{padding-inline:10px}
+  .topbar{padding-inline:12px}
+  .global-search-results{left:8px;right:8px}
+  .button{white-space:normal;line-height:1.15;text-align:center}
+}
+
+@media (prefers-reduced-motion:reduce){
+  html:focus-within{scroll-behavior:auto}
+  *,*::before,*::after{animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important;scroll-behavior:auto!important}
+}

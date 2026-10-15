@@ -1,0 +1,27 @@
+RealTalent CRM V100.77.0 — Follow-ups 2.0
+Data: 2026-09-20
+
+ESCOPO
+- Refinamento operacional da fila de Follow-ups.
+- Timing relativo e sinalização de atraso/hoje/sem data.
+- Responsável, etapa, prioridade, canal, empresa e cadência nos cards.
+- Reagendamento rápido respeitando dias/horários comerciais.
+- Filtro por responsável.
+- Quadro e Calendário enriquecidos.
+
+VALIDAÇÕES APROVADAS
+- Gate V100.77.0: 37/37 contratos.
+- Auditoria sintática: 238 arquivos.
+- Auditoria de contratos de integração: 209 arquivos.
+- Integridade de migrations: 37/37.
+- Nenhuma migration nova adicionada.
+- BACKUP_SCHEMA_VERSION permanece 100.54.
+- node_modules parcial removido antes do empacotamento.
+
+VALIDAÇÕES NÃO CONCLUÍDAS NESTE AMBIENTE
+- npm ci: falhou por TransportTimeoutError durante transporte de dependências.
+- Por consequência, Vitest e build Vite completos não foram executados.
+- Uma tentativa com o tsc global não é conclusiva porque React/Lucide e seus tipos não estão instalados localmente.
+
+RESULTADO
+APROVADO para empacotamento de código-fonte com a ressalva explícita acima sobre validação dependente de npm ci.

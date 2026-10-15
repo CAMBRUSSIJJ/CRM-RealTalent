@@ -1,0 +1,63 @@
+RealTalent CRM V101.11.1-H3 — Official Logo Motion
+QA Report
+
+ESCOPO
+- Substituição do asset visual do login/splash pela logo oficial enviada pelo usuário.
+- Recalibração da animação para o desenho real da logo.
+- Recalibração do fundo full-screen para azul + teal extraídos da identidade do ícone.
+- Preservação integral do Login Gate & Logout, Supabase, modo local, dados, schema e migrations.
+
+ASSET OFICIAL
+- public/realtalent-logo.png
+- Dimensões preservadas: 102 x 103 px
+- SHA-256: 29861b7c31f5b0931d2afe065e057cdf0de6ffc56a95abd0d24971670a98fb5f
+- O arquivo empacotado é byte a byte o mesmo asset fornecido pelo usuário.
+
+ANIMAÇÃO
+- reveal vertical do próprio logo (baixo → cima)
+- profundidade com ecos do próprio asset
+- scan luminoso
+- halo azul/teal
+- pulse e órbitas de apoio
+- movimento sutil após entrada
+- prefers-reduced-motion preservado
+
+PALETA H3
+- azul principal: #04274B
+- teal principal: #098982
+- azul escuro de fundo: #041827
+- blue/teal environment full-screen preservado
+
+GATES EXECUTADOS
+- qa:v101.11.1:h1: 35/35 PASS
+- qa:v101.11.1:h2: 38/38 PASS
+- qa:v101.11.1:h3: 33/33 PASS
+- syntax:audit: PASS (395 arquivos)
+- release manifest: PASS (63/63 invariantes)
+- qa:architecture: PASS
+- check:legacy: PASS
+- linux-release-preflight: PASS (356 TS/TSX)
+- build:legacy: PASS (280 módulos TypeScript)
+- CSS parse: PASS (73 arquivos / 0 erros)
+
+PRESERVADO
+- Login Gate local
+- sessionStorage da sessão local
+- Sair da conta
+- login Supabase com senha
+- recovery de senha
+- Communications Architecture V101.11.0
+- repositories Local/Supabase
+- 49 migrations
+- restante do CRM
+
+LIMITAÇÕES DO AMBIENTE
+- node_modules não está presente neste sandbox.
+- Os gates oficiais que dependem da árvore npm real (typecheck completo, Vitest, Vite build oficial e npm audit) não foram classificados como PASS nesta execução.
+- O build registry-independent foi executado apenas como validação e seu dist foi removido antes do empacotamento final.
+
+PACOTE
+- sem dist de teste
+- sem node_modules
+- sem .env.local
+- sem estados .realtalent-*

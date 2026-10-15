@@ -1,0 +1,66 @@
+{
+  "schema": "realtalent.commercial-launch-gate.v1",
+  "release": "V101.11.3-CR8",
+  "decision": "NO-GO-until-runtime-evidence",
+  "requiredEvidence": [
+    {
+      "id": "production-probe",
+      "source": "CR8_PRODUCTION_PROBE_PASS",
+      "criterion": "CR7 production probe completed successfully"
+    },
+    {
+      "id": "staging-e2e",
+      "source": "CR8_STAGING_E2E_PASS",
+      "criterion": "CR3 staging E2E completed successfully with role isolation"
+    },
+    {
+      "id": "restore-drill",
+      "source": "CR8_BACKUP_RESTORE_DRILL_PASS",
+      "criterion": "Backup + restore drill completed in non-production environment"
+    },
+    {
+      "id": "terms",
+      "source": "CR8_TERMS_URL",
+      "criterion": "Published HTTPS Terms of Use URL reviewed by responsible counsel/business owner"
+    },
+    {
+      "id": "privacy",
+      "source": "CR8_PRIVACY_URL",
+      "criterion": "Published HTTPS Privacy Notice URL reviewed by responsible counsel/business owner"
+    },
+    {
+      "id": "support",
+      "source": "CR8_SUPPORT_EMAIL",
+      "criterion": "Monitored support mailbox"
+    },
+    {
+      "id": "incident-owner",
+      "source": "CR8_INCIDENT_OWNER",
+      "criterion": "Named operational incident owner"
+    },
+    {
+      "id": "customer-owner",
+      "source": "CR8_FIRST_CUSTOMER_OWNER",
+      "criterion": "Named first-customer onboarding owner"
+    },
+    {
+      "id": "customer",
+      "source": "CR8_FIRST_CUSTOMER_NAME",
+      "criterion": "Pilot customer identified"
+    },
+    {
+      "id": "role-accounts",
+      "source": "CR8_ADMIN_EMAIL, CR8_MANAGER_EMAIL, CR8_SELLER_EMAIL",
+      "criterion": "Three distinct launch accounts for Admin/Gestor/Vendedor validation"
+    }
+  ],
+  "hardStops": [
+    "production probe not proven",
+    "staging E2E not proven",
+    "restore drill not proven",
+    "legal URLs missing/non-HTTPS",
+    "support or operational ownership missing",
+    "role validation accounts missing or duplicated"
+  ],
+  "goRule": "All required evidence must pass in the same launch-gate execution."
+}

@@ -1,0 +1,65 @@
+RealTalent CRM
+V101.11.3-H9 — Playbook Performance & Interactive Whiteboard
+
+ESCOPO
+- performance/FPS do Playbook Workspace;
+- whiteboard mais interativo;
+- animação interativa e adaptativa na tela de login;
+- sem migration nova e sem mudança de schema.
+
+DIAGNÓSTICO DE PERFORMANCE
+A arquitetura H8 atualizava `graph` diretamente em todo `pointermove`. Dispositivos modernos podem emitir pointer events em frequência superior ao refresh da tela, criando renders redundantes. A H9 faz batching por requestAnimationFrame e mantém referências atuais do grafo/zoom sem rebind do listener a cada atualização.
+
+A gravação de tela, isoladamente, não é um benchmark confiável de FPS do navegador. A H9 inclui medidor real no workspace, com FPS e long frames.
+
+WHITEBOARD
+- card color persistente;
+- recoloração em lote;
+- grid on/off;
+- snap 20px on/off;
+- ctrl/cmd+wheel zoom;
+- pan/multiselect/groups/manual-connect preservados;
+- modo adaptativo reduz custo visual quando FPS cai.
+
+LOGIN
+- campo de pontos clicáveis;
+- explosão curta com onda + partículas;
+- máximo de bursts simultâneos;
+- adaptação por FPS;
+- reduced-motion respeitado.
+
+GATES OFICIAIS DEPENDENTES DE NODE_MODULES
+Continuam classificados somente quando executáveis. Não atribuir PASS artificial a typecheck/Vitest/Vite se as dependências não estiverem instaladas.
+
+RESULTADOS FINAIS DE QA
+- H9 Playbook Performance & Interactive Whiteboard: 50/50 PASS
+- H8 Playbook Canvas Autonomy: 48/48 PASS
+- H7 Playbook Visual Conversation Workspace: 39/39 PASS
+- H6 Playbook Studio 2.0: 39/39 PASS
+- qa:architecture: PASS
+- Source syntax: 406 arquivos PASS
+- Integration contracts: 374 arquivos PASS
+- Release Manifest: 76/76 PASS
+- Migrations: 50/50 PASS
+- CSS Governance: 65/65 PASS
+- Repository Local: 99/99 PASS
+- Repository Supabase: 99/99 PASS
+- Browser E2E contracts: 11 fluxos PASS
+- Communications Recovery: 5/5 PASS
+- Connect Recovery: 5/5 PASS
+- Security Runtime Foundation: 12/12 PASS
+
+TRANSPILATION SMOKE
+- `npm run build:legacy`: 291 módulos transpileados/bundled.
+- `runtime:bundle` rejeita deliberadamente esse fallback porque o HTML gerado é legado; por isso `dist/` de verificação não integra o ZIP final e não substitui o build Vite oficial.
+
+GATES OFICIAIS NÃO CLASSIFICADOS COMO PASS NESTE AMBIENTE
+- `npm run typecheck`: não fecha por ausência de React/React DOM/Supabase e tipos dependentes em node_modules.
+- `npm test`: vitest não instalado (status 127).
+- `npm run build`: validate-env passa, mas vite não está instalado (status 127).
+
+FPS DA GRAVAÇÃO RECEBIDA
+- stream declara referência aproximada de 30,3 fps;
+- arquivo contém 1.332 frames em ~109,65 s, ~12,1 frames codificados por segundo no agregado;
+- por ser gravação de tela VFR, quadros estáticos podem ser omitidos e esse número NÃO mede o FPS real do navegador;
+- a H9 passa a medir FPS real no próprio Playbook Workspace, com contagem de long frames >34 ms.

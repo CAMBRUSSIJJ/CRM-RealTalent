@@ -1,5 +1,8 @@
 import { X } from 'lucide-react'
 import { useEffect, useId, useRef, useState, type PropsWithChildren, type ReactNode } from 'react'
+import { createPortal } from 'react-dom'
+import { registerOverlay } from '../../app/overlay-manager'
+import { IconButton } from './icon-button'
 
 interface ModalProps {
   open: boolean
@@ -13,13 +16,33 @@ interface ModalProps {
 
 const EXIT_DURATION_MS = 180
 let modalLockCount = 0
+const modalStack: string[] = []
+
+function pushModal(id: string) {
+  const previous = modalStack.indexOf(id)
+  if (previous >= 0) modalStack.splice(previous, 1)
+  modalStack.push(id)
+}
+
+function removeModal(id: string) {
+  const index = modalStack.lastIndexOf(id)
+  if (index >= 0) modalStack.splice(index, 1)
+}
+
+function isTopModal(id: string) {
+  return modalStack.at(-1) === id
+}
 
 export function Modal({ open, title, subtitle, footer, headerActions, onClose, size = 'md', children }: PropsWithChildren<ModalProps>) {
   const titleId = useId()
   const subtitleId = useId()
+  const modalId = useId()
   const dialogRef = useRef<HTMLElement>(null)
+  const closeRef = useRef(onClose)
   const [mounted, setMounted] = useState(open)
   const [closing, setClosing] = useState(false)
+
+  useEffect(() => { closeRef.current = onClose }, [onClose])
 
   useEffect(() => {
     if (open) {
@@ -33,19 +56,40 @@ export function Modal({ open, title, subtitle, footer, headerActions, onClose, s
     return () => window.clearTimeout(timer)
   }, [mounted, open])
 
+
+  useEffect(() => {
+    if (!open) return
+    return registerOverlay(`modal:${modalId}`, () => closeRef.current(), true)
+  }, [modalId, open])
+
+  useEffect(() => {
+    if (!open) return
+    pushModal(modalId)
+    return () => removeModal(modalId)
+  }, [modalId, open])
+
   useEffect(() => {
     if (!open) return
     const previouslyFocused = document.activeElement instanceof HTMLElement ? document.activeElement : null
     const focusableSelector = 'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
-    window.requestAnimationFrame(() => {
-      const autofocus = dialogRef.current?.querySelector<HTMLElement>('[autofocus]')
-      const firstFocusable = dialogRef.current?.querySelector<HTMLElement>(focusableSelector)
-      ;(autofocus ?? firstFocusable ?? dialogRef.current)?.focus()
+    const frame = window.requestAnimationFrame(() => {
+      if (!isTopModal(modalId)) return
+      const preferred = dialogRef.current?.querySelector<HTMLElement>('[autofocus], [data-autofocus]')
+      const bodyFocusable = dialogRef.current?.querySelector<HTMLElement>(`.modal__body ${focusableSelector}`)
+      const footerFocusable = dialogRef.current?.querySelector<HTMLElement>(`.modal__footer ${focusableSelector}`)
+      const fallbackFocusable = [...(dialogRef.current?.querySelectorAll<HTMLElement>(focusableSelector) ?? [])].find((element) => !element.hasAttribute('data-modal-close'))
+      ;(preferred ?? bodyFocusable ?? footerFocusable ?? fallbackFocusable ?? dialogRef.current)?.focus()
     })
     const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') onClose()
+      if (!isTopModal(modalId)) return
+      if (event.key === 'Escape') {
+        event.preventDefault()
+        closeRef.current()
+        return
+      }
       if (event.key !== 'Tab' || !dialogRef.current) return
-      const focusable = [...dialogRef.current.querySelectorAll<HTMLElement>(focusableSelector)].filter((element) => !element.hidden)
+      const focusable = [...dialogRef.current.querySelectorAll<HTMLElement>(focusableSelector)]
+        .filter((element) => !element.hidden && element.getAttribute('aria-hidden') !== 'true' && !element.closest('[hidden]'))
       if (!focusable.length) { event.preventDefault(); dialogRef.current.focus(); return }
       const first = focusable[0]
       const last = focusable.at(-1)!
@@ -54,10 +98,11 @@ export function Modal({ open, title, subtitle, footer, headerActions, onClose, s
     }
     document.addEventListener('keydown', onKeyDown)
     return () => {
+      window.cancelAnimationFrame(frame)
       document.removeEventListener('keydown', onKeyDown)
-      previouslyFocused?.focus()
+      if (previouslyFocused?.isConnected) previouslyFocused.focus()
     }
-  }, [onClose, open])
+  }, [modalId, open])
 
   useEffect(() => {
     if (!open) return
@@ -70,9 +115,9 @@ export function Modal({ open, title, subtitle, footer, headerActions, onClose, s
   }, [open])
 
   if (!mounted) return null
-  return (
-    <div className={`modal-backdrop ${closing ? 'is-closing' : ''}`} role="presentation" onMouseDown={(event) => { if (open && event.target === event.currentTarget) onClose() }}>
-      <section ref={dialogRef} tabIndex={-1} className={`modal modal--${size} ${closing ? 'is-closing' : ''}`} role="dialog" aria-modal="true" aria-labelledby={titleId} aria-describedby={subtitle ? subtitleId : undefined}>
+  const content = (
+    <div className={`modal-backdrop ${closing ? 'is-closing' : ''}`} role="presentation" onMouseDown={(event) => { if (open && isTopModal(modalId) && event.target === event.currentTarget) closeRef.current() }}>
+      <section ref={dialogRef} tabIndex={-1} data-rt-primitive="dialog" className={`rt-dialog modal modal--${size} ${closing ? 'is-closing' : ''}`} role="dialog" aria-modal="true" aria-labelledby={titleId} aria-describedby={subtitle ? subtitleId : undefined}>
         <header className="modal__header">
           <div>
             <h2 id={titleId}>{title}</h2>
@@ -80,7 +125,7 @@ export function Modal({ open, title, subtitle, footer, headerActions, onClose, s
           </div>
           <div className="modal__header-actions">
             {headerActions}
-            <button className="icon-button" type="button" onClick={onClose} aria-label="Fechar"><X size={20} /></button>
+            <IconButton data-modal-close onClick={() => closeRef.current()} aria-label="Fechar"><X size={20} /></IconButton>
           </div>
         </header>
         <div className="modal__body">{children}</div>
@@ -88,4 +133,5 @@ export function Modal({ open, title, subtitle, footer, headerActions, onClose, s
       </section>
     </div>
   )
+  return typeof document === 'undefined' ? content : createPortal(content, document.body)
 }

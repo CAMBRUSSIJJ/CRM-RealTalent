@@ -1,0 +1,31 @@
+RealTalent CRM V100.68.2 — Settings & Pipeline UX
+
+QA executado neste pacote:
+- source_syntax_audit: 225 arquivos — OK
+- integration_contract_audit: 196 arquivos — OK
+- migrations: 37/37 checksums — OK
+- V100.56.4 Hardening: 21/21 — OK
+- V100.60 Sales Experience: 41/41 — OK
+- V100.60.1 Performance: 29/29 — OK
+- V100.62 Deal Intelligence: 47/47 — OK
+- V100.63 Sales Engagement: 64/64 — OK
+- V100.65 Coaching & Playbooks: 63/63 — OK
+- V100.66 Buyer Room: 69/69 — OK
+- V100.67 Assistant: 56/56 — OK
+- V100.68 Revenue Intelligence: 65/65 — OK
+- V100.68.1 UI Reliability: 50/50 — OK
+- V100.68.2 Settings & Pipeline UX: 30/30 — OK
+- TypeScript structural check: tsc --noEmit --noCheck — OK
+
+Escopo V100.68.2:
+- Pipeline Intelligence recolhível com estado persistente por workspace;
+- resumo compacto de saúde, risco, forecast e prioridades;
+- Settings Center com busca e navegação agrupada;
+- seção ativa contextualizada;
+- painel de diagnóstico recolhível;
+- responsividade de Pipeline Intelligence e Configurações.
+
+Compatibilidade:
+- nenhuma migration nova;
+- BACKUP_SCHEMA_VERSION permanece 100.54;
+- preferências antigas de Pipeline recebem intelligenceCollapsed=false por fallback.

@@ -1,14 +1,21 @@
 import type {
-  ActivityItem, AutomationRule, AutomationRun, AutomationRunOutput, AutomationRunStatus, CalendarEvent, CommercialStructureSyncResult, DashboardStats,
-  AuditLog, Goal, Lead, PipelineStage, Playbook, ProductRecord, ProposalRecord, ProposalStatus, RevenueEntry, RepositoryHealth, Workspace, WorkspaceInvite, WorkspaceMember, WorkspaceRole, WorkspaceSnapshot,
+  ActivityItem, AutomationRule, AutomationRun, AutomationRunOutput, AutomationRunStatus, BuyerRoom, BuyerRoomActivity, CalendarEvent, CommercialStructureSyncResult, CompanyRecord, ContactRecord, ContactRelationship, DashboardStats,
+  AuditLog, Goal, Lead, OpportunityRecord, PipelineStage, Playbook, ProductRecord, ProposalRecord, ProposalStatus, RevenueEntry, RepositoryHealth, SocialProfile, Workspace, WorkspaceInvite, WorkspaceMember, WorkspaceRole, WorkspaceSnapshot,
 } from '../domain/types'
 
+export interface NewWorkspaceMemberInput { displayName: string; email?: string; role?: Exclude<WorkspaceRole, 'owner'> }
 export type NewLeadInput = Omit<Lead, 'id' | 'createdAt' | 'updatedAt'>
+export type NewCompanyInput = Omit<CompanyRecord, 'id' | 'createdAt' | 'updatedAt'>
+export type UpdateCompanyInput = Partial<Omit<CompanyRecord, 'id' | 'workspaceId' | 'createdAt' | 'updatedAt'>>
+export type NewContactInput = Omit<ContactRecord, 'id' | 'createdAt' | 'updatedAt'>
+export type UpdateContactInput = Partial<Omit<ContactRecord, 'id' | 'workspaceId' | 'createdAt' | 'updatedAt'>>
+export type NewContactRelationshipInput = Omit<ContactRelationship, 'id' | 'createdAt' | 'updatedAt'>
+export type UpdateContactRelationshipInput = Partial<Pick<ContactRelationship, 'fromContactId' | 'toContactId' | 'relationshipType' | 'strength' | 'notes'>>
 export type UpdateLeadInput = Partial<Omit<Lead, 'id' | 'workspaceId' | 'createdAt' | 'updatedAt'>>
 export type NewStageInput = Omit<PipelineStage, 'id' | 'order'> & { order?: number }
 export type UpdateStageInput = Partial<Pick<PipelineStage, 'name' | 'color' | 'probability' | 'isWon' | 'isLost'>>
 export type NewActivityInput = Omit<ActivityItem, 'id' | 'createdAt' | 'updatedAt'>
-export type UpdateActivityInput = Partial<Pick<ActivityItem, 'leadId' | 'type' | 'title' | 'description' | 'dueAt' | 'completedAt' | 'assignedTo'>>
+export type UpdateActivityInput = Partial<Pick<ActivityItem, 'leadId' | 'contactId' | 'type' | 'title' | 'description' | 'dueAt' | 'completedAt' | 'resolutionStatus' | 'resolutionReason' | 'originEventKey' | 'purpose' | 'assignedTo'>>
 export type NewCallInput = Omit<import('../domain/types').CallRecord, 'id' | 'createdAt' | 'recordingUrl'>
 export interface RegisterCallOutcomeInput extends NewCallInput {
   scheduleNext: boolean
@@ -48,16 +55,18 @@ export interface CommercialActivityResult {
 export type NewCalendarEventInput = Omit<CalendarEvent, 'id' | 'createdAt' | 'updatedAt'>
 export type UpdateCalendarEventInput = Partial<Omit<CalendarEvent, 'id' | 'workspaceId' | 'createdAt' | 'updatedAt'>>
 export type NewPlaybookInput = Omit<Playbook, 'id' | 'createdAt' | 'updatedAt'>
-export type UpdatePlaybookInput = Partial<Pick<Playbook, 'kind' | 'title' | 'category' | 'content' | 'tags' | 'active'>>
+export type UpdatePlaybookInput = Partial<Pick<Playbook, 'kind' | 'title' | 'category' | 'content' | 'tags' | 'guidance' | 'active'>>
 
 export type NewProductInput = Omit<ProductRecord, 'id' | 'createdAt' | 'updatedAt'>
 export type UpdateProductInput = Partial<Omit<ProductRecord, 'id' | 'workspaceId' | 'createdAt' | 'updatedAt'>>
 export type NewProposalInput = Omit<ProposalRecord, 'id' | 'proposalGroupId' | 'version' | 'proposalNumber' | 'createdAt' | 'updatedAt' | 'sentAt' | 'viewedAt' | 'acceptedAt' | 'rejectedAt' | 'closedWonAt' | 'supersededById'> & { proposalGroupId?: string; version?: number; proposalNumber?: string; closedWonAt?: string | null; supersededById?: string | null }
 export type UpdateProposalInput = Partial<Pick<ProposalRecord, 'title' | 'status' | 'forecastCategory' | 'probability' | 'validUntil' | 'expectedCloseAt' | 'contractStartAt' | 'contractEndAt' | 'contractTermMonths' | 'autoRenew' | 'postSaleStartAt' | 'postSaleCadenceName' | 'notes' | 'terms' | 'items'>>
 export type NewRevenueEntryInput = Omit<RevenueEntry, 'id' | 'createdAt' | 'updatedAt'>
+export type NewBuyerRoomInput = Omit<BuyerRoom, 'id' | 'createdAt' | 'updatedAt' | 'viewCount' | 'lastOpenedAt' | 'activity'> & { activity?: BuyerRoomActivity[] }
+export type UpdateBuyerRoomInput = Partial<Pick<BuyerRoom, 'leadId' | 'opportunityId' | 'proposalId' | 'companyId' | 'title' | 'welcomeMessage' | 'status' | 'shareEnabled' | 'expiresAt' | 'participants' | 'steps' | 'documents'>>
 
 export type NewGoalInput = Omit<Goal, 'id' | 'createdAt' | 'updatedAt'>
-export type UpdateGoalInput = Partial<Pick<Goal, 'userId' | 'userName' | 'metric' | 'targetValue' | 'periodStart' | 'periodEnd'>>
+export type UpdateGoalInput = Partial<Pick<Goal, 'scope' | 'teamId' | 'teamName' | 'userId' | 'userName' | 'metric' | 'targetValue' | 'periodStart' | 'periodEnd'>>
 export type NewAutomationRuleInput = Omit<AutomationRule, 'id' | 'createdAt' | 'updatedAt'>
 export type UpdateAutomationRuleInput = Partial<Pick<AutomationRule, 'name' | 'enabled' | 'triggerType' | 'conditions' | 'actions'>>
 export interface NewAutomationRunInput {
@@ -67,6 +76,8 @@ export interface NewAutomationRunInput {
   input: Record<string, unknown>
 }
 
+export interface OperationalDataClearResult { cleared: boolean; total: number }
+
 export interface CrmRepository {
   readonly mode: 'local' | 'supabase'
   initialize(): Promise<void>
@@ -74,6 +85,7 @@ export interface CrmRepository {
   listWorkspaces(): Promise<Workspace[]>
   createWorkspace(name: string): Promise<Workspace>
   listWorkspaceMembers(workspaceId: string): Promise<WorkspaceMember[]>
+  createWorkspaceMember(workspaceId: string, input: NewWorkspaceMemberInput): Promise<WorkspaceMember>
   createWorkspaceInvite(workspaceId: string, email: string, role: Exclude<WorkspaceRole, 'owner'>): Promise<WorkspaceInvite>
   listWorkspaceInvites(workspaceId: string): Promise<WorkspaceInvite[]>
   revokeWorkspaceInvite(inviteId: string): Promise<void>
@@ -82,9 +94,23 @@ export interface CrmRepository {
   removeWorkspaceMember(workspaceId: string, userId: string): Promise<void>
   listAuditLogs(workspaceId: string, limit?: number): Promise<AuditLog[]>
   exportWorkspace(workspaceId: string): Promise<Record<string, unknown>>
+  clearOperationalData(workspaceId: string): Promise<OperationalDataClearResult>
   getSnapshot(workspaceId: string): Promise<WorkspaceSnapshot>
   synchronizeCommercialStructure(workspaceId: string): Promise<CommercialStructureSyncResult>
   listLeads(workspaceId: string): Promise<Lead[]>
+  listCompanies(workspaceId: string): Promise<CompanyRecord[]>
+  createCompany(input: NewCompanyInput): Promise<CompanyRecord>
+  updateCompany(companyId: string, input: UpdateCompanyInput): Promise<CompanyRecord>
+  listContacts(workspaceId: string): Promise<ContactRecord[]>
+  listContactRelationships(workspaceId: string): Promise<ContactRelationship[]>
+  createContact(input: NewContactInput): Promise<ContactRecord>
+  updateContact(contactId: string, input: UpdateContactInput): Promise<ContactRecord>
+  deleteContact(contactId: string): Promise<void>
+  createContactRelationship(input: NewContactRelationshipInput): Promise<ContactRelationship>
+  updateContactRelationship(relationshipId: string, input: UpdateContactRelationshipInput): Promise<ContactRelationship>
+  deleteContactRelationship(relationshipId: string): Promise<void>
+  listOpportunities(workspaceId: string): Promise<OpportunityRecord[]>
+  listSocialProfiles(workspaceId: string): Promise<SocialProfile[]>
   createLead(input: NewLeadInput): Promise<Lead>
   updateLead(leadId: string, input: UpdateLeadInput): Promise<Lead>
   moveLead(leadId: string, stageId: string, lossReason?: string | null): Promise<Lead>
@@ -106,6 +132,8 @@ export interface CrmRepository {
   completeActivity(activityId: string, completed: boolean): Promise<ActivityItem>
   registerActivityOutcome(input: RegisterActivityOutcomeInput): Promise<CommercialActivityResult>
   listCalls(workspaceId: string): Promise<import('../domain/types').CallRecord[]>
+  listCallsPage(workspaceId: string, beforeStartedAt?: string | null, limit?: number): Promise<import('../domain/types').CallRecord[]>
+  getCallRecordingUrl(callId: string): Promise<string | null>
   createCall(input: NewCallInput, recording?: Blob | null): Promise<import('../domain/types').CallRecord>
   registerCallOutcome(input: RegisterCallOutcomeInput, recording?: Blob | null): Promise<CommercialActionResult>
   deleteCall(callId: string): Promise<void>
@@ -121,6 +149,7 @@ export interface CrmRepository {
   listProducts(workspaceId: string): Promise<ProductRecord[]>
   createProduct(input: NewProductInput): Promise<ProductRecord>
   updateProduct(productId: string, input: UpdateProductInput): Promise<ProductRecord>
+  reconcileProposalItems(workspaceId: string, legacyName: string, productId: string): Promise<number>
   deleteProduct(productId: string): Promise<void>
   listProposals(workspaceId: string): Promise<ProposalRecord[]>
   createProposal(input: NewProposalInput): Promise<ProposalRecord>
@@ -130,6 +159,12 @@ export interface CrmRepository {
   setOfficialProposal(proposalId: string): Promise<ProposalRecord>
   closeOpportunityFromProposal(proposalId: string): Promise<ProposalRecord>
   deleteProposal(proposalId: string): Promise<void>
+  listBuyerRooms(workspaceId: string): Promise<BuyerRoom[]>
+  createBuyerRoom(input: NewBuyerRoomInput): Promise<BuyerRoom>
+  updateBuyerRoom(roomId: string, input: UpdateBuyerRoomInput): Promise<BuyerRoom>
+  rotateBuyerRoomToken(roomId: string): Promise<BuyerRoom>
+  recordBuyerRoomActivity(roomId: string, event: Omit<BuyerRoomActivity, 'id' | 'occurredAt'> & { occurredAt?: string }): Promise<BuyerRoom>
+  deleteBuyerRoom(roomId: string): Promise<void>
   listRevenueEntries(workspaceId: string): Promise<RevenueEntry[]>
   createRevenueEntry(input: NewRevenueEntryInput): Promise<RevenueEntry>
   updateRevenueEntryStatus(entryId: string, status: RevenueEntry['status']): Promise<RevenueEntry>

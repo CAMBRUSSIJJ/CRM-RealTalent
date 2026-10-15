@@ -1,0 +1,95 @@
+RealTalent CRM V101.11.3-H20.5 — QA REPORT
+Settings & Calling Cohesion
+Base: V101.11.3-H20.4 — Proposals & Prospecting Cohesion
+Functional lineage: V101.11.3-H19.13 — WhatsApp Work Management
+
+RESULTADO PRINCIPAL
+-------------------
+qa:architecture                                      PASS
+H20.5 Settings & Calling Cohesion                   28/28 PASS
+CSS Governance                                      65/65 PASS
+
+FUNDAÇÃO / REGRESSÃO
+--------------------
+Source Syntax                                  418 arquivos PASS
+Integration Contracts                         386 arquivos PASS
+Migrations                                           54/54 PASS
+Release Manifest                                     95/95 PASS
+Capability Matrix             42 capacidades / 152 evidências / 101 executáveis
+Repository Local                                    100/100 PASS
+Repository Supabase                                 100/100 PASS
+Browser E2E Contract                              11 fluxos PASS
+Linux preflight                                379 TS/TSX PASS
+
+LINHAGEM H20 / WHATSAPP
+-----------------------
+H20.3 Global UI & Product Cohesion                   26/26 PASS
+H20.4 Proposals & Prospecting Cohesion               27/27 PASS
+H20.5 Settings & Calling Cohesion                    28/28 PASS
+H19.13 WhatsApp Work Management                      27/27 PASS
+H19.12 Communication Workspace Lineage Recovery      19/19 PASS
+
+SETTINGS
+--------
+PASS Page Header canônico H20
+PASS Command Bar canônica para busca/estado de salvamento
+PASS Navegação agrupada preservada
+PASS Busca de configurações preservada
+PASS Workspace health/diagnóstico preservados
+PASS Tipografia, fields, panels, chips e labels normalizados por tokens H20
+PASS Responsividade do layout Settings
+PASS Registry de personalização atualizado para seletores H20 atuais
+
+CALLING
+-------
+PASS Page Header H20
+PASS Summary Strip H20
+PASS View Strip Operação / Histórico / Inteligência / Configurações
+PASS Command Bar de Operação
+PASS Command Bar de Histórico
+PASS filtros de fila / views preservados
+PASS Calls Intelligence preservado
+PASS Calls Settings preservado
+PASS Session Preparation preservado
+PASS Call Workspace / One-Tap preservado
+PASS KPI duplicado do command center retirado visualmente
+PASS CSS de página consolidado sem aumentar orçamento global de stylesheets
+PASS piso tipográfico H20 aplicado também a modais/portais de discagem
+
+RUNTIME CALLING
+---------------
+runtime:connect                         PASS
+runtime:connect-mvp                     PASS
+runtime:connect-setup                   PASS
+runtime:connect-fast-dial               PASS
+runtime:connect-one-tap                 PASS
+runtime:connect-recovery                  5/5 PASS
+runtime:security-foundation              12/12 PASS
+
+BUILD INDEPENDENTE
+------------------
+build:legacy                       303 módulos PASS
+runtime:bundle                     FALHA ESPERADA DO AUDITOR
+Motivo: "HTML legado reapareceu"
+Ação: dist fallback removido do pacote final.
+
+GATES OFICIAIS DEPENDENTES DE DEPENDÊNCIAS
+-------------------------------------------
+npm ci       BLOCKED — não concluiu e não produziu node_modules.
+typecheck    BLOCKED — React/Supabase/tipos de dependências ausentes.
+Vitest       BLOCKED — vitest: not found.
+Vite build   BLOCKED — validate:env PASS; vite: not found.
+Esses gates NÃO são classificados como PASS.
+
+LIMITAÇÃO DE VALIDAÇÃO
+----------------------
+Esta release possui auditoria estrutural, contratos, CSS governance, preflight e smokes reais de Calling/segurança.
+Sem o bundle oficial Vite neste ambiente, não há alegação de validação pixel-perfect em navegador para todas as resoluções.
+
+HIGIENE DO PACOTE
+-----------------
+- node_modules removido/ausente.
+- dist fallback removido.
+- sessão local .realtalent-whatsapp-browser removida.
+- .env.local não integra o pacote.
+- funcionalidade H19.13 preservada.

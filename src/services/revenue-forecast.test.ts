@@ -20,7 +20,7 @@ describe('propostas e forecast', () => {
   })
 
   it('separa receita fechada e forecast ponderado', () => {
-    const snapshot = { workspace: DEMO_WORKSPACE, stages: [], leads: [], activities: [], calls: [], events: [], playbooks: [], goals: [], automationRules: [], automationRuns: [], companies: [], contacts: [], opportunities: [], socialProfiles: [], products: DEMO_PRODUCTS, proposals: DEMO_PROPOSALS, revenueEntries: DEMO_REVENUE_ENTRIES } as WorkspaceSnapshot
+    const snapshot = { workspace: DEMO_WORKSPACE, stages: [], leads: [], activities: [], calls: [], events: [], playbooks: [], goals: [], automationRules: [], automationRuns: [], companies: [], contacts: [], contactRelationships: [], opportunities: [], socialProfiles: [], products: DEMO_PRODUCTS, proposals: DEMO_PROPOSALS, revenueEntries: DEMO_REVENUE_ENTRIES } as WorkspaceSnapshot
     const forecast = calculateRevenueForecast(snapshot, new Date('2026-07-16T12:00:00.000Z'))
     expect(forecast.closedRevenue).toBeGreaterThan(0)
     expect(forecast.weightedForecast).toBeGreaterThanOrEqual(forecast.closedBookings)

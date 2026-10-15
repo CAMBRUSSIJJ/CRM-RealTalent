@@ -1,0 +1,379 @@
+{
+  "schemaVersion": 1,
+  "release": {
+    "version": "101.11.3",
+    "label": "V101.11.3",
+    "name": "Actionable Pipeline Experience",
+    "baseVersion": "101.11.2",
+    "channel": "official-communications",
+    "baseRelease": "V101.11.2",
+    "buildLabel": "V101.11.3-H19.13",
+    "hotfix": "H19.13",
+    "hotfixName": "WhatsApp Work Management",
+    "hotfixBaseRelease": "V101.11.3-H19.12"
+  },
+  "artifacts": {
+    "linuxLauncher": "RealTalent-CRM-V101.11.3-H19.13-WhatsApp-Work-Management-Linux-Launcher.zip",
+    "qaReport": "QA_REPORT_V101.11.3-H19.13.txt",
+    "releaseNotes": "RELEASE_NOTES_V101.11.3-H19.13.md"
+  },
+  "migrations": {
+    "expectedCount": 58,
+    "lockFile": "supabase/migrations.lock.json"
+  },
+  "qa": {
+    "defaultGate": "qa:architecture",
+    "legacyGate": "check:legacy",
+    "requiredGates": [
+      "syntax:audit",
+      "integration:audit",
+      "migrations:verify",
+      "qa:release-manifest",
+      "qa:capabilities",
+      "qa:repository-contracts",
+      "qa:e2e-contract",
+      "qa:v101.9.9",
+      "qa:v101.9.9:h1",
+      "qa:v101.9.9:h2",
+      "qa:v101.9.9:h3",
+      "qa:v101.9.9:h4",
+      "qa:v101.10.0",
+      "qa:v101.10.0:h1",
+      "qa:v101.10.1",
+      "qa:v101.10.2",
+      "qa:v101.10.2:h1",
+      "qa:v101.10.2:h2",
+      "qa:v101.10.2:h3",
+      "qa:v101.10.3",
+      "qa:v101.10.3:h1",
+      "qa:v101.10.3:h2",
+      "qa:v101.10.3:h3",
+      "qa:v101.10.3:h4",
+      "qa:v101.10.3:h5",
+      "qa:v101.10.3:h6",
+      "qa:v101.10.3:h7",
+      "qa:v101.10.3:h8",
+      "qa:v101.10.3:h9",
+      "qa:v101.10.4",
+      "qa:v101.10.5",
+      "typecheck",
+      "test",
+      "build",
+      "qa:v101.10.6",
+      "qa:v101.10.6:h2",
+      "qa:v101.10.7",
+      "qa:v101.10.7:h1",
+      "qa:v101.10.8",
+      "css:governance",
+      "qa:v101.10.9",
+      "qa:v101.10.5:selection",
+      "qa:v101.10.9:h1",
+      "qa:v101.10.9:h2",
+      "qa:v101.10.9:h3",
+      "qa:v101.10.9:h4",
+      "qa:v101.10.9:h5",
+      "qa:v101.11.0",
+      "qa:v101.11.1",
+      "qa:v101.11.1:h1",
+      "qa:v101.11.1:h2",
+      "qa:v101.11.1:h3",
+      "qa:v101.11.1:h4",
+      "qa:v101.11.1:h5",
+      "qa:v101.11.2",
+      "qa:v101.11.3",
+      "qa:v101.11.3:h1",
+      "qa:v101.11.3:h2",
+      "qa:v101.11.3:h3",
+      "qa:v101.11.3:h4",
+      "qa:v101.11.3:h5",
+      "qa:v101.11.3:h6",
+      "qa:v101.11.3:h7",
+      "qa:v101.11.3:h8",
+      "qa:v101.11.3:h9",
+      "qa:v101.11.3:h10",
+      "qa:v101.11.3:h11",
+      "qa:v101.11.3:h12",
+      "qa:v101.11.3:h13",
+      "qa:v101.11.3:h14",
+      "qa:v101.11.3:h14:ui1",
+      "qa:v101.11.3:h15",
+      "qa:v101.11.3:h19.7",
+      "qa:v101.11.3:h19.8",
+      "qa:v101.11.3:h19.8:h1",
+      "qa:v101.11.3:h19.9",
+      "qa:v101.11.3:h19.10",
+      "qa:v101.11.3:h19.10:h1",
+      "qa:v101.11.3:h19.11",
+      "qa:v101.11.3:h19.12",
+      "qa:v101.11.3:h19.13",
+      "qa:v101.11.3:h20.3",
+      "qa:v101.11.3:h20.4",
+      "qa:v101.11.3:h20.5",
+      "qa:v101.11.3:h20.6",
+      "qa:v101.11.3:h20.7",
+      "qa:v101.11.3:h20.7:h1",
+      "qa:v101.11.3:h20.7:h2",
+      "qa:v101.11.3:h21.1",
+      "qa:v101.11.3:h21.1:h1",
+      "qa:v101.11.3:h22.1",
+      "runtime:team-access-h22.1",
+      "qa:v101.11.3:h22.2",
+      "runtime:team-access-h22.2",
+      "qa:v101.11.3:h22.3",
+      "runtime:team-access-h22.3",
+      "qa:v101.11.3:h22.3:h1",
+      "qa:commercial-readiness:cr1",
+      "qa:commercial-readiness:cr2",
+      "qa:commercial-readiness:cr3"
+    ],
+    "deepRegressionGates": [
+      "check:legacy"
+    ],
+    "optionalGates": [
+      "e2e:browser:critical",
+      "runtime:prospecting-agent",
+      "runtime:prospecting-search",
+      "runtime:prospecting-engine",
+      "runtime:prospecting-territory",
+      "runtime:prospecting-coverage",
+      "runtime:prospecting-identity",
+      "runtime:prospecting-enrichment",
+      "runtime:prospecting-progressive",
+      "runtime:prospecting-ontology",
+      "runtime:prospecting-territory2",
+      "runtime:prospecting-local",
+      "runtime:security-foundation",
+      "health",
+      "runtime:communications-v101.11.0",
+      "runtime:communications-recovery",
+      "runtime:connect-recovery",
+      "runtime:prospecting-strict-scope",
+      "runtime:communications-h19.10:h1",
+      "runtime:communications-h19.11",
+      "runtime:prospecting-h21.1",
+      "runtime:commercial-readiness:cr2",
+      "runtime:commercial-readiness:cr3"
+    ]
+  },
+  "capabilityMatrix": "qa/capability-matrix.json",
+  "browserFlows": "qa/critical-browser-flows.json",
+  "uiCohesion": {
+    "buildLabel": "V101.11.3-H20.7",
+    "name": "Global UI & Product Cohesion — Final Pass",
+    "baseRelease": "V101.11.3-H19.13",
+    "phases": [
+      "H20.1 Design System Truth",
+      "H20.2 CSS Cascade Recovery",
+      "H20.3 Global Workspace Shell",
+      "H20.4 Proposals & Prospecting Cohesion",
+      "H20.5 Settings & Calling Cohesion",
+      "H20.6 Pipeline, Contacts & Agenda Cohesion",
+      "H20.7 Global UI Final Pass"
+    ]
+  },
+  "uiArtifacts": {
+    "linuxLauncher": "RealTalent-CRM-V101.11.3-H20.7-Global-UI-Final-Pass-Linux-Launcher.zip",
+    "qaReport": "QA_REPORT_V101.11.3-H20.7.txt",
+    "releaseNotes": "RELEASE_NOTES_V101.11.3-H20.7.md"
+  },
+  "uiHotfix": {
+    "buildLabel": "V101.11.3-H20.7-H1",
+    "name": "Appearance & Sidebar Truth",
+    "baseUiRelease": "V101.11.3-H20.7",
+    "scope": [
+      "Appearance preference truth",
+      "Global search composition",
+      "Pinned settings navigation"
+    ]
+  },
+  "uiHotfixArtifacts": {
+    "linuxLauncher": "RealTalent-CRM-V101.11.3-H20.7-H1-Appearance-Sidebar-Truth-Linux-Launcher.zip",
+    "qaReport": "QA_REPORT_V101.11.3-H20.7-H1.txt",
+    "releaseNotes": "RELEASE_NOTES_V101.11.3-H20.7-H1.md"
+  },
+  "uiHotfix2": {
+    "buildLabel": "V101.11.3-H20.7-H2",
+    "name": "WhatsApp Conversation-Only Inbox",
+    "baseUiHotfix": "V101.11.3-H20.7-H1",
+    "scope": [
+      "Conversation-only WhatsApp inbox",
+      "Standardized inbox actions",
+      "Work metadata removed from left rail"
+    ]
+  },
+  "uiHotfixArtifacts2": {
+    "linuxLauncher": "RealTalent-CRM-V101.11.3-H20.7-H2-WhatsApp-Conversation-Only-Inbox-Linux-Launcher.zip",
+    "qaReport": "QA_REPORT_V101.11.3-H20.7-H2.txt",
+    "releaseNotes": "RELEASE_NOTES_V101.11.3-H20.7-H2.md"
+  },
+  "prospectingH21": {
+    "buildLabel": "V101.11.3-H21.1",
+    "name": "Garimpo Coverage & Runtime Truth",
+    "baseUiHotfix": "V101.11.3-H20.7-H2",
+    "scope": [
+      "Expanded local coverage with review-only related candidates",
+      "Single live execution truth",
+      "Progressive source and enrichment feedback"
+    ]
+  },
+  "prospectingH21Artifacts": {
+    "linuxLauncher": "RealTalent-CRM-V101.11.3-H21.1-Garimpo-Coverage-Runtime-Truth-Linux-Launcher.zip",
+    "qaReport": "QA_REPORT_V101.11.3-H21.1.txt",
+    "releaseNotes": "RELEASE_NOTES_V101.11.3-H21.1.md"
+  },
+  "launcherHotfix": {
+    "buildLabel": "V101.11.3-H21.1-H1",
+    "name": "Communication Lineage Guard Fix",
+    "baseRelease": "V101.11.3-H21.1",
+    "scope": [
+      "Launcher accepts H19.11 legacy inbox marker or H20.7-H2 successor marker",
+      "Pure Chat lineage remains mandatory",
+      "No communication UI rollback"
+    ]
+  },
+  "launcherHotfixArtifacts": {
+    "linuxLauncher": "RealTalent-CRM-V101.11.3-H21.1-H1-Communication-Lineage-Guard-Fix-Linux-Launcher.zip",
+    "qaReport": "QA_REPORT_V101.11.3-H21.1-H1.txt",
+    "releaseNotes": "RELEASE_NOTES_V101.11.3-H21.1-H1.md"
+  },
+  "teamAccessH22": {
+    "buildLabel": "V101.11.3-H22.1",
+    "name": "Team Profiles & Real Access Control",
+    "baseRelease": "V101.11.3-H21.1-H1",
+    "scope": [
+      "Central permission engine and access profiles",
+      "Own/team/all record visibility for Contacts, Pipeline and Tasks",
+      "Module visibility and direct-route guard",
+      "Supabase RLS for access profiles, Contacts, legacy Leads and Tasks",
+      "Visualizar como user preview"
+    ]
+  },
+  "teamAccessH22Artifacts": {
+    "linuxLauncher": "RealTalent-CRM-V101.11.3-H22.1-Team-Profiles-Real-Access-Control-Linux-Launcher.zip",
+    "qaReport": "QA_REPORT_V101.11.3-H22.1.txt",
+    "releaseNotes": "RELEASE_NOTES_V101.11.3-H22.1.md"
+  },
+  "teamAccessH22_2": {
+    "buildLabel": "V101.11.3-H22.2",
+    "name": "Cross-Module Access Control",
+    "baseRelease": "V101.11.3-H22.1",
+    "scope": [
+      "Communications record scope and action enforcement",
+      "Proposals, revenue, buyer room and catalog enforcement",
+      "Prospecting author scope, export and assignment enforcement",
+      "Goals own/team/workspace enforcement",
+      "Supabase RLS and trigger guards for SECURITY DEFINER write paths"
+    ]
+  },
+  "teamAccessH22_2Artifacts": {
+    "linuxLauncher": "RealTalent-CRM-V101.11.3-H22.2-Cross-Module-Access-Control-Linux-Launcher.zip",
+    "qaReport": "QA_REPORT_V101.11.3-H22.2.txt",
+    "releaseNotes": "RELEASE_NOTES_V101.11.3-H22.2.md"
+  },
+  "teamAccessH22_3": {
+    "buildLabel": "V101.11.3-H22.3",
+    "name": "Field-Level Permissions + Approvals + Audit Log",
+    "baseRelease": "V101.11.3-H22.2",
+    "scope": [
+      "Sensitive field visibility and edit policy",
+      "Commercial approval thresholds for proposal pricing and export",
+      "Central approval queue and single-use export approval",
+      "Security audit trail for profiles, approvals, exports and sensitive changes",
+      "Supabase field guards and proposal approval enforcement"
+    ]
+  },
+  "teamAccessH22_3Artifacts": {
+    "linuxLauncher": "RealTalent-CRM-V101.11.3-H22.3-Field-Permissions-Approvals-Audit-Linux-Launcher.zip",
+    "qaReport": "QA_REPORT_V101.11.3-H22.3.txt",
+    "releaseNotes": "RELEASE_NOTES_V101.11.3-H22.3.md"
+  },
+  "teamAccessH22_3_H1": {
+    "buildLabel": "V101.11.3-H22.3-H1",
+    "name": "Stability & Security Closure",
+    "baseRelease": "V101.11.3-H22.3",
+    "scope": [
+      "Product Studio save permission fix",
+      "Proposal margin value fix",
+      "Approval cancelled status type closure",
+      "SECURITY DEFINER membership hardening and explicit revoke",
+      "Tasks and Teams Experience Registry completion",
+      "Lockfile repair attempt with explicit registry-blocked status"
+    ]
+  },
+  "teamAccessH22_3_H1Artifacts": {
+    "linuxLauncher": "RealTalent-CRM-V101.11.3-H22.3-H1-Stability-Security-Closure-Linux-Launcher.zip",
+    "qaReport": "QA_REPORT_V101.11.3-H22.3-H1.txt",
+    "releaseNotes": "RELEASE_NOTES_V101.11.3-H22.3-H1.md"
+  },
+  "commercialReadiness": {
+    "phase": "CR10",
+    "name": "Supabase Staging Bootstrap & Validation",
+    "marker": "101.11.3-cr10-supabase-staging-bootstrap",
+    "history": [
+      {
+        "phase": "CR1",
+        "name": "Build & Dependency Closure"
+      },
+      {
+        "phase": "CR2",
+        "name": "Production Supabase + Auth + RLS Validation"
+      },
+      {
+        "phase": "CR3",
+        "name": "End-to-End Commercial Workflow Validation"
+      },
+      {
+        "phase": "CR4",
+        "name": "Commercial UX & Failure Recovery"
+      },
+      {
+        "phase": "CR5",
+        "name": "Commercial Performance & Production Observability"
+      },
+      {
+        "phase": "CR6",
+        "name": "Performance Optimization & Payload Reduction"
+      },
+      {
+        "phase": "CR7",
+        "name": "Production Deployment & Operational Readiness"
+      },
+      {
+        "phase": "CR8",
+        "name": "Commercial Launch Gate & First Customer Readiness"
+      },
+      {
+        "phase": "CR9",
+        "name": "Launch Hard-Stop Closure"
+      },
+      {
+        "phase": "CR10",
+        "name": "Supabase Staging Bootstrap & Validation"
+      }
+    ],
+    "artifacts": {
+      "linuxLauncher": "RealTalent-CRM-V101.11.3-CR10-Supabase-Staging-Bootstrap-Validation-Linux-Launcher.zip",
+      "qaReport": "QA_REPORT_V101.11.3-CR10.txt",
+      "releaseNotes": "RELEASE_NOTES_V101.11.3-CR10.md"
+    }
+  },
+  "releaseGates": {
+    "requiredGates": [
+      "qa:commercial-readiness:cr4",
+      "qa:commercial-readiness:cr5",
+      "qa:commercial-readiness:cr6",
+      "qa:commercial-readiness:cr7",
+      "qa:commercial-readiness:cr8",
+      "qa:commercial-readiness:cr9",
+      "qa:commercial-readiness:cr10"
+    ],
+    "optionalGates": [
+      "runtime:commercial-readiness:cr5",
+      "runtime:commercial-readiness:cr6",
+      "runtime:commercial-readiness:cr7",
+      "runtime:commercial-readiness:cr8",
+      "runtime:commercial-readiness:cr9",
+      "runtime:commercial-readiness:cr10"
+    ]
+  }
+}

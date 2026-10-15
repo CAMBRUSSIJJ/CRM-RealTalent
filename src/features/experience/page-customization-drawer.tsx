@@ -1,10 +1,10 @@
-import { ArrowDown, ArrowUp, Check, LayoutDashboard, RotateCcw, SlidersHorizontal, Sparkles, X } from 'lucide-react'
-import { useEffect } from 'react'
+import { ArrowDown, ArrowUp, Check, EyeOff, LayoutDashboard, RotateCcw, SlidersHorizontal, Sparkles, X } from 'lucide-react'
 import type { AppRoute } from '../../domain/types'
 import { Button } from '../../components/ui/button'
 import { routeTitles } from '../../components/layout/navigation'
 import { useExperience, type ExperiencePreset } from './experience-context'
 import { pageSectionRegistry } from './experience-registry'
+import { useOverlayDialog } from '../../app/use-overlay-dialog'
 
 const presetLabels: Array<{ id: ExperiencePreset; label: string; detail: string }> = [
   { id: 'sdr', label: 'SDR', detail: 'Fila, prospecção e volume.' },
@@ -20,12 +20,7 @@ export function PageCustomizationDrawer({ route, open, onClose }: { route: AppRo
   const page = preferences.pages[route]
   const sections = pageSectionRegistry[route]
 
-  useEffect(() => {
-    if (!open) return
-    const onKey = (event: KeyboardEvent) => { if (event.key === 'Escape') onClose() }
-    window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
-  }, [onClose, open])
+  useOverlayDialog(open, `experience-drawer:${route}`, onClose)
 
   if (!open || !page) return null
 
@@ -38,9 +33,58 @@ export function PageCustomizationDrawer({ route, open, onClose }: { route: AppRo
     updatePage(route, { sectionOrder: order })
   }
 
+  const dashboardLayout = (() => {
+    if (route !== 'dashboard') return null
+    const hidden = [...page.hiddenSections].sort()
+    const sameHidden = (expected: string[]) => hidden.length === expected.length && expected.every((id) => hidden.includes(id))
+    if (sameHidden(['score', 'intelligence', 'summary', 'insights'])) return 'essential' as const
+    if (sameHidden(['score'])) return 'balanced' as const
+    if (!hidden.length) return 'complete' as const
+    return 'custom' as const
+  })()
+
+  const applyDashboardLayout = (layout: 'essential' | 'balanced' | 'complete') => {
+    if (route !== 'dashboard') return
+    const optional = sections.filter((section) => !section.required).map((section) => section.id)
+    const hiddenSections = layout === 'essential'
+      ? optional.filter((id) => ['score', 'intelligence', 'summary', 'insights'].includes(id))
+      : layout === 'balanced' ? ['score'] : []
+    const preferredOrder = ['hero', 'health', 'score', 'execution', 'intelligence', 'summary', 'insights']
+    updatePage(route, { hiddenSections, sectionOrder: preferredOrder.filter((id) => page.sectionOrder.includes(id)) })
+  }
+
+  const intelligencePlacement = (() => {
+    if (route !== 'dashboard') return 'custom' as const
+    if (page.hiddenSections.includes('intelligence')) return 'hidden' as const
+    const intelligenceIndex = page.sectionOrder.indexOf('intelligence')
+    const healthIndex = page.sectionOrder.indexOf('health')
+    const executionIndex = page.sectionOrder.indexOf('execution')
+    const summaryIndex = page.sectionOrder.indexOf('summary')
+    if (intelligenceIndex === healthIndex + 1) return 'after-health' as const
+    if (intelligenceIndex === executionIndex + 1) return 'after-execution' as const
+    if (intelligenceIndex === summaryIndex + 1) return 'after-summary' as const
+    return 'custom' as const
+  })()
+
+  const placeIntelligence = (placement: 'after-health' | 'after-execution' | 'after-summary' | 'hidden') => {
+    if (route !== 'dashboard') return
+    if (placement === 'hidden') {
+      updatePage(route, { hiddenSections: Array.from(new Set([...page.hiddenSections, 'intelligence'])) })
+      return
+    }
+    const anchor = placement === 'after-health' ? 'health' : placement === 'after-summary' ? 'summary' : 'execution'
+    const nextOrder = page.sectionOrder.filter((id) => id !== 'intelligence')
+    const anchorIndex = nextOrder.indexOf(anchor)
+    nextOrder.splice(anchorIndex >= 0 ? anchorIndex + 1 : nextOrder.length, 0, 'intelligence')
+    updatePage(route, {
+      sectionOrder: nextOrder,
+      hiddenSections: page.hiddenSections.filter((id) => id !== 'intelligence'),
+    })
+  }
+
   return <div className="experience-drawer-layer" role="presentation">
     <button className="experience-drawer-backdrop" type="button" aria-label="Fechar personalização" onClick={onClose} />
-    <aside className="experience-drawer" role="dialog" aria-modal="true" aria-label={`Personalizar ${routeTitles[route].title}`}>
+    <aside className="experience-drawer" data-overlay-id={`experience-drawer:${route}`} role="dialog" aria-modal="true" aria-label={`Personalizar ${routeTitles[route].title}`}>
       <header className="experience-drawer__header">
         <div><span><SlidersHorizontal size={16} /> Personalizar visualização</span><h2>{routeTitles[route].title}</h2><p>As escolhas são individuais e acompanham seu usuário.</p></div>
         <button className="icon-button" type="button" onClick={onClose} aria-label="Fechar"><X size={19} /></button>
@@ -59,11 +103,29 @@ export function PageCustomizationDrawer({ route, open, onClose }: { route: AppRo
           <div className="experience-choice-row"><label><input type="checkbox" checked={preferences.global.showPageSubtitle} onChange={(event) => updateGlobal({ showPageSubtitle: event.target.checked })} /><span><strong>Mostrar subtítulo da página</strong><small>Mantém o contexto abaixo do título.</small></span></label><label><input type="checkbox" checked={preferences.global.stickyTopbar} onChange={(event) => updateGlobal({ stickyTopbar: event.target.checked })} /><span><strong>Barra superior fixa</strong><small>Mantém busca e ações acessíveis.</small></span></label><label><input type="checkbox" checked={preferences.global.reduceTransparency} onChange={(event) => updateGlobal({ reduceTransparency: event.target.checked })} /><span><strong>Reduzir transparência</strong><small>Melhora a leitura em telas com baixo contraste.</small></span></label><label><input type="checkbox" checked={preferences.global.contrast === 'high'} onChange={(event) => updateGlobal({ contrast: event.target.checked ? 'high' : 'standard' })} /><span><strong>Contraste reforçado</strong><small>Realça bordas, textos e foco do teclado.</small></span></label></div>
         </section>
 
+        {route === 'dashboard' ? <section className="experience-config-section dashboard-personalization">
+          <div className="experience-config-section__heading"><div><span className="eyebrow"><LayoutDashboard size={13} /> Meu Dia</span><h3>Composição rápida</h3><p>Escolha uma base pronta e refine os blocos abaixo. As mudanças aparecem imediatamente.</p></div></div>
+          <div className="dashboard-layout-presets">
+            <button type="button" className={dashboardLayout === 'essential' ? 'is-active' : ''} onClick={() => applyDashboardLayout('essential')}><strong>Essencial</strong><small>Saúde + execução. Menos distrações.</small></button>
+            <button type="button" className={dashboardLayout === 'balanced' ? 'is-active' : ''} onClick={() => applyDashboardLayout('balanced')}><strong>Equilibrado</strong><small>Operação completa sem excesso de sinais.</small></button>
+            <button type="button" className={dashboardLayout === 'complete' ? 'is-active' : ''} onClick={() => applyDashboardLayout('complete')}><strong>Completo</strong><small>Todos os blocos disponíveis.</small></button>
+          </div>
+          <div className="dashboard-intelligence-placement">
+            <div><span className="eyebrow"><Sparkles size={13} /> Visualização inteligente</span><strong>Onde mostrar o Deal Intelligence?</strong><small>O bloco aparece quando o Deal Intelligence estiver ativado em Configurações.</small></div>
+            <div className="dashboard-intelligence-placement__buttons">
+              <button type="button" className={intelligencePlacement === 'after-health' ? 'is-active' : ''} onClick={() => placeIntelligence('after-health')}>Após saúde</button>
+              <button type="button" className={intelligencePlacement === 'after-execution' ? 'is-active' : ''} onClick={() => placeIntelligence('after-execution')}>Após execução</button>
+              <button type="button" className={intelligencePlacement === 'after-summary' ? 'is-active' : ''} onClick={() => placeIntelligence('after-summary')}>Após resumo</button>
+              <button type="button" className={intelligencePlacement === 'hidden' ? 'is-active is-danger' : ''} onClick={() => placeIntelligence('hidden')}><EyeOff size={14} /> Ocultar</button>
+            </div>
+          </div>
+        </section> : null}
+
         <section className="experience-config-section">
           <div className="experience-config-section__heading"><div><span className="eyebrow">Esta página</span><h3>Densidade e foco</h3></div></div>
           <div className="experience-segmented"><span>Densidade</span>{(['comfortable', 'compact'] as const).map((value) => <button type="button" key={value} className={page.density === value ? 'is-active' : ''} onClick={() => updatePage(route, { density: value })}>{value === 'comfortable' ? 'Confortável' : 'Compacta'}</button>)}</div>
           <div className="experience-segmented"><span>Ênfase</span>{(['balanced', 'focus'] as const).map((value) => <button type="button" key={value} className={page.emphasis === value ? 'is-active' : ''} onClick={() => updatePage(route, { emphasis: value })}>{value === 'balanced' ? 'Equilibrada' : 'Modo foco'}</button>)}</div>
-          {route === 'dashboard' ? <div className="experience-segmented experience-segmented--two"><span>Escopo</span>{(['mine', 'team'] as const).map((value) => <button type="button" key={value} className={page.dataScope === value ? 'is-active' : ''} onClick={() => updatePage(route, { dataScope: value })}>{value === 'mine' ? 'Meus leads' : 'Equipe'}</button>)}</div> : null}
+          {route === 'dashboard' ? <div className="experience-segmented experience-segmented--two"><span>Escopo</span>{(['mine', 'team'] as const).map((value) => <button type="button" key={value} className={page.dataScope === value ? 'is-active' : ''} onClick={() => updatePage(route, { dataScope: value })}>{value === 'mine' ? 'Meus contatos' : 'Equipe'}</button>)}</div> : null}
         </section>
 
         <section className="experience-config-section">

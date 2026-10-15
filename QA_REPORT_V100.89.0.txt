@@ -1,0 +1,25 @@
+RealTalent CRM V100.89.0 — RealTalent Assistant 2.0
+
+RESULTADO
+- Gate específico V100.89: 71/71 verificações aprovadas.
+- Regressão histórica/atual: 34/34 suítes aprovadas (V100.56.4 → V100.89.0).
+- Auditoria sintática: 255 arquivos aprovados.
+- Auditoria de contratos: 225 arquivos aprovados.
+- Migrations: 38/38 com checksum íntegro.
+- TypeScript isolado: realtalent-assistant.ts e realtalent-assistant-provider.ts compilados sem erros.
+- Auditoria funcional: 21 funcionais, 7 parciais, 0 somente visuais e 1 não implementada.
+
+ESCOPO VALIDADO
+- contexto por leadId/proposalId/rota;
+- cartão de contexto e prompts contextuais;
+- resumo de histórico real;
+- briefing de ligação com Deal Intelligence, decisores, última interação e roteiro;
+- próxima melhor ação;
+- resumo da reunião registrada;
+- rascunho de mensagem sem envio automático;
+- clipboard centralizado e abertura da Central de Comunicação;
+- follow-up com prévia, revalidação, DNC, deduplicação e confirmação;
+- provider sem autoridade de persistência.
+
+LIMITAÇÃO DO AMBIENTE DE EMPACOTAMENTO
+`npm ci --no-audit --no-fund` falhou por TransportTimeoutError. Portanto o typecheck completo do app, Vitest e build Vite não foram considerados executados com as dependências reais. Qualquer node_modules parcial foi removido antes do empacotamento.

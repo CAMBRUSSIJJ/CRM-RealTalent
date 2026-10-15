@@ -1,0 +1,30 @@
+import fs from 'node:fs'
+import path from 'node:path'
+
+const root=process.cwd()
+const read=(p)=>fs.readFileSync(path.join(root,p),'utf8')
+const checks=[]
+const ok=(name,cond,detail='')=>{checks.push({name,cond,detail}); console.log(`${cond?'OK  ':'FAIL'} ${name}${detail?` — ${detail}`:''}`)}
+const migrations=fs.readdirSync(path.join(root,'supabase/migrations')).filter(f=>f.endsWith('.sql')).sort()
+ok('58 migrations preservadas',migrations.length===58,`${migrations.length}/58`)
+ok('lock de migrations contém 58 entradas',(JSON.parse(read('supabase/migrations.lock.json')).migrations||[]).length===58)
+const h221=read('supabase/migrations/202610120001_v101_11_3_h22_1_team_profiles_access_control.sql')
+const h222=read('supabase/migrations/202610120002_v101_11_3_h22_2_cross_module_access_control.sql')
+const h223=read('supabase/migrations/202610120003_v101_11_3_h22_3_field_approvals_audit.sql')
+const h1=read('supabase/migrations/202610130001_v101_11_3_h22_3_h1_stability_security_closure.sql')
+ok('H22 perfis Admin/Gestor/Vendedor',/administrator/.test(h221)&&/manager/.test(h221)&&/seller/.test(h221))
+ok('RLS de perfis habilitada',/access_profiles enable row level security/.test(h221)&&/member_access_profiles enable row level security/.test(h221))
+ok('helper de ação protegido por membership',/rt_access_action_allowed/.test(h221)&&/is_organization_member|organization_members/.test(h221))
+ok('Comunicações protegidas no banco',/communication_threads_select/.test(h222)&&/communications/.test(h222))
+ok('Propostas protegidas no banco',/sales_proposals_select/.test(h222)&&/sales_proposals_update/.test(h222))
+ok('Garimpo protegido no banco',/prospecting/.test(h222))
+ok('Metas protegidas no banco',/goals/.test(h222))
+ok('Campos sensíveis protegidos',/rt_enforce_sensitive_field_write/.test(h223))
+ok('Aprovação protegida',/rt_enforce_proposal_approval/.test(h223)&&/approve/.test(h223))
+ok('helpers H22.3-H1 negam usuário fora do workspace',/Sem acesso ao workspace/.test(h1)&&/is_organization_member/.test(h1))
+ok('runner de staging existe',fs.existsSync(path.join(root,'scripts/commercial_readiness_cr2_staging_probe.mjs')))
+ok('template de staging existe',fs.existsSync(path.join(root,'.env.cr2.example')))
+ok('documentação CR2 existe',fs.existsSync(path.join(root,'RELEASE_NOTES_V101.11.3-CR2.md')))
+const failed=checks.filter(c=>!c.cond)
+console.log(`\nCR2 static QA ${checks.length-failed.length}/${checks.length} PASS`)
+if(failed.length) process.exit(1)

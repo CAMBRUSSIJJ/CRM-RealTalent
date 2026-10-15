@@ -1,0 +1,25 @@
+RealTalent CRM V101.6.5 — Custom Properties
+QA final — 2026-09-28
+
+RESULTADO
+- Contratos específicos V101.6.5: 26/26 aprovados.
+- Scripts QA históricos + atuais: 65/65 aprovados.
+- Validação sintática aprovada em 293 arquivos.
+- Auditoria de contratos aprovada em 262 arquivos.
+- Migrations verificadas: 44 arquivo(s), todos com checksum íntegro.
+- Linux release preflight: OK (260 arquivos TS/TSX; sem imports de marcas incompatíveis; bindings da Comunicação íntegros).
+- RealTalent Connect resilience smoke V101.4: OK (requestId idempotente → persistência → restart → retomada → connected → ended; origin guard 403).
+
+ESCOPO VALIDADO
+- Propriedades de Contatos por workspace: texto, número, moeda, data, checkbox e seleção.
+- CRUD de definições no painel Configurações da exibição.
+- Valores personalizados por contato, com persistência Local/Supabase.
+- Colunas personalizadas e edição inline na base de Contatos.
+- Busca inclui valores personalizados.
+- Filtros e ordenação suportam propriedades personalizadas.
+- Contact Views preservam colunas/filtros customizados.
+- Migration Supabase com RLS e cascade.
+- Meu Dia bloqueado, Global App Bar, Contact Record, Account 360, Calling e Pipeline preservados.
+
+LIMITAÇÃO DESTE AMBIENTE
+O diretório de empacotamento não contém node_modules. Por isso o ciclo real "npm run typecheck", "npm test" e "npm run build" não foi executado neste ambiente. O start-linux.sh instala as dependências no Linux e executa o gate completo antes de servir o CRM. Os gates estáticos, migrations, preflight e Connect foram executados e aprovados.

@@ -37,3 +37,13 @@ test-results/
 Thumbs.db
 .vscode/
 .idea/
+
+.realtalent-phone-devices.json
+
+.realtalent-whatsapp-qr/
+.realtalent-communications-store.json
+.realtalent-communications.key
+
+.realtalent-whatsapp-browser/
+.env.cr10
+.cr10.runtime.env

@@ -1,0 +1,83 @@
+RealTalent CRM
+V101.11.3-H8 — Playbook Canvas Autonomy
+Data: 2026-10-07
+Base: V101.11.3-H7 — Playbook Visual Conversation Workspace
+
+ESCOPO
+- Evolução de autonomia do Playbook Workspace.
+- Sem migration SQL nova; total permanece 50.
+- Sem alteração do runtime de Communications/Connect.
+- Mapa / Estrutura / Script / Simular continuam usando guidance.conversationGraph como fonte única de verdade.
+
+IMPLEMENTADO
+1. Seleção múltipla
+   - Ctrl/Cmd/Shift + clique.
+   - Shift + arrastar no canvas para seleção por área.
+   - movimento conjunto dos blocos selecionados.
+
+2. Ações em lote
+   - criar fase;
+   - alinhar;
+   - distribuir;
+   - duplicar;
+   - excluir;
+   - retirar seleção de uma fase.
+
+3. Fases visuais persistentes
+   - PlaybookConversationGroup no conversationGraph;
+   - groupId opcional nos nós;
+   - nome da fase editável;
+   - fase move seus membros junto;
+   - desagrupar sem apagar os nós.
+
+4. Conexão manual
+   - handle lateral por nó;
+   - origem fica visualmente marcada;
+   - clique no destino cria a aresta;
+   - conexão duplicada para o mesmo par é bloqueada;
+   - + Caminho guiado da H7 continua disponível.
+
+5. Atalhos e navegação
+   - Ctrl/Cmd+A selecionar todos;
+   - Ctrl/Cmd+D duplicar;
+   - Ctrl/Cmd+G criar fase;
+   - Ctrl/Cmd+S salvar;
+   - Delete/Backspace excluir (raiz protegida);
+   - setas movem seleção; Shift+setas usa passo maior;
+   - Escape cancela conexão/caminho/seleção;
+   - Ajustar conteúdo enquadra o mapa.
+
+QA COMPROVADO
+- H8 Playbook Canvas Autonomy: 48/48 PASS.
+- H7 Playbook Visual Conversation Workspace: 39/39 PASS.
+- H6 Playbook Studio 2.0: 39/39 PASS.
+- Playbooks 2.0: 55/55 PASS.
+- qa:architecture completo: PASS.
+- Source syntax: 404 arquivos PASS.
+- Integration contracts: 372 arquivos PASS.
+- Release Manifest: 75/75 PASS.
+- Migrations: 50/50 checksums PASS.
+- CSS Governance: 65/65 PASS.
+- Repository Local: 99/99 PASS.
+- Repository Supabase: 99/99 PASS.
+- Browser E2E Contract: 11 fluxos catalogados PASS.
+- Communications recovery smoke: 5/5 PASS.
+- Connect recovery smoke: 5/5 PASS.
+- Security Runtime Foundation smoke: 12/12 PASS.
+- bash -n start-linux.sh: PASS.
+- node --check scripts/start.mjs: PASS.
+- node --check H8 audit: PASS.
+- registry-independent transpile/bundle: 289 módulos PASS como smoke de transpile.
+
+GATES OFICIAIS NÃO CLASSIFICADOS COMO PASS NESTE AMBIENTE
+- npm run typecheck: bloqueado pela ausência de node_modules; inicia com módulos React/React DOM ausentes e erros cascata.
+- npm test: vitest não instalado (status 127).
+- npm run build: validate:env PASS, mas vite não instalado (status 127).
+
+O build registry-independent não substitui o build Vite oficial e o dist de verificação foi removido do ZIP final.
+
+ARTEFATOS EXCLUÍDOS DO ZIP
+- node_modules
+- dist de verificação
+- .env.local
+- .realtalent-* (tokens, logs, sessões e browser state)

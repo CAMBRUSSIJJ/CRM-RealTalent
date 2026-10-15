@@ -234,7 +234,7 @@ export const leadScoreInsight = (
   const nextBestAction = buildNextBestAction(lead, snapshot, now, score, proposalStage, lastInteractionAt)
 
   const alerts: LeadScoreAlert[] = []
-  if (score >= config.thresholds.urgent) alerts.push({ key: 'critical_score', tone: 'danger', label: 'Prioridade crítica', detail: 'Este lead está entre as maiores oportunidades da fila.' })
+  if (score >= config.thresholds.urgent) alerts.push({ key: 'critical_score', tone: 'danger', label: 'Prioridade crítica', detail: 'Este contato está entre as maiores oportunidades da fila.' })
   if (nextActionTime !== null && nextActionTime < nowTime) alerts.push({ key: 'overdue', tone: 'danger', label: 'Ação vencida', detail: 'O retorno programado já passou da data.' })
   if (nextActionTime === null) alerts.push({ key: 'no_action', tone: 'warning', label: 'Sem próxima ação', detail: 'Defina um próximo passo para evitar perda de continuidade.' })
   if (proposalStage && idleDays >= config.staleDays) alerts.push({ key: 'proposal_stale', tone: 'warning', label: 'Proposta parada', detail: `A oportunidade está há ${idleDays} dias sem interação.` })

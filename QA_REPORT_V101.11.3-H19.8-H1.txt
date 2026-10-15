@@ -1,0 +1,57 @@
+RealTalent CRM — QA V101.11.3-H19.8-H1
+WhatsApp Runtime Recovery
+Base: V101.11.3-H19.8
+
+RESULTADO PRINCIPAL
+qa:architecture                                      PASS
+qa:v101.11.3:h19.8:h1                       28/28    PASS
+runtime:communications-h19.8-h1               5/5    PASS
+
+REGRESSÕES DE COMUNICAÇÕES
+H19.7 WhatsApp Pure Chat                     38/38    PASS
+H19.8 WhatsApp Control Center                40/40    PASS
+V101.11.0 Communications Architecture        44/44    PASS
+V101.11.3-H1 Communications Gateway Recovery 41/41    PASS
+
+GATES DE REPOSITÓRIO / RELEASE
+Source Syntax                              414 files   PASS
+Integration Contracts                     382 files   PASS
+Migrations                                 54/54      PASS
+Release Manifest                           86/86      PASS
+Capability Matrix             36 / 116 / 74 executable PASS
+Repository Local                           100/100     PASS
+Repository Supabase                        100/100     PASS
+Browser E2E Contracts                      11 flows    PASS
+CSS Governance                              65/65      PASS
+Linux release preflight                    375 TS/TSX  PASS
+
+RUNTIME
+Communications Gateway Recovery              5/5      PASS
+Connect Recovery                             5/5      PASS
+Security Runtime                            12/12      PASS
+Communications Architecture                  6/6      PASS
+WhatsApp Runtime Recovery                    5/5      PASS
+
+TESTE EMPÍRICO H19.8-H1
+- Supervisor iniciou o Communications Gateway: PASS
+- Health retornou a versão esperada: PASS
+- Endpoint interno permaneceu autenticado: PASS
+- Gateway foi encerrado deliberadamente durante o smoke: PASS
+- Supervisor iniciou novo processo e health voltou a ready: PASS
+
+GATES OFICIAIS DEPENDENTES DE NODE_MODULES
+npm ci                                      BLOCKED
+Motivo: tentativa excedeu 45s sem acesso funcional ao registry.
+npm ping https://registry.npmjs.org/        BLOCKED (timeout 12s)
+typecheck                                   BLOCKED (dependências não instaladas)
+Vitest                                      BLOCKED (dependências não instaladas)
+Vite build oficial                          BLOCKED (dependências não instaladas)
+
+BUILD INDEPENDENTE
+build:legacy                                gerado a partir de 299 módulos
+Bundle audit                                FAIL esperado: HTML legado reapareceu
+Ação                                        dist removido do pacote final
+
+CLASSIFICAÇÃO
+Nenhum gate dependente de dependências foi marcado como PASS sem execução real.
+O release é validado pelos gates independentes, contratos de arquitetura e smokes de runtime acima.

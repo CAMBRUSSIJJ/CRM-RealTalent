@@ -1,0 +1,17 @@
+RealTalent CRM V101.11.3-CR2 — Production Supabase + Auth + RLS Validation
+Date: 2026-10-13
+
+PASS  58/58 migrations checksum integrity
+PASS  CR2 static security audit 15/15
+PASS  H22 DB enforcement present for profiles, communications, proposals, prospecting, goals, sensitive fields and approvals
+PASS  Staging probe implemented for real Supabase Auth JWT + RPC/RLS validation
+PASS  Admin/Gestor/Vendedor expected policy matrix encoded in staging probe
+
+BLOCKED  npm ci — registry download did not conclude in the available execution window
+BLOCKED  typecheck — depends on completed npm ci
+BLOCKED  vitest — depends on completed npm ci
+BLOCKED  Vite build — depends on completed npm ci
+BLOCKED  Supabase staging execution — CR2_* staging credentials were not available in this environment
+
+Important: no fake PASS was emitted for external runtime validation.
+The release preserves exactly 58 migrations; CR2 is a validation/hardening gate, not a schema migration.

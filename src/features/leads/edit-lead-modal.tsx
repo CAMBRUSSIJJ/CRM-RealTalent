@@ -1,13 +1,14 @@
 import { Trash2 } from 'lucide-react'
 import { useState } from 'react'
-import { useApp } from '../../app/app-context'
+import { useAppActions, useAppUi } from '../../app/app-context'
 import { Button } from '../../components/ui/button'
 import { Modal } from '../../components/ui/modal'
 import type { Lead } from '../../domain/types'
 import { LeadForm, type LeadFormValue } from './lead-form'
 
 export function EditLeadModal({ lead, open, onClose }: { lead: Lead | null; open: boolean; onClose(): void }) {
-  const { updateLead, deleteLead, confirmAction } = useApp()
+  const { confirmAction } = useAppUi()
+  const { updateLead, deleteLead } = useAppActions()
   const [saving, setSaving] = useState(false)
   const formId = 'edit-lead-form'
   if (!lead) return null
@@ -23,7 +24,7 @@ export function EditLeadModal({ lead, open, onClose }: { lead: Lead | null; open
   }
 
   const remove = async () => {
-    if (!await confirmAction({ title: `Excluir ${lead.name}?`, description: 'O lead e seus vínculos operacionais serão removidos desta base.', confirmLabel: 'Excluir lead', tone: 'danger', details: ['Esta ação não pode ser desfeita.', 'Use Arquivar quando quiser preservar o histórico.'] })) return
+    if (!await confirmAction({ title: `Excluir ${lead.name}?`, description: 'O contato e seus vínculos operacionais serão removidos desta base.', confirmLabel: 'Excluir contato', tone: 'danger', details: ['Esta ação não pode ser desfeita.', 'Use Arquivar quando quiser preservar o histórico.'] })) return
     setSaving(true)
     try {
       await deleteLead(lead.id)
@@ -36,7 +37,7 @@ export function EditLeadModal({ lead, open, onClose }: { lead: Lead | null; open
   return (
     <Modal
       open={open}
-      title="Editar lead"
+      title="Editar contato"
       subtitle={`Atualize dados, etapa e próxima ação de ${lead.name}.`}
       onClose={onClose}
       size="lg"

@@ -1,0 +1,47 @@
+RealTalent CRM V101.10.2-H3 — Prospecting Agent Search Runtime Fix
+=================================================================
+
+Motivo do hotfix
+- O Agent podia estar conectado em 127.0.0.1:4319, mas o job não descobria empresas.
+- A cadeia dependia da geocodificação Nominatim antes da consulta OSM.
+- Falhas de DNS/rede apareciam como "fetch failed" e encerravam o job cedo.
+
+Correções funcionais
+- Retry conservador por provider.
+- Erros legíveis de DNS / conexão recusada / timeout.
+- Fallback direto de área administrativa no Overpass sem depender do Nominatim.
+- Busca web pública como segunda fonte automática quando OSM não atinge a meta.
+- Enriquecimento dos sites encontrados (telefone/e-mail/CNPJ/redes) preservado.
+- Health expõe providerStatus e webDiscovery.
+- Histórico/fila migram da H2/H1/base.
+
+Validações executadas
+- qa:architecture: PASS
+  - Release Manifest: 33/33
+  - Capability Matrix: 18 capacidades / 42 evidências / 31 executáveis
+  - Repository Local: 96/96
+  - Repository Supabase: 96/96
+  - Browser E2E Contract: 9/9
+  - V101.10.2: 34/34
+  - H1: 23/23
+  - H2: 17/17
+  - H3: 27/27
+- syntax:audit: 384 arquivos
+- integration:audit: 357 arquivos
+- migrations:verify: 49/49
+- Linux release preflight: PASS / 350 TS/TSX
+- check:legacy: 3185 OK / 0 FAIL
+- runtime:prospecting-agent: PASS
+- runtime:prospecting-search: PASS
+  - 2 resultados via OSM
+  - 1 resultado via descoberta web
+  - enriquecimento de contato validado
+  - fallback de área validado com Nominatim indisponível
+- cenário de falha de rede: PASS
+  - não retorna mais "fetch failed"
+  - informa conexão recusada/DNS/timeout de forma específica
+
+Limitação do ambiente de empacotamento
+- npm ci --offline não pôde instalar @whiskeysockets/baileys porque o pacote não estava no cache.
+- Portanto o typecheck/test/build globais não foram reexecutados neste ambiente.
+- O launcher executa npm install/check/build no Linux do usuário.

@@ -1,0 +1,54 @@
+RealTalent CRM V100.68.1 — UI Reliability Hotfix
+QA final — 2026-09-15
+
+ESCOPO
+- Correção de bugs de renderização, overlays, feedback e ações de navegador.
+- Nenhuma feature comercial nova.
+- Nenhuma migration nova.
+- Nenhuma dependência runtime nova.
+
+CORREÇÕES CONFIRMADAS
+1. Hierarquia de overlays normalizada:
+   - Lead Drawer 9000
+   - Personalização/Notificações 9200
+   - Assistant 9500
+   - Modal 13000
+   - Toast 14000
+2. Toasts não ficam escondidos atrás de modais/drawers.
+3. Assistant, Notificações e Personalização registram Overlay Manager, fecham por Escape, restauram foco e compartilham scroll lock.
+4. Lead Drawer fecha por Escape somente quando é o overlay do topo.
+5. Ctrl/Cmd+J não abre Assistant atrás de modal ativo.
+6. Topbar reorganizada para notebook/mobile após crescimento do número de ações.
+7. Clipboard centralizado com fallback quando Clipboard API é bloqueada.
+8. Buyer Room, convites, Playbooks, Automações, mensagens e Call Workspace não exibem sucesso falso se a cópia falhar.
+9. window.open centralizado; pop-up bloqueado gera feedback de erro.
+10. URLs sociais do Lead são normalizadas para http/https.
+11. WhatsApp em Meu Dia, Leads, ficha e mensagem assistida usa abertura resiliente.
+12. Varredura sintática verifica que botões HTML/Button possuem ação ou submit explícito.
+
+QA EXECUTADO
+- Sintaxe/ações UI: 225 arquivos — OK
+- Contratos de integração: 196 arquivos — OK
+- Migrations: 37/37 checksums — OK
+- V100.56.4 Hardening: 21/21 — OK
+- V100.60 Sales Experience: 41/41 — OK
+- V100.60.1 Performance: 29/29 — OK
+- V100.62 Deal Intelligence: 47/47 — OK
+- V100.63 Sales Engagement: 64/64 — OK
+- V100.65 Coaching & Playbooks: 63/63 — OK
+- V100.66 Buyer Room: 69/69 — OK
+- V100.67 Assistant: 56/56 — OK
+- V100.68 Revenue Intelligence: 65/65 — OK
+- V100.68.1 UI Reliability: 50/50 — OK
+- TypeScript estrutural: tsc --noCheck --noEmit — OK
+- Build registry-independent a partir do TypeScript: 147 módulos — OK
+
+COMPARAÇÃO COM V100.68.0
+- 31 caminhos adicionados/modificados.
+- Projeto-fonte final sem node_modules: ~4.8 MB.
+
+LIMITAÇÃO DO AMBIENTE
+As dependências npm locais não estão instaladas neste ambiente e o registry npm apresentou indisponibilidade de rede nas tentativas anteriores. Por isso o pipeline Vite/Vitest/typecheck semântico completo não foi declarado como executado. A transpilação estrutural, build registry-independent e todas as auditorias independentes acima foram executadas com sucesso.
+
+VALIDAÇÃO RECOMENDADA NO LINUX APÓS npm install
+npm run check

@@ -1,0 +1,62 @@
+{
+  "release": "V101.10.9-H4",
+  "name": "Garimpo & Automations CSS Consolidation",
+  "base": "V101.10.9-H3",
+  "strategy": "cascade-preserving canonical runtime stylesheets; automation and Garimpo zones remain separated; legacy sources retained for rollback/audit",
+  "groups": {
+    "automations.css": [
+      {
+        "source": "automations-v100.css",
+        "sha256": "998134d41bd8a3fa5670d05455ffdd945a01799181f92816786acfdb1e901b9f"
+      }
+    ],
+    "prospecting-core.css": [
+      {
+        "source": "prospecting-v100.css",
+        "sha256": "de7b6dcbca2ab06faffd16a889d100002d33429f00694566e223fb0b15cf67a6"
+      }
+    ],
+    "prospecting-engine.css": [
+      {
+        "source": "prospecting-engine-v10098.css",
+        "sha256": "a4f3ff10f518ce20a59696da8ba3940bf18e7c555fc6414e2ed7b10ded56fa87"
+      }
+    ],
+    "prospecting-workspace.css": [
+      {
+        "source": "prospecting-search-automation-v101101.css",
+        "sha256": "ab9815a98b3b0a7a50b6e653ae2d36575100eae4fee4dc4c852fe2ba7b67ac07"
+      },
+      {
+        "source": "prospecting-agent-v101102.css",
+        "sha256": "8f9b12975a7f2b8c28d226f1fe22f71924adc23f3cf9cc332adec240f6fdfdb3"
+      },
+      {
+        "source": "prospecting-review-v101103-h7.css",
+        "sha256": "dea6cf8709e0c6ed1dbd862a4a4fe51b1dc9dcde944fefbea5988e8054548838"
+      },
+      {
+        "source": "prospecting-search-ontology-v101103-h8.css",
+        "sha256": "957f76a835dca01c7751af75c1d84c98a355235dae6fac39e4eb47d0ba8aefb0"
+      },
+      {
+        "source": "prospecting-territory-engine-v101103-h9.css",
+        "sha256": "38a697edc9cf88dd82f503e2cd447f7c5fa3443105316db3e30432cd74e22877"
+      },
+      {
+        "source": "prospecting-local-discovery-v101104.css",
+        "sha256": "c18ccf323cc846de77d6d4c5ec1172ba662faf224d4fd3ad9492bf21ce9320bb"
+      },
+      {
+        "source": "prospecting-ux-consolidation-v101106.css",
+        "sha256": "91f9e0dd4c58c1172fd7fc411da585d808eb6663f0fb34fa7b942cce6c253eb5"
+      }
+    ],
+    "prospecting-processing.css": [
+      {
+        "source": "prospecting-search-processing-v101103.css",
+        "sha256": "3928b787adca0c93bd54212fa4f9340c9a521cbc26f7a3f82544c5e96defaa6f"
+      }
+    ]
+  }
+}

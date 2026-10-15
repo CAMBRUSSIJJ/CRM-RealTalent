@@ -1,0 +1,25 @@
+RealTalent CRM V100.71.0 — Calling UI Standardization
+
+VALIDAÇÕES EXECUTADAS
+- Source syntax audit: APROVADO em 229 arquivos.
+- Integration contract audit: APROVADO em 200 arquivos.
+- Migrations verify: APROVADO em 37 migrations.
+- V100.69 Calling Experience Audit: 43/43 APROVADO.
+- V100.70 Call Preparation Workspace Audit: 36/36 APROVADO.
+- V100.70.0 Sparkles Hotfix Audit: APROVADO.
+- V100.71 Calling UI Standard Audit: 25/25 APROVADO.
+- Sintaxe TSX dos 5 componentes alterados validada com TypeScript transpileModule: APROVADO.
+
+ESCOPO VALIDADO
+- hierarquia primary / secondary / ghost / danger;
+- abas Operação / Histórico / Inteligência;
+- abas Fila / Estratégia / Configurações;
+- abas Roteiro / Descoberta / Notas;
+- abas de apoio do Modo Foco;
+- seletores de período de Histórico e Inteligência;
+- action cards, choice cards e botões icon-only;
+- role=tablist, role=tab, aria-selected, aria-pressed e focus-visible;
+- compatibilidade com a V100.70 e com o hotfix de Sparkles.
+
+OBSERVAÇÃO DO AMBIENTE DE EMPACOTAMENTO
+O registry npm não ficou disponível para concluir a instalação integral das dependências neste ambiente, portanto `npm run typecheck`, `npm run test` e `npm run build` dependentes de node_modules não foram declarados como executados. O ZIP permanece sem node_modules, como deve ser; rode `npm install` no ambiente local antes de `npm run dev` ou `npm run build`.

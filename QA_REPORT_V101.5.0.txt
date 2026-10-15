@@ -1,0 +1,32 @@
+RealTalent CRM V101.5.0 — Lead Workspace 3.0
+QA executado em 2026-09-26
+
+RESULTADO
+- Auditoria V101.5 específica: 42/42 contratos aprovados.
+- Regressão histórica/atual: 53/53 gates QA aprovados (V100.56.4 → V101.5.0).
+- Source syntax audit: 278 arquivos aprovados.
+- Integration contract audit: 247 arquivos aprovados.
+- Migrations: 41/41 com checksum íntegro.
+- Linux release preflight: 245 arquivos TS/TSX aprovados.
+- RealTalent Connect resilience smoke V101.4: aprovado (idempotência → persistência → restart → retomada → connected → ended; origin guard 403).
+
+ESCOPO V101.5 VALIDADO
+- Lead Workspace 3.0 identificado na ficha.
+- Modo Foco padrão e Modo Completo disponíveis.
+- Preferência persistida por workspace via safeStorage.
+- Expansão de estratégia persistida.
+- Expansão de detalhes persistida.
+- Barra de ações Ligar / WhatsApp / E-mail / Follow-up / Reunião preservada.
+- Próxima ação comercial preservada.
+- Strategy/Playbook e ligação preparada preservados.
+- Deal Intelligence detalhado usa progressive disclosure.
+- Alertas de qualidade/duplicidade permanecem visíveis no Modo Foco.
+- Contexto / Histórico / Notas preservados.
+- Account 360 / Pipeline / Strategy Hub preservados.
+- Calling Production Ready V101.4 preservado.
+- Sem migration nova.
+
+LIMITAÇÃO DO AMBIENTE DE QA
+O npm ci offline não concluiu porque o cache local não contém xmlchars@2.2.0 (ENOTCACHED). Por isso, typecheck/Vitest/build Vite completos não foram declarados como aprovados neste ambiente. O pacote foi mantido sem node_modules parcial. O launcher Linux executa npm ci/install e o release:verify completo quando houver acesso ao registry/cache necessário.
+
+A auditoria sintática usa o compilador TypeScript global e validou parsing TS/TSX, imports locais e contratos básicos de ações da UI. Um typecheck sem dependências instaladas foi executado apenas como diagnóstico e retornou, como esperado, ausência dos módulos React/lucide/react-dom; não foi usado como aprovação de build.

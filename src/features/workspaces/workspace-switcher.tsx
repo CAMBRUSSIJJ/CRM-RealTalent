@@ -1,11 +1,12 @@
 import { Building2, Check, ChevronDown, Plus } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
-import { useApp } from '../../app/app-context'
+import { useAppActions, useAppWorkspace } from '../../app/app-context'
 import { Modal } from '../../components/ui/modal'
 import { Button } from '../../components/ui/button'
 
 export function WorkspaceSwitcher() {
-  const { workspaces, currentWorkspace, setCurrentWorkspace, createWorkspace } = useApp()
+  const { workspaces, currentWorkspace } = useAppWorkspace()
+  const { setCurrentWorkspace, createWorkspace } = useAppActions()
   const [open, setOpen] = useState(false)
   const [modalOpen, setModalOpen] = useState(false)
   const [name, setName] = useState('')

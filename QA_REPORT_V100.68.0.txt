@@ -1,0 +1,53 @@
+RealTalent CRM V100.68.0 — Revenue Intelligence & Forecast
+QA final
+
+Escopo implementado
+- Revenue Intelligence determinística sobre Deal Intelligence.
+- Commit RealTalent, Forecast RealTalent, Best Case e Pipeline total.
+- Pipeline Coverage, gap para meta, attainment esperado, win rate necessário, ticket médio e deals needed.
+- Forecast Confidence 0–100.
+- Forecast Risks: meta, cobertura, commit fraco, concentração, higiene de datas e drift de categoria.
+- Forecast por responsável.
+- Forecast Inspection negócio a negócio, preservando categoria/probabilidade manuais.
+- Separação visual entre bookings/TCV e receita reconhecida/MRR.
+- Integração com Propostas, Meu Dia e RealTalent Assistant.
+
+Auditorias executadas
+- Source syntax audit: 223 arquivos aprovados.
+- Integration contract audit: 194 arquivos aprovados.
+- Migrations: 37/37 com checksum íntegro.
+- V100.56.4 regression: 21/21.
+- V100.60.0 Sales Experience: 41/41.
+- V100.60.1 Performance & Architecture: 29/29.
+- V100.62.0 Deal Intelligence: 47/47.
+- V100.63.0 Sales Engagement: 64/64.
+- V100.65.0 Coaching & Playbooks: 63/63.
+- V100.66.0 Buyer Room: 69/69.
+- V100.67.0 RealTalent Assistant: 56/56.
+- V100.68.0 Revenue Intelligence: 65/65.
+- TypeScript structural transpilation with noCheck/types=[]: aprovada para todo src.
+- Revenue Intelligence runtime smoke: aprovado sobre a base demo.
+
+Runtime smoke (base demo, referência 2026-07)
+- Meta comercial: R$ 18.000.
+- Forecast RealTalent aproximado: R$ 7.474.
+- Best Case aproximado: R$ 7.489.
+- Pipeline do período aproximado: R$ 20.486.
+- Pipeline Coverage aproximada: 1,1x.
+- Forecast Confidence: 53/100.
+- Alertas produzidos: gap de meta, baixa cobertura, commit fraco, concentração, negócios sem data e drift de categoria.
+
+Compatibilidade
+- Nenhuma migration V100.68 adicionada.
+- Nenhuma dependência runtime nova.
+- 20 entradas adicionadas/alteradas em relação ao ZIP V100.67.0.
+- BACKUP_SCHEMA_VERSION preservado.
+- Forecast manual do vendedor não é sobrescrito.
+
+Limitação do ambiente de QA
+- npm install --prefer-offline expirou por indisponibilidade/latência de rede no ambiente de execução.
+- Por isso Vitest completo, typecheck completo com node_modules e Vite production build não foram marcados como executados.
+- Nenhum node_modules parcial foi incluído no pacote final.
+
+Recomendação local após npm install
+npm run check

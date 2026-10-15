@@ -34,8 +34,8 @@ export function RoutineModal({ open, snapshot, plan, loading = false, onClose, o
   const followupCount = tasks.filter((task) => task.type === 'followup').length
 
   return (
-    <Modal open={open} size="xl" title="Gerar rotina comercial do dia" subtitle="Transforme as metas em uma fila objetiva de atividades, priorizando leads quentes e atrasados." onClose={onClose}
-      footer={<><span className="routine-modal__availability">{tasks.length < calls + followups ? `Há ${tasks.length} lead(s) disponível(is) sem rotina duplicada hoje.` : `${tasks.length} atividade(s) prontas para criação.`}</span><span className="modal__footer-spacer" /><Button variant="secondary" onClick={onClose}>Cancelar</Button><Button loading={loading} disabled={!tasks.length} onClick={() => void onGenerate(tasks)}><Sparkles size={16} /> Criar rotina</Button></>}>
+    <Modal open={open} size="xl" title="Gerar rotina comercial do dia" subtitle="Transforme as metas em uma fila objetiva de atividades, priorizando contatos quentes e atrasados." onClose={onClose}
+      footer={<><span className="routine-modal__availability">{tasks.length < calls + followups ? `Há ${tasks.length} contato(s) disponível(is) sem rotina duplicada hoje.` : `${tasks.length} atividade(s) prontas para criação.`}</span><span className="modal__footer-spacer" /><Button variant="secondary" onClick={onClose}>Cancelar</Button><Button loading={loading} disabled={!tasks.length} onClick={() => void onGenerate(tasks)}><Sparkles size={16} /> Criar rotina</Button></>}>
       <div className="routine-modal-layout">
         <section className="routine-modal-summary">
           <div className="routine-modal-heading"><span className="goal-modal-section__icon"><Target size={19} /></span><div><strong>Necessidade diária estimada</strong><small>Calculada usando as metas ativas e as conversões dos últimos 90 dias.</small></div></div>
@@ -61,8 +61,8 @@ export function RoutineModal({ open, snapshot, plan, loading = false, onClose, o
             <div className="routine-preview-list">
               {tasks.length ? tasks.slice(0, 12).map((task) => {
                 const lead = snapshot.leads.find((item) => item.id === task.leadId)
-                return <article key={`${task.leadId}-${task.type}`}><span className={`routine-preview-list__type routine-preview-list__type--${task.type}`}>{task.type === 'call' ? <PhoneCall size={15} /> : <CheckCircle2 size={15} />}</span><div><strong>{lead?.name ?? 'Lead'}</strong><small>{lead?.company || 'Sem empresa'} · {lead?.temperature === 'hot' ? 'Quente' : lead?.temperature === 'warm' ? 'Morno' : 'Frio'} · {lead?.priority}</small></div><time>{task.dueAt ? new Date(task.dueAt).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) : 'Hoje'}</time></article>
-              }) : <div className="routine-preview-empty"><CheckCircle2 size={25} /><strong>Nenhum lead elegível</strong><span>Os leads ativos já possuem rotina criada hoje ou não há contatos disponíveis.</span></div>}
+                return <article key={`${task.leadId}-${task.type}`}><span className={`routine-preview-list__type routine-preview-list__type--${task.type}`}>{task.type === 'call' ? <PhoneCall size={15} /> : <CheckCircle2 size={15} />}</span><div><strong>{lead?.name ?? 'Contato'}</strong><small>{lead?.company || 'Sem empresa'} · {lead?.temperature === 'hot' ? 'Quente' : lead?.temperature === 'warm' ? 'Morno' : 'Frio'} · {lead?.priority}</small></div><time>{task.dueAt ? new Date(task.dueAt).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) : 'Hoje'}</time></article>
+              }) : <div className="routine-preview-empty"><CheckCircle2 size={25} /><strong>Nenhum contato elegível</strong><span>Os contatos ativos já possuem rotina criada hoje ou não há contatos disponíveis.</span></div>}
               {tasks.length > 12 ? <div className="routine-preview-more">+ {tasks.length - 12} atividade(s) na fila</div> : null}
             </div>
           </div>

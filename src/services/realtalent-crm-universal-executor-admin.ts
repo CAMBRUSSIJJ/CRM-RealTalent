@@ -1,6 +1,7 @@
+import { createId } from '../lib/id'
 import type { CrmCapabilityPlanStep } from './realtalent-crm-capability-planner'
 import type { CrmCapabilityExecutionRuntime, CrmCapabilityStepResult } from './realtalent-crm-capability-executor'
-import { targetQuery, uarg, ubest } from './realtalent-crm-universal-executor-helpers'
+import { parseJson, targetQuery, uarg, ubest, ubool } from './realtalent-crm-universal-executor-helpers'
 
 export async function executeUniversalAdmin(step: CrmCapabilityPlanStep, runtime: CrmCapabilityExecutionRuntime): Promise<CrmCapabilityStepResult | null> {
   const { actions, snapshot } = runtime
@@ -18,6 +19,20 @@ export async function executeUniversalAdmin(step: CrmCapabilityPlanStep, runtime
     if (!invite) throw new Error('Não encontrei o convite que você quer revogar.')
     await actions.revokeWorkspaceInvite(invite.id)
     return { ok: true, summary: `Convite de ${invite.email} revogado.` }
+  }
+
+  if (step.capabilityId === 'automations.update') {
+    const rule = ubest(snapshot.automationRules, targetQuery(step), (item) => [item.id, item.name])
+    if (!rule) throw new Error('Não encontrei a automação que você quer atualizar.')
+    const patch: Record<string, unknown> = {}
+    if (uarg(step, 'name')) patch.name = uarg(step, 'name')
+    if (uarg(step, 'trigger_type')) patch.triggerType = uarg(step, 'trigger_type')
+    if (uarg(step, 'enabled')) patch.enabled = ubool(uarg(step, 'enabled'))
+    if (uarg(step, 'conditions_json')) patch.conditions = parseJson<any[]>(uarg(step, 'conditions_json'), []).map((item) => ({ ...item, id: item.id || createId('condition') }))
+    if (uarg(step, 'actions_json')) patch.actions = parseJson<any[]>(uarg(step, 'actions_json'), []).map((item) => ({ ...item, id: item.id || createId('action') }))
+    if (!Object.keys(patch).length) throw new Error('Informe o que você quer alterar na automação.')
+    const updated = await actions.updateAutomationRule(rule.id, patch as any)
+    return { ok: true, summary: `Automação “${updated.name}” atualizada.` }
   }
 
   if (step.capabilityId === 'calls.recording_url') {

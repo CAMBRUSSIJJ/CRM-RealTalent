@@ -43,8 +43,14 @@ const directCapabilityIds = new Set(REALTALENT_UNIVERSAL_CAPABILITIES.map((item)
 const nativeCapabilities = REALTALENT_UNIVERSAL_CAPABILITIES.filter((item) => item.execution === 'native')
 
 const groupedWitnesses: Record<string, string> = {
-  'proposals.update_status': 'actions.updateProposalStatus(proposal.id, status)', 'catalog.update_product': 'actions.updateProduct(product.id, patch as any)', 'goals.update': 'actions.updateGoal(goal.id, patch as any)',
-  'playbooks.update': 'actions.updatePlaybook(playbook.id, patch as any)', 'automations.run': 'actions.runAutomationRule(rule.id, lead.id)', 'teams.update_role': 'actions.updateWorkspaceMemberRole(member.userId, role)', 'revenue.update_status': 'actions.updateRevenueEntryStatus(entry.id, status)',
+  'proposals.update_status': 'actions.updateProposalStatus(proposal.id, status)',
+  'catalog.update_product': 'actions.updateProduct(product.id, patch as any)',
+  'goals.update': 'actions.updateGoal(goal.id, patch as any)',
+  'playbooks.update': 'actions.updatePlaybook(playbook.id, patch as any)',
+  'automations.run': 'actions.runAutomationRule(rule.id, lead.id)',
+  'teams.update_role': 'actions.updateWorkspaceMemberRole(member.userId, role)',
+  'revenue.update_status': 'actions.updateRevenueEntryStatus(entry.id, status)',
+  'buyer_rooms.update': 'actions.updateBuyerRoom(room.id, patch as any)',
 }
 
 const hasExecutorWitness = (id: string) => executorSource.includes(`'${id}'`) || executorSource.includes(`\"${id}\"`) || Boolean(groupedWitnesses[id] && executorSource.includes(groupedWitnesses[id])) || id === 'agent.undo_last'

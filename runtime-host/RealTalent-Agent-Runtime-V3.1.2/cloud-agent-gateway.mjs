@@ -184,17 +184,52 @@ const authorized = req => {
   return String(req.headers['x-realtalent-agent-token'] || '') === TOKEN
 }
 
-const proxyBuffered = (req, res, bodyBuffer = null) => {
+const writeBufferedUpstream = (res, upstream, bodyBuffer) => {
+  const headers = { ...upstream.headers }
+  delete headers['transfer-encoding']
+  headers['content-length'] = String(bodyBuffer.length)
+  res.writeHead(upstream.statusCode || 502, headers)
+  res.end(bodyBuffer)
+}
+
+const proxyBufferedWithFallback = (req, res, bodyBuffer = null, fallbackFactory = null) => {
   const headers = { ...req.headers, host:`127.0.0.1:${INNER_PORT}` }
   if (bodyBuffer) headers['content-length'] = String(bodyBuffer.length)
+
+  const useFallback = (reason, upstreamStatus = 0) => {
+    if (typeof fallbackFactory !== 'function') return false
+    const fallback = fallbackFactory()
+    if (!fallback) return false
+    console.warn(`[cloud-agent-gateway] fallback determinístico acionado após falha do Agent interno: ${reason}${upstreamStatus ? ` status=${upstreamStatus}` : ''}`)
+    json(res, 200, { ...fallback, fallbackReason: reason, fallbackStatus: upstreamStatus || undefined })
+    return true
+  }
+
   const upstream = http.request({ host:'127.0.0.1', port:INNER_PORT, path:req.url, method:req.method, headers }, u => {
-    res.writeHead(u.statusCode || 502, u.headers)
-    u.pipe(res)
+    const chunks = []
+    let size = 0
+    u.on('data', chunk => {
+      size += chunk.length
+      if (size <= 1_200_000) chunks.push(chunk)
+    })
+    u.on('end', () => {
+      const raw = Buffer.concat(chunks)
+      const status = u.statusCode || 502
+      if (status >= 500 && useFallback('agent_inner_error', status)) return
+      writeBufferedUpstream(res, u, raw)
+    })
   })
-  upstream.on('error', error => json(res,502,{ok:false,error:'agent_inner_unavailable',message:String(error.message || error)}))
+
+  upstream.on('error', error => {
+    if (useFallback('agent_inner_unavailable')) return
+    json(res,502,{ok:false,error:'agent_inner_unavailable',message:String(error.message || error)})
+  })
+
   if (bodyBuffer) upstream.end(bodyBuffer)
   else req.pipe(upstream)
 }
+
+const proxyBuffered = (req, res, bodyBuffer = null) => proxyBufferedWithFallback(req, res, bodyBuffer, null)
 
 const server = http.createServer(async (req, res) => {
   if (!authorized(req)) return json(res,401,{ok:false,error:'unauthorized_runtime'})
@@ -202,16 +237,11 @@ const server = http.createServer(async (req, res) => {
   if (req.method === 'POST' && (req.url === '/capabilities/plan' || req.url === '/language/interpret')) {
     try {
       const body = await readBody(req)
-      if (req.url === '/capabilities/plan') {
-        const fallback = goalsPlan(body)
-        if (fallback) return json(res,200,fallback)
-      }
-      if (req.url === '/language/interpret') {
-        const fallback = semanticGoalFallback(body)
-        if (fallback) return json(res,200,fallback)
-      }
       const raw = Buffer.from(JSON.stringify(body))
-      return proxyBuffered(req,res,raw)
+      const fallbackFactory = req.url === '/capabilities/plan'
+        ? () => goalsPlan(body)
+        : () => semanticGoalFallback(body)
+      return proxyBufferedWithFallback(req, res, raw, fallbackFactory)
     } catch (error) {
       return json(res,400,{ok:false,error:error instanceof Error ? error.message : 'invalid_request'})
     }

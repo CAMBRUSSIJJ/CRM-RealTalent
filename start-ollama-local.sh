@@ -163,7 +163,7 @@ echo "✓ Firewall operacional: ativo"
 echo "✓ Nenhuma chamada OpenAI faz parte deste fluxo"
 echo
 
-if command -v xdg-open >/dev/null 2>&1; then
+if [[ "${REALTALENT_NO_AUTO_OPEN:-0}" != "1" ]] && command -v xdg-open >/dev/null 2>&1; then
   xdg-open "$CRM_URL/#/goals" >/dev/null 2>&1 || true
 fi
 

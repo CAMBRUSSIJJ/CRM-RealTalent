@@ -1,0 +1,43 @@
+name: Fix V3.5-H1 WhatsApp Typecheck
+
+on:
+  push:
+    branches:
+      - preview/v3.5-h1
+    paths:
+      - .github/workflows/fix-v35h1-whatsapp-typecheck.yml
+
+permissions:
+  contents: write
+
+jobs:
+  fix:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: preview/v3.5-h1
+          fetch-depth: 0
+
+      - name: Apply final WhatsApp type fixes
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p = Path('src/features/communications/whatsapp-chat-panel.tsx')
+          s = p.read_text()
+          old = "  const externalIndex = useMemo(() => new Map(displayMessages.map(item => [String(item.metadata?.externalMessageId || ''), item]).filter(([key]) => Boolean(key))), [displayMessages])"
+          new = """  const externalIndex = useMemo(() => {\n    const index = new Map<string, UnifiedCommunicationItem>()\n    for (const item of displayMessages) {\n      const key = String(item.metadata?.externalMessageId || '')\n      if (key) index.set(key, item)\n    }\n    return index\n  }, [displayMessages])"""
+          if s.count(old) != 1:
+              raise SystemExit(f'expected exact externalIndex expression once, found {s.count(old)}')
+          p.write_text(s.replace(old, new, 1))
+          PY
+
+      - name: Commit final fixes once
+        run: |
+          set -euo pipefail
+          rm -f .github/workflows/fix-v35h1-whatsapp-typecheck.yml
+          git config user.name "RealTalent Preview Bot"
+          git config user.email "actions@users.noreply.github.com"
+          git add -A
+          git commit -m "fix: type WhatsApp external message index"
+          git push origin HEAD:preview/v3.5-h1

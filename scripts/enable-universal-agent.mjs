@@ -32,7 +32,7 @@ patch('src/services/realtalent-crm-universal-executor.ts', (source) => {
   if (!next.includes('UNIVERSAL_ADMIN_CAPABILITIES')) {
     next = next.replace(
       "import { UNIVERSAL_EXTRA_CAPABILITIES } from './realtalent-crm-universal-capabilities'",
-      "import { UNIVERSAL_EXTRA_CAPABILITIES } from './realtalent-crm-universal-capabilities'\nimport { UNIVERSAL_ADMIN_CAPABILITIES } from './realtalent-crm-universal-registry'",
+      "import { UNIVERSAL_EXTRA_CAPABILITIES } from './realtalent-crm-universal-capabilities'\nimport { UNIVERSAL_ADMIN_CAPABILITIES, universalCrmCapabilityById } from './realtalent-crm-universal-registry'",
     )
     next = next.replace(
       "import { executeUniversalContacts } from './realtalent-crm-universal-executor-contacts'",
@@ -46,6 +46,16 @@ patch('src/services/realtalent-crm-universal-executor.ts', (source) => {
       "  const adminResult = await executeAutomationAndWorkspace(step, runtime); if (adminResult) return adminResult\n  throw new Error",
       "  const adminResult = await executeAutomationAndWorkspace(step, runtime); if (adminResult) return adminResult\n  const extendedAdminResult = await executeUniversalAdmin(step, runtime); if (extendedAdminResult) return extendedAdminResult\n  throw new Error",
     )
+  } else if (!next.includes('universalCrmCapabilityById')) {
+    next = next.replace(
+      "import { UNIVERSAL_ADMIN_CAPABILITIES } from './realtalent-crm-universal-registry'",
+      "import { UNIVERSAL_ADMIN_CAPABILITIES, universalCrmCapabilityById } from './realtalent-crm-universal-registry'",
+    )
+  }
+
+  const executeAnchor = "export async function executeCrmCapabilityStep(step: CrmCapabilityPlanStep, runtime: CrmCapabilityExecutionRuntime): Promise<CrmCapabilityStepResult> {\n  if (!EXTRA_IDS.has(step.capabilityId)) return executeBaseCrmCapabilityStep(step, runtime)\n"
+  if (next.includes(executeAnchor) && !next.includes('Universal capability permission denied')) {
+    next = next.replace(executeAnchor, `${executeAnchor}  const definition = universalCrmCapabilityById(step.capabilityId)\n  if (!definition || definition.execution !== 'native') throw new Error(\`Capability universal inválida: \${step.capabilityId}\`)\n  if (definition.resource && definition.permissionAction && !runtime.canTeamAccess(definition.permissionAction, definition.resource)) {\n    throw new Error(\`Universal capability permission denied: seu perfil não permite \${definition.permissionAction} em \${definition.resource}.\`)\n  }\n`)
   }
   return next
 })

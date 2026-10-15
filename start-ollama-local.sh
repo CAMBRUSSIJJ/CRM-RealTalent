@@ -48,7 +48,7 @@ if ! command -v ollama >/dev/null 2>&1; then
   curl -fsSL https://ollama.com/install.sh | sh
 fi
 
-say "1/6 — Iniciando Ollama"
+say "1/7 — Iniciando Ollama"
 if ! curl -fsS --max-time 2 "$OLLAMA_URL/api/tags" >/dev/null 2>&1; then
   if command -v systemctl >/dev/null 2>&1 && systemctl list-unit-files 2>/dev/null | grep -q '^ollama\.service'; then
     sudo systemctl start ollama || true
@@ -60,13 +60,22 @@ fi
 wait_http "$OLLAMA_URL/api/tags" "Ollama" 60
 echo "✓ Ollama online em $OLLAMA_URL"
 
-say "2/6 — Garantindo o modelo semântico $MODEL"
+say "2/7 — Garantindo o modelo semântico $MODEL"
 if ! ollama list 2>/dev/null | awk 'NR>1 {print $1}' | grep -Fxq "$MODEL"; then
   ollama pull "$MODEL"
 fi
 echo "✓ Modelo $MODEL disponível"
 
-say "3/6 — Preparando CRM"
+say "3/7 — Aquecendo o modelo local"
+WARM_PAYLOAD="$(printf '{\"model\":\"%s\",\"prompt\":\"Responda somente OK.\",\"stream\":false,\"think\":false,\"keep_alive\":\"30m\",\"options\":{\"num_predict\":8}}' "$MODEL")"
+if ! curl -fsS --max-time 300 "$OLLAMA_URL/api/generate" \
+  -H 'content-type: application/json' \
+  --data-binary "$WARM_PAYLOAD" >/dev/null; then
+  fail "Ollama está online, mas o modelo $MODEL não conseguiu concluir nem o aquecimento em até 5 minutos."
+fi
+echo "✓ $MODEL carregado e mantido quente em memória"
+
+say "4/7 — Preparando CRM"
 if [[ ! -d node_modules ]] || [[ ! -x node_modules/.bin/vite ]]; then
   npm ci
 fi
@@ -82,12 +91,14 @@ npm run typecheck
 npm run build
 npx vitest run src/services/realtalent-ollama-semantic.integration.test.ts
 
-say "4/6 — Iniciando RealTalent Agent com Ollama"
+say "5/7 — Iniciando RealTalent Agent com Ollama"
 pkill -f "$AGENT_DIR/gateway-ollama.mjs" 2>/dev/null || true
+pkill -f "$AGENT_DIR/.gateway-ollama-runtime.generated.mjs" 2>/dev/null || true
 sleep 1
 
 export REALTALENT_AI_PROVIDER=ollama
 export REALTALENT_OLLAMA_MODEL="$MODEL"
+export REALTALENT_OLLAMA_STRUCTURED_TIMEOUT_MS=90000
 export OLLAMA_URL
 export OLLAMA_MODEL="$MODEL"
 export OLLAMA_GENERAL_MODEL="$MODEL"
@@ -113,15 +124,15 @@ if (!health?.ai?.local?.online) throw new Error(`Ollama não está online no Age
 console.log(`✓ Agent conectado ao Ollama · modelo=${health?.ai?.local?.roles?.fast || health.model}`)
 NODE
 
-say "5/6 — Testando linguagem natural REAL com o catálogo REAL"
+say "6/7 — Testando linguagem natural REAL com catálogo e executor REAIS"
 REALTALENT_OLLAMA_E2E=1 REALTALENT_AGENT_TEST_URL="$AGENT_URL" \
   npx vitest run src/services/realtalent-ollama-semantic.integration.test.ts
 
-echo "✓ Meta entendida pelo Ollama"
-echo "✓ Reunião entendida pelo Ollama"
+echo "✓ Meta entendida e encaminhada ao executor real"
+echo "✓ Reunião entendida e encaminhada ao executor real"
 echo "✓ Rota /goals não bloqueia intenção de Agenda"
 
-say "6/6 — Iniciando interface somente após todos os gates"
+say "7/7 — Iniciando interface somente após todos os gates"
 if curl -fsS --max-time 1 "$CRM_URL" >/dev/null 2>&1; then
   fail "A porta 4188 já está ocupada. Feche a instância antiga do CRM e execute novamente."
 fi
@@ -135,6 +146,7 @@ echo "✓ RealTalent CRM pronto"
 echo "✓ Ollama: $OLLAMA_URL"
 echo "✓ Agent: $AGENT_URL"
 echo "✓ CRM: $CRM_URL/#/goals"
+echo "✓ Timeout semântico local: 90s"
 echo "✓ Nenhuma chamada OpenAI faz parte deste fluxo"
 echo
 

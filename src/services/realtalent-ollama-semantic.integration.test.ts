@@ -1,5 +1,6 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import { CRM_CAPABILITIES, crmCapabilityCatalogForModel } from './realtalent-crm-capabilities'
+import { executeCrmCapabilityStep } from './realtalent-crm-capability-executor'
 
 const e2eEnabled = process.env.REALTALENT_OLLAMA_E2E === '1'
 const agentUrl = String(process.env.REALTALENT_AGENT_TEST_URL || 'http://127.0.0.1:8791').replace(/\/$/, '')
@@ -26,6 +27,32 @@ const plan = async (prompt: string) => {
   const body = await response.json().catch(() => ({})) as any
   if (!response.ok) throw new Error(`Planner HTTP ${response.status}: ${body?.error || 'erro desconhecido'}`)
   return body
+}
+
+const executionRuntime = () => {
+  const createGoal = vi.fn(async (input: any) => ({ id: 'goal-e2e', ...input }))
+  const createCalendarEvent = vi.fn(async (input: any) => ({ id: 'event-e2e', ...input }))
+  const navigate = vi.fn()
+  const runtime: any = {
+    workspaceId: 'workspace-e2e',
+    currentUserId: 'user-e2e',
+    repositoryMode: 'local',
+    teamAccess: null,
+    snapshot: {
+      workspace: { id: 'workspace-e2e', name: 'Workspace E2E' },
+      leads: [], contacts: [], companies: [], opportunities: [], proposals: [],
+      activities: [], events: [], goals: [], products: [], stages: [], members: [],
+    },
+    actions: {
+      createGoal,
+      createCalendarEvent,
+      listWorkspaceMembers: vi.fn(async () => [{ userId: 'user-e2e', displayName: 'Usuário E2E', email: 'e2e@local' }]),
+    },
+    navigate,
+    canTeamAccess: () => true,
+    canTeamAccessRecord: () => true,
+  }
+  return { runtime, createGoal, createCalendarEvent, navigate }
 }
 
 describe('RealTalent Agent — contrato real Meta + Agenda', () => {
@@ -55,7 +82,7 @@ describe('RealTalent Agent — contrato real Meta + Agenda', () => {
     expect(health?.ai?.local?.online).toBe(true)
   })
 
-  it.runIf(e2eEnabled)('entende meta natural usando o catálogo real', async () => {
+  it.runIf(e2eEnabled)('entende e executa meta pelo executor real do CRM', async () => {
     const result = await plan('meta de 40 ligações para amanhã')
     const step = result?.steps?.[0]
     expect(step?.capabilityId).toBe('goals.create')
@@ -64,9 +91,16 @@ describe('RealTalent Agent — contrato real Meta + Agenda', () => {
     expect(args.get('target_value')).toBe('40')
     expect(args.get('period_start')).toBe('2026-10-16')
     expect(args.get('period_end')).toBe('2026-10-16')
+
+    const { runtime, createGoal, navigate } = executionRuntime()
+    const execution = await executeCrmCapabilityStep(step, runtime)
+    expect(execution.ok).toBe(true)
+    expect(createGoal).toHaveBeenCalledTimes(1)
+    expect(createGoal).toHaveBeenCalledWith(expect.objectContaining({ metric: 'calls', targetValue: 40, periodStart: '2026-10-16', periodEnd: '2026-10-16' }))
+    expect(navigate).toHaveBeenCalledWith('goals')
   }, 120_000)
 
-  it.runIf(e2eEnabled)('entende reunião natural mesmo estando na rota de Metas', async () => {
+  it.runIf(e2eEnabled)('entende e executa reunião mesmo estando na rota de Metas', async () => {
     const result = await plan('marque uma reunião para amanhã às 14:00 com cliente oculto')
     const step = result?.steps?.[0]
     expect(step?.capabilityId).toBe('calendar.create')
@@ -74,5 +108,11 @@ describe('RealTalent Agent — contrato real Meta + Agenda', () => {
     expect(args.get('starts_at') || '').toMatch(/2026-10-16.*14:00/)
     const recordQuery = args.get('record_query') || args.get('contact_query') || args.get('lead_query') || ''
     expect(recordQuery.toLowerCase()).toContain('oculto')
+
+    const { runtime, createCalendarEvent } = executionRuntime()
+    const execution = await executeCrmCapabilityStep(step, runtime)
+    expect(execution.ok).toBe(true)
+    expect(createCalendarEvent).toHaveBeenCalledTimes(1)
+    expect(createCalendarEvent).toHaveBeenCalledWith(expect.objectContaining({ startsAt: expect.stringContaining('2026-10-16') }))
   }, 120_000)
 })

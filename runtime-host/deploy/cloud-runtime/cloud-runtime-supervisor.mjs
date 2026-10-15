@@ -27,10 +27,22 @@ launch('agent',process.execPath,[path.join(agent,'gateway.mjs')],{cwd:agent,env:
 launch('communications',process.execPath,[path.join(crm,'scripts/realtalent-communications-gateway.mjs')],{cwd:crm,env:{REALTALENT_COMMUNICATIONS_HOST:'127.0.0.1',REALTALENT_COMMUNICATIONS_PORT:'3002',REALTALENT_COMMUNICATIONS_STORE:path.join(DATA,'communications','store.json'),REALTALENT_COMMUNICATIONS_KEY_FILE:path.join(DATA,'communications','key'),REALTALENT_COMMUNICATIONS_CONFIG:path.join(DATA,'communications','config.json'),REALTALENT_COMMUNICATIONS_MEDIA_DIR:path.join(DATA,'communications','media')}})
 launch('prospecting',process.execPath,[path.join(crm,'scripts/realtalent-prospecting-agent.mjs')],{cwd:crm,env:{REALTALENT_PROSPECTING_AGENT_HOST:'127.0.0.1',REALTALENT_PROSPECTING_AGENT_PORT:'4319',REALTALENT_PROSPECTING_AGENT_STATE_DIR:path.join(DATA,'prospecting')}})
 
-const services={agent:{port:8791,prefix:'/agent'},communications:{port:3002,prefix:'/communications'},prospecting:{port:4319,prefix:'/prospecting'}}
+const services={
+  agent:{port:8791,prefix:'/agent',header:'x-realtalent-agent-token',primaryEnv:'REALTALENT_AGENT_RUNTIME_TOKEN',previewEnv:'REALTALENT_PREVIEW_AGENT_RUNTIME_TOKEN'},
+  communications:{port:3002,prefix:'/communications',header:'x-realtalent-runtime-token',primaryEnv:'REALTALENT_RUNTIME_TOKEN',previewEnv:'REALTALENT_PREVIEW_RUNTIME_TOKEN'},
+  prospecting:{port:4319,prefix:'/prospecting',header:'x-realtalent-prospecting-token',primaryEnv:'REALTALENT_PROSPECTING_RUNTIME_TOKEN',previewEnv:'REALTALENT_PREVIEW_PROSPECTING_RUNTIME_TOKEN'}
+}
+const normalizePreviewCredential=(headers,service)=>{
+  const supplied=String(headers[service.header]||'')
+  const previewToken=String(process.env[service.previewEnv]||'')
+  if(previewToken.length>=24 && supplied===previewToken){
+    headers[service.header]=String(process.env[service.primaryEnv]||'')
+  }
+}
 const proxy=(req,res,service)=>{
   const pathSuffix=(req.url||'/').slice(service.prefix.length)||'/'
   const headers={...req.headers,host:`127.0.0.1:${service.port}`}
+  normalizePreviewCredential(headers,service)
   delete headers.origin; delete headers.referer; delete headers['x-forwarded-host']; delete headers['x-forwarded-proto']
   const upstream=http.request({host:'127.0.0.1',port:service.port,path:pathSuffix,method:req.method,headers},u=>{res.writeHead(u.statusCode||502,u.headers);u.pipe(res)})
   upstream.on('error',err=>{ if(!res.headersSent){res.statusCode=502;res.setHeader('content-type','application/json')} res.end(JSON.stringify({ok:false,error:'upstream_unavailable',message:String(err.message||err)})) })

@@ -89,6 +89,7 @@ EOF
 
 npm run typecheck
 npm run build
+npx vitest run src/services/realtalent-crm-capability-coverage.test.ts
 npx vitest run src/services/realtalent-ollama-semantic.integration.test.ts
 
 say "5/7 — Iniciando RealTalent Agent com Ollama"
@@ -124,6 +125,16 @@ if (!health?.ai?.local?.online) throw new Error(`Ollama não está online no Age
 console.log(`✓ Agent conectado ao Ollama · modelo=${health?.ai?.local?.roles?.fast || health.model}`)
 NODE
 
+CORS_HEADERS="$(curl -sS -D - -o /dev/null -X OPTIONS "$AGENT_URL/capabilities/plan" \
+  -H 'Origin: http://127.0.0.1:4188' \
+  -H 'Access-Control-Request-Method: POST' \
+  -H 'Access-Control-Request-Headers: content-type')"
+if ! printf '%s\n' "$CORS_HEADERS" | tr -d '\r' | grep -qi '^access-control-allow-origin: http://127.0.0.1:4188$'; then
+  printf '%s\n' "$CORS_HEADERS" >&2
+  fail "O Agent está online, mas o navegador do CRM não foi autorizado a chamá-lo."
+fi
+echo "✓ Navegador do CRM autorizado a acessar o Agent em 8791"
+
 say "6/7 — Testando linguagem natural REAL com catálogo e executor REAIS"
 REALTALENT_OLLAMA_E2E=1 REALTALENT_AGENT_TEST_URL="$AGENT_URL" \
   npx vitest run src/services/realtalent-ollama-semantic.integration.test.ts
@@ -146,7 +157,7 @@ echo "✓ RealTalent CRM pronto"
 echo "✓ Ollama: $OLLAMA_URL"
 echo "✓ Agent: $AGENT_URL"
 echo "✓ CRM: $CRM_URL/#/goals"
-echo "✓ Timeout semântico local: 90s"
+echo "✓ Browser → Agent: autorizado"
 echo "✓ Nenhuma chamada OpenAI faz parte deste fluxo"
 echo
 

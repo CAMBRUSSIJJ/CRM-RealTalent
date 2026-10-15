@@ -65,7 +65,7 @@ sleep 2
 
 say "4/8 — Subindo Ollama + Agent + gates + CRM"
 chmod +x start-ollama-local.sh
-./start-ollama-local.sh > >(tee "$LAUNCH_LOG") 2>&1 &
+REALTALENT_NO_AUTO_OPEN=1 ./start-ollama-local.sh > >(tee "$LAUNCH_LOG") 2>&1 &
 MAIN_PID=$!
 
 cleanup() {

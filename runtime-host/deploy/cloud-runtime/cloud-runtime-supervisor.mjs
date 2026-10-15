@@ -23,7 +23,7 @@ const launch=(name,cmd,args,extra)=>{
   children.push(child); return child
 }
 let shuttingDown=false
-launch('agent',process.execPath,[path.join(agent,'gateway.mjs')],{cwd:agent,env:{REALTALENT_AGENT_HOST:'127.0.0.1',REALTALENT_AGENT_PORT:'8791',XDG_CONFIG_HOME:path.join(DATA,'agent-config'),XDG_STATE_HOME:path.join(DATA,'agent-state')}})
+launch('agent',process.execPath,[path.join(agent,'cloud-agent-gateway.mjs')],{cwd:agent,env:{REALTALENT_AGENT_HOST:'127.0.0.1',REALTALENT_AGENT_PORT:'8791',REALTALENT_AGENT_INNER_PORT:'8792',XDG_CONFIG_HOME:path.join(DATA,'agent-config'),XDG_STATE_HOME:path.join(DATA,'agent-state')}})
 launch('communications',process.execPath,[path.join(crm,'scripts/realtalent-communications-gateway.mjs')],{cwd:crm,env:{REALTALENT_COMMUNICATIONS_HOST:'127.0.0.1',REALTALENT_COMMUNICATIONS_PORT:'3002',REALTALENT_COMMUNICATIONS_STORE:path.join(DATA,'communications','store.json'),REALTALENT_COMMUNICATIONS_KEY_FILE:path.join(DATA,'communications','key'),REALTALENT_COMMUNICATIONS_CONFIG:path.join(DATA,'communications','config.json'),REALTALENT_COMMUNICATIONS_MEDIA_DIR:path.join(DATA,'communications','media')}})
 launch('prospecting',process.execPath,[path.join(crm,'scripts/realtalent-prospecting-agent.mjs')],{cwd:crm,env:{REALTALENT_PROSPECTING_AGENT_HOST:'127.0.0.1',REALTALENT_PROSPECTING_AGENT_PORT:'4319',REALTALENT_PROSPECTING_AGENT_STATE_DIR:path.join(DATA,'prospecting')}})
 

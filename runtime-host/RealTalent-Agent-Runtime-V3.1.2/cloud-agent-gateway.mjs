@@ -229,7 +229,17 @@ const proxyBufferedWithFallback = (req, res, bodyBuffer = null, fallbackFactory 
   else req.pipe(upstream)
 }
 
-const proxyBuffered = (req, res, bodyBuffer = null) => proxyBufferedWithFallback(req, res, bodyBuffer, null)
+const proxyBuffered = (req, res, bodyBuffer = null) => {
+  const headers = { ...req.headers, host:`127.0.0.1:${INNER_PORT}` }
+  if (bodyBuffer) headers['content-length'] = String(bodyBuffer.length)
+  const upstream = http.request({ host:'127.0.0.1', port:INNER_PORT, path:req.url, method:req.method, headers }, u => {
+    res.writeHead(u.statusCode || 502, u.headers)
+    u.pipe(res)
+  })
+  upstream.on('error', error => json(res,502,{ok:false,error:'agent_inner_unavailable',message:String(error.message || error)}))
+  if (bodyBuffer) upstream.end(bodyBuffer)
+  else req.pipe(upstream)
+}
 
 const server = http.createServer(async (req, res) => {
   if (!authorized(req)) return json(res,401,{ok:false,error:'unauthorized_runtime'})

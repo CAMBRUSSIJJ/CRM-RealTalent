@@ -1,4 +1,4 @@
-// V3.6 regression lineage marker: universal-capability-planner-first+ollama-only-local-path
+// V3.7 regression lineage marker: ollama-capabilities-first+operational-firewall
 import type { WorkspaceSnapshot } from '../domain/types'
 import { runRealTalentAssistant, type AssistantAnswer, type AssistantContext, type AssistantIntent } from './realtalent-assistant'
 import { interpretSalesLanguage } from './realtalent-semantic-language-client'
@@ -86,8 +86,31 @@ const semanticClarification = (semantic: NonNullable<Awaited<ReturnType<typeof i
   }
 }
 
+const normalizePrompt = (value: string) => value
+  .normalize('NFD')
+  .replace(/[\u0300-\u036f]/g, '')
+  .toLowerCase()
+  .trim()
+
+const looksLikeOperationalRequest = (prompt: string) => {
+  const text = normalizePrompt(prompt)
+  return /\b(faca|faz|crie|criar|adicione|adicionar|marque|marcar|agende|agendar|reagende|reagendar|mova|mover|atualize|atualizar|altere|alterar|exclua|excluir|apague|apagar|conclua|concluir|envie|enviar|mande|mandar|registre|registrar|ative|ativar|desative|desativar|convide|convidar|garimpe|garimpar|busque|buscar|procure|procurar|defina|definir|estabeleca|estabelecer|lance|lancar|execute|executar|rode|rodar|abra|abrir|ligue|ligar)\b/.test(text)
+}
+
+const operationalPlannerUnavailable = (prompt: string, context: AssistantContext): AssistantAnswer => ({
+  id: `capability-unavailable:${Date.now()}`,
+  intent: 'crm_capability',
+  title: 'Ação não executada',
+  text: 'Entendi que você pediu uma ação no CRM, mas o Ollama não devolveu um plano executável nesta tentativa. Não vou substituir seu pedido por outra ação ou análise. Tente novamente; se faltar alguma informação, eu vou pedir somente o dado necessário.',
+  items: [],
+  facts: [`Pedido preservado: ${prompt.trim().slice(0, 220)}`],
+  suggestedPrompts: [],
+  pendingCapability: null,
+  generatedAt: (context.now ?? new Date()).toISOString(),
+})
+
 export const hybridRealTalentAssistantProvider: RealTalentAssistantProvider = {
-  id: 'realtalent-agent-v3.6-ollama-capabilities-first',
+  id: 'realtalent-agent-v3.7-ollama-operational-firewall',
   async answer(prompt, snapshot, context = {}) {
     const capabilityContext = {
       currentRoute: context.currentRoute ?? null,
@@ -99,9 +122,8 @@ export const hybridRealTalentAssistantProvider: RealTalentAssistantProvider = {
       pendingCapability: pendingCapabilityContext(context.pendingCapability),
     }
 
-    // V3.6: every native CRM action goes through the global Ollama capability planner
-    // BEFORE legacy lexical/fast-action code. This is what prevents phrases containing
-    // "ligação" from being treated as a contact/task request when the actual intent is a goal.
+    // Primary path: every native CRM action is planned by Ollama against the real
+    // capability catalog before any legacy assistant interpretation can run.
     const capabilityRaw = await planCrmCapabilitiesViaAgent(prompt, capabilityContext)
     const capability = capabilityRaw ? validateAndEnrichCapabilitySlots(capabilityRaw, capabilityContext) : null
     if (capability && capability.decision !== 'fallback') {
@@ -113,8 +135,31 @@ export const hybridRealTalentAssistantProvider: RealTalentAssistantProvider = {
       }
     }
 
-    // Specialized sales-language interpretation remains for analytical/read experiences
-    // that intentionally do not map to a native mutation capability.
+    // Resilience must also come before legacy analysis. This prevents a temporary
+    // browser/runtime failure from turning "crie uma meta de ligações" into
+    // "melhores contatos agora" or any other unrelated legacy intent.
+    const localOperationalRaw = localCapabilityFallback(prompt, capabilityContext)
+    const localOperational = localOperationalRaw ? validateAndEnrichCapabilitySlots(localOperationalRaw, capabilityContext) : null
+    if (localOperational) return {
+      answer: capabilityPlanAnswer(localOperational, context, context.pendingCapability?.seed || prompt),
+      providerId: 'capability:local-resilience-v3.7',
+      sendsDataExternally: false,
+      mode: 'local-orchestration',
+    }
+
+    // If the user clearly asked the CRM to DO something and both capability paths
+    // failed, fail closed. Never answer with an unrelated analytical legacy intent.
+    if (looksLikeOperationalRequest(prompt)) {
+      return {
+        answer: operationalPlannerUnavailable(prompt, context),
+        providerId: 'capability:operational-firewall-v3.7',
+        sendsDataExternally: false,
+        mode: 'local-orchestration',
+      }
+    }
+
+    // Specialized sales-language interpretation remains only for analytical/read
+    // experiences that intentionally do not map to a native mutation capability.
     const semantic = await interpretSalesLanguage(prompt, context)
     if (semantic?.decision === 'clarify' && semantic.interpretation.intent !== 'unknown') {
       return {
@@ -144,18 +189,7 @@ export const hybridRealTalentAssistantProvider: RealTalentAssistantProvider = {
       }
     }
 
-    // Deterministic parsing is resilience only and can no longer pre-empt Ollama.
-    const localOperationalRaw = localCapabilityFallback(prompt, capabilityContext)
-    const localOperational = localOperationalRaw ? validateAndEnrichCapabilitySlots(localOperationalRaw, capabilityContext) : null
-    if (localOperational) return {
-      answer: capabilityPlanAnswer(localOperational, context, context.pendingCapability?.seed || prompt),
-      providerId: 'capability:local-resilience-v3.6',
-      sendsDataExternally: false,
-      mode: 'local-orchestration',
-    }
-
-    // Final compatibility layer for legacy local analysis/read UX. No OpenAI/remote
-    // provider fallback exists in this embedded Ollama path.
+    // Final compatibility layer is restricted to genuine read/analysis requests.
     const immediate = runRealTalentAssistant(prompt, snapshot, context)
     return {
       answer: immediate,

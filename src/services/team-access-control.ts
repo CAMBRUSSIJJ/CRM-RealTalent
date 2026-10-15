@@ -121,7 +121,7 @@ export async function loadTeamAccessControl(mode:'local'|'supabase', workspaceId
   ])
   if(profiles.error) throw new Error(profiles.error.message || 'Falha ao carregar perfis de acesso.')
   if(assignments.error) throw new Error(assignments.error.message || 'Falha ao carregar perfis dos membros.')
-  const loaded=(profiles.data??[]).map((row:any)=>mapProfile(row,workspaceId))
+  const loaded: TeamAccessProfile[]=(profiles.data??[]).map((row:any)=>mapProfile(row,workspaceId))
   const defaults=defaultAccessProfiles(workspaceId)
   const byId=new Map(loaded.map((item)=>[item.id,item]))
   return { profiles:[...defaults.filter((item)=>!byId.has(item.id)),...loaded], assignments:(assignments.data??[]).map(mapAssignment) }

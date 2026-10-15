@@ -173,7 +173,7 @@ export async function verifyCrmUndoExecution(
     stepId: `undo:${operation.kind}:${operation.entityId || 'state'}`,
     capabilityId: 'agent.undo_last',
     title: `Desfazer ${operation.kind}`,
-    risk: 'safe_write',
+    risk: 'low',
     status: 'acknowledged',
     summary: `Operação ${operation.kind} executada.`,
     checks: [],

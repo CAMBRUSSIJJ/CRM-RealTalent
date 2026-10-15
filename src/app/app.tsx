@@ -47,8 +47,8 @@ export const prefetchCommercialRoute = (route: string) => {
   if (!prefetch) return
   prefetchedCommercialRoutes.add(route)
   const run = () => { void prefetch().catch(() => prefetchedCommercialRoutes.delete(route)) }
-  if ('requestIdleCallback' in window) (window as Window & { requestIdleCallback?: (cb: () => void, opts?: { timeout: number }) => number }).requestIdleCallback?.(run, { timeout: 1800 })
-  else window.setTimeout(run, 350)
+  if (typeof window.requestIdleCallback === 'function') window.requestIdleCallback(run, { timeout: 1800 })
+  else globalThis.setTimeout(run, 350)
 }
 
 function RouteContent() {

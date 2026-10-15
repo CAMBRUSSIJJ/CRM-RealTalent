@@ -14,13 +14,11 @@ const patch = (relative, transform) => {
 }
 
 const gateway = patch('runtime-host/RealTalent-Agent-Runtime-V3.1.2/gateway-ollama.mjs', (source) => source
-  .replace(
-    "/\\\\b(relacao|relacionamento|reporta|influencia|trabalha diretamente com|parceiro|socio)\\\\b/) && has(/\\\\b(contato|ana|bruno|pessoa|pessoas)\\\\b/)",
-    "/\\\\b(relacao|relacionamento|reporta|influencia|trabalha diretamente com|parceiro|socio)\\\\b/) && has(/\\\\b(com|entre|contato|contatos|pessoa|pessoas)\\\\b/)",
-  ))
+  .replace('contato|ana|bruno|pessoa|pessoas', 'com|entre|contato|contatos|pessoa|pessoas'))
 
 if (!gateway.includes('const semanticDomainAnchor =')) throw new Error('O roteador híbrido não foi instalado pelo enable-universal-agent.mjs.')
 if (!gateway.includes('requiredSlots: Array.isArray(capability?.requiredSlots)')) throw new Error('requiredSlots não estão chegando ao planner universal.')
+if (gateway.includes('contato|ana|bruno|pessoa|pessoas')) throw new Error('O roteador contém nomes de teste hardcoded; a regra precisa permanecer genérica.')
 
 const matrix = patch('src/services/realtalent-ollama-crm-matrix.integration.test.ts', (source) => {
   let next = source

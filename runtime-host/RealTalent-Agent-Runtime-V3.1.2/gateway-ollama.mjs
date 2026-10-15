@@ -259,7 +259,29 @@ const proxyToInner = (req, res) => {
   req.pipe(upstream)
 }
 
+const LOCAL_BROWSER_ORIGINS = new Set([
+  'http://127.0.0.1:4188',
+  'http://localhost:4188',
+])
+
+const applyLocalBrowserCors = (req, res) => {
+  const origin = String(req.headers.origin || '')
+  if (!LOCAL_BROWSER_ORIGINS.has(origin)) return false
+  res.setHeader('access-control-allow-origin', origin)
+  res.setHeader('vary', 'Origin')
+  res.setHeader('access-control-allow-methods', 'GET,POST,PUT,PATCH,DELETE,OPTIONS')
+  res.setHeader('access-control-allow-headers', 'content-type,x-realtalent-agent-token,authorization')
+  res.setHeader('access-control-max-age', '600')
+  return true
+}
+
 const routerServer = http.createServer((req, res) => {
+  applyLocalBrowserCors(req, res)
+  if (req.method === 'OPTIONS') {
+    res.statusCode = 204
+    res.end()
+    return
+  }
   if (req.method === 'POST' && String(req.url || '').split('?')[0] === '/capabilities/plan') {
     handleCapabilityPlan(req, res)
     return

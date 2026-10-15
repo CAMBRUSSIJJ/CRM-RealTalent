@@ -36,6 +36,8 @@ const PORT = Number(process.env.REALTALENT_AGENT_PORT || 8791)
 const AGENT_RUNTIME_TOKEN = String(process.env.REALTALENT_AGENT_RUNTIME_TOKEN || '').trim()
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY || ''
 const OPENAI_MODEL = process.env.OPENAI_MODEL || 'gpt-5.6-sol'
+const OPENAI_RESPONSES_URL = String(process.env.OPENAI_RESPONSES_URL || 'https://api.openai.com/v1/responses').trim()
+const OPENAI_PROTECTION_BYPASS = String(process.env.OPENAI_PROTECTION_BYPASS || '').trim()
 const OLLAMA_URL = String(process.env.OLLAMA_URL || 'http://127.0.0.1:11434').replace(/\/$/, '')
 const OLLAMA_MODEL = process.env.OLLAMA_MODEL || 'qwen2.5-coder:3b'
 const OLLAMA_GENERAL_MODEL = process.env.OLLAMA_GENERAL_MODEL || 'qwen3:4b'
@@ -1466,8 +1468,10 @@ async function openAIStructured({ instructions, input, schema, name, maxOutputTo
   const started = Date.now(); const inputChars = typeof input === 'string' ? input.length : JSON.stringify(input ?? {}).length
   const controller = new AbortController(); const timer = setTimeout(() => controller.abort(), timeoutMs)
   try {
-    const response = await fetch('https://api.openai.com/v1/responses', {
-      method: 'POST', headers: { 'Authorization': `Bearer ${OPENAI_API_KEY}`, 'Content-Type': 'application/json' }, signal: controller.signal,
+    const openaiHeaders = { 'Authorization': `Bearer ${OPENAI_API_KEY}`, 'Content-Type': 'application/json' }
+    if (OPENAI_PROTECTION_BYPASS) openaiHeaders['x-vercel-protection-bypass'] = OPENAI_PROTECTION_BYPASS
+    const response = await fetch(OPENAI_RESPONSES_URL, {
+      method: 'POST', headers: openaiHeaders, signal: controller.signal,
       body: JSON.stringify({ model: OPENAI_MODEL, instructions, input, text: { format: { type: 'json_schema', name, strict: true, schema } }, max_output_tokens: maxOutputTokens }),
     })
     const data = await response.json().catch(() => ({}))

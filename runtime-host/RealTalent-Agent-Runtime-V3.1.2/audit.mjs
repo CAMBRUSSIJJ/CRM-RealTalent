@@ -41,7 +41,7 @@ const checks=[
  ['modelos locais especializados modernos',gateway.includes("'qwen2.5-coder:3b'")&&gateway.includes("'qwen3:4b'")&&gateway.includes("'qwen3:1.7b'")],
  ['AI Provider Router',gateway.includes('structuredAI')&&gateway.includes("AI_PROVIDER")],
  ['Ollama chat API',gateway.includes('/api/chat')&&gateway.includes('/api/tags')],
- ['OpenAI permanece opcional',gateway.includes('https://api.openai.com/v1/responses')],
+ ['OpenAI permanece opcional',gateway.includes('OPENAI_RESPONSES_URL') && gateway.includes('https://api.openai.com/v1/responses')],
  ['Structured Outputs Agent',gateway.includes("name: 'realtalent_agent_response'")&&gateway.includes('strict: true')],
  ['Structured Outputs Browser QA',gateway.includes("name: 'realtalent_browser_qa_step'")],
  ['Structured Outputs Builder',gateway.includes("name: 'realtalent_builder_patch'")&&gateway.includes('builderPatchSchema')],

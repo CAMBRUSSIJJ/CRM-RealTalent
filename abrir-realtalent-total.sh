@@ -11,10 +11,26 @@ OLLAMA_URL="${OLLAMA_URL:-http://127.0.0.1:11434}"
 MODEL="${REALTALENT_OLLAMA_MODEL:-qwen3:4b}"
 MATRIX_FILE="src/services/realtalent-ollama-crm-matrix.integration.test.ts"
 LAUNCH_LOG="$ROOT/.realtalent-total.log"
+AGENT_LOG="$ROOT/.realtalent-agent-ollama.log"
+VITE_LOG="$ROOT/.realtalent-vite.log"
 OLLAMA_RECOVERY_LOG="$ROOT/.realtalent-ollama-recovery.log"
 
 say() { printf '\n\033[1;36m%s\033[0m\n' "$*"; }
 fail() { printf '\n\033[1;31mERRO: %s\033[0m\n' "$*" >&2; exit 1; }
+
+dump_failure_logs() {
+  echo
+  echo "================ DIAGNÓSTICO AUTOMÁTICO ================" >&2
+  for file in "$LAUNCH_LOG" "$AGENT_LOG" "$VITE_LOG" "$OLLAMA_RECOVERY_LOG"; do
+    if [[ -s "$file" ]]; then
+      echo >&2
+      echo "--- $(basename "$file") · últimas 140 linhas ---" >&2
+      tail -n 140 "$file" >&2 || true
+    fi
+  done
+  echo "=========================================================" >&2
+  echo
+}
 
 wait_http() {
   local url="$1"; local label="$2"; local attempts="${3:-240}"
@@ -22,7 +38,8 @@ wait_http() {
     if curl -fsS --max-time 2 "$url" >/dev/null 2>&1; then return 0; fi
     sleep 1
   done
-  fail "$label não ficou pronto em $url. Veja $LAUNCH_LOG"
+  dump_failure_logs
+  fail "$label não ficou pronto em $url."
 }
 
 stop_realtalent_port() {
@@ -52,14 +69,14 @@ ensure_ollama_ready() {
     for ((i=1; i<=60; i++)); do
       if curl -fsS --max-time 2 "$OLLAMA_URL/api/tags" >/dev/null 2>&1; then break; fi
       sleep 1
-      if [[ $i -eq 60 ]]; then fail "Ollama não voltou após a tentativa de recuperação. Veja $OLLAMA_RECOVERY_LOG"; fi
+      if [[ $i -eq 60 ]]; then dump_failure_logs; fail "Ollama não voltou após a tentativa de recuperação."; fi
     done
   fi
 
   local payload
   payload="$(printf '{\"model\":\"%s\",\"prompt\":\"Responda somente OK.\",\"stream\":false,\"think\":false,\"keep_alive\":\"10m\",\"options\":{\"num_predict\":8}}' "$MODEL")"
   curl -fsS --max-time 300 "$OLLAMA_URL/api/generate" -H 'content-type: application/json' --data-binary "$payload" >/dev/null \
-    || fail "Ollama respondeu ao health, mas o modelo $MODEL não conseguiu aquecer."
+    || { dump_failure_logs; fail "Ollama respondeu ao health, mas o modelo $MODEL não conseguiu aquecer."; }
 }
 
 say "RealTalent CRM — Universal Control com Ollama"
@@ -88,6 +105,7 @@ sleep 2
 
 say "4/8 — Subindo Ollama + Agent + gates + CRM"
 chmod +x start-ollama-local.sh
+: > "$LAUNCH_LOG"
 REALTALENT_NO_AUTO_OPEN=1 ./start-ollama-local.sh > >(tee "$LAUNCH_LOG") 2>&1 &
 MAIN_PID=$!
 
@@ -101,9 +119,16 @@ trap cleanup EXIT INT TERM
 
 for ((i=1; i<=360; i++)); do
   if curl -fsS --max-time 2 "$CRM_URL" >/dev/null 2>&1; then break; fi
-  if ! kill -0 "$MAIN_PID" 2>/dev/null; then wait "$MAIN_PID" || true; fail "O launcher principal encerrou antes do CRM ficar pronto. Veja $LAUNCH_LOG"; fi
+  if ! kill -0 "$MAIN_PID" 2>/dev/null; then
+    set +e
+    wait "$MAIN_PID"
+    MAIN_CODE=$?
+    set -e
+    dump_failure_logs
+    fail "O launcher principal encerrou com código $MAIN_CODE antes do CRM ficar pronto. A causa está impressa acima."
+  fi
   sleep 1
-  if [[ $i -eq 360 ]]; then fail "CRM não ficou pronto a tempo. Veja $LAUNCH_LOG"; fi
+  if [[ $i -eq 360 ]]; then dump_failure_logs; fail "CRM não ficou pronto a tempo."; fi
 done
 wait_http "$AGENT_URL/health" "RealTalent Agent" 60
 
@@ -125,7 +150,7 @@ curl -sS -D "$CORS_HEADERS" -o /dev/null -X OPTIONS \
   -H 'Origin: http://127.0.0.1:4188' \
   -H 'Access-Control-Request-Method: POST' \
   "$AGENT_URL/capabilities/plan"
-grep -qi '^access-control-allow-origin: http://127.0.0.1:4188' "$CORS_HEADERS" || { cat "$CORS_HEADERS"; rm -f "$CORS_HEADERS"; fail "O navegador do CRM não está autorizado a acessar o Agent."; }
+grep -qi '^access-control-allow-origin: http://127.0.0.1:4188' "$CORS_HEADERS" || { cat "$CORS_HEADERS"; rm -f "$CORS_HEADERS"; dump_failure_logs; fail "O navegador do CRM não está autorizado a acessar o Agent."; }
 rm -f "$CORS_HEADERS"
 echo "✓ Browser 4188 → Agent 8791 autorizado"
 
@@ -144,7 +169,7 @@ if [[ -f "$MATRIX_FILE" ]]; then
     REALTALENT_AGENT_TEST_URL="$AGENT_URL" \
     REALTALENT_MATRIX_FROM="$start" \
     REALTALENT_MATRIX_TO="$end" \
-      npx vitest run "$MATRIX_FILE"
+      npx vitest run "$MATRIX_FILE" || { dump_failure_logs; fail "A matriz semântica falhou no lote $((start + 1))-$end."; }
   done
   ensure_ollama_ready
   echo "✓ Matriz semântica universal aprovada: $MATRIX_CASES/$MATRIX_CASES"

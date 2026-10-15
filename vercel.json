@@ -97,6 +97,9 @@
   "functions": {
     "api/runtime-*.mjs": {
       "maxDuration": 60
+    },
+    "api/ai-bridge.mjs": {
+      "maxDuration": 60
     }
   }
 }

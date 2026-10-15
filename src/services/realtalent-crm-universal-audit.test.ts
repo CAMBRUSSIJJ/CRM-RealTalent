@@ -29,7 +29,7 @@ const METHOD_CAPABILITY: Record<string, string> = {
   createProposal: 'proposals.create', updateProposal: 'proposals.update', createProposalRevision: 'proposals.create_revision', updateProposalStatus: 'proposals.update_status', setOfficialProposal: 'proposals.make_official', closeOpportunityFromProposal: 'proposals.close_opportunity', deleteProposal: 'proposals.delete',
   createBuyerRoom: 'buyer_rooms.create', updateBuyerRoom: 'buyer_rooms.update', rotateBuyerRoomToken: 'buyer_rooms.rotate_token', deleteBuyerRoom: 'buyer_rooms.delete',
   createRevenueEntry: 'revenue.create', updateRevenueEntryStatus: 'revenue.update_status', createGoal: 'goals.create', updateGoal: 'goals.update', deleteGoal: 'goals.delete',
-  createAutomationRule: 'automations.create', updateAutomationRule: 'automations.toggle', deleteAutomationRule: 'automations.delete', simulateAutomationRule: 'automations.simulate', runAutomationRule: 'automations.run', runAutomationChecks: 'automations.run_checks', undoAutomationRun: 'automations.undo_run',
+  createAutomationRule: 'automations.create', updateAutomationRule: 'automations.update', deleteAutomationRule: 'automations.delete', simulateAutomationRule: 'automations.simulate', runAutomationRule: 'automations.run', runAutomationChecks: 'automations.run_checks', undoAutomationRun: 'automations.undo_run',
   restoreWorkspaceBackup: 'backup.restore_workspace', importLegacyBackup: 'backup.import_legacy', importLeadFile: 'backup.import_leads',
 }
 
@@ -63,6 +63,14 @@ describe('RealTalent Agent — auditoria universal do CRM', () => {
   it('mantém executor real para toda capability nativa universal', () => {
     const missing = nativeCapabilities.map((item) => item.id).filter((id) => !hasExecutorWitness(id))
     expect(missing, `Capabilities nativas universais sem executor: ${missing.join(', ')}`).toEqual([])
+  })
+
+  it('liga o Assistant ao executor universal e o planner ao catálogo universal', () => {
+    const drawer = fs.readFileSync(path.resolve(process.cwd(), 'src/features/assistant/assistant-drawer.tsx'), 'utf8')
+    const runtimeClient = fs.readFileSync(path.resolve(process.cwd(), 'src/services/realtalent-crm-capability-runtime-client.ts'), 'utf8')
+    expect(drawer).toContain('realtalent-crm-universal-executor')
+    expect(runtimeClient).toContain('realtalent-crm-universal-registry')
+    expect(universalExecutor).toContain('executeUniversalAdmin')
   })
 
   it('não envia capabilities guiadas por arquivo para execução automática do Ollama', () => {

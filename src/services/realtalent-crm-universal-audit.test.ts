@@ -73,6 +73,14 @@ describe('RealTalent Agent — auditoria universal do CRM', () => {
     expect(universalExecutor).toContain('executeUniversalAdmin')
   })
 
+  it('submete toda capability universal nativa ao controle de permissão do perfil/equipe', () => {
+    expect(universalExecutor).toContain('universalCrmCapabilityById')
+    expect(universalExecutor).toContain('runtime.canTeamAccess(definition.permissionAction, definition.resource)')
+    for (const capability of nativeCapabilities) {
+      if (capability.resource) expect(capability.permissionAction, `${capability.id} possui resource sem permissionAction`).toBeTruthy()
+    }
+  })
+
   it('não envia capabilities guiadas por arquivo para execução automática do Ollama', () => {
     const guided = REALTALENT_UNIVERSAL_CAPABILITIES.filter((item) => item.execution === 'guided')
     expect(guided.map((item) => item.id).sort()).toEqual(expect.arrayContaining(['backup.import_leads','backup.import_legacy','backup.restore_workspace','workspace.export']))

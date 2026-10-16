@@ -9,6 +9,7 @@ coverage/
 .env.production
 .env.staging
 .env.*.local
+.supabase-local-status.env
 
 supabase/functions/.env
 supabase/functions/.env.local

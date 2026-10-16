@@ -24,6 +24,7 @@ import {
   formatSalesAgentDealAnalysis,
   formatSalesAgentNextBestAction,
 } from './realtalent-sales-intelligence-agent'
+import { buildSalesCoachingPlan, formatSalesCoachingPlan } from './realtalent-sales-coaching'
 import {
   formatSalesActionEffectiveness,
   formatSalesPortfolioLearningSummary,
@@ -85,6 +86,11 @@ const isDealNextActionQuestion = (prompt: string) => {
 const isDealAnalysisQuestion = (prompt: string) => {
   const text = normalize(prompt)
   return /\b(analise a oportunidade|analise o negocio|analisar oportunidade|analisar negocio|saude da oportunidade|saude do negocio|como esta a oportunidade|como esta o negocio|riscos da oportunidade|risco da oportunidade)\b/.test(text)
+}
+
+const isDealCoachingQuestion = (prompt: string) => {
+  const text = normalize(prompt)
+  return /\b(me prepare|prepare me|preparar (?:para )?(?:a )?(?:ligacao|reuniao)|como conduzir|como devo conduzir|como abordar|como devo abordar|o que perguntar|quais perguntas|como responder obje|objecoes? (?:provaveis|possiveis|para preparar)|roteiro (?:para|da|de) (?:ligacao|reuniao)|coaching (?:de vendas?|comercial)?|como falar com|me ajude (?:na|com a) (?:ligacao|reuniao))\b/.test(text)
 }
 
 const visibleLearningLeadIds = (snapshot: WorkspaceSnapshot, context: AssistantContext) => {
@@ -272,6 +278,56 @@ const dealIntelligenceAnswer = (prompt: string, snapshot: WorkspaceSnapshot, con
   return { answer, capabilityId }
 }
 
+const dealCoachingAnswer = (prompt: string, snapshot: WorkspaceSnapshot, context: AssistantContext) => {
+  if (!isDealCoachingQuestion(prompt)) return null
+  const lead = bestVisibleLeadForPrompt(prompt, snapshot, context)
+  if (!lead) return null
+  const now = context.now ?? new Date()
+  const coaching = buildSalesCoachingPlan(lead, snapshot, prompt, now)
+  const sales = buildSalesAgentContext(lead, snapshot, now)
+  const planId = `sales-coaching:${Date.now()}:${Math.random().toString(36).slice(2, 7)}`
+  const answer: AssistantAnswer = {
+    id: planId,
+    intent: 'prepare_call',
+    title: `${coaching.conversationType === 'meeting' ? 'Coaching de reunião' : 'Coaching de ligação'} · ${lead.company || lead.name}`,
+    text: formatSalesCoachingPlan(lead, snapshot, prompt, now),
+    items: [{
+      id: `deal:${lead.id}`,
+      kind: 'deal',
+      leadId: lead.id,
+      title: lead.company || lead.name,
+      subtitle: `${lead.name} · ${sales.health.score}/100 · ${coaching.stageName}`,
+      score: sales.health.score,
+      value: sales.commercial.value,
+      reason: coaching.coachingFocus,
+      route: coaching.conversationType === 'call' ? 'calls' : 'agenda',
+      action: coaching.conversationType,
+      proposalId: sales.commercial.proposal?.id,
+    }],
+    facts: [
+      `Objetivo mínimo: ${coaching.objective}`,
+      `${coaching.stakeholders.length} stakeholder(s) estruturado(s) considerados no coaching.`,
+      coaching.matchedPlaybooks.length ? `Playbooks aplicáveis: ${coaching.matchedPlaybooks.join(' · ')}.` : 'Nenhum Playbook estruturado compatível foi encontrado; foram usados sinais atuais e perguntas seguras de descoberta.',
+      coaching.learningSummary,
+    ],
+    suggestedPrompts: coaching.conversationType === 'call'
+      ? ['Abra a ligação para este contato', 'Quais objeções devo preparar?', 'Qual é a próxima melhor ação depois da ligação?']
+      : ['Agende o próximo compromisso', 'Quais perguntas são indispensáveis nesta reunião?', 'Qual é a próxima melhor ação depois da reunião?'],
+    focus: {
+      leadId: lead.id,
+      title: lead.company || lead.name,
+      subtitle: lead.name,
+      stageName: coaching.stageName,
+      healthScore: sales.health.score,
+      value: sales.commercial.value,
+      route: coaching.conversationType === 'call' ? 'calls' : 'agenda',
+      proposalId: sales.commercial.proposal?.id,
+    },
+    generatedAt: now.toISOString(),
+  }
+  return { answer, capabilityId: 'sales.coach_conversation' }
+}
+
 const learningAwareContext = (workspaceId: string, prompt: string, snapshot: WorkspaceSnapshot, assistantContext: AssistantContext) => {
   const receipt = lastCrmExecutionReceipt(workspaceId)
   syncVerifiedLearningFromReceipt(workspaceId, receipt)
@@ -317,6 +373,24 @@ export const realTalentAiGateway = {
           generatedAt: new Date().toISOString(),
         })
         return { answer, context, trace: { providerId: 'sales-learning:portfolio-v1', mode: 'local-orchestration', sendsDataExternally: false, durationMs, writeAuthority: false } }
+      }
+
+      const directCoaching = dealCoachingAnswer(prompt, snapshot, effectiveContext)
+      if (directCoaching) {
+        const durationMs = Math.max(0, Date.now() - started)
+        appendRealTalentAiAudit({
+          id: `ai:${Date.now()}:${Math.random().toString(36).slice(2, 8)}`,
+          workspaceId,
+          providerId: 'sales-coaching:grounded-v1',
+          intent: directCoaching.answer.intent,
+          focusLeadId: directCoaching.answer.focus?.leadId ?? context.focusLeadId,
+          route: context.route,
+          toolIds: [directCoaching.capabilityId],
+          outcome: 'success',
+          durationMs,
+          generatedAt: new Date().toISOString(),
+        })
+        return { answer: directCoaching.answer, context, trace: { providerId: 'sales-coaching:grounded-v1', mode: 'local-orchestration', sendsDataExternally: false, durationMs, writeAuthority: false } }
       }
 
       const directDeal = dealIntelligenceAnswer(prompt, snapshot, effectiveContext)

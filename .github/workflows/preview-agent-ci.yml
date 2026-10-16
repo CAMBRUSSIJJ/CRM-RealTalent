@@ -1,0 +1,43 @@
+name: Preview Agent CI
+
+on:
+  push:
+    branches:
+      - preview/v3.5-h1-semantic-agent
+    paths:
+      - 'src/services/realtalent-*.ts'
+      - 'src/features/assistant/**'
+      - 'package.json'
+      - 'package-lock.json'
+      - 'tsconfig*.json'
+      - '.github/workflows/preview-agent-ci.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate-agent:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci --include=dev
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Sales reference tests
+        run: npx vitest run src/services/realtalent-sales-reference-resolver.test.ts src/services/realtalent-sales-intelligence-agent.test.ts
+
+      - name: Build
+        run: npm run build

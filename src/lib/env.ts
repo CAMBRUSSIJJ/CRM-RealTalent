@@ -3,6 +3,22 @@ export type DataMode = 'local' | 'supabase' | 'auto'
 const clean = (value: string | undefined) => value?.trim() ?? ''
 const hosted = Boolean(import.meta.env.PROD)
 
+export const isValidSupabaseUrl = (value: string) => {
+  const candidate = clean(value)
+  if (!candidate || candidate.includes('SEU-PROJETO')) return false
+
+  try {
+    const parsed = new URL(candidate)
+    const hostname = parsed.hostname.replace(/^\[|\]$/g, '')
+    const isLoopback = hostname === 'localhost' || hostname === '127.0.0.1' || hostname === '::1'
+
+    if (isLoopback) return parsed.protocol === 'http:' || parsed.protocol === 'https:'
+    return parsed.protocol === 'https:'
+  } catch {
+    return false
+  }
+}
+
 export const env = {
   appName: clean(import.meta.env.VITE_APP_NAME) || 'RealTalent CRM',
   dataMode: (clean(import.meta.env.VITE_DATA_MODE) || 'auto') as DataMode,
@@ -20,9 +36,8 @@ export const env = {
 }
 
 export const hasSupabaseConfig = Boolean(
-  env.supabaseUrl.startsWith('https://') &&
-    env.supabasePublishableKey &&
-    !env.supabaseUrl.includes('SEU-PROJETO'),
+  isValidSupabaseUrl(env.supabaseUrl) &&
+    env.supabasePublishableKey,
 )
 
 const hasSupabaseConfigurationIntent = env.dataMode === 'supabase' || (env.dataMode === 'auto' && Boolean(env.supabaseUrl || env.supabasePublishableKey))

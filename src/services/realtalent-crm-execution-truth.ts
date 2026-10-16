@@ -106,7 +106,6 @@ const familyDeleted = (before: WorkspaceSnapshot, after: WorkspaceSnapshot, capa
   return Boolean(beforeRows && afterRows && afterRows.length < beforeRows.length)
 }
 
-
 export const executionTruthSlicesForCapability = (capabilityId: string): SnapshotSlice[] => {
   if (capabilityId.startsWith('contacts.') || capabilityId.startsWith('companies.') || capabilityId.startsWith('leads.')) return ['commercial']
   if (capabilityId.startsWith('pipeline.')) return ['commercial', 'stages']
@@ -125,7 +124,6 @@ export const executionTruthSlicesForCapability = (capabilityId: string): Snapsho
 }
 
 export const executionTruthSlicesForPlan = (steps: CrmCapabilityPlanStep[]): SnapshotSlice[] => [...new Set(steps.flatMap((step) => executionTruthSlicesForCapability(step.capabilityId)))]
-
 
 const executionTruthSlicesForUndoOperation = (operation: CrmAgentUndoOperation): SnapshotSlice[] => {
   if (operation.kind === 'task.delete' && typeof operation.metadata?.calendarEventId === 'string') return ['events']
@@ -163,6 +161,21 @@ const undoCollection = (snapshot: WorkspaceSnapshot, operationKind: string): Arr
 }
 
 const matchesUndoBefore = (row: Record<string, unknown>, before: Record<string, unknown>) => Object.entries(before).every(([field, expected]) => JSON.stringify(row[field]) === JSON.stringify(expected))
+const stepArg = (step: CrmCapabilityPlanStep, name: string) => step.args.find((item) => item.name === name)?.value.trim() ?? ''
+const normalizeGoalMetricForTruth = (value: string) => {
+  const key = value.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim()
+  const aliases: Record<string, string> = {
+    call: 'calls', calls: 'calls', ligacao: 'calls', ligacoes: 'calls',
+    contact: 'contacts', contacts: 'contacts', contato: 'contacts', contatos: 'contacts',
+    followup: 'followups', followups: 'followups', 'follow-up': 'followups', 'follow-ups': 'followups',
+    meeting: 'meetings', meetings: 'meetings', reuniao: 'meetings', reunioes: 'meetings',
+    proposal: 'proposals', proposals: 'proposals', proposta: 'proposals', propostas: 'proposals',
+    win: 'wins', wins: 'wins', venda: 'wins', vendas: 'wins',
+    revenue: 'revenue', receita: 'revenue',
+    new_leads: 'new_leads', 'novos leads': 'new_leads',
+  }
+  return aliases[key] || key
+}
 
 export async function verifyCrmUndoExecution(
   operation: CrmAgentUndoOperation,
@@ -278,6 +291,31 @@ export async function verifyCrmCapabilityExecution(
     if (step.capabilityId === 'tasks.delete') {
       base.status = 'verified'; base.checks.push('Exclusão concluída pelo serviço nativo de tarefas; a coleção foi recarregada.'); return base
     }
+  }
+
+  if (step.capabilityId === 'goals.create') {
+    const entityId = result.undo?.entityId
+    const created = entityId ? after.goals.find((goal) => goal.id === entityId) : undefined
+    const expectedMetric = normalizeGoalMetricForTruth(stepArg(step, 'metric'))
+    const expectedTarget = Number(stepArg(step, 'target_value'))
+    const expectedStart = stepArg(step, 'period_start')
+    const expectedEnd = stepArg(step, 'period_end')
+    const exactMatch = Boolean(
+      created
+      && entityId
+      && entityCreated(before, after, step.capabilityId, entityId)
+      && created.metric === expectedMetric
+      && Number(created.targetValue) === expectedTarget
+      && created.periodStart === expectedStart
+      && created.periodEnd === expectedEnd
+    )
+    if (exactMatch) {
+      base.status = 'verified'
+      base.checks.push(`Meta relida com métrica, valor e período exatos: ${expectedMetric} · ${expectedTarget} · ${expectedStart}${expectedStart === expectedEnd ? '' : ` até ${expectedEnd}`}.`)
+      return base
+    }
+    base.checks.push('A meta pode ter sido persistida, mas métrica, valor ou período não correspondem exatamente ao plano executado; conclusão total não foi declarada.')
+    return base
   }
 
   if (result.evidence?.source === 'gateway') {

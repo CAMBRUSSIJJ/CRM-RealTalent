@@ -129,7 +129,18 @@ export interface GatewayWhatsAppAttachmentInput {
   size: number
   kind: 'image' | 'video' | 'audio' | 'voice' | 'document' | 'sticker'
 }
-export const sendGatewayCommunication = (input: { workspaceId: string; leadId?: string | null; contactId?: string | null; accountId: string; channel: 'email' | 'whatsapp'; recipient?: string; threadId?: string | null; subject?: string; body: string; idempotencyKey?: string; attachment?: GatewayWhatsAppAttachmentInput | null; replyToExternalMessageId?: string | null; replyPreview?: string | null }) => request<{ event: CommunicationEvent }>('/api/communications/send', { method: 'POST', body: JSON.stringify(input) }).then((result) => result.event)
+
+export const normalizeAgentCommunicationIdempotencyKey = (value?: string) => {
+  const key = String(value || '').trim()
+  if (!key) return undefined
+  if (!/^agent-(?:whatsapp|email):/.test(key)) return key
+  return key.replace(/:\d{10,}$/, '')
+}
+
+export const sendGatewayCommunication = (input: { workspaceId: string; leadId?: string | null; contactId?: string | null; accountId: string; channel: 'email' | 'whatsapp'; recipient?: string; threadId?: string | null; subject?: string; body: string; idempotencyKey?: string; attachment?: GatewayWhatsAppAttachmentInput | null; replyToExternalMessageId?: string | null; replyPreview?: string | null }) => {
+  const payload = { ...input, idempotencyKey: normalizeAgentCommunicationIdempotencyKey(input.idempotencyKey) }
+  return request<{ event: CommunicationEvent }>('/api/communications/send', { method: 'POST', body: JSON.stringify(payload) }).then((result) => result.event)
+}
 export const retryGatewayCommunication = (workspaceId: string, eventId: string) => request<{ event: CommunicationEvent }>('/api/communications/retry', { method: 'POST', body: JSON.stringify({ workspaceId, eventId }) }).then((result) => result.event)
 
 export interface WhatsAppGroupCreateResult {
@@ -159,8 +170,6 @@ export interface GatewayWhatsAppGroupInfo {
   participants: Array<{ id: string; phone: string; isAdmin: boolean; isSuperAdmin: boolean }>
 }
 export const loadGatewayWhatsAppGroupInfo = (workspaceId: string, groupId: string) => request<GatewayWhatsAppGroupInfo>(`/api/integrations/whatsapp/qr/groups/info?workspaceId=${encodeURIComponent(workspaceId)}&groupId=${encodeURIComponent(groupId)}`)
-
-
 
 export interface WhatsAppQrStatus {
   state: 'idle' | 'starting' | 'qr' | 'connected' | 'disconnected' | 'logged_out'

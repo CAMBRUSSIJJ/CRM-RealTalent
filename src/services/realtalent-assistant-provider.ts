@@ -8,6 +8,7 @@ import { crmClarificationSuggestions, genericPendingIntent, pendingCapabilityFro
 import { buildDealIntelligence, type DealActionKind, type DealIntelligence } from './deal-intelligence'
 import { buildSalesRecommendation, rankDealsWithSalesLearning } from './realtalent-sales-recommendation-engine'
 import { formatSalesAgentNextBestAction } from './realtalent-sales-intelligence-agent'
+import { buildLiveSalesCoachAssistantAnswer } from './realtalent-live-sales-coach'
 
 export interface RealTalentAssistantProviderResult {
   answer: AssistantAnswer
@@ -209,6 +210,9 @@ const applySalesRecommendationRanking = (answer: AssistantAnswer, snapshot: Work
 export const hybridRealTalentAssistantProvider: RealTalentAssistantProvider = {
   id: 'realtalent-agent-v3.8-sales-recommendation-v2',
   async answer(prompt, snapshot, context = {}) {
+    const liveSalesCoach = buildLiveSalesCoachAssistantAnswer(prompt, snapshot, context)
+    if (liveSalesCoach) return { answer: liveSalesCoach, providerId: 'sales-coaching:live-grounded-v1', sendsDataExternally: false, mode: 'local-orchestration' }
+
     const capabilityContext = {
       currentRoute: context.currentRoute ?? null,
       focusLeadId: context.focusLeadId ?? null,

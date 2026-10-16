@@ -64,9 +64,73 @@ const severityLabel: Record<DealRiskSeverity, string> = { critical: 'Crítico', 
 const momentumLabel: Record<DealMomentum, string> = { accelerating: 'acelerando', stable: 'estável', cooling: 'esfriando' }
 const urgencyLabel = { now: 'agora', today: 'hoje', planned: 'planejada' } as const
 
+const normalizedIdentity = (value: string | null | undefined) => (value ?? '')
+  .normalize('NFD')
+  .replace(/[\u0300-\u036f]/g, '')
+  .toLowerCase()
+  .replace(/[^a-z0-9]+/g, ' ')
+  .trim()
+
+const verifiedCompanyName = (lead: Lead) => {
+  const company = lead.company?.trim()
+  if (!company) return null
+  return normalizedIdentity(company) === normalizedIdentity(lead.name) ? null : company
+}
+
 const visibleLeadIdsForRecommendation = (lead: Lead, snapshot: WorkspaceSnapshot) => {
   if (snapshot.workspace.role === 'owner' || snapshot.workspace.role === 'admin') return new Set(snapshot.leads.map((item) => item.id))
   return new Set(snapshot.leads.filter((item) => item.ownerId === lead.ownerId).map((item) => item.id))
+}
+
+const groundedNextBestAction = (lead: Lead, insight: DealIntelligence, recommended: DealNextBestAction): DealNextBestAction => {
+  const riskKeys = new Set(insight.risks.map((risk) => risk.key))
+
+  if (riskKeys.has('never-contacted')) {
+    if (lead.phone && !lead.doNotContact) return {
+      kind: 'followup',
+      title: 'Iniciar contato pelo WhatsApp',
+      explanation: 'Ainda não existe interação concluída registrada para esta oportunidade.',
+      objective: 'Confirmar interesse e definir o próximo passo concreto.',
+      route: 'leads',
+      urgency: 'now',
+    }
+    if (lead.email && !lead.doNotContact) return {
+      kind: 'followup',
+      title: 'Iniciar contato por e-mail',
+      explanation: 'Ainda não existe interação concluída registrada para esta oportunidade.',
+      objective: 'Confirmar interesse e definir o próximo passo concreto.',
+      route: 'leads',
+      urgency: 'now',
+    }
+    return {
+      kind: 'followup',
+      title: 'Criar primeiro follow-up',
+      explanation: 'Ainda não existe interação concluída registrada para esta oportunidade.',
+      objective: 'Definir um primeiro contato executável e com data.',
+      route: 'leads',
+      urgency: 'now',
+    }
+  }
+
+  if (/manter cad[eê]ncia|preservar momentum/i.test(`${recommended.title} ${recommended.explanation} ${recommended.objective}`)) {
+    return lead.phone && !lead.doNotContact ? {
+      kind: 'call',
+      title: 'Ligar para confirmar o próximo passo',
+      explanation: 'O negócio precisa de um próximo compromisso comercial explícito.',
+      objective: 'Confirmar o próximo compromisso e registrar uma data.',
+      route: 'calls',
+      urgency: 'planned',
+    } : {
+      kind: 'followup',
+      title: 'Criar follow-up com próximo passo',
+      explanation: 'O negócio precisa de um próximo compromisso comercial explícito.',
+      objective: 'Registrar a próxima ação e uma data de execução.',
+      route: 'leads',
+      urgency: 'planned',
+    }
+  }
+
+  return recommended
 }
 
 export const buildSalesAgentContext = (lead: Lead, snapshot: WorkspaceSnapshot, now = new Date()): SalesAgentContext => {
@@ -78,7 +142,7 @@ export const buildSalesAgentContext = (lead: Lead, snapshot: WorkspaceSnapshot, 
     entity: {
       id: lead.id,
       name: lead.name,
-      company: lead.company || null,
+      company: verifiedCompanyName(lead),
       status: lead.status,
       priority: lead.priority,
       temperature: lead.temperature,
@@ -117,7 +181,7 @@ export const buildSalesAgentContext = (lead: Lead, snapshot: WorkspaceSnapshot, 
       label: signal.label,
       detail: signal.detail,
     })),
-    nextBestAction: { ...recommendation.recommendedAction },
+    nextBestAction: groundedNextBestAction(lead, insight, recommendation.recommendedAction),
     learning: {
       adjustment: recommendation.learningAdjustment,
       samples: recommendation.actionLearning.samples,
@@ -131,13 +195,15 @@ export const buildSalesAgentContext = (lead: Lead, snapshot: WorkspaceSnapshot, 
   }
 }
 
-const entityLabel = (context: SalesAgentContext) => context.entity.company && context.entity.company !== context.entity.name
+const entityLabel = (context: SalesAgentContext) => context.entity.company
   ? `${context.entity.name} · ${context.entity.company}`
   : context.entity.name
 
 const riskText = (context: SalesAgentContext, limit = 3) => context.risks.length
   ? context.risks.slice(0, limit).map((risk) => `${severityLabel[risk.severity]}: ${risk.title} — ${risk.detail}`).join(' | ')
-  : 'Nenhum risco comercial relevante detectado.'
+  : context.health.level === 'critical'
+    ? 'A saúde agregada da oportunidade está crítica, mesmo sem um item individual classificado como crítico.'
+    : 'Nenhum risco comercial relevante foi identificado nos dados atuais.'
 
 const signalText = (context: SalesAgentContext, limit = 3) => context.positiveSignals.length
   ? context.positiveSignals.slice(0, limit).map((signal) => `${signal.label} — ${signal.detail}`).join(' | ')
@@ -166,17 +232,15 @@ export const formatSalesAgentDealAnalysis = (lead: Lead, snapshot: WorkspaceSnap
 
 export const formatSalesAgentNextBestAction = (lead: Lead, snapshot: WorkspaceSnapshot, now = new Date()) => {
   const context = buildSalesAgentContext(lead, snapshot, now)
+  const mainRisk = context.risks[0]
   return [
-    `Próxima melhor ação para ${entityLabel(context)}: ${context.nextBestAction.title}.`,
-    `Urgência: ${urgencyLabel[context.nextBestAction.urgency]}.`,
-    `Por quê: ${context.nextBestAction.explanation}`,
-    `Objetivo: ${context.nextBestAction.objective}`,
-    `Contexto de decisão: saúde ${context.health.score}/100 (${context.health.label}), momentum ${momentumLabel[context.health.momentum]}, probabilidade RealTalent ${context.health.realTalentProbability}%.`,
-    `Riscos que sustentam a recomendação: ${riskText(context, 4)}.`,
-    learningText(context),
+    `${context.nextBestAction.title}.`,
+    context.nextBestAction.explanation,
+    `Saúde da oportunidade: ${context.health.score}/100 (${context.health.label}).`,
+    mainRisk ? `Principal motivo: ${mainRisk.detail}` : `Motivo: ${context.nextBestAction.objective}`,
+    `Próximo objetivo: ${context.nextBestAction.objective}`,
   ].join('\n')
 }
-
 
 export type SalesPortfolioFocus = 'priorities' | 'calls' | 'risk' | 'cooling' | 'decision_maker' | 'closing_risk'
 
@@ -195,8 +259,8 @@ const closingRisk = (deal: DealIntelligence, now: Date) => sameMonth(deal.expect
 )
 
 const dealPortfolioLine = (deal: DealIntelligence, index: number) => {
-  const label = deal.lead.company || deal.lead.name
-  const risks = deal.risks.slice(0, 2).map((risk) => risk.title).join(', ') || 'sem risco crítico explícito'
+  const label = verifiedCompanyName(deal.lead) || deal.lead.name
+  const risks = deal.risks.slice(0, 2).map((risk) => risk.title).join(', ') || (deal.healthLevel === 'critical' ? 'saúde agregada crítica' : 'sem risco individual relevante')
   return `${index + 1}. ${label} — saúde ${deal.healthScore}/100 (${deal.healthLabel}), ${money(deal.commercialValue)}, probabilidade RealTalent ${deal.realTalentProbability}%, momentum ${momentumLabel[deal.momentum]}. Riscos: ${risks}. Próxima ação: ${deal.nextBestAction.title} (${urgencyLabel[deal.nextBestAction.urgency]}).`
 }
 

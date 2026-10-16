@@ -77,24 +77,26 @@ create table public.social_profiles (
   unique(organization_id, network, url)
 );
 
+-- Alguns campos de enriquecimento foram introduzidos por migrations anteriores.
+-- IF NOT EXISTS mantém a cadeia reconstruível do zero sem alterar o schema final.
 alter table public.leads
-  add column company_id uuid references public.companies(id) on delete set null,
-  add column primary_contact_id uuid references public.contacts(id) on delete set null,
-  add column opportunity_id uuid references public.opportunities(id) on delete set null,
-  add column source_detail text not null default '',
-  add column source_url text not null default '',
-  add column captured_at timestamptz,
-  add column consent_status public.consent_status not null default 'unknown',
-  add column do_not_contact boolean not null default false,
-  add column do_not_contact_reason text not null default '',
-  add column cnpj text not null default '',
-  add column website text not null default '',
-  add column instagram_url text not null default '',
-  add column linkedin_url text not null default '',
-  add column facebook_url text not null default '',
-  add column job_title text not null default '',
-  add column decision_role public.decision_role not null default 'unknown',
-  add column influence_level integer not null default 0 check (influence_level between 0 and 100);
+  add column if not exists company_id uuid references public.companies(id) on delete set null,
+  add column if not exists primary_contact_id uuid references public.contacts(id) on delete set null,
+  add column if not exists opportunity_id uuid references public.opportunities(id) on delete set null,
+  add column if not exists source_detail text not null default '',
+  add column if not exists source_url text not null default '',
+  add column if not exists captured_at timestamptz,
+  add column if not exists consent_status public.consent_status not null default 'unknown',
+  add column if not exists do_not_contact boolean not null default false,
+  add column if not exists do_not_contact_reason text not null default '',
+  add column if not exists cnpj text not null default '',
+  add column if not exists website text not null default '',
+  add column if not exists instagram_url text not null default '',
+  add column if not exists linkedin_url text not null default '',
+  add column if not exists facebook_url text not null default '',
+  add column if not exists job_title text not null default '',
+  add column if not exists decision_role public.decision_role not null default 'unknown',
+  add column if not exists influence_level integer not null default 0 check (influence_level between 0 and 100);
 
 create index companies_org_name_city_idx on public.companies(organization_id, lower(name), lower(city));
 create unique index companies_org_cnpj_unique on public.companies(organization_id, regexp_replace(cnpj, '\D', '', 'g')) where cnpj <> '';

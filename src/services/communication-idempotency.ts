@@ -1,3 +1,5 @@
+import { createUuid } from '../lib/id'
+
 type OfficialCommunicationChannel = 'email' | 'whatsapp'
 
 type StoredAttempt = {
@@ -78,6 +80,23 @@ const freshPending = (attempt: StoredAttempt, now: number) => attempt.state === 
 
 const fallbackKey = (input: CommunicationIdempotencyInput, now: number) => `crm-${input.channel}:${input.leadId || input.contactId || 'unlinked'}:${now}`
 
+const legacyAgentTransportKey = (value: string) => /^agent-(?:whatsapp|email):/.test(value)
+  ? value.replace(/:\d{10,}$/, '')
+  : value
+
+const transportSafeProposedKey = (proposedKey: string, attempts: StoredAttempt[]) => {
+  const transportKey = legacyAgentTransportKey(proposedKey)
+  const collidesWithConfirmedSend = attempts.some((item) => (
+    item.state === 'confirmed' && legacyAgentTransportKey(item.key) === transportKey
+  ))
+  if (!collidesWithConfirmedSend) return proposedKey
+
+  // Older gateway code strips the final timestamp from Agent keys. Add a
+  // non-numeric per-send suffix only after a confirmed send so an intentional
+  // resend cannot collapse back onto the previous runtime idempotency key.
+  return `${proposedKey}:send-${createUuid()}`
+}
+
 /**
  * A retry after an ambiguous/network failure reuses the first key for the same
  * exact outbound payload. Once a send is confirmed, a later intentional send
@@ -93,7 +112,8 @@ export const beginCommunicationIdempotencyAttempt = (input: CommunicationIdempot
     return { fingerprint, key: pending.key, reusedPendingAttempt: true }
   }
 
-  const key = input.proposedKey?.trim() || fallbackKey(input, now)
+  const proposedKey = input.proposedKey?.trim()
+  const key = proposedKey ? transportSafeProposedKey(proposedKey, attempts) : fallbackKey(input, now)
   writeAttempts([{ fingerprint, key, state: 'pending', updatedAt: now }, ...attempts.filter((item) => item.fingerprint !== fingerprint || item.state === 'confirmed')], now)
   return { fingerprint, key, reusedPendingAttempt: false }
 }

@@ -4,6 +4,7 @@ import { UNIVERSAL_CRM_CAPABILITIES } from './realtalent-crm-universal-capabilit
 export const SALES_INTELLIGENCE_CAPABILITIES: CrmCapabilityDefinition[] = [
   { id: 'sales.analyze_deal', module: 'pipeline', title: 'Analisar saúde da oportunidade', description: 'Analisa uma oportunidade usando os sinais reais do CRM e devolve Deal Health, momentum, riscos, cobertura de stakeholders, probabilidade RealTalent e a próxima melhor ação.', action: 'read', risk: 'read', execution: 'native', reversible: false, resource: 'pipeline', permissionAction: 'view', argumentHints: ['record_query'] },
   { id: 'sales.next_best_action', module: 'pipeline', title: 'Calcular próxima melhor ação', description: 'Calcula a próxima melhor ação comercial para um lead ou oportunidade com base em atividade, stakeholders, proposta, timing, engajamento e riscos atuais.', action: 'read', risk: 'read', execution: 'native', reversible: false, resource: 'pipeline', permissionAction: 'view', argumentHints: ['record_query'] },
+  { id: 'sales.coach_conversation', module: 'pipeline', title: 'Preparar coaching de venda', description: 'Prepara como conduzir uma ligação ou reunião usando etapa, stakeholders, riscos, histórico real, Playbooks, catálogo vinculado e aprendizado comercial verificado, sem inventar fatos ausentes no CRM.', action: 'read', risk: 'read', execution: 'native', reversible: false, resource: 'pipeline', permissionAction: 'view', argumentHints: ['record_query', 'conversation_type'] },
 ]
 
 export const UNIVERSAL_ADMIN_CAPABILITIES: CrmCapabilityDefinition[] = [

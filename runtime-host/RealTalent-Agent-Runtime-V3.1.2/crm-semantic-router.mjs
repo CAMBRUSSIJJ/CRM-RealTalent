@@ -16,22 +16,34 @@ export const routeBusinessDomain = (prompt, modules = []) => {
     ? { modules: [module], primaryModule: module, confidence: 0.995, rationale: `anchor: ${rationale}`, source: 'deterministic-domain' }
     : null
 
-  // Objetos operacionais explícitos vencem palavras incidentais em nomes, como “Follow-up automático”.
+  // Objetos operacionais explícitos vencem palavras incidentais em nomes/contexto.
   if (rx(text, /\b(automacao|automacoes|automatizacao|gatilho|regra automatica)\b/)) {
     const automation = pick('automations', 'automação explícita')
     if (automation) return automation
+  }
+
+  if (rx(text, /\b(equipe|equipes|membro|membros|convite|convide|papel|permissao|permissoes)\b/)) {
+    const teams = pick('teams', 'equipe, membro ou permissão explícita')
+    if (teams) return teams
+  }
+
+  if (
+    rx(text, /\b(auditoria|audit log|logs de auditoria|eventos de auditoria|dados operacionais)\b/)
+    || rx(text, /\b(sincronize a estrutura|sincronizar a estrutura|estrutura comercial)\b/)
+    || (rx(text, /\bworkspace\b/) && rx(text, /\b(crie|criar|troque|trocar|mude|mudar|selecione|selecionar)\b/))
+  ) {
+    const settings = pick('settings', 'administração do workspace explícita')
+    if (settings) return settings
   }
 
   const rules = [
     ['goals', /\b(meta|metas|quota|quotas|objetivo|objetivos|alvo|alvos)\b/, 'meta ou objetivo comercial explícito'],
     ['communications', /\b(email|e-mail|whatsapp|mensagem|mensagens)\b.*\b(envie|enviar|mande|mandar|responda|responder|escreva|escrever)\b|\b(envie|enviar|mande|mandar|responda|responder|escreva|escrever)\b.*\b(email|e-mail|whatsapp|mensagem|mensagens)\b/, 'canal externo explícito'],
     ['dashboard', /\b(notificacao|notificacoes|aviso|avisos|campainha|desfaca|desfazer|undo)\b/, 'notificação, undo ou ação global explícita'],
-    ['settings', /\b(auditoria|audit log|logs de auditoria|eventos de auditoria|sincronize a estrutura|sincronizar a estrutura|workspace|dados operacionais)\b/, 'administração do workspace explícita'],
     ['followups', /\b(cadencia|cadencias|follow[- ]?up|followups|atividade|atividades|nota|notas)\b/, 'atividade, follow-up, nota ou cadência explícita'],
     ['calls', /\b(ligacao|ligacoes|telefonema|telefonemas|discador|gravacao)\b/, 'operação de ligação explícita'],
     ['tasks', /\b(tarefa|tarefas|lembrete|lembretes)\b/, 'tarefa ou lembrete explícito'],
     ['agenda', /\b(reuniao|reunioes|compromisso|compromissos|agenda|calendario)\b|\b(evento|eventos)\b.*\b(marque|marcar|agende|agendar|crie|criar|reagende|reagendar|cancele|cancelar)\b|\b(marque|marcar|agende|agendar|crie|criar|reagende|reagendar|cancele|cancelar)\b.*\b(evento|eventos)\b/, 'evento ou agendamento explícito'],
-    ['teams', /\b(equipe|equipes|membro|membros|convite|convide|papel|permissao|permissoes)\b/, 'equipe ou membro explícito'],
     ['revenue', /\b(receita|receitas|faturamento)\b/, 'receita ou reconhecimento financeiro explícito'],
     ['playbooks', /\b(playbook|playbooks|roteiro comercial|script de vendas|script comercial)\b/, 'roteiro ou playbook explícito'],
     ['prospecting', /\b(garimpo|garimpar|garimpe|prospeccao|prospect|prospects|icp|ranqueie|ranking de prospects)\b/, 'descoberta de novos prospects explícita'],

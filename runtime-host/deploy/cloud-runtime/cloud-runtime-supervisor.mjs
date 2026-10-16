@@ -23,12 +23,15 @@ const launch=(name,cmd,args,extra)=>{
   children.push(child); return child
 }
 let shuttingDown=false
-launch('agent',process.execPath,[path.join(agent,'cloud-agent-gateway.mjs')],{cwd:agent,env:{REALTALENT_AGENT_HOST:'127.0.0.1',REALTALENT_AGENT_PORT:'8791',REALTALENT_AGENT_INNER_PORT:'8792',XDG_CONFIG_HOME:path.join(DATA,'agent-config'),XDG_STATE_HOME:path.join(DATA,'agent-state')}})
+
+// O Agent cloud usa o gateway original diretamente. A inteligência principal vem
+// do Ollama remoto configurado por OLLAMA_URL; não há gateway determinístico no caminho.
+launch('agent',process.execPath,[path.join(agent,'gateway.mjs')],{cwd:agent,env:{REALTALENT_AGENT_HOST:'127.0.0.1',REALTALENT_AGENT_PORT:'8791',XDG_CONFIG_HOME:path.join(DATA,'agent-config'),XDG_STATE_HOME:path.join(DATA,'agent-state')}})
 launch('communications',process.execPath,[path.join(crm,'scripts/realtalent-communications-gateway.mjs')],{cwd:crm,env:{REALTALENT_COMMUNICATIONS_HOST:'127.0.0.1',REALTALENT_COMMUNICATIONS_PORT:'3002',REALTALENT_COMMUNICATIONS_STORE:path.join(DATA,'communications','store.json'),REALTALENT_COMMUNICATIONS_KEY_FILE:path.join(DATA,'communications','key'),REALTALENT_COMMUNICATIONS_CONFIG:path.join(DATA,'communications','config.json'),REALTALENT_COMMUNICATIONS_MEDIA_DIR:path.join(DATA,'communications','media')}})
 launch('prospecting',process.execPath,[path.join(crm,'scripts/realtalent-prospecting-agent.mjs')],{cwd:crm,env:{REALTALENT_PROSPECTING_AGENT_HOST:'127.0.0.1',REALTALENT_PROSPECTING_AGENT_PORT:'4319',REALTALENT_PROSPECTING_AGENT_STATE_DIR:path.join(DATA,'prospecting')}})
 
 const services={
-  agent:{name:'agent',port:8791,innerPort:8792,prefix:'/agent',header:'x-realtalent-agent-token',primaryEnv:'REALTALENT_AGENT_RUNTIME_TOKEN',previewEnv:'REALTALENT_PREVIEW_AGENT_RUNTIME_TOKEN'},
+  agent:{name:'agent',port:8791,prefix:'/agent',header:'x-realtalent-agent-token',primaryEnv:'REALTALENT_AGENT_RUNTIME_TOKEN',previewEnv:'REALTALENT_PREVIEW_AGENT_RUNTIME_TOKEN'},
   communications:{name:'communications',port:3002,prefix:'/communications',header:'x-realtalent-runtime-token',primaryEnv:'REALTALENT_RUNTIME_TOKEN',previewEnv:'REALTALENT_PREVIEW_RUNTIME_TOKEN'},
   prospecting:{name:'prospecting',port:4319,prefix:'/prospecting',header:'x-realtalent-prospecting-token',primaryEnv:'REALTALENT_PROSPECTING_RUNTIME_TOKEN',previewEnv:'REALTALENT_PREVIEW_PROSPECTING_RUNTIME_TOKEN'}
 }
@@ -49,36 +52,29 @@ const normalizedServicePath=(req,service)=>{
   if(pathname===service.prefix) pathname='/'
   else if(pathname.startsWith(`${service.prefix}/`)) pathname=pathname.slice(service.prefix.length)||'/'
 
-  // Defesa contra prefixo duplicado vindo de proxies/rewrite. `/agent` isolado é
-  // uma rota legítima do Agent e por isso não é removido aqui.
+  // Defesa contra prefixo duplicado vindo de proxies/rewrite.
   if(service.name==='agent'&&pathname.startsWith('/agent/')) pathname=pathname.slice('/agent'.length)||'/'
+
+  // O gateway do Agent possui rotas exatas; normaliza barra final para evitar 404
+  // em chamadas vindas de proxies ou clientes que adicionem '/'.
+  if(pathname.length>1&&pathname.endsWith('/')) pathname=pathname.replace(/\/+$/,'')
 
   const search=parsed.searchParams.toString()
   return `${pathname.startsWith('/')?pathname:`/${pathname}`}${search?`?${search}`:''}`
 }
 
-const targetPortFor=(service,pathSuffix)=>{
-  if(service.name!=='agent') return service.port
-  const pathname=new URL(pathSuffix,'http://agent.local').pathname
-  // Somente estes dois endpoints precisam passar pelo fallback determinístico
-  // quando não há LLM cloud. Todo o restante vai direto ao Agent original.
-  if(pathname==='/language/interpret'||pathname==='/capabilities/plan') return service.port
-  return service.innerPort
-}
-
 const proxy=(req,res,service)=>{
   const pathSuffix=normalizedServicePath(req,service)
-  const targetPort=targetPortFor(service,pathSuffix)
-  const headers={...req.headers,host:`127.0.0.1:${targetPort}`}
+  const headers={...req.headers,host:`127.0.0.1:${service.port}`}
   normalizePreviewCredential(headers,service)
   delete headers.origin; delete headers.referer; delete headers['x-forwarded-host']; delete headers['x-forwarded-proto']; delete headers['x-vercel-id']
 
-  const upstream=http.request({host:'127.0.0.1',port:targetPort,path:pathSuffix,method:req.method,headers},u=>{
-    if((u.statusCode||500)>=400) console.warn(`[cloud-runtime] ${req.method} ${req.url||'/'} -> ${service.name}:${targetPort}${pathSuffix} status=${u.statusCode||0}`)
+  const upstream=http.request({host:'127.0.0.1',port:service.port,path:pathSuffix,method:req.method,headers},u=>{
+    if((u.statusCode||500)>=400) console.warn(`[cloud-runtime] ${req.method} ${req.url||'/'} -> ${service.name}:${service.port}${pathSuffix} status=${u.statusCode||0}`)
     res.writeHead(u.statusCode||502,u.headers);u.pipe(res)
   })
   upstream.on('error',err=>{
-    console.error(`[cloud-runtime] upstream ${service.name}:${targetPort}${pathSuffix} indisponível: ${String(err.message||err)}`)
+    console.error(`[cloud-runtime] upstream ${service.name}:${service.port}${pathSuffix} indisponível: ${String(err.message||err)}`)
     if(!res.headersSent){res.statusCode=502;res.setHeader('content-type','application/json')}
     res.end(JSON.stringify({ok:false,error:'upstream_unavailable',service:service.name,message:String(err.message||err)}))
   })
@@ -88,10 +84,9 @@ const proxy=(req,res,service)=>{
 const health=async()=>{
   const probes=await Promise.all(Object.entries(services).map(async([name,s])=>{
     try{
-      const port=name==='agent'?s.innerPort:s.port
-      const url=name==='prospecting'?`http://127.0.0.1:${port}/api/prospecting-agent/health`:`http://127.0.0.1:${port}${name==='communications'?'/api/communications/health':'/health'}`
+      const url=name==='prospecting'?`http://127.0.0.1:${s.port}/api/prospecting-agent/health`:`http://127.0.0.1:${s.port}${name==='communications'?'/api/communications/health':'/health'}`
       const header=name==='agent'?{'x-realtalent-agent-token':process.env.REALTALENT_AGENT_RUNTIME_TOKEN}:name==='communications'?{'x-realtalent-runtime-token':process.env.REALTALENT_RUNTIME_TOKEN}:{'x-realtalent-prospecting-token':process.env.REALTALENT_PROSPECTING_RUNTIME_TOKEN}
-      const r=await fetch(url,{headers:header,signal:AbortSignal.timeout(2000)})
+      const r=await fetch(url,{headers:header,signal:AbortSignal.timeout(3000)})
       return [name,{ok:r.ok,status:r.status}]
     }catch(error){return [name,{ok:false,error:String(error.message||error)}]}
   }))

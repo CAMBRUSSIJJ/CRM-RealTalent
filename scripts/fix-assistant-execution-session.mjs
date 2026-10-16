@@ -42,5 +42,20 @@ replaceRequired(
   'dependências da persistência de sessão',
 )
 
+replaceRequired(
+  "    const effectivePrompt = pendingCapability\n      ? continuationPrompt(pendingCapability, userPrompt)\n      : pendingAction && !directAction ? `${pendingAction.seed} ${userPrompt}` : userPrompt",
+  "    const effectivePrompt = pendingCapability\n      ? userPrompt\n      : pendingAction && !directAction ? `${pendingAction.seed} ${userPrompt}` : userPrompt",
+  'resposta curta de slot pendente sem reescrever a fala do usuário',
+)
+
+source = source.replace(
+  "import { continuationPrompt, type CrmPendingCapability } from '../../services/realtalent-crm-universal-slot-filling'",
+  "import { type CrmPendingCapability } from '../../services/realtalent-crm-universal-slot-filling'",
+)
+source = source.replace(
+  "import { continuationPrompt, type CrmPendingCapability } from '../../services/realtalent-crm-slot-filling'",
+  "import { type CrmPendingCapability } from '../../services/realtalent-crm-slot-filling'",
+)
+
 fs.writeFileSync(file, source, 'utf8')
-console.log('✓ Assistant: estado de plano executado persiste após recarregar a página.')
+console.log('✓ Assistant: sessão persistente + resposta curta de slot pendente preservada literalmente.')

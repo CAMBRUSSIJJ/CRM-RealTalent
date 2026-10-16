@@ -99,8 +99,6 @@ const bestVisibleLeadForPrompt = (prompt: string, snapshot: WorkspaceSnapshot, c
   const visible = snapshot.leads.filter((lead) => visibleIds.has(lead.id))
   if (!visible.length) return null
 
-  // Uma entidade explicitamente citada no pedido sempre vence o registro que estava
-  // aberto antes. O foco/continuidade só entra como fallback anafórico.
   const text = normalize(prompt)
   let best: { lead: (typeof visible)[number]; score: number } | null = null
   for (const lead of visible) {
@@ -224,7 +222,12 @@ const dealIntelligenceAnswer = (prompt: string, snapshot: WorkspaceSnapshot, con
       title: nextAction ? 'Calcular próxima melhor ação' : 'Analisar saúde da oportunidade',
       reason: 'Leitura determinística dos sinais comerciais atuais do CRM.',
       risk: 'read',
-      args: [{ name: 'record_query', value: lead.id }],
+      args: [
+        { name: 'record_query', value: lead.id },
+        { name: 'recommended_action', value: sales.nextBestAction.kind },
+        { name: 'recommended_action_title', value: sales.nextBestAction.title },
+        { name: 'recommended_action_route', value: sales.nextBestAction.route },
+      ],
     }],
   }, snapshot, lead.id)
 
@@ -270,9 +273,6 @@ const dealIntelligenceAnswer = (prompt: string, snapshot: WorkspaceSnapshot, con
 }
 
 const learningAwareContext = (workspaceId: string, prompt: string, snapshot: WorkspaceSnapshot, assistantContext: AssistantContext) => {
-  // Aprendizado operacional: somente recibos integralmente verificados entram como
-  // exemplos positivos. Aprendizado comercial: uma recomendação só ganha crédito
-  // depois de uma ação posterior verificada e de melhora mensurável no mesmo negócio.
   const receipt = lastCrmExecutionReceipt(workspaceId)
   syncVerifiedLearningFromReceipt(workspaceId, receipt)
   syncSalesLearningFromReceipt(workspaceId, receipt, snapshot)

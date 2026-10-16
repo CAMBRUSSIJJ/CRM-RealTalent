@@ -217,11 +217,13 @@ export const routeCapability = (prompt, candidates = [], pendingId = '') => {
 }
 
 const hasArg = (step, names) => Array.isArray(step?.args) && step.args.some((item) => names.includes(String(item?.name || '')) && String(item?.value || '').trim())
-const appendArg = (step, name, value) => {
+const setArg = (step, name, value) => {
   const clean = String(value || '').trim()
   if (!step || !clean) return
   if (!Array.isArray(step.args)) step.args = []
-  step.args.push({ name, value: clean })
+  const existing = step.args.find((item) => String(item?.name || '') === name)
+  if (existing) existing.value = clean
+  else step.args.push({ name, value: clean })
 }
 
 const explicitCalendarEntity = (prompt) => {
@@ -230,13 +232,55 @@ const explicitCalendarEntity = (prompt) => {
   return match ? match[1].replace(/^(?:o|a|um|uma)\s+/i, '').trim().slice(0, 200) : ''
 }
 
-export const preserveExplicitPlannerArguments = (prompt, payload) => {
+const localDateKeyForContext = (context = {}) => {
+  const instant = new Date(String(context?.now || ''))
+  const date = Number.isFinite(instant.getTime()) ? instant : new Date()
+  const requestedZone = String(context?.timezone || 'America/Sao_Paulo')
+  const partsFor = (timeZone) => Object.fromEntries(new Intl.DateTimeFormat('en-US', {
+    timeZone, year: 'numeric', month: '2-digit', day: '2-digit',
+  }).formatToParts(date).filter((part) => part.type !== 'literal').map((part) => [part.type, part.value]))
+  let parts
+  try { parts = partsFor(requestedZone) } catch { parts = partsFor('America/Sao_Paulo') }
+  return `${parts.year}-${parts.month}-${parts.day}`
+}
+
+const shiftDateKey = (value, days) => {
+  const [year, month, day] = String(value).split('-').map(Number)
+  const date = new Date(Date.UTC(year, month - 1, day + days))
+  return `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, '0')}-${String(date.getUTCDate()).padStart(2, '0')}`
+}
+
+const normalizeRelativeGoalPeriod = (prompt, step, context) => {
+  if (String(step?.capabilityId || '') !== 'goals.create') return false
+  const text = normalizeRouterText(prompt)
+  const hasExplicitRange = /\b(a partir de|ate|semana|mes|trimestre|ano|por \d+ dias|proxim[oa]s? \d+ dias)\b/.test(text)
+  const localToday = localDateKeyForContext(context)
+  let date = ''
+  if (/\bhoje\b/.test(text) && !hasExplicitRange) date = localToday
+  if (/\bamanha\b/.test(text) && !hasExplicitRange) date = shiftDateKey(localToday, 1)
+  if (!date) return false
+  setArg(step, 'period_start', date)
+  setArg(step, 'period_end', date)
+  return true
+}
+
+export const preserveExplicitPlannerArguments = (prompt, payload, context = {}) => {
   if (!payload || typeof payload !== 'object') return payload
   const steps = Array.isArray(payload?.plan?.steps) ? payload.plan.steps : []
+  let repairedGoalPeriod = false
   for (const step of steps) {
     if (String(step?.capabilityId || '') === 'calendar.create' && !hasArg(step, ['record_query', 'contact_query', 'lead_query'])) {
       const entity = explicitCalendarEntity(prompt)
-      if (entity) appendArg(step, 'contact_query', entity)
+      if (entity) setArg(step, 'contact_query', entity)
+    }
+    if (normalizeRelativeGoalPeriod(prompt, step, context)) repairedGoalPeriod = true
+  }
+  if (repairedGoalPeriod && payload?.plan && Array.isArray(payload.plan.missingSlots)) {
+    payload.plan.missingSlots = payload.plan.missingSlots.filter((slot) => String(slot) !== 'period')
+    if (!payload.plan.missingSlots.length && payload.plan.needsClarification) {
+      payload.plan.needsClarification = false
+      payload.plan.clarification = ''
+      if (payload.decision === 'clarify') payload.decision = 'execute'
     }
   }
   return payload

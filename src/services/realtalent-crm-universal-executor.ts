@@ -5,13 +5,13 @@ import type { CrmCapabilityPlanStep } from './realtalent-crm-capability-planner'
 import { UNIVERSAL_EXTRA_CAPABILITIES } from './realtalent-crm-universal-capabilities'
 import { executeUniversalContacts } from './realtalent-crm-universal-executor-contacts'
 import { assertRecordU, parseJson, resolveActivityU, resolveAutomationU, resolveBuyerRoomU, resolveContactU, resolveLeadU, resolveLeadsU, resolveProductU, resolveProposalU, targetQuery, uarg, ubest, ubool, uiso, unormalize, unum } from './realtalent-crm-universal-executor-helpers'
-import { formatSalesAgentDealAnalysis, formatSalesAgentNextBestAction } from './realtalent-sales-intelligence-agent'
+import { formatSalesAgentDealAnalysis, formatSalesAgentNextBestAction, formatSalesPortfolio, type SalesPortfolioFocus } from './realtalent-sales-intelligence-agent'
 import { formatSalesCoachingPlan } from './realtalent-sales-coaching'
 
 export { undoCrmAgentOperation }
 export type { CrmCapabilityExecutionRuntime, CrmCapabilityStepResult }
 
-const SALES_INTELLIGENCE_IDS = ['sales.analyze_deal', 'sales.next_best_action', 'sales.coach_conversation'] as const
+const SALES_INTELLIGENCE_IDS = ['sales.analyze_deal', 'sales.next_best_action', 'sales.coach_conversation', 'sales.prioritize_pipeline', 'sales.call_priorities', 'sales.at_risk_deals', 'sales.cooling_deals', 'sales.missing_decision_maker', 'sales.closing_risk_this_month'] as const
 const EXTRA_IDS = new Set([...UNIVERSAL_EXTRA_CAPABILITIES.filter((item) => item.execution === 'native').map((item) => item.id), ...SALES_INTELLIGENCE_IDS])
 
 const activityOutcome = (value: string) => {
@@ -89,6 +89,19 @@ async function executeFollowupAndCalls(step: CrmCapabilityPlanStep, runtime: Crm
 
 async function executeSales(step: CrmCapabilityPlanStep, runtime: CrmCapabilityExecutionRuntime): Promise<CrmCapabilityStepResult | null> {
   const { actions, snapshot } = runtime
+  const portfolioFocus: Partial<Record<string, SalesPortfolioFocus>> = {
+    'sales.prioritize_pipeline': 'priorities',
+    'sales.call_priorities': 'calls',
+    'sales.at_risk_deals': 'risk',
+    'sales.cooling_deals': 'cooling',
+    'sales.missing_decision_maker': 'decision_maker',
+    'sales.closing_risk_this_month': 'closing_risk',
+  }
+  const focus = portfolioFocus[step.capabilityId]
+  if (focus) {
+    const visibleSnapshot = { ...snapshot, leads: snapshot.leads.filter((lead) => runtime.canTeamAccessRecord('pipeline', lead.ownerId)) }
+    return { ok: true, summary: formatSalesPortfolio(visibleSnapshot, focus) }
+  }
   if (step.capabilityId === 'sales.analyze_deal' || step.capabilityId === 'sales.next_best_action' || step.capabilityId === 'sales.coach_conversation') {
     const lead = resolveLeadU(runtime, targetQuery(step)); if (!lead) throw new Error('Não encontrei o lead ou a oportunidade para analisar.')
     assertRecordU(runtime, 'pipeline', lead.ownerId)

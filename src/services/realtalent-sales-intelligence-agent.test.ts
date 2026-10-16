@@ -21,7 +21,7 @@ import {
 } from '../domain/defaults'
 import type { WorkspaceSnapshot } from '../domain/types'
 import { REALTALENT_UNIVERSAL_CAPABILITIES } from './realtalent-crm-universal-registry'
-import { buildSalesAgentContext, formatSalesAgentDealAnalysis, formatSalesAgentNextBestAction } from './realtalent-sales-intelligence-agent'
+import { buildSalesAgentContext, buildSalesPortfolioSelection, formatSalesAgentDealAnalysis, formatSalesAgentNextBestAction, formatSalesPortfolio } from './realtalent-sales-intelligence-agent'
 
 const baseSnapshot: WorkspaceSnapshot = {
   workspace: DEMO_WORKSPACE,
@@ -89,4 +89,50 @@ describe('RealTalent Agent — Sales Intelligence V1', () => {
     expect(analyze?.argumentHints).toContain('record_query')
     expect(next?.argumentHints).toContain('record_query')
   })
+
+  it('prioriza a carteira inteira usando o Deal Portfolio já existente', () => {
+    const { portfolio, deals } = buildSalesPortfolioSelection(baseSnapshot, 'priorities', now)
+    expect(portfolio.deals.length).toBeGreaterThan(0)
+    expect(deals[0]?.lead.id).toBe(portfolio.priorities[0]?.lead.id)
+    const text = formatSalesPortfolio(baseSnapshot, 'priorities', now)
+    expect(text).toContain('Prioridades comerciais da carteira')
+    expect(text).toContain('Próxima ação:')
+  })
+
+  it('recorta risco, cooling e ausência de decisor sem inventar negócios', () => {
+    const risk = buildSalesPortfolioSelection(baseSnapshot, 'risk', now).deals
+    const cooling = buildSalesPortfolioSelection(baseSnapshot, 'cooling', now).deals
+    const missingDecision = buildSalesPortfolioSelection(baseSnapshot, 'decision_maker', now).deals
+    expect(risk.every((deal) => deal.healthLevel === 'attention' || deal.healthLevel === 'critical')).toBe(true)
+    expect(cooling.every((deal) => deal.momentum === 'cooling')).toBe(true)
+    expect(missingDecision.every((deal) => deal.risks.some((item) => item.key === 'missing-decision-maker'))).toBe(true)
+  })
+
+  it('registra as capacidades de inteligência de carteira como somente leitura', () => {
+    for (const id of ['sales.prioritize_pipeline', 'sales.call_priorities', 'sales.at_risk_deals', 'sales.cooling_deals', 'sales.missing_decision_maker', 'sales.closing_risk_this_month']) {
+      const capability = REALTALENT_UNIVERSAL_CAPABILITIES.find((item) => item.id === id)
+      expect(capability).toMatchObject({ action: 'read', risk: 'read', execution: 'native', resource: 'pipeline', permissionAction: 'view' })
+    }
+  })
+
+
+  it('respeita um snapshot previamente filtrado por visibilidade', () => {
+    const allowed = baseSnapshot.leads[0]
+    const restrictedSnapshot: WorkspaceSnapshot = { ...baseSnapshot, leads: allowed ? [allowed] : [] }
+    const { deals } = buildSalesPortfolioSelection(restrictedSnapshot, 'priorities', now)
+    expect(deals.map((deal) => deal.lead.id)).toEqual(allowed ? [allowed.id] : [])
+    const text = formatSalesPortfolio(restrictedSnapshot, 'priorities', now)
+    for (const hidden of baseSnapshot.leads.filter((lead) => lead.id !== allowed?.id)) {
+      expect(text).not.toContain(hidden.company || hidden.name)
+    }
+  })
+
+
+  it('não chama de prioridade de ligação uma ação que não seja call', () => {
+    const calls = buildSalesPortfolioSelection(baseSnapshot, 'calls', now).deals
+    expect(calls.every((deal) => deal.nextBestAction.kind === 'call' && deal.nextBestAction.urgency !== 'planned')).toBe(true)
+    const text = formatSalesPortfolio(baseSnapshot, 'calls', now)
+    expect(text).toContain('Prioridades de ligação para hoje')
+  })
+
 })

@@ -1,5 +1,6 @@
 import type { AppRoute } from '../domain/types'
-import { crmCapabilityById, crmCapabilityCatalogForModel, type CrmCapabilityRisk } from './realtalent-crm-capabilities'
+import type { CrmCapabilityRisk } from './realtalent-crm-capabilities'
+import { universalCrmCapabilityById as crmCapabilityById, universalCrmCapabilityCatalogForModel as crmCapabilityCatalogForModel } from './realtalent-crm-universal-registry'
 import { crmCapabilitySlotRulesForModel } from './realtalent-crm-slot-filling'
 import { env } from '../lib/env'
 import { runtimeFetch } from './realtalent-runtime-transport'
@@ -194,6 +195,17 @@ export const localCapabilityFallback = (prompt: string, context: CrmCapabilityPl
     const definition = crmCapabilityById(capabilityId); if (!definition) return null
     return { provider: 'local-resilience', model: 'capability-fallback-v3.4', decision: 'clarify', plan: { version: '3.4', goal, confidence: 0.94, needsClarification: true, clarification: question, pendingCapabilityId: capabilityId, missingSlots, knownArgs: args, steps: [{ id: `local:${capabilityId}`, capabilityId, title: definition.title, reason: 'A intenção está clara, mas falta um dado obrigatório para executar com segurança.', risk: definition.risk, args }] } }
   }
+
+  const portfolioIntent = (() => {
+    if (/\b(ligar|ligacoes?|telefonar|chamar)\b/.test(text) && /\b(quem|quais|hoje|agora|prioridade|prioridades)\b/.test(text)) return 'sales.call_priorities'
+    if (/\b(nao fech\w*|fechamento|fechar|fecha\w*)\b/.test(text) && /\b(mes|este mes)\b/.test(text)) return 'sales.closing_risk_this_month'
+    if (/\b(esfri\w*|cooling)\b/.test(text) || /\bperdendo (ritmo|momentum)\b/.test(text)) return 'sales.cooling_deals'
+    if (/\bsem decisor\b/.test(text) || /\b(falta|faltando) decisor\b/.test(text) || /\bdecisor (nao|ausente)\b/.test(text)) return 'sales.missing_decision_maker'
+    if (/\b(risco|arrisc\w*|critic\w*|atencao)\b/.test(text) && /\b(negocios?|oportunidades?|pipeline|carteira)\b/.test(text)) return 'sales.at_risk_deals'
+    if (/\b(quem|quais|qual|prioriz\w*|prioridade|ligar|contatar|atacar)\b/.test(text) && /\b(hoje|agora|carteira|pipeline|negocios?|oportunidades?)\b/.test(text)) return 'sales.prioritize_pipeline'
+    return ''
+  })()
+  if (portfolioIntent) return make(portfolioIntent, prompt)
 
   const goalVerb = /\b(cri|coloc|defin|estabelec|quero|bota|faz)\w*/.test(text)
   const mentionsGoal = /\b(metas?|objetivos?|alvos?)\b/.test(text)

@@ -1,5 +1,5 @@
 import type { Lead, WorkspaceSnapshot } from '../domain/types'
-import { buildDealIntelligence, type DealHealthLevel, type DealMomentum, type DealRiskSeverity } from './deal-intelligence'
+import { buildDealIntelligence, buildDealPortfolio, type DealHealthLevel, type DealIntelligence, type DealMomentum, type DealRiskSeverity } from './deal-intelligence'
 import { buildSalesRecommendation } from './realtalent-sales-recommendation-engine'
 
 export interface SalesAgentContext {
@@ -182,4 +182,64 @@ export const formatSalesAgentNextBestAction = (lead: Lead, snapshot: WorkspaceSn
     `Riscos que sustentam a recomendação: ${riskText(context, 4)}.`,
     learningText(context),
   ].join('\n')
+}
+
+
+export type SalesPortfolioFocus = 'priorities' | 'calls' | 'risk' | 'cooling' | 'decision_maker' | 'closing_risk'
+
+const sameMonth = (value: string | null, now: Date) => {
+  if (!value) return false
+  const candidate = new Date(value)
+  return Number.isFinite(candidate.getTime()) && candidate.getUTCFullYear() === now.getUTCFullYear() && candidate.getUTCMonth() === now.getUTCMonth()
+}
+
+const closingRisk = (deal: DealIntelligence, now: Date) => sameMonth(deal.expectedCloseAt, now) && (
+  deal.healthLevel === 'attention' ||
+  deal.healthLevel === 'critical' ||
+  deal.momentum === 'cooling' ||
+  deal.realTalentProbability < 50 ||
+  deal.probabilityGap <= -15
+)
+
+const dealPortfolioLine = (deal: DealIntelligence, index: number) => {
+  const label = deal.lead.company || deal.lead.name
+  const risks = deal.risks.slice(0, 2).map((risk) => risk.title).join(', ') || 'sem risco crítico explícito'
+  return `${index + 1}. ${label} — saúde ${deal.healthScore}/100 (${deal.healthLabel}), ${money(deal.commercialValue)}, probabilidade RealTalent ${deal.realTalentProbability}%, momentum ${momentumLabel[deal.momentum]}. Riscos: ${risks}. Próxima ação: ${deal.nextBestAction.title} (${urgencyLabel[deal.nextBestAction.urgency]}).`
+}
+
+export const buildSalesPortfolioSelection = (snapshot: WorkspaceSnapshot, focus: SalesPortfolioFocus = 'priorities', now = new Date()) => {
+  const portfolio = buildDealPortfolio(snapshot, undefined, now)
+  const ordered = portfolio.priorities
+  const deals = focus === 'calls'
+    ? ordered.filter((deal) => deal.nextBestAction.kind === 'call' && deal.nextBestAction.urgency !== 'planned')
+    : focus === 'risk'
+    ? ordered.filter((deal) => deal.healthLevel === 'attention' || deal.healthLevel === 'critical')
+    : focus === 'cooling'
+      ? ordered.filter((deal) => deal.momentum === 'cooling')
+      : focus === 'decision_maker'
+        ? ordered.filter((deal) => deal.risks.some((risk) => risk.key === 'missing-decision-maker'))
+        : focus === 'closing_risk'
+          ? ordered.filter((deal) => closingRisk(deal, now))
+          : ordered
+  return { portfolio, deals }
+}
+
+export const formatSalesPortfolio = (snapshot: WorkspaceSnapshot, focus: SalesPortfolioFocus = 'priorities', now = new Date(), limit = 7) => {
+  const { portfolio, deals } = buildSalesPortfolioSelection(snapshot, focus, now)
+  const title = focus === 'calls'
+    ? 'Prioridades de ligação para hoje'
+    : focus === 'risk'
+    ? 'Negócios em risco'
+    : focus === 'cooling'
+      ? 'Oportunidades esfriando'
+      : focus === 'decision_maker'
+        ? 'Negócios sem decisor mapeado'
+        : focus === 'closing_risk'
+          ? 'Fechamentos do mês sob risco'
+          : 'Prioridades comerciais da carteira'
+  const visible = deals.slice(0, Math.max(1, Math.min(limit, 10)))
+  const header = `${title}. Carteira ativa: ${portfolio.deals.length} negócio(s), saúde média ${portfolio.averageHealth}/100, valor ativo ${money(portfolio.activeValue)}, valor previsto ${money(portfolio.predictedValue)}.`
+  const riskSummary = `Risco da carteira: ${portfolio.critical} crítico(s), ${portfolio.attention} em atenção, ${portfolio.cooling} esfriando, ${portfolio.missingDecisionMaker} sem decisor e ${money(portfolio.atRiskValue)} em valor sob risco.`
+  if (!visible.length) return `${header}\n${riskSummary}\nNenhum negócio corresponde a esse recorte com os dados atuais do CRM.`
+  return [header, riskSummary, ...visible.map(dealPortfolioLine)].join('\n')
 }

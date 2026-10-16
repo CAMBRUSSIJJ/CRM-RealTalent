@@ -12,6 +12,13 @@ import {
   rememberLearningPlan,
   syncVerifiedLearningFromReceipt,
 } from './realtalent-learning-engine'
+import {
+  formatSalesLearningContextForPrompt,
+  linkSalesRecommendationToActionPlan,
+  recordSalesLearningCorrection,
+  stageSalesRecommendationsFromPlan,
+  syncSalesLearningFromReceipt,
+} from './realtalent-sales-learning-engine'
 
 export interface RealTalentAiGatewayResult {
   answer: AssistantAnswer
@@ -42,27 +49,33 @@ const toolsForAnswer = (answer: AssistantAnswer) => {
   return ['read_pipeline']
 }
 
-const learningAwareContext = (workspaceId: string, prompt: string, assistantContext: AssistantContext) => {
-  // Uma execução anterior só vira experiência positiva depois que o recibo inteiro
-  // foi verificado. Se o usuário corrigir a resposta logo em seguida, esse exemplo
-  // é despromovido antes de ser usado novamente.
-  syncVerifiedLearningFromReceipt(workspaceId, lastCrmExecutionReceipt(workspaceId))
+const learningAwareContext = (workspaceId: string, prompt: string, snapshot: WorkspaceSnapshot, assistantContext: AssistantContext) => {
+  // Aprendizado operacional: somente recibos integralmente verificados entram como
+  // exemplos positivos. Aprendizado comercial: uma recomendação só ganha crédito
+  // depois de uma ação posterior verificada e de melhora mensurável no mesmo negócio.
+  const receipt = lastCrmExecutionReceipt(workspaceId)
+  syncVerifiedLearningFromReceipt(workspaceId, receipt)
+  syncSalesLearningFromReceipt(workspaceId, receipt, snapshot)
+
   const correction = isLearningCorrection(prompt) ? recordLearningCorrection(workspaceId, prompt) : null
+  if (correction) recordSalesLearningCorrection(workspaceId, prompt)
+
   const retrievalPrompt = correction ? `${correction.prompt} ${prompt}` : prompt
   const learningContext = formatLearningContext(findRelevantLearningExperiences(workspaceId, retrievalPrompt, 5))
-  const conversationContext = [assistantContext.conversationContext?.trim(), learningContext]
+  const salesLearningContext = formatSalesLearningContextForPrompt(workspaceId, prompt, snapshot, assistantContext.focusLeadId)
+  const conversationContext = [assistantContext.conversationContext?.trim(), learningContext, salesLearningContext]
     .filter(Boolean)
     .join('\n\n')
-    .slice(0, 5000)
+    .slice(0, 6500)
   return { context: { ...assistantContext, conversationContext }, correction }
 }
 
 export const realTalentAiGateway = {
-  id: 'realtalent-ai-gateway-v2-agent-learning',
+  id: 'realtalent-ai-gateway-v3-sales-learning',
   async answer(prompt: string, snapshot: WorkspaceSnapshot, assistantContext: AssistantContext = {}): Promise<RealTalentAiGatewayResult> {
     const started = Date.now()
     const workspaceId = snapshot.workspace.id
-    const learned = learningAwareContext(workspaceId, prompt, assistantContext)
+    const learned = learningAwareContext(workspaceId, prompt, snapshot, assistantContext)
     const effectiveContext = learned.context
     const context = buildRealTalentAiContext(snapshot, effectiveContext)
     try {
@@ -72,6 +85,9 @@ export const realTalentAiGateway = {
         const learningPrompt = learned.correction
           ? `${learned.correction.prompt} | CORREÇÃO: ${prompt}`
           : prompt
+
+        stageSalesRecommendationsFromPlan(workspaceId, learningPrompt, { id: answer.plan.id, steps: answer.plan.steps }, snapshot, effectiveContext.focusLeadId)
+        linkSalesRecommendationToActionPlan(workspaceId, prompt, { id: answer.plan.id, steps: answer.plan.steps }, snapshot, effectiveContext.focusLeadId)
         rememberLearningPlan(workspaceId, learningPrompt, { id: answer.plan.id, steps: answer.plan.steps })
       }
       const durationMs = Math.max(0, Date.now() - started)

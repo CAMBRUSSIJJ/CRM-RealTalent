@@ -5,6 +5,9 @@ import { interpretSalesLanguage } from './realtalent-semantic-language-client'
 import { localCapabilityFallback, type CrmCapabilityPlanningResult } from './realtalent-crm-capability-planner'
 import { planCrmCapabilitiesViaAgent } from './realtalent-crm-capability-runtime-client'
 import { crmClarificationSuggestions, genericPendingIntent, pendingCapabilityFromPlan, pendingCapabilityContext, validateAndEnrichCapabilitySlots } from './realtalent-crm-slot-filling'
+import { buildDealIntelligence, type DealActionKind } from './deal-intelligence'
+import { buildSalesRecommendation, rankDealsWithSalesLearning } from './realtalent-sales-recommendation-engine'
+import { formatSalesAgentNextBestAction } from './realtalent-sales-intelligence-agent'
 
 export interface RealTalentAssistantProviderResult {
   answer: AssistantAnswer
@@ -109,8 +112,70 @@ const operationalPlannerUnavailable = (prompt: string, context: AssistantContext
   generatedAt: (context.now ?? new Date()).toISOString(),
 })
 
+const visibleLeadIdsForContext = (snapshot: WorkspaceSnapshot, context: AssistantContext) => {
+  if (snapshot.workspace.role === 'owner' || snapshot.workspace.role === 'admin') return new Set(snapshot.leads.map((lead) => lead.id))
+  if (!context.currentUserId) return new Set<string>()
+  return new Set(snapshot.leads.filter((lead) => lead.ownerId === context.currentUserId).map((lead) => lead.id))
+}
+
+const applySalesRecommendationRanking = (answer: AssistantAnswer, snapshot: WorkspaceSnapshot, context: AssistantContext) => {
+  const visibleLeadIds = visibleLeadIdsForContext(snapshot, context)
+
+  if (answer.intent === 'next_action' && answer.items[0]?.leadId && visibleLeadIds.has(answer.items[0].leadId)) {
+    const lead = snapshot.leads.find((item) => item.id === answer.items[0].leadId)
+    if (lead) {
+      const deal = buildDealIntelligence(lead, snapshot, undefined, context.now ?? new Date())
+      const recommendation = buildSalesRecommendation(deal, snapshot, { visibleLeadIds })
+      return {
+        ...answer,
+        text: formatSalesAgentNextBestAction(lead, snapshot, context.now ?? new Date()),
+        items: answer.items.map((item) => item.leadId === lead.id ? {
+          ...item,
+          score: deal.healthScore,
+          reason: recommendation.recommendedAction.explanation,
+          route: recommendation.recommendedAction.route,
+          action: recommendation.recommendedAction.kind,
+        } : item),
+        facts: [...answer.facts, recommendation.explanation].slice(0, 8),
+      }
+    }
+  }
+
+  if (!['priorities', 'call_now', 'best_contacts'].includes(answer.intent) || !answer.items.length) return answer
+  const requestedAction: DealActionKind | undefined = answer.intent === 'call_now' ? 'call' : undefined
+  const visibleItems = answer.items.filter((item) => visibleLeadIds.has(item.leadId))
+  const deals = visibleItems
+    .map((item) => snapshot.leads.find((lead) => lead.id === item.leadId))
+    .filter((lead): lead is NonNullable<typeof lead> => Boolean(lead))
+    .map((lead) => buildDealIntelligence(lead, snapshot, undefined, context.now ?? new Date()))
+  if (!deals.length) return { ...answer, items: [] }
+
+  const ranked = rankDealsWithSalesLearning(deals, snapshot, { visibleLeadIds, requestedAction })
+  const itemByLead = new Map(visibleItems.map((item) => [item.leadId, item]))
+  const items = ranked.map(({ deal, recommendation }) => {
+    const item = itemByLead.get(deal.lead.id)!
+    return {
+      ...item,
+      score: Math.round(recommendation.finalPriorityScore),
+      reason: recommendation.actionLearning.samples >= 3
+        ? `${item.reason} · ${recommendation.explanation}`
+        : item.reason,
+      action: answer.intent === 'call_now' ? 'call' : recommendation.recommendedAction.kind,
+      route: answer.intent === 'call_now' ? 'calls' as const : recommendation.recommendedAction.route,
+    }
+  })
+  const learnedCount = ranked.filter((item) => item.recommendation.actionLearning.samples >= 3).length
+  return {
+    ...answer,
+    items,
+    facts: learnedCount
+      ? [...answer.facts, `${learnedCount} prioridade(s) receberam ajuste limitado por aprendizado comercial verificado.`].slice(0, 8)
+      : answer.facts,
+  }
+}
+
 export const hybridRealTalentAssistantProvider: RealTalentAssistantProvider = {
-  id: 'realtalent-agent-v3.7-ollama-operational-firewall',
+  id: 'realtalent-agent-v3.8-sales-recommendation-v2',
   async answer(prompt, snapshot, context = {}) {
     const capabilityContext = {
       currentRoute: context.currentRoute ?? null,
@@ -122,7 +187,7 @@ export const hybridRealTalentAssistantProvider: RealTalentAssistantProvider = {
       pendingCapability: pendingCapabilityContext(context.pendingCapability),
     }
 
-    // Primary path: every native CRM action is planned by Ollama against the real
+    // Primary path: every native CRM action is planned by the model against the real
     // capability catalog before any legacy assistant interpretation can run.
     const capabilityRaw = await planCrmCapabilitiesViaAgent(prompt, capabilityContext)
     const capability = capabilityRaw ? validateAndEnrichCapabilitySlots(capabilityRaw, capabilityContext) : null
@@ -136,8 +201,7 @@ export const hybridRealTalentAssistantProvider: RealTalentAssistantProvider = {
     }
 
     // Resilience must also come before legacy analysis. This prevents a temporary
-    // browser/runtime failure from turning "crie uma meta de ligações" into
-    // "melhores contatos agora" or any other unrelated legacy intent.
+    // browser/runtime failure from turning an operational request into unrelated analysis.
     const localOperationalRaw = localCapabilityFallback(prompt, capabilityContext)
     const localOperational = localOperationalRaw ? validateAndEnrichCapabilitySlots(localOperationalRaw, capabilityContext) : null
     if (localOperational) return {
@@ -147,8 +211,6 @@ export const hybridRealTalentAssistantProvider: RealTalentAssistantProvider = {
       mode: 'local-orchestration',
     }
 
-    // If the user clearly asked the CRM to DO something and both capability paths
-    // failed, fail closed. Never answer with an unrelated analytical legacy intent.
     if (looksLikeOperationalRequest(prompt)) {
       return {
         answer: operationalPlannerUnavailable(prompt, context),
@@ -158,8 +220,6 @@ export const hybridRealTalentAssistantProvider: RealTalentAssistantProvider = {
       }
     }
 
-    // Specialized sales-language interpretation remains only for analytical/read
-    // experiences that intentionally do not map to a native mutation capability.
     const semantic = await interpretSalesLanguage(prompt, context)
     if (semantic?.decision === 'clarify' && semantic.interpretation.intent !== 'unknown') {
       return {
@@ -178,7 +238,7 @@ export const hybridRealTalentAssistantProvider: RealTalentAssistantProvider = {
       if (semantic.interpretation.intent === 'complete_task' && !semanticContext.workTasks && context.loadWorkTasks) {
         semanticContext = { ...semanticContext, workTasks: await context.loadWorkTasks().catch(() => []) }
       }
-      const interpreted = runRealTalentAssistant(prompt, snapshot, semanticContext)
+      const interpreted = applySalesRecommendationRanking(runRealTalentAssistant(prompt, snapshot, semanticContext), snapshot, semanticContext)
       if (interpreted.intent !== 'unknown' && interpreted.intent !== 'help') {
         return {
           answer: interpreted,
@@ -189,11 +249,10 @@ export const hybridRealTalentAssistantProvider: RealTalentAssistantProvider = {
       }
     }
 
-    // Final compatibility layer is restricted to genuine read/analysis requests.
-    const immediate = runRealTalentAssistant(prompt, snapshot, context)
+    const immediate = applySalesRecommendationRanking(runRealTalentAssistant(prompt, snapshot, context), snapshot, context)
     return {
       answer: immediate,
-      providerId: immediate.intent === 'unknown' ? 'local-deterministic-v3-realtalent-ai' : 'local-language-fallback-v3.1.5',
+      providerId: immediate.intent === 'unknown' ? 'local-deterministic-v3-realtalent-ai' : 'local-language-fallback-v3.8-sales-recommendation',
       sendsDataExternally: false,
       mode: 'local-orchestration',
     }

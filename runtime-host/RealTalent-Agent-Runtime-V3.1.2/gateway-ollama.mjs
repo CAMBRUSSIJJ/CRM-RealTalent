@@ -205,7 +205,7 @@ const handleCapabilityPlan = async (req, res) => {
     console.log(`[ollama-router] primary=${routing.primaryModule || 'none'} modules=${[...selectedModules].join(',') || 'all'} capabilities=${capabilities.length}->${narrowed.length}->${finalCapabilities.length} confidence=${routing.confidence} intent=${routing.rationale} capability=${capabilityRouting?.ids?.join(',') || 'model-choice'}`)
 
     const planned = await callInnerPlanner({ ...body, capabilities: finalCapabilities }, req.headers)
-    const payload = preserveExplicitPlannerArguments(prompt, planned.payload)
+    const payload = preserveExplicitPlannerArguments(prompt, planned.payload, body?.context || {})
     if (payload && typeof payload === 'object') {
       payload.routing = {
         provider: 'ollama', model: CRM_OLLAMA_MODEL,

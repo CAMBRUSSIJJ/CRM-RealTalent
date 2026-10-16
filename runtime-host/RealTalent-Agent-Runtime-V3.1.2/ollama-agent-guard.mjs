@@ -36,6 +36,7 @@ const readBody=(req,limit=900_000)=>new Promise((resolve,reject)=>{
 })
 
 const plannerText=(value='')=>String(value??'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().trim()
+const isGoalPrompt=(prompt='')=>/\b(meta|metas|objetivo|objetivos|target|targets)\b/.test(plannerText(prompt))
 const metricFromPrompt=(prompt='')=>{
   const t=plannerText(prompt)
   const rules=[
@@ -124,11 +125,14 @@ const repairGoalPlan=(payload,requestBody)=>{
   return payload
 }
 
-const semanticFallback=(body,error='semantic_timeout')=>({
-  ok:true,version:'3.1.5',
-  interpretation:{version:'3.1.5',language:'pt',intent:'unknown',object:'none',action:'none',confidence:0.4,needs_clarification:false,clarification:'',canonical_request:String(body?.prompt||'').slice(0,500),rationale:'O Semantic Sales Language não concluiu no tempo disponível; o pedido segue para o Capability Planner.',entities:{contact_query:'',assignee_query:'',task_title:'',due_at_iso:'',explicit_time:false,task_type:'none',criteria:[],reference:''}},
-  decision:'fallback',provider:'ollama',model:String(process.env.OLLAMA_FAST_MODEL||process.env.OLLAMA_MODEL||''),modelRole:'classification',degraded:true,error,
-})
+const semanticFallback=(body,error='semantic_timeout')=>{
+  const routed=error==='routed_to_capability_planner'
+  return {
+    ok:true,version:'3.1.5',
+    interpretation:{version:'3.1.5',language:'pt',intent:'unknown',object:'none',action:'none',confidence:routed?0.5:0.4,needs_clarification:false,clarification:'',canonical_request:String(body?.prompt||'').slice(0,500),rationale:routed?'Pedido de meta pertence ao CRM Capability Planner e foi roteado para a capacidade de Metas.':'O Semantic Sales Language não concluiu no tempo disponível; o pedido segue para o Capability Planner.',entities:{contact_query:'',assignee_query:'',task_title:'',due_at_iso:'',explicit_time:false,task_type:'none',criteria:[],reference:''}},
+    decision:'fallback',provider:'ollama',model:String(process.env.OLLAMA_FAST_MODEL||process.env.OLLAMA_MODEL||''),modelRole:'classification',degraded:!routed,error,
+  }
+}
 
 const innerFetch=async(pathname,req,raw,timeoutMs=50_000)=>{
   const headers={}
@@ -150,6 +154,14 @@ const server=http.createServer(async(req,res)=>{
   if(req.method==='POST'&&(pathname==='/language/interpret'||pathname==='/capabilities/plan')){
     let parsed
     try{parsed=await readBody(req)}catch(error){return json(res,400,{ok:false,error:String(error.message||error)})}
+
+    // Metas são capacidades executáveis do CRM e não fazem parte do schema de intents
+    // do Semantic Sales Language. Evita classificação incorreta e entrega o pedido
+    // diretamente ao Capability Planner baseado em Ollama.
+    if(pathname==='/language/interpret'&&isGoalPrompt(parsed.body?.prompt)){
+      return json(res,200,semanticFallback(parsed.body,'routed_to_capability_planner'))
+    }
+
     try{
       const inner=await innerFetch(pathname,req,parsed.raw,50_000)
       const text=await inner.text()
@@ -168,4 +180,5 @@ const server=http.createServer(async(req,res)=>{
 
 server.listen(PORT,HOST,()=>console.log(`RealTalent Ollama Agent Guard em http://${HOST}:${PORT} → Agent :${INNER_PORT}`))
 const shutdown=()=>{if(shuttingDown)return;shuttingDown=true;try{server.close()}catch{};try{child.kill('SIGTERM')}catch{};setTimeout(()=>process.exit(0),800).unref()}
-process.on('SIGTERM',shutdown);process.on('SIGINT',shutdown)
+process.on('SIGTERM',shutdown)
+process.on('SIGINT',shutdown)

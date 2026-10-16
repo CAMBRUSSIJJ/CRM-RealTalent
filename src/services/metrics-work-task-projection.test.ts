@@ -13,7 +13,7 @@ const activity = (patch: Partial<ActivityItem>): ActivityItem => ({
 
 const snapshot = (activities: ActivityItem[]) => ({
   activities,
-  calls: [], events: [], leads: [], stages: [], goals: [],
+  calls: [], events: [], leads: [{ id: 'lead-1', ownerId: 'user-1' }], stages: [], goals: [],
 } as unknown as WorkspaceSnapshot)
 
 describe('metrics with WorkTask activity projections', () => {

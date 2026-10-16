@@ -1,5 +1,7 @@
 import type { Lead, WorkspaceSnapshot } from '../domain/types'
 import { leadScoreInsight, type LeadScoreActionKind, type LeadScoreAlert, type LeadScoreInsight, type LeadScoringConfig } from './lead-scoring'
+import { salesLearningAdjustmentForLead } from './realtalent-sales-recommendation-engine'
+import type { DealActionKind } from './deal-intelligence'
 
 export type WorkdayReason = 'sla' | 'overdue' | 'today' | 'proposal' | 'stale' | 'no_action' | 'hot'
 export type WorkdayAction = LeadScoreActionKind
@@ -27,6 +29,8 @@ export interface WorkdayItem {
   slaState: WorkdaySlaState
   insight: LeadScoreInsight
   alerts: LeadScoreAlert[]
+  learningAdjustment: number
+  learningExplanation: string
 }
 
 export interface WorkdayQueue {
@@ -40,6 +44,13 @@ export interface WorkdayQueue {
 const DAY = 86_400_000
 const endOfDay = (date: Date) => new Date(date.getFullYear(), date.getMonth(), date.getDate(), 23, 59, 59, 999).getTime()
 const proposalStage = (name: string) => /proposta|negocia|decis/i.test(name)
+const workdayDealAction = (action: WorkdayAction): DealActionKind | undefined => {
+  if (action === 'call') return 'call'
+  if (action === 'followup' || action === 'whatsapp') return 'followup'
+  if (action === 'meeting') return 'meeting'
+  if (action === 'review') return 'review'
+  return undefined
+}
 const clockMinutes = (value: string, fallback: number) => {
   const [hours, minutes] = value.split(':').map(Number)
   return Number.isFinite(hours) && Number.isFinite(minutes) ? hours * 60 + minutes : fallback
@@ -68,6 +79,9 @@ export const buildWorkdayQueue = (snapshot: WorkspaceSnapshot, config: WorkdayCo
   const nowTime = now.getTime()
   const todayEnd = endOfDay(now)
   const stageById = new Map(snapshot.stages.map((stage) => [stage.id, stage]))
+  const visibleLeadIds = ownerId
+    ? new Set(snapshot.leads.filter((lead) => lead.ownerId === ownerId).map((lead) => lead.id))
+    : undefined
   const items = snapshot.leads.filter((lead) => lead.status === 'active' && (!ownerId || lead.ownerId === ownerId)).map((lead): WorkdayItem | null => {
     const reasons: WorkdayReason[] = []
     const labels: string[] = []
@@ -106,11 +120,24 @@ export const buildWorkdayQueue = (snapshot: WorkspaceSnapshot, config: WorkdayCo
     }
     if (lead.temperature === 'hot') { reasons.push('hot'); labels.push('lead quente') }
     if (!reasons.length) return null
+
+    const learning = salesLearningAdjustmentForLead(lead.id, snapshot, {
+      visibleLeadIds,
+      requestedAction: workdayDealAction(action),
+    })
+    let learningAdjustment = learning.adjustment
+    // O histórico nunca rebaixa um compromisso operacional vencido ou SLA quebrado.
+    if ((slaState === 'breached' || reasons.includes('overdue')) && learningAdjustment < 0) learningAdjustment = 0
+    score += learningAdjustment
+    const learningExplanation = learning.explanation
+
     return {
       id: `workday:${lead.id}`, lead, action,
       title: labels.length ? (action === 'review' ? 'Revisar oportunidade' : action === 'call' ? 'Fazer contato agora' : action === 'meeting' ? 'Preparar reunião' : action === 'data' ? 'Completar dados' : insight.nextBestAction.title) : insight.nextBestAction.title,
-      explanation: [...labels, insight.nextBestAction.explanation].filter(Boolean).slice(0, 3).join(' • '), reasons: Array.from(new Set(reasons)), dueAt,
-      score: Math.min(100, score), slaState, insight, alerts: insight.alerts,
+      explanation: [...labels, insight.nextBestAction.explanation, learningExplanation].filter(Boolean).slice(0, 4).join(' • '), reasons: Array.from(new Set(reasons)), dueAt,
+      score: Math.max(0, Math.min(100, score)), slaState, insight, alerts: insight.alerts,
+      learningAdjustment,
+      learningExplanation,
     }
   }).filter((item): item is WorkdayItem => Boolean(item)).sort((a, b) => b.score - a.score || (a.dueAt ?? '9').localeCompare(b.dueAt ?? '9'))
 

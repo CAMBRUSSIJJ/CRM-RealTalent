@@ -14,6 +14,7 @@ LAUNCH_LOG="$ROOT/.realtalent-total.log"
 AGENT_LOG="$ROOT/.realtalent-agent-ollama.log"
 VITE_LOG="$ROOT/.realtalent-vite.log"
 OLLAMA_RECOVERY_LOG="$ROOT/.realtalent-ollama-recovery.log"
+MATRIX_LOG="$ROOT/.realtalent-matrix-batch.log"
 
 say() { printf '\n\033[1;36m%s\033[0m\n' "$*"; }
 fail() { printf '\n\033[1;31mERRO: %s\033[0m\n' "$*" >&2; exit 1; }
@@ -21,7 +22,7 @@ fail() { printf '\n\033[1;31mERRO: %s\033[0m\n' "$*" >&2; exit 1; }
 dump_failure_logs() {
   echo
   echo "================ DIAGNÓSTICO AUTOMÁTICO ================" >&2
-  for file in "$LAUNCH_LOG" "$AGENT_LOG" "$VITE_LOG" "$OLLAMA_RECOVERY_LOG"; do
+  for file in "$MATRIX_LOG" "$LAUNCH_LOG" "$AGENT_LOG" "$VITE_LOG" "$OLLAMA_RECOVERY_LOG"; do
     if [[ -s "$file" ]]; then
       echo >&2
       echo "--- $(basename "$file") · últimas 140 linhas ---" >&2
@@ -95,6 +96,7 @@ echo "✓ Commit $(git rev-parse --short HEAD)"
 : > "$AGENT_LOG"
 : > "$VITE_LOG"
 : > "$OLLAMA_RECOVERY_LOG"
+: > "$MATRIX_LOG"
 
 say "2/8 — Habilitando Universal CRM Control"
 node scripts/enable-universal-agent.mjs
@@ -102,8 +104,9 @@ node scripts/harden-universal-agent.mjs
 grep -q "realtalent-crm-universal-executor" src/features/assistant/assistant-drawer.tsx || fail "O Assistant não foi ligado ao executor universal."
 grep -q "realtalent-crm-universal-registry" src/services/realtalent-crm-capability-runtime-client.ts || fail "O planner não foi ligado ao catálogo universal."
 grep -q "semanticDomainAnchor" runtime-host/RealTalent-Agent-Runtime-V3.1.2/gateway-ollama.mjs || fail "O roteador híbrido não foi habilitado."
+grep -q "semanticCapabilityAnchor" runtime-host/RealTalent-Agent-Runtime-V3.1.2/gateway-ollama.mjs || fail "O roteador fino de capabilities não foi habilitado."
 grep -q "return pick('leads', 'relação entre contatos explícita')" runtime-host/RealTalent-Agent-Runtime-V3.1.2/gateway-ollama.mjs || fail "O roteador de Contatos não foi alinhado ao AppRoute leads."
-echo "✓ Planner, Assistant, catálogo, executor e roteador híbrido ligados"
+echo "✓ Planner, Assistant, catálogo, executor e roteamento em duas camadas ligados"
 
 say "3/8 — Encerrando somente instâncias antigas do RealTalent"
 stop_realtalent_port 4188
@@ -169,13 +172,17 @@ if [[ -f "$MATRIX_FILE" ]]; then
     end=$((start + BATCH_SIZE))
     (( end > MATRIX_CASES )) && end="$MATRIX_CASES"
     ensure_ollama_ready
+    : > "$MATRIX_LOG"
     echo
     echo "🧠 Matriz Ollama: casos $((start + 1))-$end de $MATRIX_CASES"
-    REALTALENT_OLLAMA_MATRIX=1 \
-    REALTALENT_AGENT_TEST_URL="$AGENT_URL" \
-    REALTALENT_MATRIX_FROM="$start" \
-    REALTALENT_MATRIX_TO="$end" \
-      npx vitest run "$MATRIX_FILE" || { dump_failure_logs; fail "A matriz semântica falhou no lote $((start + 1))-$end."; }
+    if ! REALTALENT_OLLAMA_MATRIX=1 \
+      REALTALENT_AGENT_TEST_URL="$AGENT_URL" \
+      REALTALENT_MATRIX_FROM="$start" \
+      REALTALENT_MATRIX_TO="$end" \
+        npx vitest run "$MATRIX_FILE" 2>&1 | tee "$MATRIX_LOG"; then
+      dump_failure_logs
+      fail "A matriz semântica falhou no lote $((start + 1))-$end. A asserção exata está impressa acima."
+    fi
   done
   ensure_ollama_ready
   echo "✓ Matriz semântica universal aprovada: $MATRIX_CASES/$MATRIX_CASES"
@@ -186,7 +193,7 @@ fi
 say "8/8 — Abrindo RealTalent CRM"
 echo "✓ Ollama online"
 echo "✓ Agent Universal online"
-echo "✓ Roteamento híbrido ativo"
+echo "✓ Roteamento híbrido + narrowing de capability ativos"
 echo "✓ Catálogo universal auditado"
 echo "✓ Execução + persistência/readback verificadas estruturalmente"
 echo "✓ CRM: $CRM_URL/#/goals"

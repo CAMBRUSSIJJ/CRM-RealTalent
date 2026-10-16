@@ -8,6 +8,8 @@ on:
       - 'src/services/realtalent-*.ts'
       - 'src/features/assistant/**'
       - 'src/features/auth/**'
+      - 'src/lib/env.ts'
+      - 'src/lib/env.test.ts'
       - 'scripts/local-staging.sh'
       - 'scripts/local-staging-bootstrap.mjs'
       - 'scripts/local-staging-communication-fixture.mjs'
@@ -63,6 +65,9 @@ jobs:
 
       - name: Login gate regression
         run: npm run qa:v101.11.1:h1
+
+      - name: Local Supabase environment regression
+        run: npx vitest run src/lib/env.test.ts
 
       - name: Typecheck
         run: npm run typecheck

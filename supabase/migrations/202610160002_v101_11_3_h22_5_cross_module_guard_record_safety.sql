@@ -1,8 +1,8 @@
 begin;
 
 -- H22.5 — evita acesso a campos específicos de outra tabela dentro do trigger genérico.
--- PL/pgSQL `record` só expõe os campos do NEW/OLD corrente; communication_threads,
--- por exemplo, não possui `scope`, que existe em goals.
+-- PL/pgSQL `record` só expõe os campos do NEW/OLD corrente; por isso todo acesso a
+-- campos exclusivos fica dentro de um bloco já discriminado por `tg_table_name`.
 
 create or replace function public.rt_cross_module_guard()
 returns trigger language plpgsql security definer set search_path=public as $$
@@ -90,9 +90,14 @@ begin
     ) and public.rt_access_scope_allows(v_org,'prospecting',v_owner,v_team);
   elsif tg_table_name='products' then
     v_allowed:=public.rt_access_action_allowed(v_org,v_resource,v_action);
-  elsif v_resource='goals' and v_workspace_goal then
-    v_allowed:=public.rt_access_action_allowed(v_org,v_resource,v_action)
-      and public.rt_access_scope(v_org,v_resource)='all';
+  elsif v_resource='goals' then
+    if v_workspace_goal then
+      v_allowed:=public.rt_access_action_allowed(v_org,v_resource,v_action)
+        and public.rt_access_scope(v_org,v_resource)='all';
+    else
+      v_allowed:=public.rt_access_action_allowed(v_org,v_resource,v_action)
+        and public.rt_access_scope_allows(v_org,v_resource,v_owner,v_team);
+    end if;
   else
     v_allowed:=public.rt_access_action_allowed(v_org,v_resource,v_action)
       and public.rt_access_scope_allows(v_org,v_resource,v_owner,v_team);
@@ -102,16 +107,21 @@ begin
     raise exception 'Permissão negada em %/%',v_resource,v_action using errcode='42501';
   end if;
 
-  if tg_op='UPDATE' and v_resource in ('proposals','goals') then
-    if tg_table_name='sales_proposals'
-       and new.owner_id is distinct from old.owner_id
-       and not public.rt_access_action_allowed(v_org,'proposals','assign') then
-      raise exception 'Permissão negada: o perfil não permite atribuir propostas.' using errcode='42501';
-    end if;
-    if tg_table_name='goals'
-       and (new.user_id is distinct from old.user_id or new.team_id is distinct from old.team_id or new.scope is distinct from old.scope)
-       and not public.rt_access_action_allowed(v_org,'goals','assign') then
-      raise exception 'Permissão negada: o perfil não permite atribuir metas.' using errcode='42501';
+  -- Nunca misturar referências de campos de tabelas diferentes na mesma expressão.
+  -- Um `record` de sales_proposal_items, por exemplo, não possui user_id/team_id/scope.
+  if tg_op='UPDATE' then
+    if tg_table_name='sales_proposals' then
+      if new.owner_id is distinct from old.owner_id
+         and not public.rt_access_action_allowed(v_org,'proposals','assign') then
+        raise exception 'Permissão negada: o perfil não permite atribuir propostas.' using errcode='42501';
+      end if;
+    elsif tg_table_name='goals' then
+      if (new.user_id is distinct from old.user_id
+          or new.team_id is distinct from old.team_id
+          or new.scope is distinct from old.scope)
+         and not public.rt_access_action_allowed(v_org,'goals','assign') then
+        raise exception 'Permissão negada: o perfil não permite atribuir metas.' using errcode='42501';
+      end if;
     end if;
   end if;
 

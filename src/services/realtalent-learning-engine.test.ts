@@ -113,4 +113,11 @@ describe('RealTalent Learning Engine', () => {
       learningSimilarity('crie meta de 40 ligações amanhã', 'envie um email para Ana'),
     )
   })
+
+  it('não promove aprendizado quando a intenção operacional é oposta', () => {
+    const createSimilarity = learningSimilarity('crie meta de 40 ligações amanhã', 'faça meta de 50 ligações amanhã')
+    const deleteSimilarity = learningSimilarity('crie meta de 40 ligações amanhã', 'exclua meta de 50 ligações amanhã')
+    expect(createSimilarity).toBeGreaterThan(0.72)
+    expect(deleteSimilarity).toBeLessThan(0.4)
+  })
 })

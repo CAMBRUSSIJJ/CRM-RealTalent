@@ -1,5 +1,5 @@
 // V3.7 regression lineage marker: ollama-capabilities-first+operational-firewall
-import type { WorkspaceSnapshot } from '../domain/types'
+import type { Lead, WorkspaceSnapshot } from '../domain/types'
 import { runRealTalentAssistant, type AssistantAnswer, type AssistantContext, type AssistantIntent } from './realtalent-assistant'
 import { interpretSalesLanguage } from './realtalent-semantic-language-client'
 import { localCapabilityFallback, type CrmCapabilityPlanningResult } from './realtalent-crm-capability-planner'
@@ -146,7 +146,7 @@ const applySalesRecommendationRanking = (answer: AssistantAnswer, snapshot: Work
   const visibleItems = answer.items.filter((item) => visibleLeadIds.has(item.leadId))
   const deals = visibleItems
     .map((item) => snapshot.leads.find((lead) => lead.id === item.leadId))
-    .filter((lead): lead is NonNullable<typeof lead> => Boolean(lead))
+    .filter((lead): lead is Lead => Boolean(lead))
     .map((lead) => buildDealIntelligence(lead, snapshot, undefined, context.now ?? new Date()))
   if (!deals.length) return { ...answer, items: [] }
 
@@ -187,8 +187,6 @@ export const hybridRealTalentAssistantProvider: RealTalentAssistantProvider = {
       pendingCapability: pendingCapabilityContext(context.pendingCapability),
     }
 
-    // Primary path: every native CRM action is planned by the model against the real
-    // capability catalog before any legacy assistant interpretation can run.
     const capabilityRaw = await planCrmCapabilitiesViaAgent(prompt, capabilityContext)
     const capability = capabilityRaw ? validateAndEnrichCapabilitySlots(capabilityRaw, capabilityContext) : null
     if (capability && capability.decision !== 'fallback') {
@@ -200,8 +198,6 @@ export const hybridRealTalentAssistantProvider: RealTalentAssistantProvider = {
       }
     }
 
-    // Resilience must also come before legacy analysis. This prevents a temporary
-    // browser/runtime failure from turning an operational request into unrelated analysis.
     const localOperationalRaw = localCapabilityFallback(prompt, capabilityContext)
     const localOperational = localOperationalRaw ? validateAndEnrichCapabilitySlots(localOperationalRaw, capabilityContext) : null
     if (localOperational) return {

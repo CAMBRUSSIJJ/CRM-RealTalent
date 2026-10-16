@@ -1,11 +1,10 @@
-// RealTalent Agent — Ollama-only entrypoint with semantic capability routing.
-// The public Agent stays on 8791. The original runtime runs on an internal port.
-// Capability planning happens in two Ollama stages: business-domain routing first,
-// then detailed planning over only the relevant real CRM capabilities.
+// RealTalent Agent — Ollama-only entrypoint with deterministic-first semantic routing.
+// Public Agent: 8791. Original runtime: internal port. No OpenAI fallback in this flow.
 
 import fs from 'node:fs'
 import http from 'node:http'
 import { fileURLToPath } from 'node:url'
+import { preserveExplicitPlannerArguments, routeBusinessDomain, routeCapability } from './crm-semantic-router.mjs'
 
 const OUTER_HOST = process.env.REALTALENT_AGENT_HOST || '127.0.0.1'
 const OUTER_PORT = Number(process.env.REALTALENT_AGENT_PORT || 8791)
@@ -35,14 +34,12 @@ const timeoutPattern = "timeoutMs:15_000,taskType:'classification'"
 const timeoutReplacement = "timeoutMs:Number(process.env.REALTALENT_OLLAMA_STRUCTURED_TIMEOUT_MS || 90_000),taskType:'classification'"
 const timeoutMatches = source.split(timeoutPattern).length - 1
 if (timeoutMatches !== 2) {
-  throw new Error(`O gateway mudou: esperava 2 timeouts semânticos de 15s, encontrei ${timeoutMatches}. Nada foi iniciado para evitar um patch silencioso incorreto.`)
+  throw new Error(`O gateway mudou: esperava 2 timeouts semânticos de 15s, encontrei ${timeoutMatches}. Nada foi iniciado para evitar patch silencioso incorreto.`)
 }
 source = source.replaceAll(timeoutPattern, timeoutReplacement)
 
 const structuredPattern = 'model, stream: false, format: schema,'
-if (source.includes(structuredPattern)) {
-  source = source.replace(structuredPattern, 'model, stream: false, think: false, format: schema,')
-}
+if (source.includes(structuredPattern)) source = source.replace(structuredPattern, 'model, stream: false, think: false, format: schema,')
 
 fs.writeFileSync(generatedPath, source, 'utf8')
 await import('./.gateway-ollama-runtime.generated.mjs')
@@ -51,34 +48,33 @@ const OLLAMA_URL = process.env.OLLAMA_URL
 const ROUTER_TIMEOUT_MS = Number(process.env.REALTALENT_OLLAMA_ROUTER_TIMEOUT_MS || 60_000)
 
 const MODULE_SEMANTICS = {
-  dashboard: 'ações gerais do CRM: navegar entre telas, consultar de forma global, notificações ou desfazer uma ação',
-  contacts: 'cadastro e manutenção de pessoas, contatos, clientes, leads e seus dados cadastrais',
-  leads: 'cadastro e manutenção de leads, clientes e dados comerciais de prospecção já existentes no CRM',
-  pipeline: 'oportunidades e negócios em andamento: etapas do funil, mover estágio, ganhar ou perder negócio',
-  tasks: 'tarefas e lembretes pessoais/comerciais a fazer; algo que precisa ser executado depois',
-  followups: 'follow-ups, atividades, notas e retornos comerciais associados a registros',
-  agenda: 'agenda e calendário: criar, remarcar ou cancelar reunião, compromisso, evento ou conversa agendada para uma data/horário',
-  calls: 'ligação telefônica operacional: abrir discador ou registrar resultado de uma chamada realizada; não é agendamento de reunião futura',
-  communications: 'enviar ou trabalhar com mensagens externas por WhatsApp ou e-mail; não é apenas marcar uma reunião',
-  proposals: 'propostas comerciais, produtos/serviços do catálogo, preços e condições comerciais',
-  goals: 'metas, objetivos, quotas, alvos e quantidades comerciais a atingir em um período',
-  playbooks: 'roteiros comerciais, scripts, playbooks e orientação de conversa de vendas',
-  automations: 'automações, gatilhos, regras e ações automáticas recorrentes',
-  teams: 'equipes, membros, responsáveis, permissões e distribuição de pessoas',
-  revenue: 'receita, faturamento, reconhecimento financeiro e valores realizados/previstos',
-  prospecting: 'Garimpo/prospecção: descobrir novas empresas/prospects, montar ICP, ranquear ou aprovar prospects; não é agenda nem cadastro comum',
-  settings: 'configurações, preferências e administração do CRM',
+  dashboard: 'ações gerais do CRM: navegar, consultar globalmente, notificações ou desfazer',
+  leads: 'cadastro e manutenção de contatos, empresas, clientes e leads já existentes no CRM',
+  pipeline: 'oportunidades e negócios: etapas do funil, mover estágio, ganhar ou perder negócio',
+  tasks: 'tarefas e lembretes comerciais',
+  followups: 'follow-ups, atividades, notas, cadências e retornos comerciais',
+  agenda: 'agenda e calendário: reunião, compromisso ou evento futuro',
+  calls: 'ligação telefônica: discador, resultado, próxima tentativa e gravação',
+  communications: 'mensagens externas por WhatsApp ou e-mail',
+  proposals: 'propostas, Buyer Room, catálogo, produtos e serviços',
+  goals: 'metas, objetivos, quotas e alvos comerciais',
+  playbooks: 'roteiros comerciais, scripts e playbooks',
+  automations: 'automações, gatilhos e regras automáticas',
+  teams: 'equipes, membros, papéis e permissões',
+  revenue: 'receita, faturamento e reconhecimento financeiro',
+  prospecting: 'Garimpo: descobrir, analisar, ranquear, aprovar e enviar prospects',
+  settings: 'configurações e administração do workspace',
 }
 
 const MODULE_EXAMPLES = {
-  agenda: ['marque uma reunião amanhã às 14h', 'agenda uma call sexta com o cliente', 'reagende o compromisso para 16h'],
-  goals: ['meta de 40 ligações amanhã', 'quero bater 15 propostas esta semana', 'defina objetivo de receita do mês'],
-  prospecting: ['encontre 30 barbearias em Porto Alegre', 'garimpe clínicas em Canoas', 'ranqueie os prospects encontrados'],
-  communications: ['mande um WhatsApp para Camila', 'envie um e-mail com a proposta', 'responda essa mensagem'],
-  calls: ['ligue para Camila agora', 'registre que a ligação não atendeu', 'abra o discador desse contato'],
-  tasks: ['crie uma tarefa para ligar amanhã', 'me lembre de revisar a proposta sexta'],
-  pipeline: ['mova esse negócio para negociação', 'marque a oportunidade como ganha'],
-  proposals: ['crie uma proposta de 20 mil', 'adicione esse serviço no catálogo'],
+  agenda: ['marque uma reunião amanhã às 14h', 'reagende o compromisso para 16h'],
+  goals: ['meta de 40 ligações amanhã', 'defina objetivo de receita do mês'],
+  prospecting: ['encontre 30 barbearias', 'ranqueie os prospects encontrados'],
+  communications: ['mande um WhatsApp', 'envie um e-mail com a proposta'],
+  calls: ['registre que a ligação não atendeu', 'abra a gravação da ligação'],
+  tasks: ['crie uma tarefa para amanhã'],
+  pipeline: ['mova esse negócio para negociação'],
+  proposals: ['crie uma proposta', 'adicione um serviço no catálogo'],
 }
 
 const readJsonBody = async (req, maxBytes = 1_000_000) => {
@@ -106,23 +102,23 @@ const compactCapability = (capability) => ({
   risk: String(capability?.risk || ''),
   reversible: Boolean(capability?.reversible),
   arguments: Array.isArray(capability?.arguments) ? capability.arguments.slice(0, 24) : [],
+  requiredSlots: Array.isArray(capability?.requiredSlots) ? capability.requiredSlots.slice(0, 16) : [],
 })
 
 const semanticModuleRouter = async ({ prompt, capabilities }) => {
   const modules = [...new Set(capabilities.map((item) => String(item?.module || '')).filter(Boolean))]
-  if (modules.length <= 1) return { modules, confidence: 1, rationale: 'catálogo já restrito' }
+  if (modules.length <= 1) return { modules, primaryModule: modules[0] || '', confidence: 1, rationale: 'catálogo já restrito', source: 'single-module' }
 
-  // Stage 1 is intentionally tiny: no route, record context or capability list.
-  // The local 4B model only answers "which business domain is this request about?".
+  const deterministic = routeBusinessDomain(prompt, modules)
+  if (deterministic) return deterministic
+
   const moduleCatalog = modules.map((module) => ({
     module,
     meaning: MODULE_SEMANTICS[module] || `módulo ${module}`,
     examples: MODULE_EXAMPLES[module] || [],
   }))
-
   const schema = {
-    type: 'object',
-    additionalProperties: false,
+    type: 'object', additionalProperties: false,
     properties: {
       primaryModule: { type: 'string', enum: modules },
       secondaryModules: { type: 'array', maxItems: 2, items: { type: 'string', enum: modules } },
@@ -131,22 +127,15 @@ const semanticModuleRouter = async ({ prompt, capabilities }) => {
     },
     required: ['primaryModule', 'secondaryModules', 'confidence', 'canonicalIntent'],
   }
-
-  const instructions = `Você é o roteador de domínio do RealTalent CRM. Classifique o OBJETIVO PRINCIPAL da mensagem atual em um domínio de negócio.\n\nREGRAS:\n- Interprete significado e intenção, não palavras isoladas.\n- Escolha exatamente UM primaryModule. secondaryModules só quando o mesmo pedido realmente exigir outro domínio.\n- Ignore completamente a tela atual do CRM. Ela não faz parte desta decisão.\n- Reunião, compromisso, evento ou conversa que o usuário quer MARCAR/AGENDAR para uma data ou horário pertence a agenda.\n- Uma call AGENDADA para depois pertence a agenda; fazer uma ligação agora ou registrar seu resultado pertence a calls.\n- Enviar mensagem pertence a communications. Apenas citar uma pessoa/cliente não transforma um agendamento em comunicação.\n- Descobrir novos prospects/empresas pertence a prospecting. Trabalhar com um cliente já citado em reunião não é prospecting.\n- Meta, objetivo, quota ou alvo comercial pertence a goals.\n- Proposta comercial pertence a proposals.\n- Não tente escolher uma capability. Nesta etapa escolha somente o domínio.\n- canonicalIntent deve resumir em português, em até uma frase, o que o usuário quer fazer.\n- Retorne somente JSON compatível com o schema.`
+  const instructions = `Você é o roteador de domínio do RealTalent CRM. Classifique o OBJETIVO PRINCIPAL da mensagem em um domínio. Interprete intenção, não palavras isoladas. Ignore a tela atual. Uma call futura agendada é agenda; resultado de ligação é calls; envio de mensagem é communications; descoberta de novos prospects é prospecting; cadastro de lead/contato/empresa existente é leads; meta é goals; proposta é proposals. Retorne somente JSON compatível com o schema.`
 
   const controller = new AbortController()
   const timer = setTimeout(() => controller.abort(), ROUTER_TIMEOUT_MS)
   try {
     const response = await fetch(`${OLLAMA_URL}/api/chat`, {
-      method: 'POST',
-      headers: { 'content-type': 'application/json' },
-      signal: controller.signal,
+      method: 'POST', headers: { 'content-type': 'application/json' }, signal: controller.signal,
       body: JSON.stringify({
-        model: CRM_OLLAMA_MODEL,
-        stream: false,
-        think: false,
-        keep_alive: '30m',
-        format: schema,
+        model: CRM_OLLAMA_MODEL, stream: false, think: false, keep_alive: '30m', format: schema,
         messages: [
           { role: 'system', content: instructions },
           { role: 'user', content: JSON.stringify({ request: String(prompt || '').slice(0, 4000), domains: moduleCatalog }) },
@@ -159,14 +148,13 @@ const semanticModuleRouter = async ({ prompt, capabilities }) => {
     const parsed = JSON.parse(String(data?.message?.content || '{}'))
     const primary = modules.includes(String(parsed?.primaryModule || '')) ? String(parsed.primaryModule) : ''
     const secondary = Array.isArray(parsed?.secondaryModules)
-      ? [...new Set(parsed.secondaryModules.map((item) => String(item)).filter((item) => modules.includes(item) && item !== primary))].slice(0, 2)
+      ? [...new Set(parsed.secondaryModules.map(String).filter((item) => modules.includes(item) && item !== primary))].slice(0, 2)
       : []
     if (!primary) throw new Error('router_semantic_empty')
     return {
-      modules: [primary, ...secondary],
-      primaryModule: primary,
+      modules: [primary, ...secondary], primaryModule: primary,
       confidence: Number.isFinite(Number(parsed?.confidence)) ? Math.max(0, Math.min(1, Number(parsed.confidence))) : 0,
-      rationale: String(parsed?.canonicalIntent || '').slice(0, 400),
+      rationale: String(parsed?.canonicalIntent || '').slice(0, 400), source: 'ollama-domain',
     }
   } finally {
     clearTimeout(timer)
@@ -177,11 +165,7 @@ const callInnerPlanner = async (body, reqHeaders = {}) => {
   const headers = { 'content-type': 'application/json' }
   const token = String(reqHeaders['x-realtalent-agent-token'] || '').trim()
   if (token) headers['x-realtalent-agent-token'] = token
-  const response = await fetch(`http://${OUTER_HOST}:${INNER_PORT}/capabilities/plan`, {
-    method: 'POST',
-    headers,
-    body: JSON.stringify(body),
-  })
+  const response = await fetch(`http://${OUTER_HOST}:${INNER_PORT}/capabilities/plan`, { method: 'POST', headers, body: JSON.stringify(body) })
   const payload = await response.json().catch(() => ({}))
   return { response, payload }
 }
@@ -192,18 +176,19 @@ const handleCapabilityPlan = async (req, res) => {
     const capabilities = Array.isArray(body?.capabilities)
       ? body.capabilities.map(compactCapability).filter((item) => item.id && item.module)
       : []
+    const prompt = String(body?.prompt || '').trim()
 
-    if (!String(body?.prompt || '').trim() || !capabilities.length) {
+    if (!prompt || !capabilities.length) {
       const { response, payload } = await callInnerPlanner(body, req.headers)
       return sendJson(res, response.status, payload)
     }
 
     let routing
     try {
-      routing = await semanticModuleRouter({ prompt: String(body.prompt), capabilities })
+      routing = await semanticModuleRouter({ prompt, capabilities })
     } catch (error) {
-      console.warn(`[ollama-router] semantic routing failed; using original catalog: ${error instanceof Error ? error.message : error}`)
-      routing = { modules: [], primaryModule: '', confidence: 0, rationale: 'router fallback' }
+      console.warn(`[ollama-router] domain routing failed; using original catalog: ${error instanceof Error ? error.message : error}`)
+      routing = { modules: [], primaryModule: '', confidence: 0, rationale: 'router fallback', source: 'fallback' }
     }
 
     const pendingId = String(body?.context?.pending_capability?.capabilityId || '')
@@ -211,59 +196,35 @@ const handleCapabilityPlan = async (req, res) => {
     const selectedModules = new Set(routing.modules)
     if (pendingModule) selectedModules.add(pendingModule)
 
-    const narrowed = selectedModules.size
-      ? capabilities.filter((item) => selectedModules.has(item.module))
-      : capabilities
+    const narrowed = selectedModules.size ? capabilities.filter((item) => selectedModules.has(item.module)) : capabilities
+    const capabilityRouting = routeCapability(prompt, narrowed, pendingId)
+    const finalCapabilities = capabilityRouting?.ids?.length
+      ? narrowed.filter((item) => capabilityRouting.ids.includes(item.id))
+      : narrowed
 
-    console.log(`[ollama-router] primary=${routing.primaryModule || 'none'} modules=${[...selectedModules].join(',') || 'all'} capabilities=${capabilities.length}->${narrowed.length} confidence=${routing.confidence} intent=${routing.rationale}`)
+    console.log(`[ollama-router] primary=${routing.primaryModule || 'none'} modules=${[...selectedModules].join(',') || 'all'} capabilities=${capabilities.length}->${narrowed.length}->${finalCapabilities.length} confidence=${routing.confidence} intent=${routing.rationale} capability=${capabilityRouting?.ids?.join(',') || 'model-choice'}`)
 
-    const { response, payload } = await callInnerPlanner({ ...body, capabilities: narrowed }, req.headers)
+    const planned = await callInnerPlanner({ ...body, capabilities: finalCapabilities }, req.headers)
+    const payload = preserveExplicitPlannerArguments(prompt, planned.payload)
     if (payload && typeof payload === 'object') {
       payload.routing = {
-        provider: 'ollama',
-        model: CRM_OLLAMA_MODEL,
-        primaryModule: routing.primaryModule || '',
-        modules: [...selectedModules],
-        canonicalIntent: routing.rationale,
-        originalCapabilityCount: capabilities.length,
-        routedCapabilityCount: narrowed.length,
-        confidence: routing.confidence,
+        provider: 'ollama', model: CRM_OLLAMA_MODEL,
+        primaryModule: routing.primaryModule || '', modules: [...selectedModules], canonicalIntent: routing.rationale,
+        originalCapabilityCount: capabilities.length, routedCapabilityCount: finalCapabilities.length,
+        confidence: routing.confidence, capabilitySource: capabilityRouting ? 'deterministic' : 'ollama-planner',
       }
     }
-    return sendJson(res, response.status, payload)
+    return sendJson(res, planned.response.status, payload)
   } catch (error) {
     return sendJson(res, 503, {
       ok: false,
       error: `Ollama semantic capability router: ${error instanceof Error ? error.message : String(error)}`,
-      provider: 'ollama',
-      model: CRM_OLLAMA_MODEL,
+      provider: 'ollama', model: CRM_OLLAMA_MODEL,
     })
   }
 }
 
-const proxyToInner = (req, res) => {
-  const upstream = http.request({
-    hostname: OUTER_HOST,
-    port: INNER_PORT,
-    path: req.url,
-    method: req.method,
-    headers: { ...req.headers, host: `${OUTER_HOST}:${INNER_PORT}` },
-  }, (upstreamRes) => {
-    res.writeHead(upstreamRes.statusCode || 502, upstreamRes.headers)
-    upstreamRes.pipe(res)
-  })
-  upstream.on('error', (error) => {
-    if (!res.headersSent) sendJson(res, 502, { ok: false, error: `Agent interno indisponível: ${error.message}` })
-    else res.end()
-  })
-  req.pipe(upstream)
-}
-
-const LOCAL_BROWSER_ORIGINS = new Set([
-  'http://127.0.0.1:4188',
-  'http://localhost:4188',
-])
-
+const LOCAL_BROWSER_ORIGINS = new Set(['http://127.0.0.1:4188', 'http://localhost:4188'])
 const applyLocalBrowserCors = (req, res) => {
   const origin = String(req.headers.origin || '')
   if (!LOCAL_BROWSER_ORIGINS.has(origin)) return false
@@ -275,17 +236,31 @@ const applyLocalBrowserCors = (req, res) => {
   return true
 }
 
+const proxyToInner = (req, res) => {
+  const upstream = http.request({
+    hostname: OUTER_HOST, port: INNER_PORT, path: req.url, method: req.method,
+    headers: { ...req.headers, host: `${OUTER_HOST}:${INNER_PORT}` },
+  }, (upstreamRes) => {
+    const headers = { ...upstreamRes.headers }
+    const origin = String(req.headers.origin || '')
+    if (LOCAL_BROWSER_ORIGINS.has(origin)) {
+      headers['access-control-allow-origin'] = origin
+      headers.vary = 'Origin'
+    }
+    res.writeHead(upstreamRes.statusCode || 502, headers)
+    upstreamRes.pipe(res)
+  })
+  upstream.on('error', (error) => {
+    if (!res.headersSent) sendJson(res, 502, { ok: false, error: `Agent interno indisponível: ${error.message}` })
+    else res.end()
+  })
+  req.pipe(upstream)
+}
+
 const routerServer = http.createServer((req, res) => {
   applyLocalBrowserCors(req, res)
-  if (req.method === 'OPTIONS') {
-    res.statusCode = 204
-    res.end()
-    return
-  }
-  if (req.method === 'POST' && String(req.url || '').split('?')[0] === '/capabilities/plan') {
-    handleCapabilityPlan(req, res)
-    return
-  }
+  if (req.method === 'OPTIONS') { res.statusCode = 204; res.end(); return }
+  if (req.method === 'POST' && String(req.url || '').split('?')[0] === '/capabilities/plan') { handleCapabilityPlan(req, res); return }
   proxyToInner(req, res)
 })
 

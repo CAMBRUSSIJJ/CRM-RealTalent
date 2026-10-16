@@ -108,8 +108,9 @@ echo "✓ Commit $(git rev-parse --short HEAD)"
 : > "$MATRIX_LOG"
 
 say "2/8 — Validando fonte definitiva antes de iniciar Ollama"
-# Wiring transitório limitado a imports/executor/readback. NÃO toca gateway/planner/roteador.
+# Wiring transitório limitado a imports/executor/readback e persistência de sessão do Assistant.
 node scripts/enable-universal-agent.mjs
+node scripts/fix-assistant-execution-session.mjs
 
 node --check runtime-host/RealTalent-Agent-Runtime-V3.1.2/crm-semantic-router.mjs
 node --check runtime-host/RealTalent-Agent-Runtime-V3.1.2/gateway-ollama.mjs
@@ -119,6 +120,7 @@ grep -q "crm-semantic-router.mjs" runtime-host/RealTalent-Agent-Runtime-V3.1.2/g
 grep -q "routeCapability" runtime-host/RealTalent-Agent-Runtime-V3.1.2/gateway-ollama.mjs || fail "Narrowing de capability não está ligado."
 grep -q "preserveExplicitPlannerArguments" runtime-host/RealTalent-Agent-Runtime-V3.1.2/gateway-ollama.mjs || fail "Preservação de entidades explícitas não está ligada."
 grep -q "realtalent-crm-universal-executor" src/features/assistant/assistant-drawer.tsx || fail "Assistant não está ligado ao executor universal."
+grep -q "executedPlanId })" src/features/assistant/assistant-drawer.tsx || fail "Assistant não está persistindo o plano executado na sessão."
 grep -q "realtalent-crm-universal-registry" src/services/realtalent-crm-capability-runtime-client.ts || fail "Runtime client não está usando o catálogo universal completo."
 grep -q "REALTALENT_MATRIX_FROM" "$MATRIX_FILE" || fail "Matriz real ainda depende de patch de boot."
 

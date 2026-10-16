@@ -55,6 +55,7 @@ export const recordCrmExecutionReceipt = (receipt: CrmExecutionReceipt) => {
 export const lastCrmExecutionReceipt = (workspaceId: string) => [...readReceipts(workspaceId)].reverse()[0] ?? null
 
 const collectionForCapability = (snapshot: WorkspaceSnapshot, capabilityId: string): Array<{ id: string; [key: string]: unknown }> | null => {
+  if (capabilityId.startsWith('contacts.relationship_')) return snapshot.contactRelationships as any[]
   if (capabilityId.startsWith('contacts.')) return snapshot.contacts as any[]
   if (capabilityId.startsWith('companies.')) return snapshot.companies as any[]
   if (capabilityId.startsWith('leads.') || capabilityId.startsWith('pipeline.mark_') || capabilityId === 'pipeline.move') return snapshot.leads as any[]
@@ -62,7 +63,9 @@ const collectionForCapability = (snapshot: WorkspaceSnapshot, capabilityId: stri
   if (capabilityId.startsWith('activities.')) return snapshot.activities as any[]
   if (capabilityId.startsWith('calendar.')) return snapshot.events as any[]
   if (capabilityId.startsWith('calls.')) return snapshot.calls as any[]
+  if (capabilityId.startsWith('cadences.')) return snapshot.activities as any[]
   if (capabilityId.startsWith('proposals.')) return snapshot.proposals as any[]
+  if (capabilityId.startsWith('buyer_rooms.')) return snapshot.buyerRooms as any[]
   if (capabilityId.startsWith('catalog.')) return snapshot.products as any[]
   if (capabilityId.startsWith('goals.')) return snapshot.goals as any[]
   if (capabilityId.startsWith('playbooks.')) return snapshot.playbooks as any[]
@@ -109,15 +112,17 @@ const familyDeleted = (before: WorkspaceSnapshot, after: WorkspaceSnapshot, capa
 export const executionTruthSlicesForCapability = (capabilityId: string): SnapshotSlice[] => {
   if (capabilityId.startsWith('contacts.') || capabilityId.startsWith('companies.') || capabilityId.startsWith('leads.')) return ['commercial']
   if (capabilityId.startsWith('pipeline.')) return ['commercial', 'stages']
-  if (capabilityId.startsWith('activities.')) return ['commercial', 'activities']
+  if (capabilityId.startsWith('activities.') || capabilityId.startsWith('cadences.')) return ['commercial', 'activities']
   if (capabilityId.startsWith('calendar.')) return ['events']
   if (capabilityId.startsWith('calls.')) return ['commercial', 'calls']
-  if (capabilityId.startsWith('proposals.')) return ['commercial', 'products', 'proposals', 'revenue']
+  if (capabilityId.startsWith('proposals.')) return ['commercial', 'products', 'proposals', 'buyerRooms', 'revenue']
+  if (capabilityId.startsWith('buyer_rooms.')) return ['commercial', 'proposals', 'buyerRooms']
   if (capabilityId.startsWith('catalog.')) return ['products', 'proposals']
   if (capabilityId.startsWith('goals.')) return ['goals']
   if (capabilityId.startsWith('playbooks.')) return ['playbooks']
   if (capabilityId.startsWith('automations.')) return ['automationRules', 'automationRuns']
   if (capabilityId.startsWith('revenue.')) return ['revenue']
+  if (capabilityId === 'workspace.sync_structure') return ['commercial']
   if (capabilityId === 'prospecting.send_to_crm') return ['commercial', 'stages', 'activities']
   if (capabilityId.startsWith('prospecting.')) return ['commercial']
   return []
@@ -340,14 +345,19 @@ export async function verifyCrmCapabilityExecution(
     base.status = 'verified'; base.checks.push('Entidade foi relida e a versão persistida mudou.'); return base
   }
 
-  if (step.capabilityId.endsWith('.create') && familyCreated(before, after, step.capabilityId)) {
+  const createLike = step.capabilityId.endsWith('.create') || ['contacts.relationship_create', 'proposals.create_revision', 'calls.register_outcome'].includes(step.capabilityId)
+  if (createLike && familyCreated(before, after, step.capabilityId)) {
     base.status = 'verified'; base.checks.push('A coleção persistida aumentou após a criação.'); return base
   }
   if (step.capabilityId.endsWith('.delete') && familyDeleted(before, after, step.capabilityId)) {
     base.status = 'verified'; base.checks.push('A coleção persistida diminuiu após a exclusão.'); return base
   }
-  if ((step.capabilityId.includes('.update') || step.capabilityId.includes('.mark_') || step.capabilityId === 'pipeline.move' || step.capabilityId === 'proposals.make_official' || step.capabilityId === 'proposals.close_opportunity') && familyChanged(before, after, step.capabilityId)) {
+  if ((step.capabilityId.includes('.update') || step.capabilityId.includes('.mark_') || step.capabilityId === 'pipeline.move' || step.capabilityId === 'leads.bulk_move' || step.capabilityId === 'proposals.make_official' || step.capabilityId === 'proposals.close_opportunity') && familyChanged(before, after, step.capabilityId)) {
     base.status = 'verified'; base.checks.push('A coleção persistida foi relida com alteração efetiva.'); return base
+  }
+  if (step.capabilityId === 'workspace.sync_structure') {
+    const changed = ['companies', 'contacts', 'contactRelationships', 'opportunities', 'socialProfiles'].some((key) => JSON.stringify((before as any)[key] ?? []) !== JSON.stringify((after as any)[key] ?? []))
+    if (changed) { base.status = 'verified'; base.checks.push('A estrutura comercial canônica foi relida com alteração efetiva.'); return base }
   }
   if (step.capabilityId === 'prospecting.send_to_crm' && after.leads.length > before.leads.length) {
     base.status = 'verified'; base.checks.push('Novos registros comerciais foram relidos após a conversão do Garimpo.'); return base

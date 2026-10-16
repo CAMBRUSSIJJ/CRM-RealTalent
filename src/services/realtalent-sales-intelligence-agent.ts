@@ -85,6 +85,17 @@ const visibleLeadIdsForRecommendation = (lead: Lead, snapshot: WorkspaceSnapshot
 const groundedNextBestAction = (lead: Lead, insight: DealIntelligence, recommended: DealNextBestAction): DealNextBestAction => {
   const riskKeys = new Set(insight.risks.map((risk) => risk.key))
 
+  if (riskKeys.has('missing-decision-maker') || riskKeys.has('single-threaded')) {
+    return {
+      kind: 'map_stakeholder',
+      title: 'Mapear decisor',
+      explanation: 'A cobertura da conta é insuficiente para sustentar o avanço do negócio.',
+      objective: 'Identificar quem aprova e reduzir dependência de um único contato.',
+      route: 'leads',
+      urgency: 'today',
+    }
+  }
+
   if (riskKeys.has('never-contacted')) {
     if (lead.phone && !lead.doNotContact) return {
       kind: 'followup',

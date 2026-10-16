@@ -18,7 +18,7 @@ import { deleteTask, loadWorkManagement, saveTask, updateTaskStatus } from '../.
 import { calculateProposalTotals, createProposalLineFromProduct } from '../../services/proposal-pricing'
 import { detectFastActionIntent } from '../../services/realtalent-fast-actions'
 import { appendAgendaMetadata } from '../../services/agenda-workspace'
-import { executeCrmCapabilityStep, undoCrmAgentOperation } from '../../services/realtalent-crm-capability-executor'
+import { executeCrmCapabilityStep, undoCrmAgentOperation } from '../../services/realtalent-crm-universal-executor'
 import { continuationPrompt, type CrmPendingCapability } from '../../services/realtalent-crm-slot-filling'
 import { lastUndoableCrmAgentTransaction, markCrmAgentTransactionUndone, recordCrmAgentTransaction, type CrmAgentUndoOperation } from '../../services/realtalent-crm-agent-transactions'
 import { executionTruthSlicesForCapability, executionTruthSlicesForPlan, executionTruthSlicesForUndoOperations, receiptLabel, receiptStatusFromEvidence, recordCrmExecutionReceipt, verifyCrmCapabilityExecution, verifyCrmUndoExecution, type CrmExecutionStepEvidence } from '../../services/realtalent-crm-execution-truth'

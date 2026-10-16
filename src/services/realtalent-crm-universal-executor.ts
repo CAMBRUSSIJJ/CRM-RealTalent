@@ -4,14 +4,17 @@ import { executeCrmCapabilityStep as executeBaseCrmCapabilityStep, undoCrmAgentO
 import type { CrmCapabilityPlanStep } from './realtalent-crm-capability-planner'
 import { UNIVERSAL_EXTRA_CAPABILITIES } from './realtalent-crm-universal-capabilities'
 import { executeUniversalContacts } from './realtalent-crm-universal-executor-contacts'
+import { executeUniversalAdmin } from './realtalent-crm-universal-executor-admin'
 import { assertRecordU, parseJson, resolveActivityU, resolveAutomationU, resolveBuyerRoomU, resolveContactU, resolveLeadU, resolveLeadsU, resolveProductU, resolveProposalU, targetQuery, uarg, ubest, ubool, uiso, unormalize, unum } from './realtalent-crm-universal-executor-helpers'
 import { formatSalesAgentDealAnalysis, formatSalesAgentNextBestAction, formatSalesPortfolio, type SalesPortfolioFocus } from './realtalent-sales-intelligence-agent'
 import { formatSalesCoachingPlan } from './realtalent-sales-coaching'
+import { formatLiveSalesCoach } from './realtalent-live-sales-coach'
+import { universalCrmCapabilityById } from './realtalent-crm-universal-registry'
 
 export { undoCrmAgentOperation }
 export type { CrmCapabilityExecutionRuntime, CrmCapabilityStepResult }
 
-const SALES_INTELLIGENCE_IDS = ['sales.analyze_deal', 'sales.next_best_action', 'sales.coach_conversation', 'sales.prioritize_pipeline', 'sales.call_priorities', 'sales.at_risk_deals', 'sales.cooling_deals', 'sales.missing_decision_maker', 'sales.closing_risk_this_month'] as const
+const SALES_INTELLIGENCE_IDS = ['sales.analyze_deal', 'sales.next_best_action', 'sales.coach_conversation', 'sales.live_call_coach', 'sales.post_call_review', 'sales.prioritize_pipeline', 'sales.call_priorities', 'sales.at_risk_deals', 'sales.cooling_deals', 'sales.missing_decision_maker', 'sales.closing_risk_this_month'] as const
 const EXTRA_IDS = new Set([...UNIVERSAL_EXTRA_CAPABILITIES.filter((item) => item.execution === 'native').map((item) => item.id), ...SALES_INTELLIGENCE_IDS])
 
 const activityOutcome = (value: string) => {
@@ -102,6 +105,12 @@ async function executeSales(step: CrmCapabilityPlanStep, runtime: CrmCapabilityE
     const visibleSnapshot = { ...snapshot, leads: snapshot.leads.filter((lead) => runtime.canTeamAccessRecord('pipeline', lead.ownerId)) }
     return { ok: true, summary: formatSalesPortfolio(visibleSnapshot, focus) }
   }
+  if (step.capabilityId === 'sales.live_call_coach' || step.capabilityId === 'sales.post_call_review') {
+    const lead = resolveLeadU(runtime, targetQuery(step)); if (!lead) throw new Error('Não encontrei o lead ou a oportunidade da ligação.')
+    assertRecordU(runtime, 'contacts', lead.ownerId)
+    const phase = step.capabilityId === 'sales.live_call_coach' ? 'during' : 'after'
+    return { ok: true, summary: formatLiveSalesCoach({ lead, snapshot, phase, transcript: uarg(step, 'transcript'), notes: uarg(step, 'notes') }) }
+  }
   if (step.capabilityId === 'sales.analyze_deal' || step.capabilityId === 'sales.next_best_action' || step.capabilityId === 'sales.coach_conversation') {
     const lead = resolveLeadU(runtime, targetQuery(step)); if (!lead) throw new Error('Não encontrei o lead ou a oportunidade para analisar.')
     assertRecordU(runtime, 'pipeline', lead.ownerId)
@@ -173,9 +182,13 @@ async function executeAutomationAndWorkspace(step: CrmCapabilityPlanStep, runtim
 
 export async function executeCrmCapabilityStep(step: CrmCapabilityPlanStep, runtime: CrmCapabilityExecutionRuntime): Promise<CrmCapabilityStepResult> {
   if (!EXTRA_IDS.has(step.capabilityId)) return executeBaseCrmCapabilityStep(step, runtime)
+  const definition = universalCrmCapabilityById(step.capabilityId)
+  if (!definition) throw new Error(`Capacidade desconhecida: ${step.capabilityId}`)
+  if (definition.resource && definition.permissionAction && !runtime.canTeamAccess(definition.permissionAction, definition.resource)) throw new Error(`Seu perfil não permite ${definition.permissionAction} em ${definition.resource}.`)
   const contactResult = await executeUniversalContacts(step, runtime); if (contactResult) return contactResult
   const followupResult = await executeFollowupAndCalls(step, runtime); if (followupResult) return followupResult
   const salesResult = await executeSales(step, runtime); if (salesResult) return salesResult
+  const universalAdminResult = await executeUniversalAdmin(step, runtime); if (universalAdminResult) return universalAdminResult
   const adminResult = await executeAutomationAndWorkspace(step, runtime); if (adminResult) return adminResult
   throw new Error(`A capability universal ${step.capabilityId} ainda não possui implementação.`)
 }

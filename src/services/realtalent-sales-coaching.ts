@@ -57,7 +57,7 @@ const normalize = (value: string) => value
   .trim()
 
 const compact = (value: string, limit = 220) => value.replace(/\s+/g, ' ').trim().slice(0, limit)
-const unique = (values: string[], limit = 12) => [...new Map(values.map((value) => [normalize(value), compact(value)])).values()].filter(Boolean).slice(0, limit)
+const unique = (values: string[], limit = 12) => [...new Map(values.map((value) => [normalize(value), compact(value)] as const)).values()].filter(Boolean).slice(0, limit)
 
 const decisionRoleLabel: Record<DecisionRole, string> = {
   decision_maker: 'decisor',

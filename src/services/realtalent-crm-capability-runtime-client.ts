@@ -1,6 +1,6 @@
 import { env } from '../lib/env'
 import { runtimeFetch } from './realtalent-runtime-transport'
-import { universalCrmCapabilityById as crmCapabilityById, universalCrmCapabilityCatalogForModel as crmCapabilityCatalogForModel } from './realtalent-crm-universal-capabilities'
+import { universalCrmCapabilityById as crmCapabilityById, universalCrmCapabilityCatalogForModel as crmCapabilityCatalogForModel } from './realtalent-crm-universal-registry'
 import { crmCapabilitySlotRulesForModel } from './realtalent-crm-universal-slot-filling'
 import type {
   CrmCapabilityArgument,

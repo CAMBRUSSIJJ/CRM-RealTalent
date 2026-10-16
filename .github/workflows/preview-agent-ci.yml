@@ -57,3 +57,26 @@ jobs:
 
       - name: Build
         run: npm run build
+
+  local-staging-e2e:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Run local Supabase migrations + CR2 + CR3
+        env:
+          REALTALENT_SUPABASE_CLI_VERSION: '2.119.0'
+        run: bash scripts/local-staging.sh all
+
+      - name: Tear down disposable local staging
+        if: always()
+        env:
+          REALTALENT_SUPABASE_CLI_VERSION: '2.119.0'
+        run: bash scripts/local-staging.sh clean || true

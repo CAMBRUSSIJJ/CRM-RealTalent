@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { routeBusinessDomain, routeCapability } from './crm-semantic-router.mjs'
+import { preserveExplicitPlannerArguments, routeBusinessDomain, routeCapability } from './crm-semantic-router.mjs'
 
 const modules = ['dashboard','leads','pipeline','tasks','followups','agenda','calls','communications','proposals','goals','playbooks','automations','teams','revenue','prospecting','settings']
 const defs = [
@@ -65,4 +65,32 @@ describe('RealTalent deterministic semantic router', () => {
       expect(capability?.ids?.[0]).toBe(expectedCapability)
     })
   }
+
+  it('normaliza “amanhã” pela data local do navegador e mantém meta de um único dia', () => {
+    const payload = {
+      ok: true,
+      decision: 'execute',
+      plan: {
+        needsClarification: false,
+        missingSlots: [],
+        steps: [{
+          capabilityId: 'goals.create',
+          args: [
+            { name: 'metric', value: 'calls' },
+            { name: 'target_value', value: '40' },
+            { name: 'period_start', value: '2026-10-17' },
+            { name: 'period_end', value: '2026-10-17' },
+          ],
+        }],
+      },
+    }
+    const result = preserveExplicitPlannerArguments(
+      'faça meta de 40 ligações para amanhã, apenas amanhã',
+      payload,
+      { now: '2026-10-16T01:14:00.000Z', timezone: 'America/Sao_Paulo' },
+    )
+    const args = new Map(result.plan.steps[0].args.map((item) => [item.name, item.value]))
+    expect(args.get('period_start')).toBe('2026-10-16')
+    expect(args.get('period_end')).toBe('2026-10-16')
+  })
 })

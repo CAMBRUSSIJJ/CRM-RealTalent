@@ -11,6 +11,7 @@ OLLAMA_URL="${OLLAMA_URL:-http://127.0.0.1:11434}"
 MODEL="${REALTALENT_OLLAMA_MODEL:-qwen3:4b}"
 MATRIX_FILE="src/services/realtalent-ollama-crm-matrix.integration.test.ts"
 ROUTER_TEST="runtime-host/RealTalent-Agent-Runtime-V3.1.2/crm-semantic-router.test.mjs"
+LEARNING_TEST="src/services/realtalent-learning-engine.test.ts"
 LAUNCH_LOG="$ROOT/.realtalent-total.log"
 AGENT_LOG="$ROOT/.realtalent-agent-ollama.log"
 VITE_LOG="$ROOT/.realtalent-vite.log"
@@ -118,15 +119,17 @@ node --check runtime-host/RealTalent-Agent-Runtime-V3.1.2/crm-capability-planner
 
 grep -q "crm-semantic-router.mjs" runtime-host/RealTalent-Agent-Runtime-V3.1.2/gateway-ollama.mjs || fail "Gateway não usa a fonte definitiva do roteador."
 grep -q "routeCapability" runtime-host/RealTalent-Agent-Runtime-V3.1.2/gateway-ollama.mjs || fail "Narrowing de capability não está ligado."
+grep -q "verifiedLearningHint" runtime-host/RealTalent-Agent-Runtime-V3.1.2/gateway-ollama.mjs || fail "Roteador não está aceitando aprendizado local verificado."
 grep -q "preserveExplicitPlannerArguments" runtime-host/RealTalent-Agent-Runtime-V3.1.2/gateway-ollama.mjs || fail "Preservação de entidades explícitas não está ligada."
 grep -q "realtalent-crm-universal-executor" src/features/assistant/assistant-drawer.tsx || fail "Assistant não está ligado ao executor universal."
 grep -q "executedPlanId })" src/features/assistant/assistant-drawer.tsx || fail "Assistant não está persistindo o plano executado na sessão."
+grep -q "realtalent-learning-engine" src/services/realtalent-ai-gateway.ts || fail "AI Gateway não está ligado ao Learning Engine."
 grep -q "realtalent-crm-universal-registry" src/services/realtalent-crm-capability-runtime-client.ts || fail "Runtime client não está usando o catálogo universal completo."
 grep -q "REALTALENT_MATRIX_FROM" "$MATRIX_FILE" || fail "Matriz real ainda depende de patch de boot."
 
-# Gate barato: toda a matriz conhecida precisa rotear corretamente sem chamar o modelo.
-npx vitest run "$ROUTER_TEST"
-echo "✓ Roteador determinístico aprovado antes de iniciar Ollama"
+# Gates baratos: roteamento conhecido + aprendizado verificado, sem chamar Ollama.
+npx vitest run "$ROUTER_TEST" "$LEARNING_TEST"
+echo "✓ Roteador determinístico e Learning Engine aprovados antes de iniciar Ollama"
 
 say "3/8 — Encerrando somente instâncias antigas do RealTalent"
 stop_realtalent_port 4188
@@ -170,9 +173,10 @@ npx vitest run \
   src/services/realtalent-crm-capability-coverage.test.ts \
   src/services/realtalent-crm-universal-audit.test.ts \
   src/services/realtalent-crm-universal-readback.test.ts \
-  src/services/realtalent-assistant-provider-routing.test.ts
+  src/services/realtalent-assistant-provider-routing.test.ts \
+  "$LEARNING_TEST"
 
-echo "✓ Superfície operacional, executores e Execution Truth auditados"
+echo "✓ Superfície operacional, executores, Execution Truth e aprendizado local auditados"
 
 say "6/8 — Validando o mesmo caminho usado pelo navegador"
 CORS_HEADERS="$(mktemp)"
@@ -230,6 +234,7 @@ fi
 say "8/8 — RealTalent em execução"
 echo "✓ Fonte semântica definitiva validada"
 echo "✓ Roteador determinístico validado antes do boot"
+echo "✓ Learning Engine local: experiências verificadas + correções do usuário"
 echo "✓ Ollama online no fluxo principal"
 echo "✓ Agent Universal online"
 echo "✓ Browser autorizado a acessar o Agent"

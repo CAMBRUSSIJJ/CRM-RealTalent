@@ -6,6 +6,7 @@ interface WorkTaskProjectionContext {
 }
 
 const relationByTaskId = (relations: TaskRelation[]) => new Map(relations.map((relation) => [relation.taskId, relation]))
+const isCommercialTaskRelation = (relation: TaskRelation | undefined) => relation?.entityType === 'lead' || relation?.entityType === 'contact'
 
 const linkedLeadId = (relation: TaskRelation | undefined, contacts: ContactRecord[]) => {
   if (!relation) return null
@@ -47,7 +48,10 @@ export const projectWorkTasksToActivities = (
   context: WorkTaskProjectionContext = {},
 ): ActivityItem[] => {
   const relations = relationByTaskId(workManagement.relations)
-  const projected = workManagement.tasks.map((task) => workTaskToActivityProjection(task, relations.get(task.id), context))
+  const projected = workManagement.tasks
+    .map((task) => ({ task, relation: relations.get(task.id) }))
+    .filter(({ relation }) => isCommercialTaskRelation(relation))
+    .map(({ task, relation }) => workTaskToActivityProjection(task, relation, context))
   const projectedIds = new Set(projected.map((activity) => activity.id))
   return [...activities.filter((activity) => !projectedIds.has(activity.id)), ...projected]
 }

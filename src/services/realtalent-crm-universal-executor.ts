@@ -6,11 +6,12 @@ import { UNIVERSAL_EXTRA_CAPABILITIES } from './realtalent-crm-universal-capabil
 import { executeUniversalContacts } from './realtalent-crm-universal-executor-contacts'
 import { assertRecordU, parseJson, resolveActivityU, resolveAutomationU, resolveBuyerRoomU, resolveContactU, resolveLeadU, resolveLeadsU, resolveProductU, resolveProposalU, targetQuery, uarg, ubest, ubool, uiso, unormalize, unum } from './realtalent-crm-universal-executor-helpers'
 import { formatSalesAgentDealAnalysis, formatSalesAgentNextBestAction } from './realtalent-sales-intelligence-agent'
+import { formatSalesCoachingPlan } from './realtalent-sales-coaching'
 
 export { undoCrmAgentOperation }
 export type { CrmCapabilityExecutionRuntime, CrmCapabilityStepResult }
 
-const SALES_INTELLIGENCE_IDS = ['sales.analyze_deal', 'sales.next_best_action'] as const
+const SALES_INTELLIGENCE_IDS = ['sales.analyze_deal', 'sales.next_best_action', 'sales.coach_conversation'] as const
 const EXTRA_IDS = new Set([...UNIVERSAL_EXTRA_CAPABILITIES.filter((item) => item.execution === 'native').map((item) => item.id), ...SALES_INTELLIGENCE_IDS])
 
 const activityOutcome = (value: string) => {
@@ -88,12 +89,14 @@ async function executeFollowupAndCalls(step: CrmCapabilityPlanStep, runtime: Crm
 
 async function executeSales(step: CrmCapabilityPlanStep, runtime: CrmCapabilityExecutionRuntime): Promise<CrmCapabilityStepResult | null> {
   const { actions, snapshot } = runtime
-  if (step.capabilityId === 'sales.analyze_deal' || step.capabilityId === 'sales.next_best_action') {
+  if (step.capabilityId === 'sales.analyze_deal' || step.capabilityId === 'sales.next_best_action' || step.capabilityId === 'sales.coach_conversation') {
     const lead = resolveLeadU(runtime, targetQuery(step)); if (!lead) throw new Error('Não encontrei o lead ou a oportunidade para analisar.')
     assertRecordU(runtime, 'pipeline', lead.ownerId)
     const summary = step.capabilityId === 'sales.analyze_deal'
       ? formatSalesAgentDealAnalysis(lead, snapshot)
-      : formatSalesAgentNextBestAction(lead, snapshot)
+      : step.capabilityId === 'sales.next_best_action'
+        ? formatSalesAgentNextBestAction(lead, snapshot)
+        : formatSalesCoachingPlan(lead, snapshot, uarg(step, 'conversation_type'))
     return { ok: true, summary }
   }
   if (step.capabilityId === 'proposals.update' || step.capabilityId === 'proposals.create_revision') {

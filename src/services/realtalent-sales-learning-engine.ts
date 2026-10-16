@@ -192,6 +192,11 @@ export const stageSalesRecommendationsFromPlan = (
     const lead = leadFromRecommendationStep(step, snapshot, focusLeadId)
     if (!lead) continue
     const insight = buildDealIntelligence(lead, snapshot)
+    const requestedAction = arg(step, 'recommended_action') as DealActionKind
+    const validActions = new Set<DealActionKind>(['call','followup','meeting','map_stakeholder','proposal','review_proposal','update_close_date','review'])
+    const actionKind = validActions.has(requestedAction) ? requestedAction : insight.nextBestAction.kind
+    const actionTitle = compact(arg(step, 'recommended_action_title') || (actionKind === insight.nextBestAction.kind ? insight.nextBestAction.title : actionKind), 160)
+    const actionRoute = compact(arg(step, 'recommended_action_route') || (actionKind === insight.nextBestAction.kind ? insight.nextBestAction.route : ''), 80)
     rows = rows.filter((item) => item.recommendationPlanId !== plan.id && !(item.leadId === lead.id && !item.actionPlanId))
     rows.push({
       id: `sales-rec:${Date.now()}:${Math.random().toString(36).slice(2, 8)}`,
@@ -200,9 +205,9 @@ export const stageSalesRecommendationsFromPlan = (
       sourceCapabilityId: step.capabilityId,
       leadId: lead.id,
       prompt: redact(prompt),
-      actionKind: insight.nextBestAction.kind,
-      actionTitle: compact(insight.nextBestAction.title, 160),
-      actionRoute: insight.nextBestAction.route,
+      actionKind,
+      actionTitle,
+      actionRoute: actionRoute || insight.nextBestAction.route,
       riskKeys: insight.risks.map((risk) => risk.key).slice(0, 12),
       baseline: stateFor(lead, snapshot),
       recommendedAt: new Date().toISOString(),

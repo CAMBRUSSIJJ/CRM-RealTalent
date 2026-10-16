@@ -170,6 +170,17 @@ const callInnerPlanner = async (body, reqHeaders = {}) => {
   return { response, payload }
 }
 
+const verifiedLearningHint = (body, candidates) => {
+  const context = String(body?.context?.conversation_context || '')
+  const matches = [...context.matchAll(/\[RT_LEARNING_HINT capability=([a-z0-9_.-]+) score=([0-9.]+)\]/gi)]
+  const last = matches.at(-1)
+  if (!last) return null
+  const score = Number(last[2])
+  if (!Number.isFinite(score) || score < 0.90) return null
+  const capability = candidates.find((item) => item.id === String(last[1]))
+  return capability ? { capability, score: Math.min(1, score) } : null
+}
+
 const handleCapabilityPlan = async (req, res) => {
   try {
     const body = await readJsonBody(req)
@@ -197,12 +208,17 @@ const handleCapabilityPlan = async (req, res) => {
     if (pendingModule) selectedModules.add(pendingModule)
 
     const narrowed = selectedModules.size ? capabilities.filter((item) => selectedModules.has(item.module)) : capabilities
-    const capabilityRouting = routeCapability(prompt, narrowed, pendingId)
+    const deterministicCapability = routeCapability(prompt, narrowed, pendingId)
+    const learningHint = deterministicCapability ? null : verifiedLearningHint(body, narrowed)
+    const capabilityRouting = deterministicCapability || (learningHint ? {
+      ids: [learningHint.capability.id], confidence: learningHint.score, rationale: 'experiência local previamente verificada', source: 'verified-learning',
+    } : null)
     const finalCapabilities = capabilityRouting?.ids?.length
       ? narrowed.filter((item) => capabilityRouting.ids.includes(item.id))
       : narrowed
+    const capabilitySource = deterministicCapability ? 'deterministic' : learningHint ? 'verified-learning' : 'ollama-planner'
 
-    console.log(`[ollama-router] primary=${routing.primaryModule || 'none'} modules=${[...selectedModules].join(',') || 'all'} capabilities=${capabilities.length}->${narrowed.length}->${finalCapabilities.length} confidence=${routing.confidence} intent=${routing.rationale} capability=${capabilityRouting?.ids?.join(',') || 'model-choice'}`)
+    console.log(`[ollama-router] primary=${routing.primaryModule || 'none'} modules=${[...selectedModules].join(',') || 'all'} capabilities=${capabilities.length}->${narrowed.length}->${finalCapabilities.length} confidence=${routing.confidence} intent=${routing.rationale} capability=${capabilityRouting?.ids?.join(',') || 'model-choice'} source=${capabilitySource}`)
 
     const planned = await callInnerPlanner({ ...body, capabilities: finalCapabilities }, req.headers)
     const payload = preserveExplicitPlannerArguments(prompt, planned.payload, body?.context || {})
@@ -211,7 +227,7 @@ const handleCapabilityPlan = async (req, res) => {
         provider: 'ollama', model: CRM_OLLAMA_MODEL,
         primaryModule: routing.primaryModule || '', modules: [...selectedModules], canonicalIntent: routing.rationale,
         originalCapabilityCount: capabilities.length, routedCapabilityCount: finalCapabilities.length,
-        confidence: routing.confidence, capabilitySource: capabilityRouting ? 'deterministic' : 'ollama-planner',
+        confidence: routing.confidence, capabilitySource,
       }
     }
     return sendJson(res, planned.response.status, payload)

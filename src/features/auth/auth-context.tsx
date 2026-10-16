@@ -43,6 +43,17 @@ const mapUser = (sessionUser: { id: string; email?: string; user_metadata: Recor
   avatarUrl: typeof sessionUser.user_metadata.avatar_url === 'string' ? sessionUser.user_metadata.avatar_url : null,
 }) : null
 
+export const sameUserProfile = (current: UserProfile | null, next: UserProfile | null) => {
+  if (current === next) return true
+  if (!current || !next) return false
+  return current.id === next.id
+    && current.email === next.email
+    && current.displayName === next.displayName
+    && current.avatarUrl === next.avatarUrl
+}
+
+const preserveStableUserReference = (current: UserProfile | null, next: UserProfile | null) => sameUserProfile(current, next) ? current : next
+
 export function AuthProvider({ children }: PropsWithChildren) {
   const [user, setUser] = useState<UserProfile | null>(() => {
     if (effectiveDataMode !== 'local' || !hasLocalUiSession()) return null
@@ -56,7 +67,8 @@ export function AuthProvider({ children }: PropsWithChildren) {
     if (effectiveDataMode !== 'local') return
     const syncProfile = () => {
       const profile = readLocalProfile()
-      setUser((current) => current ? { ...DEMO_USER, id: 'local-user', email: profile.email, displayName: profile.displayName } : null)
+      const nextUser = { ...DEMO_USER, id: 'local-user', email: profile.email, displayName: profile.displayName }
+      setUser((current) => preserveStableUserReference(current, nextUser))
     }
     window.addEventListener('crm:local-profile-changed', syncProfile)
     return () => window.removeEventListener('crm:local-profile-changed', syncProfile)
@@ -69,10 +81,13 @@ export function AuthProvider({ children }: PropsWithChildren) {
 
     let active = true
     let settled = false
+    const commitUser = (nextUser: UserProfile | null) => {
+      setUser((current) => preserveStableUserReference(current, nextUser))
+    }
     const finishInitialSessionCheck = (nextUser: UserProfile | null) => {
       if (!active || settled) return
       settled = true
-      setUser(nextUser)
+      commitUser(nextUser)
       setLoading(false)
     }
 
@@ -96,7 +111,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
     const { data: listener } = client.auth.onAuthStateChange((event, session) => {
       if (!active) return
       if (event === 'PASSWORD_RECOVERY') setRecoveryMode(true)
-      setUser(mapUser(session?.user))
+      commitUser(mapUser(session?.user))
       setLoading(false)
       settled = true
       window.clearTimeout(timeout)
@@ -173,7 +188,8 @@ export function AuthProvider({ children }: PropsWithChildren) {
       }
       const client = getSupabaseClient(); if (!client) throw new Error('Supabase não configurado.')
       const { data, error } = await client.auth.updateUser({ data: { full_name: name } }); if (error) throw error
-      setUser(mapUser(data.user))
+      const nextUser = mapUser(data.user)
+      setUser((current) => preserveStableUserReference(current, nextUser))
     },
     clearRecovery() { setRecoveryMode(false) },
   }), [loading, recoveryMode, user])

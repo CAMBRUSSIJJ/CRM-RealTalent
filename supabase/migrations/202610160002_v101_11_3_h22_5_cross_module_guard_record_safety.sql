@@ -118,7 +118,28 @@ begin
   if tg_op='DELETE' then return old; else return new; end if;
 end $$;
 
--- Função exclusiva de trigger; não é endpoint RPC de negócio.
+-- `save_sales_proposal` usa zero como ausência de custo para item manual sem produto.
+-- O H22.3 protege custo interno e, corretamente, bloqueia qualquer custo manual do vendedor.
+-- Normalizamos somente o zero técnico para NULL antes do trigger sensível; custos reais
+-- (inclusive qualquer valor diferente de zero) continuam sujeitos à permissão proposal_cost.
+create or replace function public.rt_normalize_manual_proposal_cost_snapshot()
+returns trigger language plpgsql set search_path=public as $$
+begin
+  if new.product_id is null
+     and coalesce(new.pricing_source,'manual')='manual'
+     and coalesce(new.unit_cost_snapshot,0)=0 then
+    new.unit_cost_snapshot:=null;
+  end if;
+  return new;
+end $$;
+
+drop trigger if exists a_realtalent_normalize_manual_proposal_cost on public.sales_proposal_items;
+create trigger a_realtalent_normalize_manual_proposal_cost
+before insert on public.sales_proposal_items
+for each row execute function public.rt_normalize_manual_proposal_cost_snapshot();
+
+-- Funções exclusivas de trigger; não são endpoints RPC de negócio.
 revoke all on function public.rt_cross_module_guard() from public,anon,authenticated;
+revoke all on function public.rt_normalize_manual_proposal_cost_snapshot() from public,anon,authenticated;
 
 commit;

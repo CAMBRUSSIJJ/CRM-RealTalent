@@ -101,12 +101,14 @@ echo "✓ Commit $(git rev-parse --short HEAD)"
 say "2/8 — Habilitando Universal CRM Control"
 node scripts/enable-universal-agent.mjs
 node scripts/harden-universal-agent.mjs
+node scripts/preserve-agent-entities.mjs
 grep -q "realtalent-crm-universal-executor" src/features/assistant/assistant-drawer.tsx || fail "O Assistant não foi ligado ao executor universal."
 grep -q "realtalent-crm-universal-registry" src/services/realtalent-crm-capability-runtime-client.ts || fail "O planner não foi ligado ao catálogo universal."
 grep -q "semanticDomainAnchor" runtime-host/RealTalent-Agent-Runtime-V3.1.2/gateway-ollama.mjs || fail "O roteador híbrido não foi habilitado."
 grep -q "semanticCapabilityAnchor" runtime-host/RealTalent-Agent-Runtime-V3.1.2/gateway-ollama.mjs || fail "O roteador fino de capabilities não foi habilitado."
+grep -q "preserveExplicitEntityReference" runtime-host/RealTalent-Agent-Runtime-V3.1.2/gateway-ollama.mjs || fail "A preservação de entidades explícitas não foi habilitada."
 grep -q "return pick('leads', 'relação entre contatos explícita')" runtime-host/RealTalent-Agent-Runtime-V3.1.2/gateway-ollama.mjs || fail "O roteador de Contatos não foi alinhado ao AppRoute leads."
-echo "✓ Planner, Assistant, catálogo, executor e roteamento em duas camadas ligados"
+echo "✓ Planner, Assistant, catálogo, executor, roteamento e preservação de entidade ligados"
 
 say "3/8 — Encerrando somente instâncias antigas do RealTalent"
 stop_realtalent_port 4188
@@ -194,6 +196,7 @@ say "8/8 — Abrindo RealTalent CRM"
 echo "✓ Ollama online"
 echo "✓ Agent Universal online"
 echo "✓ Roteamento híbrido + narrowing de capability ativos"
+echo "✓ Preservação de entidades explícitas ativa"
 echo "✓ Catálogo universal auditado"
 echo "✓ Execução + persistência/readback verificadas estruturalmente"
 echo "✓ CRM: $CRM_URL/#/goals"

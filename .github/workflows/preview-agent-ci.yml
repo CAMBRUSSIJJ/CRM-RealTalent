@@ -7,6 +7,13 @@ on:
     paths:
       - 'src/services/realtalent-*.ts'
       - 'src/features/assistant/**'
+      - 'scripts/local-staging.sh'
+      - 'scripts/local-staging-bootstrap.mjs'
+      - 'scripts/commercial_readiness_cr2_staging_probe.mjs'
+      - 'scripts/commercial_readiness_cr3_staging_e2e_probe.mjs'
+      - 'supabase/config.toml'
+      - 'supabase/migrations/**'
+      - 'supabase/seed.sql'
       - 'package.json'
       - 'package-lock.json'
       - 'tsconfig*.json'
@@ -32,6 +39,15 @@ jobs:
 
       - name: Install dependencies
         run: npm ci --include=dev
+
+      - name: Local staging static gate
+        run: |
+          bash -n scripts/local-staging.sh
+          node --check scripts/local-staging-bootstrap.mjs
+          node --check scripts/commercial_readiness_cr2_staging_probe.mjs
+          node --check scripts/commercial_readiness_cr3_staging_e2e_probe.mjs
+          grep -q "recusando endpoint não local" scripts/local-staging-bootstrap.mjs
+          grep -q "\.supabase-local-status\.env" .gitignore
 
       - name: Typecheck
         run: npm run typecheck

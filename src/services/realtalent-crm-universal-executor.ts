@@ -5,11 +5,13 @@ import type { CrmCapabilityPlanStep } from './realtalent-crm-capability-planner'
 import { UNIVERSAL_EXTRA_CAPABILITIES } from './realtalent-crm-universal-capabilities'
 import { executeUniversalContacts } from './realtalent-crm-universal-executor-contacts'
 import { assertRecordU, parseJson, resolveActivityU, resolveAutomationU, resolveBuyerRoomU, resolveContactU, resolveLeadU, resolveLeadsU, resolveProductU, resolveProposalU, targetQuery, uarg, ubest, ubool, uiso, unormalize, unum } from './realtalent-crm-universal-executor-helpers'
+import { formatSalesAgentDealAnalysis, formatSalesAgentNextBestAction } from './realtalent-sales-intelligence-agent'
 
 export { undoCrmAgentOperation }
 export type { CrmCapabilityExecutionRuntime, CrmCapabilityStepResult }
 
-const EXTRA_IDS = new Set(UNIVERSAL_EXTRA_CAPABILITIES.filter((item) => item.execution === 'native').map((item) => item.id))
+const SALES_INTELLIGENCE_IDS = ['sales.analyze_deal', 'sales.next_best_action'] as const
+const EXTRA_IDS = new Set([...UNIVERSAL_EXTRA_CAPABILITIES.filter((item) => item.execution === 'native').map((item) => item.id), ...SALES_INTELLIGENCE_IDS])
 
 const activityOutcome = (value: string) => {
   const key = unormalize(value)
@@ -85,7 +87,15 @@ async function executeFollowupAndCalls(step: CrmCapabilityPlanStep, runtime: Crm
 }
 
 async function executeSales(step: CrmCapabilityPlanStep, runtime: CrmCapabilityExecutionRuntime): Promise<CrmCapabilityStepResult | null> {
-  const { actions } = runtime
+  const { actions, snapshot } = runtime
+  if (step.capabilityId === 'sales.analyze_deal' || step.capabilityId === 'sales.next_best_action') {
+    const lead = resolveLeadU(runtime, targetQuery(step)); if (!lead) throw new Error('Não encontrei o lead ou a oportunidade para analisar.')
+    assertRecordU(runtime, 'pipeline', lead.ownerId)
+    const summary = step.capabilityId === 'sales.analyze_deal'
+      ? formatSalesAgentDealAnalysis(lead, snapshot)
+      : formatSalesAgentNextBestAction(lead, snapshot)
+    return { ok: true, summary }
+  }
   if (step.capabilityId === 'proposals.update' || step.capabilityId === 'proposals.create_revision') {
     const proposal = resolveProposalU(runtime, targetQuery(step)); if (!proposal) throw new Error('Não encontrei a proposta.')
     assertRecordU(runtime, 'proposals', proposal.ownerId)

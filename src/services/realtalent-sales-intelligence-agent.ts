@@ -1,5 +1,6 @@
 import type { Lead, WorkspaceSnapshot } from '../domain/types'
 import { buildDealIntelligence, type DealHealthLevel, type DealMomentum, type DealRiskSeverity } from './deal-intelligence'
+import { buildSalesRecommendation } from './realtalent-sales-recommendation-engine'
 
 export interface SalesAgentContext {
   entity: {
@@ -52,6 +53,15 @@ export interface SalesAgentContext {
     route: string
     urgency: 'now' | 'today' | 'planned'
   }
+  learning: {
+    adjustment: number
+    samples: number
+    adjustedSuccessRate: number
+    strength: string
+    actionChanged: boolean
+    guardrailLocked: boolean
+    explanation: string
+  }
   generatedAt: string
 }
 
@@ -61,8 +71,16 @@ const severityLabel: Record<DealRiskSeverity, string> = { critical: 'Crítico', 
 const momentumLabel: Record<DealMomentum, string> = { accelerating: 'acelerando', stable: 'estável', cooling: 'esfriando' }
 const urgencyLabel = { now: 'agora', today: 'hoje', planned: 'planejada' } as const
 
+const visibleLeadIdsForRecommendation = (lead: Lead, snapshot: WorkspaceSnapshot) => {
+  if (snapshot.workspace.role === 'owner' || snapshot.workspace.role === 'admin') return new Set(snapshot.leads.map((item) => item.id))
+  return new Set(snapshot.leads.filter((item) => item.ownerId === lead.ownerId).map((item) => item.id))
+}
+
 export const buildSalesAgentContext = (lead: Lead, snapshot: WorkspaceSnapshot, now = new Date()): SalesAgentContext => {
   const insight = buildDealIntelligence(lead, snapshot, undefined, now)
+  const recommendation = buildSalesRecommendation(insight, snapshot, {
+    visibleLeadIds: visibleLeadIdsForRecommendation(lead, snapshot),
+  })
   return {
     entity: {
       id: lead.id,
@@ -106,7 +124,16 @@ export const buildSalesAgentContext = (lead: Lead, snapshot: WorkspaceSnapshot, 
       label: signal.label,
       detail: signal.detail,
     })),
-    nextBestAction: { ...insight.nextBestAction },
+    nextBestAction: { ...recommendation.recommendedAction },
+    learning: {
+      adjustment: recommendation.learningAdjustment,
+      samples: recommendation.actionLearning.samples,
+      adjustedSuccessRate: recommendation.actionLearning.adjustedSuccessRate,
+      strength: recommendation.actionLearning.strength,
+      actionChanged: recommendation.actionChanged,
+      guardrailLocked: recommendation.actionGuardrailLocked,
+      explanation: recommendation.explanation,
+    },
     generatedAt: insight.generatedAt,
   }
 }
@@ -123,6 +150,10 @@ const signalText = (context: SalesAgentContext, limit = 3) => context.positiveSi
   ? context.positiveSignals.slice(0, limit).map((signal) => `${signal.label} — ${signal.detail}`).join(' | ')
   : 'Ainda há poucos sinais positivos registrados.'
 
+const learningText = (context: SalesAgentContext) => context.learning.samples >= 3
+  ? `Aprendizado da carteira: ${context.learning.samples} caso(s) comparáveis, taxa ajustada ${context.learning.adjustedSuccessRate}%, ajuste ${context.learning.adjustment >= 0 ? '+' : ''}${context.learning.adjustment}. ${context.learning.actionChanged ? 'O histórico confiável alterou a ação sugerida dentro dos guardrails atuais.' : 'O histórico reforçou ou reduziu a confiança sem substituir os sinais atuais.'}`
+  : 'Aprendizado da carteira: amostra ainda insuficiente; a recomendação permanece determinística.'
+
 export const formatSalesAgentDealAnalysis = (lead: Lead, snapshot: WorkspaceSnapshot, now = new Date()) => {
   const context = buildSalesAgentContext(lead, snapshot, now)
   const inactivity = context.commercial.inactivityDays === null ? 'sem interação concluída registrada' : `última interação há ${context.commercial.inactivityDays} dia(s)`
@@ -136,6 +167,7 @@ export const formatSalesAgentDealAnalysis = (lead: Lead, snapshot: WorkspaceSnap
     `Riscos principais: ${riskText(context)}.`,
     `Sinais positivos: ${signalText(context)}.`,
     `Próxima melhor ação: ${context.nextBestAction.title} (${urgencyLabel[context.nextBestAction.urgency]}). ${context.nextBestAction.explanation} Objetivo: ${context.nextBestAction.objective}`,
+    learningText(context),
   ].join('\n')
 }
 
@@ -148,5 +180,6 @@ export const formatSalesAgentNextBestAction = (lead: Lead, snapshot: WorkspaceSn
     `Objetivo: ${context.nextBestAction.objective}`,
     `Contexto de decisão: saúde ${context.health.score}/100 (${context.health.label}), momentum ${momentumLabel[context.health.momentum]}, probabilidade RealTalent ${context.health.realTalentProbability}%.`,
     `Riscos que sustentam a recomendação: ${riskText(context, 4)}.`,
+    learningText(context),
   ].join('\n')
 }

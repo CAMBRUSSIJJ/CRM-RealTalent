@@ -69,7 +69,7 @@ const normalize = (value: string) => value
 
 const isPortfolioLearningQuestion = (prompt: string) => {
   const text = normalize(prompt)
-  return /\b(aprendizado comercial|aprendemos com|padroes? de vendas?|historico de recomendacoes?|acoes? que mais funcionam|acao que mais funciona|eficacia das acoes?|taxa de sucesso das acoes?|melhor acao por etapa|melhores acoes por etapa|o que funciona melhor|qual acao funciona melhor|compare as acoes|comparar acoes)\b/.test(text)
+  return /\b(aprendizado comercial|aprendemos (?:com|sobre)|o que aprendemos|padroes? (?:de vendas?|comerciais?|que mais avancam|que mais pioram)|historico de recomendacoes?|acoes? que mais funcionam|acao que mais funciona|eficacia das acoes?|taxa de sucesso das acoes?|melhor acao por etapa|melhores acoes por etapa|o que funciona melhor|qual acao funciona melhor|compare as acoes|comparar acoes|perfis? de (?:lead|cliente|oportunidade)s? que (?:mais )?avancam|tipos? de oportunidades? que (?:mais )?avancam|negocios? que (?:mais )?(?:avancam|pioram)|riscos? (?:dos|nos|em) padroes?)\b/.test(text)
 }
 
 const isActionEffectivenessQuestion = (prompt: string) => {
@@ -198,7 +198,7 @@ const portfolioLearningAnswer = (prompt: string, snapshot: WorkspaceSnapshot, co
     ],
     suggestedPrompts: [
       'Qual ação funciona melhor na etapa de proposta?',
-      'Quais riscos aparecem nos padrões que mais pioram?',
+      'Quais perfis de lead avançam mais?',
       'O que aprendemos sobre os negócios que avançam?',
     ],
     generatedAt: (context.now ?? new Date()).toISOString(),
@@ -282,7 +282,9 @@ const learningAwareContext = (workspaceId: string, prompt: string, snapshot: Wor
 
   const retrievalPrompt = correction ? `${correction.prompt} ${prompt}` : prompt
   const learningContext = formatLearningContext(findRelevantLearningExperiences(workspaceId, retrievalPrompt, 5))
-  const salesLearningContext = formatSalesLearningContextForPrompt(workspaceId, prompt, snapshot, assistantContext.focusLeadId)
+  const learningFocusLeadId = assistantContext.focusLeadId
+    ?? (assistantContext.previousLeadIds?.length === 1 ? assistantContext.previousLeadIds[0] : null)
+  const salesLearningContext = formatSalesLearningContextForPrompt(workspaceId, prompt, snapshot, learningFocusLeadId)
   const conversationContext = [assistantContext.conversationContext?.trim(), learningContext, salesLearningContext]
     .filter(Boolean)
     .join('\n\n')

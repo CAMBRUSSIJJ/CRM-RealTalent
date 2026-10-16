@@ -138,8 +138,50 @@ create trigger a_realtalent_normalize_manual_proposal_cost
 before insert on public.sales_proposal_items
 for each row execute function public.rt_normalize_manual_proposal_cost_snapshot();
 
+-- O H22.3 deve invalidar aprovações quando o preço do rascunho muda, não impedir
+-- a montagem inicial da própria proposta oficial. Depois que o status sai de draft,
+-- alteração de preço continua restrita a aprovador/nova revisão.
+create or replace function public.rt_invalidate_proposal_approval()
+returns trigger language plpgsql security definer set search_path=public as $$
+declare
+  v_proposal uuid;
+  v_org uuid;
+  v_status text;
+  v_official boolean;
+begin
+  if tg_op='DELETE' then
+    v_proposal:=old.proposal_id;
+    v_org:=old.organization_id;
+  else
+    v_proposal:=new.proposal_id;
+    v_org:=new.organization_id;
+  end if;
+
+  select status,is_official
+    into v_status,v_official
+    from public.sales_proposals
+   where id=v_proposal;
+
+  if auth.uid() is not null
+     and not public.rt_access_action_allowed(v_org,'proposals','approve')
+     and v_status<>'draft' then
+    raise exception 'Preço de proposta enviada/oficial só pode ser alterado por aprovador ou em uma nova revisão.' using errcode='42501';
+  end if;
+
+  update public.access_approval_requests
+     set status='cancelled',updated_at=now()
+   where organization_id=v_org
+     and kind='proposal_policy'
+     and entity_type='proposal'
+     and entity_id=v_proposal::text
+     and status='approved';
+
+  if tg_op='DELETE' then return old; else return new; end if;
+end $$;
+
 -- Funções exclusivas de trigger; não são endpoints RPC de negócio.
 revoke all on function public.rt_cross_module_guard() from public,anon,authenticated;
 revoke all on function public.rt_normalize_manual_proposal_cost_snapshot() from public,anon,authenticated;
+revoke all on function public.rt_invalidate_proposal_approval() from public,anon,authenticated;
 
 commit;

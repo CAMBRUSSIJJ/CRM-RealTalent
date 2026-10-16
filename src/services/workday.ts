@@ -1,7 +1,8 @@
-import type { Lead, WorkspaceSnapshot } from '../domain/types'
+import type { ActivityItem, Lead, WorkspaceSnapshot } from '../domain/types'
 import { leadScoreInsight, type LeadScoreActionKind, type LeadScoreAlert, type LeadScoreInsight, type LeadScoringConfig } from './lead-scoring'
 import { salesLearningAdjustmentForLead } from './realtalent-sales-recommendation-engine'
 import type { DealActionKind } from './deal-intelligence'
+import { isWorkTaskActivityProjection } from './work-task-activity-projection'
 
 export type WorkdayReason = 'sla' | 'overdue' | 'today' | 'proposal' | 'stale' | 'no_action' | 'hot'
 export type WorkdayAction = LeadScoreActionKind
@@ -51,6 +52,12 @@ const workdayDealAction = (action: WorkdayAction): DealActionKind | undefined =>
   if (action === 'review') return 'review'
   return undefined
 }
+const workdayActionForActivity = (activity: ActivityItem): WorkdayAction => {
+  if (activity.type === 'call') return 'call'
+  if (activity.type === 'meeting') return 'meeting'
+  if (activity.type === 'whatsapp') return 'whatsapp'
+  return 'followup'
+}
 const clockMinutes = (value: string, fallback: number) => {
   const [hours, minutes] = value.split(':').map(Number)
   return Number.isFinite(hours) && Number.isFinite(minutes) ? hours * 60 + minutes : fallback
@@ -86,12 +93,19 @@ export const buildWorkdayQueue = (snapshot: WorkspaceSnapshot, config: WorkdayCo
     const reasons: WorkdayReason[] = []
     const labels: string[] = []
     const calls = snapshot.calls.filter((call) => call.leadId === lead.id)
-    const completedContacts = snapshot.activities.filter((activity) => activity.leadId === lead.id && activity.completedAt && activity.type !== 'note' && activity.type !== 'stage_change')
+    const completedContacts = snapshot.activities.filter((activity) => activity.leadId === lead.id && activity.completedAt && activity.type !== 'note' && activity.type !== 'stage_change' && !isWorkTaskActivityProjection(activity))
+    const pendingOperationalActivities = snapshot.activities
+      .filter((activity) => activity.leadId === lead.id && activity.dueAt && !activity.completedAt && !['cancelled', 'superseded'].includes(activity.resolutionStatus ?? '') && activity.type !== 'note' && activity.type !== 'stage_change')
+      .sort((a, b) => new Date(a.dueAt!).getTime() - new Date(b.dueAt!).getTime())
+    const scheduledActivity = pendingOperationalActivities[0] ?? null
+    const scheduledActivityTime = scheduledActivity?.dueAt ? new Date(scheduledActivity.dueAt).getTime() : null
     const firstContactDue = addBusinessMinutes(lead.createdAt, config.firstContactSlaMinutes, config).getTime()
-    const nextTime = lead.nextActionAt ? new Date(lead.nextActionAt).getTime() : null
+    const leadNextTime = lead.nextActionAt ? new Date(lead.nextActionAt).getTime() : null
+    const scheduledIsNext = scheduledActivityTime !== null && Number.isFinite(scheduledActivityTime) && (leadNextTime === null || !Number.isFinite(leadNextTime) || scheduledActivityTime <= leadNextTime)
+    const nextTime = scheduledIsNext ? scheduledActivityTime : leadNextTime
     const interactionTimes = [
       ...calls.map((call) => call.endedAt ?? call.startedAt ?? call.createdAt),
-      ...snapshot.activities.filter((activity) => activity.leadId === lead.id && activity.completedAt).map((activity) => activity.completedAt!),
+      ...snapshot.activities.filter((activity) => activity.leadId === lead.id && activity.completedAt && !isWorkTaskActivityProjection(activity)).map((activity) => activity.completedAt!),
       ...snapshot.events.filter((event) => event.leadId === lead.id && event.status === 'completed').map((event) => event.endsAt),
     ].map((value) => new Date(value).getTime()).filter(Number.isFinite)
     const lastAt = interactionTimes.length ? Math.max(...interactionTimes) : new Date(lead.createdAt).getTime()
@@ -103,14 +117,21 @@ export const buildWorkdayQueue = (snapshot: WorkspaceSnapshot, config: WorkdayCo
     let slaState: WorkdaySlaState = 'planned'
     let score = insight.score
 
+    if (scheduledIsNext && scheduledActivity) {
+      action = workdayActionForActivity(scheduledActivity)
+      dueAt = scheduledActivity.dueAt
+    }
+
     if (untouched && Number.isFinite(firstContactDue)) {
-      reasons.push('sla'); dueAt = new Date(firstContactDue).toISOString(); action = lead.phone ? 'call' : 'followup'
+      reasons.push('sla')
+      if (!scheduledIsNext || scheduledActivityTime === null || firstContactDue <= scheduledActivityTime) { dueAt = new Date(firstContactDue).toISOString(); action = lead.phone ? 'call' : 'followup' }
       if (firstContactDue < nowTime) { score += 45; slaState = 'breached'; labels.push(`SLA de primeiro contato vencido há ${Math.max(1, Math.ceil((nowTime - firstContactDue) / 60_000))} min`) }
       else if (firstContactDue - nowTime <= 30 * 60_000) { score += 32; slaState = 'due_soon'; labels.push('SLA de primeiro contato vence em até 30 min') }
     }
     if (nextTime !== null && Number.isFinite(nextTime)) {
-      if (nextTime < nowTime) { reasons.push('overdue'); score += 35; slaState = 'breached'; labels.push('próxima ação está atrasada') }
-      else if (nextTime <= todayEnd) { reasons.push('today'); score += 22; if (slaState === 'planned') slaState = 'today'; labels.push('retorno programado para hoje') }
+      const scheduledLabel = scheduledIsNext && scheduledActivity ? `“${scheduledActivity.title}”` : 'próxima ação'
+      if (nextTime < nowTime) { reasons.push('overdue'); score += 35; slaState = 'breached'; labels.push(`${scheduledLabel} está atrasada`) }
+      else if (nextTime <= todayEnd) { reasons.push('today'); score += 22; if (slaState === 'planned') slaState = 'today'; labels.push(`${scheduledLabel} vence hoje`) }
     } else { reasons.push('no_action'); score += 18; labels.push('não possui próxima ação') }
 
     if (proposalStage(stageById.get(lead.stageId)?.name ?? '') && idleDays >= config.proposalFollowupDays) {
@@ -133,7 +154,9 @@ export const buildWorkdayQueue = (snapshot: WorkspaceSnapshot, config: WorkdayCo
 
     return {
       id: `workday:${lead.id}`, lead, action,
-      title: labels.length ? (action === 'review' ? 'Revisar oportunidade' : action === 'call' ? 'Fazer contato agora' : action === 'meeting' ? 'Preparar reunião' : action === 'data' ? 'Completar dados' : insight.nextBestAction.title) : insight.nextBestAction.title,
+      title: scheduledIsNext && scheduledActivity && (reasons.includes('today') || reasons.includes('overdue'))
+        ? scheduledActivity.title
+        : labels.length ? (action === 'review' ? 'Revisar oportunidade' : action === 'call' ? 'Fazer contato agora' : action === 'meeting' ? 'Preparar reunião' : action === 'data' ? 'Completar dados' : insight.nextBestAction.title) : insight.nextBestAction.title,
       explanation: [...labels, insight.nextBestAction.explanation, learningExplanation].filter(Boolean).slice(0, 4).join(' • '), reasons: Array.from(new Set(reasons)), dueAt,
       score: Math.max(0, Math.min(100, score)), slaState, insight, alerts: insight.alerts,
       learningAdjustment,

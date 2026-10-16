@@ -8,7 +8,7 @@ const normalize = (value: string) => value
   .replace(/\s+/g, ' ')
   .trim()
 
-const GENERIC_EXECUTION_REPLY = /^(?:faca|faz|execute|executa|pode fazer|pode executar|faz isso|faca isso|execute isso|executa isso|faca a proxima acao|execute a proxima acao|pode fazer isso|sim pode fazer|sim faca isso|sim execute isso)[.!?]*$/
+const GENERIC_EXECUTION_REPLY = /^(?:faca|faz|execute|executa|pode fazer|pode executar|faz isso|faca isso|execute isso|executa isso|faca a proxima acao|execute a proxima acao|pode fazer isso|sim pode fazer|sim faca isso|sim execute isso|envie|enviar|envia|mande|manda|pode enviar|pode mandar|sim envie|sim pode enviar|sim mande|sim pode mandar)$/
 
 export function resolveAssistantRecommendationContinuation(reply: string, answer: AssistantAnswer | null | undefined) {
   const suggestion = answer?.executionSuggestion

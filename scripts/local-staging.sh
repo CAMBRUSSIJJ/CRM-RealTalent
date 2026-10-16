@@ -97,6 +97,16 @@ run_cr2() {
   node scripts/commercial_readiness_cr2_staging_probe.mjs
 }
 
+run_security() {
+  [[ -f .env.cr2.local ]] || fail ".env.cr2.local não existe; rode bootstrap/all primeiro"
+  say "Executando gate SECURITY DEFINER: anon vs RPCs internas/públicas"
+  set -a
+  # shellcheck disable=SC1091
+  source .env.cr2.local
+  set +a
+  node scripts/security_definer_anon_probe.mjs
+}
+
 run_cr3() {
   [[ -f .env.cr3.local ]] || fail ".env.cr3.local não existe; rode bootstrap/all primeiro"
   say "Executando CR3: fluxo comercial E2E com dados descartáveis"
@@ -109,6 +119,7 @@ run_cr3() {
 
 run_qa() {
   run_cr2
+  run_security
   run_cr3
 }
 
@@ -160,12 +171,13 @@ usage() {
 RealTalent CRM — staging local gratuito
 
 Uso:
-  bash scripts/local-staging.sh all        # sobe, reseta, cria QA e roda CR2/CR3
+  bash scripts/local-staging.sh all        # sobe, reseta, cria QA e roda CR2 + segurança + CR3
   bash scripts/local-staging.sh up         # sobe o Supabase local
-  bash scripts/local-staging.sh reset      # reseta migrations + bootstrap + CR2/CR3
+  bash scripts/local-staging.sh reset      # reseta migrations + bootstrap + gates
   bash scripts/local-staging.sh bootstrap  # recria apenas fixtures/contas QA
-  bash scripts/local-staging.sh qa         # roda CR2 + CR3
+  bash scripts/local-staging.sh qa         # roda CR2 + segurança + CR3
   bash scripts/local-staging.sh cr2        # roda somente CR2
+  bash scripts/local-staging.sh security   # roda somente o gate SECURITY DEFINER/anon
   bash scripts/local-staging.sh cr3        # roda somente CR3
   bash scripts/local-staging.sh crm        # inicia o CRM usando .env.staging.local
   bash scripts/local-staging.sh status     # mostra URLs locais, sem chaves
@@ -195,6 +207,7 @@ case "$cmd" in
   bootstrap) bootstrap ;;
   qa) run_qa ;;
   cr2) run_cr2 ;;
+  security) run_security ;;
   cr3) run_cr3 ;;
   crm) run_crm ;;
   status) show_status ;;

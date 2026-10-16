@@ -98,14 +98,9 @@ const bestVisibleLeadForPrompt = (prompt: string, snapshot: WorkspaceSnapshot, c
   const visibleIds = visibleLearningLeadIds(snapshot, context)
   const visible = snapshot.leads.filter((lead) => visibleIds.has(lead.id))
   if (!visible.length) return null
-  if (context.focusLeadId) {
-    const focused = visible.find((lead) => lead.id === context.focusLeadId)
-    if (focused) return focused
-  }
-  if (context.previousLeadIds?.length === 1) {
-    const previous = visible.find((lead) => lead.id === context.previousLeadIds?.[0])
-    if (previous) return previous
-  }
+
+  // Uma entidade explicitamente citada no pedido sempre vence o registro que estava
+  // aberto antes. O foco/continuidade só entra como fallback anafórico.
   const text = normalize(prompt)
   let best: { lead: (typeof visible)[number]; score: number } | null = null
   for (const lead of visible) {
@@ -122,7 +117,17 @@ const bestVisibleLeadForPrompt = (prompt: string, snapshot: WorkspaceSnapshot, c
     }
     if (!best || score > best.score) best = { lead, score }
   }
-  return best && best.score >= 55 ? best.lead : null
+  if (best && best.score >= 55) return best.lead
+
+  if (context.focusLeadId) {
+    const focused = visible.find((lead) => lead.id === context.focusLeadId)
+    if (focused) return focused
+  }
+  if (context.previousLeadIds?.length === 1) {
+    const previous = visible.find((lead) => lead.id === context.previousLeadIds?.[0])
+    if (previous) return previous
+  }
+  return null
 }
 
 const inferPortfolioFilters = (prompt: string, snapshot: WorkspaceSnapshot, context: AssistantContext): SalesPortfolioLearningFilters => {
@@ -336,9 +341,11 @@ export const realTalentAiGateway = {
         const learningPrompt = learned.correction
           ? `${learned.correction.prompt} | CORREÇÃO: ${prompt}`
           : prompt
+        const learningFocusLeadId = effectiveContext.focusLeadId
+          ?? (effectiveContext.previousLeadIds?.length === 1 ? effectiveContext.previousLeadIds[0] : null)
 
-        stageSalesRecommendationsFromPlan(workspaceId, learningPrompt, { id: answer.plan.id, steps: answer.plan.steps }, snapshot, effectiveContext.focusLeadId)
-        linkSalesRecommendationToActionPlan(workspaceId, prompt, { id: answer.plan.id, steps: answer.plan.steps }, snapshot, effectiveContext.focusLeadId)
+        stageSalesRecommendationsFromPlan(workspaceId, learningPrompt, { id: answer.plan.id, steps: answer.plan.steps }, snapshot, learningFocusLeadId)
+        linkSalesRecommendationToActionPlan(workspaceId, prompt, { id: answer.plan.id, steps: answer.plan.steps }, snapshot, learningFocusLeadId)
         rememberLearningPlan(workspaceId, learningPrompt, { id: answer.plan.id, steps: answer.plan.steps })
       }
       const durationMs = Math.max(0, Date.now() - started)

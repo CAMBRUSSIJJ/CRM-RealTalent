@@ -1,5 +1,5 @@
 import type { Lead, WorkspaceSnapshot } from '../domain/types'
-import { buildDealIntelligence, buildDealPortfolio, type DealHealthLevel, type DealIntelligence, type DealMomentum, type DealRiskSeverity } from './deal-intelligence'
+import { buildDealIntelligence, buildDealPortfolio, type DealHealthLevel, type DealIntelligence, type DealMomentum, type DealNextBestAction, type DealRiskSeverity } from './deal-intelligence'
 import { buildSalesRecommendation } from './realtalent-sales-recommendation-engine'
 
 export interface SalesAgentContext {
@@ -45,14 +45,7 @@ export interface SalesAgentContext {
     label: string
     detail: string
   }>
-  nextBestAction: {
-    kind: string
-    title: string
-    explanation: string
-    objective: string
-    route: string
-    urgency: 'now' | 'today' | 'planned'
-  }
+  nextBestAction: DealNextBestAction
   learning: {
     adjustment: number
     samples: number

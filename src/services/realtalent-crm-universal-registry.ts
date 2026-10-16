@@ -1,6 +1,11 @@
 import type { CrmCapabilityDefinition } from './realtalent-crm-capabilities'
 import { UNIVERSAL_CRM_CAPABILITIES } from './realtalent-crm-universal-capabilities'
 
+export const SALES_INTELLIGENCE_CAPABILITIES: CrmCapabilityDefinition[] = [
+  { id: 'sales.analyze_deal', module: 'pipeline', title: 'Analisar saúde da oportunidade', description: 'Analisa uma oportunidade usando os sinais reais do CRM e devolve Deal Health, momentum, riscos, cobertura de stakeholders, probabilidade RealTalent e a próxima melhor ação.', action: 'read', risk: 'read', execution: 'native', reversible: false, resource: 'pipeline', permissionAction: 'view', argumentHints: ['record_query'] },
+  { id: 'sales.next_best_action', module: 'pipeline', title: 'Calcular próxima melhor ação', description: 'Calcula a próxima melhor ação comercial para um lead ou oportunidade com base em atividade, stakeholders, proposta, timing, engajamento e riscos atuais.', action: 'read', risk: 'read', execution: 'native', reversible: false, resource: 'pipeline', permissionAction: 'view', argumentHints: ['record_query'] },
+]
+
 export const UNIVERSAL_ADMIN_CAPABILITIES: CrmCapabilityDefinition[] = [
   { id: 'teams.create_member', module: 'teams', title: 'Criar membro do workspace', description: 'Cria diretamente um membro no workspace quando a política administrativa permitir.', action: 'create', risk: 'high', execution: 'native', reversible: false, resource: 'settings', permissionAction: 'edit', argumentHints: ['display_name', 'email', 'role'] },
   { id: 'teams.revoke_invite', module: 'teams', title: 'Revogar convite', description: 'Revoga um convite pendente do workspace.', action: 'delete', risk: 'high', execution: 'native', reversible: false, resource: 'settings', permissionAction: 'edit', argumentHints: ['invite_query'] },
@@ -11,7 +16,8 @@ export const UNIVERSAL_ADMIN_CAPABILITIES: CrmCapabilityDefinition[] = [
 
 export const REALTALENT_UNIVERSAL_CAPABILITIES: CrmCapabilityDefinition[] = [
   ...UNIVERSAL_CRM_CAPABILITIES,
-  ...UNIVERSAL_ADMIN_CAPABILITIES.filter((candidate) => !UNIVERSAL_CRM_CAPABILITIES.some((item) => item.id === candidate.id)),
+  ...SALES_INTELLIGENCE_CAPABILITIES.filter((candidate) => !UNIVERSAL_CRM_CAPABILITIES.some((item) => item.id === candidate.id)),
+  ...UNIVERSAL_ADMIN_CAPABILITIES.filter((candidate) => !UNIVERSAL_CRM_CAPABILITIES.some((item) => item.id === candidate.id) && !SALES_INTELLIGENCE_CAPABILITIES.some((item) => item.id === candidate.id)),
 ]
 
 export const universalCrmCapabilityById = (id: string) => REALTALENT_UNIVERSAL_CAPABILITIES.find((item) => item.id === id) ?? null

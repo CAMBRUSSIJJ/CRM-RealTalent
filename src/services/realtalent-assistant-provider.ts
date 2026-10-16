@@ -1,11 +1,11 @@
 // V3.7 regression lineage marker: ollama-capabilities-first+operational-firewall
 import type { Lead, WorkspaceSnapshot } from '../domain/types'
-import { runRealTalentAssistant, type AssistantAnswer, type AssistantContext, type AssistantIntent } from './realtalent-assistant'
+import { runRealTalentAssistant, type AssistantAnswer, type AssistantContext, type AssistantIntent, type AssistantResultItem } from './realtalent-assistant'
 import { interpretSalesLanguage } from './realtalent-semantic-language-client'
 import { localCapabilityFallback, type CrmCapabilityPlanningResult } from './realtalent-crm-capability-planner'
 import { planCrmCapabilitiesViaAgent } from './realtalent-crm-capability-runtime-client'
 import { crmClarificationSuggestions, genericPendingIntent, pendingCapabilityFromPlan, pendingCapabilityContext, validateAndEnrichCapabilitySlots } from './realtalent-crm-slot-filling'
-import { buildDealIntelligence, type DealActionKind } from './deal-intelligence'
+import { buildDealIntelligence, type DealActionKind, type DealIntelligence } from './deal-intelligence'
 import { buildSalesRecommendation, rankDealsWithSalesLearning } from './realtalent-sales-recommendation-engine'
 import { formatSalesAgentNextBestAction } from './realtalent-sales-intelligence-agent'
 
@@ -104,7 +104,7 @@ const operationalPlannerUnavailable = (prompt: string, context: AssistantContext
   id: `capability-unavailable:${Date.now()}`,
   intent: 'crm_capability',
   title: 'Ação não executada',
-  text: 'Entendi que você pediu uma ação no CRM, mas o Ollama não devolveu um plano executável nesta tentativa. Não vou substituir seu pedido por outra ação ou análise. Tente novamente; se faltar alguma informação, eu vou pedir somente o dado necessário.',
+  text: 'Entendi que você pediu uma ação no CRM, mas o planejador não devolveu um plano executável nesta tentativa. Não vou substituir seu pedido por outra ação ou análise. Tente novamente; se faltar alguma informação, eu vou pedir somente o dado necessário.',
   items: [],
   facts: [`Pedido preservado: ${prompt.trim().slice(0, 220)}`],
   suggestedPrompts: [],
@@ -118,17 +118,34 @@ const visibleLeadIdsForContext = (snapshot: WorkspaceSnapshot, context: Assistan
   return new Set(snapshot.leads.filter((lead) => lead.ownerId === context.currentUserId).map((lead) => lead.id))
 }
 
-const applySalesRecommendationRanking = (answer: AssistantAnswer, snapshot: WorkspaceSnapshot, context: AssistantContext) => {
+const dealItem = (deal: DealIntelligence, recommendation: ReturnType<typeof buildSalesRecommendation>, callOnly = false): AssistantResultItem => ({
+  id: `deal:${deal.lead.id}`,
+  kind: 'deal',
+  leadId: deal.lead.id,
+  title: deal.lead.company || deal.lead.name,
+  subtitle: `${deal.lead.name} · Health ${deal.healthScore}/100 · Prob. ${deal.realTalentProbability}%`,
+  score: Math.round(recommendation.finalPriorityScore),
+  value: deal.commercialValue,
+  reason: recommendation.actionLearning.samples >= 3
+    ? `${recommendation.recommendedAction.explanation} · ${recommendation.explanation}`
+    : recommendation.recommendedAction.explanation,
+  route: callOnly ? 'calls' : recommendation.recommendedAction.route,
+  action: callOnly ? 'call' : recommendation.recommendedAction.kind,
+  proposalId: deal.proposal?.id,
+})
+
+const applySalesRecommendationRanking = (answer: AssistantAnswer, snapshot: WorkspaceSnapshot, context: AssistantContext): AssistantAnswer => {
   const visibleLeadIds = visibleLeadIdsForContext(snapshot, context)
+  const now = context.now ?? new Date()
 
   if (answer.intent === 'next_action' && answer.items[0]?.leadId && visibleLeadIds.has(answer.items[0].leadId)) {
     const lead = snapshot.leads.find((item) => item.id === answer.items[0].leadId)
     if (lead) {
-      const deal = buildDealIntelligence(lead, snapshot, undefined, context.now ?? new Date())
+      const deal = buildDealIntelligence(lead, snapshot, undefined, now)
       const recommendation = buildSalesRecommendation(deal, snapshot, { visibleLeadIds })
       return {
         ...answer,
-        text: formatSalesAgentNextBestAction(lead, snapshot, context.now ?? new Date()),
+        text: formatSalesAgentNextBestAction(lead, snapshot, now),
         items: answer.items.map((item) => item.leadId === lead.id ? {
           ...item,
           score: deal.healthScore,
@@ -141,16 +158,38 @@ const applySalesRecommendationRanking = (answer: AssistantAnswer, snapshot: Work
     }
   }
 
-  if (!['priorities', 'call_now', 'best_contacts'].includes(answer.intent) || !answer.items.length) return answer
-  const requestedAction: DealActionKind | undefined = answer.intent === 'call_now' ? 'call' : undefined
+  if (answer.intent === 'priorities' || answer.intent === 'call_now') {
+    const callOnly = answer.intent === 'call_now'
+    const requestedAction: DealActionKind | undefined = callOnly ? 'call' : undefined
+    const deals = snapshot.leads
+      .filter((lead) => lead.status === 'active' && visibleLeadIds.has(lead.id) && (!callOnly || Boolean(lead.phone && !lead.doNotContact)))
+      .map((lead) => buildDealIntelligence(lead, snapshot, undefined, now))
+    const ranked = rankDealsWithSalesLearning(deals, snapshot, { visibleLeadIds, requestedAction }).slice(0, 7)
+    const items = ranked.map(({ deal, recommendation }) => dealItem(deal, recommendation, callOnly))
+    const learnedCount = ranked.filter((item) => item.recommendation.actionLearning.samples >= 3).length
+    return {
+      ...answer,
+      text: items.length
+        ? (callOnly
+          ? `Encontrei ${items.length} contato(s) priorizados pela combinação de urgência atual, risco, potencial e aprendizado comercial verificado.`
+          : `Estas são as ${items.length} oportunidades que eu trabalharia primeiro agora, combinando sinais atuais com aprendizado comercial verificado.`)
+        : (callOnly ? 'Não encontrei nenhum contato elegível para ligação agora.' : 'Não há negócios ativos para priorizar.'),
+      items,
+      facts: learnedCount
+        ? [...answer.facts, `${learnedCount} prioridade(s) receberam ajuste histórico limitado a ±10 pontos.`].slice(0, 8)
+        : answer.facts,
+    }
+  }
+
+  if (answer.intent !== 'best_contacts' || !answer.items.length) return answer
   const visibleItems = answer.items.filter((item) => visibleLeadIds.has(item.leadId))
   const deals = visibleItems
     .map((item) => snapshot.leads.find((lead) => lead.id === item.leadId))
     .filter((lead): lead is Lead => Boolean(lead))
-    .map((lead) => buildDealIntelligence(lead, snapshot, undefined, context.now ?? new Date()))
+    .map((lead) => buildDealIntelligence(lead, snapshot, undefined, now))
   if (!deals.length) return { ...answer, items: [] }
 
-  const ranked = rankDealsWithSalesLearning(deals, snapshot, { visibleLeadIds, requestedAction })
+  const ranked = rankDealsWithSalesLearning(deals, snapshot, { visibleLeadIds })
   const itemByLead = new Map(visibleItems.map((item) => [item.leadId, item]))
   const items = ranked.map(({ deal, recommendation }) => {
     const item = itemByLead.get(deal.lead.id)!
@@ -160,18 +199,11 @@ const applySalesRecommendationRanking = (answer: AssistantAnswer, snapshot: Work
       reason: recommendation.actionLearning.samples >= 3
         ? `${item.reason} · ${recommendation.explanation}`
         : item.reason,
-      action: answer.intent === 'call_now' ? 'call' : recommendation.recommendedAction.kind,
-      route: answer.intent === 'call_now' ? 'calls' as const : recommendation.recommendedAction.route,
+      action: recommendation.recommendedAction.kind,
+      route: recommendation.recommendedAction.route,
     }
   })
-  const learnedCount = ranked.filter((item) => item.recommendation.actionLearning.samples >= 3).length
-  return {
-    ...answer,
-    items,
-    facts: learnedCount
-      ? [...answer.facts, `${learnedCount} prioridade(s) receberam ajuste limitado por aprendizado comercial verificado.`].slice(0, 8)
-      : answer.facts,
-  }
+  return { ...answer, items }
 }
 
 export const hybridRealTalentAssistantProvider: RealTalentAssistantProvider = {
@@ -210,7 +242,7 @@ export const hybridRealTalentAssistantProvider: RealTalentAssistantProvider = {
     if (looksLikeOperationalRequest(prompt)) {
       return {
         answer: operationalPlannerUnavailable(prompt, context),
-        providerId: 'capability:operational-firewall-v3.7',
+        providerId: 'capability:operational-firewall-v3.8',
         sendsDataExternally: false,
         mode: 'local-orchestration',
       }

@@ -4,6 +4,9 @@ import { crmCapabilitySlotRulesForModel } from './realtalent-crm-universal-slot-
 
 const enabled = process.env.REALTALENT_OLLAMA_MATRIX === '1'
 const agentUrl = String(process.env.REALTALENT_AGENT_TEST_URL || 'http://127.0.0.1:8791').replace(/\/$/, '')
+const matrixFrom = Math.max(0, Number(process.env.REALTALENT_MATRIX_FROM || 0))
+const matrixToRaw = Number(process.env.REALTALENT_MATRIX_TO || Number.MAX_SAFE_INTEGER)
+const matrixTo = Number.isFinite(matrixToRaw) ? Math.max(matrixFrom, matrixToRaw) : Number.MAX_SAFE_INTEGER
 
 type MatrixCase = { name: string; prompt: string; expected: string; route?: string }
 
@@ -48,6 +51,8 @@ const CASES: MatrixCase[] = [
   { name: 'sincronização estrutural', prompt: 'sincronize a estrutura comercial de empresas contatos e oportunidades', expected: 'workspace.sync_structure', route: '/settings' },
 ]
 
+const RUN_CASES = CASES.slice(matrixFrom, matrixTo)
+
 const askPlanner = async (item: MatrixCase) => {
   const response = await fetch(`${agentUrl}/capabilities/plan`, {
     method: 'POST',
@@ -75,7 +80,7 @@ describe('RealTalent Agent — matriz semântica universal Ollama', () => {
     expect(health?.ai?.local?.online).toBe(true)
   })
 
-  for (const item of CASES) {
+  for (const item of RUN_CASES) {
     it.runIf(enabled)(`${item.name}: ${item.expected}`, async () => {
       const body = await askPlanner(item)
       expect(body?.provider, `${item.name}: provider incorreto`).toBe('ollama')

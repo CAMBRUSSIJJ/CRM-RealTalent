@@ -24,9 +24,9 @@ const launch=(name,cmd,args,extra)=>{
 }
 let shuttingDown=false
 
-// O Agent cloud usa o gateway original diretamente. A inteligência principal vem
-// do Ollama remoto configurado por OLLAMA_URL; não há gateway determinístico no caminho.
-launch('agent',process.execPath,[path.join(agent,'gateway.mjs')],{cwd:agent,env:{REALTALENT_AGENT_HOST:'127.0.0.1',REALTALENT_AGENT_PORT:'8791',XDG_CONFIG_HOME:path.join(DATA,'agent-config'),XDG_STATE_HOME:path.join(DATA,'agent-state')}})
+// Ollama continua sendo a camada de inteligência. O guard apenas valida o contrato
+// tipado entre a saída do modelo e capacidades mutáveis do CRM antes da execução.
+launch('agent',process.execPath,[path.join(agent,'ollama-agent-guard.mjs')],{cwd:agent,env:{REALTALENT_AGENT_HOST:'127.0.0.1',REALTALENT_AGENT_PORT:'8791',REALTALENT_AGENT_INNER_PORT:'8792',XDG_CONFIG_HOME:path.join(DATA,'agent-config'),XDG_STATE_HOME:path.join(DATA,'agent-state')}})
 launch('communications',process.execPath,[path.join(crm,'scripts/realtalent-communications-gateway.mjs')],{cwd:crm,env:{REALTALENT_COMMUNICATIONS_HOST:'127.0.0.1',REALTALENT_COMMUNICATIONS_PORT:'3002',REALTALENT_COMMUNICATIONS_STORE:path.join(DATA,'communications','store.json'),REALTALENT_COMMUNICATIONS_KEY_FILE:path.join(DATA,'communications','key'),REALTALENT_COMMUNICATIONS_CONFIG:path.join(DATA,'communications','config.json'),REALTALENT_COMMUNICATIONS_MEDIA_DIR:path.join(DATA,'communications','media')}})
 launch('prospecting',process.execPath,[path.join(crm,'scripts/realtalent-prospecting-agent.mjs')],{cwd:crm,env:{REALTALENT_PROSPECTING_AGENT_HOST:'127.0.0.1',REALTALENT_PROSPECTING_AGENT_PORT:'4319',REALTALENT_PROSPECTING_AGENT_STATE_DIR:path.join(DATA,'prospecting')}})
 
@@ -52,11 +52,7 @@ const normalizedServicePath=(req,service)=>{
   if(pathname===service.prefix) pathname='/'
   else if(pathname.startsWith(`${service.prefix}/`)) pathname=pathname.slice(service.prefix.length)||'/'
 
-  // Defesa contra prefixo duplicado vindo de proxies/rewrite.
   if(service.name==='agent'&&pathname.startsWith('/agent/')) pathname=pathname.slice('/agent'.length)||'/'
-
-  // O gateway do Agent possui rotas exatas; normaliza barra final para evitar 404
-  // em chamadas vindas de proxies ou clientes que adicionem '/'.
   if(pathname.length>1&&pathname.endsWith('/')) pathname=pathname.replace(/\/+$/,'')
 
   const search=parsed.searchParams.toString()

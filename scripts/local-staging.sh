@@ -7,6 +7,7 @@ cd "$ROOT"
 STATUS_FILE="$ROOT/.supabase-local-status.env"
 CLI_VERSION="${REALTALENT_SUPABASE_CLI_VERSION:-2.119.0}"
 EXCLUDE_SERVICES="${REALTALENT_SUPABASE_EXCLUDE_SERVICES:-}"
+SKIP_RESET="${REALTALENT_SUPABASE_SKIP_RESET:-0}"
 
 say() { printf '\n==> %s\n' "$*"; }
 fail() { printf '\nERRO: %s\n' "$*" >&2; exit 1; }
@@ -142,7 +143,11 @@ clean_stack() {
 
 all() {
   start_stack
-  reset_database
+  if [[ "$SKIP_RESET" == "1" ]]; then
+    say "Banco descartável já nasceu limpo no supabase start; reset redundante omitido"
+  else
+    reset_database
+  fi
   bootstrap
   run_qa
   say "STAGING LOCAL PRONTO"
@@ -167,15 +172,17 @@ Uso:
   bash scripts/local-staging.sh down       # para e preserva dados locais
   bash scripts/local-staging.sh clean      # para e remove volumes/arquivos QA locais
 
-Modo enxuto (CI):
+Modo enxuto para runner descartável (CI):
   REALTALENT_SUPABASE_EXCLUDE_SERVICES="realtime,storage-api,imgproxy,mailpit,postgres-meta,studio,edge-runtime,logflare,vector,supavisor" \
+  REALTALENT_SUPABASE_SKIP_RESET=1 \
     bash scripts/local-staging.sh all
 
 Garantias:
   - não cria projeto/branch pago no Supabase;
   - não copia dados de produção;
   - bootstrap recusa endpoints que não sejam localhost/127.0.0.1;
-  - sem REALTALENT_SUPABASE_EXCLUDE_SERVICES, o Linux local continua subindo a stack completa;
+  - sem as variáveis de CI, o Linux local continua subindo a stack completa e fazendo reset limpo;
+  - o comando explícito `reset` sempre executa `supabase db reset`;
   - Production/Vercel/Railway não são alterados por este script.
 EOF
 }

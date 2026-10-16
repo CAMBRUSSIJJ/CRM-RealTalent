@@ -1,4 +1,5 @@
 import type { CallOutcome, GoalMetric, Lead, WorkspaceSnapshot } from '../domain/types'
+import { isWorkTaskActivityProjection } from './work-task-activity-projection'
 
 export const metricRegistry: Array<{ key: GoalMetric; label: string; group: 'Atividade' | 'Prospecção' | 'Conversão' | 'Receita'; unit: 'number' | 'currency'; description: string }> = [
   { key: 'calls', label: 'Ligações realizadas', group: 'Atividade', unit: 'number', description: 'Chamadas registradas no período.' },
@@ -39,7 +40,7 @@ export function getMetricValue(snapshot: WorkspaceSnapshot, metric: GoalMetric, 
   const end = asEnd(periodEnd)
   if (metric === 'calls') return snapshot.calls.filter((call) => ownerMatches(call.userId, userId, userIds) && inRange(call.startedAt, start, end)).length
   if (metric === 'contacts') return snapshot.calls.filter((call) => ownerMatches(call.userId, userId, userIds) && inRange(call.startedAt, start, end) && contactOutcomes.includes(call.outcome)).length
-  if (metric === 'followups') return snapshot.activities.filter((activity) => ownerMatches(activity.assignedTo, userId, userIds) && activity.type === 'followup' && (activity.resolutionStatus ?? 'completed') === 'completed' && inRange(activity.completedAt, start, end)).length
+  if (metric === 'followups') return snapshot.activities.filter((activity) => !isWorkTaskActivityProjection(activity) && ownerMatches(activity.assignedTo, userId, userIds) && activity.type === 'followup' && (activity.resolutionStatus ?? 'completed') === 'completed' && inRange(activity.completedAt, start, end)).length
   if (metric === 'meetings') return snapshot.events.filter((event) => ownerMatches(event.assignedTo, userId, userIds) && event.status === 'completed' && inRange(event.endsAt, start, end)).length
   if (metric === 'proposals') {
     const ids = new Set(snapshot.calls.filter((call) => ownerMatches(call.userId, userId, userIds) && proposalOutcomes.includes(call.outcome) && inRange(call.startedAt, start, end)).map((call) => call.leadId))
@@ -276,7 +277,7 @@ export function calculateActivityIntelligence(snapshot: WorkspaceSnapshot, range
   const start = asStart(range.start); const end = asEnd(range.end)
   const scoped = filterSnapshot(snapshot, filters)
   const calls = scoped.calls.filter((call) => inRange(call.startedAt, start, end))
-  const completedFollowups = scoped.activities.filter((activity) => activity.type === 'followup' && (activity.resolutionStatus ?? 'completed') === 'completed' && inRange(activity.completedAt, start, end))
+  const completedFollowups = scoped.activities.filter((activity) => !isWorkTaskActivityProjection(activity) && activity.type === 'followup' && (activity.resolutionStatus ?? 'completed') === 'completed' && inRange(activity.completedAt, start, end))
   const overdue = scoped.activities.filter((activity) => activity.dueAt && !activity.completedAt && new Date(activity.dueAt) < new Date())
   const callsByWeekday = new Map<number, { attempts: number; contacts: number }>()
   const callsByHour = new Map<number, { attempts: number; contacts: number }>()

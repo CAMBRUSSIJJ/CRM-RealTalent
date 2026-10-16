@@ -9,6 +9,7 @@ on:
       - 'src/features/assistant/**'
       - 'scripts/local-staging.sh'
       - 'scripts/local-staging-bootstrap.mjs'
+      - 'scripts/local-staging-communication-fixture.mjs'
       - 'scripts/commercial_readiness_cr2_staging_probe.mjs'
       - 'scripts/commercial_readiness_cr3_staging_e2e_probe.mjs'
       - 'supabase/config.toml'
@@ -44,9 +45,11 @@ jobs:
         run: |
           bash -n scripts/local-staging.sh
           node --check scripts/local-staging-bootstrap.mjs
+          node --check scripts/local-staging-communication-fixture.mjs
           node --check scripts/commercial_readiness_cr2_staging_probe.mjs
           node --check scripts/commercial_readiness_cr3_staging_e2e_probe.mjs
           grep -q "recusando endpoint não local" scripts/local-staging-bootstrap.mjs
+          grep -q "recusou endpoint não local" scripts/local-staging-communication-fixture.mjs
           grep -q "\.supabase-local-status\.env" .gitignore
 
       - name: Typecheck

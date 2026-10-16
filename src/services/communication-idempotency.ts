@@ -64,9 +64,9 @@ const readAttempts = (): StoredAttempt[] => {
   } catch { return [] }
 }
 
-const writeAttempts = (attempts: StoredAttempt[]) => {
+const writeAttempts = (attempts: StoredAttempt[], now = Date.now()) => {
   const fresh = attempts
-    .filter((item) => item.state === 'confirmed' || Date.now() - item.updatedAt <= PENDING_TTL_MS)
+    .filter((item) => item.state === 'confirmed' || now - item.updatedAt <= PENDING_TTL_MS)
     .sort((a, b) => b.updatedAt - a.updatedAt)
     .slice(0, MAX_ENTRIES)
   const storage = browserSessionStorage()
@@ -89,12 +89,12 @@ export const beginCommunicationIdempotencyAttempt = (input: CommunicationIdempot
   const pending = attempts.find((item) => item.fingerprint === fingerprint && freshPending(item, now))
   if (pending) {
     pending.updatedAt = now
-    writeAttempts(attempts)
+    writeAttempts(attempts, now)
     return { fingerprint, key: pending.key, reusedPendingAttempt: true }
   }
 
   const key = input.proposedKey?.trim() || fallbackKey(input, now)
-  writeAttempts([{ fingerprint, key, state: 'pending', updatedAt: now }, ...attempts.filter((item) => item.fingerprint !== fingerprint || item.state === 'confirmed')])
+  writeAttempts([{ fingerprint, key, state: 'pending', updatedAt: now }, ...attempts.filter((item) => item.fingerprint !== fingerprint || item.state === 'confirmed')], now)
   return { fingerprint, key, reusedPendingAttempt: false }
 }
 
@@ -108,7 +108,7 @@ export const confirmCommunicationIdempotencyAttempt = (attempt: CommunicationIde
   } else {
     attempts.unshift({ fingerprint: attempt.fingerprint, key: attempt.key, state: 'confirmed', eventId: eventId?.trim() || undefined, updatedAt: now })
   }
-  writeAttempts(attempts)
+  writeAttempts(attempts, now)
 }
 
 export const keepCommunicationIdempotencyPending = (attempt: CommunicationIdempotencyAttempt, now = Date.now()) => {
@@ -116,7 +116,7 @@ export const keepCommunicationIdempotencyPending = (attempt: CommunicationIdempo
   const current = attempts.find((item) => item.fingerprint === attempt.fingerprint && item.key === attempt.key)
   if (current) current.updatedAt = now
   else attempts.unshift({ fingerprint: attempt.fingerprint, key: attempt.key, state: 'pending', updatedAt: now })
-  writeAttempts(attempts)
+  writeAttempts(attempts, now)
 }
 
 export const resetCommunicationIdempotencyForTests = () => {

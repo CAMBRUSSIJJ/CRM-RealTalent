@@ -9,6 +9,8 @@ import { buildDealIntelligence, type DealActionKind, type DealIntelligence } fro
 import { buildSalesRecommendation, rankDealsWithSalesLearning } from './realtalent-sales-recommendation-engine'
 import { formatSalesAgentNextBestAction } from './realtalent-sales-intelligence-agent'
 import { buildLiveSalesCoachAssistantAnswer } from './realtalent-live-sales-coach'
+import { resolveSalesReferenceContinuation } from './realtalent-sales-reference-resolver'
+import { salesPortfolioItemsForCapability } from './realtalent-sales-portfolio-context'
 
 export interface RealTalentAssistantProviderResult {
   answer: AssistantAnswer
@@ -22,7 +24,7 @@ export interface RealTalentAssistantProvider {
   answer(prompt: string, snapshot: WorkspaceSnapshot, context?: AssistantContext): Promise<RealTalentAssistantProviderResult>
 }
 
-const capabilityPlanAnswer = (result: CrmCapabilityPlanningResult, context: AssistantContext, seed = ''): AssistantAnswer => {
+const capabilityPlanAnswer = (result: CrmCapabilityPlanningResult, context: AssistantContext, seed = '', snapshot?: WorkspaceSnapshot): AssistantAnswer => {
   const { plan } = result
   if (result.decision === 'clarify') return {
     id: `capability-clarify:${Date.now()}`,
@@ -44,14 +46,25 @@ const capabilityPlanAnswer = (result: CrmCapabilityPlanningResult, context: Assi
     generatedAt: (context.now ?? new Date()).toISOString(),
   }
 
+  const portfolioItems = snapshot && plan.steps.length === 1
+    ? salesPortfolioItemsForCapability(plan.steps[0]?.capabilityId || '', snapshot, context)
+    : []
+
   return {
     id: `capability-plan:${Date.now()}`,
     intent: 'crm_capability',
-    title: plan.steps.length > 1 ? 'Plano preparado no CRM' : (plan.steps[0]?.title || 'Ação preparada no CRM'),
-    text: plan.goal || 'Entendi o que você quer fazer e preparei a ação usando as capacidades nativas do CRM.',
-    items: [],
-    facts: plan.steps.map((step) => step.reason ? `${step.title} — ${step.reason}` : step.title),
-    suggestedPrompts: plan.steps.some((step) => step.capabilityId === 'agent.undo_last') ? [] : ['Desfaça a última ação'],
+    title: portfolioItems.length ? 'Prioridades comerciais de hoje' : plan.steps.length > 1 ? 'Plano preparado no CRM' : (plan.steps[0]?.title || 'Ação preparada no CRM'),
+    text: portfolioItems.length
+      ? `Organizei ${portfolioItems.length} prioridade(s) em ordem operacional. Você pode continuar com “faça a primeira”, “ligue para o segundo” ou “crie follow-up para os três primeiros”.`
+      : plan.goal || 'Entendi o que você quer fazer e preparei a ação usando as capacidades nativas do CRM.',
+    items: portfolioItems,
+    facts: [
+      ...plan.steps.map((step) => step.reason ? `${step.title} — ${step.reason}` : step.title),
+      ...(portfolioItems.length ? ['As referências #1, #2, #3… ficam vinculadas aos IDs reais desta lista até uma nova lista substituí-las.'] : []),
+    ],
+    suggestedPrompts: portfolioItems.length
+      ? ['Faça a primeira', 'Ligue para o segundo', 'Crie follow-up para os três primeiros']
+      : plan.steps.some((step) => step.capabilityId === 'agent.undo_last') ? [] : ['Desfaça a última ação'],
     pendingCapability: null,
     generatedAt: (context.now ?? new Date()).toISOString(),
     plan: {
@@ -89,6 +102,18 @@ const semanticClarification = (semantic: NonNullable<Awaited<ReturnType<typeof i
     generatedAt: (context.now ?? new Date()).toISOString(),
   }
 }
+
+const salesReferenceClarification = (message: string, context: AssistantContext): AssistantAnswer => ({
+  id: `sales-reference-clarify:${Date.now()}`,
+  intent: 'crm_capability',
+  title: 'Atualize a lista comercial',
+  text: message,
+  items: [],
+  facts: ['Não executei nenhuma ação nem substituí a referência por outro registro.'],
+  suggestedPrompts: ['Quais oportunidades devo priorizar agora?', 'Quem devo ligar hoje?'],
+  pendingCapability: null,
+  generatedAt: (context.now ?? new Date()).toISOString(),
+})
 
 const normalizePrompt = (value: string) => value
   .normalize('NFD')
@@ -208,7 +233,7 @@ const applySalesRecommendationRanking = (answer: AssistantAnswer, snapshot: Work
 }
 
 export const hybridRealTalentAssistantProvider: RealTalentAssistantProvider = {
-  id: 'realtalent-agent-v3.8-sales-recommendation-v2',
+  id: 'realtalent-agent-v3.9-executable-daily-brief',
   async answer(prompt, snapshot, context = {}) {
     const liveSalesCoach = buildLiveSalesCoachAssistantAnswer(prompt, snapshot, context)
     if (liveSalesCoach) return { answer: liveSalesCoach, providerId: 'sales-coaching:live-grounded-v1', sendsDataExternally: false, mode: 'local-orchestration' }
@@ -227,8 +252,31 @@ export const hybridRealTalentAssistantProvider: RealTalentAssistantProvider = {
     const pendingReply = pendingReplyRaw ? validateAndEnrichCapabilitySlots(pendingReplyRaw, capabilityContext) : null
     if (pendingReply) {
       return {
-        answer: capabilityPlanAnswer(pendingReply, context, context.pendingCapability?.seed || prompt),
+        answer: capabilityPlanAnswer(pendingReply, context, context.pendingCapability?.seed || prompt, snapshot),
         providerId: `capability:${pendingReply.model}`,
+        sendsDataExternally: false,
+        mode: 'local-orchestration',
+      }
+    }
+
+    const salesReference = resolveSalesReferenceContinuation(prompt, snapshot, {
+      previousLeadIds: context.previousLeadIds,
+      currentUserId: context.currentUserId,
+      now: context.now,
+    })
+    if (salesReference?.kind === 'clarify') {
+      return {
+        answer: salesReferenceClarification(salesReference.message, context),
+        providerId: 'sales-reference:deterministic-v1',
+        sendsDataExternally: false,
+        mode: 'local-orchestration',
+      }
+    }
+    if (salesReference?.kind === 'plan') {
+      const referencePlan = validateAndEnrichCapabilitySlots(salesReference.result, capabilityContext)
+      return {
+        answer: capabilityPlanAnswer(referencePlan, context, prompt, snapshot),
+        providerId: 'sales-reference:deterministic-v1',
         sendsDataExternally: false,
         mode: 'local-orchestration',
       }
@@ -238,7 +286,7 @@ export const hybridRealTalentAssistantProvider: RealTalentAssistantProvider = {
     const capability = capabilityRaw ? validateAndEnrichCapabilitySlots(capabilityRaw, capabilityContext) : null
     if (capability && capability.decision !== 'fallback') {
       return {
-        answer: capabilityPlanAnswer(capability, context, context.pendingCapability?.seed || prompt),
+        answer: capabilityPlanAnswer(capability, context, context.pendingCapability?.seed || prompt, snapshot),
         providerId: `capability:${capability.model}`,
         sendsDataExternally: false,
         mode: 'local-orchestration',
@@ -248,7 +296,7 @@ export const hybridRealTalentAssistantProvider: RealTalentAssistantProvider = {
     const localOperationalRaw = localCapabilityFallback(prompt, capabilityContext)
     const localOperational = localOperationalRaw ? validateAndEnrichCapabilitySlots(localOperationalRaw, capabilityContext) : null
     if (localOperational) return {
-      answer: capabilityPlanAnswer(localOperational, context, context.pendingCapability?.seed || prompt),
+      answer: capabilityPlanAnswer(localOperational, context, context.pendingCapability?.seed || prompt, snapshot),
       providerId: 'capability:local-resilience-v3.7',
       sendsDataExternally: false,
       mode: 'local-orchestration',

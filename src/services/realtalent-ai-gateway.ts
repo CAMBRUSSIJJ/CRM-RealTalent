@@ -19,6 +19,11 @@ import {
   stageSalesRecommendationsFromPlan,
   syncSalesLearningFromReceipt,
 } from './realtalent-sales-learning-engine'
+import {
+  formatSalesActionEffectiveness,
+  formatSalesPortfolioLearningSummary,
+  type SalesPortfolioLearningFilters,
+} from './realtalent-sales-portfolio-learning'
 
 export interface RealTalentAiGatewayResult {
   answer: AssistantAnswer
@@ -49,6 +54,106 @@ const toolsForAnswer = (answer: AssistantAnswer) => {
   return ['read_pipeline']
 }
 
+const normalize = (value: string) => value
+  .normalize('NFD')
+  .replace(/[\u0300-\u036f]/g, '')
+  .toLowerCase()
+  .replace(/[^a-z0-9]+/g, ' ')
+  .replace(/\s+/g, ' ')
+  .trim()
+
+const isPortfolioLearningQuestion = (prompt: string) => {
+  const text = normalize(prompt)
+  return /\b(aprendizado comercial|aprendemos com|padroes? de vendas?|historico de recomendacoes?|acoes? que mais funcionam|acao que mais funciona|eficacia das acoes?|taxa de sucesso das acoes?|melhor acao por etapa|melhores acoes por etapa|o que funciona melhor|qual acao funciona melhor|compare as acoes|comparar acoes)\b/.test(text)
+}
+
+const isActionEffectivenessQuestion = (prompt: string) => {
+  const text = normalize(prompt)
+  return /\b(eficacia|taxa de sucesso|funciona melhor|qual acao|melhores acoes|compare as acoes|comparar acoes)\b/.test(text)
+}
+
+const visibleLearningLeadIds = (snapshot: WorkspaceSnapshot, context: AssistantContext) => {
+  const role = snapshot.workspace.role
+  if (role === 'owner' || role === 'admin') return new Set(snapshot.leads.map((lead) => lead.id))
+  if (!context.currentUserId) return new Set<string>()
+  return new Set(snapshot.leads.filter((lead) => lead.ownerId === context.currentUserId).map((lead) => lead.id))
+}
+
+const inferPortfolioFilters = (prompt: string, snapshot: WorkspaceSnapshot, context: AssistantContext): SalesPortfolioLearningFilters => {
+  const text = normalize(prompt)
+  const filters: SalesPortfolioLearningFilters = {
+    visibleLeadIds: visibleLearningLeadIds(snapshot, context),
+    minSamples: 3,
+    limit: 8,
+  }
+  const stage = snapshot.stages.find((item) => {
+    const key = normalize(item.name)
+    return key.length >= 3 && text.includes(key)
+  })
+  if (stage) filters.stageQuery = stage.name
+
+  const source = [...new Set(snapshot.leads.map((lead) => lead.source).filter(Boolean))].find((item) => {
+    const key = normalize(item)
+    return key.length >= 4 && text.includes(key)
+  })
+  if (source) filters.sourceQuery = source
+
+  const segment = [...new Set(snapshot.companies.map((company) => company.segment).filter(Boolean))].find((item) => {
+    const key = normalize(item)
+    return key.length >= 3 && text.includes(key)
+  })
+  if (segment) filters.segmentQuery = segment
+
+  if (/\b(ligar|ligacao|telefonar|telefonema)\b/.test(text)) filters.actionQuery = 'call'
+  else if (/\b(follow ?up|retorno|acompanhar|acompanhamento)\b/.test(text)) filters.actionQuery = 'followup'
+  else if (/\b(reuniao|agendar reuniao|marcar reuniao)\b/.test(text)) filters.actionQuery = 'meeting'
+  else if (/\b(mapear decisor|mapear stakeholder|identificar decisor|identificar stakeholder)\b/.test(text)) filters.actionQuery = 'map_stakeholder'
+  else if (/\b(enviar proposta|mandar proposta|criar proposta)\b/.test(text)) filters.actionQuery = 'proposal'
+  else if (/\b(revisar proposta|rever proposta)\b/.test(text)) filters.actionQuery = 'review_proposal'
+  else if (/\b(atualizar fechamento|revisar fechamento|data de fechamento)\b/.test(text)) filters.actionQuery = 'update_close_date'
+
+  if (/\b(decisor|economic buyer)\b/.test(text) && !filters.actionQuery) filters.riskQuery = 'missing-decision-maker'
+  else if (/\b(proxima acao vencida|proximo passo vencido|follow ?up atrasado)\b/.test(text)) filters.riskQuery = 'overdue-next-step'
+  else if (/\b(sem proximo passo|sem proxima acao)\b/.test(text)) filters.riskQuery = 'no-next-step'
+  else if (/\b(negocio parado|oportunidade parada|muito tempo sem contato)\b/.test(text)) filters.riskQuery = 'stale-critical'
+  else if (/\b(esfriando|engajamento esfriando|sem contato)\b/.test(text)) filters.riskQuery = 'stale'
+  else if (/\b(um stakeholder|um contato|single threaded|relacionamento concentrado)\b/.test(text)) filters.riskQuery = 'single-threaded'
+  else if (/\b(blocker|bloqueador|stakeholder contrario)\b/.test(text)) filters.riskQuery = 'blocker'
+  else if (/\b(sem proposta|proposta nao criada)\b/.test(text)) filters.riskQuery = 'proposal-missing'
+  else if (/\b(proposta em rascunho|rascunho da proposta)\b/.test(text)) filters.riskQuery = 'proposal-draft'
+
+  return filters
+}
+
+const portfolioLearningAnswer = (prompt: string, snapshot: WorkspaceSnapshot, context: AssistantContext): AssistantAnswer => {
+  const filters = inferPortfolioFilters(prompt, snapshot, context)
+  const compare = isActionEffectivenessQuestion(prompt)
+  const text = compare
+    ? formatSalesActionEffectiveness(snapshot.workspace.id, snapshot, filters)
+    : formatSalesPortfolioLearningSummary(snapshot.workspace.id, snapshot, filters)
+  const scopeLabel = snapshot.workspace.role === 'owner' || snapshot.workspace.role === 'admin'
+    ? 'workspace permitido'
+    : 'negócios sob sua responsabilidade'
+  return {
+    id: `sales-learning:${Date.now()}`,
+    intent: 'priorities',
+    title: compare ? 'Eficácia das ações comerciais' : 'Aprendizado comercial da carteira',
+    text,
+    items: [],
+    facts: [
+      `Escopo analisado: ${scopeLabel}.`,
+      'Somente resultados positive/negative derivados de execução verificada entram na comparação; correções do usuário são excluídas.',
+      'Amostras pequenas são marcadas como provisórias e recebem penalização no ranking.',
+    ],
+    suggestedPrompts: [
+      'Qual ação funciona melhor na etapa de proposta?',
+      'Quais riscos aparecem nos padrões que mais pioram?',
+      'O que aprendemos sobre os negócios que avançam?',
+    ],
+    generatedAt: (context.now ?? new Date()).toISOString(),
+  }
+}
+
 const learningAwareContext = (workspaceId: string, prompt: string, snapshot: WorkspaceSnapshot, assistantContext: AssistantContext) => {
   // Aprendizado operacional: somente recibos integralmente verificados entram como
   // exemplos positivos. Aprendizado comercial: uma recomendação só ganha crédito
@@ -71,7 +176,7 @@ const learningAwareContext = (workspaceId: string, prompt: string, snapshot: Wor
 }
 
 export const realTalentAiGateway = {
-  id: 'realtalent-ai-gateway-v3-sales-learning',
+  id: 'realtalent-ai-gateway-v4-portfolio-learning',
   async answer(prompt: string, snapshot: WorkspaceSnapshot, assistantContext: AssistantContext = {}): Promise<RealTalentAiGatewayResult> {
     const started = Date.now()
     const workspaceId = snapshot.workspace.id
@@ -79,6 +184,24 @@ export const realTalentAiGateway = {
     const effectiveContext = learned.context
     const context = buildRealTalentAiContext(snapshot, effectiveContext)
     try {
+      if (isPortfolioLearningQuestion(prompt)) {
+        const answer = portfolioLearningAnswer(prompt, snapshot, effectiveContext)
+        const durationMs = Math.max(0, Date.now() - started)
+        appendRealTalentAiAudit({
+          id: `ai:${Date.now()}:${Math.random().toString(36).slice(2, 8)}`,
+          workspaceId,
+          providerId: 'sales-learning:portfolio-v1',
+          intent: answer.intent,
+          focusLeadId: context.focusLeadId,
+          route: context.route,
+          toolIds: ['sales_learning_portfolio'],
+          outcome: 'success',
+          durationMs,
+          generatedAt: new Date().toISOString(),
+        })
+        return { answer, context, trace: { providerId: 'sales-learning:portfolio-v1', mode: 'local-orchestration', sendsDataExternally: false, durationMs, writeAuthority: false } }
+      }
+
       const providerResult = await hybridRealTalentAssistantProvider.answer(prompt, snapshot, effectiveContext)
       const answer = providerResult.answer
       if (answer.plan?.kind === 'crm_capabilities' && answer.plan.steps.length) {

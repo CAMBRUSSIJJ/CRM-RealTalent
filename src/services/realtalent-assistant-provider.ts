@@ -2,7 +2,7 @@
 import type { Lead, WorkspaceSnapshot } from '../domain/types'
 import { runRealTalentAssistant, type AssistantAnswer, type AssistantContext, type AssistantIntent, type AssistantResultItem } from './realtalent-assistant'
 import { interpretSalesLanguage } from './realtalent-semantic-language-client'
-import { localCapabilityFallback, type CrmCapabilityPlanningResult } from './realtalent-crm-capability-planner'
+import { localCapabilityFallback, localPendingCapabilityReplyFallback, type CrmCapabilityPlanningResult } from './realtalent-crm-capability-planner'
 import { planCrmCapabilitiesViaAgent } from './realtalent-crm-capability-runtime-client'
 import { crmClarificationSuggestions, genericPendingIntent, pendingCapabilityFromPlan, pendingCapabilityContext, validateAndEnrichCapabilitySlots } from './realtalent-crm-slot-filling'
 import { buildDealIntelligence, type DealActionKind, type DealIntelligence } from './deal-intelligence'
@@ -221,6 +221,17 @@ export const hybridRealTalentAssistantProvider: RealTalentAssistantProvider = {
       now: context.now,
       conversationContext: context.conversationContext ?? '',
       pendingCapability: pendingCapabilityContext(context.pendingCapability),
+    }
+
+    const pendingReplyRaw = localPendingCapabilityReplyFallback(prompt, capabilityContext)
+    const pendingReply = pendingReplyRaw ? validateAndEnrichCapabilitySlots(pendingReplyRaw, capabilityContext) : null
+    if (pendingReply) {
+      return {
+        answer: capabilityPlanAnswer(pendingReply, context, context.pendingCapability?.seed || prompt),
+        providerId: `capability:${pendingReply.model}`,
+        sendsDataExternally: false,
+        mode: 'local-orchestration',
+      }
     }
 
     const capabilityRaw = await planCrmCapabilitiesViaAgent(prompt, capabilityContext)

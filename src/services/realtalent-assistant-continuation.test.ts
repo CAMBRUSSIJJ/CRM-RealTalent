@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest'
 import type { AssistantAnswer } from './realtalent-assistant'
 import { resolveAssistantRecommendationContinuation } from './realtalent-assistant-continuation'
+import { continuationPrompt } from './realtalent-crm-slot-filling'
+import { localPendingCapabilityReplyFallback } from './realtalent-crm-capability-planner'
 import { realTalentAiGateway } from './realtalent-ai-gateway'
 import { DEFAULT_STAGES, DEMO_ACTIVITIES, DEMO_AUTOMATION_RULES, DEMO_AUTOMATION_RUNS, DEMO_CALLS, DEMO_COMPANIES, DEMO_CONTACT_RELATIONSHIPS, DEMO_CONTACTS, DEMO_EVENTS, DEMO_GOALS, DEMO_LEADS, DEMO_OPPORTUNITIES, DEMO_PLAYBOOKS, DEMO_PRODUCTS, DEMO_PROPOSALS, DEMO_REVENUE_ENTRIES, DEMO_SOCIAL_PROFILES, DEMO_WORKSPACE } from '../domain/defaults'
 import type { WorkspaceSnapshot } from '../domain/types'
@@ -36,6 +38,33 @@ describe('Assistant recommendation continuation', () => {
     expect(result.answer.pendingCapability?.missingSlots).toContain('product')
     expect(result.answer.plan).toBeUndefined()
     expect(result.answer.text).toMatch(/produto|serviço/i)
+  })
+
+
+  it('continua após informar o produto e monta plano de proposta sem executar a escrita', async () => {
+    const previous = answer({ capabilityId: 'proposals.create', label: 'Validar critérios antes da proposta', seed: `Crie uma proposta para ${lead.company || lead.name}.` })
+    const firstPrompt = resolveAssistantRecommendationContinuation('faça isso', previous)
+    const first = await realTalentAiGateway.answer(firstPrompt!, snapshot, { previousLeadIds: [lead.id], currentUserId: lead.ownerId, now: new Date('2026-10-16T13:00:00.000Z') })
+    const pending = first.answer.pendingCapability
+    expect(pending?.capabilityId).toBe('proposals.create')
+    const product = DEMO_PRODUCTS[0]
+    expect(product).toBeTruthy()
+    const secondPrompt = continuationPrompt(pending!, product.name)
+    const second = await realTalentAiGateway.answer(secondPrompt, snapshot, { previousLeadIds: [lead.id], currentUserId: lead.ownerId, pendingCapability: pending, now: new Date('2026-10-16T13:01:00.000Z') })
+    expect(second.answer.pendingCapability).toBeNull()
+    expect(second.answer.plan?.kind).toBe('crm_capabilities')
+    expect(second.answer.plan?.steps[0]?.capabilityId).toBe('proposals.create')
+    expect(second.answer.plan?.steps[0]?.risk).toBe('medium')
+  })
+
+
+  it('não transforma uma nova ordem explícita em valor do slot pendente', async () => {
+    const previous = answer({ capabilityId: 'proposals.create', label: 'Validar critérios antes da proposta', seed: `Crie uma proposta para ${lead.company || lead.name}.` })
+    const firstPrompt = resolveAssistantRecommendationContinuation('faça isso', previous)
+    const first = await realTalentAiGateway.answer(firstPrompt!, snapshot, { previousLeadIds: [lead.id], currentUserId: lead.ownerId, now: new Date('2026-10-16T13:00:00.000Z') })
+    const pending = first.answer.pendingCapability!
+    const freshCommand = continuationPrompt(pending, 'na verdade crie uma tarefa para amanhã')
+    expect(localPendingCapabilityReplyFallback(freshCommand, { previousLeadIds: [lead.id], pendingCapability: { capabilityId: pending.capabilityId, capabilityTitle: pending.capabilityTitle, originalRequest: pending.seed, knownArgs: pending.knownArgs, missingSlots: pending.missingSlots, clarification: pending.clarification } })).toBeNull()
   })
 
 })

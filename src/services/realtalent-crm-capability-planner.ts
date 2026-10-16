@@ -126,6 +126,64 @@ const goalMetricFromText = (text: string) => {
   return ''
 }
 
+const pendingReplyFromContinuation = (prompt: string) => {
+  const replyMarker = 'Resposta do usuário à clarificação'
+  const continueMarker = 'Continue a mesma ação'
+  const start = prompt.lastIndexOf(replyMarker)
+  const end = prompt.lastIndexOf(continueMarker)
+  if (start < 0 || end <= start) return ''
+  const segment = prompt.slice(start + replyMarker.length, end)
+  const colon = segment.indexOf(':')
+  if (colon < 0) return ''
+  return segment.slice(colon + 1).trim().replace(/[.\s]+$/, '').slice(0, 500)
+}
+
+const simplePendingReply = (reply: string) => {
+  const normalized = reply.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/\s+/g, ' ').trim()
+  if (!normalized || normalized.length > 180 || normalized.split(' ').length > 14) return false
+  return !/^(?:na verdade\s+)?(?:crie|criar|faca|fazer|exclua|excluir|delete|deletar|apague|apagar|remova|remover|atualize|atualizar|edite|editar|altere|alterar|mude|mudar|abra|abrir|envie|enviar|agende|agendar|cancele|cancelar)\b/.test(normalized)
+}
+
+const SIMPLE_PENDING_SLOT_KEYS = new Set(['record', 'name', 'email', 'phone', 'role', 'product', 'route', 'object', 'subject', 'body', 'status', 'outcome', 'metric', 'target', 'date', 'time', 'title'])
+
+export const localPendingCapabilityReplyFallback = (prompt: string, context: CrmCapabilityPlanningContext): CrmCapabilityPlanningResult | null => {
+  const pending = context.pendingCapability
+  if (!pending?.capabilityId || pending.capabilityId === '__pending_intent__') return null
+  const missingSlots = pending.missingSlots ?? []
+  if (missingSlots.length !== 1) return null
+  const reply = pendingReplyFromContinuation(prompt)
+  if (!simplePendingReply(reply)) return null
+  const rule = crmCapabilitySlotRulesForModel(pending.capabilityId).find((item) => item.key === missingSlots[0])
+  if (!rule || !SIMPLE_PENDING_SLOT_KEYS.has(rule.key)) return null
+  const definition = crmCapabilityById(pending.capabilityId)
+  if (!definition) return null
+  const preferredAlias = rule.accepts.find((alias) => alias === rule.key)
+    ?? rule.accepts.find((alias) => alias.endsWith('_query'))
+    ?? rule.accepts[0]
+  if (!preferredAlias) return null
+  const cleanedReply = rule.key === 'product' ? reply.replace(/^(?:produto|serviço|servico)\s+/i, '').trim() : reply
+  if (!cleanedReply) return null
+  const accepted = new Set(rule.accepts)
+  const args = (pending.knownArgs ?? []).filter((arg) => arg.value.trim() && !accepted.has(arg.name))
+  args.push({ name: preferredAlias, value: cleanedReply })
+  return {
+    provider: 'local-resilience',
+    model: 'capability-pending-slot-v3.8',
+    decision: 'execute',
+    plan: {
+      version: '3.8',
+      goal: `Continuar ${pending.capabilityTitle || definition.title}`,
+      confidence: 0.99,
+      needsClarification: false,
+      clarification: '',
+      pendingCapabilityId: '',
+      missingSlots: [],
+      knownArgs: args,
+      steps: [{ id: `pending:${pending.capabilityId}`, capabilityId: pending.capabilityId, title: definition.title, reason: `Resposta curta aplicada somente ao slot pendente ${rule.key}.`, risk: definition.risk, args }],
+    },
+  }
+}
+
 export const localCapabilityFallback = (prompt: string, context: CrmCapabilityPlanningContext): CrmCapabilityPlanningResult | null => {
   const text = prompt.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z0-9\s,.-]/g, ' ').replace(/\s+/g, ' ').trim()
   const make = (capabilityId: string, goal: string, args: CrmCapabilityArgument[] = []): CrmCapabilityPlanningResult | null => {

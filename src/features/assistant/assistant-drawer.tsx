@@ -266,7 +266,7 @@ export function AssistantDrawer({ open, onClose, initialPrompt = '' }: Assistant
     const recommendationContinuation = !pendingCapability && !pendingAction && !directAction
       ? resolveAssistantRecommendationContinuation(userPrompt, answer)
       : null
-    const effectivePrompt = pendingCapability
+    const effectivePrompt = pendingCapability && !directAction
       ? continuationPrompt(pendingCapability, userPrompt)
       : pendingAction && !directAction ? `${pendingAction.seed} ${userPrompt}` : recommendationContinuation ?? userPrompt
     const actionIntent = directAction ?? pendingAction?.kind ?? null
@@ -294,7 +294,7 @@ export function AssistantDrawer({ open, onClose, initialPrompt = '' }: Assistant
         workspaceMembers,
         currentUserId,
         conversationContext: [lastUserPrompt ? `Usuário anterior: ${lastUserPrompt}` : '', answer ? `Resposta anterior: ${answer.title}. ${answer.text}` : '', pendingCapability ? `Ação pendente: ${pendingCapability.capabilityId}; faltando: ${pendingCapability.missingSlots.join(', ')}` : ''].filter(Boolean).join('\n').slice(0, 2000),
-        pendingCapability,
+        pendingCapability: directAction ? null : pendingCapability,
         loadWorkspaceMembers: async () => listWorkspaceMembers().catch(() => []),
         loadWorkTasks: async () => {
           if (!currentWorkspace) return []

@@ -50,9 +50,15 @@ try{
     select('activities',{select:'id',organization_id:`eq.${org}`,lead_id:`eq.${made.lead}`,activity_type:'eq.followup',title:'ilike.Iniciar pós-venda*'},seller.access_token),
   ])
   assert(opps?.[0]?.status==='won'&&leads?.[0]?.status==='won'&&post?.length>0,'15 fechamento sincroniza lead/oportunidade e cria pós-venda')
-  const forbidden=await raw('/rest/v1/revenue_entries?select=id',{method:'POST',body:{organization_id:org,proposal_id:made.proposal,lead_id:made.lead,opportunity_id:made.opp,revenue_type:'one_time',status:'recognized',amount:1500,recognized_at:new Date().toISOString(),description:'CR3 seller should fail'},token:seller.access_token,prefer:'return=representation'})
+
+  // Receita usa o contrato canônico atual: recognized_at é o instante do reconhecimento,
+  // enquanto competence_date é o período comercial/financeiro obrigatório desde V100.44.
+  // Incluímos o campo também no teste negativo para provar que o bloqueio do Vendedor é
+  // realmente de autorização, e não apenas uma rejeição por linha inválida.
+  const recognizedAt=new Date().toISOString(),competenceDate=recognizedAt.slice(0,10)
+  const forbidden=await raw('/rest/v1/revenue_entries?select=id',{method:'POST',body:{organization_id:org,proposal_id:made.proposal,lead_id:made.lead,opportunity_id:made.opp,revenue_type:'one_time',status:'recognized',amount:1500,recognized_at:recognizedAt,competence_date:competenceDate,description:'CR3 seller should fail'},token:seller.access_token,prefer:'return=representation'})
   assert(!forbidden.ok,'16 Vendedor bloqueado ao reconhecer valor de receita')
-  r=await insert('revenue_entries',{organization_id:org,proposal_id:made.proposal,lead_id:made.lead,opportunity_id:made.opp,revenue_type:'one_time',status:'recognized',amount:1500,recognized_at:new Date().toISOString(),description:'CR3 recognized by manager'},'id,amount',manager.access_token);made.revenue=r.id;assert(Number(r.amount)===1500,'17 Gestor reconhece receita')
+  r=await insert('revenue_entries',{organization_id:org,proposal_id:made.proposal,lead_id:made.lead,opportunity_id:made.opp,revenue_type:'one_time',status:'recognized',amount:1500,recognized_at:recognizedAt,competence_date:competenceDate,description:'CR3 recognized by manager'},'id,amount',manager.access_token);made.revenue=r.id;assert(Number(r.amount)===1500,'17 Gestor reconhece receita')
   await update('work_tasks',{id:`eq.${made.task}`},{status:'completed',completed_at:new Date().toISOString()},seller.access_token);assert(true,'18 tarefa comercial concluída')
   console.log('CR3 STAGING PASS: login → contato → oportunidade → follow-up/tarefa → comunicação oficial protegida → proposta → aceite → fechamento → receita (HTTP nativo, sem entrega externa).')
 }catch(e){console.error('CR3 STAGING FAIL:',e?.message||e);process.exitCode=1}

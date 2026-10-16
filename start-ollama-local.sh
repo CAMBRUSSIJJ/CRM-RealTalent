@@ -91,6 +91,7 @@ npm run typecheck
 npm run build
 npx vitest run src/services/realtalent-crm-capability-coverage.test.ts
 npx vitest run src/services/realtalent-assistant-provider-routing.test.ts
+npx vitest run src/services/realtalent-crm-pending-resume.test.ts
 npx vitest run src/services/realtalent-ollama-semantic.integration.test.ts
 
 say "5/7 — Iniciando RealTalent Agent com Ollama"
@@ -160,6 +161,7 @@ echo "✓ Agent: $AGENT_URL"
 echo "✓ CRM: $CRM_URL/#/goals"
 echo "✓ Browser → Agent: autorizado"
 echo "✓ Firewall operacional: ativo"
+echo "✓ Continuação de clarificação curta: gate ativo"
 echo "✓ Nenhuma chamada OpenAI faz parte deste fluxo"
 echo
 

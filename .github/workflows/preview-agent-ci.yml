@@ -12,6 +12,7 @@ on:
       - 'scripts/local-staging-communication-fixture.mjs'
       - 'scripts/commercial_readiness_cr2_staging_probe.mjs'
       - 'scripts/commercial_readiness_cr3_staging_e2e_probe.mjs'
+      - 'scripts/security_definer_anon_probe.mjs'
       - '.env.cr3.example'
       - 'supabase/config.toml'
       - 'supabase/migrations/**'
@@ -49,11 +50,14 @@ jobs:
           node --check scripts/local-staging-communication-fixture.mjs
           node --check scripts/commercial_readiness_cr2_staging_probe.mjs
           node --check scripts/commercial_readiness_cr3_staging_e2e_probe.mjs
+          node --check scripts/security_definer_anon_probe.mjs
           grep -q "recusando endpoint não local" scripts/local-staging-bootstrap.mjs
           grep -q "recusou endpoint não local" scripts/local-staging-communication-fixture.mjs
           grep -q "CR3_COMMUNICATION_ACCOUNT_ID" .env.cr3.example
           grep -q "REALTALENT_SUPABASE_EXCLUDE_SERVICES" scripts/local-staging.sh
           grep -q "REALTALENT_SUPABASE_SKIP_RESET" scripts/local-staging.sh
+          grep -q "claim_lead_geocode_jobs" supabase/migrations/202610160003_v101_11_3_h22_6_security_definer_execute_hardening.sql
+          grep -q "get_buyer_room_public" scripts/security_definer_anon_probe.mjs
           grep -q "\.supabase-local-status\.env" .gitignore
 
       - name: Typecheck
@@ -77,7 +81,7 @@ jobs:
         with:
           node-version: '22'
 
-      - name: Run lean local Supabase migrations + CR2 + CR3
+      - name: Run lean local Supabase migrations + CR2 + security + CR3
         env:
           REALTALENT_SUPABASE_CLI_VERSION: '2.119.0'
           REALTALENT_SUPABASE_EXCLUDE_SERVICES: 'realtime,storage-api,imgproxy,mailpit,postgres-meta,studio,edge-runtime,logflare,vector,supavisor'

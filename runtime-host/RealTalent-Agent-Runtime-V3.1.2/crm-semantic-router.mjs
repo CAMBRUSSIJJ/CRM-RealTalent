@@ -16,6 +16,12 @@ export const routeBusinessDomain = (prompt, modules = []) => {
     ? { modules: [module], primaryModule: module, confidence: 0.995, rationale: `anchor: ${rationale}`, source: 'deterministic-domain' }
     : null
 
+  // Objetos operacionais explícitos vencem palavras incidentais em nomes, como “Follow-up automático”.
+  if (rx(text, /\b(automacao|automacoes|automatizacao|gatilho|regra automatica)\b/)) {
+    const automation = pick('automations', 'automação explícita')
+    if (automation) return automation
+  }
+
   const rules = [
     ['goals', /\b(meta|metas|quota|quotas|objetivo|objetivos|alvo|alvos)\b/, 'meta ou objetivo comercial explícito'],
     ['communications', /\b(email|e-mail|whatsapp|mensagem|mensagens)\b.*\b(envie|enviar|mande|mandar|responda|responder|escreva|escrever)\b|\b(envie|enviar|mande|mandar|responda|responder|escreva|escrever)\b.*\b(email|e-mail|whatsapp|mensagem|mensagens)\b/, 'canal externo explícito'],
@@ -24,7 +30,6 @@ export const routeBusinessDomain = (prompt, modules = []) => {
     ['calls', /\b(ligacao|ligacoes|telefonema|telefonemas|discador|gravacao)\b/, 'operação de ligação explícita'],
     ['tasks', /\b(tarefa|tarefas|lembrete|lembretes)\b/, 'tarefa ou lembrete explícito'],
     ['agenda', /\b(reuniao|reunioes|compromisso|compromissos|evento|eventos|agenda|calendario)\b/, 'evento ou agendamento explícito'],
-    ['automations', /\b(automacao|automacoes|automatizacao|gatilho|regra automatica)\b/, 'automação explícita'],
     ['teams', /\b(equipe|equipes|membro|membros|convite|convide|papel|permissao|permissoes)\b/, 'equipe ou membro explícito'],
     ['settings', /\b(auditoria|audit log|logs de auditoria|eventos de auditoria|sincronize a estrutura|sincronizar a estrutura|workspace|dados operacionais)\b/, 'administração do workspace explícita'],
     ['revenue', /\b(receita|receitas|faturamento)\b/, 'receita ou reconhecimento financeiro explícito'],

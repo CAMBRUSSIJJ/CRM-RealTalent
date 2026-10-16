@@ -3,6 +3,15 @@ import { appendRealTalentAiAudit } from './realtalent-ai-audit'
 import { buildRealTalentAiContext, type RealTalentAiContextEnvelope } from './realtalent-ai-context'
 import { hybridRealTalentAssistantProvider } from './realtalent-assistant-provider'
 import type { AssistantAnswer, AssistantContext } from './realtalent-assistant'
+import { lastCrmExecutionReceipt } from './realtalent-crm-execution-truth'
+import {
+  findRelevantLearningExperiences,
+  formatLearningContext,
+  isLearningCorrection,
+  recordLearningCorrection,
+  rememberLearningPlan,
+  syncVerifiedLearningFromReceipt,
+} from './realtalent-learning-engine'
 
 export interface RealTalentAiGatewayResult {
   answer: AssistantAnswer
@@ -33,18 +42,42 @@ const toolsForAnswer = (answer: AssistantAnswer) => {
   return ['read_pipeline']
 }
 
+const learningAwareContext = (workspaceId: string, prompt: string, assistantContext: AssistantContext) => {
+  // Uma execução anterior só vira experiência positiva depois que o recibo inteiro
+  // foi verificado. Se o usuário corrigir a resposta logo em seguida, esse exemplo
+  // é despromovido antes de ser usado novamente.
+  syncVerifiedLearningFromReceipt(workspaceId, lastCrmExecutionReceipt(workspaceId))
+  const correction = isLearningCorrection(prompt) ? recordLearningCorrection(workspaceId, prompt) : null
+  const retrievalPrompt = correction ? `${correction.prompt} ${prompt}` : prompt
+  const learningContext = formatLearningContext(findRelevantLearningExperiences(workspaceId, retrievalPrompt, 5))
+  const conversationContext = [assistantContext.conversationContext?.trim(), learningContext]
+    .filter(Boolean)
+    .join('\n\n')
+    .slice(0, 5000)
+  return { context: { ...assistantContext, conversationContext }, correction }
+}
+
 export const realTalentAiGateway = {
-  id: 'realtalent-ai-gateway-v2-agent',
+  id: 'realtalent-ai-gateway-v2-agent-learning',
   async answer(prompt: string, snapshot: WorkspaceSnapshot, assistantContext: AssistantContext = {}): Promise<RealTalentAiGatewayResult> {
     const started = Date.now()
-    const context = buildRealTalentAiContext(snapshot, assistantContext)
+    const workspaceId = snapshot.workspace.id
+    const learned = learningAwareContext(workspaceId, prompt, assistantContext)
+    const effectiveContext = learned.context
+    const context = buildRealTalentAiContext(snapshot, effectiveContext)
     try {
-      const providerResult = await hybridRealTalentAssistantProvider.answer(prompt, snapshot, assistantContext)
+      const providerResult = await hybridRealTalentAssistantProvider.answer(prompt, snapshot, effectiveContext)
       const answer = providerResult.answer
+      if (answer.plan?.kind === 'crm_capabilities' && answer.plan.steps.length) {
+        const learningPrompt = learned.correction
+          ? `${learned.correction.prompt} | CORREÇÃO: ${prompt}`
+          : prompt
+        rememberLearningPlan(workspaceId, learningPrompt, { id: answer.plan.id, steps: answer.plan.steps })
+      }
       const durationMs = Math.max(0, Date.now() - started)
       appendRealTalentAiAudit({
         id: `ai:${Date.now()}:${Math.random().toString(36).slice(2, 8)}`,
-        workspaceId: snapshot.workspace.id,
+        workspaceId,
         providerId: providerResult.providerId,
         intent: answer.intent,
         focusLeadId: context.focusLeadId,
@@ -57,7 +90,7 @@ export const realTalentAiGateway = {
       return { answer, context, trace: { providerId: providerResult.providerId, mode: providerResult.mode, sendsDataExternally: providerResult.sendsDataExternally, durationMs, writeAuthority: false } }
     } catch (error) {
       const durationMs = Math.max(0, Date.now() - started)
-      appendRealTalentAiAudit({ id: `ai:${Date.now()}:error`, workspaceId: snapshot.workspace.id, providerId: hybridRealTalentAssistantProvider.id, intent: 'error', focusLeadId: context.focusLeadId, route: context.route, toolIds: [], outcome: 'error', durationMs, generatedAt: new Date().toISOString(), note: error instanceof Error ? error.message.slice(0, 180) : 'Falha desconhecida' })
+      appendRealTalentAiAudit({ id: `ai:${Date.now()}:error`, workspaceId, providerId: hybridRealTalentAssistantProvider.id, intent: 'error', focusLeadId: context.focusLeadId, route: context.route, toolIds: [], outcome: 'error', durationMs, generatedAt: new Date().toISOString(), note: error instanceof Error ? error.message.slice(0, 180) : 'Falha desconhecida' })
       throw error
     }
   },

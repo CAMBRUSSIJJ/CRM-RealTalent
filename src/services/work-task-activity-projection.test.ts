@@ -47,4 +47,17 @@ describe('Work Task → Activity projection', () => {
     expect(projected.find((activity) => activity.id === 'work-task:task-1')?.title).toBe('Ligar para Camila')
     expect(projected.some((activity) => activity.id === 'activity-real')).toBe(true)
   })
+
+  it('does not leak internal/unlinked tasks into commercial activities', () => {
+    const projected = projectWorkTasksToActivities([], { tasks: [task()], relations: [] })
+    expect(projected).toEqual([])
+  })
+
+  it('does not project tasks linked only to non-commercial objects', () => {
+    const projected = projectWorkTasksToActivities([], {
+      tasks: [task()],
+      relations: [relation({ entityType: 'pipeline', entityId: 'pipeline-1', entityLabel: 'Pipeline' })],
+    })
+    expect(projected).toEqual([])
+  })
 })

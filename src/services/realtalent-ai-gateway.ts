@@ -20,6 +20,11 @@ import {
   syncSalesLearningFromReceipt,
 } from './realtalent-sales-learning-engine'
 import {
+  buildSalesAgentContext,
+  formatSalesAgentDealAnalysis,
+  formatSalesAgentNextBestAction,
+} from './realtalent-sales-intelligence-agent'
+import {
   formatSalesActionEffectiveness,
   formatSalesPortfolioLearningSummary,
   type SalesPortfolioLearningFilters,
@@ -58,7 +63,7 @@ const normalize = (value: string) => value
   .normalize('NFD')
   .replace(/[\u0300-\u036f]/g, '')
   .toLowerCase()
-  .replace(/[^a-z0-9]+/g, ' ')
+  .replace(/[^a-z0-9@.+\-]+/g, ' ')
   .replace(/\s+/g, ' ')
   .trim()
 
@@ -72,11 +77,52 @@ const isActionEffectivenessQuestion = (prompt: string) => {
   return /\b(eficacia|taxa de sucesso|funciona melhor|qual acao|melhores acoes|compare as acoes|comparar acoes)\b/.test(text)
 }
 
+const isDealNextActionQuestion = (prompt: string) => {
+  const text = normalize(prompt)
+  return /\b(proxima melhor acao|qual a proxima acao|qual e a proxima acao|o que devo fazer|o que eu deveria fazer|o que fazer com|melhor acao para)\b/.test(text)
+}
+
+const isDealAnalysisQuestion = (prompt: string) => {
+  const text = normalize(prompt)
+  return /\b(analise a oportunidade|analise o negocio|analisar oportunidade|analisar negocio|saude da oportunidade|saude do negocio|como esta a oportunidade|como esta o negocio|riscos da oportunidade|risco da oportunidade)\b/.test(text)
+}
+
 const visibleLearningLeadIds = (snapshot: WorkspaceSnapshot, context: AssistantContext) => {
   const role = snapshot.workspace.role
   if (role === 'owner' || role === 'admin') return new Set(snapshot.leads.map((lead) => lead.id))
   if (!context.currentUserId) return new Set<string>()
   return new Set(snapshot.leads.filter((lead) => lead.ownerId === context.currentUserId).map((lead) => lead.id))
+}
+
+const bestVisibleLeadForPrompt = (prompt: string, snapshot: WorkspaceSnapshot, context: AssistantContext) => {
+  const visibleIds = visibleLearningLeadIds(snapshot, context)
+  const visible = snapshot.leads.filter((lead) => visibleIds.has(lead.id))
+  if (!visible.length) return null
+  if (context.focusLeadId) {
+    const focused = visible.find((lead) => lead.id === context.focusLeadId)
+    if (focused) return focused
+  }
+  if (context.previousLeadIds?.length === 1) {
+    const previous = visible.find((lead) => lead.id === context.previousLeadIds?.[0])
+    if (previous) return previous
+  }
+  const text = normalize(prompt)
+  let best: { lead: (typeof visible)[number]; score: number } | null = null
+  for (const lead of visible) {
+    const fields = [lead.id, lead.name, lead.company, lead.email, lead.phone]
+      .filter(Boolean)
+      .map((value) => normalize(String(value)))
+      .filter((value) => value.length >= 3)
+    let score = 0
+    for (const field of fields) {
+      if (text.includes(field)) score = Math.max(score, 100 + Math.min(40, field.length))
+      const tokens = field.split(' ').filter((token) => token.length >= 4)
+      const matched = tokens.filter((token) => text.includes(token)).length
+      if (tokens.length && matched) score = Math.max(score, Math.round((matched / tokens.length) * 80))
+    }
+    if (!best || score > best.score) best = { lead, score }
+  }
+  return best && best.score >= 55 ? best.lead : null
 }
 
 const inferPortfolioFilters = (prompt: string, snapshot: WorkspaceSnapshot, context: AssistantContext): SalesPortfolioLearningFilters => {
@@ -154,6 +200,70 @@ const portfolioLearningAnswer = (prompt: string, snapshot: WorkspaceSnapshot, co
   }
 }
 
+const dealIntelligenceAnswer = (prompt: string, snapshot: WorkspaceSnapshot, context: AssistantContext) => {
+  if (!isDealAnalysisQuestion(prompt) && !isDealNextActionQuestion(prompt)) return null
+  const lead = bestVisibleLeadForPrompt(prompt, snapshot, context)
+  if (!lead) return null
+  const nextAction = isDealNextActionQuestion(prompt)
+  const sales = buildSalesAgentContext(lead, snapshot, context.now ?? new Date())
+  const text = nextAction
+    ? formatSalesAgentNextBestAction(lead, snapshot, context.now ?? new Date())
+    : formatSalesAgentDealAnalysis(lead, snapshot, context.now ?? new Date())
+  const capabilityId = nextAction ? 'sales.next_best_action' : 'sales.analyze_deal'
+  const planId = `direct-sales:${Date.now()}:${Math.random().toString(36).slice(2, 7)}`
+  stageSalesRecommendationsFromPlan(snapshot.workspace.id, prompt, {
+    id: planId,
+    steps: [{
+      id: `${planId}:read`,
+      capabilityId,
+      title: nextAction ? 'Calcular próxima melhor ação' : 'Analisar saúde da oportunidade',
+      reason: 'Leitura determinística dos sinais comerciais atuais do CRM.',
+      risk: 'read',
+      args: [{ name: 'record_query', value: lead.id }],
+    }],
+  }, snapshot, lead.id)
+
+  const answer: AssistantAnswer = {
+    id: planId,
+    intent: nextAction ? 'next_action' : 'lead_summary',
+    title: nextAction ? `Próxima ação · ${lead.company || lead.name}` : `Saúde da oportunidade · ${lead.company || lead.name}`,
+    text,
+    items: [{
+      id: `deal:${lead.id}`,
+      kind: 'deal',
+      leadId: lead.id,
+      title: lead.company || lead.name,
+      subtitle: `${lead.name} · ${sales.health.score}/100 · ${sales.commercial.stage?.name ?? 'sem etapa'}`,
+      score: sales.health.score,
+      value: sales.commercial.value,
+      reason: sales.nextBestAction.explanation,
+      route: 'pipeline',
+      action: sales.nextBestAction.kind,
+      proposalId: sales.commercial.proposal?.id,
+    }],
+    facts: [
+      `Deal Health ${sales.health.score}/100 (${sales.health.label}).`,
+      `Probabilidade RealTalent ${sales.health.realTalentProbability}% e momentum ${sales.health.momentum}.`,
+      `Cobertura da conta ${sales.health.accountCoverage}/100; relacionamento ${sales.health.relationshipScore}/100.`,
+    ],
+    suggestedPrompts: nextAction
+      ? ['Por que você recomenda isso?', 'Faça isso', 'Analise a saúde completa desta oportunidade']
+      : ['Qual é a próxima melhor ação?', 'Por que este negócio está em risco?', 'Faça a ação recomendada'],
+    focus: {
+      leadId: lead.id,
+      title: lead.company || lead.name,
+      subtitle: lead.name,
+      stageName: sales.commercial.stage?.name ?? 'Sem etapa',
+      healthScore: sales.health.score,
+      value: sales.commercial.value,
+      route: 'pipeline',
+      proposalId: sales.commercial.proposal?.id,
+    },
+    generatedAt: (context.now ?? new Date()).toISOString(),
+  }
+  return { answer, capabilityId }
+}
+
 const learningAwareContext = (workspaceId: string, prompt: string, snapshot: WorkspaceSnapshot, assistantContext: AssistantContext) => {
   // Aprendizado operacional: somente recibos integralmente verificados entram como
   // exemplos positivos. Aprendizado comercial: uma recomendação só ganha crédito
@@ -176,7 +286,7 @@ const learningAwareContext = (workspaceId: string, prompt: string, snapshot: Wor
 }
 
 export const realTalentAiGateway = {
-  id: 'realtalent-ai-gateway-v4-portfolio-learning',
+  id: 'realtalent-ai-gateway-v5-sales-intelligence-learning',
   async answer(prompt: string, snapshot: WorkspaceSnapshot, assistantContext: AssistantContext = {}): Promise<RealTalentAiGatewayResult> {
     const started = Date.now()
     const workspaceId = snapshot.workspace.id
@@ -200,6 +310,24 @@ export const realTalentAiGateway = {
           generatedAt: new Date().toISOString(),
         })
         return { answer, context, trace: { providerId: 'sales-learning:portfolio-v1', mode: 'local-orchestration', sendsDataExternally: false, durationMs, writeAuthority: false } }
+      }
+
+      const directDeal = dealIntelligenceAnswer(prompt, snapshot, effectiveContext)
+      if (directDeal) {
+        const durationMs = Math.max(0, Date.now() - started)
+        appendRealTalentAiAudit({
+          id: `ai:${Date.now()}:${Math.random().toString(36).slice(2, 8)}`,
+          workspaceId,
+          providerId: 'sales-intelligence:deterministic-v1',
+          intent: directDeal.answer.intent,
+          focusLeadId: directDeal.answer.focus?.leadId ?? context.focusLeadId,
+          route: context.route,
+          toolIds: [directDeal.capabilityId],
+          outcome: 'success',
+          durationMs,
+          generatedAt: new Date().toISOString(),
+        })
+        return { answer: directDeal.answer, context, trace: { providerId: 'sales-intelligence:deterministic-v1', mode: 'local-orchestration', sendsDataExternally: false, durationMs, writeAuthority: false } }
       }
 
       const providerResult = await hybridRealTalentAssistantProvider.answer(prompt, snapshot, effectiveContext)

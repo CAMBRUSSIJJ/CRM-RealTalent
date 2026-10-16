@@ -1,5 +1,7 @@
 import type { AppRoute, Workspace, WorkspaceSnapshot } from '../domain/types'
 import type { CrmRepository } from '../repositories/crm-repository'
+import { loadWorkManagement } from './work-management'
+import { projectWorkTasksToActivities } from './work-task-activity-projection'
 
 export type SnapshotSlice = 'commercial' | 'stages' | 'activities' | 'calls' | 'events' | 'playbooks' | 'products' | 'proposals' | 'buyerRooms' | 'revenue' | 'goals' | 'automationRules' | 'automationRuns'
 
@@ -10,6 +12,11 @@ export type SnapshotSlice = 'commercial' | 'stages' | 'activities' | 'calls' | '
  * global navigation/search depends on them. Operational histories and specialist
  * modules are hydrated only when a route needs them. This preserves the legacy
  * WorkspaceSnapshot shape while avoiding an eager full-workspace materialization.
+ *
+ * WorkTask remains the canonical task entity. Whenever the activities slice is
+ * hydrated, tasks are projected in-memory as ActivityItem records so Meu Dia,
+ * contact timelines and commercial intelligence can consume the same source of truth
+ * without persisting a duplicate follow-up/activity row.
  */
 export const CORE_SNAPSHOT_SLICES: SnapshotSlice[] = ['commercial', 'stages']
 
@@ -66,7 +73,14 @@ const loadSlice = async (repository: CrmRepository, workspaceId: string, slice: 
     return { leads, companies, contacts, contactRelationships, opportunities, socialProfiles }
   }
   if (slice === 'stages') return { stages: await repository.listStages(workspaceId) }
-  if (slice === 'activities') return { activities: await repository.listActivities(workspaceId) }
+  if (slice === 'activities') {
+    const [activities, workManagement, contacts] = await Promise.all([
+      repository.listActivities(workspaceId),
+      loadWorkManagement(repository.mode, workspaceId),
+      repository.listContacts(workspaceId),
+    ])
+    return { activities: projectWorkTasksToActivities(activities, workManagement, { contacts }) }
+  }
   if (slice === 'calls') return { calls: await repository.listCallsPage(workspaceId, null, 500) }
   if (slice === 'events') return { events: await repository.listCalendarEvents(workspaceId) }
   if (slice === 'playbooks') return { playbooks: await repository.listPlaybooks(workspaceId) }

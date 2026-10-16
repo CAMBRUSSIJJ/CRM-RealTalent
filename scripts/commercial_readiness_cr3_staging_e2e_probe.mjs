@@ -18,7 +18,7 @@ try{
   manager=await login(process.env.CR3_MANAGER_EMAIL,process.env.CR3_MANAGER_PASSWORD);assert(!!manager.user,'02 login Gestor')
   const stages=await select('pipeline_stages',{select:'id,name',organization_id:`eq.${org}`,is_won:'eq.false',is_lost:'eq.false',order:'stage_order.asc',limit:'1'},seller.access_token);const stage=stages?.[0];if(!stage)throw new Error('stage comercial aberto não encontrado')
   const suffix=Date.now().toString(36)
-  let r=await insert('contacts',{organization_id:org,name:`CR3 Contato ${suffix}`,email:`cr3-${suffix}@example.invalid`,consent_status:'consented'},'id',seller.access_token);made.contact=r.id;assert(!!made.contact,'03 contato criado pelo Vendedor')
+  let r=await insert('contacts',{organization_id:org,name:`CR3 Contato ${suffix}`,email:`cr3-${suffix}@example.invalid`,consent_status:'consented',relationship_owner_id:seller.user.id,relationship_owner_name:seller.user.email||'QA Vendedor'},'id',seller.access_token);made.contact=r.id;assert(!!made.contact,'03 contato criado pelo Vendedor')
   r=await insert('leads',{organization_id:org,name:`CR3 Lead ${suffix}`,company:'CR3 Staging',email:`cr3-${suffix}@example.invalid`,stage_id:stage.id,owner_id:seller.user.id,value:1500,primary_contact_id:made.contact,source:'CR3 E2E'},'id',seller.access_token);made.lead=r.id;assert(!!made.lead,'04 lead comercial criado')
   r=await insert('opportunities',{organization_id:org,primary_contact_id:made.contact,lead_id:made.lead,title:`CR3 Negócio ${suffix}`,stage_id:stage.id,status:'active',value:1500,owner_id:seller.user.id},'id',seller.access_token);made.opp=r.id
   await update('leads',{organization_id:`eq.${org}`,id:`eq.${made.lead}`},{opportunity_id:made.opp},seller.access_token);assert(!!made.opp,'05 oportunidade vinculada')

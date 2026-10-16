@@ -68,7 +68,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
     const syncProfile = () => {
       const profile = readLocalProfile()
       const nextUser = { ...DEMO_USER, id: 'local-user', email: profile.email, displayName: profile.displayName }
-      setUser((current) => preserveStableUserReference(current, nextUser))
+      setUser((current) => current ? preserveStableUserReference(current, nextUser) : null)
     }
     window.addEventListener('crm:local-profile-changed', syncProfile)
     return () => window.removeEventListener('crm:local-profile-changed', syncProfile)

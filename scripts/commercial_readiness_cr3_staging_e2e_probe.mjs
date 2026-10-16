@@ -1,7 +1,7 @@
-const required=['CR3_SUPABASE_URL','CR3_SUPABASE_ANON_KEY','CR3_WORKSPACE_ID','CR3_ADMIN_EMAIL','CR3_ADMIN_PASSWORD','CR3_MANAGER_EMAIL','CR3_MANAGER_PASSWORD','CR3_SELLER_EMAIL','CR3_SELLER_PASSWORD']
+const required=['CR3_SUPABASE_URL','CR3_SUPABASE_ANON_KEY','CR3_WORKSPACE_ID','CR3_COMMUNICATION_ACCOUNT_ID','CR3_ADMIN_EMAIL','CR3_ADMIN_PASSWORD','CR3_MANAGER_EMAIL','CR3_MANAGER_PASSWORD','CR3_SELLER_EMAIL','CR3_SELLER_PASSWORD']
 const missing=required.filter(k=>!process.env[k])
 if(missing.length){console.error('CR3 STAGING BLOCKED: faltam variáveis: '+missing.join(', '));console.error('Use .env.cr3.example em um workspace descartável de staging.');process.exit(2)}
-const url=process.env.CR3_SUPABASE_URL.replace(/\/$/,''),key=process.env.CR3_SUPABASE_ANON_KEY,org=process.env.CR3_WORKSPACE_ID
+const url=process.env.CR3_SUPABASE_URL.replace(/\/$/,''),key=process.env.CR3_SUPABASE_ANON_KEY,org=process.env.CR3_WORKSPACE_ID,communicationAccountId=process.env.CR3_COMMUNICATION_ACCOUNT_ID
 const raw=async(path,{token=key,method='GET',body,prefer}={})=>{const headers={apikey:key,Authorization:`Bearer ${token}`,'Content-Type':'application/json'};if(prefer)headers.Prefer=prefer;const r=await fetch(url+path,{method,headers,body:body===undefined?undefined:JSON.stringify(body)});const text=await r.text();let data=null;try{data=text?JSON.parse(text):null}catch{data=text}return {ok:r.ok,status:r.status,data}}
 const req=async(path,o={})=>{const r=await raw(path,o);if(!r.ok)throw new Error(`${o.method||'GET'} ${path}: ${r.status} ${r.data?.message||r.data?.msg||r.data?.details||String(r.data).slice(0,220)}`);return r.data}
 const login=async(email,password)=>{const d=await req('/auth/v1/token?grant_type=password',{method:'POST',body:{email,password}});if(!d?.user||!d?.access_token)throw new Error('login sem usuário/token');return d}
@@ -27,14 +27,12 @@ try{
   r=await insert('work_tasks',{organization_id:org,title:'CR3 Preparar proposta',status:'in_progress',priority:'high',assignee_id:seller.user.id,created_by:seller.user.id},'id',seller.access_token);made.task=r.id
   await insert('task_relations',{organization_id:org,task_id:made.task,entity_type:'opportunity',entity_id:made.opp,entity_label:`CR3 Negócio ${suffix}`},null,seller.access_token);assert(!!made.task,'08 tarefa vinculada à oportunidade')
 
-  // Comunicações oficiais são append-only para o frontend: evento/outbox só podem ser
-  // criados pelo RPC/backend. Primeiro comprovamos que o usuário NÃO consegue forjar histórico.
   const forgedEvent=await raw('/rest/v1/communication_events?select=id',{method:'POST',body:{organization_id:org,lead_id:made.lead,contact_id:made.contact,channel:'whatsapp',direction:'outbound',event_type:'message',status:'sent',recipient_addresses:['+5500000000000'],body_text:'CR3 forged direct event',idempotency_key:`cr3-forged-${suffix}`},token:seller.access_token,prefer:'return=representation'})
   assert(!forgedEvent.ok&&forgedEvent.status===403,'09 escrita direta no histórico oficial bloqueada')
 
-  // Conta 100% sintética no banco local. Não há token real, worker externo ou entrega.
-  r=await insert('integration_connected_accounts',{organization_id:org,provider:'whatsapp_cloud',external_account_id:`cr3-local-${suffix}`,display_name:'CR3 WhatsApp Local',status:'connected',has_credential:true,connected_by_user_id:seller.user.id,access_mode:'personal',connection_mode:'demo',capabilities:{messages:true}},'id',admin.access_token);made.account=r.id;assert(!!made.account,'10 conta sintética de comunicação criada no staging local')
-  made.event=await rpc('enqueue_official_communication',{p_organization_id:org,p_lead_id:made.lead,p_account_id:made.account,p_channel:'whatsapp',p_recipient:'+5500000000000',p_subject:'CR3 E2E',p_body:'CR3 staging probe — sem entrega externa',p_idempotency_key:`cr3-${suffix}`},seller.access_token)
+  const accounts=await select('integration_connected_accounts',{select:'id,provider,status,connection_mode,has_credential',id:`eq.${communicationAccountId}`,organization_id:`eq.${org}`,limit:'1'},seller.access_token)
+  assert(accounts?.[0]?.provider==='whatsapp_cloud'&&accounts?.[0]?.status==='connected'&&accounts?.[0]?.connection_mode==='demo','10 fixture server-only de comunicação disponível')
+  made.event=await rpc('enqueue_official_communication',{p_organization_id:org,p_lead_id:made.lead,p_account_id:communicationAccountId,p_channel:'whatsapp',p_recipient:'+5500000000000',p_subject:'CR3 E2E',p_body:'CR3 staging probe — sem entrega externa',p_idempotency_key:`cr3-${suffix}`},seller.access_token)
   const [events,outbox]=await Promise.all([
     select('communication_events',{select:'id,thread_id,status,direction,channel',id:`eq.${made.event}`,limit:'1'},seller.access_token),
     select('communication_outbox',{select:'id,event_id,status,channel',event_id:`eq.${made.event}`,limit:'1'},seller.access_token),
@@ -61,5 +59,4 @@ try{
 finally{
   try{if(manager?.access_token&&made.revenue)await del('revenue_entries',{id:`eq.${made.revenue}`},manager.access_token)}catch{}
   try{if(seller?.access_token&&made.task)await del('work_tasks',{id:`eq.${made.task}`},seller.access_token)}catch{}
-  try{if(admin?.access_token&&made.account)await del('integration_connected_accounts',{id:`eq.${made.account}`},admin.access_token)}catch{}
 }

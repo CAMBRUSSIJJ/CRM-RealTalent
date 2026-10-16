@@ -11,6 +11,17 @@ const STOP_WORDS = new Set([
   'a','ao','aos','as','o','os','um','uma','uns','umas','de','da','das','do','dos','e','em','no','nos','na','nas','para','por','com','que','me','eu','voce','voces','se','isso','essa','esse','esta','este','pra','pro','pela','pelo','ser','seja','como','mais','apenas','so',
 ])
 
+type LearningAction = 'create' | 'execute' | 'delete' | 'update' | 'read'
+
+const ACTION_ALIASES: Record<string, LearningAction> = {
+  crie: 'create', criar: 'create', cria: 'create', criado: 'create', criada: 'create',
+  adicione: 'create', adicionar: 'create', cadastre: 'create', cadastrar: 'create', registre: 'create', registrar: 'create',
+  faca: 'execute', fazer: 'execute', faz: 'execute', execute: 'execute', executar: 'execute',
+  exclua: 'delete', excluir: 'delete', delete: 'delete', deletar: 'delete', apague: 'delete', apagar: 'delete', remova: 'delete', remover: 'delete',
+  atualize: 'update', atualizar: 'update', edite: 'update', editar: 'update', altere: 'update', alterar: 'update', mude: 'update', mudar: 'update',
+  consulte: 'read', consultar: 'read', liste: 'read', listar: 'read', mostre: 'read', mostrar: 'read', veja: 'read', verifique: 'read', verificar: 'read',
+}
+
 const TEMPORAL_ARGUMENTS = new Set([
   'period_start','period_end','starts_at','ends_at','due_at','first_due_at','next_at','ended_at','started_at','valid_until','expected_close_at','contract_start_at','contract_end_at','expires_at',
 ])
@@ -117,9 +128,26 @@ const savePlans = (workspaceId: string, rows: LearningPlanStage[]) => {
   safeStorage.setItem(planKey(workspaceId), JSON.stringify(rows.slice(-MAX_PLANS)))
 }
 
+const semanticToken = (token: string) => {
+  if (/^[+-]?\d+(?:[.,]\d+)?$/.test(token)) return '__number__'
+  if (/^\d{1,4}(?:[-/]\d{1,2}){1,2}$/.test(token)) return '__date__'
+  const action = ACTION_ALIASES[token]
+  return action ? `__action_${action}__` : token
+}
+
 const tokenSet = (value: string) => new Set(
-  normalizeLearningText(value).split(' ').filter((token) => token.length >= 2 && !STOP_WORDS.has(token)),
+  normalizeLearningText(value)
+    .split(' ')
+    .filter((token) => token.length >= 2 && !STOP_WORDS.has(token))
+    .map(semanticToken),
 )
+
+const actionFromTokens = (tokens: Set<string>): LearningAction | null => {
+  for (const action of ['create','execute','delete','update','read'] as const) {
+    if (tokens.has(`__action_${action}__`)) return action
+  }
+  return null
+}
 
 export const learningSimilarity = (left: string, right: string) => {
   const aText = normalizeLearningText(left)
@@ -135,7 +163,17 @@ export const learningSimilarity = (left: string, right: string) => {
   const jaccard = union ? intersection / union : 0
   const containment = intersection / Math.max(1, Math.min(a.size, b.size))
   const prefix = aText.startsWith(bText) || bText.startsWith(aText) ? 0.08 : 0
-  return Math.min(1, jaccard * 0.58 + containment * 0.34 + prefix)
+  let score = jaccard * 0.58 + containment * 0.34 + prefix
+
+  const aAction = actionFromTokens(a)
+  const bAction = actionFromTokens(b)
+  if (aAction && bAction && aAction !== bAction) {
+    const genericCompatible = (aAction === 'execute' || bAction === 'execute') && aAction !== 'delete' && bAction !== 'delete'
+    if (genericCompatible) score += 0.12
+    else score *= 0.35
+  }
+
+  return Math.max(0, Math.min(1, score))
 }
 
 export const listRealTalentLearningExperiences = (workspaceId: string) => readExperiences(workspaceId)

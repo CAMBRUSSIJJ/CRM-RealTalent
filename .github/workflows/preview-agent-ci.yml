@@ -52,6 +52,7 @@ jobs:
           grep -q "recusando endpoint não local" scripts/local-staging-bootstrap.mjs
           grep -q "recusou endpoint não local" scripts/local-staging-communication-fixture.mjs
           grep -q "CR3_COMMUNICATION_ACCOUNT_ID" .env.cr3.example
+          grep -q "REALTALENT_SUPABASE_EXCLUDE_SERVICES" scripts/local-staging.sh
           grep -q "\.supabase-local-status\.env" .gitignore
 
       - name: Typecheck
@@ -75,9 +76,10 @@ jobs:
         with:
           node-version: '22'
 
-      - name: Run local Supabase migrations + CR2 + CR3
+      - name: Run lean local Supabase migrations + CR2 + CR3
         env:
           REALTALENT_SUPABASE_CLI_VERSION: '2.119.0'
+          REALTALENT_SUPABASE_EXCLUDE_SERVICES: 'realtime,storage-api,imgproxy,mailpit,postgres-meta,studio,edge-runtime,logflare,vector,supavisor'
         run: bash scripts/local-staging.sh all
 
       - name: Tear down disposable local staging

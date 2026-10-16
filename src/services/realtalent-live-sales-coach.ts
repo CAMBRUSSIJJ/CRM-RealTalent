@@ -29,7 +29,7 @@ export interface LiveSalesCoachInput {
 
 export interface LiveSalesCoachSignal {
   source: 'transcript' | 'notes' | 'outcome'
-  kind: LiveSignalId | 'callback' | 'meeting' | 'proposal_request' | 'wrong_person' | 'no_interest' | 'sale'
+  kind: LiveSignalId | 'callback' | 'meeting' | 'proposal_request' | 'proposal_sent' | 'wrong_person' | 'no_interest' | 'sale'
   label: string
   evidence: string
   confidence: 'explicit' | 'structured'
@@ -112,7 +112,7 @@ const outcomeSignal = (outcome: CallOutcome | null | undefined): LiveSalesCoachS
     callback_requested: { kind: 'callback', label: 'Retorno solicitado', evidence: 'O resultado estruturado da ligação registra pedido de retorno.' },
     meeting_scheduled: { kind: 'meeting', label: 'Reunião agendada', evidence: 'O resultado estruturado da ligação registra reunião agendada.' },
     proposal_requested: { kind: 'proposal_request', label: 'Proposta solicitada', evidence: 'O resultado estruturado da ligação registra solicitação de proposta.' },
-    proposal_sent: { kind: 'proposal_request', label: 'Proposta enviada', evidence: 'O resultado estruturado da ligação registra proposta enviada.' },
+    proposal_sent: { kind: 'proposal_sent', label: 'Proposta enviada', evidence: 'O resultado estruturado da ligação registra proposta enviada.' },
     wrong_person: { kind: 'wrong_person', label: 'Contato incorreto', evidence: 'O resultado estruturado indica que a pessoa contatada não é o interlocutor adequado.' },
     not_interested: { kind: 'no_interest', label: 'Sem interesse', evidence: 'O resultado estruturado registra falta de interesse.' },
     sale_completed: { kind: 'sale', label: 'Venda concluída', evidence: 'O resultado estruturado registra venda concluída.' },
@@ -132,7 +132,7 @@ const persistedEffects = (outcome: CallOutcome | null | undefined, call: CallRec
 }
 
 const strongest = (signals: LiveSalesCoachSignal[]) => {
-  const rank: LiveSalesCoachSignal['kind'][] = ['sale','proposal_request','meeting','callback','wrong_person','no_interest','price','budget','objection','competitor','decision_maker','timing','next_step','interest','pain','impact','existing_solution']
+  const rank: LiveSalesCoachSignal['kind'][] = ['sale','proposal_request','proposal_sent','meeting','callback','wrong_person','no_interest','price','budget','objection','competitor','decision_maker','timing','next_step','interest','pain','impact','existing_solution']
   const score = (kind: LiveSalesCoachSignal['kind']) => { const i = rank.indexOf(kind); return i < 0 ? 999 : i }
   return [...signals].sort((a, b) => score(a.kind) - score(b.kind))[0] ?? null
 }
@@ -141,8 +141,9 @@ const recommend = (phase: LiveSalesCoachPhase, signals: LiveSalesCoachSignal[], 
   const signal = strongest(signals)
   if (signal?.kind === 'sale') return { kind: 'close', title: 'Confirmar fechamento e próximos passos', reason: signal.evidence, suggestedQuestion: 'Antes de encerrar, podemos confirmar responsáveis, início e próximos marcos?', suggestedCapabilityId: null }
   if (signal?.kind === 'proposal_request') return { kind: 'proposal', title: 'Validar critérios antes da proposta', reason: signal.evidence, suggestedQuestion: 'Antes de eu formalizar, quais escopo, critérios de decisão e pessoas precisam estar refletidos na proposta?', suggestedCapabilityId: 'proposals.create' }
-  if (signal?.kind === 'meeting') return { kind: 'schedule', title: 'Consolidar a reunião', reason: signal.evidence, suggestedQuestion: 'Quem precisa participar e qual resultado precisamos obter nessa reunião?', suggestedCapabilityId: 'calendar.create' }
-  if (signal?.kind === 'callback') return { kind: 'schedule', title: 'Confirmar retorno', reason: signal.evidence, suggestedQuestion: 'Qual dia e horário são melhores para retomarmos com contexto suficiente para decidir o próximo passo?', suggestedCapabilityId: 'activities.create_followup' }
+  if (signal?.kind === 'proposal_sent') return { kind: 'advance', title: 'Acompanhar a proposta já enviada', reason: signal.evidence, suggestedQuestion: 'Qual critério precisa ser validado agora para a proposta avançar para decisão?', suggestedCapabilityId: phase === 'during' ? 'activities.create_followup' : null }
+  if (signal?.kind === 'meeting') return { kind: phase === 'after' ? 'review' : 'schedule', title: phase === 'after' ? 'Usar a reunião já agendada' : 'Consolidar a reunião', reason: signal.evidence, suggestedQuestion: 'Quem precisa participar e qual resultado precisamos obter nessa reunião?', suggestedCapabilityId: phase === 'after' ? null : 'calendar.create' }
+  if (signal?.kind === 'callback') return { kind: phase === 'after' ? 'review' : 'schedule', title: phase === 'after' ? 'Usar o retorno já agendado' : 'Confirmar retorno', reason: signal.evidence, suggestedQuestion: 'Qual dia e horário são melhores para retomarmos com contexto suficiente para decidir o próximo passo?', suggestedCapabilityId: phase === 'after' ? null : 'activities.create_followup' }
   if (signal?.kind === 'wrong_person' || signal?.kind === 'decision_maker') return { kind: 'map_stakeholder', title: 'Mapear quem decide', reason: signal.evidence, suggestedQuestion: 'Quem participa da decisão e quem dá a aprovação final?', suggestedCapabilityId: null }
   if (signal?.kind === 'no_interest') return { kind: 'clarify', title: 'Entender a causa antes de insistir', reason: signal.evidence, suggestedQuestion: 'O que especificamente faz este tema não ser prioridade agora?', suggestedCapabilityId: null }
   if (signal?.kind === 'price' || signal?.kind === 'budget') return { kind: 'clarify', title: 'Diagnosticar o critério financeiro', reason: signal.evidence, suggestedQuestion: 'Quando você fala de valor, qual critério está usando para avaliar se o investimento faz sentido?', suggestedCapabilityId: null }
@@ -240,6 +241,19 @@ const bestVisibleLead = (prompt: string, snapshot: WorkspaceSnapshot, context: A
   return null
 }
 
+const executionSuggestionFor = (live: LiveSalesCoachResult, lead: Lead) => {
+  const capabilityId = live.recommendation.suggestedCapabilityId
+  if (!capabilityId) return null
+  const target = lead.company || lead.name
+  const seedByCapability: Record<string, string> = {
+    'proposals.create': `Crie uma proposta para ${target}.`,
+    'calendar.create': `Agende uma reunião para ${target}.`,
+    'activities.create_followup': `Crie um follow-up para ${target}.`,
+  }
+  const seed = seedByCapability[capabilityId]
+  return seed ? { capabilityId, label: live.recommendation.title, seed } : null
+}
+
 export const buildLiveSalesCoachAssistantAnswer = (prompt: string, snapshot: WorkspaceSnapshot, context: AssistantContext = {}): AssistantAnswer | null => {
   const phase = liveSalesCoachPhaseForPrompt(prompt)
   if (!phase) return null
@@ -267,6 +281,7 @@ export const buildLiveSalesCoachAssistantAnswer = (prompt: string, snapshot: Wor
     ],
     suggestedPrompts: phase === 'during' ? ['Qual pergunta faço agora?', 'Como respondo essa objeção?', 'Qual é o objetivo mínimo desta ligação?'] : ['Qual é o próximo movimento?', 'O que já foi salvo automaticamente?', 'Faça a próxima ação necessária'],
     focus: { leadId: lead.id, title: lead.company || lead.name, subtitle: lead.name, stageName: snapshot.stages.find((stage) => stage.id === lead.stageId)?.name ?? 'Sem etapa', healthScore: live.deal.healthScore, value: lead.value, route: 'calls' },
+    executionSuggestion: executionSuggestionFor(live, lead),
     generatedAt: now.toISOString(),
   }
 }

@@ -9,6 +9,7 @@ import { useAppActions, useAppNavigation, useAppUi, useAppWorkspace } from '../.
 import { Button } from '../../components/ui/button'
 import { assistantSupportedPrompts, type AssistantAnswer, type AssistantExecutionPlan, type AssistantResultItem } from '../../services/realtalent-assistant'
 import { realTalentAiGateway, type RealTalentAiGatewayResult } from '../../services/realtalent-ai-gateway'
+import { resolveAssistantRecommendationContinuation } from '../../services/realtalent-assistant-continuation'
 import { formatCurrency } from '../../domain/formatters'
 import type { AppRoute } from '../../domain/types'
 import { copyTextToClipboard } from '../../lib/browser-actions'
@@ -262,9 +263,12 @@ export function AssistantDrawer({ open, onClose, initialPrompt = '' }: Assistant
       return
     }
     const directAction = detectFastActionIntent(userPrompt)
+    const recommendationContinuation = !pendingCapability && !pendingAction && !directAction
+      ? resolveAssistantRecommendationContinuation(userPrompt, answer)
+      : null
     const effectivePrompt = pendingCapability
       ? continuationPrompt(pendingCapability, userPrompt)
-      : pendingAction && !directAction ? `${pendingAction.seed} ${userPrompt}` : userPrompt
+      : pendingAction && !directAction ? `${pendingAction.seed} ${userPrompt}` : recommendationContinuation ?? userPrompt
     const actionIntent = directAction ?? pendingAction?.kind ?? null
     setLastUserPrompt(userPrompt)
     setQuery('')

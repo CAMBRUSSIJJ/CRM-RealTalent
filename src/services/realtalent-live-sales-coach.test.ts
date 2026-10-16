@@ -4,7 +4,7 @@ import type { CallRecord, WorkspaceSnapshot } from '../domain/types'
 import { CALL_SESSION_SCHEMA_VERSION, callSessionStorageKey } from './call-session-storage-v10151'
 import { realTalentAiGateway } from './realtalent-ai-gateway'
 import { REALTALENT_UNIVERSAL_CAPABILITIES } from './realtalent-crm-universal-registry'
-import { buildLiveSalesCoach, formatLiveSalesCoach, readActiveLiveCallSession } from './realtalent-live-sales-coach'
+import { buildLiveSalesCoach, buildLiveSalesCoachAssistantAnswer, formatLiveSalesCoach, readActiveLiveCallSession } from './realtalent-live-sales-coach'
 
 const baseSnapshot: WorkspaceSnapshot = { workspace: DEMO_WORKSPACE, stages: DEFAULT_STAGES, leads: DEMO_LEADS, activities: DEMO_ACTIVITIES, calls: DEMO_CALLS, events: DEMO_EVENTS, playbooks: DEMO_PLAYBOOKS, goals: DEMO_GOALS, automationRules: DEMO_AUTOMATION_RULES, automationRuns: DEMO_AUTOMATION_RUNS, companies: DEMO_COMPANIES, contacts: DEMO_CONTACTS, contactRelationships: DEMO_CONTACT_RELATIONSHIPS, opportunities: DEMO_OPPORTUNITIES, socialProfiles: DEMO_SOCIAL_PROFILES, products: DEMO_PRODUCTS, proposals: DEMO_PROPOSALS, revenueEntries: DEMO_REVENUE_ENTRIES }
 const now = new Date('2026-10-16T13:00:00.000Z')
@@ -25,7 +25,8 @@ describe('RealTalent Agent — Live Sales Coach V1', () => {
     const result = buildLiveSalesCoach({ lead, snapshot, phase: 'after', call: saved, now })
     expect(result.signals.some((item) => item.kind === 'callback')).toBe(true)
     expect(result.postCall.persistedByCallOutcome.join(' ')).toMatch(/próximo passo|fluxo comercial/i)
-    expect(result.recommendation.suggestedCapabilityId).toBe('activities.create_followup')
+    expect(result.recommendation.suggestedCapabilityId).toBeNull()
+    expect(result.recommendation.title).toMatch(/retorno já agendado/i)
   })
 
   it('não fabrica objeção quando não há transcrição, nota ou desfecho específico', () => {
@@ -95,4 +96,28 @@ describe('RealTalent Agent — Live Sales Coach V1', () => {
     expect(text).toContain('Sinais explícitos:')
     expect(text).toContain('Base de verdade:')
   })
+
+  it('não recomenda criar outra proposta quando o desfecho já é proposta enviada', () => {
+    const result = buildLiveSalesCoach({ lead, snapshot: { ...baseSnapshot, calls: [call('proposal_sent')] }, phase: 'after', now })
+    expect(result.signals.some((signal) => signal.kind === 'proposal_sent')).toBe(true)
+    expect(result.recommendation.title).toMatch(/proposta já enviada/i)
+    expect(result.recommendation.suggestedCapabilityId).toBeNull()
+    expect(result.postCall.persistedByCallOutcome.join(' ')).toMatch(/próximo passo/i)
+  })
+
+  it('expõe sugestão executável para pedido de proposta sem executar mutação', () => {
+    const snapshot = { ...baseSnapshot, calls: [call('proposal_requested')] }
+    const answer = buildLiveSalesCoachAssistantAnswer(`analise a última ligação de ${lead.company || lead.name}`, snapshot, { now, currentUserId: lead.ownerId })
+    expect(answer?.executionSuggestion?.capabilityId).toBe('proposals.create')
+    expect(answer?.executionSuggestion?.seed).toMatch(/crie uma proposta/i)
+    expect(answer?.plan).toBeUndefined()
+  })
+
+  it('não oferece execução duplicada quando a reunião já foi salva pelo fluxo da ligação', () => {
+    const snapshot = { ...baseSnapshot, calls: [call('meeting_scheduled')] }
+    const answer = buildLiveSalesCoachAssistantAnswer(`revise a última ligação de ${lead.company || lead.name}`, snapshot, { now, currentUserId: lead.ownerId })
+    expect(answer?.executionSuggestion).toBeNull()
+    expect(answer?.text).toMatch(/reunião já agendada/i)
+  })
+
 })

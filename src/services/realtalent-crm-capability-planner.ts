@@ -160,6 +160,20 @@ export const localCapabilityFallback = (prompt: string, context: CrmCapabilityPl
     if (metric && target) return make('goals.create', `Criar meta comercial de ${target} ${metric}${day ? ` para ${day}` : ''}`, args)
   }
 
+  const proposalIntent = /\b(crie|criar|faca|faz|prepare|preparar|monte|montar|gere|gerar)\w*\b/.test(text) && /\bproposta\b/.test(text)
+  if (proposalIntent) {
+    const leadId = context.focusLeadId || (context.previousLeadIds?.length === 1 ? context.previousLeadIds[0] : '') || ''
+    const targetQuery = text.match(/\bproposta\s+(?:para|de)\s+(.+?)(?=\s+(?:com|usando|produto|servico|confirmacao|prepare)\b|$)/)?.[1]?.trim() || ''
+    const productQuery = text.match(/\b(?:produto|servico)\s+(?:chamado|chamada|nomeado|nomeada)?\s*([a-z0-9 .'-]+?)(?=\s+(?:para|com|validade|probabilidade|contrato|confirmacao|$))/)?.[1]?.trim() || ''
+    const args: CrmCapabilityArgument[] = []
+    if (leadId) args.push({ name: 'lead_id', value: leadId })
+    else if (targetQuery) args.push({ name: 'lead_query', value: targetQuery })
+    if (productQuery) args.push({ name: 'product_query', value: productQuery })
+    if (!leadId && !targetQuery) return clarify('proposals.create', 'Criar proposta comercial', 'Para qual lead ou oportunidade você quer criar a proposta?', ['record'], args)
+    if (!productQuery) return clarify('proposals.create', `Criar proposta para ${targetQuery || 'o lead em contexto'}`, 'Qual produto ou serviço deve entrar na proposta?', ['product'], args)
+    return make('proposals.create', `Criar proposta para ${targetQuery || 'o lead em contexto'} com ${productQuery}`, args)
+  }
+
   const prospectingSearchIntent = /\b(garimp|prospect|encontr|buscar|busque|procure|achar)\w*/.test(text) && /\b(empresas?|negocios?|clinicas?|barbearias?|restaurantes?|academias?|lojas?|escritorios?)\b/.test(text)
   if (prospectingSearchIntent) {
     const quantity = text.match(/\b(\d{1,3})\s+(?:empresas?|negocios?|clinicas?|barbearias?|restaurantes?|academias?|lojas?|escritorios?)\b/)?.[1] || '20'

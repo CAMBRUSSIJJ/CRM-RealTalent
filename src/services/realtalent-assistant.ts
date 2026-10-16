@@ -196,6 +196,12 @@ export interface AssistantFocus {
   proposalId?: string
 }
 
+export interface AssistantExecutionSuggestion {
+  capabilityId: string
+  label: string
+  seed: string
+}
+
 export interface AssistantAnswer {
   id: string
   intent: AssistantIntent
@@ -208,6 +214,7 @@ export interface AssistantAnswer {
   draft?: AssistantDraft
   focus?: AssistantFocus
   pendingCapability?: CrmPendingCapability | null
+  executionSuggestion?: AssistantExecutionSuggestion | null
   generatedAt: string
 }
 

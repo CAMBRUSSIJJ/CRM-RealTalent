@@ -1,5 +1,4 @@
 import type { Lead, WorkspaceSnapshot } from '../domain/types'
-import type { DealActionKind } from './deal-intelligence'
 import { listSalesLearningOutcomes, type SalesLearningOutcome } from './realtalent-sales-learning-engine'
 
 export type SalesLearningEvidenceStrength = 'insufficient' | 'emerging' | 'reliable'
@@ -97,12 +96,13 @@ const leadProfile = (lead: Lead | undefined, snapshot: WorkspaceSnapshot) => {
 }
 
 const matches = (value: string, query?: string) => !query?.trim() || normalize(value).includes(normalize(query)) || normalize(query).includes(normalize(value))
+const inVisibleScope = (item: SalesLearningOutcome, filters: SalesPortfolioLearningFilters) => !filters.visibleLeadIds || filters.visibleLeadIds.has(item.leadId)
 
 const filterOutcomes = (outcomes: SalesLearningOutcome[], snapshot: WorkspaceSnapshot, filters: SalesPortfolioLearningFilters) => {
   const leadById = new Map(snapshot.leads.map((lead) => [lead.id, lead]))
   return outcomes.filter((item) => {
     if (item.outcome !== 'positive' && item.outcome !== 'negative') return false
-    if (filters.visibleLeadIds && !filters.visibleLeadIds.has(item.leadId)) return false
+    if (!inVisibleScope(item, filters)) return false
     if (!matches(item.stageName, filters.stageQuery)) return false
     if (!matches(item.recommendedAction, filters.actionQuery) && !matches(actionLabels[item.recommendedAction] ?? '', filters.actionQuery)) return false
     if (filters.riskQuery && !item.riskKeys.some((risk) => matches(risk, filters.riskQuery))) return false
@@ -214,7 +214,7 @@ export const analyzeSalesPortfolioOutcomes = (
     positive,
     negative: rows.length - positive,
     successRate: rows.length ? round((positive / rows.length) * 100, 1) : 0,
-    correctedIgnored: outcomes.filter((item) => item.outcome === 'corrected').length,
+    correctedIgnored: outcomes.filter((item) => item.outcome === 'corrected' && inVisibleScope(item, filters)).length,
     minSamples,
     actionPatterns: groupBy(rows, 'action', (item) => [item.recommendedAction], limit),
     stagePatterns: groupBy(rows, 'stage', (item) => [item.stageName], limit),

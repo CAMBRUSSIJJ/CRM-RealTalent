@@ -76,6 +76,8 @@ bootstrap() {
   write_status
   say "Criando workspace, perfis e contas QA locais"
   RT_LOCAL_SUPABASE_STATUS_FILE="$STATUS_FILE" node scripts/local-staging-bootstrap.mjs
+  say "Criando fixture server-only de Comunicações"
+  RT_LOCAL_SUPABASE_STATUS_FILE="$STATUS_FILE" node scripts/local-staging-communication-fixture.mjs
 }
 
 run_cr2() {

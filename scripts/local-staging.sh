@@ -6,6 +6,7 @@ cd "$ROOT"
 
 STATUS_FILE="$ROOT/.supabase-local-status.env"
 CLI_VERSION="${REALTALENT_SUPABASE_CLI_VERSION:-2.119.0}"
+EXCLUDE_SERVICES="${REALTALENT_SUPABASE_EXCLUDE_SERVICES:-}"
 
 say() { printf '\n==> %s\n' "$*"; }
 fail() { printf '\nERRO: %s\n' "$*" >&2; exit 1; }
@@ -60,8 +61,13 @@ check_prereqs() {
 
 start_stack() {
   check_prereqs
-  say "Subindo Supabase local isolado"
-  supabase_cli start
+  if [[ -n "$EXCLUDE_SERVICES" ]]; then
+    say "Subindo Supabase local isolado em modo enxuto"
+    supabase_cli start -x "$EXCLUDE_SERVICES"
+  else
+    say "Subindo Supabase local isolado"
+    supabase_cli start
+  fi
   write_status
 }
 
@@ -161,10 +167,15 @@ Uso:
   bash scripts/local-staging.sh down       # para e preserva dados locais
   bash scripts/local-staging.sh clean      # para e remove volumes/arquivos QA locais
 
+Modo enxuto (CI):
+  REALTALENT_SUPABASE_EXCLUDE_SERVICES="realtime,storage-api,imgproxy,mailpit,postgres-meta,studio,edge-runtime,logflare,vector,supavisor" \
+    bash scripts/local-staging.sh all
+
 Garantias:
   - não cria projeto/branch pago no Supabase;
   - não copia dados de produção;
   - bootstrap recusa endpoints que não sejam localhost/127.0.0.1;
+  - sem REALTALENT_SUPABASE_EXCLUDE_SERVICES, o Linux local continua subindo a stack completa;
   - Production/Vercel/Railway não são alterados por este script.
 EOF
 }

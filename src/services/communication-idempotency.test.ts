@@ -4,6 +4,7 @@ import {
   confirmCommunicationIdempotencyAttempt,
   resetCommunicationIdempotencyForTests,
 } from './communication-idempotency'
+import { normalizeAgentCommunicationIdempotencyKey } from './local-communications-gateway'
 
 const base = {
   workspaceId: 'workspace-1',
@@ -31,6 +32,16 @@ describe('communication idempotency', () => {
     const next = beginCommunicationIdempotencyAttempt({ ...base, proposedKey: 'agent-whatsapp:step-1:2000' }, 2_000)
     expect(next.key).toBe('agent-whatsapp:step-1:2000')
     expect(next.key).not.toBe(first.key)
+    expect(next.reusedPendingAttempt).toBe(false)
+  })
+
+  it('keeps an intentional Agent resend distinct after legacy gateway normalization', () => {
+    const first = beginCommunicationIdempotencyAttempt({ ...base, proposedKey: 'agent-whatsapp:step-42:1792171200123' }, 1_000)
+    confirmCommunicationIdempotencyAttempt(first, 'event-1', 1_500)
+    const next = beginCommunicationIdempotencyAttempt({ ...base, proposedKey: 'agent-whatsapp:step-42:1792171201123' }, 2_000)
+
+    expect(normalizeAgentCommunicationIdempotencyKey(first.key)).toBe('agent-whatsapp:step-42')
+    expect(normalizeAgentCommunicationIdempotencyKey(next.key)).not.toBe(normalizeAgentCommunicationIdempotencyKey(first.key))
     expect(next.reusedPendingAttempt).toBe(false)
   })
 

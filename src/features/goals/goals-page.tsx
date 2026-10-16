@@ -75,7 +75,6 @@ export function GoalsPage() {
     return () => { active = false }
   }, [currentWorkspace?.id, listWorkspaceMembers])
 
-
   useEffect(() => {
     if (!currentWorkspace?.id) return
     let active = true
@@ -109,10 +108,11 @@ export function GoalsPage() {
   const canGoalAssign = canTeamAccess('assign','goals')
   const allGoals = useMemo(() => (snapshot?.goals ?? []).filter((goal) => canTeamAccessRecord('goals', goal.scope === 'team' ? null : goal.userId, goal.teamId ?? null)), [snapshot?.goals, canTeamAccessRecord])
   const activeGoals = useMemo(() => allGoals.filter((goal) => goal.periodStart <= today && goal.periodEnd >= today), [allGoals, today])
+  const openGoals = useMemo(() => allGoals.filter((goal) => goal.periodEnd >= today).sort((a, b) => a.periodStart.localeCompare(b.periodStart)), [allGoals, today])
   const historyGoals = useMemo(() => allGoals.filter((goal) => goal.periodEnd < today).sort((a, b) => b.periodEnd.localeCompare(a.periodEnd)), [allGoals, today])
-  const activeInsights = useMemo(() => snapshot ? activeGoals.map((goal) => getGoalInsight(snapshot, goal, new Date(), { userIds: memberIdsForGoal(goal) })) : [], [activeGoals, snapshot, workManagement.memberships])
+  const openInsights = useMemo(() => snapshot ? openGoals.map((goal) => getGoalInsight(snapshot, goal, new Date(), { userIds: memberIdsForGoal(goal) })) : [], [openGoals, snapshot, workManagement.memberships])
   const historyInsights = useMemo(() => snapshot ? historyGoals.map((goal) => getGoalInsight(snapshot, goal, new Date(), { userIds: memberIdsForGoal(goal) })) : [], [historyGoals, snapshot, workManagement.memberships])
-  const sourceInsights = view === 'history' ? historyInsights : activeInsights
+  const sourceInsights = view === 'history' ? historyInsights : openInsights
   const insights = useMemo(() => sortInsights(sourceInsights.filter((insight) => {
     const ownerMatches = ownerFilter === 'all' || (ownerFilter === 'team' ? (insight.goal.scope ?? (insight.goal.userId ? 'user' : 'workspace')) === 'team' : ownerFilter === 'workspace' ? (insight.goal.scope ?? (insight.goal.userId ? 'user' : 'workspace')) === 'workspace' : insight.goal.userId === ownerFilter)
     const metricMatches = metricFilter === 'all' || insight.goal.metric === metricFilter
@@ -123,9 +123,9 @@ export function GoalsPage() {
   const routinePlan = useMemo(() => snapshot ? buildRoutinePlan(snapshot, activeGoals) : null, [activeGoals, snapshot])
 
   const achieved = insights.filter((item) => item.percentage >= 100).length
-  const atRisk = insights.filter((item) => item.pace === 'at_risk' && item.percentage < 100).length
+  const atRisk = insights.filter((item) => item.goal.periodStart <= today && item.pace === 'at_risk' && item.percentage < 100).length
   const average = insights.length ? Math.round(insights.reduce((sum, item) => sum + Math.min(item.percentage, 100), 0) / insights.length) : 0
-  const projected = insights.filter((item) => item.projectedToHit).length
+  const projected = insights.filter((item) => item.goal.periodStart <= today && item.projectedToHit).length
 
   const groupedByOwner = useMemo(() => {
     const groups = new Map<string, GoalInsight[]>()
@@ -138,11 +138,11 @@ export function GoalsPage() {
       name,
       items,
       average: Math.round(items.reduce((sum, item) => sum + Math.min(100, item.percentage), 0) / Math.max(1, items.length)),
-      atRisk: items.filter((item) => item.pace === 'at_risk' && item.percentage < 100).length,
+      atRisk: items.filter((item) => item.goal.periodStart <= today && item.pace === 'at_risk' && item.percentage < 100).length,
       achieved: items.filter((item) => item.percentage >= 100).length,
-      projected: items.filter((item) => item.projectedToHit).length,
+      projected: items.filter((item) => item.goal.periodStart <= today && item.projectedToHit).length,
     })).sort((a, b) => b.average - a.average)
-  }, [insights])
+  }, [insights, today])
 
   const save = async (input: Parameters<typeof createGoal>[0]) => {
     setSaving(true)
@@ -196,8 +196,6 @@ export function GoalsPage() {
         {canGoalCreate ? <><Button variant="secondary" disabled={!activeGoals.length} onClick={() => setRoutineOpen(true)}><Sparkles size={17} /> Gerar rotina do dia</Button><Button onClick={() => { setEditing(null); setModalOpen(true) }}><Plus size={17} /> Nova meta</Button></> : null}
       </>} />
 
-
-
       {filtersOpen ? <WorkspaceAdvancedFilterDrawer eyebrow="Metas" title="Filtros de metas" description="Use a mesma lógica de propriedades rápidas e filtros avançados do restante do CRM." onClose={() => setFiltersOpen(false)} onClear={resetFilters}>
         <section><div className="workspace-settings-section-title-v10167"><strong>Escopo e resultado</strong><span>Os filtros afetam cartões, ritmo, projeção e visão da equipe.</span></div>
           <label className="field"><span>Responsável</span><NativeSelectionSelect value={ownerFilter} onChange={(event) => setOwnerFilter(event.target.value)}><option value="all">Todos</option><option value="workspace">Workspace</option><option value="team">Equipes</option>{members.map((member) => <option key={member.userId} value={member.userId}>{member.displayName}</option>)}</NativeSelectionSelect></label>
@@ -206,10 +204,9 @@ export function GoalsPage() {
         </section>
       </WorkspaceAdvancedFilterDrawer> : null}
 
-
       {view !== 'team' ? <>
         <section className="metric-grid metric-grid--compact goals-metric-grid">
-          <article className="metric-card"><span className="metric-card__icon"><Gauge /></span><div><small>Progresso médio</small><strong>{average}%</strong><span>{view === 'history' ? 'Metas encerradas filtradas' : 'Realizado sobre objetivo'}</span></div></article>
+          <article className="metric-card"><span className="metric-card__icon"><Gauge /></span><div><small>Progresso médio</small><strong>{average}%</strong><span>{view === 'history' ? 'Metas encerradas filtradas' : 'Metas atuais e agendadas'}</span></div></article>
           <article className="metric-card"><span className="metric-card__icon metric-card__icon--green"><TrendingUp /></span><div><small>Projetadas para atingir</small><strong>{projected}</strong><span>{insights.length ? `${Math.round(projected / insights.length * 100)}% das metas filtradas` : 'Sem metas no filtro'}</span></div></article>
           <article className="metric-card"><span className="metric-card__icon metric-card__icon--orange"><AlertTriangle /></span><div><small>Em risco</small><strong>{atRisk}</strong><span>Abaixo do ritmo esperado</span></div></article>
           <article className="metric-card"><span className="metric-card__icon metric-card__icon--purple"><CheckCircle2 /></span><div><small>Atingidas</small><strong>{achieved}</strong><span>100% ou mais</span></div></article>
@@ -221,7 +218,7 @@ export function GoalsPage() {
           {canGoalCreate ? <Button onClick={() => setRoutineOpen(true)}>Montar fila <ArrowRight size={16} /></Button> : null}
         </section> : null}
 
-        {insights.length ? <section className="goals-grid goals-grid--professional">{insights.map((insight) => { const inScope = canTeamAccessRecord('goals', insight.goal.scope === 'team' ? null : insight.goal.userId, insight.goal.teamId ?? null); return <GoalCard key={insight.goal.id} insight={insight} canEdit={canGoalEdit && inScope} canDelete={canGoalDelete && inScope} onEdit={() => { setEditing(insight.goal); setModalOpen(true) }} onRemove={() => void remove(insight.goal)} /> })}</section> : <EmptyState icon={Target} title={view === 'history' ? 'Nenhuma meta encerrada neste filtro' : 'Nenhuma meta ativa neste filtro'} description={view === 'history' ? 'Altere os filtros para consultar outras metas encerradas.' : 'Crie uma meta ou limpe os filtros para voltar ao acompanhamento geral.'} />}
+        {insights.length ? <section className="goals-grid goals-grid--professional">{insights.map((insight) => { const inScope = canTeamAccessRecord('goals', insight.goal.scope === 'team' ? null : insight.goal.userId, insight.goal.teamId ?? null); return <GoalCard key={insight.goal.id} insight={insight} canEdit={canGoalEdit && inScope} canDelete={canGoalDelete && inScope} onEdit={() => { setEditing(insight.goal); setModalOpen(true) }} onRemove={() => void remove(insight.goal)} /> })}</section> : <EmptyState icon={Target} title={view === 'history' ? 'Nenhuma meta encerrada neste filtro' : 'Nenhuma meta atual ou agendada neste filtro'} description={view === 'history' ? 'Altere os filtros para consultar outras metas encerradas.' : 'Crie uma meta ou limpe os filtros para voltar ao acompanhamento geral.'} />}
       </> : <TeamGoals groups={groupedByOwner} />}
 
       <GoalModal open={canGoalCreate && modalOpen} goal={editing} members={canGoalAssign ? members : members.filter((member) => member.userId === currentUserId)} teams={canGoalAssign ? workManagement.teams : workManagement.teams.filter((team) => workManagement.memberships.some((membership) => membership.teamId === team.id && membership.userId === currentUserId))} memberships={workManagement.memberships} loading={saving} onClose={() => { setModalOpen(false); setEditing(null) }} onSubmit={save} />
@@ -235,15 +232,16 @@ function GoalCard({ insight, canEdit, canDelete, onEdit, onRemove }: { insight: 
   const Icon = metricIcons[goal.metric]
   const paceDelta = Math.abs(insight.paceGap)
   const previousDelta = insight.previousDeltaPercentage
-  return <article className={`goal-card goal-card--professional goal-card--${insight.pace}`}>
-    <header><div className="goal-card__identity"><span className="goal-card__metric-icon"><Icon size={18} /></span><div><span className="eyebrow">{goal.teamName || goal.userName} · {(goal.scope ?? (goal.userId ? 'user' : 'workspace')) === 'team' ? 'Equipe' : (goal.scope ?? (goal.userId ? 'user' : 'workspace')) === 'user' ? 'Individual' : 'Workspace'}</span><h3>{goalMetricLabels[goal.metric]}</h3></div></div><StatusPill tone={paceTone(insight)}>{paceLabel(insight)}</StatusPill></header>
+  const upcoming = goal.periodStart > localDateKey()
+  return <article className={`goal-card goal-card--professional goal-card--${upcoming ? 'upcoming' : insight.pace}`}>
+    <header><div className="goal-card__identity"><span className="goal-card__metric-icon"><Icon size={18} /></span><div><span className="eyebrow">{goal.teamName || goal.userName} · {(goal.scope ?? (goal.userId ? 'user' : 'workspace')) === 'team' ? 'Equipe' : (goal.scope ?? (goal.userId ? 'user' : 'workspace')) === 'user' ? 'Individual' : 'Workspace'}</span><h3>{goalMetricLabels[goal.metric]}</h3></div></div><StatusPill tone={upcoming ? 'info' : paceTone(insight)}>{upcoming ? 'Agendada' : paceLabel(insight)}</StatusPill></header>
     <div className="goal-card__headline"><div><small>Realizado</small><strong>{formatValue(goal, insight.value)}</strong></div><span>de {formatValue(goal, goal.targetValue)}</span></div>
     <div className="progress-track goal-card__progress"><span style={{ width: `${Math.min(100, insight.percentage)}%` }} /></div>
-    <div className="goal-card__progress-label"><strong>{insight.percentage}% concluído</strong><span>Ritmo esperado: {insight.expectedPercentage}% · {paceDelta < 0.01 ? 'no ponto' : `${formatValue(goal, paceDelta, 1)} ${insight.paceGap >= 0 ? 'acima' : 'abaixo'}`}</span></div>
+    <div className="goal-card__progress-label"><strong>{upcoming ? `Começa em ${dateLabel(goal.periodStart)}` : `${insight.percentage}% concluído`}</strong><span>{upcoming ? `Meta agendada para ${goal.periodStart === goal.periodEnd ? 'um único dia' : `o período até ${dateLabel(goal.periodEnd)}`}` : `Ritmo esperado: ${insight.expectedPercentage}% · ${paceDelta < 0.01 ? 'no ponto' : `${formatValue(goal, paceDelta, 1)} ${insight.paceGap >= 0 ? 'acima' : 'abaixo'}`}`}</span></div>
     <div className="goal-card__forecast-grid goal-card__forecast-grid--v10080">
       <div><small>Falta</small><strong>{formatValue(goal, insight.remaining)}</strong><span>{insight.workdaysRemaining} dia(s) útil(eis)</span></div>
       <div><small>Necessário/dia</small><strong>{formatValue(goal, insight.dailyRequired, 1)}</strong><span>para chegar a 100%</span></div>
-      <div><small>Projeção final</small><strong>{formatValue(goal, insight.forecast)}</strong><span className={insight.projectedToHit ? 'is-positive' : 'is-negative'}>{insight.forecastPercentage}% da meta</span></div>
+      <div><small>Projeção final</small><strong>{formatValue(goal, insight.forecast)}</strong><span className={insight.projectedToHit ? 'is-positive' : 'is-negative'}>{upcoming ? 'Começa no período agendado' : `${insight.forecastPercentage}% da meta`}</span></div>
       <div><small>Vs. período anterior</small><strong>{formatValue(goal, insight.previousValue)}</strong><span className={previousDelta === null ? '' : previousDelta >= 0 ? 'is-positive' : 'is-negative'}>{previousDelta === null ? 'Sem base comparável' : `${previousDelta >= 0 ? '+' : ''}${previousDelta}% no mesmo ponto`}</span></div>
     </div>
     <footer><span><CalendarDays size={14} /> {dateLabel(goal.periodStart)} — {dateLabel(goal.periodEnd)} · {insight.workdaysElapsed}/{insight.workdaysTotal} dias úteis</span>{canEdit || canDelete ? <div>{canEdit ? <button type="button" className="icon-button" aria-label="Editar meta" onClick={onEdit}><Pencil size={16} /></button> : null}{canDelete ? <button type="button" className="icon-button icon-button--danger" aria-label="Excluir meta" onClick={onRemove}><Trash2 size={16} /></button> : null}</div> : null}</footer>

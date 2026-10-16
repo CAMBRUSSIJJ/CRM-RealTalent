@@ -12,6 +12,7 @@ on:
       - 'scripts/local-staging-communication-fixture.mjs'
       - 'scripts/commercial_readiness_cr2_staging_probe.mjs'
       - 'scripts/commercial_readiness_cr3_staging_e2e_probe.mjs'
+      - '.env.cr3.example'
       - 'supabase/config.toml'
       - 'supabase/migrations/**'
       - 'supabase/seed.sql'
@@ -50,6 +51,7 @@ jobs:
           node --check scripts/commercial_readiness_cr3_staging_e2e_probe.mjs
           grep -q "recusando endpoint não local" scripts/local-staging-bootstrap.mjs
           grep -q "recusou endpoint não local" scripts/local-staging-communication-fixture.mjs
+          grep -q "CR3_COMMUNICATION_ACCOUNT_ID" .env.cr3.example
           grep -q "\.supabase-local-status\.env" .gitignore
 
       - name: Typecheck

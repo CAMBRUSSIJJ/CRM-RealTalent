@@ -267,7 +267,7 @@ function normalizeAgentJob(job) {
       targetMode: job.input?.targetMode === 'max' ? 'max' : 'quantity',
       areaMode: ['radius', 'city', 'neighborhoods', 'map'].includes(job.input?.areaMode) ? job.input.areaMode : 'city',
       radiusKm: Math.min(100, Math.max(1, Number(job.input?.radiusKm) || 15)),
-      searchMode: ['coverage', 'fast', 'economy'].includes(job.input?.searchMode) ? job.input.searchMode : 'coverage',
+      searchMode: ['coverage', 'fast', 'economy'].includes(job.input?.searchMode) ? job.input.searchMode : 'fast',
       categoryMode: job.input?.categoryMode === 'related' ? 'related' : 'exact',
       mapPolygon: sanitizeMapPolygon(job.input?.mapPolygon),
       searchCenter: Number.isFinite(Number(job.input?.searchCenter?.lat)) && Number.isFinite(Number(job.input?.searchCenter?.lon))
@@ -309,6 +309,7 @@ function normalizeAgentJob(job) {
     })(),
     processing: { ...emptyProcessing(), ...(job.processing || {}) },
     rejections: Array.isArray(job.rejections) ? job.rejections.slice(-120) : [],
+    sourceLog: Array.isArray(job.sourceLog) ? job.sourceLog.slice(-350) : [],
     reviewStream: {
       revision: Math.max(0, Number(job.reviewStream?.revision) || 0),
       acknowledgedRevision: Math.max(0, Number(job.reviewStream?.acknowledgedRevision) || 0),
@@ -1270,6 +1271,20 @@ function candidateScopeDecision(job, draft) {
   return { accepted: true, category, location, reason: `${category.reason}; ${location.reason}` }
 }
 
+function appendSourceLog(job, entry) {
+  job.sourceLog ||= []
+  const record = {
+    type: entry.type || 'raw',
+    name: clean(entry.name || entry.company || entry.title || 'Resultado'),
+    url: clean(entry.url || entry.website || '').slice(0, 600),
+    provider: clean(entry.provider || 'web_discovery').slice(0, 100),
+    reason: clean(entry.reason || '').slice(0, 500),
+    at: now(),
+  }
+  job.sourceLog.push(record)
+  if (job.sourceLog.length > 350) job.sourceLog = job.sourceLog.slice(-350)
+}
+
 function recordScopeRejection(job, draft, decision) {
   const type = decision?.rejectType || 'scope'
   if (type === 'category') job.stats.scopeRejectedCategory = Number(job.stats.scopeRejectedCategory || 0) + 1
@@ -1278,6 +1293,9 @@ function recordScopeRejection(job, draft, decision) {
   job.rejections ||= []
   job.rejections.push({ name: clean(draft?.company || draft?.name || draft?.scopeTitle || 'Resultado web'), source: clean(draft?.provider || 'web_discovery'), type, reason: clean(decision?.reason || 'fora do escopo'), at: now() })
   job.rejections = job.rejections.slice(-120)
+  appendSourceLog(job, { type: 'rejected', name: draft?.company || draft?.name || draft?.scopeTitle,
+    url: draft?.url || draft?.website || draft?.sourceUrl, provider: draft?.provider,
+    reason: decision?.reason || 'fora do escopo' })
   syncRuntimeCounters(job)
 }
 
@@ -1941,7 +1959,12 @@ async function processDiscoveredDraft(job, draft, seen) {
   if (!scope.accepted) { recordScopeRejection(job, draft, scope); return false }
   draft.scopeValidation = { category: scope.category, location: scope.location, mode: job.input?.categoryMode || 'exact', version: STRICT_SCOPE_VERSION }
   const initialKeys = strongIdentityKeys(draft)
-  if (initialKeys.some((key) => seen.has(key))) { job.stats.duplicates += 1; return false }
+  if (initialKeys.some((key) => seen.has(key))) {
+    job.stats.duplicates += 1
+    appendSourceLog(job, { type: 'duplicate', name: draft.company || draft.name,
+      url: draft.website || draft.sourceUrl, provider: draft.provider, reason: 'Identificador já encontrado nesta execução' })
+    return false
+  }
 
   draft = normalizeCandidateEnrichment({ ...draft, qualityStatus: 'processing' })
   seedProviderEvidence(draft)
@@ -1950,6 +1973,9 @@ async function processDiscoveredDraft(job, draft, seen) {
   const preResolved = (job.results || []).filter((candidate) => candidate.candidateId !== draft.candidateId)
     .map((candidate) => ({ candidate, score: companySimilarityScore(candidate, draft) })).sort((a, b) => b.score - a.score)[0]
   if (preResolved?.score >= 93) {
+    appendSourceLog(job, { type: 'duplicate', name: draft.company || draft.name,
+      url: draft.website || draft.sourceUrl, provider: draft.provider,
+      reason: 'Unificado com ' + clean(preResolved.candidate.company || preResolved.candidate.name) })
     mergeResolvedCompany(preResolved.candidate, draft)
     preResolved.candidate.resolutionConfidence = preResolved.score
     preResolved.candidate.resolutionStatus = 'merged'
@@ -1968,6 +1994,8 @@ async function processDiscoveredDraft(job, draft, seen) {
   draft.agentVersion = VERSION
   draft.resolutionConfidence = preResolved?.score || candidateConfidence(draft)
   job.results.push(draft)
+  appendSourceLog(job, { type: 'candidate', name: draft.company || draft.name,
+    url: draft.website || draft.sourceUrl, provider: draft.provider, reason: 'Candidato incorporado' })
   job.stats.unique += 1
   refreshProcessingSummary(job)
   job.progress.found = job.results.length
@@ -1988,6 +2016,9 @@ async function processDiscoveredDraft(job, draft, seen) {
   const postResolved = (job.results || []).filter((candidate) => candidate.candidateId !== draft.candidateId)
     .map((candidate) => ({ candidate, score: companySimilarityScore(candidate, draft) })).sort((a, b) => b.score - a.score)[0]
   if (postResolved?.score >= 93) {
+    appendSourceLog(job, { type: 'duplicate', name: draft.company || draft.name,
+      url: draft.website || draft.sourceUrl, provider: draft.provider,
+      reason: 'Unificado após enriquecimento com ' + clean(postResolved.candidate.company || postResolved.candidate.name) })
     mergeResolvedCompany(postResolved.candidate, draft)
     postResolved.candidate.resolutionConfidence = postResolved.score
     postResolved.candidate.resolutionStatus = 'merged'
@@ -2251,6 +2282,9 @@ async function runWebPlanner(job, seen) {
         completedAdaptiveRun = true
         job.stats.discovered += results.length
         job.stats.webDocuments = Number(job.stats.webDocuments || 0) + results.length
+        for (const document of results) appendSourceLog(job, {type: 'raw',
+          name: document.title, url: document.url, provider: 'web_discovery',
+          reason: 'Documento retornado pela busca pública (não é necessariamente uma empresa)'})
         let acceptedPlaces = 0
         let rejectedDocuments = 0
         for (const result of results) {
@@ -2369,6 +2403,23 @@ async function processJob(job) {
   try {
     if (!job.plan?.plannedAt || !Array.isArray(job.plan.cells) || !job.plan.cells.length) await buildSearchPlan(job)
 
+    let fastWebAttempted = false
+    if (job.input.searchMode === 'fast' && WEB_SEARCH_ENABLED && job.input.areaMode !== 'map' && !shouldStopForTarget(job)) {
+      fastWebAttempted = true
+      setRuntimePhase(job, 'discovering_web', 'Busca rápida: procurando empresas na web pública primeiro…')
+      const beforeFastWeb = job.plan.providerRuns.length
+      await runWebPlanner(job, seen)
+      const fastWebRuns = job.plan.providerRuns.slice(beforeFastWeb).filter((item) => item.provider === 'web')
+      const completedFastWebRuns = fastWebRuns.filter((item) => item.status === 'completed')
+      const failedFastWebRuns = fastWebRuns.filter((item) => item.status === 'failed')
+      if (completedFastWebRuns.length) successfulProviders += 1
+      job.coverage.validRuns = Number(job.coverage.validRuns || 0) + completedFastWebRuns.length
+      job.coverage.failedRuns = Number(job.coverage.failedRuns || 0) + failedFastWebRuns.length
+      providerErrors.push(...failedFastWebRuns.map((item) => item.error))
+      finishRuntimeSource(job, 'web', completedFastWebRuns.length > 0 || failedFastWebRuns.length === 0)
+      if (shouldStopForTarget(job)) appendRuntimeEvent(job, 'fast_target', `Busca rápida atingiu a meta com ${job.results.length} empresa(s) antes da varredura territorial pesada.`, { unique: job.results.length })
+    }
+
     let cursor = 0
     while (cursor < job.plan.cells.length) {
       await waitIfPaused(job)
@@ -2390,7 +2441,7 @@ async function processJob(job) {
       if (ensureRuntimeTruth(job).sourceStates.osmCoverage === 'running') finishRuntimeSource(job, 'osmCoverage', true)
     }
 
-    if (!shouldStopForTarget(job) && WEB_SEARCH_ENABLED && job.input.areaMode !== 'map') {
+    if (!fastWebAttempted && !shouldStopForTarget(job) && WEB_SEARCH_ENABLED && job.input.areaMode !== 'map') {
       const beforeWeb = job.plan.providerRuns.length
       await runWebPlanner(job, seen)
       const webRuns = job.plan.providerRuns.slice(beforeWeb).filter((item) => item.provider === 'web')
@@ -2481,7 +2532,7 @@ function createJob(input, source = 'manual') {
       targetMode,
       areaMode: ['radius', 'city', 'neighborhoods', 'map'].includes(input.areaMode) ? input.areaMode : 'radius',
       radiusKm: Math.min(100, Math.max(1, Number(input.radiusKm) || 15)),
-      searchMode: ['coverage', 'fast', 'economy'].includes(input.searchMode) ? input.searchMode : 'coverage',
+      searchMode: ['coverage', 'fast', 'economy'].includes(input.searchMode) ? input.searchMode : 'fast',
       categoryMode: input.categoryMode === 'related' ? 'related' : 'exact',
       mapPolygon: sanitizeMapPolygon(input.mapPolygon),
       searchCenter: Number.isFinite(Number(input.searchCenter?.lat)) && Number.isFinite(Number(input.searchCenter?.lon))
@@ -2502,6 +2553,7 @@ function createJob(input, source = 'manual') {
     progress: { found: 0, currentRegion: '', currentSource: '', currentUrl: '' },
     stats: { discovered: 0, unique: 0, duplicates: 0, websitesVisited: 0, queries: 0, withPhone: 0, withEmail: 0, withInstagram: 0, withWebsite: 0, withCnpj: 0, webDocuments: 0, webPlaceCandidates: 0, webRejectedDocuments: 0, scopeRejectedCategory: 0, scopeRejectedLocation: 0, scopeRejectedOther: 0 },
     rejections: [],
+    sourceLog: [],
     plan: { expandedQueries: [], ontology: buildSearchOntologyPlan(input.segment), cells: [], providerRuns: [], geometry: null, semanticPlan: input.semanticPlan && typeof input.semanticPlan === 'object' ? input.semanticPlan : null, plannedAt: null },
     coverage: emptyCoverage(),
     processing: emptyProcessing(),
@@ -2654,7 +2706,7 @@ const server = http.createServer(async (req, res) => {
           targetMode: body.targetMode === 'max' ? 'max' : 'quantity',
           areaMode: ['radius','city','neighborhoods','map'].includes(body.areaMode) ? body.areaMode : 'radius',
           radiusKm: Math.min(100, Math.max(1, Number(body.radiusKm) || 15)),
-          searchMode: ['coverage','fast','economy'].includes(body.searchMode) ? body.searchMode : 'coverage',
+          searchMode: ['coverage','fast','economy'].includes(body.searchMode) ? body.searchMode : 'fast',
           categoryMode: body.categoryMode === 'related' ? 'related' : 'exact',
           mapPolygon: sanitizeMapPolygon(body.mapPolygon),
           searchCenter: Number.isFinite(Number(body.searchCenter?.lat)) && Number.isFinite(Number(body.searchCenter?.lon))

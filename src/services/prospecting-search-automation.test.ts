@@ -7,6 +7,7 @@ import {
 } from './prospecting-search-automation'
 import {
   buildDeterministicProspectingSearchPlan,
+  decodeProspectingHtmlEntities,
   verifyProspectingDraft,
 } from './prospecting-search-intelligence'
 
@@ -147,4 +148,58 @@ describe('Prospecting Search Automation V101.10.1', () => {
     expect(result.uniqueCount).toBe(3)
     expect(result.duplicatesFiltered).toBe(1)
   })
+
+  it('Search Integrity rejeita listicle mesmo quando existe URL', () => {
+    const plan = buildDeterministicProspectingSearchPlan({ segment: 'Barbearias', city: 'Porto Alegre, RS', query: '' })
+    const result = verifyProspectingDraft({
+      name: 'THE BEST 10 Barbers in PORTO ALEGRE',
+      company: 'THE BEST 10 Barbers in PORTO ALEGRE',
+      website: 'https://example.com/top-barbers',
+      description: 'ranking reviews best barbers in Porto Alegre',
+    }, plan, 'Porto Alegre, RS')
+    expect(result.accept).toBe(false)
+    expect(result.decision).toBe('reject')
+    expect(result.entityClass).toBe('content')
+  })
+
+  it('Search Integrity rejeita diretório antes da revisão', () => {
+    const plan = buildDeterministicProspectingSearchPlan({ segment: 'Barbearias', city: 'Porto Alegre, RS', query: '' })
+    const result = verifyProspectingDraft({
+      name: 'Barbearias em Porto Alegre - Yelp', company: 'Barbearias em Porto Alegre - Yelp',
+      website: 'https://www.yelp.com/search?find_desc=barbers', placeType: 'directory',
+    }, plan, 'Porto Alegre, RS')
+    expect(result.accept).toBe(false)
+    expect(result.entityClass).toBe('directory')
+  })
+
+  it('Search Integrity rejeita empresa com cidade explicitamente divergente', () => {
+    const plan = buildDeterministicProspectingSearchPlan({ segment: 'Barbearias', city: 'Rio Grande, RS', query: '' })
+    const result = verifyProspectingDraft({
+      name: 'Barbearia Central', company: 'Barbearia Central', phone: '(53) 99999-0000', city: 'Pelotas',
+    }, plan, 'Rio Grande, RS')
+    expect(result.accept).toBe(false)
+    expect(result.geoConfidence).toBe('mismatch')
+  })
+
+  it('Search Integrity manda empresa real sem localização confirmada para revisão, sem inventar cidade', () => {
+    const plan = buildDeterministicProspectingSearchPlan({ segment: 'Barbearias', city: 'Rio Grande, RS', query: '' })
+    const result = verifyProspectingDraft({
+      name: 'Barbearia Alpha', company: 'Barbearia Alpha', phone: '(53) 99999-0001', website: 'https://alpha.example', city: '',
+    }, plan, 'Rio Grande, RS')
+    expect(result.accept).toBe(true)
+    expect(result.decision).toBe('review')
+    expect(result.geoConfidence).toBe('unknown')
+  })
+
+  it('decodifica entidades HTML antes de mostrar o nome comercial', () => {
+    expect(decodeProspectingHtmlEntities('Nigga&#x27;s Barber &amp; Co.')).toBe("Nigga's Barber & Co.")
+  })
+
+  it('não inicia automação sem território explícito mesmo quando o ICP possui cidade', async () => {
+    await expect(runProspectingSearchAutomation({
+      workspaceId: 'ws', segment: 'Barbearias', city: '', query: '', targetQuantity: 5,
+      context: { preferredCities: ['Canoas, RS'] },
+    }, { search: async () => { throw new Error('não deveria consultar provider') } })).rejects.toThrow(/cidade|região|território/i)
+  })
+
 })

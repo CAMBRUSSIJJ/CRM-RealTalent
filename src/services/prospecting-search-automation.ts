@@ -6,13 +6,16 @@ import {
 } from './prospecting-provider-gateway'
 import {
   buildDeterministicProspectingSearchPlan,
+  createProspectingSearchSession,
   planProspectingSearchWithAgent,
   prospectingSearchPlanSummary,
+  sanitizeProspectingDraft,
   sanitizeProspectingSearchPlan,
   verifyProspectingDraft,
   type ProspectingSearchPlan,
   type ProspectingSearchPlanContext,
   type ProspectingSearchPlanInput,
+  type ProspectingSearchSession,
 } from './prospecting-search-intelligence'
 
 export type ProspectingAutomationStatus = 'idle' | 'planning' | 'searching' | 'completed' | 'cancelled' | 'failed'
@@ -24,6 +27,7 @@ export interface ProspectingSearchAutomationInput {
   query: string
   targetQuantity: number
   maxRequests?: number
+  radiusKm?: number | null
   context?: ProspectingSearchPlanContext
 }
 
@@ -37,19 +41,29 @@ export interface ProspectingSearchAutomationProgress {
   currentQuery: string
   message: string
   plan?: ProspectingSearchPlan
+  session?: ProspectingSearchSession
   rejectedCount?: number
+  entityRejectedCount?: number
+  geoRejectedCount?: number
+  reviewCount?: number
+  readyCount?: number
   duplicatesFiltered?: number
 }
 
 export interface ProspectingSearchAutomationResult {
   drafts: CaptureDraft[]
   uniqueCount: number
+  readyCount: number
+  reviewCount: number
   requestsCompleted: number
   areasSearched: string[]
   warnings: string[]
   stoppedReason: 'target_reached' | 'sources_exhausted' | 'request_limit' | 'cancelled'
   plan: ProspectingSearchPlan
+  session: ProspectingSearchSession
   rejectedCount: number
+  entityRejectedCount: number
+  geoRejectedCount: number
   duplicatesFiltered: number
   adaptations: string[]
 }
@@ -103,7 +117,8 @@ export function prospectingDraftIdentityKeys(draft: CaptureDraft): string[] {
 export function dedupeProspectingDrafts(drafts: CaptureDraft[]): CaptureDraft[] {
   const seen = new Set<string>()
   const output: CaptureDraft[] = []
-  for (const draft of drafts) {
+  for (const rawDraft of drafts) {
+    const draft = sanitizeProspectingDraft(rawDraft)
     const keys = prospectingDraftIdentityKeys(draft)
     if (keys.some((key) => seen.has(key))) continue
     keys.forEach((key) => seen.add(key))
@@ -118,6 +133,9 @@ export async function runProspectingSearchAutomation(
 ): Promise<ProspectingSearchAutomationResult> {
   const targetQuantity = Math.min(100, Math.max(1, Math.round(input.targetQuantity || 20)))
   const maxRequests = Math.min(12, Math.max(1, Math.round(input.maxRequests ?? Math.ceil(targetQuantity / 20) + 2)))
+  const explicitAreas = prospectingAutomationAreas(input.city)
+  if (!explicitAreas.length) throw new Error('Informe uma cidade, região, raio ou área desenhada antes de iniciar o Garimpo.')
+
   const search = options.search ?? runProspectingProviderSearch
   const warnings = new Set<string>()
   const drafts: CaptureDraft[] = []
@@ -125,13 +143,18 @@ export async function runProspectingSearchAutomation(
   const adaptations: string[] = []
   let requestsCompleted = 0
   let rejectedCount = 0
+  let entityRejectedCount = 0
+  let geoRejectedCount = 0
+  let readyCount = 0
+  let reviewCount = 0
   let duplicatesFiltered = 0
   let stoppedReason: ProspectingSearchAutomationResult['stoppedReason'] = 'sources_exhausted'
 
-  const planInput: ProspectingSearchPlanInput = { segment: input.segment, city: input.city, query: input.query, context: input.context }
+  const planInput: ProspectingSearchPlanInput = { segment: input.segment, city: explicitAreas.join('; '), query: input.query, context: input.context }
   const baselinePlan = buildDeterministicProspectingSearchPlan(planInput)
   if (!baselinePlan.queries.length) throw new Error('Informe um segmento ou uma busca específica para iniciar a automação.')
   let plan = baselinePlan
+  let session = createProspectingSearchSession({ ...planInput, targetQuantity, radiusKm: input.radiusKm }, plan)
 
   const emit = (patch: Partial<ProspectingSearchAutomationProgress>) => options.onProgress?.({
     status: 'searching',
@@ -143,14 +166,17 @@ export async function runProspectingSearchAutomation(
     currentQuery: '',
     message: 'Preparando busca inteligente…',
     plan,
+    session,
     rejectedCount,
+    entityRejectedCount,
+    geoRejectedCount,
+    reviewCount,
+    readyCount,
     duplicatesFiltered,
     ...patch,
   })
 
   emit({ status: 'planning', message: `Interpretando a busca para até ${targetQuantity} oportunidade(s)…` })
-  // Em execução real usamos a Agent uma única vez antes das consultas. Testes ou provedores
-  // injetados permanecem 100% determinísticos, evitando rede externa e mantendo reprodutibilidade.
   const planner = options.planSearch ?? (options.search ? undefined : planProspectingSearchWithAgent)
   if (planner) {
     try {
@@ -162,9 +188,11 @@ export async function runProspectingSearchAutomation(
     }
   }
 
-  const effectiveAreas = plan.areas.length ? plan.areas : ['']
+  if (!plan.areas.length) throw new Error('O plano de busca ficou sem território explícito. Revise a cidade/região antes de continuar.')
+  session = createProspectingSearchSession({ ...planInput, targetQuantity, radiusKm: input.radiusKm }, plan)
+  const effectiveAreas = plan.areas
   const queries = plan.queries.map((item) => item.term)
-  emit({ status: 'planning', plan, message: prospectingSearchPlanSummary(plan) })
+  emit({ status: 'planning', plan, session, message: prospectingSearchPlanSummary(plan) })
 
   outer: for (const area of effectiveAreas) {
     for (const term of queries) {
@@ -175,7 +203,7 @@ export async function runProspectingSearchAutomation(
         const remaining = targetQuantity - drafts.length
         if (remaining <= 0) { stoppedReason = 'target_reached'; break outer }
 
-        emit({ currentArea: area, currentQuery: term, message: `Pesquisando ${term}${area ? ` em ${area}` : ''}…` })
+        emit({ currentArea: area, currentQuery: term, message: `Pesquisando ${term} em ${area}…` })
         const result = await search({
           workspaceId: input.workspaceId,
           source: 'maps',
@@ -191,11 +219,14 @@ export async function runProspectingSearchAutomation(
         let acceptedInBatch = 0
         let duplicatesInBatch = 0
         let rejectedInBatch = 0
-        for (const draft of result.drafts) {
+        for (const rawDraft of result.drafts) {
+          const draft = sanitizeProspectingDraft(rawDraft)
           const verification = verifyProspectingDraft(draft, plan, area)
           if (!verification.accept) {
             rejectedCount += 1
             rejectedInBatch += 1
+            if (verification.entityClass === 'content' || verification.entityClass === 'directory') entityRejectedCount += 1
+            if (verification.geoConfidence === 'mismatch') geoRejectedCount += 1
             continue
           }
           const keys = prospectingDraftIdentityKeys(draft)
@@ -209,13 +240,15 @@ export async function runProspectingSearchAutomation(
             ...draft,
             searchIntelligence: {
               confidence: verification.confidence,
-              reasons: verification.reasons,
+              reasons: [verification.decision === 'ready' ? 'pronto para validação comercial' : 'revisão humana necessária', ...verification.reasons],
               warnings: verification.warnings,
               query: term,
               area,
-              planner: plan.planner,
+              planner: `${plan.planner} · ${session.id}`,
             },
           })
+          if (verification.decision === 'ready') readyCount += 1
+          else reviewCount += 1
           acceptedInBatch += 1
           if (drafts.length >= targetQuantity) break
         }
@@ -226,8 +259,12 @@ export async function runProspectingSearchAutomation(
           currentArea: area,
           currentQuery: term,
           rejectedCount,
+          entityRejectedCount,
+          geoRejectedCount,
+          readyCount,
+          reviewCount,
           duplicatesFiltered,
-          message: `${drafts.length} oportunidade(s) válida(s) · ${rejectedCount} ruído(s) filtrado(s) · ${duplicatesFiltered} duplicidade(s).`,
+          message: `${result.drafts.length} bruto(s) · ${drafts.length} empresa(s) válida(s) · ${rejectedCount} ruído(s) filtrado(s) · ${duplicatesFiltered} duplicidade(s).`,
         })
         if (drafts.length >= targetQuantity) { stoppedReason = 'target_reached'; break outer }
 
@@ -261,23 +298,32 @@ export async function runProspectingSearchAutomation(
     uniqueFound: drafts.length,
     requestsCompleted,
     rejectedCount,
+    entityRejectedCount,
+    geoRejectedCount,
+    readyCount,
+    reviewCount,
     duplicatesFiltered,
     message: stoppedReason === 'target_reached'
-      ? `Meta atingida: ${drafts.length} oportunidade(s) válida(s).`
+      ? `Meta atingida: ${drafts.length} empresa(s) válida(s).`
       : stoppedReason === 'request_limit'
-        ? `Limite de ${maxRequests} consulta(s) atingido com ${drafts.length} resultado(s) válido(s).`
-        : `Busca inteligente concluída com ${drafts.length} resultado(s) válido(s).`,
+        ? `Limite de ${maxRequests} consulta(s): ${drafts.length} válida(s), ${rejectedCount} ruído(s) filtrado(s).`
+        : `Busca concluída: ${drafts.length} válida(s), ${rejectedCount} ruído(s) filtrado(s).`,
   })
 
   return {
     drafts: drafts.slice(0, targetQuantity),
     uniqueCount: Math.min(drafts.length, targetQuantity),
+    readyCount,
+    reviewCount,
     requestsCompleted,
-    areasSearched: effectiveAreas.filter(Boolean),
+    areasSearched: effectiveAreas,
     warnings: [...warnings],
     stoppedReason,
     plan,
+    session,
     rejectedCount,
+    entityRejectedCount,
+    geoRejectedCount,
     duplicatesFiltered,
     adaptations,
   }

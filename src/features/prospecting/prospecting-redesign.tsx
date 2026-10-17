@@ -96,15 +96,35 @@ export function ProspectingRedesignSearch(props: ProspectingRedesignSearchProps)
   const coverage = props.job?.coverage?.successfulTerritoryPercent ?? props.job?.coverage?.territoryPercent
   const progress = Math.max(0, Math.min(100, Math.round(coverage ?? (props.job?.status === 'completed' ? 100 : (found / Math.max(1, target)) * 100))))
   const currentActivity = props.job?.runtime?.phaseLabel || props.job?.message || 'Pronto para iniciar uma nova busca.'
-  const currentRegion = props.job?.runtime?.currentRegion || props.job?.progress.currentRegion || props.city || 'Região principal'
+  // SearchSession canônica: durante uma execução, título, território, mapa e status leem o input imutável do job.
+  const sessionSegment = props.job?.input.segment || props.segment
+  const sessionCity = props.job?.input.regions?.join('; ') || props.city
+  const sessionAreaMode = props.job?.input.areaMode || props.areaMode
+  const sessionRadiusKm = props.job?.input.radiusKm ?? props.radiusKm
+  const currentRegion = props.job?.runtime?.currentRegion || props.job?.progress.currentRegion || sessionCity || 'Região principal'
   const sourceLabel = props.job?.runtime?.currentSource || props.job?.progress.currentSource || 'OpenStreetMap + Web'
   const areaLabel = props.areaMode === 'city' ? 'Cidade inteira' : props.areaMode === 'neighborhoods' ? 'Bairros' : props.areaMode === 'map' ? 'Área desenhada' : `Raio de ${props.radiusKm} km`
+  const sessionAreaLabel = sessionAreaMode === 'city' ? 'Cidade inteira' : sessionAreaMode === 'neighborhoods' ? 'Bairros' : sessionAreaMode === 'map' ? 'Área desenhada' : `Raio de ${sessionRadiusKm} km`
   const canStart = props.canEdit && !props.agentBusy && !active && Boolean(props.segment.trim() && props.city.trim())
+  const raw = props.job?.processing?.raw ?? props.job?.stats.discovered ?? 0
+  const rejected = (props.job?.runtime?.counters.rejectedCategory ?? 0) + (props.job?.runtime?.counters.rejectedLocation ?? 0) + (props.job?.stats.webRejectedDocuments ?? 0)
+  const duplicates = props.job?.runtime?.counters.duplicates ?? props.job?.stats.duplicates ?? 0
+  const semanticPlanner = props.job?.plan?.semanticPlan?.planner || ''
 
-  const markers = useMemo(() => Array.from({ length: Math.min(12, Math.max(0, found)) }, (_, index) => ({
-    left: 18 + ((index * 19) % 68),
-    top: 24 + ((index * 23) % 50),
-  })), [found])
+  const markers = useMemo(() => {
+    const bbox = props.job?.plan?.geometry?.bbox
+    if (!bbox) return []
+    const width = Math.max(1e-8, bbox.east - bbox.west)
+    const height = Math.max(1e-8, bbox.north - bbox.south)
+    return (props.job?.results ?? []).flatMap((item) => {
+      const lat = Number(item.latitude)
+      const lon = Number(item.longitude)
+      if (!Number.isFinite(lat) || !Number.isFinite(lon)) return []
+      const left = Math.max(4, Math.min(96, ((lon - bbox.west) / width) * 100))
+      const top = Math.max(4, Math.min(96, (1 - (lat - bbox.south) / height) * 100))
+      return [{ left, top }]
+    }).slice(0, 80)
+  }, [props.job])
 
   return <div className="prospecting-redesign-v4__grid">
     <div className="prospecting-redesign-v4__left">
@@ -113,16 +133,16 @@ export function ProspectingRedesignSearch(props: ProspectingRedesignSearchProps)
           <span>Execução atual{props.job ? ` · ${props.job.id.slice(0, 8)}` : ''}</span>
           <em className={`is-${props.job?.status ?? 'idle'}`}>{props.job ? statusLabel[props.job.status] : 'Pronto'}</em>
         </div>
-        <h2>{props.segment || 'Nova prospecção'} · {props.city || 'Defina a região'}</h2>
+        <h2>{sessionSegment || 'Nova prospecção'} · {sessionCity || 'Defina a região'}</h2>
         <div className="prospecting-redesign-v4__progress-row"><div><span style={{ width: `${progress}%` }}/></div><strong>{progress}%</strong></div>
-        <p>{props.job?.stats.queries ?? 0} consultas · {sourceLabel}</p>
+        <p>{props.job?.stats.queries ?? 0} consultas · {sourceLabel}{semanticPlanner ? ` · plano IA ${semanticPlanner}` : ''}</p>
         <div className="prospecting-redesign-v4__now"><i/><span><strong>Agora:</strong> {currentActivity}{currentRegion ? ` · ${currentRegion}` : ''}</span></div>
         <div className="prospecting-redesign-v4__execution-metrics">
           <div><strong>{found}</strong><span>Encontradas</span></div>
           <div className="is-ready"><strong>{ready}</strong><span>Prontas</span></div>
           <div className="is-attention"><strong>{attention}</strong><span>Precisam atenção</span></div>
         </div>
-        <small>Base total {props.baseTotal} · {props.sentCount} enviadas ao CRM</small>
+        <small>{raw} bruto(s) · {rejected} filtrado(s) · {duplicates} duplicidade(s) · Base total {props.baseTotal} · {props.sentCount} enviadas ao CRM</small>
         <div className="prospecting-redesign-v4__execution-actions">
           <button type="button" className="prospecting-redesign-v4__button" onClick={props.onDetails}>Ver detalhes</button>
           {props.job?.status === 'running' ? <button type="button" className="prospecting-redesign-v4__button" disabled={props.agentBusy} onClick={() => props.onControl('pause')}><Pause size={15}/> Pausar</button> : null}
@@ -136,7 +156,7 @@ export function ProspectingRedesignSearch(props: ProspectingRedesignSearchProps)
         <label><span>O que você procura?</span><div className="prospecting-redesign-v4__input-wrap"><input id="prospecting-linux-segment" value={props.segment} onChange={(event) => props.onSegment(event.target.value)} placeholder="Ex.: Barbearias" disabled={!props.canEdit || active}/>{props.segment ? <button type="button" aria-label="Limpar" onClick={() => props.onSegment('')}><X size={16}/></button> : null}</div></label>
         <label><span>Onde?</span><div className="prospecting-redesign-v4__input-wrap"><input id="prospecting-linux-regions" value={props.city} onChange={(event) => props.onCity(event.target.value)} placeholder="Ex.: Rio Grande, RS" disabled={!props.canEdit || active}/>{props.city ? <button type="button" aria-label="Limpar" onClick={() => props.onCity('')}><X size={16}/></button> : null}</div></label>
         <label><span>Área da busca</span><div className="prospecting-redesign-v4__readout"><MapPinned size={15}/>{areaLabel}</div></label>
-        <div className={`prospecting-redesign-v4__scope-note ${props.categoryMode === 'exact' ? 'is-exact' : 'is-related'}`}><ShieldCheck size={16}/><span><strong>{props.categoryMode === 'exact' ? 'Correspondência exata:' : 'Correspondência relacionada:'}</strong> {props.categoryMode === 'exact' ? `só ${props.segment || 'empresas do segmento'} dentro de ${props.city || 'sua região'} entram nos resultados.` : 'inclui categorias comercialmente próximas para ampliar a cobertura.'}</span></div>
+        <div className={`prospecting-redesign-v4__scope-note ${props.categoryMode === 'exact' ? 'is-exact' : 'is-related'}`}><ShieldCheck size={16}/><span><strong>{props.categoryMode === 'exact' ? 'Alta precisão:' : 'Correspondência relacionada:'}</strong> {props.categoryMode === 'exact' ? `prioriza e valida ${props.segment || 'empresas do segmento'} dentro de ${props.city || 'sua região'}; listas, diretórios e locais fora do território são filtrados antes da revisão.` : 'inclui categorias comercialmente próximas para ampliar a cobertura.'}</span></div>
         <button type="button" className="prospecting-redesign-v4__advanced-trigger" onClick={() => setAdvancedOpen((value) => !value)}>Opções avançadas <ArrowRight size={15} className={advancedOpen ? 'is-open' : ''}/></button>
         {advancedOpen ? <div className="prospecting-redesign-v4__advanced">
           <label><span>Quantidade</span><select value={props.quantity} onChange={(event) => props.onQuantity(Number(event.target.value))} disabled={!props.canEdit || active}>{[20,40,60,80,100].map((value) => <option key={value} value={value}>{value} empresas</option>)}</select></label>
@@ -149,7 +169,7 @@ export function ProspectingRedesignSearch(props: ProspectingRedesignSearchProps)
       </section>
     </div>
 
-    <section className="prospecting-redesign-v4__map" aria-label={`Prévia do território de busca em ${props.city || 'sua região'}`}>
+    <section className="prospecting-redesign-v4__map" aria-label={`Território da execução em ${sessionCity || 'sua região'}`}>
       <svg viewBox="0 0 800 700" preserveAspectRatio="xMidYMid slice" role="img" aria-hidden="true">
         <rect width="800" height="700" className="prospecting-redesign-v4__map-ground"/>
         <path d="M0 520 C120 470 220 560 340 540 C470 520 560 600 800 560 L800 700 L0 700 Z" className="prospecting-redesign-v4__map-water"/>
@@ -158,9 +178,9 @@ export function ProspectingRedesignSearch(props: ProspectingRedesignSearchProps)
         <path d="M90 130 L720 105 L745 470 L560 520 L330 500 L110 440 Z" className="prospecting-redesign-v4__territory"/>
       </svg>
       {markers.map((marker, index) => <span key={index} className="prospecting-redesign-v4__marker" style={{ left: `${marker.left}%`, top: `${marker.top}%` }}><Building2 size={12}/></span>)}
-      <div className="prospecting-redesign-v4__map-labels"><span>Área: {areaLabel.toLowerCase()}</span><span>{props.city || 'Defina a região'}</span></div>
+      <div className="prospecting-redesign-v4__map-labels"><span>Área: {sessionAreaLabel.toLowerCase()}</span><span>{sessionCity || 'Defina a região'}</span></div>
       <div className="prospecting-redesign-v4__zoom"><button type="button" aria-label="Aproximar">+</button><button type="button" aria-label="Afastar">−</button></div>
-      <div className="prospecting-redesign-v4__map-status">{found ? <><CheckCircle2 size={17}/><strong>{found} empresa(s) encontrada(s).</strong><span> Os resultados aparecem no mapa durante a execução.</span></> : <><strong>Aguardando os primeiros resultados.</strong><span> As empresas aparecem aqui no mapa assim que forem encontradas.</span></>}</div>
+      <div className="prospecting-redesign-v4__map-status">{found ? <><CheckCircle2 size={17}/><strong>{found} empresa(s) válida(s).</strong><span> {markers.length} com coordenadas confirmadas no território; {rejected} ruído(s) filtrado(s).</span></> : <><strong>Aguardando empresas válidas.</strong><span> Resultados brutos são verificados antes de aparecerem aqui.</span></>}</div>
     </section>
   </div>
 }

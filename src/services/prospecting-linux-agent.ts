@@ -2,6 +2,7 @@ import type { Lead } from '../domain/types'
 import type { CaptureDraft } from './prospecting-workspace'
 import { env } from '../lib/env'
 import { runtimeFetch } from './realtalent-runtime-transport'
+import { buildDeterministicProspectingSearchPlan, decodeProspectingHtmlEntities, planProspectingSearchWithAgent, sanitizeProspectingDraft, sanitizeProspectingSearchPlan } from './prospecting-search-intelligence'
 
 export type ProspectingAgentJobStatus = 'queued' | 'running' | 'paused' | 'completed' | 'cancelled' | 'failed'
 export type ProspectingAgentCadence = 'off' | 'daily' | 'weekly'
@@ -15,6 +16,7 @@ export type ProspectingEnrichmentTaskStatus = ProspectingProcessingStage | 'retr
 export interface ProspectingEnrichmentTask { id: ProspectingEnrichmentTaskId; status: ProspectingEnrichmentTaskStatus; attempts: number; maxAttempts: number; lastError: string | null; message: string; lastRunAt: string | null; completedAt: string | null }
 export interface ProspectingGeoPoint { lat: number; lon: number }
 export interface ProspectingTerritoryPreview { region: string; displayName: string; center: ProspectingGeoPoint; bbox: { south: number; north: number; west: number; east: number } }
+export interface ProspectingSemanticPlan { intent: string; queries: string[]; exclusions: string[]; planner: string }
 
 export interface ProspectingAgentHealth {
   ok: boolean
@@ -64,6 +66,7 @@ export interface ProspectingAgentJob {
     categoryMode: ProspectingCategoryMode
     mapPolygon?: ProspectingGeoPoint[]
     searchCenter?: ProspectingGeoPoint | null
+    semanticPlan?: ProspectingSemanticPlan | null
   }
   options: { enrichWeb: boolean; enrichCnpj: boolean; browserFallback: boolean }
   results: Array<CaptureDraft & {
@@ -93,6 +96,7 @@ export interface ProspectingAgentJob {
     cells: Array<{ id: string; parentId: string | null; level: number; region: string; mode?: 'bbox' | 'area'; bbox?: { south: number; north: number; west: number; east: number } | null; status: string; resultsFound: number; uniqueResultsFound: number; density: number; areaKm2?: number; searchAreaKm2?: number; coverageRatio?: number; subdivisionReason?: string; providerSaturated?: boolean }>
     providerRuns: Array<{ provider: string; cellId: string | null; query: string; intentId?: string; region?: string; status: string; results: number; localCandidates?: number; rejectedDocuments?: number; error?: string }>
     geometry?: { type: 'polygon' | 'bbox' | 'circle'; polygon?: ProspectingGeoPoint[]; center?: ProspectingGeoPoint; radiusKm?: number; bbox: { south: number; north: number; west: number; east: number } } | null
+    semanticPlan?: ProspectingSemanticPlan | null
     plannedAt: string | null
   }
   coverage?: {
@@ -242,9 +246,58 @@ export async function previewProspectingTerritory(region: string): Promise<Prosp
   return await request<ProspectingTerritoryPreview>(`/api/prospecting-agent/territory/preview?region=${encodeURIComponent(region)}`, {}, 12000)
 }
 
+const agentNormalize = (value: unknown) => decodeProspectingHtmlEntities(value)
+  .normalize('NFD')
+  .replace(/[\u0300-\u036f]/g, '')
+  .toLocaleLowerCase('pt-BR')
+  .replace(/[^a-z0-9]+/g, ' ')
+  .trim()
+const AGENT_CONTENT_NOISE = /\b(?:the\s+best(?:\s+\d+)?|top\s*\d+|best\s+\d+|melhores|ranking|lista\s+de|guia\s+de|reviews?|directory|diret[oó]rio|artigo|blog|curso|vaga|emprego|near\s+me|perto\s+de\s+mim)\b/i
+const AGENT_DIRECTORY_HOST = /(^|\.)(?:yelp\.|tripadvisor\.|foursquare\.com|guiamais\.com\.br|telelistas\.net|solutudo\.com\.br|apontador\.com\.br|listamais\.com\.br)/i
+
+function sanitizeAgentCandidate<T extends ProspectingAgentJob['results'][number]>(candidate: T): T | null {
+  const sanitized = sanitizeProspectingDraft(candidate) as T
+  const provider = String(sanitized.provider ?? '').toLocaleLowerCase('pt-BR')
+  const placeType = String(sanitized.placeType ?? '').toLocaleLowerCase('pt-BR')
+  const name = decodeProspectingHtmlEntities(sanitized.company || sanitized.name)
+  const website = String(sanitized.website ?? '')
+  let host = ''
+  try { host = website ? new URL(/^https?:\/\//i.test(website) ? website : `https://${website}`).hostname : '' } catch { host = '' }
+  if (AGENT_CONTENT_NOISE.test(name) || AGENT_DIRECTORY_HOST.test(host) || ['directory', 'content', 'web_document'].includes(placeType) || provider === 'web_coverage_hint') return null
+  const scopeValidation = sanitized.scopeValidation as { location?: { accepted?: boolean; score?: number } } | undefined
+  if (scopeValidation?.location?.accepted === false) return null
+  const scopeRegion = decodeProspectingHtmlEntities(sanitized.scopeRegion)
+  const scopeExplicitCity = decodeProspectingHtmlEntities(sanitized.scopeExplicitCity)
+  const sourceCity = decodeProspectingHtmlEntities(sanitized.city)
+  if (provider.startsWith('web') && !scopeExplicitCity && sourceCity && agentNormalize(sourceCity) === agentNormalize(scopeRegion)) sanitized.city = ''
+  const hasCoordinates = Number.isFinite(Number(sanitized.latitude)) && Number.isFinite(Number(sanitized.longitude))
+  const geoScore = Number(scopeValidation?.location?.score ?? (hasCoordinates ? 90 : 0))
+  const hasIdentity = Boolean(String(sanitized.osmId ?? sanitized.placeId ?? sanitized.cnpj ?? sanitized.phone ?? sanitized.website ?? '').trim())
+  if (sanitized.qualityStatus === 'ready' && (!hasIdentity || geoScore < 68 || placeType === 'unknown')) {
+    sanitized.qualityStatus = 'attention'
+    sanitized.reviewReason = geoScore < 68 ? 'location_not_confirmed' : 'business_identity_not_confirmed'
+  }
+  return sanitized
+}
+
+function sanitizeProspectingAgentJob(job: ProspectingAgentJob): ProspectingAgentJob {
+  const rawResults = Array.isArray(job.results) ? job.results : []
+  const results = rawResults.map((candidate) => sanitizeAgentCandidate(candidate)).filter((candidate): candidate is ProspectingAgentJob['results'][number] => Boolean(candidate))
+  const filteredByIntegrity = rawResults.length - results.length
+  const ready = results.filter((candidate) => candidate.qualityStatus === 'ready').length
+  const attention = results.filter((candidate) => candidate.qualityStatus !== 'ready').length
+  return {
+    ...job,
+    results,
+    stats: { ...job.stats, unique: results.length, webRejectedDocuments: Number(job.stats?.webRejectedDocuments || 0) + filteredByIntegrity },
+    processing: job.processing ? { ...job.processing, validation: results.length, ready, attention } : job.processing,
+    runtime: job.runtime ? { ...job.runtime, counters: { ...job.runtime.counters, accepted: results.length, ready, attention } } : job.runtime,
+  }
+}
+
 export async function listProspectingAgentJobs(workspaceId: string): Promise<ProspectingAgentJob[]> {
   const response = await request<{ jobs: ProspectingAgentJob[] }>(`/api/prospecting-agent/jobs?workspaceId=${encodeURIComponent(workspaceId)}`)
-  return response.jobs ?? []
+  return (response.jobs ?? []).map(sanitizeProspectingAgentJob)
 }
 
 export async function createProspectingAgentJob(input: {
@@ -259,28 +312,42 @@ export async function createProspectingAgentJob(input: {
   categoryMode: ProspectingCategoryMode
   mapPolygon?: ProspectingGeoPoint[]
   searchCenter?: ProspectingGeoPoint | null
+  semanticPlan?: ProspectingSemanticPlan | null
   existingKeys: string[]
   enrichWeb?: boolean
   enrichCnpj?: boolean
   browserFallback?: boolean
 }): Promise<ProspectingAgentJob> {
-  const response = await request<{ job: ProspectingAgentJob }>('/api/prospecting-agent/jobs', { method: 'POST', body: JSON.stringify(input) }, 10000)
-  return response.job
+  let semanticPlan = input.semanticPlan ?? null
+  if (!semanticPlan) {
+    const primaryRegion = input.regions.map((item) => item.trim()).find(Boolean) ?? ''
+    const planInput = { segment: input.segment, city: primaryRegion, query: input.segment }
+    const baseline = buildDeterministicProspectingSearchPlan(planInput)
+    try {
+      const refined = await planProspectingSearchWithAgent(planInput, baseline)
+      const plan = sanitizeProspectingSearchPlan(refined, baseline)
+      semanticPlan = { intent: plan.intent, queries: plan.queries.map((entry) => entry.term), exclusions: plan.exclusions, planner: plan.planner }
+    } catch {
+      semanticPlan = { intent: baseline.intent, queries: baseline.queries.map((entry) => entry.term), exclusions: baseline.exclusions, planner: baseline.planner }
+    }
+  }
+  const response = await request<{ job: ProspectingAgentJob }>('/api/prospecting-agent/jobs', { method: 'POST', body: JSON.stringify({ ...input, semanticPlan }) }, 10000)
+  return sanitizeProspectingAgentJob(response.job)
 }
 
 export async function getProspectingAgentJob(jobId: string): Promise<ProspectingAgentJob> {
   const response = await request<{ job: ProspectingAgentJob }>(`/api/prospecting-agent/jobs/${encodeURIComponent(jobId)}`)
-  return response.job
+  return sanitizeProspectingAgentJob(response.job)
 }
 
 export async function controlProspectingAgentJob(jobId: string, action: 'pause' | 'resume' | 'cancel' | 'imported'): Promise<ProspectingAgentJob> {
   const response = await request<{ job: ProspectingAgentJob }>(`/api/prospecting-agent/jobs/${encodeURIComponent(jobId)}/${action}`, { method: 'POST', body: '{}' })
-  return response.job
+  return sanitizeProspectingAgentJob(response.job)
 }
 
 export async function retryProspectingEnrichmentTask(jobId: string, candidateId: string, taskId: ProspectingEnrichmentTaskId): Promise<ProspectingAgentJob> {
   const response = await request<{ job: ProspectingAgentJob }>(`/api/prospecting-agent/jobs/${encodeURIComponent(jobId)}/candidates/${encodeURIComponent(candidateId)}/enrichment/${encodeURIComponent(taskId)}/retry`, { method: 'POST', body: '{}' }, 30000)
-  return response.job
+  return sanitizeProspectingAgentJob(response.job)
 }
 
 export interface ProspectingReviewBatch {
@@ -292,12 +359,13 @@ export interface ProspectingReviewBatch {
 }
 
 export async function getProspectingReviewBatch(jobId: string, afterRevision: number, limit = 50): Promise<ProspectingReviewBatch> {
-  return await request<ProspectingReviewBatch>(`/api/prospecting-agent/jobs/${encodeURIComponent(jobId)}/review?afterRevision=${Math.max(0, afterRevision)}&limit=${Math.min(100, Math.max(1, limit))}`, {}, 10000)
+  const batch = await request<ProspectingReviewBatch>(`/api/prospecting-agent/jobs/${encodeURIComponent(jobId)}/review?afterRevision=${Math.max(0, afterRevision)}&limit=${Math.min(100, Math.max(1, limit))}`, {}, 10000)
+  return { ...batch, entries: batch.entries.map((entry) => sanitizeAgentCandidate(entry)).filter((entry): entry is ProspectingAgentJob['results'][number] => Boolean(entry)) }
 }
 
 export async function acknowledgeProspectingReviewBatch(jobId: string, revision: number): Promise<ProspectingAgentJob> {
   const response = await request<{ job: ProspectingAgentJob }>(`/api/prospecting-agent/jobs/${encodeURIComponent(jobId)}/review/ack`, { method: 'POST', body: JSON.stringify({ revision }) }, 10000)
-  return response.job
+  return sanitizeProspectingAgentJob(response.job)
 }
 
 export async function createProspectingAgentCampaign(input: {

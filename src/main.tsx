@@ -68,6 +68,7 @@ import './styles/proposals-workspace.css'
 import './styles/login-experience.css'
 import './styles/work-management.css'
 import './styles/h20-product-cohesion.css'
+import './styles/prospecting-territory-interaction-hotfix.css'
 
 installMetadataInspector()
 installUniversalViewInspector()

@@ -39,6 +39,7 @@ import {
   type ProspectingAreaMode, type ProspectingCategoryMode, type ProspectingEnrichmentTask, type ProspectingEnrichmentTaskId, type ProspectingGeoPoint, type ProspectingSearchMode, type ProspectingTargetMode, type ProspectingTerritoryPreview,
 } from '../../services/prospecting-linux-agent'
 import { ProspectingEvidenceExplorer, type ProspectingInspectorMode } from './prospecting-evidence-explorer'
+import { RawSourceReview, rawSourceReviewCount } from './prospecting-raw-source-review'
 import { usePreferences } from '../settings/preferences-context'
 import { useAuth } from '../auth/auth-context'
 import { requireExportApproval } from '../../services/team-governance'
@@ -46,7 +47,7 @@ import { buildProspectingIcp, prospectingIcpSummary, rankProspects } from '../..
 import { ProspectingRedesignSearch, ProspectingRedesignShell } from './prospecting-redesign'
 
  type ProspectingTab = 'search' | 'local' | 'results' | 'history'
- type ReviewMode = 'list' | 'guided'
+ type ReviewMode = 'list' | 'guided' | 'sources'
  type ReviewScope = 'exceptions' | 'ready' | 'all'
  type DuplicateBehavior = 'skip' | 'update' | 'create' 
 
@@ -188,7 +189,8 @@ export function ProspectingPage() {
     let cancelled = false
     void readRemoteProspectingState(workspaceId).then((remote) => {
       if (cancelled || !remote || (!remote.prospects.length && !remote.history.length)) return
-      const scopedRemote = { ...remote, prospects: remote.prospects.filter(prospectInScope), lastExtensionSyncAt: local.lastExtensionSyncAt }
+      const scopedRemote = { ...remote, prospects: remote.prospects.filter(prospectInScope), lastExtensionSyncAt: local.lastExtensionSyncAt,
+        rawSourceDecisions: readProspectingState(workspaceId).rawSourceDecisions || local.rawSourceDecisions || {} }
       setState(scopedRemote)
       if (canWrite) writeProspectingState(workspaceId, scopedRemote)
     })
@@ -968,8 +970,34 @@ export function ProspectingPage() {
           </div> : null}
         </> : null}
       {tab === 'results' ? <div className="prospecting-review-workspace-v101103-h7 prospecting-review-workspace-v101106">
-        <section className="panel prospecting-review-modebar-v101103-h7 prospecting-review-modebar-v101106"><div><span className="eyebrow"><ClipboardCheck size={14} /> Revisão por exceção</span><h3>Revise somente o que exige decisão humana</h3><p>Empresas confiáveis ficam separadas para aprovação em lote; duplicidades, baixa confiança e dados divergentes aparecem primeiro.</p></div><div className="prospecting-review-modebar-v101106__actions"><div className="prospecting-review-scope-v101106">{([['exceptions', 'Precisa atenção', metrics.attention], ['ready', 'Prontas', metrics.autoValidatable], ['all', 'Todas', metrics.total]] as Array<[ReviewScope,string,number]>).map(([value,label,count]) => <button type="button" key={value} className={reviewScope === value ? 'is-active' : ''} onClick={() => { setReviewScope(value); setSelectedIds(new Set()) }}>{label}<span>{count}</span></button>)}</div><div className="prospecting-review-switch-v101103-h7"><button type="button" className={reviewMode === 'list' ? 'is-active' : ''} onClick={() => setReviewMode('list')}><ClipboardList size={15}/> Lista</button><button type="button" className={reviewMode === 'guided' ? 'is-active' : ''} onClick={() => setReviewMode('guided')}><Sparkles size={15}/> Guiada</button></div></div></section>
-        {reviewMode === 'list' ? <ResultsWorkspace
+        <section className="panel prospecting-review-modebar-v101103-h7 prospecting-review-modebar-v101106"><div><span className="eyebrow"><ClipboardCheck size={14} /> Revisão por exceção</span><h3>Revise somente o que exige decisão humana</h3><p>Empresas confiáveis ficam separadas para aprovação em lote; duplicidades, baixa confiança e dados divergentes aparecem primeiro.</p></div><div className="prospecting-review-modebar-v101106__actions"><div className="prospecting-review-scope-v101106">{([['exceptions', 'Precisa atenção', metrics.attention], ['ready', 'Prontas', metrics.autoValidatable], ['all', 'Todas', metrics.total]] as Array<[ReviewScope,string,number]>).map(([value,label,count]) => <button type="button" key={value} className={reviewScope === value ? 'is-active' : ''} onClick={() => { setReviewScope(value); setSelectedIds(new Set()) }}>{label}<span>{count}</span></button>)}</div><div className="prospecting-review-switch-v101103-h7"><button type="button" className={reviewMode === 'list' ? 'is-active' : ''} onClick={() => setReviewMode('list')}><ClipboardList size={15}/> Lista</button><button type="button" className={reviewMode === 'guided' ? 'is-active' : ''} onClick={() => setReviewMode('guided')}><Sparkles size={15}/> Guiada</button><button type="button" className={reviewMode === 'sources' ? 'is-active' : ''} onClick={() => setReviewMode('sources')}><Globe2 size={15}/> Fontes brutas <span>{rawSourceReviewCount(agentJob)}</span></button></div></div></section>
+        {reviewMode === 'sources' ? <RawSourceReview
+          job={agentJob}
+          decisions={state.rawSourceDecisions || {}}
+          disabled={!canProspectingEdit}
+          onDecision={(key, decision) => {
+            commit((current) => {
+              const nextDecisions = { ...(current.rawSourceDecisions || {}) }
+              if (decision) nextDecisions[key] = decision
+              else delete nextDecisions[key]
+              return { ...current, rawSourceDecisions: nextDecisions }
+            })
+          }}
+          onPromote={(sourceRecord, draft) => {
+            const added = importDrafts([draft], 'manual', 'capture',
+              'Fonte pública conferida e promovida para revisão humana · ' + (sourceRecord.url || sourceRecord.name), 1, true)
+            if (!added) {
+              notify('info', 'Essa empresa já está na sua base de revisão. Abra a lista para verificar o registro.')
+              return false
+            }
+            commit((current) => ({ ...current, rawSourceDecisions: {
+              ...(current.rawSourceDecisions || {}), [sourceRecord.key]: 'promoted',
+            }}))
+            notify('success', 'Empresa enviada à fila de revisão. Dados não confirmados continuam pendentes.')
+            return true
+          }}
+          onShowCompanies={() => { setReviewMode('list'); setReviewScope('all') }}
+        /> : reviewMode === 'list' ? <ResultsWorkspace
           readOnly={!canProspectingEdit} prospects={reviewFiltered} selectedIds={selectedIds} search={search} statusFilter={statusFilter} sourceFilter={sourceFilter} qualityFilter={qualityFilter} duplicateFilter={duplicateFilter} bulkRetryBusy={bulkRetryBusy}
           onSearch={setSearch} onStatusFilter={setStatusFilter} onSourceFilter={setSourceFilter} onQualityFilter={setQualityFilter} onDuplicateFilter={setDuplicateFilter} onSelected={setSelectedIds}
           onAnalyze={analyze} onApprove={approveProspects} onDiscard={(ids) => setStatus(ids, 'discarded')} onSend={openSend} onDelete={(ids) => void removeProspects(ids)} onExport={exportResults} onBulkRetry={(ids) => void retrySelectedEnrichment(ids)}

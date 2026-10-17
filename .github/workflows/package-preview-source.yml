@@ -1,0 +1,36 @@
+name: Package Preview Source
+
+on:
+  push:
+    branches:
+      - preview/v3.5-h1-semantic-agent
+    paths:
+      - .github/workflows/package-preview-source.yml
+
+permissions:
+  contents: read
+
+jobs:
+  package-source:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Package validated CRM commit
+        run: |
+          git archive \
+            --format=zip \
+            --output=RealTalent-CRM-Garimpo-Search-Intelligence-3.0-0ed1384.zip \
+            0ed138454090e012a807538d03dec4a4baafd6a3
+
+      - name: Upload ZIP
+        uses: actions/upload-artifact@v4
+        with:
+          name: RealTalent-CRM-Garimpo-Search-Intelligence-3.0-0ed1384
+          path: RealTalent-CRM-Garimpo-Search-Intelligence-3.0-0ed1384.zip
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 7

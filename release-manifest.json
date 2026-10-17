@@ -18,7 +18,7 @@
     "releaseNotes": "RELEASE_NOTES_V101.11.3-H19.13.md"
   },
   "migrations": {
-    "expectedCount": 58,
+    "expectedCount": 63,
     "lockFile": "supabase/migrations.lock.json"
   },
   "qa": {
@@ -310,46 +310,16 @@
     "name": "Supabase Staging Bootstrap & Validation",
     "marker": "101.11.3-cr10-supabase-staging-bootstrap",
     "history": [
-      {
-        "phase": "CR1",
-        "name": "Build & Dependency Closure"
-      },
-      {
-        "phase": "CR2",
-        "name": "Production Supabase + Auth + RLS Validation"
-      },
-      {
-        "phase": "CR3",
-        "name": "End-to-End Commercial Workflow Validation"
-      },
-      {
-        "phase": "CR4",
-        "name": "Commercial UX & Failure Recovery"
-      },
-      {
-        "phase": "CR5",
-        "name": "Commercial Performance & Production Observability"
-      },
-      {
-        "phase": "CR6",
-        "name": "Performance Optimization & Payload Reduction"
-      },
-      {
-        "phase": "CR7",
-        "name": "Production Deployment & Operational Readiness"
-      },
-      {
-        "phase": "CR8",
-        "name": "Commercial Launch Gate & First Customer Readiness"
-      },
-      {
-        "phase": "CR9",
-        "name": "Launch Hard-Stop Closure"
-      },
-      {
-        "phase": "CR10",
-        "name": "Supabase Staging Bootstrap & Validation"
-      }
+      { "phase": "CR1", "name": "Build & Dependency Closure" },
+      { "phase": "CR2", "name": "Production Supabase + Auth + RLS Validation" },
+      { "phase": "CR3", "name": "End-to-End Commercial Workflow Validation" },
+      { "phase": "CR4", "name": "Commercial UX & Failure Recovery" },
+      { "phase": "CR5", "name": "Commercial Performance & Production Observability" },
+      { "phase": "CR6", "name": "Performance Optimization & Payload Reduction" },
+      { "phase": "CR7", "name": "Production Deployment & Operational Readiness" },
+      { "phase": "CR8", "name": "Commercial Launch Gate & First Customer Readiness" },
+      { "phase": "CR9", "name": "Launch Hard-Stop Closure" },
+      { "phase": "CR10", "name": "Supabase Staging Bootstrap & Validation" }
     ],
     "artifacts": {
       "linuxLauncher": "RealTalent-CRM-V101.11.3-CR10-Supabase-Staging-Bootstrap-Validation-Linux-Launcher.zip",

@@ -242,3 +242,45 @@
 .prospecting-evidence-explorer__item li {margin:7px 0;}
 .prospecting-evidence-explorer footer {margin-top:15px; display:flex; justify-content:flex-end;}
 @media(max-width:750px){.prospecting-evidence-explorer__item dl{grid-template-columns:1fr}.prospecting-evidence-explorer__tools label{width:100%}.prospecting-evidence-explorer__list{max-height:none}}
+
+
+/* H22 — revisão humana de fontes: isolamento dos leads e decisão explícita */
+.prospecting-raw-review{border:1px solid var(--border,#dfe3ed);border-radius:14px;padding:20px;background:var(--surface,#fff);margin-top:14px;color:var(--text,#243042)}
+.prospecting-raw-review__header{display:flex;justify-content:space-between;align-items:flex-start;gap:16px}
+.prospecting-raw-review__header h3{margin:5px 0;font-size:20px}
+.prospecting-raw-review__header p{font-size:13px;line-height:1.55;color:var(--text-muted,#667085);max-width:720px;margin:0 0 13px}
+.prospecting-raw-review button{font:inherit;cursor:pointer}
+.prospecting-raw-review button:disabled{opacity:.45;cursor:not-allowed}
+.prospecting-raw-review__header>button,.prospecting-raw-review__card button,.prospecting-raw-review__more,.prospecting-raw-review__dialog footer button{display:inline-flex;justify-content:center;align-items:center;gap:6px;border-radius:8px;border:1px solid var(--border,#d8dfeb);background:var(--surface,#fff);color:inherit;padding:9px 12px;font-size:12px}
+.prospecting-raw-review__card button.is-primary,.prospecting-raw-review__dialog button.is-primary{color:#fff;background:#2850d7;border-color:#2850d7}
+.prospecting-raw-review__summary{display:flex;flex-wrap:wrap;gap:10px;margin:10px 0 13px}
+.prospecting-raw-review__summary span{background:var(--surface-muted,#f5f7fc);border-radius:8px;padding:10px 12px;font-size:12px}
+.prospecting-raw-review__summary strong{font-size:16px;margin-right:5px}
+.prospecting-raw-review__notice{padding:10px 12px;background:#fff8e9;color:#664d15;border:1px solid #e9d7ab;border-radius:8px;font-size:12px;line-height:1.5}
+.prospecting-raw-review__tools{display:flex;gap:12px;align-items:center;justify-content:space-between;flex-wrap:wrap;margin:12px 0}
+.prospecting-raw-review__tools>label:first-child{display:flex;align-items:center;gap:8px;padding:9px 12px;border:1px solid var(--border,#d8dfeb);border-radius:8px;min-width:min(100%,340px)}
+.prospecting-raw-review__tools input:not([type=checkbox]){min-width:90px;flex:1;background:transparent;border:0;outline:none;color:inherit}
+.prospecting-raw-review__toggle{display:flex;align-items:center;gap:7px;font-size:12px}
+.prospecting-raw-review__grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,350px),1fr));gap:12px}
+.prospecting-raw-review__card{padding:14px;border:1px solid var(--border,#d8dfeb);border-radius:10px;background:var(--surface,#fff);min-width:0;overflow-wrap:anywhere}
+.prospecting-raw-review__card-top{display:flex;justify-content:space-between;align-items:start;gap:10px}
+.prospecting-raw-review__card-top strong{font-size:13px}
+.prospecting-raw-review__card-top a,.prospecting-raw-review__dialog-card>a{color:#2850d7;display:inline-flex;align-items:center;gap:5px;font-size:12px;flex-shrink:0}
+.prospecting-raw-review__card small{display:block;font-size:11px;color:var(--text-muted,#667085);margin:7px 0 12px}
+.prospecting-raw-review__reason{padding:9px;border-radius:7px;background:#fff8e9;color:#664d15;font-size:12px}
+.prospecting-raw-review__card footer{display:flex;flex-wrap:wrap;gap:8px;justify-content:flex-end}
+.prospecting-raw-review__more{margin:14px auto;display:flex}
+.prospecting-raw-review__empty{padding:28px;font-size:13px;color:var(--text-muted,#667085);text-align:center}
+.prospecting-raw-review__dialog{position:fixed;inset:0;background:rgba(15,23,42,.65);z-index:1000;display:flex;align-items:center;justify-content:center;padding:16px}
+.prospecting-raw-review__dialog-card{width:min(720px,100%);max-height:90vh;overflow:auto;padding:24px;border-radius:14px;background:var(--surface,#fff);color:var(--text,#243042);box-shadow:0 20px 60px #0003}
+.prospecting-raw-review__dialog-card>header{display:flex;align-items:start;justify-content:space-between}
+.prospecting-raw-review__dialog-card>header h3{margin:0 0 8px;font-size:18px}
+.prospecting-raw-review__dialog-card>header p{margin:0 0 12px;font-size:12px;overflow-wrap:anywhere}
+.prospecting-raw-review__dialog-card>header button{background:transparent;border:0;color:inherit}
+.prospecting-raw-review__form{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin:18px 0}
+.prospecting-raw-review__form label{display:flex;flex-direction:column;gap:6px;font-size:12px}
+.prospecting-raw-review__form .is-wide{grid-column:1/-1}
+.prospecting-raw-review__form input,.prospecting-raw-review__form textarea{border:1px solid var(--border,#d8dfeb);border-radius:8px;padding:10px;background:transparent;color:inherit;min-width:0}
+.prospecting-raw-review__form textarea{min-height:74px}
+.prospecting-raw-review__dialog-card footer{display:flex;justify-content:flex-end;gap:10px}
+@media(max-width:740px){.prospecting-raw-review__header{flex-direction:column}.prospecting-raw-review__form{grid-template-columns:1fr}.prospecting-raw-review__grid{grid-template-columns:1fr}}

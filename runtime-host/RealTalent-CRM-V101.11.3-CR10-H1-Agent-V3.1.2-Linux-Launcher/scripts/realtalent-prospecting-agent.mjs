@@ -5,6 +5,7 @@ import path from 'node:path'
 import os from 'node:os'
 import { spawn, spawnSync } from 'node:child_process'
 import { randomUUID, timingSafeEqual } from 'node:crypto'
+import { adaptiveQueryPriority, captureAdaptiveCounters, emptyAdaptiveLearning, getAdaptiveMetric, normalizeAdaptiveLearning, recordAdaptiveRun, shouldSkipAdaptiveQuery, shouldStopAdaptiveSource, shouldSubdivideAdaptiveCell } from './realtalent-prospecting-adaptive-learning.mjs'
 
 const VERSION = '101.10.4'
 const H21_RUNTIME_VERSION = '101.11.3-H21.1'
@@ -38,6 +39,7 @@ const MIN_SUBDIVISION_AREA_KM2 = Math.max(0.05, Number(process.env.REALTALENT_MI
 const DENSE_CELL_THRESHOLD = Math.max(20, Number(process.env.REALTALENT_DENSE_CELL_THRESHOLD || 80))
 const SATURATION_WINDOW = 6
 const COVERAGE_EXPANSION_VERSION = '21.1.0'
+const ADAPTIVE_SEARCH_VERSION = '4.2'
 const COVERAGE_HINT_LIMIT = Math.max(4, Math.min(24, Number(process.env.REALTALENT_COVERAGE_HINT_LIMIT || 12)))
 const ENRICHMENT_TASK_IDS = ['website', 'contacts', 'cnpj', 'social']
 const ENRICHMENT_TASK_MAX_ATTEMPTS = { website: 3, contacts: 3, cnpj: 3, social: 2 }
@@ -150,6 +152,7 @@ const emptyRuntimeTruth = (runId = '') => ({
   currentQuery: '',
   sourceStates: { osmExact: 'pending', osmCoverage: 'pending', web: WEB_SEARCH_ENABLED ? 'pending' : 'disabled', enrichment: 'pending' },
   counters: { discovered: 0, accepted: 0, ready: 0, attention: 0, rejectedCategory: 0, rejectedLocation: 0, duplicates: 0, queries: 0 },
+  learning: emptyAdaptiveLearning(),
   events: [],
 })
 const runtimePhaseLabels = {
@@ -162,6 +165,7 @@ function ensureRuntimeTruth(job) {
   job.runtime.events = Array.isArray(job.runtime.events) ? job.runtime.events.slice(-80) : []
   job.runtime.sourceStates = { ...emptyRuntimeTruth(job.id).sourceStates, ...(job.runtime.sourceStates || {}) }
   job.runtime.counters = { ...emptyRuntimeTruth(job.id).counters, ...(job.runtime.counters || {}) }
+  job.runtime.learning = normalizeAdaptiveLearning(job.runtime.learning)
   return job.runtime
 }
 function syncRuntimeCounters(job) {
@@ -189,6 +193,10 @@ function appendRuntimeEvent(job, type, message, meta = {}) {
   runtime.events.push({ id: randomUUID(), type, message: normalizedMessage, at: now(), ...meta })
   runtime.events = runtime.events.slice(-80)
   return runtime
+}
+function emitAdaptiveDecisions(job, outcome) {
+  for (const item of outcome?.decisions || []) appendRuntimeEvent(job, item.type, item.message, { adaptiveVersion: ADAPTIVE_SEARCH_VERSION, scope: item.scope, key: item.key, metrics: item.metrics })
+  return outcome
 }
 function setRuntimePhase(job, phase, message = '', sourceKey = '') {
   const runtime = ensureRuntimeTruth(job)
@@ -264,6 +272,7 @@ function normalizeAgentJob(job) {
       mapPolygon: sanitizeMapPolygon(job.input?.mapPolygon),
       searchCenter: Number.isFinite(Number(job.input?.searchCenter?.lat)) && Number.isFinite(Number(job.input?.searchCenter?.lon))
         ? { lat: Number(job.input.searchCenter.lat), lon: Number(job.input.searchCenter.lon) } : null,
+      semanticPlan: job.input?.semanticPlan && typeof job.input.semanticPlan === 'object' ? job.input.semanticPlan : null,
     },
     stats: { discovered: 0, unique: 0, duplicates: 0, websitesVisited: 0, queries: 0, withPhone: 0, withEmail: 0, withInstagram: 0, withWebsite: 0, withCnpj: 0, webDocuments: 0, webPlaceCandidates: 0, webRejectedDocuments: 0, scopeRejectedCategory: 0, scopeRejectedLocation: 0, scopeRejectedOther: 0, ...(job.stats || {}) },
     plan: {
@@ -272,6 +281,7 @@ function normalizeAgentJob(job) {
       cells: Array.isArray(job.plan?.cells) ? job.plan.cells.map((cell) => decorateTerritoryCell(cell, job.plan?.geometry || null)) : [],
       providerRuns: Array.isArray(job.plan?.providerRuns) ? job.plan.providerRuns : [],
       geometry: job.plan?.geometry || null,
+      semanticPlan: job.plan?.semanticPlan || job.input?.semanticPlan || null,
       plannedAt: job.plan?.plannedAt || null,
     },
     coverage: (() => {
@@ -313,6 +323,7 @@ function normalizeAgentJob(job) {
       runtime.events = Array.isArray(runtime.events) ? runtime.events.slice(-80) : []
       runtime.sourceStates = { ...emptyRuntimeTruth(job.id).sourceStates, ...(runtime.sourceStates || {}) }
       runtime.counters = { ...emptyRuntimeTruth(job.id).counters, ...(runtime.counters || {}) }
+      runtime.learning = normalizeAdaptiveLearning(runtime.learning)
       return runtime
     })(),
     results: Array.isArray(job.results) ? job.results.map(normalizeCandidateEnrichment) : [],
@@ -2022,7 +2033,11 @@ async function reprocessEnrichmentTask(job, candidateId, taskId) {
 
 async function buildSearchPlan(job) {
   job.plan.ontology = buildSearchOntologyPlan(job.input.segment)
-  job.plan.expandedQueries = job.input.categoryMode === 'related' ? job.plan.ontology.webTerms : uniqueTerms([job.input.segment, ...(job.plan.ontology.strictTerms || [])], 10)
+  const semanticPlan = job.input.semanticPlan && typeof job.input.semanticPlan === 'object' ? job.input.semanticPlan : null
+  const semanticQueries = Array.isArray(semanticPlan?.queries) ? semanticPlan.queries.map(clean).filter(Boolean) : []
+  const deterministicQueries = job.input.categoryMode === 'related' ? job.plan.ontology.webTerms : [job.input.segment, ...(job.plan.ontology.strictTerms || [])]
+  job.plan.semanticPlan = semanticPlan
+  job.plan.expandedQueries = uniqueTerms([job.input.segment, ...semanticQueries, ...deterministicQueries], 12)
   job.plan.cells = []
   job.plan.providerRuns = []
   job.plan.geometry = null
@@ -2091,6 +2106,7 @@ async function runOsmCell(job, cell, seen) {
   await saveState()
 
   const before = job.results.length
+  const adaptiveBefore = captureAdaptiveCounters(job)
   let exactElements = []
   let coverageElements = []
   try {
@@ -2157,6 +2173,8 @@ async function runOsmCell(job, cell, seen) {
     await sleep(TEST_MODE ? 1 : 45)
   }
   const added = job.results.length - before
+  const adaptiveOutcome = recordAdaptiveRun(job, { query: job.input.segment, source: 'openstreetmap', cellId: cell.id, region: cell.region, discovered: elements.length, explicitQuery: true }, adaptiveBefore, captureAdaptiveCounters(job))
+  emitAdaptiveDecisions(job, adaptiveOutcome)
   cell.uniqueResultsFound = added
   cell.density = bboxAreaKm2(cell.bbox || { south: 0, north: 1, west: 0, east: 1 }) > 0 ? Math.round(elements.length / Math.max(0.1, bboxAreaKm2(cell.bbox || { south: 0, north: 1, west: 0, east: 1 })) * 10) / 10 : elements.length
 
@@ -2164,7 +2182,8 @@ async function runOsmCell(job, cell, seen) {
   const canSubdivideByDepth = cell.level < MAX_SUBDIVISION_LEVEL
   const canSubdivideByArea = Number(cell.searchAreaKm2 || cell.areaKm2 || 0) >= MIN_SUBDIVISION_AREA_KM2 * 4
   const canSubdivideByLimit = leafCount + 3 <= MAX_SEARCH_CELLS
-  if (cell.mode === 'bbox' && exactElements.length >= DENSE_CELL_THRESHOLD && canSubdivideByDepth && canSubdivideByArea && canSubdivideByLimit && !shouldStopForTarget(job)) {
+  const adaptiveCellHot = shouldSubdivideAdaptiveCell(job, cell.id)
+  if (cell.mode === 'bbox' && (exactElements.length >= DENSE_CELL_THRESHOLD || adaptiveCellHot) && canSubdivideByDepth && canSubdivideByArea && canSubdivideByLimit && !shouldStopForTarget(job)) {
     const territoryPolygon = job.plan?.geometry?.polygon || []
     const children = splitBBox(cell.bbox, 2, 2, cell.id, cell.level + 1, 'subcell')
       .filter((child) => territoryPolygon.length < 3 || bboxIntersectsPolygon(child.bbox, territoryPolygon))
@@ -2198,10 +2217,25 @@ async function runWebPlanner(job, seen) {
   if (!WEB_SEARCH_ENABLED || shouldStopForTarget(job)) return
   const seenWebDocuments = new Set()
   for (const region of job.input.regions) {
-    for (const term of job.plan.expandedQueries) {
+    const pending = [...job.plan.expandedQueries]
+    while (pending.length) {
       await waitIfPaused(job)
       if (shouldStopForTarget(job)) return
+      if (shouldStopAdaptiveSource(job, 'web')) {
+        appendRuntimeEvent(job, 'stopped_low_yield', 'Busca web interrompida cedo porque o rendimento desta fonte ficou baixo ou dominado por duplicidades.', { provider: 'web', adaptiveVersion: ADAPTIVE_SEARCH_VERSION })
+        return
+      }
+      pending.sort((a, b) => adaptiveQueryPriority(job, b, job.input.segment) - adaptiveQueryPriority(job, a, job.input.segment))
+      const term = pending.shift()
+      if (!term) continue
+      if (shouldSkipAdaptiveQuery(job, term, job.input.segment)) {
+        appendRuntimeEvent(job, 'adaptive_skip', `Consulta “${term}” foi pulada após rendimento insuficiente nas tentativas anteriores.`, { provider: 'web', query: term, region, adaptiveVersion: ADAPTIVE_SEARCH_VERSION })
+        continue
+      }
       const before = job.results.length
+      const adaptiveBefore = captureAdaptiveCounters(job)
+      let adaptiveDiscovered = 0
+      let completedAdaptiveRun = false
       job.progress.currentRegion = region
       job.progress.currentSource = 'Busca web pública'
       job.progress.currentUrl = ''
@@ -2213,6 +2247,8 @@ async function runWebPlanner(job, seen) {
         job.stats.queries += 1
         const limit = job.input.searchMode === 'fast' ? 10 : job.input.searchMode === 'economy' ? 14 : 24
         const results = await searchWeb(term, region, limit)
+        adaptiveDiscovered = results.length
+        completedAdaptiveRun = true
         job.stats.discovered += results.length
         job.stats.webDocuments = Number(job.stats.webDocuments || 0) + results.length
         let acceptedPlaces = 0
@@ -2221,7 +2257,7 @@ async function runWebPlanner(job, seen) {
           await waitIfPaused(job)
           if (shouldStopForTarget(job)) break
           const documentKey = clean(result.url).replace(/#.*$/, '').replace(/\/$/, '').toLowerCase()
-          if (documentKey && seenWebDocuments.has(documentKey)) continue
+          if (documentKey && seenWebDocuments.has(documentKey)) { job.stats.duplicates += 1; continue }
           if (documentKey) seenWebDocuments.add(documentKey)
           const classified = await webPlaceDraft(result, region, job)
           if (!classified.draft) {
@@ -2251,6 +2287,13 @@ async function runWebPlanner(job, seen) {
         job.warnings.push(message)
         job.plan.providerRuns.push({ provider: 'web', cellId: null, query: term, intentId: job.plan.ontology?.intentId || 'generic', region, startedAt: now(), status: 'failed', error: message, results: 0 })
         appendRuntimeEvent(job, 'warning', message, { provider: 'web', query: term, region })
+      }
+      if (completedAdaptiveRun) {
+        const outcome = recordAdaptiveRun(job, { query: term, source: 'web', region, discovered: adaptiveDiscovered, explicitQuery: normalize(term) === normalize(job.input.segment) }, adaptiveBefore, captureAdaptiveCounters(job))
+        emitAdaptiveDecisions(job, outcome)
+        const lastRun = job.plan.providerRuns[job.plan.providerRuns.length - 1]
+        const metric = getAdaptiveMetric(job, 'query', term)
+        if (lastRun?.provider === 'web' && lastRun.query === term && metric) Object.assign(lastRun, { adaptiveYieldRate: metric.yieldRate, adaptiveQualityRate: metric.qualityRate, adaptiveState: metric.state })
       }
       const added = job.results.length - before
       recordCoverageRun(job, added)
@@ -2443,6 +2486,7 @@ function createJob(input, source = 'manual') {
       mapPolygon: sanitizeMapPolygon(input.mapPolygon),
       searchCenter: Number.isFinite(Number(input.searchCenter?.lat)) && Number.isFinite(Number(input.searchCenter?.lon))
         ? { lat: Number(input.searchCenter.lat), lon: Number(input.searchCenter.lon) } : null,
+      semanticPlan: input.semanticPlan && typeof input.semanticPlan === 'object' ? input.semanticPlan : null,
     },
     options: {
       enrichWeb: input.enrichWeb !== false,
@@ -2458,7 +2502,7 @@ function createJob(input, source = 'manual') {
     progress: { found: 0, currentRegion: '', currentSource: '', currentUrl: '' },
     stats: { discovered: 0, unique: 0, duplicates: 0, websitesVisited: 0, queries: 0, withPhone: 0, withEmail: 0, withInstagram: 0, withWebsite: 0, withCnpj: 0, webDocuments: 0, webPlaceCandidates: 0, webRejectedDocuments: 0, scopeRejectedCategory: 0, scopeRejectedLocation: 0, scopeRejectedOther: 0 },
     rejections: [],
-    plan: { expandedQueries: [], ontology: buildSearchOntologyPlan(input.segment), cells: [], providerRuns: [], geometry: null, plannedAt: null },
+    plan: { expandedQueries: [], ontology: buildSearchOntologyPlan(input.segment), cells: [], providerRuns: [], geometry: null, semanticPlan: input.semanticPlan && typeof input.semanticPlan === 'object' ? input.semanticPlan : null, plannedAt: null },
     coverage: emptyCoverage(),
     processing: emptyProcessing(),
     reviewStream: { revision: 0, acknowledgedRevision: 0, readyCandidates: 0, lastPublishedAt: null, lastAcknowledgedAt: null },

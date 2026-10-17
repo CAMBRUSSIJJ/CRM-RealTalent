@@ -85,6 +85,9 @@ jobs:
       - name: Prospecting Intelligence regression
         run: npx vitest run src/services/prospecting-data-layer.test.ts src/services/prospecting-intelligence.test.ts src/services/prospecting-search-automation.test.ts
 
+      - name: Garimpo Adaptive Search Learning 4.2 smoke
+        run: node scripts/v101_11_3_h23_2_adaptive_search_learning_smoke.mjs
+
       - name: Typecheck
         run: npm run typecheck
 

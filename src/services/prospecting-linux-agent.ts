@@ -17,6 +17,9 @@ export interface ProspectingEnrichmentTask { id: ProspectingEnrichmentTaskId; st
 export interface ProspectingGeoPoint { lat: number; lon: number }
 export interface ProspectingTerritoryPreview { region: string; displayName: string; center: ProspectingGeoPoint; bbox: { south: number; north: number; west: number; east: number } }
 export interface ProspectingSemanticPlan { intent: string; queries: string[]; exclusions: string[]; planner: string }
+export interface ProspectingAdaptiveMetric { attempts: number; discovered: number; accepted: number; rejected: number; duplicates: number; ready: number; attention: number; yieldRate: number; duplicateRate: number; qualityRate: number; score: number; state: 'learning' | 'low_yield' | 'duplicate_heavy' | 'high_yield'; lastRunAt: string | null }
+export interface ProspectingAdaptiveDecision { id: string; signature: string; type: string; scope: 'query' | 'source' | 'cell'; key: string; message: string; at: string; metrics: { yieldRate: number; duplicateRate: number; qualityRate: number; score: number; discovered: number; accepted: number } }
+export interface ProspectingAdaptiveLearning { version: string; perQuery: Record<string, ProspectingAdaptiveMetric>; perSource: Record<string, ProspectingAdaptiveMetric>; perCell: Record<string, ProspectingAdaptiveMetric>; bestQuery: string | null; bestSource: string | null; adaptations: ProspectingAdaptiveDecision[] }
 
 export interface ProspectingAgentHealth {
   ok: boolean
@@ -154,6 +157,7 @@ export interface ProspectingAgentJob {
     currentQuery: string
     sourceStates: Record<string, string>
     counters: { discovered: number; accepted: number; ready: number; attention: number; rejectedCategory: number; rejectedLocation: number; duplicates: number; queries: number }
+    learning?: ProspectingAdaptiveLearning
     events: Array<{ id: string; type: string; message: string; at: string; [key: string]: unknown }>
   }
   clientImportedAt: string | null

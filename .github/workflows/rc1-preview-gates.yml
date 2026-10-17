@@ -3,6 +3,7 @@ on:
   push:
     branches:
       - release/rc1-preview-foundation
+      - release/rc1-h1-persistence-safety
   pull_request:
     branches:
       - preview/v3.5-h1-semantic-agent
@@ -25,4 +26,6 @@ jobs:
       - run: node scripts/rc1-preview-gate.mjs
       - run: npm run qa:prospecting:functional
       - run: node scripts/prospecting-human-review-audit.mjs
+      - run: node scripts/rc1-h1-persistence-gate.mjs
+      - run: npm test -- --reporter=dot
       - run: npx vite build

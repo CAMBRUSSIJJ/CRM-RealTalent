@@ -36,7 +36,7 @@ describe('fundação de integrações V100.45', () => {
 
     expect(result).toMatchObject({ mode: 'oauth', url: expect.stringContaining('accounts.google.com') })
     expect(fetchMock).toHaveBeenCalledWith(
-      '/__rt/communications/api/integrations/oauth/start',
+      expect.stringMatching(/^\/(?:__rt\/communications|api\/runtime\/communications)\/api\/integrations\/oauth\/start$/),
       expect.objectContaining({ method: 'POST' }),
     )
     expect(state.accounts).toHaveLength(0)

@@ -64,26 +64,27 @@ describe('Prospecting Search Automation V101.10.1', () => {
     expect(result.stoppedReason).toBe('target_reached')
   })
 
-  it('aceita plano refinado pela Agent e mantém fallback saneado', async () => {
+  it('aceita plano refinado pela Agent sem substituir o pedido explícito do usuário', async () => {
     let planned = 0
     const queries: string[] = []
-    const result = await runProspectingSearchAutomation({ workspaceId: 'ws', segment: 'Clínicas', city: 'Canoas, RS', query: 'implantes', targetQuantity: 1 }, {
+    const result = await runProspectingSearchAutomation({ workspaceId: 'ws', segment: 'Clínicas', city: 'Canoas, RS', query: 'implantes', targetQuantity: 2, maxRequests: 2 }, {
       planSearch: async (_input, baseline) => {
         planned += 1
-        return { ...baseline, source: 'ai', planner: 'openai:test', queries: [{ term: 'implantodontista particular', priority: 100, reason: 'Agent' }] }
+        return { ...baseline, source: 'ai', planner: 'openai:test', queries: [{ term: 'implantodontista particular', priority: 92, reason: 'Agent' }] }
       },
       search: async (input) => {
         queries.push(input.query)
         return {
           source: 'maps', provider: 'google_places', batchId: null, warnings: [], fetchedAt: new Date().toISOString(),
-          drafts: [draft('ai-1', 'Clínica Implante')], count: 1, nextPageToken: null,
+          drafts: queries.length === 1 ? [draft('ai-1', 'Clínica Implante')] : [draft('ai-2', 'Implantodontista Beta')], count: 1, nextPageToken: null,
         }
       },
     })
     expect(planned).toBe(1)
     expect(result.plan.source).toBe('ai')
     expect(result.plan.planner).toBe('openai:test')
-    expect(queries[0]).toBe('implantodontista particular')
+    expect(queries[0]).toBe('implantes')
+    expect(result.plan.queries.some((item) => item.term === 'implantodontista particular')).toBe(true)
   })
 
   it('abandona paginação de baixa qualidade e adapta para outra variação', async () => {

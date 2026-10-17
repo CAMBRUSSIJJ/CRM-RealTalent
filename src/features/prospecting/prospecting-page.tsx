@@ -42,6 +42,8 @@ import { usePreferences } from '../settings/preferences-context'
 import { useAuth } from '../auth/auth-context'
 import { requireExportApproval } from '../../services/team-governance'
 import { buildProspectingIcp, prospectingIcpSummary, rankProspects } from '../../services/prospecting-intelligence'
+import { ProspectingRedesignSearch, ProspectingRedesignShell } from './prospecting-redesign'
+import '../../styles/prospecting-redesign-v4.css'
 
  type ProspectingTab = 'search' | 'local' | 'results' | 'history'
  type ReviewMode = 'list' | 'guided'
@@ -838,49 +840,76 @@ export function ProspectingPage() {
   if (!snapshot || !currentWorkspace) return null
 
   return (
-    <div className="page-stack prospecting-page prospecting-page-h20">
-      <WorkspacePageHeader className="prospecting-page-header-h20" eyebrow="Prospecção territorial" icon={Sparkles} title="Garimpo" description="Encontre empresas em uma região, valide as melhores e leve somente o que faz sentido para sua operação comercial." actions={<><input ref={fileInputRef} type="file" accept=".csv,.json,text/csv,application/json" hidden onChange={(event) => { const file = event.target.files?.[0]; if (file) void importFile(file) }} />{canProspectingCreate ? <><Button variant="secondary" onClick={() => fileInputRef.current?.click()}><Upload size={16} /> Importar</Button><details className="prospecting-command-more-v101106 prospecting-command-more-h20"><summary aria-label="Mais ações"><MoreHorizontal size={18}/></summary><div><button type="button" disabled={!canProspectingExport} onClick={exportDataLayer}><Download size={15}/> Exportar Data Layer</button>{metrics.autoValidatable ? <button type="button" onClick={() => approveProspects(state.prospects.filter((item) => item.status !== 'approved' && prospectIsAutoValidatable(item)).map((item) => item.id))}><Check size={15}/> Aprovar auto-validáveis ({metrics.autoValidatable})</button> : null}</div></details><Button onClick={() => setTab('search')}><Plus size={17} /> Nova busca</Button></> : null}</>} />
+    <div className="page-stack prospecting-page prospecting-page-h20 prospecting-page-v4">
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept=".csv,.json,text/csv,application/json"
+        hidden
+        onChange={(event) => {
+          const file = event.target.files?.[0]
+          if (file) void importFile(file)
+        }}
+      />
 
-      <WorkspaceSummaryStrip className="prospecting-summary-strip-h20 prospecting-runtime-truth-summary-h21">
-        <WorkspaceSummaryMetric icon={Database} label={liveMetrics ? 'Encontradas agora' : 'Encontradas'} value={liveMetrics?.found ?? metrics.total} meta={liveMetrics ? `execução ${liveMetrics.runId.slice(0, 8)} · base total ${metrics.total}` : 'empresas no Garimpo'} />
-        <WorkspaceSummaryMetric icon={ShieldCheck} tone="success" label={liveMetrics ? 'Prontas agora' : 'Prontas'} value={liveMetrics?.ready ?? metrics.autoValidatable} meta={liveMetrics ? 'desta execução' : 'podem ser aprovadas em lote'} />
-        <WorkspaceSummaryMetric icon={AlertTriangle} tone={(liveMetrics?.attention ?? metrics.attention) ? 'warning' : 'neutral'} label="Precisam atenção" value={liveMetrics?.attention ?? metrics.attention} meta={liveMetrics ? `${liveMetrics.rejected} rejeitadas pelo escopo` : 'exceções para revisão humana'} />
-        <WorkspaceSummaryMetric icon={Search} label="Consultas" value={liveMetrics?.queries ?? 0} meta={liveMetrics ? liveMetrics.phase : 'inicie uma execução para acompanhar'} />
-        <WorkspaceSummaryMetric icon={Send} label="Base total" value={metrics.total} meta={`${metrics.sent} já enviada(s) ao CRM`} />
-      </WorkspaceSummaryStrip>
-
-      {prospectingIcp ? <ProspectingIntelligencePanel
-        icpSummary={prospectingIcpSummary(prospectingIcp)}
-        topSegment={prospectingIcp.segments[0]?.value ?? ''}
-        topCity={prospectingIcp.cities[0]?.value ?? ''}
-        ranked={prospectingRanking}
-        onUseIcp={() => { if (prospectingIcp.segments[0]?.value) setSegment(prospectingIcp.segments[0].value); if (prospectingIcp.cities[0]?.value) changeProspectingCity(prospectingIcp.cities[0].value); setTab('search') }}
-        onReview={(id) => { setProcessingId(id); setReviewMode('guided'); setTab('results') }}
-      /> : null}
-
-      <WorkspaceViewStrip className="prospecting-area-view-strip-h20" value={tab} onChange={setTab} ariaLabel="Áreas do Garimpo" items={[
-        { id: 'search', label: 'Buscar', icon: Search },
-        { id: 'local', label: 'Local', icon: MapPinned, badge: state.prospects.filter((item) => Boolean(prospectGeoPoint(item))).length },
-        { id: 'results', label: 'Revisar', icon: ClipboardList, badge: metrics.attention },
-        { id: 'history', label: 'Histórico', icon: History },
-      ] as const} />
-
-      {agentJob ? <CampaignStatusBar job={agentJob} baseTotal={metrics.total} busy={agentBusy} technicalOpen={showTechnical} onTechnical={() => setShowTechnical((value) => !value)} onLocal={() => setTab('local')} onReview={() => setTab('results')} onControl={(action) => void controlLinuxAgentSearch(action)} /> : null}
-      {showTechnical && agentJob ? <EngineProcessingWorkspace job={agentJob} busy={agentBusy} onRefresh={() => void refreshAgent()} onRetry={(candidateId, taskId) => void retryEnrichmentTask(candidateId, taskId)} onOpenReview={() => setTab('results')} /> : null}
-
-      {tab === 'search' ? <SearchWorkspace
-        readOnly={!canProspectingEdit}
-        source={source} segment={segment} city={city} query={query} quantity={quantity} quickCapture={quickCapture} universalCapture={universalCapture} lastSync={state.lastExtensionSyncAt}
-        diagnostics={providerDiagnostics} providerBusy={providerBusy} automationProgress={automationProgress} agentHealth={agentHealth} agentJob={agentJob} agentBusy={agentBusy} agentCadence={agentCadence}
-        areaMode={areaMode} radiusKm={radiusKm} searchMode={searchMode} targetMode={targetMode} categoryMode={categoryMode} mapPolygon={mapPolygon} mapPreview={mapPreview} searchCenter={searchCenter} mapPreviewBusy={mapPreviewBusy}
-        onSource={setSource} onSegment={setSegment} onCity={changeProspectingCity} onQuery={setQuery} onQuantity={setQuantity} onQuickCapture={setQuickCapture} onUniversalCapture={setUniversalCapture}
-        onAreaMode={setAreaMode} onRadiusKm={setRadiusKm} onSearchMode={setSearchMode} onTargetMode={setTargetMode} onCategoryMode={setCategoryMode} onMapPolygon={setMapPolygon} onSearchCenter={setSearchCenter} onLoadMap={() => void loadMapTerritory()}
-        onOpenSearch={openSearch} onProviderSearch={() => void runProviderSearch()} onAutomatedSearch={() => void runAutomatedSearch()} onCancelAutomation={cancelAutomatedSearch} onRefreshProviders={() => void refreshProviderDiagnostics()} onCapture={captureQuick} onUniversalSubmit={captureUniversal} onCopyBookmarklet={() => void copyBrowserCaptureBookmarklet()} onSyncExtension={syncExtension}
-        onAgentStart={() => void startLinuxAgentSearch()} onAgentControl={(action) => void controlLinuxAgentSearch(action)} onAgentCadence={setAgentCadence} onAgentRefresh={() => void refreshAgent()}
-      /> : null}
-
-      {tab === 'local' ? <LocalWorkspace prospects={state.prospects} job={agentJob} onOpenReview={(id) => { setProcessingId(id); setReviewScope('exceptions'); setReviewMode('guided'); setTab('results') }} /> : null}
-
+      <ProspectingRedesignShell
+        activeTab={tab === 'results' ? 'results' : tab === 'history' ? 'history' : 'search'}
+        reviewCount={metrics.attention}
+        sentCount={metrics.sent}
+        suggestionSegment={prospectingIcp?.segments[0]?.value ?? ''}
+        suggestionCity={prospectingIcp?.cities[0]?.value ?? ''}
+        canCreate={canProspectingCreate}
+        onImport={() => fileInputRef.current?.click()}
+        onNewSearch={() => {
+          setTab('search')
+          window.setTimeout(() => document.getElementById('prospecting-linux-segment')?.focus(), 0)
+        }}
+        onUseSuggestion={() => {
+          if (prospectingIcp?.segments[0]?.value) setSegment(prospectingIcp.segments[0].value)
+          if (prospectingIcp?.cities[0]?.value) changeProspectingCity(prospectingIcp.cities[0].value)
+          setTab('search')
+        }}
+        onSearchTab={() => setTab('search')}
+        onReviewTab={() => setTab('results')}
+        onCrm={() => setRoute('leads')}
+        onHistoryTab={() => setTab('history')}
+      >
+        {tab === 'search' || tab === 'local' ? <>
+          <ProspectingRedesignSearch
+            segment={segment}
+            city={city}
+            quantity={quantity}
+            categoryMode={categoryMode}
+            areaMode={areaMode}
+            radiusKm={radiusKm}
+            canEdit={canProspectingEdit}
+            agentBusy={agentBusy}
+            agentHealth={agentHealth}
+            job={agentJob}
+            baseTotal={metrics.total}
+            sentCount={metrics.sent}
+            readyCount={metrics.autoValidatable}
+            attentionCount={metrics.attention}
+            onSegment={setSegment}
+            onCity={changeProspectingCity}
+            onQuantity={setQuantity}
+            onCategoryMode={setCategoryMode}
+            onAreaMode={(value) => { setAreaMode(value); if (value !== 'map') setMapPolygon([]) }}
+            onRadiusKm={setRadiusKm}
+            onStart={() => void startLinuxAgentSearch()}
+            onControl={(action) => void controlLinuxAgentSearch(action)}
+            onDetails={() => setShowTechnical((value) => !value)}
+          />
+          {showTechnical && agentJob ? <div className="prospecting-redesign-v4__legacy-content">
+            <EngineProcessingWorkspace
+              job={agentJob}
+              busy={agentBusy}
+              onRefresh={() => void refreshAgent()}
+              onRetry={(candidateId, taskId) => void retryEnrichmentTask(candidateId, taskId)}
+              onOpenReview={() => setTab('results')}
+            />
+          </div> : null}
+        </> : null}
       {tab === 'results' ? <div className="prospecting-review-workspace-v101103-h7 prospecting-review-workspace-v101106">
         <section className="panel prospecting-review-modebar-v101103-h7 prospecting-review-modebar-v101106"><div><span className="eyebrow"><ClipboardCheck size={14} /> Revisão por exceção</span><h3>Revise somente o que exige decisão humana</h3><p>Empresas confiáveis ficam separadas para aprovação em lote; duplicidades, baixa confiança e dados divergentes aparecem primeiro.</p></div><div className="prospecting-review-modebar-v101106__actions"><div className="prospecting-review-scope-v101106">{([['exceptions', 'Precisa atenção', metrics.attention], ['ready', 'Prontas', metrics.autoValidatable], ['all', 'Todas', metrics.total]] as Array<[ReviewScope,string,number]>).map(([value,label,count]) => <button type="button" key={value} className={reviewScope === value ? 'is-active' : ''} onClick={() => { setReviewScope(value); setSelectedIds(new Set()) }}>{label}<span>{count}</span></button>)}</div><div className="prospecting-review-switch-v101103-h7"><button type="button" className={reviewMode === 'list' ? 'is-active' : ''} onClick={() => setReviewMode('list')}><ClipboardList size={15}/> Lista</button><button type="button" className={reviewMode === 'guided' ? 'is-active' : ''} onClick={() => setReviewMode('guided')}><Sparkles size={15}/> Guiada</button></div></div></section>
         {reviewMode === 'list' ? <ResultsWorkspace
@@ -897,6 +926,8 @@ export function ProspectingPage() {
       </div> : null}
       {tab === 'history' ? <HistoryWorkspace state={state} onExport={exportResults} /> : null}
 
+
+      </ProspectingRedesignShell>
       <SendToCrmModal open={canProspectingEdit && sendIds.length > 0} count={sendIds.length} stages={snapshot.stages} ownerOptions={(canProspectingAssign ? workspaceMembers : workspaceMembers.filter((member) => member.userId === currentUserId)).map((member) => ({ id: member.userId, name: member.displayName || member.email }))} loading={sending} onClose={() => setSendIds([])} onSubmit={sendToCrm} />
 
       {metrics.sent > 0 ? <section className="prospecting-footer-callout"><div><CheckCircle2 size={20} /><div><strong>Integração ativa com o CRM</strong><span>Empresas enviadas entram primeiro como CompanyRecord; pessoas identificadas viram ContactRecord. Oportunidades só são criadas quando você solicitar.</span></div></div><Button variant="secondary" onClick={() => setRoute('leads')}>Abrir Contatos <ArrowRight size={16} /></Button></section> : null}

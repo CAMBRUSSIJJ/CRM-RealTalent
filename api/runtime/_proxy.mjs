@@ -59,6 +59,8 @@ export async function proxyRuntime(req, res, service) {
     [config.header]: token,
     'x-realtalent-user-id': String(user.id),
   }
+  const protectionBypass = clean(process.env.VERCEL_AUTOMATION_BYPASS_SECRET)
+  if (service === 'prospecting' && protectionBypass) headers['x-vercel-protection-bypass'] = protectionBypass
   if (req.headers['content-type']) headers['content-type'] = String(req.headers['content-type'])
   if (req.headers['idempotency-key']) headers['idempotency-key'] = String(req.headers['idempotency-key'])
 

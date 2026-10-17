@@ -134,7 +134,7 @@ describe('Prospecting Search Automation V101.10.1', () => {
 
   it('deduplica resultados entre páginas antes de contar a meta', async () => {
     let calls = 0
-    const result = await runProspectingSearchAutomation({ workspaceId: 'ws', segment: 'Clínicas', city: 'Porto Alegre, RS', query: '', targetQuantity: 3 }, {
+    const result = await runProspectingSearchAutomation({ workspaceId: 'ws', segment: 'Clínicas', city: 'Canoas, RS', query: '', targetQuantity: 3 }, {
       search: async () => {
         calls += 1
         return {

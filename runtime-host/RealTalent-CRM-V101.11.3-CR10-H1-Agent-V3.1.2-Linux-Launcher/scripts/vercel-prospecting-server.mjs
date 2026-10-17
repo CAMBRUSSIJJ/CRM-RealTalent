@@ -10,7 +10,7 @@ const SANDBOX_PORT = 4319
 const TOKEN_FILE = '/vercel/.realtalent-prospecting/runtime-token'
 const STATE_DIR = '/vercel/.realtalent-prospecting/state'
 const AGENT_FILE = '/vercel/CRM-RealTalent/runtime-host/RealTalent-CRM-V101.11.3-CR10-H1-Agent-V3.1.2-Linux-Launcher/scripts/realtalent-prospecting-agent.mjs'
-const VERSION = 'prospecting-vercel-control-2.0.0'
+const VERSION = 'prospecting-vercel-control-2.0.1'
 const MAX_BODY = 1_200_000
 
 let runtimePromise = null
@@ -112,7 +112,7 @@ async function getRuntime({ refresh = false } = {}) {
 async function fetchAgent(path, init = {}, retry = true) {
   const runtime = await getRuntime()
   try {
-    return await fetch(`${runtime.baseUrl}${path.startsWith('/') ? path : `/${path}`}`, {
+    const response = await fetch(`${runtime.baseUrl}${path.startsWith('/') ? path : `/${path}`}`, {
       ...init,
       headers: {
         ...(init.headers || {}),
@@ -122,6 +122,12 @@ async function fetchAgent(path, init = {}, retry = true) {
       signal: init.signal || AbortSignal.timeout(55_000),
       cache: 'no-store',
     })
+    if (retry && [502, 503, 504].includes(response.status)) {
+      try { await response.body?.cancel() } catch {}
+      await getRuntime({ refresh: true })
+      return fetchAgent(path, init, false)
+    }
+    return response
   } catch (error) {
     if (!retry) throw error
     await getRuntime({ refresh: true })

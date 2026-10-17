@@ -135,15 +135,34 @@ export function readProspectingState(workspaceId: string): ProspectingState {
   } catch { return blankState() }
 }
 
-export function writeProspectingState(workspaceId: string, state: ProspectingState) {
+export function cacheProspectingStateLocally(workspaceId: string, state: ProspectingState) {
   safeStorage.setItem(storageKey(workspaceId), JSON.stringify(state))
-  scheduleRemoteSync(workspaceId, state)
+}
+
+export function writeProspectingState(workspaceId: string, state: ProspectingState) {
+  // Never mirror a partial user-scoped snapshot as a full workspace replacement.
+  const previous = readProspectingState(workspaceId)
+  cacheProspectingStateLocally(workspaceId, state)
+  scheduleRemoteSync(workspaceId, previous, state)
 }
 
 type ProspectRow = Database['public']['Tables']['prospecting_leads']['Row']
 type ProspectEventRow = Database['public']['Tables']['prospecting_events']['Row']
 const syncTimers = new Map<string, number>()
 const pendingSync = new Map<string, ProspectingState>()
+const remoteOperations = new Map<string, Promise<void>>()
+
+const enqueueRemoteOperation = (workspaceId: string, action: () => Promise<void>): Promise<void> => {
+  const previous = remoteOperations.get(workspaceId) ?? Promise.resolve()
+  const queued = previous.catch(() => undefined).then(action)
+  remoteOperations.set(workspaceId, queued)
+  void queued.then(() => {
+    if (remoteOperations.get(workspaceId) === queued) remoteOperations.delete(workspaceId)
+  }, () => {
+    if (remoteOperations.get(workspaceId) === queued) remoteOperations.delete(workspaceId)
+  })
+  return queued
+}
 
 const mapProspectRow = (row: ProspectRow): ProspectRecord => ({
   id: row.id, workspaceId: row.organization_id, createdBy: row.created_by ?? null, name: row.name, company: row.company, phone: row.phone, email: row.email, city: row.city,
@@ -175,24 +194,67 @@ const syncRemote = async (workspaceId: string, state: ProspectingState) => {
     raw_data: JSON.parse(JSON.stringify(item.rawData)) as Json, created_at: item.createdAt, updated_at: item.updatedAt, analyzed_at: item.analyzedAt, sent_at: item.sentAt,
   }))
   const historyRows: Database['public']['Tables']['prospecting_events']['Insert'][] = state.history.map((item) => ({ id: item.id, organization_id: workspaceId, action: item.action, title: item.title, description: item.description, item_count: item.count, created_at: item.createdAt }))
-  if (prospectRows.length) await client.from('prospecting_leads').upsert(prospectRows)
-  if (historyRows.length) await client.from('prospecting_events').upsert(historyRows)
-  const prospectIds = prospectRows.map((row) => row.id!).join(',')
-  const historyIds = historyRows.map((row) => row.id!).join(',')
-  if (prospectIds) await client.from('prospecting_leads').delete().eq('organization_id', workspaceId).not('id', 'in', `(${prospectIds})`)
-  else await client.from('prospecting_leads').delete().eq('organization_id', workspaceId)
-  if (historyIds) await client.from('prospecting_events').delete().eq('organization_id', workspaceId).not('id', 'in', `(${historyIds})`)
+  if (prospectRows.length) {
+    const { error } = await client.from('prospecting_leads').upsert(prospectRows)
+    if (error) throw error
+  }
+  if (historyRows.length) {
+    const { error } = await client.from('prospecting_events').upsert(historyRows)
+    if (error) throw error
+  }
+  // No workspace-wide DELETE here. Other users' records and unloaded pages are not missing data.
 }
 
-const scheduleRemoteSync = (workspaceId: string, state: ProspectingState) => {
+const uniqueById = <T extends { id: string }>(items: T[]): T[] => [...new Map(items.map((item) => [item.id, item])).values()]
+
+const scheduleRemoteSync = (workspaceId: string, previous: ProspectingState, state: ProspectingState) => {
   if (!getSupabaseClient()) return
-  pendingSync.set(workspaceId, state)
-  const existing = syncTimers.get(workspaceId); if (existing) window.clearTimeout(existing)
+  const before = new Map(previous.prospects.map((item) => [item.id, item]))
+  const beforeHistory = new Map(previous.history.map((item) => [item.id, item]))
+  const changed = state.prospects.filter((item) => JSON.stringify(before.get(item.id)) !== JSON.stringify(item))
+  const newEvents = state.history.filter((item) => JSON.stringify(beforeHistory.get(item.id)) !== JSON.stringify(item))
+  if (!changed.length && !newEvents.length) return
+  const pending = pendingSync.get(workspaceId)
+  pendingSync.set(workspaceId, {
+    ...state,
+    prospects: uniqueById([...(pending?.prospects ?? []), ...changed]),
+    history: uniqueById([...(pending?.history ?? []), ...newEvents]),
+  })
+  const existing = syncTimers.get(workspaceId)
+  if (existing) window.clearTimeout(existing)
   syncTimers.set(workspaceId, window.setTimeout(() => {
     syncTimers.delete(workspaceId)
-    const next = pendingSync.get(workspaceId); pendingSync.delete(workspaceId)
-    if (next) void syncRemote(workspaceId, next)
+    const next = pendingSync.get(workspaceId)
+    pendingSync.delete(workspaceId)
+    if (next) void enqueueRemoteOperation(workspaceId, () => syncRemote(workspaceId, next))
+      .catch((error) => console.error('[Garimpo] Falha ao sincronizar registros alterados:', error))
   }, 350))
+}
+
+/**
+ * Explicit record deletion. Never infer deletions from a filtered snapshot.
+ * Database row-level policies remain authoritative for the current user.
+ */
+export async function deleteProspectingRecords(workspaceId: string, selectedIds: string[]): Promise<void> {
+  const ids = [...new Set(selectedIds)].filter((id) => uuidPattern.test(id))
+  if (!workspaceId || !ids.length || ids.length !== new Set(selectedIds).size) throw new Error('Seleção de exclusão inválida.')
+  const client = getSupabaseClient()
+  if (!client) return // Local/demo workspaces are stored only in the browser.
+  const timer = syncTimers.get(workspaceId)
+  if (timer) window.clearTimeout(timer)
+  syncTimers.delete(workspaceId)
+  const pending = pendingSync.get(workspaceId)
+  pendingSync.delete(workspaceId)
+  if (pending) await enqueueRemoteOperation(workspaceId, () => syncRemote(workspaceId, pending))
+  await enqueueRemoteOperation(workspaceId, async () => {
+    const { data, error } = await client.from('prospecting_leads')
+      .delete().eq('organization_id', workspaceId).in('id', ids).select('id')
+    if (error) throw error
+    const deleted = new Set((data ?? []).map((item) => item.id))
+    if (ids.some((id) => !deleted.has(id))) {
+      throw new Error('A exclusão não foi confirmada para todos os registros. Verifique suas permissões e atualize a página.')
+    }
+  })
 }
 
 export function appendHistory(state: ProspectingState, workspaceId: string, item: Omit<ProspectingHistoryItem, 'id' | 'workspaceId' | 'createdAt'>): ProspectingState {

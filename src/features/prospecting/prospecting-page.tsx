@@ -20,7 +20,7 @@ import { APP_VERSION } from '../../lib/app-version'
 import {
   EXTENSION_MESSAGE_TYPE, appendHistory, buildBrowserCaptureBookmarklet, buildProspectingSearchUrl, captureDraftFromBrowserPayload, clearExtensionInbox, createProspect, parseProspectFile,
   parseQuickCaptureLines, parseUniversalCaptureInput, prospectCompleteness, prospectSourceLabels, prospectStatusLabels, readExtensionInbox,
-  readProspectingState, readRemoteProspectingState, refreshProspectAnalysis, writeProspectingState,
+  readProspectingState, readRemoteProspectingState, refreshProspectAnalysis, writeProspectingState, cacheProspectingStateLocally, deleteProspectingRecords,
   type CaptureDraft, type ProspectRecord, type ProspectSource, type ProspectStatus, type ProspectingState,
 } from '../../services/prospecting-workspace'
 import { recordLocalIntegrationEvent } from '../../services/integration-framework'
@@ -192,7 +192,7 @@ export function ProspectingPage() {
       const scopedRemote = { ...remote, prospects: remote.prospects.filter(prospectInScope), lastExtensionSyncAt: local.lastExtensionSyncAt,
         rawSourceDecisions: readProspectingState(workspaceId).rawSourceDecisions || local.rawSourceDecisions || {} }
       setState(scopedRemote)
-      if (canWrite) writeProspectingState(workspaceId, scopedRemote)
+      cacheProspectingStateLocally(workspaceId, scopedRemote)
     })
     setSelectedIds(new Set())
     return () => { cancelled = true }
@@ -681,9 +681,18 @@ export function ProspectingPage() {
   const removeProspects = async (ids: string[]) => {
     if (!canProspectingDelete) { notify('error','Seu perfil não permite excluir empresas do Garimpo.'); return }
     if (!await confirmAction({ title: `Remover ${ids.length} registro(s)?`, description: 'Os itens serão retirados da base de processamento do Garimpo.', confirmLabel: 'Remover registros', tone: 'danger' })) return
-    const idSet = new Set(ids)
-    commit((current) => appendHistory({ ...current, prospects: current.prospects.filter((item) => !idSet.has(item.id)) }, workspaceId, { action: 'delete', title: 'Registros removidos', description: 'Exclusão manual da base de processamento.', count: ids.length }))
-    setSelectedIds(new Set())
+    // Send only explicitly selected, visible IDs. Never propagate filtered snapshot absence as deletion.
+    const allowedIds = [...new Set(ids)].filter((id) => state.prospects.some((item) => item.id === id && prospectInScope(item)))
+    if (allowedIds.length !== new Set(ids).size) { notify('error', 'A seleção contém registros sem permissão de exclusão.'); return }
+    try {
+      await deleteProspectingRecords(workspaceId, allowedIds)
+      const idSet = new Set(allowedIds)
+      commit((current) => appendHistory({ ...current, prospects: current.prospects.filter((item) => !idSet.has(item.id)) }, workspaceId, { action: 'delete', title: 'Registros removidos', description: 'Exclusão manual da base de processamento.', count: allowedIds.length }))
+      setSelectedIds(new Set())
+      notify('success', 'Registros selecionados removidos com confirmação do servidor.')
+    } catch (error) {
+      notify('error', error instanceof Error ? error.message : 'Não foi possível confirmar a exclusão no Supabase.')
+    }
   }
 
   const approveProspects = (ids: string[]) => {

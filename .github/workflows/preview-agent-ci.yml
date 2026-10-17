@@ -19,6 +19,7 @@ on:
       - '.env.cr3.example'
       - 'supabase/config.toml'
       - 'supabase/migrations/**'
+      - 'supabase/migrations.lock.json'
       - 'supabase/seed.sql'
       - 'package.json'
       - 'package-lock.json'
@@ -62,6 +63,9 @@ jobs:
           grep -q "claim_lead_geocode_jobs" supabase/migrations/202610160003_v101_11_3_h22_6_security_definer_execute_hardening.sql
           grep -q "get_buyer_room_public" scripts/security_definer_anon_probe.mjs
           grep -q "\.supabase-local-status\.env" .gitignore
+
+      - name: Migration integrity
+        run: npm run migrations:verify
 
       - name: Login gate regression
         run: npm run qa:v101.11.1:h1

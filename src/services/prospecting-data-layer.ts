@@ -2,6 +2,17 @@ import type { ProspectRecord } from './prospecting-workspace'
 
 export type ProspectReadiness = 'ready' | 'review' | 'blocked'
 export type ProspectQualityDimension = 'identity' | 'contact' | 'origin' | 'coverage'
+export type ProspectEntityKind = 'business' | 'directory' | 'content' | 'unknown'
+export type ProspectEntityResolutionStatus = 'confirmed' | 'probable' | 'ambiguous' | 'rejected'
+
+export interface ProspectEntityResolution {
+  kind: ProspectEntityKind
+  status: ProspectEntityResolutionStatus
+  confidence: number
+  identityKey: string
+  evidence: string[]
+  issues: string[]
+}
 
 export interface ProspectQualityProfile {
   score: number
@@ -13,6 +24,20 @@ export interface ProspectQualityProfile {
   missingFields: string[]
   recommendedActions: string[]
   identityKey: string
+  entity: ProspectEntityResolution
+}
+
+export interface ProspectPipelineCounts {
+  discovered: number
+  identitiesConfirmed: number
+  contactable: number
+  withPhone: number
+  withWebsite: number
+  enriched: number
+  duplicates: number
+  ready: number
+  review: number
+  blocked: number
 }
 
 export interface ProspectDataLayerEnvelope {
@@ -36,6 +61,20 @@ const normalizedInstagram = (value: string) => value.trim().replace(/^https?:\/\
 const normalizedDomain = (value: string) => value.trim().replace(/^https?:\/\//i, '').replace(/^www\./i, '').split(/[/?#]/)[0].toLocaleLowerCase('pt-BR')
 const cnpjDigits = (value: string) => digits(value).slice(0, 14)
 const clamp = (value: number) => Math.max(0, Math.min(100, Math.round(value)))
+const rawText = (prospect: ProspectRecord, ...keys: string[]) => {
+  for (const key of keys) {
+    const value = prospect.rawData?.[key]
+    if (typeof value === 'string' && value.trim()) return value.trim()
+  }
+  return ''
+}
+const rawNumber = (prospect: ProspectRecord, ...keys: string[]) => {
+  for (const key of keys) {
+    const value = Number(prospect.rawData?.[key])
+    if (Number.isFinite(value)) return value
+  }
+  return null
+}
 
 export function prospectIdentityKey(prospect: ProspectRecord) {
   const cnpj = cnpjDigits(prospect.cnpj)
@@ -51,7 +90,54 @@ export function prospectIdentityKey(prospect: ProspectRecord) {
   return `entity:${company || 'unknown'}:${city || 'unknown'}`
 }
 
+export function resolveProspectEntity(prospect: ProspectRecord): ProspectEntityResolution {
+  const identityKey = prospectIdentityKey(prospect)
+  const evidence: string[] = []
+  const issues: string[] = []
+  const company = normalizedText(prospect.company || prospect.name)
+  const placeType = normalizedText(rawText(prospect, 'placeType', 'place_type', 'entityType', 'entity_type', 'resultType', 'result_type', 'type'))
+  const hasCnpj = cnpjDigits(prospect.cnpj).length === 14
+  const hasDomain = Boolean(normalizedDomain(prospect.website))
+  const hasPhone = digits(prospect.phone).length >= 10
+  const hasLocation = Boolean(prospect.city.trim() || prospect.address.trim() || (rawNumber(prospect, 'latitude', 'lat') !== null && rawNumber(prospect, 'longitude', 'lon', 'lng') !== null))
+  const hasTrace = Boolean(prospect.sourceDetail.trim()) || Object.keys(prospect.rawData ?? {}).length > 2
+
+  const directoryTypes = ['directory', 'catalog', 'listing', 'lista', 'guia']
+  const contentTypes = ['content', 'web document', 'web_document', 'article', 'post', 'news', 'document', 'pagina de conteudo']
+  const explicitBusinessTypes = ['physical place', 'physical_place', 'service business', 'service_business', 'business', 'company', 'establishment', 'local', 'store', 'shop', 'office']
+  const isDirectory = directoryTypes.some((item) => placeType === item || placeType.includes(item))
+  const isContent = contentTypes.some((item) => placeType === item || placeType.includes(item))
+  const explicitBusiness = explicitBusinessTypes.some((item) => placeType === item || placeType.includes(item))
+
+  if (isDirectory || isContent) {
+    issues.push(isDirectory ? 'Resultado representa um diretório/listagem, não uma empresa individual' : 'Resultado representa conteúdo/página web, não uma empresa individual')
+    return { kind: isDirectory ? 'directory' : 'content', status: 'rejected', confidence: 10, identityKey, evidence, issues }
+  }
+
+  let confidence = 0
+  if (company && prospect.name !== 'Lead sem nome') { confidence += 10; evidence.push('nome comercial identificado') }
+  if (hasCnpj) { confidence += 35; evidence.push('CNPJ válido disponível') }
+  if (hasDomain) { confidence += 20; evidence.push('domínio próprio identificado') }
+  if (hasPhone) { confidence += 15; evidence.push('telefone comercial utilizável') }
+  if (hasLocation) { confidence += 15; evidence.push('localização identificada') }
+  if (hasTrace) { confidence += 5; evidence.push('origem rastreável') }
+  if (explicitBusiness) { confidence += 15; evidence.push('fonte classificou como estabelecimento/empresa') }
+  confidence = clamp(confidence)
+
+  if (!company) issues.push('Nome comercial não confirmado')
+  if (!hasCnpj && !hasDomain && !hasPhone) issues.push('Sem identificador forte de empresa')
+  if (!hasLocation) issues.push('Localização não confirmada')
+
+  const kind: ProspectEntityKind = company && (explicitBusiness || hasCnpj || hasDomain || hasPhone || hasLocation) ? 'business' : 'unknown'
+  const status: ProspectEntityResolutionStatus = kind === 'business'
+    ? confidence >= 70 ? 'confirmed' : confidence >= 45 ? 'probable' : 'ambiguous'
+    : 'ambiguous'
+
+  return { kind, status, confidence, identityKey, evidence: [...new Set(evidence)], issues: [...new Set(issues)] }
+}
+
 export function prospectDataQuality(prospect: ProspectRecord): ProspectQualityProfile {
+  const entity = resolveProspectEntity(prospect)
   const hasCompany = Boolean(normalizedText(prospect.company || prospect.name)) && prospect.name !== 'Lead sem nome'
   const hasCnpj = cnpjDigits(prospect.cnpj).length === 14
   const hasLocation = Boolean(prospect.city.trim() || prospect.address.trim())
@@ -65,7 +151,7 @@ export function prospectDataQuality(prospect: ProspectRecord): ProspectQualityPr
   const hasTrace = Boolean(prospect.sourceDetail.trim()) || Object.keys(prospect.rawData ?? {}).length > 2
   const wasAnalyzed = Boolean(prospect.analyzedAt)
 
-  const identity = clamp((hasCompany ? 42 : 0) + (hasCnpj ? 38 : 0) + (hasLocation ? 20 : 0))
+  const identity = clamp((hasCompany ? 32 : 0) + (hasCnpj ? 28 : 0) + (hasLocation ? 15 : 0) + (entity.confidence * .25))
   const contact = clamp((hasPhone ? 45 : 0) + (hasEmail ? 20 : 0) + (hasInstagram ? 15 : 0) + (hasWebsite ? 20 : 0))
   const origin = clamp((hasSource ? 45 : 0) + (hasTrace ? 35 : 0) + (wasAnalyzed ? 20 : 0))
   const coverage = clamp(
@@ -74,15 +160,19 @@ export function prospectDataQuality(prospect: ProspectRecord): ProspectQualityPr
   )
 
   const duplicatePenalty = prospect.duplicateLevel === 'confirmed' ? 38 : prospect.duplicateLevel === 'possible' ? 14 : 0
-  const score = clamp((prospect.confidence * .32) + (identity * .25) + (contact * .23) + (origin * .1) + (coverage * .1) - duplicatePenalty)
+  const entityPenalty = entity.status === 'rejected' ? 45 : entity.status === 'ambiguous' ? 8 : 0
+  const score = clamp((prospect.confidence * .27) + (identity * .3) + (contact * .23) + (origin * .1) + (coverage * .1) - duplicatePenalty - entityPenalty)
   const blockers: string[] = []
   const warnings: string[] = []
   const missingFields: string[] = []
   const recommendedActions: string[] = []
 
+  if (entity.status === 'rejected') blockers.push('Resultado não representa uma empresa/local comercial individual')
   if (!hasCompany) { blockers.push('Identidade da empresa não confirmada'); missingFields.push('empresa') }
   if (!hasContact) { blockers.push('Nenhum canal de contato utilizável'); missingFields.push('telefone/e-mail/canal digital') }
   if (prospect.duplicateLevel === 'confirmed') blockers.push('Duplicidade confirmada com a base do CRM')
+  if (entity.status === 'ambiguous') warnings.push('Identidade empresarial ambígua; revisar antes de enviar ao CRM')
+  if (entity.status === 'probable') warnings.push('Empresa provável; faltam sinais para identidade plenamente confirmada')
   if (!hasLocation) { warnings.push('Localização ausente'); missingFields.push('cidade/endereço') }
   if (!hasCnpj) { warnings.push('CNPJ não validado'); missingFields.push('CNPJ') }
   if (!hasPhone) { warnings.push('Telefone comercial ausente ou incompleto'); missingFields.push('telefone') }
@@ -91,6 +181,8 @@ export function prospectDataQuality(prospect: ProspectRecord): ProspectQualityPr
   if (prospect.duplicateLevel === 'possible') warnings.push('Possível duplicidade exige decisão humana')
   if (!wasAnalyzed) warnings.push('Análise do Data Layer ainda não executada')
 
+  if (entity.status === 'rejected') recommendedActions.push('Descartar o conteúdo e continuar a descoberta por uma empresa real')
+  if (entity.status === 'ambiguous') recommendedActions.push('Resolver a identidade antes de criar registro no CRM')
   if (!hasCompany) recommendedActions.push('Confirmar razão social ou nome comercial')
   if (!hasContact) recommendedActions.push('Enriquecer telefone, e-mail, Instagram ou site')
   if (!hasCnpj) recommendedActions.push('Buscar CNPJ para fortalecer a identidade da conta')
@@ -107,11 +199,12 @@ export function prospectDataQuality(prospect: ProspectRecord): ProspectQualityPr
     readiness,
     label,
     dimensions: { identity, contact, origin, coverage },
-    blockers,
-    warnings,
+    blockers: [...new Set(blockers)],
+    warnings: [...new Set(warnings)],
     missingFields: Array.from(new Set(missingFields)),
     recommendedActions: Array.from(new Set(recommendedActions)),
-    identityKey: prospectIdentityKey(prospect),
+    identityKey: entity.identityKey,
+    entity,
   }
 }
 
@@ -160,4 +253,20 @@ export function prospectReadinessCounts(prospects: ProspectRecord[]) {
     counts[prospectDataQuality(prospect).readiness] += 1
     return counts
   }, { ready: 0, review: 0, blocked: 0 } as Record<ProspectReadiness, number>)
+}
+
+export function prospectPipelineCounts(prospects: ProspectRecord[]): ProspectPipelineCounts {
+  return prospects.reduce((counts, prospect) => {
+    if (prospect.status === 'discarded' || prospect.status === 'sent') return counts
+    const quality = prospectDataQuality(prospect)
+    counts.discovered += 1
+    if (quality.entity.status === 'confirmed') counts.identitiesConfirmed += 1
+    if (prospect.phone || prospect.email || prospect.instagram || prospect.website) counts.contactable += 1
+    if (digits(prospect.phone).length >= 10) counts.withPhone += 1
+    if (normalizedDomain(prospect.website)) counts.withWebsite += 1
+    if (prospect.analyzedAt && quality.dimensions.coverage >= 55) counts.enriched += 1
+    if (prospect.duplicateLevel !== 'none') counts.duplicates += 1
+    counts[quality.readiness] += 1
+    return counts
+  }, { discovered: 0, identitiesConfirmed: 0, contactable: 0, withPhone: 0, withWebsite: 0, enriched: 0, duplicates: 0, ready: 0, review: 0, blocked: 0 } as ProspectPipelineCounts)
 }

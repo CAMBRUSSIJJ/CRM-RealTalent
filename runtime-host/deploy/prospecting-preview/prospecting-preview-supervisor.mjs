@@ -9,16 +9,39 @@ const PORT = Number(process.env.PORT || 8080)
 const AGENT_PORT = Number(process.env.REALTALENT_PROSPECTING_INNER_PORT || 4319)
 const PRIMARY_TOKEN = String(process.env.REALTALENT_PROSPECTING_RUNTIME_TOKEN || '').trim()
 const PREVIEW_TOKEN = String(process.env.REALTALENT_PREVIEW_PROSPECTING_RUNTIME_TOKEN || '').trim()
+const SOURCE_SHA = String(process.env.REALTALENT_PROSPECTING_SOURCE_SHA || '').trim()
 const DATA_ROOT = process.env.REALTALENT_CLOUD_DATA_DIR || '/data'
 const STATE_DIR = path.join(DATA_ROOT, 'prospecting')
-const VERSION = 'prospecting-preview-1.0.0'
+const VERSION = 'prospecting-preview-1.1.0'
 
 if (PRIMARY_TOKEN.length < 24) {
   console.error('REALTALENT_PROSPECTING_RUNTIME_TOKEN é obrigatório (mín. 24 caracteres).')
   process.exit(1)
 }
+if (!/^[0-9a-f]{40}$/i.test(SOURCE_SHA)) {
+  console.error('REALTALENT_PROSPECTING_SOURCE_SHA é obrigatório e deve ser um SHA completo.')
+  process.exit(1)
+}
 
 fs.mkdirSync(STATE_DIR, { recursive: true })
+
+const runtimeFiles = [
+  ['runtime-host/RealTalent-CRM-V101.11.3-CR10-H1-Agent-V3.1.2-Linux-Launcher/scripts/realtalent-prospecting-agent.mjs', 'realtalent-prospecting-agent.mjs'],
+  ['runtime-host/RealTalent-CRM-V101.11.3-CR10-H1-Agent-V3.1.2-Linux-Launcher/scripts/realtalent-prospecting-adaptive-learning.mjs', 'realtalent-prospecting-adaptive-learning.mjs'],
+]
+
+async function ensureRuntimeFiles() {
+  const base = `https://raw.githubusercontent.com/CAMBRUSSIJJ/CRM-RealTalent/${SOURCE_SHA}`
+  for (const [sourcePath, localName] of runtimeFiles) {
+    const target = path.join(here, localName)
+    if (fs.existsSync(target)) continue
+    const response = await fetch(`${base}/${sourcePath}`, { signal: AbortSignal.timeout(15000) })
+    if (!response.ok) throw new Error(`bootstrap ${localName}: HTTP ${response.status}`)
+    await fs.promises.writeFile(target, Buffer.from(await response.arrayBuffer()))
+  }
+}
+
+await ensureRuntimeFiles()
 
 let shuttingDown = false
 const child = spawn(process.execPath, [path.join(here, 'realtalent-prospecting-agent.mjs')], {
@@ -105,11 +128,11 @@ async function ready() {
 const server = http.createServer(async (req, res) => {
   const pathname = new URL(String(req.url || '/'), `http://${req.headers.host || 'localhost'}`).pathname
   if (pathname === '/health') {
-    return sendJson(res, 200, { ok: true, status: 'ok', service: 'realtalent-prospecting-preview', version: VERSION, uptimeSeconds: Math.round(process.uptime()) })
+    return sendJson(res, 200, { ok: true, status: 'ok', service: 'realtalent-prospecting-preview', version: VERSION, sourceSha: SOURCE_SHA, uptimeSeconds: Math.round(process.uptime()) })
   }
   if (pathname === '/ready') {
     const agent = await ready()
-    return sendJson(res, agent.ok ? 200 : 503, { ok: agent.ok, status: agent.ok ? 'ready' : 'starting', service: 'realtalent-prospecting-preview', version: VERSION, agent })
+    return sendJson(res, agent.ok ? 200 : 503, { ok: agent.ok, status: agent.ok ? 'ready' : 'starting', service: 'realtalent-prospecting-preview', version: VERSION, sourceSha: SOURCE_SHA, agent })
   }
   if (pathname === '/prospecting' || pathname.startsWith('/prospecting/')) return proxy(req, res)
   return sendJson(res, 404, { ok: false, error: 'route_not_found' })

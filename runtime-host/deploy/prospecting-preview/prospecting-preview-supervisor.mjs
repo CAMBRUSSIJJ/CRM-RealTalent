@@ -10,9 +10,10 @@ const AGENT_PORT = Number(process.env.REALTALENT_PROSPECTING_INNER_PORT || 4319)
 const PRIMARY_TOKEN = String(process.env.REALTALENT_PROSPECTING_RUNTIME_TOKEN || '').trim()
 const PREVIEW_TOKEN = String(process.env.REALTALENT_PREVIEW_PROSPECTING_RUNTIME_TOKEN || '').trim()
 const SOURCE_SHA = String(process.env.REALTALENT_PROSPECTING_SOURCE_SHA || '').trim()
+const BOOT_SMOKE = process.env.REALTALENT_PROSPECTING_BOOT_SMOKE === '1'
 const DATA_ROOT = process.env.REALTALENT_CLOUD_DATA_DIR || '/data'
 const STATE_DIR = path.join(DATA_ROOT, 'prospecting')
-const VERSION = 'prospecting-preview-1.1.0'
+const VERSION = 'prospecting-preview-1.2.0'
 
 if (PRIMARY_TOKEN.length < 24) {
   console.error('REALTALENT_PROSPECTING_RUNTIME_TOKEN é obrigatório (mín. 24 caracteres).')
@@ -113,15 +114,103 @@ function proxy(req, res) {
   req.pipe(upstream)
 }
 
+async function agentFetch(pathname, init = {}) {
+  return fetch(`http://127.0.0.1:${AGENT_PORT}${pathname}`, {
+    ...init,
+    headers: {
+      accept: 'application/json',
+      'x-realtalent-prospecting-token': PRIMARY_TOKEN,
+      ...(init.body ? { 'content-type': 'application/json' } : {}),
+      ...(init.headers || {}),
+    },
+  })
+}
+
 async function ready() {
   try {
-    const response = await fetch(`http://127.0.0.1:${AGENT_PORT}/api/prospecting-agent/health`, {
-      headers: { 'x-realtalent-prospecting-token': PRIMARY_TOKEN },
-      signal: AbortSignal.timeout(2000),
-    })
+    const response = await agentFetch('/api/prospecting-agent/health', { signal: AbortSignal.timeout(2000) })
     return { ok: response.ok, status: response.status }
   } catch (error) {
     return { ok: false, error: String(error?.message || error) }
+  }
+}
+
+const smoke = {
+  enabled: BOOT_SMOKE,
+  state: BOOT_SMOKE ? 'pending' : 'disabled',
+  startedAt: null,
+  completedAt: null,
+  jobId: null,
+  resultCount: 0,
+  message: BOOT_SMOKE ? 'Aguardando motor.' : 'Smoke desativado.',
+}
+
+const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms))
+
+async function waitForAgent(maxMs = 30000) {
+  const deadline = Date.now() + maxMs
+  while (Date.now() < deadline) {
+    const status = await ready()
+    if (status.ok) return
+    await sleep(300)
+  }
+  throw new Error('Motor do Garimpo não ficou pronto para o smoke.')
+}
+
+async function runBootSmoke() {
+  if (!BOOT_SMOKE || smoke.state === 'running' || smoke.state === 'passed') return
+  smoke.state = 'running'
+  smoke.startedAt = new Date().toISOString()
+  smoke.message = 'Executando busca real isolada.'
+  try {
+    await waitForAgent()
+    const create = await agentFetch('/api/prospecting-agent/jobs', {
+      method: 'POST',
+      body: JSON.stringify({
+        workspaceId: 'runtime-smoke',
+        segment: 'restaurante',
+        regions: ['Porto Alegre, RS'],
+        targetMode: 'quantity',
+        targetQuantity: 1,
+        areaMode: 'radius',
+        radiusKm: 1,
+        searchMode: 'fast',
+        categoryMode: 'exact',
+        enrichWeb: false,
+        enrichCnpj: false,
+        browserFallback: false,
+        existingKeys: [],
+      }),
+      signal: AbortSignal.timeout(5000),
+    })
+    const created = await create.json().catch(() => ({}))
+    if (!create.ok || !created?.job?.id) throw new Error(`Criação do smoke falhou: HTTP ${create.status}`)
+    smoke.jobId = created.job.id
+
+    const deadline = Date.now() + 90000
+    while (Date.now() < deadline) {
+      const response = await agentFetch(`/api/prospecting-agent/jobs/${encodeURIComponent(smoke.jobId)}`, { signal: AbortSignal.timeout(5000) })
+      const payload = await response.json().catch(() => ({}))
+      const job = payload?.job
+      if (!response.ok || !job) throw new Error(`Leitura do smoke falhou: HTTP ${response.status}`)
+      smoke.resultCount = Array.isArray(job.results) ? job.results.length : Number(job.stats?.unique || 0)
+      smoke.message = String(job.message || job.status || 'Executando busca.')
+      if (job.status === 'completed') {
+        if (smoke.resultCount < 1) throw new Error('Busca real concluiu sem encontrar empresa válida.')
+        smoke.state = 'passed'
+        smoke.completedAt = new Date().toISOString()
+        console.log(`[prospecting-smoke] PASS job=${smoke.jobId} results=${smoke.resultCount} message=${smoke.message}`)
+        return
+      }
+      if (['failed', 'cancelled'].includes(job.status)) throw new Error(job.error || job.message || `Smoke ${job.status}`)
+      await sleep(500)
+    }
+    throw new Error('Smoke de busca excedeu 90 segundos.')
+  } catch (error) {
+    smoke.state = 'failed'
+    smoke.completedAt = new Date().toISOString()
+    smoke.message = String(error?.message || error)
+    console.error(`[prospecting-smoke] FAIL ${smoke.message}`)
   }
 }
 
@@ -134,12 +223,18 @@ const server = http.createServer(async (req, res) => {
     const agent = await ready()
     return sendJson(res, agent.ok ? 200 : 503, { ok: agent.ok, status: agent.ok ? 'ready' : 'starting', service: 'realtalent-prospecting-preview', version: VERSION, sourceSha: SOURCE_SHA, agent })
   }
+  if (pathname === '/smoke') {
+    if (!BOOT_SMOKE) return sendJson(res, 200, { ok: true, status: 'disabled', service: 'realtalent-prospecting-preview', smoke })
+    const status = smoke.state === 'passed' ? 200 : smoke.state === 'failed' ? 500 : 503
+    return sendJson(res, status, { ok: smoke.state === 'passed', status: smoke.state, service: 'realtalent-prospecting-preview', smoke })
+  }
   if (pathname === '/prospecting' || pathname.startsWith('/prospecting/')) return proxy(req, res)
   return sendJson(res, 404, { ok: false, error: 'route_not_found' })
 })
 
 server.listen(PORT, '0.0.0.0', () => {
   console.log(`RealTalent Prospecting Preview (${VERSION}) em 0.0.0.0:${PORT}`)
+  if (BOOT_SMOKE) void runBootSmoke()
 })
 
 function shutdown() {

@@ -81,6 +81,7 @@ interface ProspectingRedesignSearchProps {
   onStart(): void
   onControl(action: 'pause' | 'resume' | 'cancel'): void
   onDetails(): void
+  onInspect(mode: 'found' | 'ready' | 'attention' | 'raw' | 'filtered' | 'duplicates' | 'base' | 'sent'): void
 }
 
 const statusLabel: Record<ProspectingAgentJob['status'], string> = {
@@ -128,13 +129,20 @@ export function ProspectingRedesignSearch(props: ProspectingRedesignSearchProps)
         <p>{props.job?.stats.queries ?? 0} consultas · {sourceLabel}{semanticPlanner ? ` · plano IA ${semanticPlanner}` : ''}</p>
         <div className="prospecting-redesign-v4__now"><i/><span><strong>Agora:</strong> {currentActivity}{currentRegion ? ` · ${currentRegion}` : ''}</span></div>
         <div className="prospecting-redesign-v4__execution-metrics">
-          <div><strong>{found}</strong><span>Encontradas agora</span></div>
-          <div className="is-ready"><strong>{ready}</strong><span>Prontas agora</span></div>
-          <div className="is-attention"><strong>{attention}</strong><span>Precisam atenção</span></div>
+          <button type="button" onClick={() => props.onInspect('found')} title="Abrir empresas encontradas"><strong>{found}</strong><span>Encontradas agora</span></button>
+          <button type="button" className="is-ready" onClick={() => props.onInspect('ready')} title="Abrir empresas prontas"><strong>{ready}</strong><span>Prontas agora</span></button>
+          <button type="button" className="is-attention" onClick={() => props.onInspect('attention')} title="Abrir empresas que precisam revisão"><strong>{attention}</strong><span>Precisam atenção</span></button>
         </div>
-        <small>{raw} bruto(s) · {rejected} filtrado(s) · {duplicates} duplicidade(s) · <span aria-label="Base total">Base total {props.baseTotal}</span> · {props.sentCount} enviadas ao CRM</small>
+        <small className="prospecting-redesign-v4__drilldowns">
+          <button type="button" onClick={() => props.onInspect('raw')}>{raw} bruto(s)</button> ·
+          <button type="button" onClick={() => props.onInspect('filtered')}>{rejected} filtrado(s)</button> ·
+          <button type="button" onClick={() => props.onInspect('duplicates')}>{duplicates} duplicidade(s)</button> ·
+          <button type="button" onClick={() => props.onInspect('base')}>Base total {props.baseTotal}</button> ·
+          <button type="button" onClick={() => props.onInspect('sent')}>{props.sentCount} no CRM</button>
+        </small>
         <div className="prospecting-redesign-v4__execution-actions">
-          <button type="button" className="prospecting-redesign-v4__button" onClick={props.onDetails}>Ver detalhes</button>
+          <button type="button" className="prospecting-redesign-v4__button is-primary" onClick={() => props.onInspect('found')}>Ver empresas e dados</button>
+          <button type="button" className="prospecting-redesign-v4__button" onClick={props.onDetails}>Diagnóstico técnico</button>
           {props.job?.status === 'running' ? <button type="button" className="prospecting-redesign-v4__button" disabled={props.agentBusy} onClick={() => props.onControl('pause')}><Pause size={15}/> Pausar</button> : null}
           {props.job?.status === 'paused' ? <button type="button" className="prospecting-redesign-v4__button" disabled={props.agentBusy} onClick={() => props.onControl('resume')}><Play size={15}/> Continuar</button> : null}
           {active ? <button type="button" className="prospecting-redesign-v4__cancel" disabled={props.agentBusy} onClick={() => props.onControl('cancel')}>Cancelar</button> : null}

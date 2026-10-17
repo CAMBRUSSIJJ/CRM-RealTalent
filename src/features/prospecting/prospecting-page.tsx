@@ -38,6 +38,7 @@ import {
   getProspectingAgentHealth, listProspectingAgentJobs, previewProspectingTerritory, type ProspectingAgentCadence, type ProspectingAgentHealth, type ProspectingAgentJob,
   type ProspectingAreaMode, type ProspectingCategoryMode, type ProspectingEnrichmentTask, type ProspectingEnrichmentTaskId, type ProspectingGeoPoint, type ProspectingSearchMode, type ProspectingTargetMode, type ProspectingTerritoryPreview,
 } from '../../services/prospecting-linux-agent'
+import { ProspectingEvidenceExplorer, type ProspectingInspectorMode } from './prospecting-evidence-explorer'
 import { usePreferences } from '../settings/preferences-context'
 import { useAuth } from '../auth/auth-context'
 import { requireExportApproval } from '../../services/team-governance'
@@ -145,6 +146,7 @@ export function ProspectingPage() {
   const [reviewMode, setReviewMode] = useState<ReviewMode>('list')
   const [reviewScope, setReviewScope] = useState<ReviewScope>('exceptions')
   const [showTechnical, setShowTechnical] = useState(false)
+  const [inspectorMode, setInspectorMode] = useState<ProspectingInspectorMode | null>(null)
   const [bulkRetryBusy, setBulkRetryBusy] = useState(false)
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
   const [processingId, setProcessingId] = useState<string | null>(null)
@@ -345,6 +347,7 @@ export function ProspectingPage() {
     setMapPolygon([])
     setAgentJob(null)
     setShowTechnical(false)
+    setInspectorMode(null)
     setSelectedIds(new Set())
   }
 
@@ -944,7 +947,16 @@ export function ProspectingPage() {
             onStart={() => void startLinuxAgentSearch()}
             onControl={(action) => void controlLinuxAgentSearch(action)}
             onDetails={() => setShowTechnical((value) => !value)}
+            onInspect={(mode) => {
+              setInspectorMode(mode)
+              window.setTimeout(() => document.getElementById('prospecting-evidence-explorer')?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 50)
+            }}
           />
+          {inspectorMode ? <ProspectingEvidenceExplorer
+            job={agentJob} prospects={state.prospects} mode={inspectorMode}
+            onMode={setInspectorMode} onClose={() => setInspectorMode(null)}
+            onReview={() => setTab('results')}
+          /> : null}
           {showTechnical && agentJob ? <div className="prospecting-redesign-v4__legacy-content">
             <EngineProcessingWorkspace
               job={agentJob}

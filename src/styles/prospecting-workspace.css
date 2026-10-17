@@ -206,3 +206,39 @@
 .prospecting-redesign-v4__map-live-content>.prospecting-radius-planner-v101104,.prospecting-redesign-v4__map-live-content>.prospecting-territory-selector-v101103-h1{height:100%;min-height:536px}
 .prospecting-redesign-v4__map-live .prospecting-redesign-v4__map-status{position:static;border-radius:0;border:0;border-top:1px solid #e4e7ec;box-shadow:none;margin:0}
 .prospecting-redesign-v4__map-live .prospecting-redesign-v4__map-status.is-warning{background:#fff8e8;color:#8a4b08}
+
+/* Garimpo: dados primeiro, métricas clicáveis e fonte rastreável */
+.prospecting-redesign-v4__execution-metrics button { appearance:none; border:0; background:transparent; color:inherit; text-align:left; cursor:pointer; border-radius:9px; padding:4px 7px; min-width:0; }
+.prospecting-redesign-v4__execution-metrics button:hover,.prospecting-redesign-v4__execution-metrics button:focus-visible { background:rgba(55,91,220,.09); outline:2px solid rgba(55,91,220,.13); }
+.prospecting-redesign-v4__execution-metrics button strong,.prospecting-redesign-v4__execution-metrics button span {display:block;}
+.prospecting-redesign-v4__drilldowns button { border:0; padding:2px; background:none; color:inherit; cursor:pointer; text-decoration:underline; text-decoration-style:dotted; text-underline-offset:3px; }
+.prospecting-redesign-v4__drilldowns button:hover {color:#264bd3}
+.prospecting-evidence-explorer { background:var(--surface, #fff); border:1px solid var(--border, #dfe4ec); border-radius:15px; margin:16px 0 24px; padding:20px; min-width:0; }
+.prospecting-evidence-explorer__head {display:flex; justify-content:space-between; gap:16px; align-items:start;}
+.prospecting-evidence-explorer__head h2 {font-size:21px; margin:5px 0;}
+.prospecting-evidence-explorer__head p {font-size:13px; color:var(--text-muted,#667085); margin:0 0 15px;}
+.prospecting-evidence-explorer__head>button {background:transparent; border:1px solid #dde1eb; border-radius:8px; padding:8px; cursor:pointer;}
+.prospecting-evidence-explorer__tabs {display:flex; flex-wrap:wrap; gap:7px; margin:10px 0 16px;}
+.prospecting-evidence-explorer__tabs button {border:1px solid #d7deea; border-radius:8px; background:transparent; padding:8px 10px; cursor:pointer; font:inherit; font-size:12px;}
+.prospecting-evidence-explorer__tabs button.is-active {background:#274ed9; color:white; border-color:#274ed9;}
+.prospecting-evidence-explorer__tools {display:flex; flex-wrap:wrap; align-items:center; gap:12px; justify-content:space-between; margin-bottom:15px;}
+.prospecting-evidence-explorer__tools strong {font-size:13px;}
+.prospecting-evidence-explorer__tools label {display:flex; align-items:center; gap:8px; border:1px solid #d7deea; border-radius:8px; padding:8px 10px; min-width:220px;}
+.prospecting-evidence-explorer__tools input {border:0; outline:0; background:none; flex:1; min-width:100px;}
+.prospecting-evidence-explorer__tools>button,.prospecting-evidence-explorer footer button {display:flex; align-items:center; gap:7px; border:1px solid #d7deea; border-radius:8px; padding:9px 12px; background:transparent; cursor:pointer;}
+.prospecting-evidence-explorer__notice {padding:12px; background:#fff7e7; border:1px solid #edd6aa; border-radius:9px; font-size:13px;}
+.prospecting-evidence-explorer__empty {padding:28px; text-align:center; font-size:13px; color:var(--text-muted,#667085);}
+.prospecting-evidence-explorer__list {display:grid; grid-template-columns:repeat(auto-fit,minmax(min(100%,350px),1fr)); gap:12px; max-height:660px; overflow:auto; padding:2px;}
+.prospecting-evidence-explorer__item {border:1px solid #dfe4ec; border-radius:11px; padding:15px; overflow-wrap:anywhere; background:var(--surface, #fff);}
+.prospecting-evidence-explorer__item header {display:flex; align-items:start; justify-content:space-between; gap:8px;}
+.prospecting-evidence-explorer__item header strong {font-size:14px; display:block;}
+.prospecting-evidence-explorer__item header small {display:block; font-size:11px; color:var(--text-muted,#667085); margin-top:4px;}
+.prospecting-evidence-explorer__item a {display:inline-flex; align-items:center; gap:4px; color:#2851d0; font-size:12px;}
+.prospecting-evidence-explorer__item dl {display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:11px 15px; margin:17px 0 10px;}
+.prospecting-evidence-explorer__item dt {font-size:11px; color:var(--text-muted,#667085);}
+.prospecting-evidence-explorer__item dd {font-size:12px; margin:4px 0 0;}
+.prospecting-evidence-explorer__reason {font-size:12px; padding:8px; background:#fff7e7; border-radius:6px;}
+.prospecting-evidence-explorer__item details {font-size:12px; margin-top:10px;}
+.prospecting-evidence-explorer__item li {margin:7px 0;}
+.prospecting-evidence-explorer footer {margin-top:15px; display:flex; justify-content:flex-end;}
+@media(max-width:750px){.prospecting-evidence-explorer__item dl{grid-template-columns:1fr}.prospecting-evidence-explorer__tools label{width:100%}.prospecting-evidence-explorer__list{max-height:none}}

@@ -183,6 +183,7 @@ export interface ProspectingAgentJob {
     scopeRejectedLocation?: number
     scopeRejectedOther?: number
   }
+  sourceLog?: Array<{ type: 'raw' | 'candidate' | 'rejected' | 'duplicate'; name: string; url?: string; provider?: string; reason?: string; at: string }>
   rejections?: Array<{ name: string; source: string; type: string; reason: string; at: string }>
   createdAt: string
   startedAt: string | null

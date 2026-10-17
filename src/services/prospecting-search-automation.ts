@@ -6,6 +6,7 @@ import {
 } from './prospecting-provider-gateway'
 import {
   buildDeterministicProspectingSearchPlan,
+  planProspectingSearchWithAgent,
   prospectingSearchPlanSummary,
   sanitizeProspectingSearchPlan,
   verifyProspectingDraft,
@@ -148,9 +149,12 @@ export async function runProspectingSearchAutomation(
   })
 
   emit({ status: 'planning', message: `Interpretando a busca para até ${targetQuantity} oportunidade(s)…` })
-  if (options.planSearch) {
+  // Em execução real usamos a Agent uma única vez antes das consultas. Testes ou provedores
+  // injetados permanecem 100% determinísticos, evitando rede externa e mantendo reprodutibilidade.
+  const planner = options.planSearch ?? (options.search ? undefined : planProspectingSearchWithAgent)
+  if (planner) {
     try {
-      const aiPlan = await options.planSearch(planInput, baselinePlan)
+      const aiPlan = await planner(planInput, baselinePlan)
       plan = sanitizeProspectingSearchPlan(aiPlan, baselinePlan)
     } catch {
       warnings.add('A Agent não conseguiu refinar o plano nesta tentativa; a busca continuou com o planejador semântico local.')

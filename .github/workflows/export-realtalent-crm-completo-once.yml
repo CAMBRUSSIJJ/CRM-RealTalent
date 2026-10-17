@@ -1,0 +1,121 @@
+name: Build full RealTalent CRM ZIP
+on:
+  push:
+    branches:
+      - exports/realtalent-crm-completo-20261017
+    paths:
+      - .github/workflows/export-realtalent-crm-completo-once.yml
+permissions:
+  contents: write
+jobs:
+  package:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout tested source
+        uses: actions/checkout@v4
+        with:
+          ref: exports/realtalent-crm-completo-20261017
+          fetch-depth: 0
+      - name: Verify complete CRM build
+        run: |
+          npm ci --include=dev
+          npm run typecheck
+          node scripts/prospecting-human-review-audit.mjs
+          npm run qa:prospecting:functional
+          npx vite build
+      - name: Package the entire Vercel-ready source tree
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          import subprocess, zipfile, json, hashlib, os
+          from pathlib import Path
+          source_commit = '12f222e831c797f94b5a6111b7cae68c1e0be102'
+          files = subprocess.check_output(['git','ls-tree','-r','-z','--name-only',source_commit]).decode().split('\0')
+          excluded_dirs = ('downloads/', '.github/', '.preview-patches/', '.git/', 'dist/', 'node_modules/', '.vercel/', '.next/', 'coverage/')
+          excluded_names = {'.env', '.env.local', '.env.production', '.env.development'}
+          entries=[]
+          for name in files:
+              if not name or name.startswith(excluded_dirs) or any('/'+d in name for d in ('node_modules/', '.git/', 'dist/')):continue
+              basename=Path(name).name
+              if basename in excluded_names or (basename.startswith('.env.') and not basename.endswith('.example')):continue
+              if basename.endswith(('.pem','.p12','.pfx','.key')) or basename in ('id_rsa','id_ed25519'):continue
+              path=Path(name)
+              if not path.is_file():raise RuntimeError(f'Missing tracked source file: {name}')
+              entries.append(name)
+          required=['package.json','package-lock.json','index.html','vercel.json','vite.config.ts','api/runtime/_proxy.mjs','src/features/prospecting/prospecting-page.tsx','src/features/prospecting/prospecting-raw-source-review.tsx','src/features/prospecting/prospecting-evidence-explorer.tsx']
+          for name in required:assert name in entries, name
+          assert len(entries)>3000, f'Unexpected small export: {len(entries)}'
+          out=Path('downloads/RealTalent-CRM-COMPLETO-Preview-2026-10-17.zip')
+          out.parent.mkdir(parents=True,exist_ok=True)
+          instructions='''REAL TALENT CRM - PACOTE COMPLETO DE CODIGO-FONTE
+          =================================================
+          Versao de origem: 12f222e831c797f94b5a6111b7cae68c1e0be102
+          Ambiente: PREVIEW (branch de trabalho validada). Nao promove Production.
+          Inclui frontend CRM completo, src/, api/, public/, scripts/,
+          package.json, package-lock.json, vercel.json e runtime-host/.
+          Nao inclui node_modules, .git, builds anteriores, caches ou segredos.
+
+          PARA PUBLICAR EM PREVIEW NA VERCEL PELO DEBIAN:
+          1. Extraia este ZIP, por exemplo:
+             mkdir -p ~/RealTalent-CRM
+             unzip RealTalent-CRM-COMPLETO-Preview-2026-10-17.zip -d ~/RealTalent-CRM
+             cd ~/RealTalent-CRM
+          2. Instale Node.js 22 ou 24 e npm (se nao tiver).
+          3. Execute: npm ci
+          4. Execute: npm run typecheck
+          5. Conecte a pasta ao projeto EXISTENTE (nao abra outro por engano):
+             npx vercel login
+             npx vercel link
+             -> selecione a equipe e o projeto crm-real-talent
+          6. Confira as variaveis de ambiente do Preview na Vercel:
+             VITE_DATA_MODE=supabase
+             VITE_PUBLIC_APP_URL
+             VITE_SUPABASE_URL e chave PUBLICA (se usadas nesta base)
+             REALTALENT_AGENT_UPSTREAM_URL
+             REALTALENT_COMMUNICATIONS_UPSTREAM_URL
+             REALTALENT_PROSPECTING_UPSTREAM_URL
+             REALTALENT_AGENT_RUNTIME_TOKEN
+             REALTALENT_RUNTIME_TOKEN
+             REALTALENT_PROSPECTING_RUNTIME_TOKEN
+             NUNCA coloque os tokens reais no ZIP nem no navegador.
+          7. Execute: npx vercel deploy
+             Isso publica um novo PREVIEW; exige quota disponivel.
+          8. TESTE as funcoes reais apos o deploy.
+             Nao execute --prod enquanto nao concluir esses testes.
+
+          IMPORTANTE:
+          - O painel Garimpo usa um runtime/servico SEPARADO no Vercel Sandbox.
+            Este ZIP contem o codigo-fonte, mas nao provisiona automaticamente
+            o Sandbox, os dominios do runtime nem as configuracoes externas.
+          - A IA/Comunicações tambem dependem dos endpoints/credenciais externos.
+          - Subir apenas o frontend sem configurar esses serviços pode causar
+            'servico indisponivel' mesmo com deploy READY.
+          - A Vercel nao recebe esse ZIP fechado pelo fluxo normal de deploy:
+            EXTRAIA os arquivos e publique a pasta via CLI ou GitHub.
+          - Se receber 402 api-deployments-free-per-day, aguarde a liberacao
+            da quota da equipe ou resolva o limite no painel da Vercel.
+          - Production fica intocada ate voce optar explicitamente por promovê-la.
+          '''
+          manifest={'source_commit':source_commit,'tracked_source_files':len(entries),
+            'archive_version':'2026-10-17 Garimpo Human Review',
+            'sha256_by_file':{name:hashlib.sha256(Path(name).read_bytes()).hexdigest() for name in entries}}
+          with zipfile.ZipFile(out,'w',zipfile.ZIP_DEFLATED,compresslevel=8,allowZip64=True) as z:
+              for name in entries:z.write(name,name)
+              z.writestr('LEIA-ME-PUBLICAR-NO-VERCEL.txt',instructions)
+              z.writestr('MANIFESTO-CRM-COMPLETO.json',json.dumps(manifest,ensure_ascii=False,indent=2))
+          with zipfile.ZipFile(out) as z:
+              assert z.testzip() is None
+              for name in required:assert name in z.namelist()
+              assert 'node_modules/' not in '\n'.join(z.namelist())
+          print('FULL ZIP:',out,'size bytes:',out.stat().st_size,'tracked files:',len(entries))
+          assert out.stat().st_size<95_000_000, 'Archive too big for GitHub file download; upload as workflow artifact instead'
+          PY
+      - name: Commit standalone ZIP and remove temporary workflow
+        shell: bash
+        run: |
+          rm -f .github/workflows/export-realtalent-crm-completo-once.yml
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "build(export): complete RealTalent CRM source ZIP for Vercel"
+          git push origin HEAD:exports/realtalent-crm-completo-20261017

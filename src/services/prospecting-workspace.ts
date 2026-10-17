@@ -55,6 +55,8 @@ export interface ProspectingState {
   prospects: ProspectRecord[]
   history: ProspectingHistoryItem[]
   lastExtensionSyncAt: string | null
+  /** Decisões da triagem bruta neste navegador (não sincronizadas entre dispositivos). */
+  rawSourceDecisions?: Record<string, 'ignored' | 'promoted'>
 }
 
 export interface DuplicateResult {
@@ -105,7 +107,7 @@ export const prospectStatusLabels: Record<ProspectStatus, string> = {
   sent: 'Enviado',
 }
 
-const blankState = (): ProspectingState => ({ prospects: [], history: [], lastExtensionSyncAt: null })
+const blankState = (): ProspectingState => ({ prospects: [], history: [], lastExtensionSyncAt: null, rawSourceDecisions: {} })
 const storageKey = (workspaceId: string) => `${STORAGE_PREFIX}:${workspaceId}`
 const text = (value: unknown) => typeof value === 'string' ? value.trim() : value == null ? '' : String(value).trim()
 const digits = (value: string) => value.replace(/\D/g, '')
@@ -127,6 +129,8 @@ export function readProspectingState(workspaceId: string): ProspectingState {
       prospects: Array.isArray(parsed.prospects) ? parsed.prospects.map((prospect) => ({ ...prospect, createdBy: prospect.createdBy ?? null, id: uuidPattern.test(prospect.id) ? prospect.id : recordId() })) : [],
       history: Array.isArray(parsed.history) ? parsed.history.map((item) => ({ ...item, id: uuidPattern.test(item.id) ? item.id : recordId() })) : [],
       lastExtensionSyncAt: typeof parsed.lastExtensionSyncAt === 'string' ? parsed.lastExtensionSyncAt : null,
+      rawSourceDecisions: parsed.rawSourceDecisions && typeof parsed.rawSourceDecisions === 'object' && !Array.isArray(parsed.rawSourceDecisions)
+        ? Object.fromEntries(Object.entries(parsed.rawSourceDecisions).filter(([key, value]) => key.length <= 1000 && (value === 'ignored' || value === 'promoted')).slice(-1500)) : {},
     }
   } catch { return blankState() }
 }

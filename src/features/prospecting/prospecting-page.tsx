@@ -43,7 +43,6 @@ import { useAuth } from '../auth/auth-context'
 import { requireExportApproval } from '../../services/team-governance'
 import { buildProspectingIcp, prospectingIcpSummary, rankProspects } from '../../services/prospecting-intelligence'
 import { ProspectingRedesignSearch, ProspectingRedesignShell } from './prospecting-redesign'
-import '../../styles/prospecting-redesign-v4.css'
 
  type ProspectingTab = 'search' | 'local' | 'results' | 'history'
  type ReviewMode = 'list' | 'guided'

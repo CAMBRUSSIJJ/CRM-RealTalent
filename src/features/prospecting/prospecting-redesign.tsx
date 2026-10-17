@@ -1,5 +1,5 @@
-import { ArrowRight, Building2, CheckCircle2, MapPinned, Pause, Play, Plus, Search, ShieldCheck, Sparkles, Upload, X } from 'lucide-react'
-import { useMemo, useState, type ReactNode } from 'react'
+import { ArrowRight, CheckCircle2, MapPinned, Pause, Play, Plus, Search, ShieldCheck, Sparkles, Upload, X } from 'lucide-react'
+import { useState, type ReactNode } from 'react'
 import type { ProspectingAgentHealth, ProspectingAgentJob, ProspectingAreaMode, ProspectingCategoryMode } from '../../services/prospecting-linux-agent'
 
 export type ProspectingRedesignTab = 'search' | 'results' | 'history'
@@ -71,6 +71,7 @@ interface ProspectingRedesignSearchProps {
   sentCount: number
   readyCount: number
   attentionCount: number
+  mapPanel: ReactNode
   onSegment(value: string): void
   onCity(value: string): void
   onQuantity(value: number): void
@@ -94,7 +95,10 @@ export function ProspectingRedesignSearch(props: ProspectingRedesignSearchProps)
   const attention = props.job?.processing?.attention ?? props.attentionCount
   const target = props.job?.input.targetQuantity ?? props.quantity
   const coverage = props.job?.coverage?.successfulTerritoryPercent ?? props.job?.coverage?.territoryPercent
-  const progress = Math.max(0, Math.min(100, Math.round(coverage ?? (props.job?.status === 'completed' ? 100 : (found / Math.max(1, target)) * 100))))
+  const executionFinished = Boolean(props.job && ['completed', 'failed', 'cancelled'].includes(props.job.status))
+  const progress = executionFinished ? 100 : Math.max(0, Math.min(99, Math.round((found / Math.max(1, target)) * 100)))
+  const coverageLabel = coverage == null ? 'não medida' : `${Math.round(coverage)}%`
+  const coverageFailed = Number(props.job?.coverage?.failedCells ?? 0) > 0
   const currentActivity = props.job?.runtime?.phaseLabel || props.job?.message || 'Pronto para iniciar uma nova busca.'
   // SearchSession canônica: durante uma execução, título, território, mapa e status leem o input imutável do job.
   const sessionSegment = props.job?.input.segment || props.segment
@@ -102,7 +106,7 @@ export function ProspectingRedesignSearch(props: ProspectingRedesignSearchProps)
   const sessionAreaMode = props.job?.input.areaMode || props.areaMode
   const sessionRadiusKm = props.job?.input.radiusKm ?? props.radiusKm
   const currentRegion = props.job?.runtime?.currentRegion || props.job?.progress.currentRegion || sessionCity || 'Região principal'
-  const sourceLabel = props.job?.runtime?.currentSource || props.job?.progress.currentSource || 'OpenStreetMap + Web'
+  const sourceLabel = props.job?.runtime?.currentSource || props.job?.progress.currentSource || 'Web pública + OpenStreetMap'
   const areaLabel = props.areaMode === 'city' ? 'Cidade inteira' : props.areaMode === 'neighborhoods' ? 'Bairros' : props.areaMode === 'map' ? 'Área desenhada' : `Raio de ${props.radiusKm} km`
   const sessionAreaLabel = sessionAreaMode === 'city' ? 'Cidade inteira' : sessionAreaMode === 'neighborhoods' ? 'Bairros' : sessionAreaMode === 'map' ? 'Área desenhada' : `Raio de ${sessionRadiusKm} km`
   const canStart = props.canEdit && !props.agentBusy && !active && Boolean(props.segment.trim() && props.city.trim())
@@ -111,20 +115,6 @@ export function ProspectingRedesignSearch(props: ProspectingRedesignSearchProps)
   const duplicates = props.job?.runtime?.counters.duplicates ?? props.job?.stats.duplicates ?? 0
   const semanticPlanner = props.job?.plan?.semanticPlan?.planner || ''
 
-  const markers = useMemo(() => {
-    const bbox = props.job?.plan?.geometry?.bbox
-    if (!bbox) return []
-    const width = Math.max(1e-8, bbox.east - bbox.west)
-    const height = Math.max(1e-8, bbox.north - bbox.south)
-    return (props.job?.results ?? []).flatMap((item) => {
-      const lat = Number(item.latitude)
-      const lon = Number(item.longitude)
-      if (!Number.isFinite(lat) || !Number.isFinite(lon)) return []
-      const left = Math.max(4, Math.min(96, ((lon - bbox.west) / width) * 100))
-      const top = Math.max(4, Math.min(96, (1 - (lat - bbox.south) / height) * 100))
-      return [{ left, top }]
-    }).slice(0, 80)
-  }, [props.job])
 
   return <div className="prospecting-redesign-v4__grid">
     <div className="prospecting-redesign-v4__left">
@@ -138,11 +128,11 @@ export function ProspectingRedesignSearch(props: ProspectingRedesignSearchProps)
         <p>{props.job?.stats.queries ?? 0} consultas · {sourceLabel}{semanticPlanner ? ` · plano IA ${semanticPlanner}` : ''}</p>
         <div className="prospecting-redesign-v4__now"><i/><span><strong>Agora:</strong> {currentActivity}{currentRegion ? ` · ${currentRegion}` : ''}</span></div>
         <div className="prospecting-redesign-v4__execution-metrics">
-          <div><strong>{found}</strong><span>Encontradas</span></div>
-          <div className="is-ready"><strong>{ready}</strong><span>Prontas</span></div>
+          <div><strong>{found}</strong><span>Encontradas agora</span></div>
+          <div className="is-ready"><strong>{ready}</strong><span>Prontas agora</span></div>
           <div className="is-attention"><strong>{attention}</strong><span>Precisam atenção</span></div>
         </div>
-        <small>{raw} bruto(s) · {rejected} filtrado(s) · {duplicates} duplicidade(s) · Base total {props.baseTotal} · {props.sentCount} enviadas ao CRM</small>
+        <small>{raw} bruto(s) · {rejected} filtrado(s) · {duplicates} duplicidade(s) · <span aria-label="Base total">Base total {props.baseTotal}</span> · {props.sentCount} enviadas ao CRM</small>
         <div className="prospecting-redesign-v4__execution-actions">
           <button type="button" className="prospecting-redesign-v4__button" onClick={props.onDetails}>Ver detalhes</button>
           {props.job?.status === 'running' ? <button type="button" className="prospecting-redesign-v4__button" disabled={props.agentBusy} onClick={() => props.onControl('pause')}><Pause size={15}/> Pausar</button> : null}
@@ -163,24 +153,17 @@ export function ProspectingRedesignSearch(props: ProspectingRedesignSearchProps)
           <label><span>Correspondência</span><select value={props.categoryMode} onChange={(event) => props.onCategoryMode(event.target.value as ProspectingCategoryMode)} disabled={!props.canEdit || active}><option value="exact">Exata</option><option value="related">Relacionada</option></select></label>
           <label><span>Território</span><select value={props.areaMode} onChange={(event) => props.onAreaMode(event.target.value as ProspectingAreaMode)} disabled={!props.canEdit || active}><option value="city">Cidade inteira</option><option value="neighborhoods">Bairros</option><option value="radius">Raio</option><option value="map">Área desenhada</option></select></label>
           {props.areaMode === 'radius' ? <label><span>Raio</span><input type="number" min={1} max={100} value={props.radiusKm} onChange={(event) => props.onRadiusKm(Math.max(1, Number(event.target.value) || 1))} disabled={!props.canEdit || active}/></label> : null}
-          <div className="prospecting-redesign-v4__engine-status"><i className={props.agentHealth?.ok ? 'is-ok' : ''}/>{props.agentHealth?.ok ? `Motor local ativo · V${props.agentHealth.version}` : 'Motor local será verificado ao iniciar'}</div>
+          <div className="prospecting-redesign-v4__engine-status"><i className={props.agentHealth?.ok ? 'is-ok' : ''}/>{props.agentHealth?.ok ? `Serviço do Garimpo ativo · V${props.agentHealth.version}` : 'Serviço do Garimpo será verificado ao iniciar'}</div>
         </div> : null}
         <button type="button" className="prospecting-redesign-v4__button is-primary is-start" disabled={!canStart} onClick={props.onStart}><Search size={16}/>{active ? 'Busca em andamento' : props.agentBusy ? 'Iniciando…' : 'Iniciar busca'}</button>
       </section>
     </div>
 
-    <section className="prospecting-redesign-v4__map" aria-label={`Território da execução em ${sessionCity || 'sua região'}`}>
-      <svg viewBox="0 0 800 700" preserveAspectRatio="xMidYMid slice" role="img" aria-hidden="true">
-        <rect width="800" height="700" className="prospecting-redesign-v4__map-ground"/>
-        <path d="M0 520 C120 470 220 560 340 540 C470 520 560 600 800 560 L800 700 L0 700 Z" className="prospecting-redesign-v4__map-water"/>
-        <g className="prospecting-redesign-v4__roads is-major"><path d="M-10 180 L810 120"/><path d="M-10 330 L810 300"/><path d="M140 -10 L190 710"/><path d="M430 -10 L400 710"/><path d="M650 -10 L700 710"/></g>
-        <g className="prospecting-redesign-v4__roads"><path d="M-10 90 L810 60 M-10 250 L810 215 M-10 420 L810 380 M60 -10 L90 710 M290 -10 L270 710 M540 -10 L560 710"/></g>
-        <path d="M90 130 L720 105 L745 470 L560 520 L330 500 L110 440 Z" className="prospecting-redesign-v4__territory"/>
-      </svg>
-      {markers.map((marker, index) => <span key={index} className="prospecting-redesign-v4__marker" style={{ left: `${marker.left}%`, top: `${marker.top}%` }}><Building2 size={12}/></span>)}
-      <div className="prospecting-redesign-v4__map-labels"><span>Área: {sessionAreaLabel.toLowerCase()}</span><span>{sessionCity || 'Defina a região'}</span></div>
-      <div className="prospecting-redesign-v4__zoom"><button type="button" aria-label="Aproximar">+</button><button type="button" aria-label="Afastar">−</button></div>
-      <div className="prospecting-redesign-v4__map-status">{found ? <><CheckCircle2 size={17}/><strong>{found} empresa(s) válida(s).</strong><span> {markers.length} com coordenadas confirmadas no território; {rejected} ruído(s) filtrado(s).</span></> : <><strong>Aguardando empresas válidas.</strong><span> Resultados brutos são verificados antes de aparecerem aqui.</span></>}</div>
+    <section className="prospecting-redesign-v4__map prospecting-redesign-v4__map-live" aria-label={`Território da execução em ${sessionCity || 'sua região'}`}>
+      <div className="prospecting-redesign-v4__map-live-content">{props.mapPanel}</div>
+      <div className={`prospecting-redesign-v4__map-status ${coverageFailed ? 'is-warning' : ''}`}>
+        {props.job ? <><CheckCircle2 size={17}/><strong>{found} empresa(s) identificada(s).</strong><span> Execução {executionFinished ? 'encerrada' : 'em andamento'} · cobertura territorial {coverageLabel}{coverageFailed ? ' · fonte territorial com falha parcial' : ''}.</span></> : <><MapPinned size={17}/><strong>Defina a área real da busca.</strong><span> Carregue a cidade e ajuste o raio ou desenhe o território diretamente no mapa.</span></>}
+      </div>
     </section>
   </div>
 }

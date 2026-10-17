@@ -66,6 +66,13 @@ const rawNumber = (record: Record<string, unknown>, ...keys: string[]) => { for 
 const prospectGeoPoint = (prospect: ProspectRecord): ProspectingGeoPoint | null => { const lat = rawNumber(prospect.rawData, 'latitude', 'lat'); const lon = rawNumber(prospect.rawData, 'longitude', 'lon', 'lng'); return lat !== null && lon !== null ? { lat, lon } : null }
 const prospectPlaceType = (prospect: ProspectRecord) => rawText(prospect.rawData, 'placeType') || (prospectGeoPoint(prospect) ? 'physical_place' : 'service_business')
 const prospectPlaceConfidence = (prospect: ProspectRecord) => Math.max(0, Math.min(100, rawNumber(prospect.rawData, 'placeConfidence') ?? (prospectGeoPoint(prospect) ? 100 : 55)))
+const prospectOriginLabel = (prospect: ProspectRecord) => {
+  const provider = rawText(prospect.rawData, 'provider').toLocaleLowerCase('pt-BR')
+  if (provider.includes('openstreetmap') || provider.startsWith('osm') || rawText(prospect.rawData, 'osmId')) return 'OpenStreetMap'
+  if (provider.startsWith('web')) return 'Web pública'
+  if (prospect.source === 'extension') return 'RT Capture Browser'
+  return prospectSourceLabels[prospect.source]
+}
 
 const prospectIsAutoValidatable = (prospect: ProspectRecord) => {
   const quality = prospectDataQuality(prospect)
@@ -73,7 +80,7 @@ const prospectIsAutoValidatable = (prospect: ProspectRecord) => {
   return quality.readiness === 'ready'
     && prospect.duplicateLevel === 'none'
     && prospectPlaceConfidence(prospect) >= 65
-    && Boolean(prospectGeoPoint(prospect) || prospect.city)
+    && Boolean(prospectGeoPoint(prospect))
     && !['content', 'directory', 'web_document', 'unknown'].includes(placeType)
 }
 
@@ -82,7 +89,7 @@ const prospectAttentionReasons = (prospect: ProspectRecord) => {
   const reasons: string[] = []
   const placeType = prospectPlaceType(prospect)
   if (['content', 'directory', 'web_document', 'unknown'].includes(placeType)) reasons.push('Confirmar se é uma empresa/local real')
-  if (!prospectGeoPoint(prospect) && !prospect.city) reasons.push('Localização não confirmada')
+  if (!prospectGeoPoint(prospect)) reasons.push('Coordenadas não confirmadas no território')
   if (prospectPlaceConfidence(prospect) < 65) reasons.push('Baixa confiança territorial')
   if (prospect.duplicateLevel === 'possible') reasons.push('Possível duplicidade')
   if (prospect.duplicateLevel === 'confirmed') reasons.push('Duplicidade confirmada')
@@ -152,8 +159,8 @@ export function ProspectingPage() {
   const [agentCadence, setAgentCadence] = useState<ProspectingAgentCadence>('off')
   const [areaMode, setAreaMode] = useState<ProspectingAreaMode>('radius')
   const [radiusKm, setRadiusKm] = useState(15)
-  const [searchMode, setSearchMode] = useState<ProspectingSearchMode>('coverage')
-  const [targetMode, setTargetMode] = useState<ProspectingTargetMode>('max')
+  const [searchMode, setSearchMode] = useState<ProspectingSearchMode>('fast')
+  const [targetMode, setTargetMode] = useState<ProspectingTargetMode>('quantity')
   const [categoryMode, setCategoryMode] = useState<ProspectingCategoryMode>('exact')
   const [mapPolygon, setMapPolygon] = useState<ProspectingGeoPoint[]>([])
   const [mapPreview, setMapPreview] = useState<ProspectingTerritoryPreview | null>(null)
@@ -322,6 +329,25 @@ export function ProspectingPage() {
     return () => window.clearInterval(timer)
   }, [agentJob?.status, refreshAgent])
 
+  const resetProspectingSearch = () => {
+    setTab('search')
+    setSegment('')
+    setCity('')
+    setQuery('')
+    setQuantity(40)
+    setAreaMode('radius')
+    setRadiusKm(15)
+    setSearchMode('fast')
+    setTargetMode('quantity')
+    setCategoryMode('exact')
+    setMapPreview(null)
+    setSearchCenter(null)
+    setMapPolygon([])
+    setAgentJob(null)
+    setShowTechnical(false)
+    setSelectedIds(new Set())
+  }
+
   const changeProspectingCity = (value: string) => {
     setCity(value)
     setMapPreview(null)
@@ -352,7 +378,7 @@ export function ProspectingPage() {
     if (!canWrite || !workspaceId) return
     const liveHealth = agentHealth ?? await getProspectingAgentHealth()
     if (!liveHealth) {
-      notify('warning', 'Motor local desconectado. Inicie o CRM pelo start-linux.sh ou instale o serviço do Agent e tente novamente.')
+      notify('warning', 'Serviço do Garimpo indisponível. Verifique a conexão com o runtime em nuvem e tente novamente.')
       return
     }
     if (!agentHealth) setAgentHealth(liveHealth)
@@ -374,9 +400,9 @@ export function ProspectingPage() {
     setAgentBusy(true)
     try {
       const existingKeys = existingProspectingIdentityKeys(snapshot?.leads ?? [])
-      const job = await createProspectingAgentJob({ workspaceId, segment: segment.trim(), regions, targetQuantity: quantity, targetMode, areaMode, radiusKm, searchMode, categoryMode, mapPolygon: areaMode === 'map' ? mapPolygon : undefined, searchCenter: areaMode === 'radius' ? searchCenter : undefined, existingKeys, enrichWeb: true, enrichCnpj: true, browserFallback: true })
+      const job = await createProspectingAgentJob({ workspaceId, segment: segment.trim(), regions, targetQuantity: quantity, targetMode, areaMode, radiusKm, searchMode, categoryMode, mapPolygon: areaMode === 'map' ? mapPolygon : undefined, searchCenter: areaMode === 'radius' ? searchCenter : undefined, existingKeys, enrichWeb: searchMode !== 'fast', enrichCnpj: searchMode !== 'fast', browserFallback: searchMode !== 'fast' })
       setAgentJob(job)
-      notify('success', 'Garimpo enviado para o motor local. A busca começou no Linux.')
+      notify('success', 'Garimpo iniciado. No modo Captura rápida, as primeiras empresas aparecem antes do enriquecimento completo.')
       if (agentCadence !== 'off') {
         await createProspectingAgentCampaign({ workspaceId, name: `${segment} · ${regions.join(', ')}`, cadence: agentCadence, segment, regions, targetQuantity: quantity, targetMode, areaMode, radiusKm, searchMode, categoryMode, mapPolygon: areaMode === 'map' ? mapPolygon : undefined, searchCenter: areaMode === 'radius' ? searchCenter : undefined, existingKeys })
         notify('success', `Garimpo iniciado e campanha ${agentCadence === 'daily' ? 'diária' : 'semanal'} salva.`)
@@ -811,10 +837,10 @@ export function ProspectingPage() {
             const alreadyImported = snapshot.leads.find((lead) => lead.tags.includes(importTag))
             if (alreadyImported && options.duplicateBehavior === 'update') {
               const tags = Array.from(new Set([...alreadyImported.tags, ...tagsFromOptions, 'garimpo', importTag]))
-              const lead = await updateLead(alreadyImported.id, { companyId: company.id, primaryContactId: contactId, company: company.name, cnpj: company.cnpj, website: company.website, phone: prospect.phone || alreadyImported.phone, email: prospect.email || alreadyImported.email, city: prospect.city || alreadyImported.city, source: `Garimpo · ${prospectSourceLabels[prospect.source]}`, priority: options.priority, temperature: options.temperature, ownerId: options.ownerId || alreadyImported.ownerId, ownerName: options.ownerName || alreadyImported.ownerName, tags, nextActionAt: options.nextActionAt ? new Date(options.nextActionAt).toISOString() : alreadyImported.nextActionAt, notes: [alreadyImported.notes, details].filter(Boolean).join('\n\n') })
+              const lead = await updateLead(alreadyImported.id, { companyId: company.id, primaryContactId: contactId, company: company.name, cnpj: company.cnpj, website: company.website, phone: prospect.phone || alreadyImported.phone, email: prospect.email || alreadyImported.email, city: prospect.city || alreadyImported.city, source: `Garimpo · ${prospectOriginLabel(prospect)}`, priority: options.priority, temperature: options.temperature, ownerId: options.ownerId || alreadyImported.ownerId, ownerName: options.ownerName || alreadyImported.ownerName, tags, nextActionAt: options.nextActionAt ? new Date(options.nextActionAt).toISOString() : alreadyImported.nextActionAt, notes: [alreadyImported.notes, details].filter(Boolean).join('\n\n') })
               leadId = lead.id
             } else {
-              const lead = await createLead({ name: contactName || company.name, company: company.name, phone: prospect.phone, email: prospect.email, city: prospect.city, cnpj: company.cnpj, website: company.website, companyId: company.id, primaryContactId: contactId, source: `Garimpo · ${prospectSourceLabels[prospect.source]}`, stageId: options.stageId, status: 'active', temperature: options.temperature, priority: options.priority, ownerId: options.ownerId || null, ownerName: options.ownerName || 'Sem responsável', value: 0, nextActionAt: options.nextActionAt ? new Date(options.nextActionAt).toISOString() : null, notes: details, tags: Array.from(new Set([...tagsFromOptions, 'garimpo', prospect.source, importTag])) })
+              const lead = await createLead({ name: contactName || company.name, company: company.name, phone: prospect.phone, email: prospect.email, city: prospect.city, cnpj: company.cnpj, website: company.website, companyId: company.id, primaryContactId: contactId, source: `Garimpo · ${prospectOriginLabel(prospect)}`, stageId: options.stageId, status: 'active', temperature: options.temperature, priority: options.priority, ownerId: options.ownerId || null, ownerName: options.ownerName || 'Sem responsável', value: 0, nextActionAt: options.nextActionAt ? new Date(options.nextActionAt).toISOString() : null, notes: details, tags: Array.from(new Set([...tagsFromOptions, 'garimpo', prospect.source, importTag])) })
               leadId = lead.id
             }
             opportunitiesCreated += 1
@@ -860,7 +886,7 @@ export function ProspectingPage() {
         canCreate={canProspectingCreate}
         onImport={() => fileInputRef.current?.click()}
         onNewSearch={() => {
-          setTab('search')
+          resetProspectingSearch()
           window.setTimeout(() => document.getElementById('prospecting-linux-segment')?.focus(), 0)
         }}
         onUseSuggestion={() => {
@@ -889,6 +915,26 @@ export function ProspectingPage() {
             sentCount={metrics.sent}
             readyCount={metrics.autoValidatable}
             attentionCount={metrics.attention}
+            mapPanel={areaMode === 'map' ? <TerritoryAreaSelector
+              preview={mapPreview}
+              polygon={mapPolygon}
+              busy={mapPreviewBusy}
+              disabled={!canWrite || Boolean(agentJob && ['queued', 'running', 'paused'].includes(agentJob.status))}
+              onLoad={() => void loadMapTerritory()}
+              onPolygon={setMapPolygon}
+            /> : <SearchTerritoryPlanner
+              preview={mapPreview}
+              center={searchCenter}
+              areaMode={areaMode}
+              radiusKm={radiusKm}
+              polygon={mapPolygon}
+              busy={mapPreviewBusy}
+              disabled={!canWrite || Boolean(agentJob && ['queued', 'running', 'paused'].includes(agentJob.status))}
+              searchMode={searchMode}
+              onLoad={() => void loadMapTerritory()}
+              onRadiusKm={setRadiusKm}
+              onCenter={setSearchCenter}
+            />}
             onSegment={setSegment}
             onCity={changeProspectingCity}
             onQuantity={setQuantity}
@@ -1018,10 +1064,10 @@ function SearchWorkspace(props: {
               <div className="prospecting-place-first-v101106 prospecting-strict-scope-v101113-h15"><ShieldCheck size={15}/><div><strong>{props.categoryMode === 'exact' ? 'Correspondência exata ativa' : 'Categorias relacionadas permitidas'}</strong><span>{props.categoryMode === 'exact' ? `Somente ${props.segment.trim() || 'a categoria solicitada'} dentro de ${props.city.trim() || 'a região informada'} entra nos resultados. Artigos, rankings e diretórios não viram empresas automaticamente; diretórios e redes podem gerar pistas de cobertura, sempre marcadas para revisão humana.` : 'O Garimpo pode aceitar categorias semanticamente próximas, mantendo a validação de localização e de estabelecimento.'}</span></div><StatusPill tone={props.categoryMode === 'exact' ? 'info' : 'warning'}>{props.categoryMode === 'exact' ? 'Exata' : 'Ampliada'}</StatusPill></div>
               <div className="prospecting-coverage-truth-h21"><MapPinned size={15}/><div><strong>Cobertura aberta ≠ catálogo do Google Maps</strong><span>O motor local combina OpenStreetMap e web pública. Na busca exata, uma segunda varredura traz candidatos relacionados que podem estar classificados de forma genérica nas bases abertas; eles ficam em Atenção até você confirmar a categoria. Google Places continua opcional quando configurado.</span></div></div>
               <details className="prospecting-search-advanced-v101106">
-                <summary><span><SlidersHorizontal size={15}/> Opções da busca</span><small>{props.searchMode === 'coverage' ? 'Máxima cobertura' : props.searchMode === 'fast' ? 'Mais rápida' : 'Menor consumo'} · {props.targetMode === 'max' ? 'máximo possível' : `${props.quantity} empresas`}</small><ChevronRight size={15}/></summary>
+                <summary><span><SlidersHorizontal size={15}/> Opções da busca</span><small>{props.searchMode === 'coverage' ? 'Máxima cobertura' : props.searchMode === 'fast' ? 'Captura rápida' : 'Menor consumo'} · {props.targetMode === 'max' ? 'máximo possível' : `${props.quantity} empresas`}</small><ChevronRight size={15}/></summary>
                 <div className="prospecting-search-advanced-v101106__body">
                   <label><span>Correspondência</span><SelectionSelect value={props.categoryMode} onValueChange={(value) => props.onCategoryMode(value as ProspectingCategoryMode)} disabled={props.readOnly || agentActive} options={[{ value: 'exact', label: 'Somente categoria solicitada', description: 'Rejeita categorias relacionadas e exige confirmação do local' }, { value: 'related', label: 'Incluir categorias relacionadas', description: 'Amplia a descoberta mantendo o filtro geográfico' }]} /></label>
-                  <label><span>Estratégia</span><SelectionSelect value={props.searchMode} onValueChange={(value) => props.onSearchMode(value as ProspectingSearchMode)} disabled={props.readOnly || agentActive} options={[{ value: 'coverage', label: 'Máxima cobertura', description: 'Prioriza encontrar mais empresas' }, { value: 'fast', label: 'Mais rápida', description: 'Reduz consultas e células' }, { value: 'economy', label: 'Menor consumo', description: 'Usa menos recursos locais' }]} /></label>
+                  <label><span>Estratégia</span><SelectionSelect value={props.searchMode} onValueChange={(value) => props.onSearchMode(value as ProspectingSearchMode)} disabled={props.readOnly || agentActive} options={[{ value: 'coverage', label: 'Máxima cobertura', description: 'Prioriza encontrar mais empresas' }, { value: 'fast', label: 'Captura rápida', description: 'Web e captura primeiro; mostra empresas antes da varredura profunda' }, { value: 'economy', label: 'Menor consumo', description: 'Usa menos recursos locais' }]} /></label>
                   <label><span>Meta</span><SelectionSelect value={props.targetMode} onValueChange={(value) => props.onTargetMode(value as ProspectingTargetMode)} disabled={props.readOnly || agentActive} options={[{ value: 'max', label: 'Encontrar o máximo possível', description: 'Continua enquanto houver ganho útil de cobertura' }, { value: 'quantity', label: 'Quantidade definida', description: 'Encerra ao atingir a meta quando possível' }]} /></label>
                   {props.targetMode === 'quantity' ? <label><span>Quantidade</span><SelectionSelect value={String(props.quantity)} onValueChange={(value) => props.onQuantity(Number(value))} disabled={props.readOnly || agentActive} options={[20, 40, 60, 100, 200, 300].map((value) => ({ value: String(value), label: `${value} empresas` }))} /></label> : null}
                   <label><span>Repetição</span><SelectionSelect value={props.agentCadence} onValueChange={(value) => props.onAgentCadence(value as ProspectingAgentCadence)} disabled={props.readOnly || agentActive} options={[{ value: 'off', label: 'Executar uma vez' }, { value: 'daily', label: 'Todos os dias' }, { value: 'weekly', label: 'Toda semana' }]} /></label>
@@ -1036,7 +1082,7 @@ function SearchWorkspace(props: {
       </section>
 
       <details className="prospecting-alternatives-v101102-h1">
-        <summary><div><Globe2 size={17}/><div><strong>+ Adicionar empresas por outras fontes</strong><span>Google Maps assistido, Instagram, CNPJ, navegador ou entrada manual</span></div></div><ChevronRight size={17}/></summary>
+        <summary><div><Globe2 size={17}/><div><strong>Capturar do navegador / Google Maps</strong><span>Use a captura assistida para trazer os resultados visíveis para o Garimpo e enriquecer depois.</span></div></div><ChevronRight size={17}/></summary>
         <div className="prospecting-alternatives-v101102-h1__body">
           <div className="prospecting-source-grid">{(['maps', 'instagram', 'cnpj', 'extension', 'manual'] as ProspectSource[]).map((item) => {
             const Icon = sourceIcons[item]
@@ -1437,7 +1483,7 @@ function ProcessingWorkspace({ readOnly, queue, active, leads, onSelect, onChang
   return <div className="prospecting-processing-layout prospecting-processing-layout-v101106">
     <aside className="panel prospecting-queue">
       <header><div><span className="eyebrow">Fila de análise</span><strong>{queue.length} empresa(s)</strong></div>{!readOnly ? <button type="button" className="icon-button" onClick={onAnalyzeAll} title="Analisar todos"><Sparkles size={16} /></button> : null}</header>
-      <div>{queue.map((prospect) => <button type="button" key={prospect.id} className={prospect.id === active.id ? 'is-active' : ''} onClick={() => onSelect(prospect.id)}><span className={`prospect-confidence is-${prospectDataQuality(prospect).readiness === 'ready' ? 'high' : prospectDataQuality(prospect).readiness === 'blocked' ? 'low' : 'medium'}`}>{prospectDataQuality(prospect).score}</span><div><strong>{prospect.company}</strong><small>{prospectDataQuality(prospect).label} · {prospectSourceLabels[prospect.source]}</small></div>{prospectDataQuality(prospect).readiness === 'blocked' ? <AlertTriangle size={14} /> : <ChevronRight size={14} />}</button>)}</div>
+      <div>{queue.map((prospect) => <button type="button" key={prospect.id} className={prospect.id === active.id ? 'is-active' : ''} onClick={() => onSelect(prospect.id)}><span className={`prospect-confidence is-${prospectDataQuality(prospect).readiness === 'ready' ? 'high' : prospectDataQuality(prospect).readiness === 'blocked' ? 'low' : 'medium'}`}>{prospectDataQuality(prospect).score}</span><div><strong>{prospect.company}</strong><small>{prospectDataQuality(prospect).label} · {prospectOriginLabel(prospect)}</small></div>{prospectDataQuality(prospect).readiness === 'blocked' ? <AlertTriangle size={14} /> : <ChevronRight size={14} />}</button>)}</div>
     </aside>
 
     <section className="panel prospecting-review-card">
@@ -1509,10 +1555,10 @@ function ResultsWorkspace({ readOnly, prospects, selectedIds, search, statusFilt
   const [filtersOpen, setFiltersOpen] = useState(false)
   const activeFilterCount = (statusFilter !== 'all' ? 1 : 0) + (sourceFilter !== 'all' ? 1 : 0) + (qualityFilter !== 'all' ? 1 : 0) + (duplicateFilter !== 'all' ? 1 : 0)
   const clearFilters = () => { onStatusFilter('all'); onSourceFilter('all'); onQualityFilter('all'); onDuplicateFilter('all') }
-  const readyCount = prospects.filter((item) => prospectDataQuality(item).readiness === 'ready').length
+  const readyCount = prospects.filter(prospectIsAutoValidatable).length
   const blockedCount = prospects.filter((item) => prospectDataQuality(item).readiness === 'blocked').length
   const duplicateCount = prospects.filter((item) => item.duplicateLevel !== 'none').length
-  const smartEligible = selectableProspects.filter((item) => prospectDataQuality(item).readiness === 'ready' && item.duplicateLevel === 'none' && prospectPlaceConfidence(item) >= 65 && Boolean(prospectGeoPoint(item) || item.city))
+  const smartEligible = selectableProspects.filter(prospectIsAutoValidatable)
   const universalProspectingFilters: WorkspaceFilterField[] = [
     { key: 'status', label: 'Status', value: statusFilter, allValue: 'all', allLabel: 'Todos os status', group: 'Empresa', options: Object.entries(prospectStatusLabels).map(([value, label]) => ({ value, label })) },
     { key: 'source', label: 'Origem', value: sourceFilter, allValue: 'all', allLabel: 'Todas as origens', group: 'Origem', options: Object.entries(prospectSourceLabels).map(([value, label]) => ({ value, label })) },
@@ -1530,7 +1576,7 @@ function ResultsWorkspace({ readOnly, prospects, selectedIds, search, statusFilt
     <div className="prospecting-review-summary-v101103-h7"><span><strong>{prospects.length}</strong> visíveis</span><span className="is-ready"><strong>{readyCount}</strong> prontos</span><span className="is-warning"><strong>{duplicateCount}</strong> duplicidades</span><span className="is-blocked"><strong>{blockedCount}</strong> bloqueados</span></div>
     {!readOnly && smartEligible.length > 0 ? <div className="prospecting-smart-approval-v101104"><div><ShieldCheck size={17}/><span><strong>{smartEligible.length} empresa(s) atendem às regras de aprovação</strong><small>Qualidade pronta · sem duplicidade · localidade confirmada · confiança local ≥ 65%</small></span></div><Button size="sm" variant="secondary" onClick={() => onApprove(smartEligible.map((item) => item.id))}><Check size={15}/> Aprovar {smartEligible.length}</Button></div> : null}
     {!readOnly ? <SelectionToolbar count={ids.length} label="empresas selecionadas" onClear={() => onSelected(new Set())}><Button size="sm" variant="ghost" onClick={() => onAnalyze(ids)}><Sparkles size={15} /> Analisar</Button><Button size="sm" variant="ghost" loading={bulkRetryBusy} onClick={() => onBulkRetry(ids)}><RefreshCw size={15} /> Reprocessar</Button><Button size="sm" variant="ghost" onClick={() => onApprove(ids)}><Check size={15} /> Aprovar</Button><Button size="sm" variant="ghost" onClick={() => onDiscard(ids)}><Ban size={15} /> Descartar</Button><Button size="sm" onClick={() => onSend(ids)}><Send size={15} /> Enviar</Button><Button size="sm" variant="danger" onClick={() => onDelete(ids)}><Trash2 size={15} /></Button></SelectionToolbar> : null}
-    {prospects.length ? <div className="prospecting-table prospecting-table-v101106"><div className="prospecting-table__head"><SelectionCheckbox ariaLabel="Selecionar empresas visíveis" disabled={readOnly} checked={allSelected} indeterminate={!allSelected && ids.length > 0} onCheckedChange={() => onSelected(allSelected ? new Set() : new Set(selectableProspects.map((item) => item.id)))} /><span>Empresa</span><span>Local</span><span>Contato</span><span>Qualidade</span><span>Status</span><span>Ações</span></div>{prospects.map((prospect) => { const quality = prospectDataQuality(prospect); const reasons = prospectAttentionReasons(prospect); return <article key={prospect.id}><SelectionCheckbox ariaLabel={`Selecionar ${prospect.company}`} disabled={readOnly || prospect.status === 'sent' || prospect.status === 'discarded'} checked={selectedIds.has(prospect.id)} onCheckedChange={() => toggle(prospect.id)} /><div className="prospecting-table__lead"><span>{prospect.company.slice(0, 1).toUpperCase()}</span><div><strong>{prospect.company}</strong><small>{prospectSourceLabels[prospect.source]}</small></div></div><div className="prospecting-table-v101106__local"><strong>{prospect.city || 'Local não confirmado'}</strong><small>{prospect.address || (prospectGeoPoint(prospect) ? `Coordenadas confirmadas · ${prospectPlaceConfidence(prospect)}%` : 'Sem endereço confirmado')}</small></div><div className="prospecting-table__contact"><strong>{prospect.phone || prospect.email || 'Sem contato confirmado'}</strong><small>{prospect.website || prospect.instagram || 'Sem canal digital'}</small></div><div className="prospecting-table__confidence"><div><span style={{ width: `${quality.score}%` }} /></div><strong>{quality.score}%</strong><small>{reasons[0] || 'Sem divergência importante'}</small></div><div className="prospecting-table-v101106__status"><StatusPill tone={statusTones[prospect.status]}>{prospectStatusLabels[prospect.status]}</StatusPill>{prospect.duplicateLevel !== 'none' ? <StatusPill tone={duplicateTone(prospect.duplicateLevel)}>{prospect.duplicateLevel === 'possible' ? 'Possível duplicidade' : 'Duplicado'}</StatusPill> : null}</div><div className="prospecting-table__actions">{!readOnly ? <><button type="button" className="icon-button" title="Abrir revisão guiada" onClick={() => onOpenGuided(prospect.id)}><ClipboardCheck size={15} /></button><button type="button" className="icon-button" title="Reanalisar" onClick={() => onAnalyze([prospect.id])}><RefreshCw size={15} /></button>{prospect.status === 'approved' && quality.readiness !== 'blocked' ? <button type="button" className="icon-button" title="Enviar ao CRM" onClick={() => onSend([prospect.id])}><Send size={15} /></button> : null}<button type="button" className="icon-button icon-button--danger" title="Remover" onClick={() => onDelete([prospect.id])}><Trash2 size={15} /></button></> : null}</div></article> })}</div> : <EmptyState icon={Search} title="Nenhuma empresa neste recorte" description="Troque entre Precisa atenção, Prontas ou Todas, ou ajuste os filtros." />}
+    {prospects.length ? <div className="prospecting-table prospecting-table-v101106"><div className="prospecting-table__head"><SelectionCheckbox ariaLabel="Selecionar empresas visíveis" disabled={readOnly} checked={allSelected} indeterminate={!allSelected && ids.length > 0} onCheckedChange={() => onSelected(allSelected ? new Set() : new Set(selectableProspects.map((item) => item.id)))} /><span>Empresa</span><span>Local</span><span>Contato</span><span>Qualidade</span><span>Status</span><span>Ações</span></div>{prospects.map((prospect) => { const quality = prospectDataQuality(prospect); const reasons = prospectAttentionReasons(prospect); return <article key={prospect.id}><SelectionCheckbox ariaLabel={`Selecionar ${prospect.company}`} disabled={readOnly || prospect.status === 'sent' || prospect.status === 'discarded'} checked={selectedIds.has(prospect.id)} onCheckedChange={() => toggle(prospect.id)} /><div className="prospecting-table__lead"><span>{prospect.company.slice(0, 1).toUpperCase()}</span><div><strong>{prospect.company}</strong><small>{prospectOriginLabel(prospect)}</small></div></div><div className="prospecting-table-v101106__local"><strong>{prospect.city || 'Local não confirmado'}</strong><small>{prospect.address || (prospectGeoPoint(prospect) ? `Coordenadas confirmadas · ${prospectPlaceConfidence(prospect)}%` : 'Sem endereço confirmado')}</small></div><div className="prospecting-table__contact"><strong>{prospect.phone || prospect.email || 'Sem contato confirmado'}</strong><small>{prospect.website || prospect.instagram || 'Sem canal digital'}</small></div><div className="prospecting-table__confidence"><div><span style={{ width: `${quality.score}%` }} /></div><strong>{quality.score}%</strong><small>{reasons[0] || 'Sem divergência importante'}</small></div><div className="prospecting-table-v101106__status"><StatusPill tone={statusTones[prospect.status]}>{prospectStatusLabels[prospect.status]}</StatusPill>{prospect.duplicateLevel !== 'none' ? <StatusPill tone={duplicateTone(prospect.duplicateLevel)}>{prospect.duplicateLevel === 'possible' ? 'Possível duplicidade' : 'Duplicado'}</StatusPill> : null}</div><div className="prospecting-table__actions">{!readOnly ? <><button type="button" className="icon-button" title="Abrir revisão guiada" onClick={() => onOpenGuided(prospect.id)}><ClipboardCheck size={15} /></button><button type="button" className="icon-button" title="Reanalisar" onClick={() => onAnalyze([prospect.id])}><RefreshCw size={15} /></button>{prospect.status === 'approved' && quality.readiness !== 'blocked' ? <button type="button" className="icon-button" title="Enviar ao CRM" onClick={() => onSend([prospect.id])}><Send size={15} /></button> : null}<button type="button" className="icon-button icon-button--danger" title="Remover" onClick={() => onDelete([prospect.id])}><Trash2 size={15} /></button></> : null}</div></article> })}</div> : <EmptyState icon={Search} title="Nenhuma empresa neste recorte" description="Troque entre Precisa atenção, Prontas ou Todas, ou ajuste os filtros." />}
   </section>
 }
 

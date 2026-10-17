@@ -1,7 +1,7 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "installCommand": "npm ci --include=dev",
-  "buildCommand": "node scripts/patch-preview-cloud-prospecting-ui.mjs && npm run typecheck && npm run build",
+  "buildCommand": "npm run typecheck && npm run build",
   "outputDirectory": "dist",
   "rewrites": [
     {

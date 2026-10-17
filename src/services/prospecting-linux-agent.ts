@@ -256,10 +256,10 @@ const agentNormalize = (value: unknown) => decodeProspectingHtmlEntities(value)
   .toLocaleLowerCase('pt-BR')
   .replace(/[^a-z0-9]+/g, ' ')
   .trim()
-const AGENT_CONTENT_NOISE = /\b(?:the\s+best(?:\s+\d+)?|top\s*\d+|best\s+\d+|melhores|ranking|lista\s+de|guia\s+de|reviews?|directory|diret[oó]rio|artigo|blog|curso|vaga|emprego|near\s+me|perto\s+de\s+mim)\b/i
-const AGENT_DIRECTORY_HOST = /(^|\.)(?:yelp\.|tripadvisor\.|foursquare\.com|guiamais\.com\.br|telelistas\.net|solutudo\.com\.br|apontador\.com\.br|listamais\.com\.br)/i
+const AGENT_CONTENT_NOISE = /\b(?:the\s+best(?:\s+\d+)?|top\s*\d+|best\s+\d+|encontre\s+(?:a|o)\s+melhor|melhor(?:es)?|ranking|lista\s+de|guia\s+de|reviews?|directory|diret[oó]rio|artigo|blog|curso|vaga|emprego|near\s+me|perto\s+de\s+mim)\b/i
+const AGENT_DIRECTORY_HOST = /(^|\.)(?:yelp\.|tripadvisor\.|foursquare\.com|guiamais\.com\.br|telelistas\.net|solutudo\.com\.br|apontador\.com\.br|listamais\.com\.br|locaisdobrasil\.com\.br|brasillocais\.com)/i
 
-function sanitizeAgentCandidate<T extends ProspectingAgentJob['results'][number]>(candidate: T): T | null {
+function sanitizeAgentCandidate<T extends ProspectingAgentJob['results'][number]>(candidate: T, areaMode?: ProspectingAreaMode): T | null {
   const sanitized = sanitizeProspectingDraft(candidate) as T
   const provider = String(sanitized.provider ?? '').toLocaleLowerCase('pt-BR')
   const placeType = String(sanitized.placeType ?? '').toLocaleLowerCase('pt-BR')
@@ -267,7 +267,13 @@ function sanitizeAgentCandidate<T extends ProspectingAgentJob['results'][number]
   const website = String(sanitized.website ?? '')
   let host = ''
   try { host = website ? new URL(/^https?:\/\//i.test(website) ? website : `https://${website}`).hostname : '' } catch { host = '' }
-  if (AGENT_CONTENT_NOISE.test(name) || AGENT_DIRECTORY_HOST.test(host) || ['directory', 'content', 'web_document'].includes(placeType) || provider === 'web_coverage_hint') return null
+  if (AGENT_CONTENT_NOISE.test(name) || ['directory', 'content', 'web_document'].includes(placeType) || provider === 'web_coverage_hint') return null
+  if (AGENT_DIRECTORY_HOST.test(host)) {
+    sanitized.website = ''
+    sanitized.sourceDetail = sanitized.sourceDetail || 'Diretório público usado como evidência de descoberta'
+    sanitized.qualityStatus = 'attention'
+    sanitized.reviewReason = 'directory_evidence'
+  }
   const scopeValidation = sanitized.scopeValidation as { location?: { accepted?: boolean; score?: number } } | undefined
   if (scopeValidation?.location?.accepted === false) return null
   const scopeRegion = decodeProspectingHtmlEntities(sanitized.scopeRegion)
@@ -277,16 +283,17 @@ function sanitizeAgentCandidate<T extends ProspectingAgentJob['results'][number]
   const hasCoordinates = Number.isFinite(Number(sanitized.latitude)) && Number.isFinite(Number(sanitized.longitude))
   const geoScore = Number(scopeValidation?.location?.score ?? (hasCoordinates ? 90 : 0))
   const hasIdentity = Boolean(String(sanitized.osmId ?? sanitized.placeId ?? sanitized.cnpj ?? sanitized.phone ?? sanitized.website ?? '').trim())
-  if (sanitized.qualityStatus === 'ready' && (!hasIdentity || geoScore < 68 || placeType === 'unknown')) {
+  const geometryRequired = areaMode === 'radius' || areaMode === 'map'
+  if (sanitized.qualityStatus === 'ready' && (!hasIdentity || geoScore < 68 || placeType === 'unknown' || (geometryRequired && !hasCoordinates))) {
     sanitized.qualityStatus = 'attention'
-    sanitized.reviewReason = geoScore < 68 ? 'location_not_confirmed' : 'business_identity_not_confirmed'
+    sanitized.reviewReason = geometryRequired && !hasCoordinates ? 'coordinates_not_confirmed' : geoScore < 68 ? 'location_not_confirmed' : 'business_identity_not_confirmed'
   }
   return sanitized
 }
 
 function sanitizeProspectingAgentJob(job: ProspectingAgentJob): ProspectingAgentJob {
   const rawResults = Array.isArray(job.results) ? job.results : []
-  const results = rawResults.map((candidate) => sanitizeAgentCandidate(candidate)).filter((candidate): candidate is ProspectingAgentJob['results'][number] => Boolean(candidate))
+  const results = rawResults.map((candidate) => sanitizeAgentCandidate(candidate, job.input.areaMode)).filter((candidate): candidate is ProspectingAgentJob['results'][number] => Boolean(candidate))
   const filteredByIntegrity = rawResults.length - results.length
   const ready = results.filter((candidate) => candidate.qualityStatus === 'ready').length
   const attention = results.filter((candidate) => candidate.qualityStatus !== 'ready').length

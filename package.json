@@ -317,7 +317,8 @@
     "qa:agent:v3.2": "node scripts/agent_v3_2_operating_layer_audit.mjs",
     "qa:agent:v3.3": "node scripts/realtalent_agent_v33_sales_prospecting_audit.mjs",
     "qa:agent:v3.5": "node scripts/realtalent_agent_v35_execution_truth_audit.mjs",
-    "qa:agent:v3.5-h1": "node scripts/realtalent_agent_v35_h1_cloud_readiness_audit.mjs"
+    "qa:agent:v3.5-h1": "node scripts/realtalent_agent_v35_h1_cloud_readiness_audit.mjs",
+    "qa:prospecting:functional": "node scripts/prospecting-functional-consolidation-audit.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "2.110.7",

@@ -267,7 +267,7 @@ function normalizeAgentJob(job) {
       targetMode: job.input?.targetMode === 'max' ? 'max' : 'quantity',
       areaMode: ['radius', 'city', 'neighborhoods', 'map'].includes(job.input?.areaMode) ? job.input.areaMode : 'city',
       radiusKm: Math.min(100, Math.max(1, Number(job.input?.radiusKm) || 15)),
-      searchMode: ['coverage', 'fast', 'economy'].includes(job.input?.searchMode) ? job.input.searchMode : 'coverage',
+      searchMode: ['coverage', 'fast', 'economy'].includes(job.input?.searchMode) ? job.input.searchMode : 'fast',
       categoryMode: job.input?.categoryMode === 'related' ? 'related' : 'exact',
       mapPolygon: sanitizeMapPolygon(job.input?.mapPolygon),
       searchCenter: Number.isFinite(Number(job.input?.searchCenter?.lat)) && Number.isFinite(Number(job.input?.searchCenter?.lon))
@@ -2369,6 +2369,23 @@ async function processJob(job) {
   try {
     if (!job.plan?.plannedAt || !Array.isArray(job.plan.cells) || !job.plan.cells.length) await buildSearchPlan(job)
 
+    let fastWebAttempted = false
+    if (job.input.searchMode === 'fast' && WEB_SEARCH_ENABLED && job.input.areaMode !== 'map' && !shouldStopForTarget(job)) {
+      fastWebAttempted = true
+      setRuntimePhase(job, 'discovering_web', 'Busca rápida: procurando empresas na web pública primeiro…')
+      const beforeFastWeb = job.plan.providerRuns.length
+      await runWebPlanner(job, seen)
+      const fastWebRuns = job.plan.providerRuns.slice(beforeFastWeb).filter((item) => item.provider === 'web')
+      const completedFastWebRuns = fastWebRuns.filter((item) => item.status === 'completed')
+      const failedFastWebRuns = fastWebRuns.filter((item) => item.status === 'failed')
+      if (completedFastWebRuns.length) successfulProviders += 1
+      job.coverage.validRuns = Number(job.coverage.validRuns || 0) + completedFastWebRuns.length
+      job.coverage.failedRuns = Number(job.coverage.failedRuns || 0) + failedFastWebRuns.length
+      providerErrors.push(...failedFastWebRuns.map((item) => item.error))
+      finishRuntimeSource(job, 'web', completedFastWebRuns.length > 0 || failedFastWebRuns.length === 0)
+      if (shouldStopForTarget(job)) appendRuntimeEvent(job, 'fast_target', `Busca rápida atingiu a meta com ${job.results.length} empresa(s) antes da varredura territorial pesada.`, { unique: job.results.length })
+    }
+
     let cursor = 0
     while (cursor < job.plan.cells.length) {
       await waitIfPaused(job)
@@ -2390,7 +2407,7 @@ async function processJob(job) {
       if (ensureRuntimeTruth(job).sourceStates.osmCoverage === 'running') finishRuntimeSource(job, 'osmCoverage', true)
     }
 
-    if (!shouldStopForTarget(job) && WEB_SEARCH_ENABLED && job.input.areaMode !== 'map') {
+    if (!fastWebAttempted && !shouldStopForTarget(job) && WEB_SEARCH_ENABLED && job.input.areaMode !== 'map') {
       const beforeWeb = job.plan.providerRuns.length
       await runWebPlanner(job, seen)
       const webRuns = job.plan.providerRuns.slice(beforeWeb).filter((item) => item.provider === 'web')
@@ -2481,7 +2498,7 @@ function createJob(input, source = 'manual') {
       targetMode,
       areaMode: ['radius', 'city', 'neighborhoods', 'map'].includes(input.areaMode) ? input.areaMode : 'radius',
       radiusKm: Math.min(100, Math.max(1, Number(input.radiusKm) || 15)),
-      searchMode: ['coverage', 'fast', 'economy'].includes(input.searchMode) ? input.searchMode : 'coverage',
+      searchMode: ['coverage', 'fast', 'economy'].includes(input.searchMode) ? input.searchMode : 'fast',
       categoryMode: input.categoryMode === 'related' ? 'related' : 'exact',
       mapPolygon: sanitizeMapPolygon(input.mapPolygon),
       searchCenter: Number.isFinite(Number(input.searchCenter?.lat)) && Number.isFinite(Number(input.searchCenter?.lon))
@@ -2654,7 +2671,7 @@ const server = http.createServer(async (req, res) => {
           targetMode: body.targetMode === 'max' ? 'max' : 'quantity',
           areaMode: ['radius','city','neighborhoods','map'].includes(body.areaMode) ? body.areaMode : 'radius',
           radiusKm: Math.min(100, Math.max(1, Number(body.radiusKm) || 15)),
-          searchMode: ['coverage','fast','economy'].includes(body.searchMode) ? body.searchMode : 'coverage',
+          searchMode: ['coverage','fast','economy'].includes(body.searchMode) ? body.searchMode : 'fast',
           categoryMode: body.categoryMode === 'related' ? 'related' : 'exact',
           mapPolygon: sanitizeMapPolygon(body.mapPolygon),
           searchCenter: Number.isFinite(Number(body.searchCenter?.lat)) && Number.isFinite(Number(body.searchCenter?.lon))

@@ -6,6 +6,8 @@ on:
       - preview/v3.5-h1-semantic-agent
     paths:
       - 'src/services/realtalent-*.ts'
+      - 'src/services/prospecting-*.ts'
+      - 'src/features/prospecting/**'
       - 'src/features/assistant/**'
       - 'src/features/auth/**'
       - 'src/lib/env.ts'
@@ -72,6 +74,9 @@ jobs:
 
       - name: Local Supabase environment regression
         run: npx vitest run src/lib/env.test.ts
+
+      - name: Prospecting Intelligence regression
+        run: npx vitest run src/services/prospecting-data-layer.test.ts src/services/prospecting-intelligence.test.ts src/services/prospecting-search-automation.test.ts
 
       - name: Typecheck
         run: npm run typecheck

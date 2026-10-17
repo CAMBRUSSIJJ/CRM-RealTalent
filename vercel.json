@@ -96,9 +96,6 @@
   ],
   "functions": {
     "api/runtime-*.mjs": {
-      "maxDuration": 60
-    },
-    "api/runtime-bootstrap-prospecting.mjs": {
       "maxDuration": 60,
       "includeFiles": "runtime-host/**/*prospecting-*.mjs"
     },

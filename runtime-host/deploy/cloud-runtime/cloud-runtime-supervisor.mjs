@@ -9,6 +9,8 @@ const bundle=path.resolve(here,'../..')
 const crm=path.join(bundle,'RealTalent-CRM-V101.11.3-CR10-H1-Agent-V3.1.2-Linux-Launcher')
 const agent=path.join(bundle,'RealTalent-Agent-Runtime-V3.1.2')
 const PORT=Number(process.env.PORT||8080)
+const HOST=process.env.HOST||'0.0.0.0'
+const RUNTIME_ENVIRONMENT=process.env.RUNTIME_ENVIRONMENT||'unknown'
 const DATA=process.env.REALTALENT_CLOUD_DATA_DIR||'/data'
 fs.mkdirSync(DATA,{recursive:true})
 for(const dir of ['agent-config','agent-state','communications','prospecting']) fs.mkdirSync(path.join(DATA,dir),{recursive:true})
@@ -85,7 +87,7 @@ const proxy=(req,res,service)=>{
   req.pipe(upstream)
 }
 
-const health=async()=>{
+const readiness=async()=>{
   const probes=await Promise.all(Object.entries(services).map(async([name,s])=>{
     try{
       const port=name==='agent'?s.innerPort:s.port
@@ -98,16 +100,32 @@ const health=async()=>{
   return Object.fromEntries(probes)
 }
 
+const sendJson=(res,status,payload)=>{
+  res.statusCode=status
+  res.setHeader('content-type','application/json')
+  res.end(JSON.stringify(payload))
+}
+
 const server=http.createServer(async(req,res)=>{
   const pathname=new URL(req.url||'/',`http://${req.headers.host||'localhost'}`).pathname
+
+  // Liveness deve responder assim que o supervisor abriu a porta. Ele não depende
+  // de Agent, Comunicações ou Garimpo e é o endpoint usado pelo healthcheck Railway.
   if(pathname==='/health'){
-    const servicesHealth=await health();const ok=Object.values(servicesHealth).every(v=>v.ok)
-    res.statusCode=ok?200:503;res.setHeader('content-type','application/json');return res.end(JSON.stringify({ok,service:'realtalent-cloud-runtime',services:servicesHealth}))
+    return sendJson(res,200,{ok:true,status:'ok',service:'realtalent-cloud-runtime',environment:RUNTIME_ENVIRONMENT,uptimeSeconds:Math.round(process.uptime())})
   }
+
+  // Readiness testa os componentes internos e pode retornar 503 enquanto eles sobem.
+  if(pathname==='/ready'){
+    const servicesHealth=await readiness()
+    const ok=Object.values(servicesHealth).every(v=>v.ok)
+    return sendJson(res,ok?200:503,{ok,status:ok?'ready':'starting',service:'realtalent-cloud-runtime',environment:RUNTIME_ENVIRONMENT,services:servicesHealth})
+  }
+
   for(const svc of Object.values(services)) if(pathname===svc.prefix||pathname.startsWith(`${svc.prefix}/`)) return proxy(req,res,svc)
-  res.statusCode=404;res.setHeader('content-type','application/json');res.end(JSON.stringify({ok:false,error:'route_not_found'}))
+  return sendJson(res,404,{ok:false,error:'route_not_found'})
 })
 
-server.listen(PORT,'0.0.0.0',()=>console.log(`RealTalent Cloud Runtime em :${PORT}`))
+server.listen(PORT,HOST,()=>console.log(`RealTalent Cloud Runtime (${RUNTIME_ENVIRONMENT}) em ${HOST}:${PORT}`))
 const shutdown=()=>{if(shuttingDown)return;shuttingDown=true;server.close();for(const child of children)try{child.kill('SIGTERM')}catch{};setTimeout(()=>process.exit(0),1000).unref()}
 process.on('SIGTERM',shutdown);process.on('SIGINT',shutdown)

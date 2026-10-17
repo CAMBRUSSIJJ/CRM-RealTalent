@@ -4,6 +4,15 @@ import {
   type ProspectingProviderSearchInput,
   type ProspectingProviderSearchResult,
 } from './prospecting-provider-gateway'
+import {
+  buildDeterministicProspectingSearchPlan,
+  prospectingSearchPlanSummary,
+  sanitizeProspectingSearchPlan,
+  verifyProspectingDraft,
+  type ProspectingSearchPlan,
+  type ProspectingSearchPlanContext,
+  type ProspectingSearchPlanInput,
+} from './prospecting-search-intelligence'
 
 export type ProspectingAutomationStatus = 'idle' | 'planning' | 'searching' | 'completed' | 'cancelled' | 'failed'
 
@@ -14,6 +23,7 @@ export interface ProspectingSearchAutomationInput {
   query: string
   targetQuantity: number
   maxRequests?: number
+  context?: ProspectingSearchPlanContext
 }
 
 export interface ProspectingSearchAutomationProgress {
@@ -25,6 +35,9 @@ export interface ProspectingSearchAutomationProgress {
   currentArea: string
   currentQuery: string
   message: string
+  plan?: ProspectingSearchPlan
+  rejectedCount?: number
+  duplicatesFiltered?: number
 }
 
 export interface ProspectingSearchAutomationResult {
@@ -34,12 +47,17 @@ export interface ProspectingSearchAutomationResult {
   areasSearched: string[]
   warnings: string[]
   stoppedReason: 'target_reached' | 'sources_exhausted' | 'request_limit' | 'cancelled'
+  plan: ProspectingSearchPlan
+  rejectedCount: number
+  duplicatesFiltered: number
+  adaptations: string[]
 }
 
 export interface ProspectingSearchAutomationOptions {
   signal?: AbortSignal
   onProgress?: (progress: ProspectingSearchAutomationProgress) => void
   search?: (input: ProspectingProviderSearchInput) => Promise<ProspectingProviderSearchResult>
+  planSearch?: (input: ProspectingSearchPlanInput, baseline: ProspectingSearchPlan) => Promise<Partial<ProspectingSearchPlan> | ProspectingSearchPlan | null>
 }
 
 const clean = (value: string) => value.trim().replace(/\s+/g, ' ')
@@ -99,17 +117,20 @@ export async function runProspectingSearchAutomation(
 ): Promise<ProspectingSearchAutomationResult> {
   const targetQuantity = Math.min(100, Math.max(1, Math.round(input.targetQuantity || 20)))
   const maxRequests = Math.min(12, Math.max(1, Math.round(input.maxRequests ?? Math.ceil(targetQuantity / 20) + 2)))
-  const areas = prospectingAutomationAreas(input.city)
-  const effectiveAreas = areas.length ? areas : ['']
-  const queries = prospectingAutomationQueries(input.segment, input.query)
-  if (!queries.length) throw new Error('Informe um segmento ou uma busca específica para iniciar a automação.')
-
   const search = options.search ?? runProspectingProviderSearch
   const warnings = new Set<string>()
   const drafts: CaptureDraft[] = []
   const seen = new Set<string>()
+  const adaptations: string[] = []
   let requestsCompleted = 0
+  let rejectedCount = 0
+  let duplicatesFiltered = 0
   let stoppedReason: ProspectingSearchAutomationResult['stoppedReason'] = 'sources_exhausted'
+
+  const planInput: ProspectingSearchPlanInput = { segment: input.segment, city: input.city, query: input.query, context: input.context }
+  const baselinePlan = buildDeterministicProspectingSearchPlan(planInput)
+  if (!baselinePlan.queries.length) throw new Error('Informe um segmento ou uma busca específica para iniciar a automação.')
+  let plan = baselinePlan
 
   const emit = (patch: Partial<ProspectingSearchAutomationProgress>) => options.onProgress?.({
     status: 'searching',
@@ -119,11 +140,27 @@ export async function runProspectingSearchAutomation(
     maxRequests,
     currentArea: '',
     currentQuery: '',
-    message: 'Preparando busca automática…',
+    message: 'Preparando busca inteligente…',
+    plan,
+    rejectedCount,
+    duplicatesFiltered,
     ...patch,
   })
 
-  emit({ status: 'planning', message: `Plano criado para até ${targetQuantity} oportunidade(s).` })
+  emit({ status: 'planning', message: `Interpretando a busca para até ${targetQuantity} oportunidade(s)…` })
+  if (options.planSearch) {
+    try {
+      const aiPlan = await options.planSearch(planInput, baselinePlan)
+      plan = sanitizeProspectingSearchPlan(aiPlan, baselinePlan)
+    } catch {
+      warnings.add('A Agent não conseguiu refinar o plano nesta tentativa; a busca continuou com o planejador semântico local.')
+      plan = baselinePlan
+    }
+  }
+
+  const effectiveAreas = plan.areas.length ? plan.areas : ['']
+  const queries = plan.queries.map((item) => item.term)
+  emit({ status: 'planning', plan, message: prospectingSearchPlanSummary(plan) })
 
   outer: for (const area of effectiveAreas) {
     for (const term of queries) {
@@ -147,17 +184,66 @@ export async function runProspectingSearchAutomation(
         requestsCompleted += 1
         result.warnings.forEach((warning) => warnings.add(warning))
 
+        let acceptedInBatch = 0
+        let duplicatesInBatch = 0
+        let rejectedInBatch = 0
         for (const draft of result.drafts) {
+          const verification = verifyProspectingDraft(draft, plan, area)
+          if (!verification.accept) {
+            rejectedCount += 1
+            rejectedInBatch += 1
+            continue
+          }
           const keys = prospectingDraftIdentityKeys(draft)
-          if (keys.some((key) => seen.has(key))) continue
+          if (keys.some((key) => seen.has(key))) {
+            duplicatesFiltered += 1
+            duplicatesInBatch += 1
+            continue
+          }
           keys.forEach((key) => seen.add(key))
-          drafts.push(draft)
+          drafts.push({
+            ...draft,
+            searchIntelligence: {
+              confidence: verification.confidence,
+              reasons: verification.reasons,
+              warnings: verification.warnings,
+              query: term,
+              area,
+              planner: plan.planner,
+            },
+          })
+          acceptedInBatch += 1
           if (drafts.length >= targetQuantity) break
         }
 
-        emit({ uniqueFound: drafts.length, requestsCompleted, currentArea: area, currentQuery: term, message: `${drafts.length} oportunidade(s) única(s) encontradas.` })
+        emit({
+          uniqueFound: drafts.length,
+          requestsCompleted,
+          currentArea: area,
+          currentQuery: term,
+          rejectedCount,
+          duplicatesFiltered,
+          message: `${drafts.length} oportunidade(s) válida(s) · ${rejectedCount} ruído(s) filtrado(s) · ${duplicatesFiltered} duplicidade(s).`,
+        })
         if (drafts.length >= targetQuantity) { stoppedReason = 'target_reached'; break outer }
-        pageToken = result.nextPageToken
+
+        const rawCount = result.drafts.length
+        const acceptanceRatio = rawCount ? acceptedInBatch / rawCount : 0
+        const duplicateRatio = rawCount ? duplicatesInBatch / rawCount : 0
+        const shouldAdaptForQuality = rawCount >= 5 && acceptanceRatio < 0.2
+        const shouldAdaptForDuplicates = rawCount >= 5 && duplicateRatio > 0.7
+        const emptyUsefulBatch = rawCount > 0 && acceptedInBatch === 0 && rejectedInBatch + duplicatesInBatch === rawCount
+
+        if ((shouldAdaptForQuality || shouldAdaptForDuplicates || emptyUsefulBatch) && result.nextPageToken) {
+          const reason = shouldAdaptForDuplicates
+            ? `Consulta “${term}” saturou em duplicidades; avancei para outra variação sem gastar outra página.`
+            : `Consulta “${term}” trouxe baixa aderência; refinei a estratégia e avancei para outra variação.`
+          adaptations.push(reason)
+          warnings.add(reason)
+          pageToken = null
+        } else {
+          pageToken = result.nextPageToken
+        }
       } while (pageToken)
     }
   }
@@ -170,11 +256,13 @@ export async function runProspectingSearchAutomation(
     status: stoppedReason === 'cancelled' ? 'cancelled' : 'completed',
     uniqueFound: drafts.length,
     requestsCompleted,
+    rejectedCount,
+    duplicatesFiltered,
     message: stoppedReason === 'target_reached'
-      ? `Meta atingida: ${drafts.length} oportunidade(s) única(s).`
+      ? `Meta atingida: ${drafts.length} oportunidade(s) válida(s).`
       : stoppedReason === 'request_limit'
-        ? `Limite de ${maxRequests} consulta(s) atingido com ${drafts.length} resultado(s) único(s).`
-        : `Busca concluída com ${drafts.length} resultado(s) único(s).`,
+        ? `Limite de ${maxRequests} consulta(s) atingido com ${drafts.length} resultado(s) válido(s).`
+        : `Busca inteligente concluída com ${drafts.length} resultado(s) válido(s).`,
   })
 
   return {
@@ -184,5 +272,9 @@ export async function runProspectingSearchAutomation(
     areasSearched: effectiveAreas.filter(Boolean),
     warnings: [...warnings],
     stoppedReason,
+    plan,
+    rejectedCount,
+    duplicatesFiltered,
+    adaptations,
   }
 }

@@ -10,7 +10,7 @@ const SANDBOX_PORT = 4319
 const TOKEN_FILE = '/vercel/.realtalent-prospecting/runtime-token'
 const STATE_DIR = '/vercel/.realtalent-prospecting/state'
 const AGENT_FILE = '/vercel/CRM-RealTalent/runtime-host/RealTalent-CRM-V101.11.3-CR10-H1-Agent-V3.1.2-Linux-Launcher/scripts/realtalent-prospecting-agent.mjs'
-const VERSION = 'prospecting-vercel-control-2.0.1'
+const VERSION = 'prospecting-vercel-control-2.1.0'
 const MAX_BODY = 1_200_000
 
 let runtimePromise = null
@@ -44,6 +44,57 @@ async function readBody(req) {
   }
   return chunks.length ? Buffer.concat(chunks) : undefined
 }
+
+const FAST_DISCOVERY_PATCH = String.raw`
+const fs = require('node:fs')
+const file = process.argv[1]
+let source = fs.readFileSync(file, 'utf8')
+
+if (!source.includes('let fastWebAttempted = false')) {
+  const from = "    let cursor = 0\n    while (cursor < job.plan.cells.length) {\n"
+  const to = "    let fastWebAttempted = false\n" +
+    "    if (job.input.searchMode === 'fast' && WEB_SEARCH_ENABLED && job.input.areaMode !== 'map' && !shouldStopForTarget(job)) {\n" +
+    "      fastWebAttempted = true\n" +
+    "      setRuntimePhase(job, 'discovering_web', 'Busca rápida: procurando empresas na web pública primeiro…')\n" +
+    "      const beforeFastWeb = job.plan.providerRuns.length\n" +
+    "      await runWebPlanner(job, seen)\n" +
+    "      const fastWebRuns = job.plan.providerRuns.slice(beforeFastWeb).filter((item) => item.provider === 'web')\n" +
+    "      const completedFastWebRuns = fastWebRuns.filter((item) => item.status === 'completed')\n" +
+    "      const failedFastWebRuns = fastWebRuns.filter((item) => item.status === 'failed')\n" +
+    "      if (completedFastWebRuns.length) successfulProviders += 1\n" +
+    "      job.coverage.validRuns = Number(job.coverage.validRuns || 0) + completedFastWebRuns.length\n" +
+    "      job.coverage.failedRuns = Number(job.coverage.failedRuns || 0) + failedFastWebRuns.length\n" +
+    "      providerErrors.push(...failedFastWebRuns.map((item) => item.error))\n" +
+    "      finishRuntimeSource(job, 'web', completedFastWebRuns.length > 0 || failedFastWebRuns.length === 0)\n" +
+    "      if (shouldStopForTarget(job)) appendRuntimeEvent(job, 'fast_target', 'Busca rápida atingiu a meta com ' + job.results.length + ' empresa(s) antes da varredura territorial pesada.', { unique: job.results.length })\n" +
+    "    }\n\n" +
+    "    let cursor = 0\n    while (cursor < job.plan.cells.length) {\n"
+  if (!source.includes(from)) throw new Error('fast_discovery_cursor_anchor_missing')
+  source = source.replace(from, to)
+}
+
+const oldWebBlock = "    if (!shouldStopForTarget(job) && WEB_SEARCH_ENABLED && job.input.areaMode !== 'map') {\n"
+const newWebBlock = "    if (!fastWebAttempted && !shouldStopForTarget(job) && WEB_SEARCH_ENABLED && job.input.areaMode !== 'map') {\n"
+if (!source.includes(newWebBlock)) {
+  if (!source.includes(oldWebBlock)) throw new Error('fast_discovery_web_anchor_missing')
+  source = source.replace(oldWebBlock, newWebBlock)
+}
+
+source = source.replace(
+  "searchMode: ['coverage', 'fast', 'economy'].includes(job.input?.searchMode) ? job.input.searchMode : 'coverage',",
+  "searchMode: ['coverage', 'fast', 'economy'].includes(job.input?.searchMode) ? job.input.searchMode : 'fast',",
+)
+source = source.replace(
+  "searchMode: ['coverage', 'fast', 'economy'].includes(input.searchMode) ? input.searchMode : 'coverage',",
+  "searchMode: ['coverage', 'fast', 'economy'].includes(input.searchMode) ? input.searchMode : 'fast',",
+)
+source = source.replace(
+  "searchMode: ['coverage','fast','economy'].includes(body.searchMode) ? body.searchMode : 'coverage',",
+  "searchMode: ['coverage','fast','economy'].includes(body.searchMode) ? body.searchMode : 'fast',",
+)
+
+fs.writeFileSync(file, source)
+`
 
 const ensureScript = `
 set -euo pipefail
@@ -79,6 +130,17 @@ exit 1
 
 async function buildRuntime() {
   const sandbox = await Sandbox.get({ name: SANDBOX_NAME })
+
+  const patched = await sandbox.runCommand('node', ['-e', FAST_DISCOVERY_PATCH, AGENT_FILE])
+  if (patched.exitCode !== 0) {
+    throw new Error('prospecting_fast_discovery_patch_failed')
+  }
+
+  const syntax = await sandbox.runCommand('node', ['--check', AGENT_FILE])
+  if (syntax.exitCode !== 0) {
+    throw new Error('prospecting_fast_discovery_syntax_failed')
+  }
+
   const ensured = await sandbox.runCommand('bash', ['-lc', ensureScript])
   if (ensured.exitCode !== 0) {
     throw new Error('prospecting_sandbox_agent_start_failed')
@@ -149,6 +211,7 @@ async function operationalHealth(res) {
       runtime: 'vercel-sandbox',
       sandbox: SANDBOX_NAME,
       region: 'gru1',
+      capabilities: { fastDiscovery: 'web-first', mapSelection: true, persistentJobs: true },
       agent: agent ? {
         ok: Boolean(agent.ok),
         version: agent.version,

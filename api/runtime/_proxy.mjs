@@ -66,6 +66,14 @@ export async function proxyRuntime(req, res, service) {
 
   try {
     const upstreamResponse = await fetch(target, { method: req.method, headers, body: safeBody(req), redirect:'manual', signal: AbortSignal.timeout(55_000) })
+    // A página de proteção da Vercel não é a resposta JSON do motor. Não encaminhar HTML de login como se fosse falha do Garimpo.
+    const upstreamType = upstreamResponse.headers.get('content-type') || ''
+    const upstreamLocation = upstreamResponse.headers.get('location') || ''
+    if (service === 'prospecting' && [301, 302, 303, 307, 308, 401, 403].includes(upstreamResponse.status)
+      && (upstreamType.includes('text/html') || /(?:vercel\.com\/login|_vercel_sso_nonce|_vercel_share)/i.test(upstreamLocation))) {
+      return sendJson(res, 502, { ok:false, service, error:'runtime_preview_protection_blocked',
+        message:'A proteção do deployment Preview impede a comunicação com o Garimpo. Configure a autenticação de serviço no ambiente Preview.' })
+    }
     res.statusCode = upstreamResponse.status
     for (const name of ['content-type','cache-control','etag','last-modified']) {
       const value = upstreamResponse.headers.get(name); if (value) res.setHeader(name, value)

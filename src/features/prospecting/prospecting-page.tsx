@@ -327,10 +327,21 @@ export function ProspectingPage() {
     finally { setAgentBusy(false) }
   }, [agentBusy, agentJob, importDrafts, notify])
 
+  // Uma única consulta por vez. Não manter polling contínuo quando o navegador está em segundo plano.
+  const refreshAgentInFlight = useRef(false)
   useEffect(() => {
-    void refreshAgent()
-    const timer = window.setInterval(() => { void refreshAgent() }, agentJob && ['queued', 'running', 'paused'].includes(agentJob.status) ? 1000 : 6000)
-    return () => window.clearInterval(timer)
+    let cancelled = false
+    const refreshVisibleAgent = async () => {
+      if (cancelled || document.visibilityState === 'hidden' || refreshAgentInFlight.current) return
+      refreshAgentInFlight.current = true
+      try { await refreshAgent() } finally { refreshAgentInFlight.current = false }
+    }
+    void refreshVisibleAgent()
+    const active = Boolean(agentJob && ['queued', 'running', 'paused'].includes(agentJob.status))
+    const timer = window.setInterval(() => { void refreshVisibleAgent() }, active ? 4000 : 20000)
+    const onVisibility = () => { if (document.visibilityState === 'visible') void refreshVisibleAgent() }
+    document.addEventListener('visibilitychange', onVisibility)
+    return () => { cancelled = true; window.clearInterval(timer); document.removeEventListener('visibilitychange', onVisibility) }
   }, [agentJob?.status, refreshAgent])
 
   const resetProspectingSearch = () => {

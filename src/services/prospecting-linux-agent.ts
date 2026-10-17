@@ -243,7 +243,7 @@ export function existingProspectingIdentityKeys(leads: Lead[]): string[] {
 
 export async function getProspectingAgentHealth(): Promise<ProspectingAgentHealth | null> {
   try {
-    return await request<ProspectingAgentHealth>('/api/prospecting-agent/health', {}, 1800)
+    return await request<ProspectingAgentHealth>('/api/prospecting-agent/health', {}, 12000)
   } catch { return null }
 }
 

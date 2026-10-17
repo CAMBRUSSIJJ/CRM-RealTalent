@@ -1,110 +1,33 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
-  "installCommand": "npm ci --include=dev",
-  "buildCommand": "node scripts/patch-preview-cloud-prospecting-ui.mjs && npm run typecheck && npm run build",
-  "outputDirectory": "dist",
+  "services": {
+    "prospecting": {
+      "root": "runtime-host/RealTalent-CRM-V101.11.3-CR10-H1-Agent-V3.1.2-Linux-Launcher/scripts/",
+      "framework": "node",
+      "entrypoint": "vercel-prospecting-server.mjs"
+    }
+  },
   "rewrites": [
     {
-      "source": "/api/runtime-bootstrap-prospecting",
-      "destination": "/api/runtime-bootstrap-prospecting"
-    },
-    {
-      "source": "/api/runtime/agent",
-      "destination": "/api/runtime-agent"
-    },
-    {
-      "source": "/api/runtime/agent/:path*",
-      "destination": "/api/runtime-agent?__rt_path=:path*"
-    },
-    {
-      "source": "/api/runtime/communications",
-      "destination": "/api/runtime-communications"
-    },
-    {
-      "source": "/api/runtime/communications/:path*",
-      "destination": "/api/runtime-communications?__rt_path=:path*"
-    },
-    {
-      "source": "/api/runtime/prospecting",
-      "destination": "/api/runtime-prospecting"
-    },
-    {
-      "source": "/api/runtime/prospecting/:path*",
-      "destination": "/api/runtime-prospecting?__rt_path=:path*"
-    },
-    {
       "source": "/(.*)",
-      "destination": "/index.html"
+      "destination": {
+        "service": "prospecting"
+      }
     }
   ],
   "headers": [
     {
-      "source": "/health.json",
+      "source": "/(.*)",
       "headers": [
         {
           "key": "Cache-Control",
           "value": "no-store, max-age=0"
-        }
-      ]
-    },
-    {
-      "source": "/(.*)",
-      "headers": [
-        {
-          "key": "Content-Security-Policy",
-          "value": "default-src 'self'; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; img-src 'self' data: blob: https:; connect-src 'self' https://*.supabase.co wss://*.supabase.co; media-src 'self' blob:; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'"
         },
         {
           "key": "X-Content-Type-Options",
           "value": "nosniff"
-        },
-        {
-          "key": "X-Frame-Options",
-          "value": "DENY"
-        },
-        {
-          "key": "Referrer-Policy",
-          "value": "strict-origin-when-cross-origin"
-        },
-        {
-          "key": "Permissions-Policy",
-          "value": "camera=(), geolocation=(self), microphone=(self), payment=(), usb=()"
-        },
-        {
-          "key": "Cross-Origin-Opener-Policy",
-          "value": "same-origin"
-        },
-        {
-          "key": "Strict-Transport-Security",
-          "value": "max-age=63072000; includeSubDomains; preload"
-        },
-        {
-          "key": "Cross-Origin-Resource-Policy",
-          "value": "same-origin"
-        },
-        {
-          "key": "X-Permitted-Cross-Domain-Policies",
-          "value": "none"
-        }
-      ]
-    },
-    {
-      "source": "/assets/(.*)",
-      "headers": [
-        {
-          "key": "Cache-Control",
-          "value": "public, max-age=31536000, immutable"
         }
       ]
     }
-  ],
-  "functions": {
-    "api/runtime-*.mjs": {
-      "maxDuration": 60,
-      "includeFiles": "runtime-host/**/*prospecting-*.mjs"
-    },
-    "api/ai-bridge.mjs": {
-      "maxDuration": 60
-    }
-  }
+  ]
 }

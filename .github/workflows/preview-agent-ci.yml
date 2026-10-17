@@ -5,6 +5,7 @@ on:
     branches:
       - preview/v3.5-h1-semantic-agent
     paths:
+      - 'src/repositories/**'
       - 'src/services/realtalent-*.ts'
       - 'src/services/prospecting-*.ts'
       - 'src/features/prospecting/**'
@@ -19,6 +20,7 @@ on:
       - 'scripts/commercial_readiness_cr2_staging_probe.mjs'
       - 'scripts/commercial_readiness_cr3_staging_e2e_probe.mjs'
       - 'scripts/security_definer_anon_probe.mjs'
+      - 'scripts/v101_11_2_teams_tasks_foundation_audit.mjs'
       - '.env.cr3.example'
       - 'supabase/config.toml'
       - 'supabase/migrations/**'
@@ -73,6 +75,9 @@ jobs:
 
       - name: Login gate regression
         run: npm run qa:v101.11.1:h1
+
+      - name: Teams and Tasks forward-compatibility gate
+        run: npm run qa:v101.11.2
 
       - name: Local Supabase environment regression
         run: npx vitest run src/lib/env.test.ts

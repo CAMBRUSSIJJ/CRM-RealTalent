@@ -15,6 +15,7 @@ on:
       - 'scripts/local-staging.sh'
       - 'scripts/local-staging-bootstrap.mjs'
       - 'scripts/local-staging-communication-fixture.mjs'
+      - 'scripts/local-staging-workspace-probe.mjs'
       - 'scripts/commercial_readiness_cr2_staging_probe.mjs'
       - 'scripts/commercial_readiness_cr3_staging_e2e_probe.mjs'
       - 'scripts/security_definer_anon_probe.mjs'
@@ -54,6 +55,7 @@ jobs:
           bash -n scripts/local-staging.sh
           node --check scripts/local-staging-bootstrap.mjs
           node --check scripts/local-staging-communication-fixture.mjs
+          node --check scripts/local-staging-workspace-probe.mjs
           node --check scripts/commercial_readiness_cr2_staging_probe.mjs
           node --check scripts/commercial_readiness_cr3_staging_e2e_probe.mjs
           node --check scripts/security_definer_anon_probe.mjs
@@ -99,12 +101,18 @@ jobs:
         with:
           node-version: '22'
 
+      - name: Install dependencies
+        run: npm ci --include=dev
+
       - name: Run lean local Supabase migrations + CR2 + security + CR3
         env:
           REALTALENT_SUPABASE_CLI_VERSION: '2.119.0'
           REALTALENT_SUPABASE_EXCLUDE_SERVICES: 'realtime,storage-api,imgproxy,mailpit,postgres-meta,studio,edge-runtime,logflare,vector,supavisor'
           REALTALENT_SUPABASE_SKIP_RESET: '1'
         run: bash scripts/local-staging.sh all
+
+      - name: Probe exact workspace hydration queries
+        run: node scripts/local-staging-workspace-probe.mjs
 
       - name: Tear down disposable local staging
         if: always()

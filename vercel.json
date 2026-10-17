@@ -98,6 +98,14 @@
     "api/runtime-*.mjs": {
       "maxDuration": 60
     },
+    "api/runtime-bootstrap-prospecting.mjs": {
+      "maxDuration": 60,
+      "includeFiles": [
+        "runtime-host/deploy/prospecting-preview/prospecting-preview-supervisor.mjs",
+        "runtime-host/RealTalent-CRM-V101.11.3-CR10-H1-Agent-V3.1.2-Linux-Launcher/scripts/realtalent-prospecting-agent.mjs",
+        "runtime-host/RealTalent-CRM-V101.11.3-CR10-H1-Agent-V3.1.2-Linux-Launcher/scripts/realtalent-prospecting-adaptive-learning.mjs"
+      ]
+    },
     "api/ai-bridge.mjs": {
       "maxDuration": 60
     }

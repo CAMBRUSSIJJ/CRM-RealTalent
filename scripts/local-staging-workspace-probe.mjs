@@ -27,9 +27,32 @@ const client = createClient(url, key, { auth: { persistSession: false, autoRefre
 const login = await client.auth.signInWithPassword({ email, password })
 if (login.error) throw login.error
 
+let failed = false
+const report = (name, result) => {
+  if (result.error) {
+    failed = true
+    console.error(`FAIL ${name}: ${result.error.code ?? ''} ${result.error.message ?? result.error}`)
+  } else {
+    console.log(`PASS ${name}: ${Array.isArray(result.data) ? result.data.length : 0} row(s)`)
+  }
+}
+
+const workspaces = await client.from('organization_members').select('role, organizations!inner(id,name,slug,created_at)').order('created_at', { foreignTable: 'organizations' })
+report('workspaces', workspaces)
+
+const members = await client.from('organization_members').select('organization_id,user_id,role,created_at').eq('organization_id', workspaceId).order('created_at')
+report('workspace-members', members)
+const userIds = [...new Set((members.data ?? []).map((row) => row.user_id).filter(Boolean))]
+if (userIds.length) {
+  const profiles = await client.from('profiles').select('id,display_name,avatar_url').in('id', userIds)
+  report('workspace-member-profiles', profiles)
+  if (!profiles.error && profiles.data.length !== userIds.length) {
+    failed = true
+    console.error(`FAIL workspace-member-profiles: esperados ${userIds.length} perfil(is), recebidos ${profiles.data.length}`)
+  }
+}
+
 const checks = [
-  ['workspaces', () => client.from('organization_members').select('role, organizations!inner(id,name,slug,created_at)').order('created_at', { foreignTable: 'organizations' })],
-  ['workspace-members', () => client.from('organization_members').select('organization_id,user_id,role,created_at,profiles!inner(display_name,email,avatar_url)').eq('organization_id', workspaceId).order('created_at')],
   ['pipeline-stages', () => client.from('pipeline_stages').select('*').eq('organization_id', workspaceId).order('stage_order').order('id')],
   ['leads', () => client.from('leads').select('*').eq('organization_id', workspaceId).order('updated_at', { ascending: false }).order('id')],
   ['companies', () => client.from('companies').select('*').eq('organization_id', workspaceId).order('name').order('id')],
@@ -39,16 +62,7 @@ const checks = [
   ['social-profiles', () => client.from('social_profiles').select('*').eq('organization_id', workspaceId).order('network').order('id')],
 ]
 
-let failed = false
-for (const [name, run] of checks) {
-  const result = await run()
-  if (result.error) {
-    failed = true
-    console.error(`FAIL ${name}: ${result.error.code ?? ''} ${result.error.message ?? result.error}`)
-  } else {
-    console.log(`PASS ${name}: ${Array.isArray(result.data) ? result.data.length : 0} row(s)`)
-  }
-}
+for (const [name, run] of checks) report(name, await run())
 
 await client.auth.signOut()
 if (failed) process.exit(1)

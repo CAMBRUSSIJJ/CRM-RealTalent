@@ -23,14 +23,14 @@ jobs:
         run: |
           git archive \
             --format=zip \
-            --output=RealTalent-CRM-Garimpo-Search-Intelligence-3.0-0ed1384.zip \
-            0ed138454090e012a807538d03dec4a4baafd6a3
+            --output=RealTalent-CRM-Garimpo-Search-Intelligence-3.0-f695773.zip \
+            f6957737ff27413d3720685b6d6f39f92e16f6da
 
       - name: Upload ZIP
         uses: actions/upload-artifact@v4
         with:
-          name: RealTalent-CRM-Garimpo-Search-Intelligence-3.0-0ed1384
-          path: RealTalent-CRM-Garimpo-Search-Intelligence-3.0-0ed1384.zip
+          name: RealTalent-CRM-Garimpo-Search-Intelligence-3.0-f695773
+          path: RealTalent-CRM-Garimpo-Search-Intelligence-3.0-f695773.zip
           if-no-files-found: error
           compression-level: 0
           retention-days: 7

@@ -1,0 +1,32 @@
+name: Package Garimpo Redesign V4
+
+on:
+  push:
+    branches:
+      - preview/v3.5-h1-semantic-agent
+    paths:
+      - .github/workflows/package-garimpo-redesign-v4.yml
+
+permissions:
+  contents: read
+
+jobs:
+  package:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Package validated redesign commit
+        run: git archive --format=zip --output=RealTalent-CRM-Garimpo-Redesign-V4-074ca82.zip 074ca82
+
+      - name: Upload ZIP
+        uses: actions/upload-artifact@v4
+        with:
+          name: RealTalent-CRM-Garimpo-Redesign-V4-074ca82
+          path: RealTalent-CRM-Garimpo-Redesign-V4-074ca82.zip
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 7

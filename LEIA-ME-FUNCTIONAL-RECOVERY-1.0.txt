@@ -1,0 +1,37 @@
+REAL TALENT CRM — FUNCTIONAL RECOVERY 1.0 · ZIP COMPLETO PARA TESTE LOCAL
+Fonte original: commit dac5da2f067ee913573ce085badc8a96d426a8d3
+Não publicado na Vercel e não modifica a Production.
+
+IMPLEMENTADO:
+- Configurações → Integrações → Verificar conexões, com diagnósticos reais.
+- Diagnóstico somente leitura de serviços, sem enviar mensagens.
+- OAuth, calendário, e-mail, WhatsApp e webhooks exibem erros acionáveis
+  quando a função correspondente não está disponível/autorizada.
+- Evita exibir contas locais antigas como ativas após erro do Supabase.
+- Gate de migrations corrigido (mínimo de 58, e não exatamente 58).
+- Testes de integrações, fluxo comercial e todos os botões de componentes.
+
+ABRIR NO DEBIAN:
+mkdir -p ~/RealTalent-Functional-Recovery
+unzip RealTalent-CRM-FUNCTIONAL-RECOVERY-1.0-COMPLETO.zip -d ~/RealTalent-Functional-Recovery
+cd ~/RealTalent-Functional-Recovery
+npm ci
+npm run typecheck
+npm run qa:functional-recovery
+npm run dev -- --host 127.0.0.1 --port 4173
+Firefox: http://127.0.0.1:4173
+
+O projeto possui fontes de Edge Functions em supabase/functions, mas essas
+funções não são implantadas automaticamente ao abrir este ZIP.
+Para consultar comandos (sem executar), rode:
+bash scripts/functional-recovery-edge-readiness.sh
+
+LIMITAÇÕES:
+Sem credenciais Google/Microsoft/Meta e sem Edge Functions implantadas,
+as integrações não podem ser tratadas como operacionais. A existência do
+botão, do endpoint ou do código não comprova envio real. Homologação
+com contas de teste e RLS no Supabase ainda é necessária.
+Não use registros reais para testes destrutivos.
+O comando npm run build exige variáveis hospedadas de Production; para
+compilar localmente sem tokens, use npx vite build.
+Não copie tokens privados para o ZIP.

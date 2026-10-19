@@ -1,3 +1,4 @@
+import { describeIntegrationBackendError } from './integration-runtime-diagnostics'
 import { createUuid } from '../lib/id'
 import { safeStorage } from '../lib/storage'
 import { getSupabaseClient } from '../lib/supabase'
@@ -223,7 +224,7 @@ export async function dispatchAutomationWebhook(input: {
     const delivery = mapDelivery(data)
     if (['success', 'cancelled', 'sending'].includes(delivery.status)) return delivery
     const invocation = await client.functions.invoke('automation-webhook-dispatch', { body: { deliveryId: delivery.id } })
-    if (invocation.error) throw new Error(`Webhook enfileirado, mas o envio não iniciou: ${invocation.error.message}`)
+    if (invocation.error) throw new Error('Webhook enfileirado, mas o envio não iniciou: '+describeIntegrationBackendError('automation-webhook-dispatch', invocation.error))
     return delivery
   }
   const timestamp = now()

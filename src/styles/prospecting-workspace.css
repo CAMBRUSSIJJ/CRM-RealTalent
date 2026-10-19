@@ -284,3 +284,15 @@
 .prospecting-raw-review__form textarea{min-height:74px}
 .prospecting-raw-review__dialog-card footer{display:flex;justify-content:flex-end;gap:10px}
 @media(max-width:740px){.prospecting-raw-review__header{flex-direction:column}.prospecting-raw-review__form{grid-template-columns:1fr}.prospecting-raw-review__grid{grid-template-columns:1fr}}
+
+/* Functional Recovery 1.0 — Diagnóstico das integrações */
+.integration-readiness-panel{margin-bottom:14px}
+.integration-readiness-panel__grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,250px),1fr));gap:11px;margin:14px 0}
+.integration-readiness-panel__item{border:1px solid var(--border,#ddd);background:var(--surface,#fff);border-radius:10px;padding:13px;display:grid;gap:6px;overflow-wrap:anywhere}
+.integration-readiness-panel__item strong{font-size:13px}
+.integration-readiness-panel__item span{font-size:11px;font-weight:700}
+.integration-readiness-panel__item span[data-status=online]{color:#13804a}
+.integration-readiness-panel__item span[data-status=missing],.integration-readiness-panel__item span[data-status=unavailable]{color:#b42318}
+.integration-readiness-panel__item span[data-status=attention],.integration-readiness-panel__item span[data-status=protected]{color:#bd6f06}
+.integration-readiness-panel__item p{margin:0;font-size:12px;line-height:1.5}
+.integration-readiness-panel__item small{font-size:11px;color:var(--text-muted,#667085)}

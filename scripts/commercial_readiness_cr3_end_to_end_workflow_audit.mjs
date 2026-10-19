@@ -13,7 +13,7 @@ const h222=read('supabase/migrations/202610120002_v101_11_3_h22_2_cross_module_a
 const h223=read('supabase/migrations/202610120003_v101_11_3_h22_3_field_approvals_audit.sql')
 const launcher=read('scripts/start.mjs'), pkg=JSON.parse(read('package.json'))
 const migrations=fs.readdirSync(path.join(root,'supabase/migrations')).filter(x=>x.endsWith('.sql'))
-ok('58 migrations preservadas',migrations.length===58,`${migrations.length}/58`)
+ok('Pelo menos 58 migrations preservadas',migrations.length>=58,`${migrations.length}/58`)
 ok('Lead base disponível',/create table public\.leads/.test(foundation))
 ok('Contato estruturado disponível',/create table public\.contacts/.test(structure))
 ok('Oportunidade estruturada disponível',/create table public\.opportunities/.test(structure))

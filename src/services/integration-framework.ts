@@ -4,6 +4,7 @@ import { getSupabaseClient } from '../lib/supabase'
 import { safeStorage } from '../lib/storage'
 import { commandForJob, extensionLifecycle, providerExtensionId, providerManifest, type OAuthExtensionProviderId } from '../platform/extensions'
 import type { Database, Json } from '../lib/supabase.types'
+import { describeIntegrationBackendError } from './integration-runtime-diagnostics'
 import { beginGatewayOAuth, gatewayAccountAction, loadCommunicationsGatewayHealth, loadGatewayAccounts, syncGatewayCommunications, testGatewayAccount } from './local-communications-gateway'
 
 export type OAuthProvider = OAuthExtensionProviderId
@@ -90,7 +91,7 @@ export async function loadIntegrationFramework(workspaceId:string):Promise<Integ
   const [accounts,jobs,attempts,diagnostics,audit,extensions,settings,extensionJobs,extensionEvents]=await Promise.all([
     client.from('integration_connected_accounts').select('*').eq('organization_id',workspaceId).order('updated_at',{ascending:false}),client.from('integration_sync_jobs').select('*').eq('organization_id',workspaceId).order('created_at',{ascending:false}).limit(250),client.from('integration_sync_attempts').select('*').eq('organization_id',workspaceId).order('created_at',{ascending:false}).limit(500),client.from('integration_diagnostics').select('*').eq('organization_id',workspaceId).order('created_at',{ascending:false}).limit(500),client.from('integration_audit_events').select('*').eq('organization_id',workspaceId).order('created_at',{ascending:false}).limit(500),client.from('extension_installations').select('*').eq('organization_id',workspaceId).order('last_seen_at',{ascending:false}),client.from('extension_product_settings').select('*').eq('organization_id',workspaceId).order('updated_at',{ascending:false}),client.from('extension_capture_jobs').select('*').eq('organization_id',workspaceId).order('created_at',{ascending:false}).limit(300),client.from('extension_events').select('*').eq('organization_id',workspaceId).order('created_at',{ascending:false}).limit(500),
   ])
-  if([accounts,jobs,attempts,diagnostics,audit,extensions,settings,extensionJobs,extensionEvents].some(result=>result.error))return local
+  const failedQuery=[accounts,jobs,attempts,diagnostics,audit,extensions,settings,extensionJobs,extensionEvents].find(result=>result.error);if(failedQuery?.error)throw new Error('Não foi possível consultar as integrações no Supabase: '+failedQuery.error.message)
   const extensionSettings=(settings.data||[]).map(mapExtensionSettings);if(!extensionSettings.some(i=>i.productKey==='realtalent_capture'))extensionSettings.push(defaultExtensionProductSettings(workspaceId))
   const state:IntegrationFrameworkState={accounts:(accounts.data||[]).map(mapAccount),jobs:(jobs.data||[]).map(mapJob),attempts:(attempts.data||[]).map(mapAttempt),diagnostics:(diagnostics.data||[]).map(mapDiagnostic),auditEvents:(audit.data||[]).map(mapAudit),extensions:(extensions.data||[]).map(mapExtension),extensionSettings,extensionJobs:(extensionJobs.data||[]).map(mapExtensionJob),extensionEvents:(extensionEvents.data||[]).map(mapExtensionEvent)};writeLocal(workspaceId,state);return state
 }
@@ -106,7 +107,7 @@ export async function beginOAuthConnection(workspaceId:string,provider:OAuthProv
       return result
     }
     const{data:sessionData}=await client.auth.getSession();const token=sessionData.session?.access_token;if(!token)throw new Error('Sessão expirada. Entre novamente antes de conectar uma integração.')
-    const response=await fetch(`${env.supabaseUrl.replace(/\/$/,'')}/functions/v1/integration-oauth-start`,{method:'POST',headers:{'Content-Type':'application/json',Authorization:`Bearer ${token}`},body:JSON.stringify({organizationId:workspaceId,provider})});const payload=await response.json().catch(()=>({})) as {authorizationUrl?:string;error?:string};if(!response.ok||!payload.authorizationUrl)throw new Error(payload.error||'Não foi possível iniciar o OAuth.');
+    const response=await fetch(`${env.supabaseUrl.replace(/\/$/,'')}/functions/v1/integration-oauth-start`,{method:'POST',headers:{'Content-Type':'application/json',Authorization:`Bearer ${token}`},body:JSON.stringify({organizationId:workspaceId,provider})});const payload=await response.json().catch(()=>({})) as {authorizationUrl?:string;error?:string};if(!response.ok||!payload.authorizationUrl)throw new Error(response.ok?(payload.error||'OAuth não retornou URL de autorização.'):describeIntegrationBackendError('integration-oauth-start',payload,response.status));
     await extensionLifecycle.emit(extensionId,'afterConnect',{provider,mode:'oauth',hasUrl:true},{workspaceId})
     return{mode:'oauth' as const,url:payload.authorizationUrl,message:'Autorização iniciada com PKCE.'}
   }catch(error){
@@ -141,7 +142,7 @@ export async function enqueueIntegrationSync(workspaceId:string,account:Connecte
 export async function testConnectedAccount(workspaceId:string,account:ConnectedAccount){
   if(account.connectionMode==='demo')return{status:'warn' as const,message:'Conta de demonstração: nenhuma credencial externa foi testada.',latencyMs:0}
   const client=getSupabaseClient();if(!client)return testGatewayAccount(workspaceId,account.id)
-  const{data,error}=await client.functions.invoke('integration-account-test',{body:{organizationId:workspaceId,accountId:account.id}});if(error)throw new Error(error.message);return data as {status:DiagnosticStatus;message:string;latencyMs:number}
+  const{data,error}=await client.functions.invoke('integration-account-test',{body:{organizationId:workspaceId,accountId:account.id}});if(error)throw new Error(describeIntegrationBackendError('integration-account-test',error));return data as {status:DiagnosticStatus;message:string;latencyMs:number}
 }
 
 export async function runIntegrationDiagnostics(workspaceId:string){
@@ -149,7 +150,7 @@ export async function runIntegrationDiagnostics(workspaceId:string){
     const health=await loadCommunicationsGatewayHealth();const accounts=await loadGatewayAccounts(workspaceId)
     return{runId:createUuid(),checks:[{provider:'framework',checkKey:'local_communications_gateway',status:health.ok?'pass':'fail',message:health.ok?'Gateway local de comunicações operacional.':'Gateway local indisponível.',accountId:null,details:{version:health.version,accounts:accounts.length}}]}
   }
-  const{data,error}=await client.functions.invoke('integration-diagnostics',{body:{organizationId:workspaceId}});if(error)throw new Error(error.message);return data as {runId:string;checks:Array<Record<string,unknown>>}
+  const{data,error}=await client.functions.invoke('integration-diagnostics',{body:{organizationId:workspaceId}});if(error)throw new Error(describeIntegrationBackendError('integration-diagnostics',error));return data as {runId:string;checks:Array<Record<string,unknown>>}
 }
 
 export async function updateConnectedAccountAccess(workspaceId:string,accountId:string,accessMode:IntegrationAccountAccessMode,allowedUserIds:string[]=[],allowedRoles:string[]=[]){const client=getSupabaseClient();if(client){const{error}=await client.rpc('update_integration_account_access',{p_account_id:accountId,p_access_mode:accessMode,p_allowed_user_ids:allowedUserIds,p_allowed_roles:allowedRoles});if(error)throw new Error(`Não foi possível atualizar as permissões: ${error.message}`);return}const state=readLocal(workspaceId);writeLocal(workspaceId,{...state,accounts:state.accounts.map(i=>i.id===accountId?{...i,accessMode,allowedUserIds,allowedRoles,updatedAt:now()}:i)})}

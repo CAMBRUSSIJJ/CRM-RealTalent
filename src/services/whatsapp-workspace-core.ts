@@ -1,3 +1,4 @@
+import { describeIntegrationBackendError } from './integration-runtime-diagnostics'
 import type { CommunicationEvent, Lead } from '../domain/types'
 import { openExternalUrl } from '../lib/browser-actions'
 import { getSupabaseClient } from '../lib/supabase'
@@ -67,7 +68,7 @@ export async function sendOfficialWhatsApp(input: { workspaceId: string; leadId?
   if (client && input.threadId?.endsWith('@g.us')) throw new Error('Envio para grupos está disponível apenas no WhatsApp por QR local nesta versão.')
   if (!client) return sendGatewayCommunication({ workspaceId: input.workspaceId, leadId: input.leadId || null, contactId: input.contactId ?? null, accountId: input.accountId, channel: 'whatsapp', recipient: input.recipient, threadId: input.threadId ?? null, body: input.body, idempotencyKey, attachment: input.attachment ?? null, replyToExternalMessageId: input.replyToExternalMessageId ?? null, replyPreview: input.replyPreview ?? null })
   const { data, error } = await client.functions.invoke('official-communication-send', { body: { organizationId: input.workspaceId, leadId: input.leadId || null, contactId: input.contactId ?? null, accountId: input.accountId, channel: 'whatsapp', recipient: input.recipient, body: input.body, idempotencyKey, attachment: input.attachment ?? null, replyToExternalMessageId: input.replyToExternalMessageId ?? null } })
-  if (error) throw new Error(error.message)
+  if (error) throw new Error(describeIntegrationBackendError('official-communication-send', error))
   const event = (data as { event?: CommunicationEvent; error?: string } | null)?.event
   if (!event) throw new Error((data as { error?: string } | null)?.error ?? 'O backend não retornou o evento de comunicação.')
   return event

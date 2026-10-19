@@ -4,6 +4,7 @@
   "version": "101.11.3",
   "type": "module",
   "scripts": {
+    "qa:functional-recovery": "node scripts/functional-recovery-gate.mjs && npx vitest run src/services/integration-runtime-diagnostics.test.ts src/services/integration-framework.test.ts src/services/calendar-integration.test.ts src/services/prospecting-persistence-safety.test.ts src/services/work-tasks.test.ts src/repositories/crm-flow.integration.test.ts src/services/agenda-workspace.test.ts src/repositories/commercial-relation-consistency-repository.test.ts --reporter=dot && npm run qa:commercial-readiness:cr3",
     "dev": "node scripts/start.mjs --dev",
     "build": "npm run validate:env && vite build",
     "preview": "node scripts/start.mjs --preview-only",

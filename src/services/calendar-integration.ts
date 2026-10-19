@@ -1,3 +1,4 @@
+import { describeIntegrationBackendError } from './integration-runtime-diagnostics'
 import type { CalendarEvent } from '../domain/types'
 import { getSupabaseClient } from '../lib/supabase'
 import {
@@ -140,7 +141,7 @@ export async function listProviderCalendars(workspaceId: string, accountId: stri
   const client = getSupabaseClient()
   if (!client) return []
   const { data, error } = await client.functions.invoke('integration-calendar-catalog', { body: { organizationId: workspaceId, accountId } })
-  if (error) throw new Error(error.message)
+  if (error) throw new Error(describeIntegrationBackendError('integration-calendar-catalog', error))
   const payload = data as { calendars?: ProviderCalendarOption[]; error?: string }
   if (payload.error) throw new Error(payload.error)
   return Array.isArray(payload.calendars) ? payload.calendars : []

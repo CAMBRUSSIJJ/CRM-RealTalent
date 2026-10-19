@@ -1,3 +1,4 @@
+import { describeIntegrationBackendError } from './integration-runtime-diagnostics'
 import type { CommunicationChannel, CommunicationDirection, CommunicationEvent, CommunicationStatus, Lead, WorkspaceSnapshot } from '../domain/types'
 import { createUuid } from '../lib/id'
 import { getSupabaseClient } from '../lib/supabase'
@@ -316,7 +317,7 @@ export async function sendOfficialEmail(input: { workspaceId: string; leadId: st
     return sendGatewayCommunication({ workspaceId: input.workspaceId, leadId: input.leadId, contactId: input.contactId ?? null, accountId: input.accountId, channel: 'email', recipient: input.recipient, subject: input.subject, body: input.body, idempotencyKey: input.idempotencyKey ?? `crm-email:${input.leadId}:${Date.now()}` })
   }
   const { data, error } = await client.functions.invoke('official-communication-send', { body: { organizationId: input.workspaceId, leadId: input.leadId, contactId: input.contactId ?? null, accountId: input.accountId || null, channel: 'email', recipient: input.recipient, subject: input.subject, body: input.body, idempotencyKey: input.idempotencyKey ?? `crm-email:${input.leadId}:${Date.now()}` } })
-  if (error) throw new Error(error.message)
+  if (error) throw new Error(describeIntegrationBackendError('official-communication-send', error))
   const payload = data as { event?: CommunicationEvent; error?: string } | null
   if (!payload?.event) throw new Error(payload?.error ?? 'O backend não retornou o evento de e-mail.')
   return payload.event

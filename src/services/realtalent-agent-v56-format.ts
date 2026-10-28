@@ -11,7 +11,7 @@ export function formatWorkDocument(prompt:string,work:AgentWorkDocument):Assista
   if(!original)return null
   let body=''
   if(format==='plain'){
-    body=original.replace(/^#{1,6}\s*/gm,'').replace(/^\s*(?:[-*•]|\d+[.)])\s+/gm,'').replace(/\n{3,}/g,'\n\n')
+    body=original.replace(/^#{1,6}\s*/gm,'').replace(/^\s*(?:[-*•]|\d+[.)])\s+/gm,'').replace(/\n+/g,' ').replace(/\s{2,}/g,' ').trim()
   }else if(format==='bullets'){
     body=original.split(/\n+/).map(line=>line.trim()).filter(Boolean)
       .map(line=>'- '+line.replace(/^(?:[-*•]|\d+[.)])\s*/,'')).join('\n')

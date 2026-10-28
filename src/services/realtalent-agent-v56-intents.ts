@@ -4,7 +4,7 @@ const mutableCrm=/\b(?:crie|criar|envie|enviar|salve|salvar|exclua|excluir|agend
 export function requestsExternalResearch(prompt:string):boolean {
   const value=normalized(prompt)
   if(mutableCrm.test(value))return false
-  return /\b(?:pesquise|pesquisar|pesquisa na|procure na|busque na|buscar na|ache na|encontre (?:na internet|fontes)|pesquisa(?:r)? (?:sobre|os|as)|investigue na|fontes (?:na internet|publicas)|consulte (?:sites|a internet)|web|internet)\b/.test(value)
+  return /\b(?:pesquise|pesquisar|pesquisa na|procure na|busque na|busque (?:scripts?|roteiros?|materiais?|fontes)|buscar na|ache na|encontre (?:na internet|fontes)|pesquisa(?:r)? (?:sobre|os|as)|investigue na|fontes (?:na internet|publicas)|consulte (?:sites|a internet)|web|internet)\b/.test(value)
     || (/\b(?:thiago reis|growth machine)\b/.test(value)&&/\b(?:script|roteiro|metodologia|vendas|conteudo|ensinamento|abordagem)\b/.test(value))
 }
 export function requestsFormatting(prompt:string):'table'|'bullets'|'plain'|null {

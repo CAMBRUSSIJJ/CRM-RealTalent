@@ -9,6 +9,7 @@ import { isMultiToolRequest, verifyModelPlannerCoverage } from './crm-tool-selec
 import { selectOllamaToolsV51 } from './crm-ollama-tool-selector-v51.mjs'
 import { buildResearchedScript } from './crm-script-research-v52.mjs'
 import { researchQuestionV56 } from './crm-research-v56.mjs'
+import { deepResearchV60 } from './crm-deep-research-v60.mjs'
 
 const OUTER_HOST = process.env.REALTALENT_AGENT_HOST || '127.0.0.1'
 const OUTER_PORT = Number(process.env.REALTALENT_AGENT_PORT || 8791)
@@ -502,8 +503,10 @@ const handleResearchV56=async(req,res)=>{
   researchV56Busy=true
   try {
     const input=await readJsonBody(req,9500)
-    const result=await researchQuestionV56({
-      question:input?.question,document:typeof input?.activeDocument==='string'?input.activeDocument:'', 
+    const result=await deepResearchV60({
+      question:input?.question,
+      document:typeof input?.activeDocument==='string'?input.activeDocument:'',
+      history:typeof input?.history==='string'?input.history.slice(-2700):'',
       model:CRM_OLLAMA_MODEL,ollamaUrl:OLLAMA_URL,
     })
     return sendJson(res,result.ok?200:503,result)

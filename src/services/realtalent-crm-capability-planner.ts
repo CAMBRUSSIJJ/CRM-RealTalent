@@ -142,6 +142,7 @@ const pendingReplyFromContinuation = (prompt: string) => {
 const simplePendingReply = (reply: string) => {
   const normalized = reply.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/\s+/g, ' ').trim()
   if (!normalized || normalized.length > 180 || normalized.split(' ').length > 14) return false
+  if (reply.includes('?') || /^(?:quem|quais?|quantos?|quando|onde|o que|como|por que|porque|me mostre|mostre|liste|resuma|analise)\b/.test(normalized)) return false
   return !/^(?:na verdade\s+)?(?:crie|criar|faca|fazer|exclua|excluir|delete|deletar|apague|apagar|remova|remover|atualize|atualizar|edite|editar|altere|alterar|mude|mudar|abra|abrir|envie|enviar|agende|agendar|cancele|cancelar)\b/.test(normalized)
 }
 

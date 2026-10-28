@@ -24,6 +24,8 @@ import { lastUndoableCrmAgentTransaction, markCrmAgentTransactionUndone, recordC
 import { executionTruthSlicesForCapability, executionTruthSlicesForPlan, executionTruthSlicesForUndoOperations, receiptLabel, receiptStatusFromEvidence, recordCrmExecutionReceipt, verifyCrmCapabilityExecution, verifyCrmUndoExecution, type CrmExecutionStepEvidence } from '../../services/realtalent-crm-execution-truth'
 import { usePreferences } from '../settings/preferences-context'
 import { useExperience } from '../experience/experience-context'
+import { startsNewRequestWhilePending } from '../../services/realtalent-agent-v4-intent'
+import { appendAgentConversationTurn, formatAgentConversationContext, parseAgentConversationTurns, type AgentConversationTurn } from '../../services/realtalent-agent-v4-conversation'
 import { approveCrmWorkflowStep, cancelCrmWorkflow, completeCrmWorkflowStep, continueCrmMission, continueCrmProgram, continueCrmWorkflow, getActiveCrmMission, getActiveCrmProgram, getActiveCrmWorkflow, planFromAction, resumeCrmWorkflow, runCrmBrowserQa, runUnifiedBrowserQa, runUnifiedBuilder, startCrmMission, startCrmProgram, startCrmWorkflow, syncAgentWorkspaceIdentity, syncCrmAppContext, type AutonomousMission, type AutonomousProgram, type AutonomousWorkflow, type BrowserQaResult } from '../../services/realtalent-agent-client'
 
 interface AssistantDrawerProps { open: boolean; onClose(): void; initialPrompt?: string }
@@ -76,6 +78,7 @@ export function AssistantDrawer({ open, onClose, initialPrompt = '' }: Assistant
   const [qaRunning, setQaRunning] = useState(false)
   const [sending, setSending] = useState(false)
   const [lastUserPrompt, setLastUserPrompt] = useState('')
+  const [conversationTurns, setConversationTurns] = useState<AgentConversationTurn[]>([])
   const [pendingAction, setPendingAction] = useState<{ kind: 'create_task' | 'create_followups' | 'complete_task'; seed: string } | null>(null)
   const [pendingCapability, setPendingCapability] = useState<CrmPendingCapability | null>(null)
   const [qaResult, setQaResult] = useState<BrowserQaResult | null>(null)
@@ -99,6 +102,7 @@ export function AssistantDrawer({ open, onClose, initialPrompt = '' }: Assistant
     setAnswer(null)
     setPreviousLeadIds([])
     setLastUserPrompt('')
+    setConversationTurns([])
     setPendingAction(null)
     setPendingCapability(null)
   }, [sessionKey])
@@ -108,10 +112,11 @@ export function AssistantDrawer({ open, onClose, initialPrompt = '' }: Assistant
     try {
       const saved = window.sessionStorage.getItem(sessionKey)
       if (saved) {
-        const parsed = JSON.parse(saved) as { answer?: AssistantAnswer | null; previousLeadIds?: string[]; lastUserPrompt?: string; pendingAction?: { kind: 'create_task' | 'create_followups' | 'complete_task'; seed: string } | null; pendingCapability?: CrmPendingCapability | null }
+        const parsed = JSON.parse(saved) as { answer?: AssistantAnswer | null; previousLeadIds?: string[]; lastUserPrompt?: string; pendingAction?: { kind: 'create_task' | 'create_followups' | 'complete_task'; seed: string } | null; pendingCapability?: CrmPendingCapability | null; conversationTurns?: unknown }
         if (parsed.answer) setAnswer(parsed.answer)
         if (Array.isArray(parsed.previousLeadIds)) setPreviousLeadIds(parsed.previousLeadIds)
         if (typeof parsed.lastUserPrompt === 'string') setLastUserPrompt(parsed.lastUserPrompt)
+        setConversationTurns(parseAgentConversationTurns(parsed.conversationTurns))
         if (parsed.pendingAction?.kind && typeof parsed.pendingAction.seed === 'string') setPendingAction(parsed.pendingAction)
         if (parsed.pendingCapability?.capabilityId && typeof parsed.pendingCapability.seed === 'string') setPendingCapability(parsed.pendingCapability)
       }
@@ -121,8 +126,8 @@ export function AssistantDrawer({ open, onClose, initialPrompt = '' }: Assistant
 
   useEffect(() => {
     if (!sessionRestored) return
-    try { window.sessionStorage.setItem(sessionKey, JSON.stringify({ answer, previousLeadIds, lastUserPrompt, pendingAction, pendingCapability })) } catch { /* storage indisponível */ }
-  }, [answer, previousLeadIds, lastUserPrompt, pendingAction, pendingCapability, sessionKey, sessionRestored])
+    try { window.sessionStorage.setItem(sessionKey, JSON.stringify({ answer, previousLeadIds, lastUserPrompt, conversationTurns, pendingAction, pendingCapability })) } catch { /* storage indisponível */ }
+  }, [answer, previousLeadIds, lastUserPrompt, conversationTurns, pendingAction, pendingCapability, sessionKey, sessionRestored])
 
   useEffect(() => {
     try { window.localStorage.setItem(EMBEDDED_EXPANDED_KEY, expanded ? '1' : '0') } catch { /* storage indisponível */ }
@@ -263,13 +268,14 @@ export function AssistantDrawer({ open, onClose, initialPrompt = '' }: Assistant
       return
     }
     const directAction = detectFastActionIntent(userPrompt)
+    const switchesRequest = Boolean(pendingCapability && startsNewRequestWhilePending(userPrompt))
     const recommendationContinuation = !pendingCapability && !pendingAction && !directAction
       ? resolveAssistantRecommendationContinuation(userPrompt, answer)
       : null
-    const effectivePrompt = pendingCapability && !directAction
+    const effectivePrompt = pendingCapability && !directAction && !switchesRequest
       ? continuationPrompt(pendingCapability, userPrompt)
       : pendingAction && !directAction ? `${pendingAction.seed} ${userPrompt}` : recommendationContinuation ?? userPrompt
-    const actionIntent = directAction ?? pendingAction?.kind ?? null
+    const actionIntent = directAction ?? (switchesRequest ? null : pendingAction?.kind) ?? null
     setLastUserPrompt(userPrompt)
     setQuery('')
     setSending(true)
@@ -293,8 +299,8 @@ export function AssistantDrawer({ open, onClose, initialPrompt = '' }: Assistant
         workTasks,
         workspaceMembers,
         currentUserId,
-        conversationContext: [lastUserPrompt ? `Usuário anterior: ${lastUserPrompt}` : '', answer ? `Resposta anterior: ${answer.title}. ${answer.text}` : '', pendingCapability ? `Ação pendente: ${pendingCapability.capabilityId}; faltando: ${pendingCapability.missingSlots.join(', ')}` : ''].filter(Boolean).join('\n').slice(0, 2000),
-        pendingCapability: directAction ? null : pendingCapability,
+        conversationContext: [formatAgentConversationContext(conversationTurns, lastUserPrompt, answer ? `${answer.title}. ${answer.text}` : ''), pendingCapability ? `Ação pendente: ${pendingCapability.capabilityId}; faltando: ${pendingCapability.missingSlots.join(', ')}` : ''].filter(Boolean).join('\n').slice(0, 4000),
+        pendingCapability: directAction || switchesRequest ? null : pendingCapability,
         loadWorkspaceMembers: async () => listWorkspaceMembers().catch(() => []),
         loadWorkTasks: async () => {
           if (!currentWorkspace) return []
@@ -325,6 +331,7 @@ export function AssistantDrawer({ open, onClose, initialPrompt = '' }: Assistant
         }
       }
       setAnswer(result)
+      setConversationTurns((history) => appendAgentConversationTurn(history, userPrompt, `${result.title}. ${result.text}`))
       if (result.plan?.kind === 'crm_capabilities' && result.plan.steps.length && result.plan.steps.every((step) => step.risk === 'read')) {
         window.setTimeout(() => void executePlan(result.plan!), 0)
       }

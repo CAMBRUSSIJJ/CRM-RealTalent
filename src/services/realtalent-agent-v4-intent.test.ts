@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { canAnswerSalesReadLocally, isWriteOrCompoundRequest, requestsMultipleCrmActions } from './realtalent-agent-v4-intent'
+import { canAnswerSalesReadLocally, isWriteOrCompoundRequest, requestsMultipleCrmActions, startsNewRequestWhilePending } from './realtalent-agent-v4-intent'
 import type { AssistantAnswer } from './realtalent-assistant'
 
 const answer = (intent: AssistantAnswer['intent'], plan?: AssistantAnswer['plan']) =>
@@ -30,6 +30,12 @@ describe('RealTalent Agent V4 – operational intent guard', () => {
     expect(requestsMultipleCrmActions('cadastre o lead e depois envie um WhatsApp')).toBe(true)
     expect(requestsMultipleCrmActions('quem devo ligar e por quê?')).toBe(false)
     expect(requestsMultipleCrmActions('crie uma tarefa para ligar e conversar')).toBe(false)
+  })
+  it('não confunde uma nova pergunta com resposta de slot pendente', () => {
+    expect(startsNewRequestWhilePending('quais clientes eu deveria ligar hoje?')).toBe(true)
+    expect(startsNewRequestWhilePending('na verdade crie uma nova tarefa')).toBe(true)
+    expect(startsNewRequestWhilePending('Carlos Almeida')).toBe(false)
+    expect(startsNewRequestWhilePending('amanhã às 15h')).toBe(false)
   })
   it('não interpreta frase sem evidência como um pedido de leitura', () => {
     expect(canAnswerSalesReadLocally('quero que você resolva tudo', answer('best_contacts'))).toBe(false)

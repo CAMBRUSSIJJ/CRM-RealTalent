@@ -24,6 +24,7 @@ import { lastUndoableCrmAgentTransaction, markCrmAgentTransactionUndone, recordC
 import { executionTruthSlicesForCapability, executionTruthSlicesForPlan, executionTruthSlicesForUndoOperations, receiptLabel, receiptStatusFromEvidence, recordCrmExecutionReceipt, verifyCrmCapabilityExecution, verifyCrmUndoExecution, type CrmExecutionStepEvidence } from '../../services/realtalent-crm-execution-truth'
 import { usePreferences } from '../settings/preferences-context'
 import { useExperience } from '../experience/experience-context'
+import { startsNewRequestWhilePending } from '../../services/realtalent-agent-v4-intent'
 import { appendAgentConversationTurn, formatAgentConversationContext, parseAgentConversationTurns, type AgentConversationTurn } from '../../services/realtalent-agent-v4-conversation'
 import { approveCrmWorkflowStep, cancelCrmWorkflow, completeCrmWorkflowStep, continueCrmMission, continueCrmProgram, continueCrmWorkflow, getActiveCrmMission, getActiveCrmProgram, getActiveCrmWorkflow, planFromAction, resumeCrmWorkflow, runCrmBrowserQa, runUnifiedBrowserQa, runUnifiedBuilder, startCrmMission, startCrmProgram, startCrmWorkflow, syncAgentWorkspaceIdentity, syncCrmAppContext, type AutonomousMission, type AutonomousProgram, type AutonomousWorkflow, type BrowserQaResult } from '../../services/realtalent-agent-client'
 
@@ -267,13 +268,14 @@ export function AssistantDrawer({ open, onClose, initialPrompt = '' }: Assistant
       return
     }
     const directAction = detectFastActionIntent(userPrompt)
+    const switchesRequest = Boolean(pendingCapability && startsNewRequestWhilePending(userPrompt))
     const recommendationContinuation = !pendingCapability && !pendingAction && !directAction
       ? resolveAssistantRecommendationContinuation(userPrompt, answer)
       : null
-    const effectivePrompt = pendingCapability && !directAction
+    const effectivePrompt = pendingCapability && !directAction && !switchesRequest
       ? continuationPrompt(pendingCapability, userPrompt)
       : pendingAction && !directAction ? `${pendingAction.seed} ${userPrompt}` : recommendationContinuation ?? userPrompt
-    const actionIntent = directAction ?? pendingAction?.kind ?? null
+    const actionIntent = directAction ?? (switchesRequest ? null : pendingAction?.kind) ?? null
     setLastUserPrompt(userPrompt)
     setQuery('')
     setSending(true)
@@ -298,7 +300,7 @@ export function AssistantDrawer({ open, onClose, initialPrompt = '' }: Assistant
         workspaceMembers,
         currentUserId,
         conversationContext: [formatAgentConversationContext(conversationTurns, lastUserPrompt, answer ? `${answer.title}. ${answer.text}` : ''), pendingCapability ? `Ação pendente: ${pendingCapability.capabilityId}; faltando: ${pendingCapability.missingSlots.join(', ')}` : ''].filter(Boolean).join('\n').slice(0, 4000),
-        pendingCapability: directAction ? null : pendingCapability,
+        pendingCapability: directAction || switchesRequest ? null : pendingCapability,
         loadWorkspaceMembers: async () => listWorkspaceMembers().catch(() => []),
         loadWorkTasks: async () => {
           if (!currentWorkspace) return []

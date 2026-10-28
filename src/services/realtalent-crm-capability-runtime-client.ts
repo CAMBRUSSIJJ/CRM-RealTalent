@@ -111,6 +111,7 @@ const looksLikeDifferentOperation = (reply: string) => {
   if (!text) return true
   if (/^(cancelar?|cancela|esquece|deixa pra la|deixa para la|nao quero|pare)$/.test(text)) return true
   if (text.length > 180) return true
+  if (/^(quem|quais?|quantos?|quando|onde|o que|como|por que|porque|me mostre|mostre|liste|resuma|analise)\b/.test(text)) return true
   const words = text.split(/\s+/).filter(Boolean)
   if (words.length <= 3) return false
   return /\b(crie|criar|faca|faz|marque|marcar|agende|agendar|mova|mover|atualize|atualizar|altere|alterar|exclua|excluir|apague|apagar|conclua|concluir|envie|enviar|registre|registrar|ative|ativar|desative|desativar|convide|convidar|garimpe|garimpar|busque|buscar|procure|procurar|abra|abrir)\b/.test(text)

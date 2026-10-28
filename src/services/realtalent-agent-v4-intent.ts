@@ -29,6 +29,13 @@ export function requestsMultipleCrmActions(prompt: string): boolean {
   return new RegExp('\\b'+verb+'\\b.{0,150}\\b(?:e(?:\\s+tambem)?|depois|em seguida)\\s+'+verb+'\\b').test(text)
 }
 
+/** A follow-up question must not be silently consumed as the missing value
+ * of a previous write operation. Cancellation remains handled by the UI. */
+export function startsNewRequestWhilePending(prompt: string): boolean {
+  const text = normalized(prompt)
+  return /^(quem|quais?|quantos?|quando|onde|o que|como|por que|porque|me mostre|mostre|liste|resuma|analise|na verdade|ou melhor)\b/.test(text)
+}
+
 export function canAnswerSalesReadLocally(prompt: string, answer: AssistantAnswer, hasPendingOperation = false): boolean {
   if (hasPendingOperation || isWriteOrCompoundRequest(prompt)) return false
   if (answer.plan || !READ_INTENTS.has(answer.intent)) return false

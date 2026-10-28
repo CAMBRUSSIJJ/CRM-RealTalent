@@ -1,0 +1,31 @@
+name: RealTalent Agent V5.6 Research and Editing QA
+on:
+  pull_request:
+    branches:
+      - feat/realtalent-agent-v55-local-ollama-8b-20261028
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  agent:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci --include=dev
+      - name: TypeScript
+        run: npm run typecheck
+      - name: Agent UI and routing regressions
+        run: npx vitest run src/services/realtalent-agent-v56.test.ts src/services/realtalent-agent-v54-chat.test.ts src/services/realtalent-agent-v53.test.ts src/services/realtalent-agent-v52-research.test.ts src/services/realtalent-agent-v4-conversation.test.ts
+      - name: Runtime research tests
+        run: |
+          node --test runtime-host/RealTalent-Agent-Runtime-V3.1.2/crm-research-v56.test.mjs
+          node --check runtime-host/RealTalent-Agent-Runtime-V3.1.2/gateway-ollama.mjs
+      - name: Vite build
+        run: npm run build

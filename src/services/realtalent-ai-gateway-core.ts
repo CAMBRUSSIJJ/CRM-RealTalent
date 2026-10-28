@@ -5,6 +5,7 @@ import { hybridRealTalentAssistantProvider } from './realtalent-assistant-provid
 import { answerConversationalPrompt } from './realtalent-agent-v54-chat'
 import { answerExternalResearch } from './realtalent-agent-v56-research'
 import { answerResearchSelectedByModel } from './realtalent-agent-v60-router'
+import { runPlannedReadOnlyTools } from './realtalent-agent-v62-orchestrator'
 import { runAgentToolsV5 } from './realtalent-agent-v5-cognitive'
 import type { AssistantAnswer, AssistantContext } from './realtalent-assistant'
 import { lastCrmExecutionReceipt } from './realtalent-crm-execution-truth'
@@ -381,6 +382,24 @@ export const realTalentAiGateway = {
         return { answer, context, trace: { providerId: 'sales-learning:portfolio-v1', mode: 'local-orchestration', sendsDataExternally: false, durationMs, writeAuthority: false } }
       }
 
+      // Safe compound requests may combine source-based research and
+      // deterministic arithmetic. No CRM mutations are exposed to this planner.
+      const combinedReadOnly=await runPlannedReadOnlyTools(prompt,effectiveContext)
+      if(combinedReadOnly){
+        const durationMs=Math.max(0,Date.now()-started)
+        appendRealTalentAiAudit({
+          id:`ai:${Date.now()}:readonly`,workspaceId,
+          providerId:'tools:readonly-orchestrator-v6.2',intent:combinedReadOnly.intent,
+          focusLeadId:context.focusLeadId,route:context.route,
+          toolIds:['web_research','calculator'],outcome:combinedReadOnly.researchSources?.length?'success':'error',
+          durationMs,generatedAt:new Date().toISOString()
+        })
+        return {answer:combinedReadOnly,context,trace:{
+          providerId:'tools:readonly-orchestrator-v6.2',mode:'local-orchestration',
+          sendsDataExternally:Boolean(combinedReadOnly.researchSources?.length),
+          durationMs,writeAuthority:false
+        }}
+      }
       // Research requests outrank the active-document editor and Script Studio.
       const research = await answerExternalResearch(prompt,effectiveContext) ?? await answerResearchSelectedByModel(prompt,effectiveContext)
       if(research){

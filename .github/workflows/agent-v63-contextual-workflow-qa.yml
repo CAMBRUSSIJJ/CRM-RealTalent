@@ -1,0 +1,34 @@
+name: RealTalent Agent V6.3 — Contextual Workflow QA
+on:
+  pull_request:
+    branches:
+      - feat/realtalent-agent-v62-tools-markdown-20261028
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  agent:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci --include=dev
+      - name: TypeScript
+        run: npm run typecheck
+      - name: Contextual workflow, markdown and conversation tests
+        run: |
+          npx vitest run src/services/realtalent-agent-v63-workflow.test.ts src/services/realtalent-agent-v62-orchestrator.test.ts src/features/assistant/assistant-markdown.test.tsx src/services/realtalent-agent-v61-stream.test.ts src/services/realtalent-agent-v61-conversation.test.ts src/services/realtalent-agent-v56.test.ts
+          node --test runtime-host/RealTalent-Agent-Runtime-V3.1.2/crm-deep-research-v60.test.mjs
+      - name: Runtime and installer syntax
+        run: |
+          node --check runtime-host/RealTalent-Agent-Runtime-V3.1.2/gateway-ollama.mjs
+          bash -n scripts/agent-v63-linux/abrir-local.sh
+          grep -q -- '--port 4195 --strictPort' scripts/agent-v63-linux/abrir-local.sh
+      - name: Build
+        run: npm run build

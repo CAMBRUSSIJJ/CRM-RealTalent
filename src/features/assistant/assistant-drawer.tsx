@@ -35,6 +35,7 @@ import { loadAgentWork, saveAgentWork, type WorkPersistenceState } from '../../s
 import { evaluateAgentWork } from '../../services/realtalent-agent-v53-quality'
 import { getAgentRuntimeHealth, type AgentRuntimeHealth } from '../../services/realtalent-agent-v56-health'
 import { AssistantMarkdown } from './assistant-markdown'
+import { agentMemoryScope,emptyAgentMemory,loadAgentMemory,persistAgentMemory,newMemoryThread,saveMemoryTurn,removeMemoryThread,saveMemoryPreference,removeMemoryPreference,archiveMemoryDocument,removeMemoryDocument,relevantAgentMemory,type LocalAgentMemory } from '../../services/realtalent-agent-v64-memory'
 import { approveCrmWorkflowStep, cancelCrmWorkflow, completeCrmWorkflowStep, continueCrmMission, continueCrmProgram, continueCrmWorkflow, getActiveCrmMission, getActiveCrmProgram, getActiveCrmWorkflow, planFromAction, resumeCrmWorkflow, runCrmBrowserQa, runUnifiedBrowserQa, runUnifiedBuilder, startCrmMission, startCrmProgram, startCrmWorkflow, syncAgentWorkspaceIdentity, syncCrmAppContext, type AutonomousMission, type AutonomousProgram, type AutonomousWorkflow, type BrowserQaResult } from '../../services/realtalent-agent-client'
 
 interface AssistantDrawerProps { open: boolean; onClose(): void; initialPrompt?: string }
@@ -92,6 +93,11 @@ export function AssistantDrawer({ open, onClose, initialPrompt = '' }: Assistant
   const [conversationTurns, setConversationTurns] = useState<AgentConversationTurn[]>([])
   const conversationRef = useRef<HTMLDivElement>(null)
   const [recentResearchTopic, setRecentResearchTopic] = useState('')
+  const [memory, setMemory] = useState<LocalAgentMemory>(emptyAgentMemory)
+  const [activeMemoryThreadId, setActiveMemoryThreadId] = useState('')
+  const [memoryOpen, setMemoryOpen] = useState(false)
+  const [preferenceDraft, setPreferenceDraft] = useState('')
+  const [memoryAvailable, setMemoryAvailable] = useState(true)
   const [activeWork, setActiveWork] = useState<AgentWorkDocument | null>(null)
   const [workLoaded, setWorkLoaded] = useState(false)
   const [workPersistence, setWorkPersistence] = useState<WorkPersistenceState>('unavailable')
@@ -111,6 +117,36 @@ export function AssistantDrawer({ open, onClose, initialPrompt = '' }: Assistant
   const workspaceLabel = currentWorkspace?.name ?? snapshot?.workspace.name ?? 'workspace'
   const technicalMode = useMemo(() => { try { return new URLSearchParams(window.location.search).get('agentDebug') === '1' } catch { return false } }, [])
   const sessionKey = `${EMBEDDED_SESSION_KEY}:${currentWorkspace?.id ?? snapshot?.workspace.id ?? 'unknown'}:${currentUserId ?? 'anonymous'}`
+  const memoryScope = agentMemoryScope(currentWorkspace?.id ?? snapshot?.workspace.id,currentUserId)
+  const persistMemory = (updated:LocalAgentMemory) => {
+    const saved=persistAgentMemory(memoryScope,updated)
+    setMemoryAvailable(saved)
+    if(saved)setMemory(updated)
+    return saved
+  }
+  const startFreshConversation=()=>{
+    if(sending)return
+    setActiveMemoryThreadId(newMemoryThread().id)
+    setConversationTurns([]);setLastUserPrompt('');setAnswer(null);setQuery('')
+    setRecentResearchTopic('');setPendingAction(null);setPendingCapability(null)
+    setPreviousLeadIds([]);setActiveWork(null);setStreamingText('')
+    setMemoryOpen(false)
+    try{window.sessionStorage.removeItem(sessionKey)}catch{/* optional */}
+  }
+  const resumeMemoryConversation=(id:string)=>{
+    if(sending)return
+    const thread=memory.threads.find(t=>t.id===id)
+    if(!thread)return
+    setActiveMemoryThreadId(id)
+    setConversationTurns(thread.turns)
+    const last=thread.turns.at(-1)
+    setLastUserPrompt(last?.user??'')
+    setAnswer(last?{id:'chat:memory:'+id,intent:'unknown',title:'RealTalent',text:last.assistant,
+      items:[],facts:[],suggestedPrompts:[],generatedAt:thread.updatedAt}:null)
+    setActiveWork(null);setPendingAction(null);setPendingCapability(null)
+    setPreviousLeadIds([]);setRecentResearchTopic('');setMemoryOpen(false)
+    persistMemory({...memory,currentId:id})
+  }
 
   useEffect(() => { if (open && initialPrompt) setQuery(initialPrompt) }, [initialPrompt, open])
 
@@ -122,6 +158,10 @@ export function AssistantDrawer({ open, onClose, initialPrompt = '' }: Assistant
     setConversationTurns([])
     setRecentResearchTopic('')
     setActiveWork(null)
+    setMemory(emptyAgentMemory())
+    setActiveMemoryThreadId('')
+    setMemoryOpen(false)
+    setPreferenceDraft('')
     setWorkLoaded(false)
     setPendingAction(null)
     setPendingCapability(null)
@@ -144,8 +184,19 @@ export function AssistantDrawer({ open, onClose, initialPrompt = '' }: Assistant
         if (parsed.pendingCapability?.capabilityId && typeof parsed.pendingCapability.seed === 'string') setPendingCapability(parsed.pendingCapability)
       }
     } catch { /* sessão inválida não bloqueia o CRM */ }
+    const recalled=loadAgentMemory(memoryScope)
+    setMemory(recalled)
+    const selected=recalled.threads.find(t=>t.id===recalled.currentId)??recalled.threads[0]
+    setActiveMemoryThreadId(selected?.id??newMemoryThread().id)
+    if(selected?.turns.length){
+      const last=selected.turns.at(-1)!
+      setConversationTurns(selected.turns)
+      setLastUserPrompt(last.user)
+      setAnswer({id:'chat:memory:'+selected.id,intent:'unknown',title:'RealTalent',text:last.assistant,
+        items:[],facts:[],suggestedPrompts:[],generatedAt:selected.updatedAt})
+    }
     setSessionRestored(true)
-  }, [open, sessionKey, sessionRestored])
+  }, [open, sessionKey, sessionRestored, memoryScope])
 
   useEffect(() => {
     if (!sessionRestored) return
@@ -170,6 +221,12 @@ export function AssistantDrawer({ open, onClose, initialPrompt = '' }: Assistant
     if (!workLoaded || !currentUserId || !currentWorkspace?.id || !activeWork) return
     void saveAgentWork(currentWorkspace.id,currentUserId,activeWork).then(setWorkPersistence)
   }, [activeWork,workLoaded,currentUserId,currentWorkspace?.id])
+
+  useEffect(() => {
+    if(!sessionRestored||!workLoaded||!activeWork||!memoryScope)return
+    const stored=loadAgentMemory(memoryScope)
+    persistMemory(archiveMemoryDocument(stored,activeWork))
+  },[activeWork,workLoaded,sessionRestored,memoryScope])
 
   useEffect(() => {
     if (!open) return
@@ -355,7 +412,7 @@ export function AssistantDrawer({ open, onClose, initialPrompt = '' }: Assistant
         currentUserId,
         recentResearchTopic,
         onChatDelta: setStreamingText,
-        conversationContext: [formatAgentConversationContext(conversationTurns, lastUserPrompt, answer ? `${answer.title}. ${answer.text}` : ''), pendingCapability ? `Ação pendente: ${pendingCapability.capabilityId}; faltando: ${pendingCapability.missingSlots.join(', ')}` : ''].filter(Boolean).join('\n').slice(0, 4000),
+        conversationContext: [formatAgentConversationContext(conversationTurns, lastUserPrompt, answer ? `${answer.title}. ${answer.text}` : ''), relevantAgentMemory(userPrompt,loadAgentMemory(memoryScope),activeMemoryThreadId), pendingCapability ? `Ação pendente: ${pendingCapability.capabilityId}; faltando: ${pendingCapability.missingSlots.join(', ')}` : ''].filter(Boolean).join('\n').slice(-4800),
         pendingCapability: directAction || switchesRequest ? null : pendingCapability,
         activeWork:workLoaded ? activeWork : null,
         canReadPlaybooks:canTeamAccess('view','settings'),
@@ -396,8 +453,12 @@ export function AssistantDrawer({ open, onClose, initialPrompt = '' }: Assistant
         const revision = result.id.startsWith('work-edit:') || (result.id.startsWith('workflow:v6.3:') && Boolean(activeWork) && /\b(?:ajuste|adapte|refine|revise|continue|melhore)\b/i.test(userPrompt))
         setActiveWork(previous => workFromAnswer(result,userPrompt,revision ? previous : null))
       }
-      setConversationTurns((history) => appendAgentConversationTurn(history,userPrompt,
-        `${result.title}. ${result.text}${result.toolOutput?.kind==='script'?'\nDocumento disponível no trabalho ativo.':''}`))
+      const nextTurns=appendAgentConversationTurn(conversationTurns,userPrompt,
+        `${result.title}. ${result.text}${result.toolOutput?.kind==='script'?'\nDocumento disponível no trabalho ativo.':''}`)
+      setConversationTurns(nextTurns)
+      if(memoryScope&&activeMemoryThreadId){
+        persistMemory(saveMemoryTurn(loadAgentMemory(memoryScope),activeMemoryThreadId,nextTurns))
+      }
       if (result.plan?.kind === 'crm_capabilities' && result.plan.steps.length && result.plan.steps.every((step) => step.risk === 'read')) {
         window.setTimeout(() => void executePlan(result.plan!), 0)
       }
@@ -920,11 +981,56 @@ O programa coordenará várias missões. Cada marco só libera dependências ap�
       <header className="assistant-drawer__header">
         <div className="assistant-brand"><span><Bot size={20}/></span><div><strong>RealTalent Agent</strong><small>{workspaceLabel} · {contextDescription}</small></div></div>
         <div className="assistant-header-actions">
+          <button className="assistant-control-center" type="button" disabled={sending} onClick={startFreshConversation} title="Iniciar nova conversa sem apagar as anteriores">+ Nova conversa</button>
+          <button className="assistant-control-center" type="button" onClick={() => setMemoryOpen(value=>!value)} aria-expanded={memoryOpen} aria-controls="assistant-memory-panel">Memória</button>
           <button className="assistant-control-center" type="button" onClick={explainCurrentScreen}><BrainCircuit size={14}/> Explicar tela</button>
           <button className="assistant-control-center" type="button" onClick={() => setExpanded((current) => !current)} aria-label={expanded ? 'Recolher painel da IA' : 'Expandir painel da IA'}>{expanded ? <Minimize2 size={14}/> : <Maximize2 size={14}/>} {expanded ? 'Recolher' : 'Expandir'}</button>
           <button className="icon-button" type="button" onClick={onClose} aria-label="Fechar Agent"><X size={19}/></button>
         </div>
       </header>
+      {memoryOpen ? <section className="assistant-memory-panel" id="assistant-memory-panel" aria-label="Memória local da IA">
+        <div className="assistant-memory-panel__header"><div><strong>Memória no seu computador</strong><small>Separada por usuário e workspace. Sem sincronização entre dispositivos.</small></div>
+          <button type="button" onClick={()=>setMemoryOpen(false)} aria-label="Fechar memória"><X size={16}/></button></div>
+        {!memoryScope ? <p>Entre em uma conta para guardar conversas e preferências nesta instalação.</p> : <>
+          {!memoryAvailable ? <p role="alert">O navegador não permitiu salvar a memória. Verifique o armazenamento local.</p> : null}
+          <div className="assistant-memory-panel__section"><strong>Conversas anteriores ({memory.threads.length})</strong>
+            {memory.threads.slice(0,12).map(thread=><div className="assistant-memory-panel__row" key={thread.id}>
+              <button type="button" disabled={sending} onClick={()=>resumeMemoryConversation(thread.id)}>{thread.title}</button>
+              <button type="button" aria-label={'Excluir conversa '+thread.title} onClick={()=>persistMemory(removeMemoryThread(memory,thread.id))}><X size={14}/></button>
+            </div>)}
+            {!memory.threads.length?<small>As conversas concluídas aparecerão aqui.</small>:null}
+          </div>
+          <div className="assistant-memory-panel__section"><strong>Documentos anteriores ({memory.documents.length})</strong>
+            {memory.documents.slice(0,8).map(doc=><div className="assistant-memory-panel__row" key={doc.id}>
+              <button type="button" disabled={sending} onClick={()=>{
+                setActiveWork(doc.work);setWorkLoaded(true);setAnswer(answerFromWork(doc.work,'Documento recuperado da memória local'))
+                setPendingAction(null);setPendingCapability(null);setMemoryOpen(false)
+              }}>{doc.title}</button>
+              <button type="button" aria-label={'Excluir documento da biblioteca '+doc.title} onClick={()=>persistMemory(removeMemoryDocument(memory,doc.id))}><X size={14}/></button>
+            </div>)}
+          </div>
+          <div className="assistant-memory-panel__section"><strong>Preferências aprovadas ({memory.preferences.length})</strong>
+            {memory.preferences.map(pref=><div className="assistant-memory-panel__row" key={pref.id}>
+              <span>{pref.text}</span><button type="button" aria-label={'Esquecer preferência '+pref.text} onClick={()=>persistMemory(removeMemoryPreference(memory,pref.id))}><X size={14}/></button>
+            </div>)}
+            <label htmlFor="agent-memory-preference">Nova preferência (você escolhe o que guardar)</label>
+            <textarea id="agent-memory-preference" rows={2} maxLength={300} value={preferenceDraft}
+              onChange={e=>setPreferenceDraft(e.target.value)} placeholder="Ex.: Prefiro recomendações consultivas e respostas objetivas."/>
+            <button className="assistant-memory-panel__save" type="button" onClick={()=>{
+              const changed=saveMemoryPreference(memory,preferenceDraft)
+              if(changed&&persistMemory(changed))setPreferenceDraft('')
+            }} disabled={preferenceDraft.trim().length<6}>Guardar preferência</button>
+          </div>
+          <button type="button" className="assistant-memory-panel__delete-all" onClick={()=>{
+            if(window.confirm('Apagar todas as conversas, preferências e documentos da memória local deste usuário e workspace?')){
+              persistMemory(emptyAgentMemory());setConversationTurns([]);setAnswer(null);setLastUserPrompt('')
+              setActiveMemoryThreadId(newMemoryThread().id);setPendingAction(null);setPendingCapability(null)
+              setActiveWork(null)
+              try{window.sessionStorage.removeItem(sessionKey)}catch{/* optional */}
+            }
+          }}>Apagar toda a memória local</button>
+        </>}
+      </section> : null}
       <div className="assistant-trust-strip assistant-trust-strip--embedded"><ShieldCheck size={16}/><span><strong>CRM conectado</strong> · ações com confirmação</span></div>
       <div className="assistant-runtime-status" aria-live="polite" aria-label="Diagnóstico da inteligência">
         <span className={runtimeHealth?.connected && runtimeHealth.modelInstalled ? 'is-connected' : 'is-unavailable'}>

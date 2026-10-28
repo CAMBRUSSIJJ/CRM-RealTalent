@@ -1,0 +1,7 @@
+/* RealTalent Agent V5.3 — compact active-document state */
+.assistant-work-state{display:grid;gap:8px;border:1px solid var(--rt-border,#d7e3f0);border-radius:10px;padding:11px 12px;background:var(--rt-color-brand-soft,#eef4ff);color:var(--rt-text,#283548);font-size:12px}
+.assistant-work-state__actions{display:flex;flex-wrap:wrap;align-items:center;gap:6px}
+.assistant-work-state__actions button{border:1px solid var(--rt-border,#bbcbe2);border-radius:7px;padding:6px 9px;font:inherit;font-weight:600;background:var(--rt-surface,#fff);cursor:pointer;min-height:31px}
+.assistant-work-state__actions button:focus-visible{outline:2px solid var(--rt-color-brand,#1a5ccc);outline-offset:2px}
+.assistant-work-state__quality{font-size:12px;line-height:1.5;color:var(--rt-text-muted,#5d6780)}
+@media(max-width:520px){.assistant-work-state__actions button{flex:1 1 100%}}

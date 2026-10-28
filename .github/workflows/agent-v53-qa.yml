@@ -1,0 +1,29 @@
+name: RealTalent Agent V5.3 Contextual Work QA
+on:
+  pull_request:
+    branches:
+      - feat/realtalent-agent-v5-2-research-strategy-20261028
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  context:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci --include=dev
+      - name: TypeScript
+        run: npm run typecheck
+      - name: Context, memory and existing agent tests
+        run: npx vitest run src/services/realtalent-agent-v53.test.ts src/services/realtalent-agent-v52-research.test.ts src/services/realtalent-agent-v5-cognitive.test.ts src/services/realtalent-agent-v41-scripts.test.ts src/services/realtalent-agent-v4-conversation.test.ts src/services/realtalent-agent-v4-intent.test.ts
+      - name: Ollama runtime syntax
+        run: node --check runtime-host/RealTalent-Agent-Runtime-V3.1.2/gateway-ollama.mjs
+      - name: Build
+        run: npm run build

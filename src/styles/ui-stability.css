@@ -1,0 +1,23 @@
+/* RealTalent CRM UI Stability — final scoped layer. */
+.rt-drawer-layer{position:fixed;inset:0;z-index:13200;pointer-events:none}
+.rt-drawer-layer>.rt-drawer-backdrop-v10172{position:absolute;inset:0;z-index:0;width:100%;height:100%;pointer-events:auto}
+.rt-drawer-layer>.rt-drawer{position:absolute;top:0;right:0;bottom:0;z-index:1;pointer-events:auto}
+.rt-drawer-layer .rt-drawer__header>div{min-width:0;overflow-wrap:anywhere}
+.work-board-column.is-drag-over{border-color:var(--rt-color-brand,#2563eb);background:var(--rt-color-brand-soft,#eef4ff);box-shadow:inset 0 0 0 2px color-mix(in srgb,var(--rt-color-brand,#2563eb) 25%,transparent)}
+.work-board-column article[draggable=true]{cursor:grab}
+.work-board-column article[draggable=true]:active{cursor:grabbing}
+.work-board-column :focus-visible{outline:2px solid var(--rt-color-brand,#2563eb);outline-offset:2px}
+.workspace-settings-drawer-v10166 .field input,.workspace-settings-drawer-v10166 .field select,.workspace-settings-drawer-v10167 .field input,.workspace-settings-drawer-v10167 .field select,.call-discovery-panel input,.call-discovery-panel textarea,.work-search input,.work-filters select,.work-task-actions select{font-size:14px}
+.call-step-nav button strong,.call-response-button,.call-objection-chips button,.workspace-quick-filter-grid-v10166 button,.workspace-quick-filter-grid-v10167 button,.followup-filter-chips button{font-size:12px;line-height:1.35}
+.rt-workspace-page-header__copy,.rt-workspace-page-header__actions,.rt-workspace-command-group,.work-task-board,.work-task-list{min-width:0}
+.rt-workspace-command-group{flex-wrap:wrap}
+.work-task-board{max-width:100%;overscroll-behavior-x:contain}
+@media(max-width:760px){
+.global-appbar-v10162__left,.global-search-wrap,.global-search{min-width:0}
+.global-search-results{left:0;right:auto;width:min(420px,calc(100vw - 20px));max-width:calc(100vw - 20px)}
+.work-toolbar,.work-filters,.rt-workspace-page-header__actions,.rt-workspace-command-group{max-width:100%;min-width:0}
+.rt-workspace-page-header{flex-wrap:wrap}
+.work-search{flex:1 1 100%;min-width:0}
+.work-task-board{grid-template-columns:repeat(4,minmax(230px,82vw))}
+}
+@media(max-width:520px){.rt-drawer-layer>.rt-drawer{width:100vw!important;max-width:100vw}.work-task-row{overflow-wrap:anywhere}.work-task-actions{flex-wrap:wrap}}

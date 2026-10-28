@@ -1,5 +1,6 @@
 import { Bell, CircleHelp, HardDrive, Plus, RefreshCw, Search, SlidersHorizontal, Sparkles } from 'lucide-react'
 import { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react'
+import { activeOverlayCount } from '../../app/overlay-manager'
 import { useAppActions, useAppNavigation, useAppWorkspace } from '../../app/app-context'
 import { Button } from '../ui/button'
 import { Input } from '../ui/form-controls'
@@ -40,7 +41,7 @@ export function Topbar() {
     return buildNotificationAlerts(snapshot, experiencePreferences.notifications, { staleLeadDays: preferences.commercial.staleLeadDays }).length
   }, [experiencePreferences.notifications, notificationRevision, preferences.commercial.staleLeadDays, snapshot])
   const openAssistant = () => {
-    if (document.body.classList.contains('modal-open')) return
+    if (activeOverlayCount() > 0) return
     setCustomizationOpen(false); setNotificationsOpen(false); setAssistantOpen(true)
   }
   const openCustomization = () => { setAssistantOpen(false); setNotificationsOpen(false); setCustomizationOpen(true) }
@@ -56,12 +57,12 @@ export function Topbar() {
     const onKeyDown = (event: KeyboardEvent) => {
       if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'j') {
         event.preventDefault()
-        if (document.body.classList.contains('modal-open')) return
+        if (activeOverlayCount() > 0 && !assistantOpen) return
         setCustomizationOpen(false); setNotificationsOpen(false); setAssistantPrompt(''); setAssistantOpen((current) => !current)
       }
       if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'k') {
         event.preventDefault()
-        if (document.body.classList.contains('modal-open')) return
+        if (activeOverlayCount() > 0) return
         searchInputRef.current?.focus()
         setSearchFocused(true)
       }
@@ -77,7 +78,7 @@ export function Topbar() {
     window.addEventListener('keydown', onKeyDown)
     window.addEventListener('crm:assistant-open', onAssistantOpen)
     return () => { window.removeEventListener('keydown', onKeyDown); window.removeEventListener('crm:assistant-open', onAssistantOpen) }
-  }, [])
+  }, [assistantOpen])
 
   const searchResults = useMemo(() => searchWorkspace(search, snapshot, 10), [search, snapshot])
   const groupedSearchResults = useMemo(() => {

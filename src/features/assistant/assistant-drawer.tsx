@@ -809,7 +809,7 @@ O programa coordenará várias missões. Cada marco só libera dependências ap�
 
   const saveCommercialScript = async () => {
     if (!answer?.toolOutput || answer.toolOutput.kind !== 'script' || savingScript) return
-    if (!canWrite || !canTeamAccess('create','playbooks')) {
+    if (!canWrite || !canTeamAccess('edit','settings')) {
       notify('error', 'Seu perfil não possui permissão para criar Playbooks.')
       return
     }
@@ -893,7 +893,7 @@ O programa coordenará várias missões. Cada marco só libera dependências ap�
             <pre className="assistant-tool-card__script">{answer.toolOutput.body}</pre>
             <div className="assistant-tool-card__actions">
               <Button variant="secondary" size="sm" onClick={() => void copyToolOutput()}><Clipboard size={15}/> Copiar roteiro</Button>
-              <Button size="sm" loading={savingScript} disabled={!canWrite || !canTeamAccess('create','playbooks')} onClick={() => void saveCommercialScript()}><Wrench size={15}/> Salvar nos Playbooks</Button>
+              <Button size="sm" loading={savingScript} disabled={!canWrite || !canTeamAccess('edit','settings')} onClick={() => void saveCommercialScript()}><Wrench size={15}/> Salvar nos Playbooks</Button>
             </div>
             <small className="assistant-tool-card__disclaimer">Salvar cria um Playbook inativo para revisão. Nenhuma mensagem é enviada automaticamente.</small>
           </div> : null}

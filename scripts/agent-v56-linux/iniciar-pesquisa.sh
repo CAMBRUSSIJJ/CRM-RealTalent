@@ -12,7 +12,7 @@ mkdir -p "$CONFIG" "$CACHE"
 
 search_healthy() {
   local response
-  response="$(curl -fsS --max-time 9 "$SEARCH_TEST" 2>/dev/null)" || return 1
+  response="$(curl -fsS --max-time 22 "$SEARCH_TEST" 2>/dev/null)" || return 1
   [[ "$response" == *'"results"'* ]]
 }
 

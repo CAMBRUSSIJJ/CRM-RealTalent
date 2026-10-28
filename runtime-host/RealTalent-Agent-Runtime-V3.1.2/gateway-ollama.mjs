@@ -453,11 +453,33 @@ const handleConversationV54=async(req,res)=>{
   }finally{clearTimeout(timeout);conversationalInflight--}
 }
 
+// Detect a loopback-only SearXNG started after the gateway process.
+// Previously only startup env was checked: this hid a running local search
+// until a full gateway restart and could mark slow searches as "not configured".
+let localSearchCheckUntil=0
+let localSearchAvailable=false
+const localSearchProbeV56=async()=>{
+  if(process.env.REALTALENT_RESEARCH_SEARXNG_URL)return true
+  if(Date.now()<localSearchCheckUntil)return localSearchAvailable
+  const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),2400)
+  try {
+    const response=await fetch('http://127.0.0.1:8888/config',{signal:controller.signal,headers:{accept:'application/json'}})
+    localSearchAvailable=response.ok
+    if(localSearchAvailable){
+      process.env.REALTALENT_RESEARCH_SEARXNG_URL='http://127.0.0.1:8888'
+    }
+  }catch{localSearchAvailable=false}
+  finally{clearTimeout(timer)}
+  localSearchCheckUntil=Date.now()+(localSearchAvailable?60000:2000)
+  return localSearchAvailable
+}
+
 // V5.6: observable model status and citation-grounded public research.
 let researchV56Busy=false
 const localOllamaStatusV56=async(req,res)=>{
   if(!['127.0.0.1','localhost','::1'].includes(OUTER_HOST))
     return sendJson(res,403,{ok:false,error:'local_only'})
+  await localSearchProbeV56()
   const ctrl=new AbortController(),timer=setTimeout(()=>ctrl.abort(),2200)
   let connected=false,installed=false
   try {
@@ -474,7 +496,7 @@ const localOllamaStatusV56=async(req,res)=>{
 const handleResearchV56=async(req,res)=>{
   if(!['127.0.0.1','localhost','::1'].includes(OUTER_HOST))
     return sendJson(res,403,{ok:false,error:'local_only'})
-  if(!process.env.REALTALENT_RESEARCH_SEARXNG_URL)
+  if(!await localSearchProbeV56())
     return sendJson(res,503,{ok:false,error:'search_not_configured'})
   if(researchV56Busy)return sendJson(res,429,{ok:false,error:'research_busy'})
   researchV56Busy=true

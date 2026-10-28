@@ -131,7 +131,9 @@ export function AssistantDrawer({ open, onClose, initialPrompt = '' }: Assistant
         if (parsed.answer) setAnswer(parsed.answer)
         if (Array.isArray(parsed.previousLeadIds)) setPreviousLeadIds(parsed.previousLeadIds)
         if (typeof parsed.lastUserPrompt === 'string') setLastUserPrompt(parsed.lastUserPrompt)
-        setConversationTurns(parseAgentConversationTurns(parsed.conversationTurns))
+        setConversationTurns(parseAgentConversationTurns(parsed.conversationTurns).map(turn=>({
+          ...turn,assistant:turn.assistant.split('\nDocumento produzido:')[0],
+        })))
         if (parsed.pendingAction?.kind && typeof parsed.pendingAction.seed === 'string') setPendingAction(parsed.pendingAction)
         if (parsed.pendingCapability?.capabilityId && typeof parsed.pendingCapability.seed === 'string') setPendingCapability(parsed.pendingCapability)
       }
@@ -384,7 +386,7 @@ export function AssistantDrawer({ open, onClose, initialPrompt = '' }: Assistant
         setActiveWork(previous => workFromAnswer(result,userPrompt,revision ? previous : null))
       }
       setConversationTurns((history) => appendAgentConversationTurn(history,userPrompt,
-        `${result.title}. ${result.text}${result.toolOutput?.kind==='script'?'\nDocumento produzido: '+result.toolOutput.body.slice(0,1400):''}`))
+        `${result.title}. ${result.text}${result.toolOutput?.kind==='script'?'\nRoteiro no documento ativo.':''}`))
       if (result.plan?.kind === 'crm_capabilities' && result.plan.steps.length && result.plan.steps.every((step) => step.risk === 'read')) {
         window.setTimeout(() => void executePlan(result.plan!), 0)
       }

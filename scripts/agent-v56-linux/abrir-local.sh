@@ -49,8 +49,13 @@ echo 'Instalando dependências com package-lock.json...'
 npm ci --include=dev
 
 SEARCH_URL=''
-if curl -fsS --max-time 5 'http://127.0.0.1:8888/search?q=servicos&format=json' | grep -q '"results"'; then
+if ! curl -fsS --max-time 5 'http://127.0.0.1:8888/search?q=servicos&format=json' 2>/dev/null | grep -q '"results"'; then
+  echo 'Iniciando pesquisa local, se o Docker estiver disponível...'
+  bash scripts/agent-v56-linux/iniciar-pesquisa.sh || echo 'Pesquisa indisponível; Ollama e CRM permanecem ativos.'
+fi
+if curl -fsS --max-time 9 'http://127.0.0.1:8888/search?q=servicos&format=json' 2>/dev/null | grep -q '"results"'; then
   SEARCH_URL='http://127.0.0.1:8888'
+  echo 'Pesquisa SearXNG conectada ao RealTalent.'
 fi
 
 export OLLAMA_URL=http://127.0.0.1:11434

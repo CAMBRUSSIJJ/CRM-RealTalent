@@ -37,7 +37,7 @@ export async function searchResearchSources(topic,{endpoint=process.env.REALTALE
     base.searchParams.set('format','json')
     base.searchParams.set('language','pt-BR')
     const controller=new AbortController()
-    const timeout=setTimeout(()=>controller.abort(),3500)
+    const timeout=setTimeout(()=>controller.abort(),11000)
     try{
       const response=await fetcher(base,{signal:controller.signal,headers:{accept:'application/json'}})
       if(!response.ok)return []

@@ -16,7 +16,7 @@ export function parseAgentConversationTurns(raw: unknown): AgentConversationTurn
   if (!Array.isArray(raw)) return []
   return raw.filter((row): row is AgentConversationTurn => Boolean(row) && typeof row.user === 'string' && typeof row.assistant === 'string')
     .slice(-MAX_TURNS)
-    .map((row) => ({ user: clipped(row.user, 360), assistant: clipped(row.assistant, 520) }))
+    .map((row) => ({ user: clipped(row.user, 360), assistant: clipped(row.assistant, 2600) }))
     .filter((row) => Boolean(row.user && row.assistant))
 }
 

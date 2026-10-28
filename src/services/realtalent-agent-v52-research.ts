@@ -18,6 +18,19 @@ const normalize=(text:string)=>text.normalize('NFD').replace(/[\u0300-\u036f]/g,
 const words=(text:string)=>normalize(text).replace(/[^a-z0-9\s]/g,' ').replace(/\s+/g,' ')
 const bounded=(text:string,max=160)=>text.replace(/\s+/g,' ').trim().slice(0,max)
 
+/** Reuse the most recent strategic brief when the user replies to the
+ * seller/offer clarification. Never attach it to an unrelated conversation. */
+export function resumeScriptResearchPrompt(prompt:string,conversationContext=''):string{
+  const entries=[...conversationContext.matchAll(/Usuário:\s*([^\n]{5,360})\nRealTalent:\s*Antes do roteiro:/g)]
+  const last=entries.at(-1)
+  if(!last)return prompt
+  const lastExchange=conversationContext.slice(last.index??0)
+  if(/\nUsuário:/g.test(lastExchange.slice(last[0].length)))return prompt
+  const next=normalize(prompt)
+  if(!/^(?:quero|eu|e para|seria para|para|vendo|vendemos|ofereco|oferecemos|o servico|o produto)\b/.test(next))return prompt
+  return `${last[1]}. Esclarecimento: ${prompt}`.slice(0,1550)
+}
+
 export function diagnoseScriptResearchRequest(prompt:string):{
   targeted:boolean; missingPerspective:boolean; audience:string; question:string
 }{

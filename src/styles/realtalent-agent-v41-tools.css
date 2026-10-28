@@ -1,0 +1,13 @@
+/* RealTalent Agent V4.1 — tools result surfaces, scoped to the embedded Agent. */
+.assistant-tool-card{border:1px solid var(--rt-border,#dbe4ef);border-radius:14px;padding:16px;display:grid;gap:12px;background:var(--rt-surface,#fff);min-width:0}
+.assistant-tool-card__meta{display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;font-size:12px;color:var(--rt-text-muted,#667085)}
+.assistant-tool-card__meta span:first-child{font-weight:700;color:var(--rt-color-brand,#215cb7)}
+.assistant-tool-card__value{font-size:clamp(1.5rem,3vw,2.3rem);line-height:1.1;overflow-wrap:anywhere}
+.assistant-tool-card__formula{border-radius:9px;background:var(--rt-color-brand-soft,#eef4ff);padding:12px;min-width:0}
+.assistant-tool-card__formula small{display:block;margin-bottom:5px;font-weight:700}
+.assistant-tool-card__formula p{margin:0;font-size:14px;overflow-wrap:anywhere}
+.assistant-tool-card__notes p{font-size:13px;line-height:1.5;margin:0 0 7px}
+.assistant-tool-card__script{font:inherit;font-size:13px;line-height:1.62;margin:0;white-space:pre-wrap;overflow-wrap:anywhere;max-height:min(48vh,460px);overflow:auto;padding:14px;border-radius:9px;background:var(--rt-surface-subtle,#f5f7fc);border:1px solid var(--rt-border,#dbe4ef)}
+.assistant-tool-card__actions{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.assistant-tool-card__disclaimer{font-size:12px;line-height:1.4;color:var(--rt-text-muted,#667085)}
+@media(max-width:520px){.assistant-tool-card{padding:12px}.assistant-tool-card__actions .button{max-width:100%}}

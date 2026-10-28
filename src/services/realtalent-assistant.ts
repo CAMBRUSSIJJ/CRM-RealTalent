@@ -202,6 +202,10 @@ export interface AssistantExecutionSuggestion {
   seed: string
 }
 
+export type AssistantToolOutput =
+  | { kind:'calculation'; title:string; result:string; formula:string; details:string[] }
+  | { kind:'script'; title:string; body:string; channel:'call'|'meeting'|'whatsapp'|'email'; leadId:string|null; grounded:boolean }
+
 export interface AssistantAnswer {
   id: string
   intent: AssistantIntent
@@ -211,6 +215,7 @@ export interface AssistantAnswer {
   facts: string[]
   suggestedPrompts: string[]
   plan?: AssistantExecutionPlan
+  toolOutput?: AssistantToolOutput
   draft?: AssistantDraft
   focus?: AssistantFocus
   pendingCapability?: CrmPendingCapability | null

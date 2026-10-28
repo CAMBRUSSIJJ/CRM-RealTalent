@@ -2,6 +2,7 @@ import type { WorkspaceSnapshot } from '../domain/types'
 import { appendRealTalentAiAudit } from './realtalent-ai-audit'
 import { buildRealTalentAiContext, type RealTalentAiContextEnvelope } from './realtalent-ai-context'
 import { hybridRealTalentAssistantProvider } from './realtalent-assistant-provider'
+import { runAgentToolsV41 } from './realtalent-agent-v41-tools'
 import type { AssistantAnswer, AssistantContext } from './realtalent-assistant'
 import { lastCrmExecutionReceipt } from './realtalent-crm-execution-truth'
 import {
@@ -44,6 +45,8 @@ export interface RealTalentAiGatewayResult {
 }
 
 const toolsForAnswer = (answer: AssistantAnswer) => {
+  if (answer.toolOutput?.kind === 'calculation') return ['calculator:verified-v4.1']
+  if (answer.toolOutput?.kind === 'script') return ['scripts:grounded-v4.1']
   if (answer.plan?.kind === 'crm_capabilities') return [...new Set(answer.plan.steps.map((step) => step.capabilityId))]
   if (answer.plan?.kind === 'move_opportunity') return ['read_pipeline', 'move_opportunity']
   if (answer.plan?.kind === 'create_task') return ['read_pipeline', 'create_task']
@@ -373,6 +376,18 @@ export const realTalentAiGateway = {
           generatedAt: new Date().toISOString(),
         })
         return { answer, context, trace: { providerId: 'sales-learning:portfolio-v1', mode: 'local-orchestration', sendsDataExternally: false, durationMs, writeAuthority: false } }
+      }
+
+      const toolAnswer = runAgentToolsV41(prompt, snapshot, effectiveContext)
+      if (toolAnswer) {
+        const durationMs = Math.max(0, Date.now() - started)
+        const providerId = toolAnswer.toolOutput?.kind === 'calculation' ? 'tools:calculator-v4.1' : 'tools:sales-script-v4.1'
+        appendRealTalentAiAudit({
+          id: `ai:${Date.now()}:tool`, workspaceId, providerId, intent: toolAnswer.intent,
+          focusLeadId: context.focusLeadId, route: context.route,
+          toolIds: toolsForAnswer(toolAnswer), outcome:'success', durationMs, generatedAt:new Date().toISOString(),
+        })
+        return { answer:toolAnswer, context, trace:{providerId,mode:'local-orchestration',sendsDataExternally:false,durationMs,writeAuthority:false} }
       }
 
       const directCoaching = dealCoachingAnswer(prompt, snapshot, effectiveContext)

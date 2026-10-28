@@ -36,9 +36,12 @@ export async function loadAgentWork(workspaceId:string,userId:string):Promise<{d
       .select('document').eq('workspace_id',workspaceId).eq('user_id',userId).maybeSingle()
     if(error)return {document:fallback,state:fallback?'local':'unavailable'}
     const remote:unknown=data?.document
-    // Null means no cloud state; never resurrect a deleted document from a stale tab.
+    // A missing row is the first cloud sync: migrate the existing browser copy.
+    // A present row with document=null is an explicit deletion and must win.
+    if(!data && fallback)return {document:fallback,state:'local'}
     const document=isValidWork(remote)?remote:null
     if(document)writeLocal(key,document)
+    else writeLocal(key,null)
     return {document,state:'cloud'}
   }catch{return {document:fallback,state:fallback?'local':'unavailable'}}
 }

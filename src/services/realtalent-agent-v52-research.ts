@@ -5,6 +5,7 @@ import { runtimeFetch } from './realtalent-runtime-transport'
 export interface ResearchSource { title:string; url:string }
 export interface CommercialStrategy {
   audience:string
+  channel?:'call'|'meeting'|'whatsapp'|'email'
   approach:string
   rationale:string
   alternatives:string[]
@@ -77,6 +78,7 @@ export function parseResearchedScript(payload:unknown):ResearchedCommercialScrip
   const sources=evidence==='external'?safeSources(data.sources):[]
   return {body,strategy:{
     audience:nonEmpty(strategy.audience,160)||'Público descrito na solicitação',
+    channel:['call','meeting','whatsapp','email'].includes(String(strategy.channel))?strategy.channel as CommercialStrategy['channel']:undefined,
     approach,rationale,
     alternatives:Array.isArray(strategy.alternatives)?strategy.alternatives.map(x=>nonEmpty(x,220)).filter(Boolean).slice(0,3):[],
     assumptions:Array.isArray(strategy.assumptions)?strategy.assumptions.map(x=>nonEmpty(x,200)).filter(Boolean).slice(0,4):[],
@@ -98,7 +100,7 @@ export async function researchCommercialScript(
       method:'POST',signal:controller.signal,headers:{'Content-Type':'application/json'},
       body:JSON.stringify({
         request:prompt.slice(0,1300),draft:draft.body.slice(0,6800),
-        facts:facts.slice(0,5),channel:draft.kind,topic:diagnosis.audience,
+        facts:facts.slice(0,5),channel:/\bwhatsapp\b/i.test(prompt)?'whatsapp':/\b(e-mail|email)\b/i.test(prompt)?'email':/\b(reuni[aã]o|meeting)\b/i.test(prompt)?'meeting':/\b(liga[cç][aã]o|telefone)\b/i.test(prompt)?'call':'unspecified',topic:diagnosis.audience,
       }),
     })
     if(!response.ok)return null

@@ -898,6 +898,7 @@ O programa coordenará várias missões. Cada marco só libera dependências ap�
               <div className="assistant-strategy-brief__meta">
                 <span>{answer.toolOutput.strategy.evidence === 'external' ? 'Pesquisa externa: resultados de busca' : 'Análise contextual · sem pesquisa externa'}</span>
                 <span>Público: {answer.toolOutput.strategy.audience}</span>
+                {answer.toolOutput.strategy.channel ? <span>Canal recomendado: {answer.toolOutput.strategy.channel}</span> : null}
               </div>
               {answer.toolOutput.strategy.alternatives.length ? <details><summary>Alternativas consideradas</summary><ul>{answer.toolOutput.strategy.alternatives.map((option,index)=><li key={index}>{option}</li>)}</ul></details> : null}
               {answer.toolOutput.strategy.assumptions.length ? <details><summary>Hipóteses a validar</summary><ul>{answer.toolOutput.strategy.assumptions.map((assumption,index)=><li key={index}>{assumption}</li>)}</ul></details> : null}

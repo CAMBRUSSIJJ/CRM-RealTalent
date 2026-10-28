@@ -97,7 +97,7 @@ export async function runAgentToolsV5(
       : `${draft.rationale} ${diagnosis.targeted?'Não foi possível concluir a pesquisa estratégica; este roteiro é apenas provisório.':enhanced?'Conteúdo refinado pelo Ollama.':'Foi utilizado o modelo estruturado local.'} Revise antes de utilizar. Nenhuma ação foi executada.`,
     items:[],facts:numerical?[`Cálculo confirmado pela ferramenta matemática: ${numerical.result}`]:[],
     suggestedPrompts:['Personalize o roteiro para venda consultiva','Calcule uma margem de 30% sobre custo de R$ 100'],
-    toolOutput:{kind:'script',title:draft.title,body:supplement+content,channel:draft.kind,leadId:draft.leadId,grounded:draft.grounded,...(researched?{strategy:researched.strategy}:{})},
+    toolOutput:{kind:'script',title:draft.title,body:supplement+content,channel:researched?.strategy.channel??draft.kind,leadId:draft.leadId,grounded:draft.grounded,...(researched?{strategy:researched.strategy}:{})},
     generatedAt:(context.now??new Date()).toISOString(),
   }
 }

@@ -892,6 +892,17 @@ O programa coordenará várias missões. Cada marco só libera dependências ap�
           </div> : null}
           {answer.toolOutput?.kind === 'script' ? <div className="assistant-tool-card assistant-tool-card--script" aria-label="Roteiro comercial gerado">
             <div className="assistant-tool-card__meta"><span>Script Studio</span><span>{answer.toolOutput.grounded ? 'Baseado no contexto do CRM' : 'Modelo para personalizar'}</span></div>
+            {answer.toolOutput.strategy ? <section className="assistant-strategy-brief" aria-label="Análise estratégica do roteiro">
+              <strong>Estratégia recomendada: {answer.toolOutput.strategy.approach}</strong>
+              <p>{answer.toolOutput.strategy.rationale}</p>
+              <div className="assistant-strategy-brief__meta">
+                <span>{answer.toolOutput.strategy.evidence === 'external' ? 'Pesquisa externa: resultados de busca' : 'Análise contextual · sem pesquisa externa'}</span>
+                <span>Público: {answer.toolOutput.strategy.audience}</span>
+              </div>
+              {answer.toolOutput.strategy.alternatives.length ? <details><summary>Alternativas consideradas</summary><ul>{answer.toolOutput.strategy.alternatives.map((option,index)=><li key={index}>{option}</li>)}</ul></details> : null}
+              {answer.toolOutput.strategy.assumptions.length ? <details><summary>Hipóteses a validar</summary><ul>{answer.toolOutput.strategy.assumptions.map((assumption,index)=><li key={index}>{assumption}</li>)}</ul></details> : null}
+              {answer.toolOutput.strategy.sources.length ? <details><summary>Fontes recuperadas na pesquisa</summary><ul>{answer.toolOutput.strategy.sources.map((source,index)=><li key={index}><a href={source.url} target="_blank" rel="noreferrer noopener">{source.title}</a></li>)}</ul></details> : null}
+            </section> : null}
             <pre className="assistant-tool-card__script">{answer.toolOutput.body}</pre>
             <div className="assistant-tool-card__actions">
               <Button variant="secondary" size="sm" onClick={() => void copyToolOutput()}><Clipboard size={15}/> Copiar roteiro</Button>

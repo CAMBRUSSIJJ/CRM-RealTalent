@@ -222,8 +222,6 @@ export interface AssistantAnswer {
   toolOutput?: AssistantToolOutput
   draft?: AssistantDraft
   focus?: AssistantFocus
-  activeWork?: AgentWorkDocument | null
-  canReadPlaybooks?: boolean
   pendingCapability?: CrmPendingCapability | null
   executionSuggestion?: AssistantExecutionSuggestion | null
   generatedAt: string
@@ -240,6 +238,8 @@ export interface AssistantContext {
   currentUserId?: string | null
   conversationContext?: string
   semanticInterpretation?: SemanticSalesInterpretation | null
+  activeWork?: AgentWorkDocument | null
+  canReadPlaybooks?: boolean
   pendingCapability?: CrmPendingCapability | null
   loadWorkTasks?: () => Promise<FastActionTaskCandidate[]>
   loadWorkspaceMembers?: () => Promise<WorkspaceMember[]>

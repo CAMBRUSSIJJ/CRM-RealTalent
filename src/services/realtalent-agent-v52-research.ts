@@ -22,7 +22,7 @@ export function diagnoseScriptResearchRequest(prompt:string):{
   targeted:boolean; missingPerspective:boolean; audience:string; question:string
 }{
   const text=words(prompt)
-  const targeted=/\b(voltad[oa]s? para|especific[oa]s? para|direcionad[oa]s? para|para (?:os |as |um |uma )?(?:jardineir|autonom|profission|prestador|empresa|condomini|clinica|dentista|arquiteto)|publico.alvo|nicho|segmento)\b/.test(text)
+  const targeted=/\b(voltad[oa]s? para|especific[oa]s? para|direcionad[oa]s? para|para (?:os |as |um |uma )?(?:jardineir\w*|autonom\w*|profission\w*|prestador\w*|empresa\w*|condomini\w*|clinica\w*|dentista\w*|arquiteto\w*)|publico.alvo|nicho|segmento)\b/.test(text)
   const niche=[...text.matchAll(/\bpara (?:os |as |um |uma )?([a-z]{5,}(?:\s+[a-z]{5,})?)/g)].at(-1)?.[1]??''
   const audience=bounded(niche || (targeted?'segmento citado na solicitação':''),65)
   const sellsTo=/\b(?:vender|vendendo|oferecer|oferecendo|comercializar|oferta de)\b.{0,80}\b(?:para|aos|as|a)\b/.test(text)

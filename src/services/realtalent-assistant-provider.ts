@@ -1,6 +1,6 @@
 // V3.7 regression lineage marker: ollama-capabilities-first+operational-firewall
 import type { Lead, WorkspaceSnapshot } from '../domain/types'
-import { canAnswerSalesReadLocally, isWriteOrCompoundRequest } from './realtalent-agent-v4-intent'
+import { canAnswerSalesReadLocally, isWriteOrCompoundRequest, requestsMultipleCrmActions } from './realtalent-agent-v4-intent'
 import { runRealTalentAssistant, type AssistantAnswer, type AssistantContext, type AssistantIntent, type AssistantResultItem } from './realtalent-assistant'
 import { interpretSalesLanguage } from './realtalent-semantic-language-client'
 import { localCapabilityFallback, localPendingCapabilityReplyFallback, type CrmCapabilityPlanningResult } from './realtalent-crm-capability-planner'
@@ -306,7 +306,7 @@ export const hybridRealTalentAssistantProvider: RealTalentAssistantProvider = {
       }
     }
 
-    const localOperationalRaw = localCapabilityFallback(prompt, capabilityContext)
+    const localOperationalRaw = requestsMultipleCrmActions(prompt) ? null : localCapabilityFallback(prompt, capabilityContext)
     const localOperational = localOperationalRaw ? validateAndEnrichCapabilitySlots(localOperationalRaw, capabilityContext) : null
     if (localOperational) return {
       answer: capabilityPlanAnswer(localOperational, context, context.pendingCapability?.seed || prompt, snapshot),

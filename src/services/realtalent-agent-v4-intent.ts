@@ -25,8 +25,8 @@ export function isWriteOrCompoundRequest(prompt: string): boolean {
 // returns only one tool for two explicitly requested CRM operations.
 export function requestsMultipleCrmActions(prompt: string): boolean {
   const text = normalized(prompt)
-  const verb = '(?:crie|criar|cadastre|adicione|atualize|mova|exclua|conclua|envie|mande|agende|marque|registre|defina|garimpe|execute)'
-  return new RegExp('\\b'+verb+'\\b.{0,150}\\b(?:e(?:\\s+tambem)?|depois|em seguida)\\s+'+verb+'\\b').test(text)
+  const verbs = /\b(crie|criar|cadastre|cadastrar|adicione|adicionar|atualize|atualizar|mova|mover|exclua|excluir|conclua|concluir|envie|enviar|mande|mandar|agende|agendar|marque|marcar|registre|registrar|defina|definir|garimpe|garimpar|execute|executar|consulte|consultar|analise|analisar|calcule|calcular|liste|listar|prepare|preparar|busque|buscar|encontre|encontrar)\b/g
+  return [...text.matchAll(verbs)].length >= 2 && /\b(e(?:\s+depois|\s+tambem)?|depois|em seguida|alem disso)\b|[;,]/.test(text)
 }
 
 /** A follow-up question must not be silently consumed as the missing value

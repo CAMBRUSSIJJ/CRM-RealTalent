@@ -6,7 +6,7 @@ import { createCommercialScript, isCommercialScriptRequest, type GeneratedCommer
 import { calculateCommercialRequest } from './realtalent-agent-v41-calculator'
 import { env } from '../lib/env'
 import { runtimeFetch } from './realtalent-runtime-transport'
-import { diagnoseScriptResearchRequest, researchCommercialScript } from './realtalent-agent-v52-research'
+import { diagnoseScriptResearchRequest, researchCommercialScript, resumeScriptResearchPrompt } from './realtalent-agent-v52-research'
 
 const norm=(value:string)=>value.normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase()
 const words=(value:string)=>new Set(norm(value).split(/[^a-z0-9]+/).filter(x=>x.length>3))
@@ -55,12 +55,13 @@ export async function runAgentToolsV5(
   options:{refiner?:ScriptRefiner; researcher?:typeof researchCommercialScript}={},
 ):Promise<AssistantAnswer|null>{
   if(context.pendingCapability)return null
-  const route=classifyV5ToolRequest(prompt)
+  const effectivePrompt=resumeScriptResearchPrompt(prompt,context.conversationContext??'')
+  const route=classifyV5ToolRequest(effectivePrompt)
   if(route.mutation)return null
-  if(!route.script)return runAgentToolsV41(prompt,snapshot,context)
-  const draft=createCommercialScript(prompt,snapshot,context)
+  if(!route.script)return runAgentToolsV41(effectivePrompt,snapshot,context)
+  const draft=createCommercialScript(effectivePrompt,snapshot,context)
   if(!draft)return null
-  const diagnosis=diagnoseScriptResearchRequest(prompt)
+  const diagnosis=diagnoseScriptResearchRequest(effectivePrompt)
   // A generic script would be misleading: the buyer and offer change the
   // strategy. Ask one concrete question instead of inventing research.
   if(diagnosis.missingPerspective)return {
@@ -78,12 +79,12 @@ export async function runAgentToolsV5(
     ],
     generatedAt:(context.now??new Date()).toISOString(),
   }
-  const numerical=route.compound?calculateCommercialRequest(prompt):null
-  const facts=rankRelevantCRMContext(prompt,snapshot,context)
+  const numerical=route.compound?calculateCommercialRequest(effectivePrompt):null
+  const facts=rankRelevantCRMContext(effectivePrompt,snapshot,context)
   const researched=diagnosis.targeted
-    ? await (options.researcher??researchCommercialScript)(prompt,draft,facts).catch(()=>null)
+    ? await (options.researcher??researchCommercialScript)(effectivePrompt,draft,facts).catch(()=>null)
     : null
-  const enhanced=researched?null:await (options.refiner??refineWithOllamaV5)(draft,prompt,facts).catch(()=>null)
+  const enhanced=researched?null:await (options.refiner??refineWithOllamaV5)(draft,effectivePrompt,facts).catch(()=>null)
   const content=researched?.body??enhanced?.body??draft.body
   const supplement=numerical
     ? `RESULTADO MATEMÁTICO VERIFICADO\n${numerical.title}: ${numerical.result}\nFórmula: ${numerical.formula}\n${numerical.details.join('\n')}\n\n`

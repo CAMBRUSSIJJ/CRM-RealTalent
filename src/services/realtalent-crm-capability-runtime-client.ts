@@ -73,6 +73,28 @@ const normalizePlan = (value: unknown): CrmCapabilityPlan => {
   }
 }
 
+/** Reject partial model plans: dropping an unknown step and executing the rest
+ * silently would be more dangerous than reporting a planning failure. */
+export function validateAgentCapabilityEnvelope(rawPlan: unknown, decision: unknown): {
+  plan: CrmCapabilityPlan
+  decision: CrmCapabilityPlanningResult['decision']
+} | null {
+  if (decision !== 'execute' && decision !== 'clarify' && decision !== 'fallback') return null
+  if (!rawPlan || typeof rawPlan !== 'object') return null
+  const rawSteps = (rawPlan as { steps?: unknown }).steps
+  if (!Array.isArray(rawSteps) || rawSteps.length > 8) return null
+  const plan = normalizePlan(rawPlan)
+  if (plan.steps.length !== rawSteps.length) return null
+  if (new Set(plan.steps.map((step) => step.id)).size !== plan.steps.length) return null
+  if (decision === 'execute') {
+    if (!plan.steps.length || plan.needsClarification || plan.missingSlots.length) return null
+    // A model confidence score is a signal, never permission to write.
+    if (plan.steps.some((step) => step.risk !== 'read') && plan.confidence < 0.6) return null
+  }
+  if (decision === 'clarify' && !plan.clarification && !plan.missingSlots.length) return null
+  return { plan, decision }
+}
+
 const normalizeReply = (value: string) => value
   .normalize('NFD')
   .replace(/[\u0300-\u036f]/g, '')
@@ -195,10 +217,11 @@ export async function planCrmCapabilitiesViaAgent(
       provider?: string
       model?: string
     }
-    if (!payload.ok || !payload.plan || !payload.decision) return null
+    if (!payload.ok) return null
+    const validated = validateAgentCapabilityEnvelope(payload.plan, payload.decision)
+    if (!validated) return null
     return {
-      plan: normalizePlan(payload.plan),
-      decision: payload.decision,
+      ...validated,
       provider: payload.provider ?? 'ollama',
       model: payload.model ?? 'crm-capability-planner',
     }

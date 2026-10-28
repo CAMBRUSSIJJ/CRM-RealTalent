@@ -364,7 +364,9 @@ export function AssistantDrawer({ open, onClose, initialPrompt = '' }: Assistant
       }
       setAnswer(result)
       if (result.toolOutput?.kind === 'script') {
-        setActiveWork(previous => workFromAnswer(result,userPrompt,previous))
+        // A distinct create request starts a new document; an edit keeps its ID.
+        const revision = result.id.startsWith('work-edit:')
+        setActiveWork(previous => workFromAnswer(result,userPrompt,revision ? previous : null))
       }
       setConversationTurns((history) => appendAgentConversationTurn(history, userPrompt, `${result.title}. ${result.text}`))
       if (result.plan?.kind === 'crm_capabilities' && result.plan.steps.length && result.plan.steps.every((step) => step.risk === 'read')) {

@@ -1,6 +1,7 @@
 import {describe,expect,it,vi} from 'vitest'
 import {isWorkContinuation,workFromAnswer,restoreWorkRevision,answerFromWork} from './realtalent-agent-v53-work'
 import {classifyDocumentFollowup,reviseAgentWork} from './realtalent-agent-v53-editor'
+import {runAgentToolsV5} from './realtalent-agent-v5-cognitive'
 import {retrieveAgentKnowledge} from './realtalent-agent-v53-knowledge'
 import {evaluateAgentWork} from './realtalent-agent-v53-quality'
 import type {AssistantAnswer} from './realtalent-assistant'
@@ -57,6 +58,25 @@ describe('V5.3 — documento ativo e edição contextual',()=>{
       content:'Diagnóstico de necessidade de manutenção e contratação recorrente'}]} as WorkspaceSnapshot
     expect(retrieveAgentKnowledge('jardinagem manutenção',s,{canReadPlaybooks:false})).toEqual([])
     expect(retrieveAgentKnowledge('jardinagem manutenção',s,{canReadPlaybooks:true})[0]).toContain('Playbook')
+  })
+  it('roteia a frase da captura para edição do documento, nunca para ação CRM',async()=>{
+    const work=workFromAnswer(answer('DOCUMENTO INICIAL '.repeat(20)),'crie roteiro')!
+    const changed=answer('ROTEIRO PERSONALIZADO PARA JARDINAGEM '.repeat(20))
+    changed.id='work-edit:test'
+    const workEditor=vi.fn(async()=>changed)
+    const result=await runAgentToolsV5('consegue personalizar com o contexto de jardinagem?',snapshot,
+      {activeWork:work},{workEditor})
+    expect(workEditor).toHaveBeenCalledOnce()
+    expect(result?.toolOutput?.kind).toBe('script')
+    expect(result?.id).toBe('work-edit:test')
+  })
+  it('pedido de tarefa não vira revisão do documento',async()=>{
+    const work=workFromAnswer(answer('DOCUMENTO INICIAL '.repeat(20)),'crie roteiro')!
+    const workEditor=vi.fn()
+    const result=await runAgentToolsV5('crie uma tarefa para amanhã',snapshot,
+      {activeWork:work},{workEditor,workClassifier:async()=>false})
+    expect(workEditor).not.toHaveBeenCalled()
+    expect(result).toBeNull()
   })
   it('qualidade identifica fontes inexistentes e textos genéricos',()=>{
     const a=answer('Informe [Nome do cliente] e [tema do serviço]. '+ 'A'.repeat(240))

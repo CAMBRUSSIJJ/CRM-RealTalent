@@ -6,7 +6,7 @@ import {env} from '../lib/env'
 import {runtimeFetch} from './realtalent-runtime-transport'
 
 export interface ReadOnlyToolPlan {tools: Array<{name:'web_research'|'calculator';input:string}>;confidence:number}
-const externalWords=/\b(?:pesqui|fontes|mercado|tend[eê]ncias|metodologia|concorrente|refer[eê]ncia|setor|estrat[eé]gia)\b/i
+const externalWords=/\b(?:pesquis[a-z]*|fontes|mercado|tendencias|metodologia|concorrentes?|referencias?|setor|estrategias?)\b/i
 const normalize=(value:string)=>value.normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase()
 export function shouldPlanReadOnlyTools(prompt:string,context:AssistantContext={}):boolean{
   if(prompt.length>1500||prompt.length<25||isExplicitCrmMutation(prompt)||context.pendingCapability)return false

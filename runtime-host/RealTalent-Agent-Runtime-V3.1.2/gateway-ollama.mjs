@@ -5,6 +5,8 @@ import fs from 'node:fs'
 import http from 'node:http'
 import { fileURLToPath } from 'node:url'
 import { preserveExplicitPlannerArguments, routeBusinessDomain, routeCapability } from './crm-semantic-router.mjs'
+import { isMultiToolRequest, verifyModelPlannerCoverage } from './crm-tool-selection-v51.mjs'
+import { selectOllamaToolsV51 } from './crm-ollama-tool-selector-v51.mjs'
 
 const OUTER_HOST = process.env.REALTALENT_AGENT_HOST || '127.0.0.1'
 const OUTER_PORT = Number(process.env.REALTALENT_AGENT_PORT || 8791)
@@ -194,40 +196,57 @@ const handleCapabilityPlan = async (req, res) => {
       return sendJson(res, response.status, payload)
     }
 
+    const pendingId=String(body?.context?.pending_capability?.capabilityId||'')
+    const compound=!pendingId && isMultiToolRequest(prompt)
+    const selection=compound?await selectOllamaToolsV51({
+      prompt,capabilities,model:CRM_OLLAMA_MODEL,ollamaUrl:OLLAMA_URL,
+      conversationContext:body?.context?.conversation_context,
+    }):null
     let routing
     try {
-      routing = await semanticModuleRouter({ prompt, capabilities })
+      routing = compound
+        ? {modules:[],primaryModule:'',confidence:0,rationale:'compound-request',source:'v5.1'}
+        : await semanticModuleRouter({ prompt, capabilities })
     } catch (error) {
       console.warn(`[ollama-router] domain routing failed; using original catalog: ${error instanceof Error ? error.message : error}`)
       routing = { modules: [], primaryModule: '', confidence: 0, rationale: 'router fallback', source: 'fallback' }
     }
 
-    const pendingId = String(body?.context?.pending_capability?.capabilityId || '')
+
     const pendingModule = pendingId ? capabilities.find((item) => item.id === pendingId)?.module : ''
-    const selectedModules = new Set(routing.modules)
+    const selectedModules = new Set(selection
+      ? selection.ids.map(id=>capabilities.find(item=>item.id===id)?.module).filter(Boolean)
+      : routing.modules)
     if (pendingModule) selectedModules.add(pendingModule)
 
-    const narrowed = selectedModules.size ? capabilities.filter((item) => selectedModules.has(item.module)) : capabilities
-    const deterministicCapability = routeCapability(prompt, narrowed, pendingId)
-    const learningHint = deterministicCapability ? null : verifiedLearningHint(body, narrowed)
+    const narrowed = selection
+      ? capabilities.filter(item=>selection.ids.includes(item.id))
+      : compound ? capabilities
+      : selectedModules.size ? capabilities.filter(item=>selectedModules.has(item.module)) : capabilities
+    const deterministicCapability = compound ? null : routeCapability(prompt, narrowed, pendingId)
+    const learningHint = compound || deterministicCapability ? null : verifiedLearningHint(body, narrowed)
     const capabilityRouting = deterministicCapability || (learningHint ? {
       ids: [learningHint.capability.id], confidence: learningHint.score, rationale: 'experiência local previamente verificada', source: 'verified-learning',
     } : null)
-    const finalCapabilities = capabilityRouting?.ids?.length
+    const finalCapabilities = selection ? narrowed : capabilityRouting?.ids?.length
       ? narrowed.filter((item) => capabilityRouting.ids.includes(item.id))
       : narrowed
-    const capabilitySource = deterministicCapability ? 'deterministic' : learningHint ? 'verified-learning' : 'ollama-planner'
+    const capabilitySource = selection ? 'structured-tools-v5.1' : deterministicCapability ? 'deterministic' : learningHint ? 'verified-learning' : 'ollama-planner'
 
     console.log(`[ollama-router] primary=${routing.primaryModule || 'none'} modules=${[...selectedModules].join(',') || 'all'} capabilities=${capabilities.length}->${narrowed.length}->${finalCapabilities.length} confidence=${routing.confidence} intent=${routing.rationale} capability=${capabilityRouting?.ids?.join(',') || 'model-choice'} source=${capabilitySource}`)
 
     const planned = await callInnerPlanner({ ...body, capabilities: finalCapabilities }, req.headers)
     const payload = preserveExplicitPlannerArguments(prompt, planned.payload, body?.context || {})
+    const coverage=verifyModelPlannerCoverage(selection,payload)
+    if(!coverage.ok || (compound && payload?.decision==='execute' && (!Array.isArray(payload?.plan?.steps)||payload.plan.steps.length<2))){
+      return sendJson(res,422,{ok:false,error:'incomplete_multi_tool_plan',reason:coverage.reason})
+    }
     if (payload && typeof payload === 'object') {
       payload.routing = {
         provider: 'ollama', model: CRM_OLLAMA_MODEL,
         primaryModule: routing.primaryModule || '', modules: [...selectedModules], canonicalIntent: routing.rationale,
         originalCapabilityCount: capabilities.length, routedCapabilityCount: finalCapabilities.length,
-        confidence: routing.confidence, capabilitySource,
+        confidence: selection?.confidence ?? routing.confidence, capabilitySource, selectedTools:selection?.ids||[],
       }
     }
     return sendJson(res, planned.response.status, payload)

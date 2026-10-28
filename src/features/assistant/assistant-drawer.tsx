@@ -1032,7 +1032,7 @@ O programa coordenará várias missões. Cada marco só libera dependências ap�
                     return <tr key={index}><td>{columns[0]||''}</td><td>{columns.slice(1).join(' | ')}</td></tr>
                   })}</tbody>
                 </table></div>
-                : <pre className="assistant-tool-card__script">{answer.toolOutput.body}</pre>}
+                : <div className="assistant-tool-card__script"><AssistantMarkdown text={answer.toolOutput.body}/></div>}
             </details>
             <div className="assistant-tool-card__actions">
               <Button variant="secondary" size="sm" onClick={() => void copyToolOutput()}><Clipboard size={15}/> Copiar roteiro</Button>

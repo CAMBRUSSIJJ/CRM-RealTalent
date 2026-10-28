@@ -1,5 +1,6 @@
 // V3.7 regression lineage marker: ollama-capabilities-first+operational-firewall
 import type { Lead, WorkspaceSnapshot } from '../domain/types'
+import { canAnswerSalesReadLocally, isWriteOrCompoundRequest, requestsMultipleCrmActions } from './realtalent-agent-v4-intent'
 import { runRealTalentAssistant, type AssistantAnswer, type AssistantContext, type AssistantIntent, type AssistantResultItem } from './realtalent-assistant'
 import { interpretSalesLanguage } from './realtalent-semantic-language-client'
 import { localCapabilityFallback, localPendingCapabilityReplyFallback, type CrmCapabilityPlanningResult } from './realtalent-crm-capability-planner'
@@ -233,7 +234,7 @@ const applySalesRecommendationRanking = (answer: AssistantAnswer, snapshot: Work
 }
 
 export const hybridRealTalentAssistantProvider: RealTalentAssistantProvider = {
-  id: 'realtalent-agent-v3.9-executable-daily-brief',
+  id: 'realtalent-agent-v4-semantic-core',
   async answer(prompt, snapshot, context = {}) {
     const liveSalesCoach = buildLiveSalesCoachAssistantAnswer(prompt, snapshot, context)
     if (liveSalesCoach) return { answer: liveSalesCoach, providerId: 'sales-coaching:live-grounded-v1', sendsDataExternally: false, mode: 'local-orchestration' }
@@ -282,6 +283,18 @@ export const hybridRealTalentAssistantProvider: RealTalentAssistantProvider = {
       }
     }
 
+    // Answer grounded, unambiguous read-only questions immediately instead of
+    // waiting for a potentially slow Ollama capability-planning round trip.
+    const localRead = runRealTalentAssistant(prompt, snapshot, context)
+    if (canAnswerSalesReadLocally(prompt, localRead, Boolean(context.pendingCapability))) {
+      return {
+        answer: applySalesRecommendationRanking(localRead, snapshot, context),
+        providerId: 'v4:fast-grounded-read',
+        sendsDataExternally: false,
+        mode: 'local-orchestration',
+      }
+    }
+
     const capabilityRaw = await planCrmCapabilitiesViaAgent(prompt, capabilityContext)
     const capability = capabilityRaw ? validateAndEnrichCapabilitySlots(capabilityRaw, capabilityContext) : null
     if (capability && capability.decision !== 'fallback') {
@@ -293,7 +306,7 @@ export const hybridRealTalentAssistantProvider: RealTalentAssistantProvider = {
       }
     }
 
-    const localOperationalRaw = localCapabilityFallback(prompt, capabilityContext)
+    const localOperationalRaw = requestsMultipleCrmActions(prompt) ? null : localCapabilityFallback(prompt, capabilityContext)
     const localOperational = localOperationalRaw ? validateAndEnrichCapabilitySlots(localOperationalRaw, capabilityContext) : null
     if (localOperational) return {
       answer: capabilityPlanAnswer(localOperational, context, context.pendingCapability?.seed || prompt, snapshot),
@@ -302,7 +315,7 @@ export const hybridRealTalentAssistantProvider: RealTalentAssistantProvider = {
       mode: 'local-orchestration',
     }
 
-    if (looksLikeOperationalRequest(prompt)) {
+    if (looksLikeOperationalRequest(prompt) && (isWriteOrCompoundRequest(prompt) || !/^(quem|quais|qual|quantos|onde|quando|por que|porque|como|o que|me diga|me mostre|mostre|liste|resuma|analise)\b/i.test(normalizePrompt(prompt)))) {
       return {
         answer: operationalPlannerUnavailable(prompt, context),
         providerId: 'capability:operational-firewall-v3.8',

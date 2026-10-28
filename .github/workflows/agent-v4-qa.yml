@@ -1,0 +1,33 @@
+name: RealTalent Agent V4 QA
+
+on:
+  pull_request:
+    branches:
+      - fix/ui-stability-functional-qa-20261028
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  agent-v4:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - name: Install
+        run: npm ci --include=dev
+      - name: TypeScript
+        run: npm run typecheck
+      - name: Agent V4 semantic and planner regressions
+        run: npx vitest run src/services/realtalent-agent-v4-intent.test.ts src/services/realtalent-agent-v4-conversation.test.ts src/services/realtalent-agent-v4-planner.test.ts src/services/realtalent-assistant-provider-routing.test.ts src/services/realtalent-crm-pending-resume.test.ts
+      - name: Bundle
+        run: npm run build

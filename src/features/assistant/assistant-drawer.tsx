@@ -3,6 +3,7 @@ import { env } from '../../lib/env'
 /* V1.10 Identity & Team Governance regression marker */
 /* V0.9 Autonomous Programs compatibility marker */
 import '../../styles/realtalent-assistant-v10067.css'
+import '../../styles/realtalent-agent-v41-tools.css'
 import { AlertTriangle, ArrowRight, Bot, BrainCircuit, CheckCircle2, Clipboard, Clock3, Database, ExternalLink, LoaderCircle, Maximize2, MessageSquareText, Minimize2, MonitorCheck, Play, ShieldCheck, Sparkles, Target, Wrench, X } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useAppActions, useAppNavigation, useAppUi, useAppWorkspace } from '../../app/app-context'
@@ -21,9 +22,12 @@ import { appendAgendaMetadata } from '../../services/agenda-workspace'
 import { executeCrmCapabilityStep, undoCrmAgentOperation } from '../../services/realtalent-crm-universal-executor'
 import { continuationPrompt, type CrmPendingCapability } from '../../services/realtalent-crm-slot-filling'
 import { lastUndoableCrmAgentTransaction, markCrmAgentTransactionUndone, recordCrmAgentTransaction, type CrmAgentUndoOperation } from '../../services/realtalent-crm-agent-transactions'
+import { preflightCrmPlanV51 } from '../../services/realtalent-crm-plan-preflight-v51'
 import { executionTruthSlicesForCapability, executionTruthSlicesForPlan, executionTruthSlicesForUndoOperations, receiptLabel, receiptStatusFromEvidence, recordCrmExecutionReceipt, verifyCrmCapabilityExecution, verifyCrmUndoExecution, type CrmExecutionStepEvidence } from '../../services/realtalent-crm-execution-truth'
 import { usePreferences } from '../settings/preferences-context'
 import { useExperience } from '../experience/experience-context'
+import { startsNewRequestWhilePending } from '../../services/realtalent-agent-v4-intent'
+import { appendAgentConversationTurn, formatAgentConversationContext, parseAgentConversationTurns, type AgentConversationTurn } from '../../services/realtalent-agent-v4-conversation'
 import { approveCrmWorkflowStep, cancelCrmWorkflow, completeCrmWorkflowStep, continueCrmMission, continueCrmProgram, continueCrmWorkflow, getActiveCrmMission, getActiveCrmProgram, getActiveCrmWorkflow, planFromAction, resumeCrmWorkflow, runCrmBrowserQa, runUnifiedBrowserQa, runUnifiedBuilder, startCrmMission, startCrmProgram, startCrmWorkflow, syncAgentWorkspaceIdentity, syncCrmAppContext, type AutonomousMission, type AutonomousProgram, type AutonomousWorkflow, type BrowserQaResult } from '../../services/realtalent-agent-client'
 
 interface AssistantDrawerProps { open: boolean; onClose(): void; initialPrompt?: string }
@@ -74,8 +78,10 @@ export function AssistantDrawer({ open, onClose, initialPrompt = '' }: Assistant
   const [executedPlanId, setExecutedPlanId] = useState<string | null>(null)
   const [aiTrace, setAiTrace] = useState<RealTalentAiGatewayResult | null>(null)
   const [qaRunning, setQaRunning] = useState(false)
+  const [savingScript, setSavingScript] = useState(false)
   const [sending, setSending] = useState(false)
   const [lastUserPrompt, setLastUserPrompt] = useState('')
+  const [conversationTurns, setConversationTurns] = useState<AgentConversationTurn[]>([])
   const [pendingAction, setPendingAction] = useState<{ kind: 'create_task' | 'create_followups' | 'complete_task'; seed: string } | null>(null)
   const [pendingCapability, setPendingCapability] = useState<CrmPendingCapability | null>(null)
   const [qaResult, setQaResult] = useState<BrowserQaResult | null>(null)
@@ -99,6 +105,7 @@ export function AssistantDrawer({ open, onClose, initialPrompt = '' }: Assistant
     setAnswer(null)
     setPreviousLeadIds([])
     setLastUserPrompt('')
+    setConversationTurns([])
     setPendingAction(null)
     setPendingCapability(null)
   }, [sessionKey])
@@ -108,10 +115,11 @@ export function AssistantDrawer({ open, onClose, initialPrompt = '' }: Assistant
     try {
       const saved = window.sessionStorage.getItem(sessionKey)
       if (saved) {
-        const parsed = JSON.parse(saved) as { answer?: AssistantAnswer | null; previousLeadIds?: string[]; lastUserPrompt?: string; pendingAction?: { kind: 'create_task' | 'create_followups' | 'complete_task'; seed: string } | null; pendingCapability?: CrmPendingCapability | null }
+        const parsed = JSON.parse(saved) as { answer?: AssistantAnswer | null; previousLeadIds?: string[]; lastUserPrompt?: string; pendingAction?: { kind: 'create_task' | 'create_followups' | 'complete_task'; seed: string } | null; pendingCapability?: CrmPendingCapability | null; conversationTurns?: unknown }
         if (parsed.answer) setAnswer(parsed.answer)
         if (Array.isArray(parsed.previousLeadIds)) setPreviousLeadIds(parsed.previousLeadIds)
         if (typeof parsed.lastUserPrompt === 'string') setLastUserPrompt(parsed.lastUserPrompt)
+        setConversationTurns(parseAgentConversationTurns(parsed.conversationTurns))
         if (parsed.pendingAction?.kind && typeof parsed.pendingAction.seed === 'string') setPendingAction(parsed.pendingAction)
         if (parsed.pendingCapability?.capabilityId && typeof parsed.pendingCapability.seed === 'string') setPendingCapability(parsed.pendingCapability)
       }
@@ -121,8 +129,8 @@ export function AssistantDrawer({ open, onClose, initialPrompt = '' }: Assistant
 
   useEffect(() => {
     if (!sessionRestored) return
-    try { window.sessionStorage.setItem(sessionKey, JSON.stringify({ answer, previousLeadIds, lastUserPrompt, pendingAction, pendingCapability })) } catch { /* storage indisponível */ }
-  }, [answer, previousLeadIds, lastUserPrompt, pendingAction, pendingCapability, sessionKey, sessionRestored])
+    try { window.sessionStorage.setItem(sessionKey, JSON.stringify({ answer, previousLeadIds, lastUserPrompt, conversationTurns, pendingAction, pendingCapability })) } catch { /* storage indisponível */ }
+  }, [answer, previousLeadIds, lastUserPrompt, conversationTurns, pendingAction, pendingCapability, sessionKey, sessionRestored])
 
   useEffect(() => {
     try { window.localStorage.setItem(EMBEDDED_EXPANDED_KEY, expanded ? '1' : '0') } catch { /* storage indisponível */ }
@@ -263,13 +271,14 @@ export function AssistantDrawer({ open, onClose, initialPrompt = '' }: Assistant
       return
     }
     const directAction = detectFastActionIntent(userPrompt)
+    const switchesRequest = Boolean(pendingCapability && startsNewRequestWhilePending(userPrompt))
     const recommendationContinuation = !pendingCapability && !pendingAction && !directAction
       ? resolveAssistantRecommendationContinuation(userPrompt, answer)
       : null
-    const effectivePrompt = pendingCapability && !directAction
+    const effectivePrompt = pendingCapability && !directAction && !switchesRequest
       ? continuationPrompt(pendingCapability, userPrompt)
       : pendingAction && !directAction ? `${pendingAction.seed} ${userPrompt}` : recommendationContinuation ?? userPrompt
-    const actionIntent = directAction ?? pendingAction?.kind ?? null
+    const actionIntent = directAction ?? (switchesRequest ? null : pendingAction?.kind) ?? null
     setLastUserPrompt(userPrompt)
     setQuery('')
     setSending(true)
@@ -293,8 +302,8 @@ export function AssistantDrawer({ open, onClose, initialPrompt = '' }: Assistant
         workTasks,
         workspaceMembers,
         currentUserId,
-        conversationContext: [lastUserPrompt ? `Usuário anterior: ${lastUserPrompt}` : '', answer ? `Resposta anterior: ${answer.title}. ${answer.text}` : '', pendingCapability ? `Ação pendente: ${pendingCapability.capabilityId}; faltando: ${pendingCapability.missingSlots.join(', ')}` : ''].filter(Boolean).join('\n').slice(0, 2000),
-        pendingCapability: directAction ? null : pendingCapability,
+        conversationContext: [formatAgentConversationContext(conversationTurns, lastUserPrompt, answer ? `${answer.title}. ${answer.text}` : ''), pendingCapability ? `Ação pendente: ${pendingCapability.capabilityId}; faltando: ${pendingCapability.missingSlots.join(', ')}` : ''].filter(Boolean).join('\n').slice(0, 4000),
+        pendingCapability: directAction || switchesRequest ? null : pendingCapability,
         loadWorkspaceMembers: async () => listWorkspaceMembers().catch(() => []),
         loadWorkTasks: async () => {
           if (!currentWorkspace) return []
@@ -325,6 +334,7 @@ export function AssistantDrawer({ open, onClose, initialPrompt = '' }: Assistant
         }
       }
       setAnswer(result)
+      setConversationTurns((history) => appendAgentConversationTurn(history, userPrompt, `${result.title}. ${result.text}`))
       if (result.plan?.kind === 'crm_capabilities' && result.plan.steps.length && result.plan.steps.every((step) => step.risk === 'read')) {
         window.setTimeout(() => void executePlan(result.plan!), 0)
       }
@@ -356,7 +366,8 @@ export function AssistantDrawer({ open, onClose, initialPrompt = '' }: Assistant
     if (!snapshot || !currentWorkspace || executing) return false
 
     if (plan.kind === 'crm_capabilities') {
-      if (!plan.steps.length) { notify('info', 'O plano não contém nenhuma ação executável.'); return false }
+      const preflight = preflightCrmPlanV51(plan.steps)
+      if (!preflight.ok) { notify('error', preflight.reason); return false }
       const writeSteps = plan.steps.filter((step) => step.risk !== 'read')
       if (writeSteps.length && !canWrite) { notify('error', 'Seu perfil está em modo somente leitura e não pode executar esta alteração.'); return false }
       const maxRisk = plan.steps.some((step) => step.risk === 'high') ? 'high'
@@ -788,6 +799,38 @@ O programa coordenará várias missões. Cada marco só libera dependências ap�
     setQaResult(result); setQaRunning(false)
   }
 
+  const copyToolOutput = async () => {
+    if (!answer?.toolOutput) return
+    const content = answer.toolOutput.kind === 'script'
+      ? answer.toolOutput.body
+      : `${answer.toolOutput.title}\n${answer.toolOutput.result}\n${answer.toolOutput.formula}\n${answer.toolOutput.details.join('\n')}`
+    const copied = await copyTextToClipboard(content)
+    if (copied.ok) notify('success', 'Resultado copiado.')
+    else notify('error', copied.reason ?? 'Não foi possível copiar.')
+  }
+
+  const saveCommercialScript = async () => {
+    if (!answer?.toolOutput || answer.toolOutput.kind !== 'script' || savingScript) return
+    if (!canWrite || !canTeamAccess('edit','settings')) {
+      notify('error', 'Seu perfil não possui permissão para criar Playbooks.')
+      return
+    }
+    setSavingScript(true)
+    try {
+      const script = answer.toolOutput
+      const saved = await actions.createPlaybook({
+        kind:'script',title:script.title,content:script.body,category:'Gerado com RealTalent Agent',
+        tags:['Agent V4.1',script.channel],active:false,
+        guidance:{ executionModes:[script.channel === 'meeting' ? 'meeting' : script.channel === 'call' ? 'call' : 'step_by_step'] },
+      })
+      if (!saved?.id) throw new Error('A criação do Playbook não devolveu um identificador verificável.')
+      notify('success', 'Roteiro salvo como Playbook inativo para revisão.')
+      navigate('playbooks')
+    } catch(error) {
+      notify('error', error instanceof Error ? error.message : 'Não foi possível salvar o roteiro.')
+    } finally { setSavingScript(false) }
+  }
+
   const copyDraft = async () => {
     if (!answer?.draft) return
     const copied = await copyTextToClipboard(answer.draft.body)
@@ -840,6 +883,22 @@ O programa coordenará várias missões. Cada marco só libera dependências ap�
           {!sending && answer ? <section className="assistant-answer">
           {answer.focus ? <div className="assistant-focus-card"><div><small>Contexto analisado</small><strong>{answer.focus.title}</strong><span>{answer.focus.subtitle} · {answer.focus.stageName}</span></div><div className="assistant-focus-card__metrics"><b className={answer.focus.healthScore < 50 ? 'is-risk' : answer.focus.healthScore < 70 ? 'is-warning' : ''}>{answer.focus.healthScore}/100</b><span>{formatCurrency(answer.focus.value)}</span></div></div> : null}
           <div className="assistant-answer__heading"><span className="eyebrow">{assistantIntentLabel[answer.intent] ?? 'RealTalent'}</span><h2>{answer.title}</h2><p>{answer.text}</p></div>
+          {answer.toolOutput?.kind === 'calculation' ? <div className="assistant-tool-card assistant-tool-card--calculation" aria-label="Resultado da calculadora comercial">
+            <div className="assistant-tool-card__meta"><span>Calculadora comercial</span><span>Resultado verificável</span></div>
+            <strong className="assistant-tool-card__value">{answer.toolOutput.result}</strong>
+            <div className="assistant-tool-card__formula"><small>Fórmula</small><p>{answer.toolOutput.formula}</p></div>
+            <div className="assistant-tool-card__notes">{answer.toolOutput.details.map((item,index)=><p key={index}>{item}</p>)}</div>
+            <Button variant="secondary" size="sm" onClick={() => void copyToolOutput()}><Clipboard size={15}/> Copiar cálculo</Button>
+          </div> : null}
+          {answer.toolOutput?.kind === 'script' ? <div className="assistant-tool-card assistant-tool-card--script" aria-label="Roteiro comercial gerado">
+            <div className="assistant-tool-card__meta"><span>Script Studio</span><span>{answer.toolOutput.grounded ? 'Baseado no contexto do CRM' : 'Modelo para personalizar'}</span></div>
+            <pre className="assistant-tool-card__script">{answer.toolOutput.body}</pre>
+            <div className="assistant-tool-card__actions">
+              <Button variant="secondary" size="sm" onClick={() => void copyToolOutput()}><Clipboard size={15}/> Copiar roteiro</Button>
+              <Button size="sm" loading={savingScript} disabled={!canWrite || !canTeamAccess('edit','settings')} onClick={() => void saveCommercialScript()}><Wrench size={15}/> Salvar nos Playbooks</Button>
+            </div>
+            <small className="assistant-tool-card__disclaimer">Salvar cria um Playbook inativo para revisão. Nenhuma mensagem é enviada automaticamente.</small>
+          </div> : null}
           {answer.facts.length ? <div className="assistant-facts">{answer.facts.map((fact) => <span key={fact}>{fact}</span>)}</div> : null}
           {answer.items.length ? <div className="assistant-results">{answer.items.map((item, index) => <button type="button" key={item.id} onClick={() => openItem(item)}>
             <span className="assistant-results__rank">{String(index + 1).padStart(2, '0')}</span><div><strong>{item.title}</strong><small>{item.subtitle}</small><p>{item.reason}</p></div>{item.score !== undefined ? <b className={item.score < 50 ? 'is-risk' : item.score < 70 ? 'is-warning' : ''}>{item.score}</b> : <ExternalLink size={16}/>}</button>)}</div> : null}

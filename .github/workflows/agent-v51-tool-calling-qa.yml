@@ -1,0 +1,34 @@
+name: RealTalent Agent V5.1 Tool Calling QA
+on:
+  pull_request:
+    branches:
+      - feat/realtalent-agent-v5-cognitive-tools-20261028
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  tool-calling:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - name: Install
+        run: npm ci --include=dev
+      - name: Runtime multi-tool selection and plan parity
+        run: node --test runtime-host/RealTalent-Agent-Runtime-V3.1.2/crm-tool-selection-v51.test.mjs
+      - name: Runtime syntax
+        run: |
+          node --check runtime-host/RealTalent-Agent-Runtime-V3.1.2/gateway-ollama.mjs
+          node --check runtime-host/RealTalent-Agent-Runtime-V3.1.2/crm-ollama-tool-selector-v51.mjs
+      - name: TypeScript
+        run: npm run typecheck
+      - name: Agent permission, planning and orchestration tests
+        run: npx vitest run src/services/realtalent-crm-plan-preflight-v51.test.ts src/services/realtalent-agent-v4-intent.test.ts src/services/realtalent-agent-v4-planner.test.ts src/services/realtalent-agent-v5-cognitive.test.ts src/services/realtalent-crm-capability-coverage.test.ts src/services/realtalent-assistant-provider-routing.test.ts src/services/realtalent-crm-pending-resume.test.ts
+      - name: Build
+        run: npm run build

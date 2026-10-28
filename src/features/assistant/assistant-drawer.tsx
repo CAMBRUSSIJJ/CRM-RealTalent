@@ -969,7 +969,10 @@ O programa coordenará várias missões. Cada marco só libera dependências ap�
               {answer.toolOutput.strategy.assumptions.length ? <details><summary>Hipóteses a validar</summary><ul>{answer.toolOutput.strategy.assumptions.map((assumption,index)=><li key={index}>{assumption}</li>)}</ul></details> : null}
               {answer.toolOutput.strategy.sources.length ? <details><summary>Fontes recuperadas na pesquisa</summary><ul>{answer.toolOutput.strategy.sources.map((source,index)=><li key={index}><a href={source.url} target="_blank" rel="noreferrer noopener">{source.title}</a></li>)}</ul></details> : null}
             </section> : null}
-            <pre className="assistant-tool-card__script">{answer.toolOutput.body}</pre>
+            <details className="assistant-script-details">
+              <summary>Ver roteiro completo</summary>
+              <pre className="assistant-tool-card__script">{answer.toolOutput.body}</pre>
+            </details>
             <div className="assistant-tool-card__actions">
               <Button variant="secondary" size="sm" onClick={() => void copyToolOutput()}><Clipboard size={15}/> Copiar roteiro</Button>
               <Button size="sm" loading={savingScript} disabled={!canWrite || !canTeamAccess('edit','settings')} onClick={() => void saveCommercialScript()}><Wrench size={15}/> Salvar nos Playbooks</Button>

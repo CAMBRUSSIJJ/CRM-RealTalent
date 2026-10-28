@@ -63,7 +63,7 @@ const publicTopics: Array<[RegExp,string]>=[
   [/\b(?:jardina|paisagis|jardineir|condominio)/,'mercado jardinagem paisagismo condomínios Brasil vendas de serviços'],
   [/\b(?:psicolog|coaching|desenvolvimento humano)/,'mercado desenvolvimento humano coaching serviços Brasil'],
   [/\b(?:consultor|consultoria)/,'estratégias comerciais venda consultiva de serviços Brasil'],
-  [/\b(?:software|saas|crm)/,'estratégias vendas B2B software CRM Brasil'],
+  [/\b(?:software|saas)/,'estratégias vendas B2B software CRM Brasil'],
   [/\b(?:marketing|agencia)/,'estratégias comerciais agência marketing serviços Brasil'],
 ]
 /** Never send arbitrary user/CRM text to public search; use whitelisted generic topics. */

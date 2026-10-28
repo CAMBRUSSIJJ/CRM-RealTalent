@@ -94,7 +94,7 @@ export async function researchCommercialScript(
   const diagnosis=diagnoseScriptResearchRequest(prompt)
   if(!diagnosis.targeted || diagnosis.missingPerspective)return null
   const controller=new AbortController()
-  const timer=setTimeout(()=>controller.abort(),22000)
+  const timer=setTimeout(()=>controller.abort(),68000)
   try{
     const response=await fetcher(`${env.agentGatewayUrl}/tools/research-script`,{
       method:'POST',signal:controller.signal,headers:{'Content-Type':'application/json'},

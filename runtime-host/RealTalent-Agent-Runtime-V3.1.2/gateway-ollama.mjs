@@ -294,7 +294,7 @@ const handleScriptGenerationV5 = async (req,res) => {
       return sendJson(res,400,{ok:false,error:'invalid_script_input'})
     }
     const controller=new AbortController()
-    const timer=setTimeout(()=>controller.abort(),11_000)
+    const timer=setTimeout(()=>controller.abort(),55_000)
     try{
       const response=await fetch(`${OLLAMA_URL}/api/chat`,{
         method:'POST',signal:controller.signal,headers:{'content-type':'application/json'},
@@ -359,7 +359,7 @@ const handleWorkModelV53=async(req,res,mode)=>{
     return sendJson(res,403,{ok:false,error:'requires_authenticated_proxy'})
   if(editingInflight>=2)return sendJson(res,429,{ok:false,error:'work_model_busy'})
   editingInflight++
-  const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),mode==='revise'?18000:4500)
+  const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),mode==='revise'?55000:11000)
   try{
     const input=await readJsonBody(req,17000)
     const request=String(mode==='classify'?input?.prompt:input?.request||'').slice(0,1700)
@@ -416,7 +416,7 @@ const handleConversationV54=async(req,res)=>{
   if(!['127.0.0.1','localhost','::1'].includes(OUTER_HOST))return sendJson(res,403,{ok:false,error:'chat_requires_authenticated_gateway'})
   if(conversationalInflight>=2)return sendJson(res,429,{ok:false,error:'model_busy'})
   conversationalInflight++
-  const controller=new AbortController(),timeout=setTimeout(()=>controller.abort(),21000)
+  const controller=new AbortController(),timeout=setTimeout(()=>controller.abort(),60000)
   try{
     const input=await readJsonBody(req,9000)
     const prompt=String(input?.prompt||'').slice(0,1800)

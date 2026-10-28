@@ -46,6 +46,18 @@ jobs:
       - name: TypeScript
         run: npm run typecheck
 
+      - name: Inventory actionable controls and CSS risk
+        run: node scripts/ui_action_inventory.mjs
+        env:
+          REPORT_PATH: ${{ runner.temp }}/ui-action-inventory.json
+
+      - name: Upload UI inventory
+        uses: actions/upload-artifact@v4
+        with:
+          name: realtalent-ui-action-inventory
+          path: ${{ runner.temp }}/ui-action-inventory.json
+          retention-days: 7
+
       - name: Modal and overlay unit regressions
         run: npx vitest run src/app/overlay-manager.test.ts src/components/ui/modal.test.tsx
 

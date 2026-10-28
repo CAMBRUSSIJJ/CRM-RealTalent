@@ -1,0 +1,32 @@
+name: RealTalent Agent V6.2 — Markdown and Tool Orchestration QA
+on:
+  pull_request:
+    branches:
+      - feat/realtalent-agent-v61-fluid-chat-streaming-20261028
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  agent:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci --include=dev
+      - name: Typecheck
+        run: npm run typecheck
+      - name: Markdown + tools + conversation regression
+        run: npx vitest run src/features/assistant/assistant-markdown.test.tsx src/services/realtalent-agent-v62-orchestrator.test.ts src/services/realtalent-agent-v61-stream.test.ts src/services/realtalent-agent-v61-conversation.test.ts src/services/realtalent-agent-v60-router.test.ts src/services/realtalent-agent-v56.test.ts
+      - name: Runtime and launcher syntax
+        run: |
+          node --check runtime-host/RealTalent-Agent-Runtime-V3.1.2/gateway-ollama.mjs
+          bash -n scripts/agent-v62-linux/abrir-local.sh
+          grep -q -- '--port 4194 --strictPort' scripts/agent-v62-linux/abrir-local.sh
+      - name: Build
+        run: npm run build

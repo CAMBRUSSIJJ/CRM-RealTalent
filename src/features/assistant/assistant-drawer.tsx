@@ -34,6 +34,7 @@ import { answerFromWork, restoreWorkRevision, workFromAnswer, type AgentWorkDocu
 import { loadAgentWork, saveAgentWork, type WorkPersistenceState } from '../../services/realtalent-agent-v53-persistence'
 import { evaluateAgentWork } from '../../services/realtalent-agent-v53-quality'
 import { getAgentRuntimeHealth, type AgentRuntimeHealth } from '../../services/realtalent-agent-v56-health'
+import { AssistantMarkdown } from './assistant-markdown'
 import { approveCrmWorkflowStep, cancelCrmWorkflow, completeCrmWorkflowStep, continueCrmMission, continueCrmProgram, continueCrmWorkflow, getActiveCrmMission, getActiveCrmProgram, getActiveCrmWorkflow, planFromAction, resumeCrmWorkflow, runCrmBrowserQa, runUnifiedBrowserQa, runUnifiedBuilder, startCrmMission, startCrmProgram, startCrmWorkflow, syncAgentWorkspaceIdentity, syncCrmAppContext, type AutonomousMission, type AutonomousProgram, type AutonomousWorkflow, type BrowserQaResult } from '../../services/realtalent-agent-client'
 
 interface AssistantDrawerProps { open: boolean; onClose(): void; initialPrompt?: string }
@@ -959,7 +960,7 @@ O programa coordenará várias missões. Cada marco só libera dependências ap�
             <div className="assistant-history-turn" key={index}>
               <div className="assistant-user-message"><small>Você</small><p>{turn.user}</p></div>
               <section className="assistant-history-answer" aria-label="Resposta anterior do RealTalent">
-                <strong>RealTalent</strong><p>{turn.assistant}</p>
+                <strong>RealTalent</strong><AssistantMarkdown text={turn.assistant}/>
               </section>
             </div>
           ))}
@@ -967,7 +968,7 @@ O programa coordenará várias missões. Cada marco só libera dependências ap�
           {sending ? streamingText ?
             <section className="assistant-live-response" aria-live="off">
               <div className="assistant-live-response__head"><Sparkles size={16}/> RealTalent <span className="assistant-live-response__cursor" aria-hidden="true">▍</span></div>
-              <div className="assistant-live-response__body">{streamingText}</div>
+              <div className="assistant-live-response__body"><AssistantMarkdown text={streamingText}/></div>
             </section> :
             <div className="assistant-thinking"><LoaderCircle className="spin" size={18}/><div><strong>Preparando resposta...</strong><small>O modelo analisa sua mensagem e escolhe o recurso necessário.</small></div></div>
           : null}
@@ -976,11 +977,7 @@ O programa coordenará várias missões. Cada marco só libera dependências ap�
           <div className="assistant-answer__heading">
             {!answer.id.startsWith('chat:') ? <><span className="eyebrow">{assistantIntentLabel[answer.intent] ?? 'RealTalent'}</span><h2>{answer.title}</h2></> :
               <span className="assistant-message-author"><Sparkles size={15}/> RealTalent</span>}
-            {answer.researchSources?.length ? <div className="assistant-rich-answer">{answer.text.split(/(\[\d+\])/g).map((part,index)=>{
-              const match=part.match(/^\[(\d+)\]$/)
-              const source=match?answer.researchSources?.[Number(match[1])-1]:null
-              return source ? <a key={index} href={source.url} target="_blank" rel="noopener noreferrer" title={source.title}>{part}</a> : <span key={index}>{part}</span>
-            })}</div> : <p>{answer.text}</p>}
+            <AssistantMarkdown text={answer.text} sources={answer.researchSources}/>
           </div>
           {activeWork && answer.toolOutput?.kind === 'script' ? <div className="assistant-work-state">
             <span>Documento ativo · {activeWork.revisions.length} {activeWork.revisions.length === 1 ? 'versão' : 'versões'} · {workPersistence === 'cloud' ? 'sincronizado' : 'salvo neste navegador'}</span>
@@ -1035,7 +1032,7 @@ O programa coordenará várias missões. Cada marco só libera dependências ap�
                     return <tr key={index}><td>{columns[0]||''}</td><td>{columns.slice(1).join(' | ')}</td></tr>
                   })}</tbody>
                 </table></div>
-                : <pre className="assistant-tool-card__script">{answer.toolOutput.body}</pre>}
+                : <div className="assistant-tool-card__script"><AssistantMarkdown text={answer.toolOutput.body}/></div>}
             </details>
             <div className="assistant-tool-card__actions">
               <Button variant="secondary" size="sm" onClick={() => void copyToolOutput()}><Clipboard size={15}/> Copiar roteiro</Button>

@@ -7,6 +7,7 @@ import { parseFastAction, type FastActionTaskCandidate } from './realtalent-fast
 import { inferCommercialLanguageIntent, type SemanticSalesInterpretation } from './realtalent-sales-language'
 import { buildLeadScoreBoard, DEFAULT_LEAD_SCORING_CONFIG } from './lead-scoring'
 import type { CrmCapabilityPlanStep } from './realtalent-crm-capability-planner'
+import type { AgentWorkDocument } from './realtalent-agent-v53-work'
 import type { CrmPendingCapability } from './realtalent-crm-slot-filling'
 
 export type AssistantIntent =
@@ -221,6 +222,8 @@ export interface AssistantAnswer {
   toolOutput?: AssistantToolOutput
   draft?: AssistantDraft
   focus?: AssistantFocus
+  activeWork?: AgentWorkDocument | null
+  canReadPlaybooks?: boolean
   pendingCapability?: CrmPendingCapability | null
   executionSuggestion?: AssistantExecutionSuggestion | null
   generatedAt: string

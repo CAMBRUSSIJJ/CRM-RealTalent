@@ -4,6 +4,7 @@ import { env } from '../../lib/env'
 /* V0.9 Autonomous Programs compatibility marker */
 import '../../styles/realtalent-assistant-v10067.css'
 import '../../styles/realtalent-agent-v41-tools.css'
+import '../../styles/realtalent-agent-v53.css'
 import { AlertTriangle, ArrowRight, Bot, BrainCircuit, CheckCircle2, Clipboard, Clock3, Database, ExternalLink, LoaderCircle, Maximize2, MessageSquareText, Minimize2, MonitorCheck, Play, ShieldCheck, Sparkles, Target, Wrench, X } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useAppActions, useAppNavigation, useAppUi, useAppWorkspace } from '../../app/app-context'
@@ -28,6 +29,9 @@ import { usePreferences } from '../settings/preferences-context'
 import { useExperience } from '../experience/experience-context'
 import { startsNewRequestWhilePending } from '../../services/realtalent-agent-v4-intent'
 import { appendAgentConversationTurn, formatAgentConversationContext, parseAgentConversationTurns, type AgentConversationTurn } from '../../services/realtalent-agent-v4-conversation'
+import { answerFromWork, restoreWorkRevision, workFromAnswer, type AgentWorkDocument } from '../../services/realtalent-agent-v53-work'
+import { loadAgentWork, saveAgentWork, type WorkPersistenceState } from '../../services/realtalent-agent-v53-persistence'
+import { evaluateAgentWork } from '../../services/realtalent-agent-v53-quality'
 import { approveCrmWorkflowStep, cancelCrmWorkflow, completeCrmWorkflowStep, continueCrmMission, continueCrmProgram, continueCrmWorkflow, getActiveCrmMission, getActiveCrmProgram, getActiveCrmWorkflow, planFromAction, resumeCrmWorkflow, runCrmBrowserQa, runUnifiedBrowserQa, runUnifiedBuilder, startCrmMission, startCrmProgram, startCrmWorkflow, syncAgentWorkspaceIdentity, syncCrmAppContext, type AutonomousMission, type AutonomousProgram, type AutonomousWorkflow, type BrowserQaResult } from '../../services/realtalent-agent-client'
 
 interface AssistantDrawerProps { open: boolean; onClose(): void; initialPrompt?: string }
@@ -82,6 +86,9 @@ export function AssistantDrawer({ open, onClose, initialPrompt = '' }: Assistant
   const [sending, setSending] = useState(false)
   const [lastUserPrompt, setLastUserPrompt] = useState('')
   const [conversationTurns, setConversationTurns] = useState<AgentConversationTurn[]>([])
+  const [activeWork, setActiveWork] = useState<AgentWorkDocument | null>(null)
+  const [workLoaded, setWorkLoaded] = useState(false)
+  const [workPersistence, setWorkPersistence] = useState<WorkPersistenceState>('unavailable')
   const [pendingAction, setPendingAction] = useState<{ kind: 'create_task' | 'create_followups' | 'complete_task'; seed: string } | null>(null)
   const [pendingCapability, setPendingCapability] = useState<CrmPendingCapability | null>(null)
   const [qaResult, setQaResult] = useState<BrowserQaResult | null>(null)
@@ -106,6 +113,8 @@ export function AssistantDrawer({ open, onClose, initialPrompt = '' }: Assistant
     setPreviousLeadIds([])
     setLastUserPrompt('')
     setConversationTurns([])
+    setActiveWork(null)
+    setWorkLoaded(false)
     setPendingAction(null)
     setPendingCapability(null)
   }, [sessionKey])
@@ -131,6 +140,24 @@ export function AssistantDrawer({ open, onClose, initialPrompt = '' }: Assistant
     if (!sessionRestored) return
     try { window.sessionStorage.setItem(sessionKey, JSON.stringify({ answer, previousLeadIds, lastUserPrompt, conversationTurns, pendingAction, pendingCapability })) } catch { /* storage indisponível */ }
   }, [answer, previousLeadIds, lastUserPrompt, conversationTurns, pendingAction, pendingCapability, sessionKey, sessionRestored])
+
+  useEffect(() => {
+    if (!sessionRestored || !currentUserId || !currentWorkspace?.id) return
+    let disposed = false
+    setWorkLoaded(false)
+    void loadAgentWork(currentWorkspace.id,currentUserId).then((loaded) => {
+      if (disposed) return
+      setActiveWork(loaded.document)
+      setWorkPersistence(loaded.state)
+      setWorkLoaded(true)
+    })
+    return () => { disposed = true }
+  }, [sessionRestored,currentWorkspace?.id,currentUserId])
+
+  useEffect(() => {
+    if (!workLoaded || !currentUserId || !currentWorkspace?.id || !activeWork) return
+    void saveAgentWork(currentWorkspace.id,currentUserId,activeWork).then(setWorkPersistence)
+  }, [activeWork,workLoaded,currentUserId,currentWorkspace?.id])
 
   useEffect(() => {
     try { window.localStorage.setItem(EMBEDDED_EXPANDED_KEY, expanded ? '1' : '0') } catch { /* storage indisponível */ }
@@ -304,6 +331,8 @@ export function AssistantDrawer({ open, onClose, initialPrompt = '' }: Assistant
         currentUserId,
         conversationContext: [formatAgentConversationContext(conversationTurns, lastUserPrompt, answer ? `${answer.title}. ${answer.text}` : ''), pendingCapability ? `Ação pendente: ${pendingCapability.capabilityId}; faltando: ${pendingCapability.missingSlots.join(', ')}` : ''].filter(Boolean).join('\n').slice(0, 4000),
         pendingCapability: directAction || switchesRequest ? null : pendingCapability,
+        activeWork:workLoaded ? activeWork : null,
+        canReadPlaybooks:canTeamAccess('view','settings'),
         loadWorkspaceMembers: async () => listWorkspaceMembers().catch(() => []),
         loadWorkTasks: async () => {
           if (!currentWorkspace) return []
@@ -334,6 +363,9 @@ export function AssistantDrawer({ open, onClose, initialPrompt = '' }: Assistant
         }
       }
       setAnswer(result)
+      if (result.toolOutput?.kind === 'script') {
+        setActiveWork(previous => workFromAnswer(result,userPrompt,previous))
+      }
       setConversationTurns((history) => appendAgentConversationTurn(history, userPrompt, `${result.title}. ${result.text}`))
       if (result.plan?.kind === 'crm_capabilities' && result.plan.steps.length && result.plan.steps.every((step) => step.risk === 'read')) {
         window.setTimeout(() => void executePlan(result.plan!), 0)
@@ -883,6 +915,25 @@ O programa coordenará várias missões. Cada marco só libera dependências ap�
           {!sending && answer ? <section className="assistant-answer">
           {answer.focus ? <div className="assistant-focus-card"><div><small>Contexto analisado</small><strong>{answer.focus.title}</strong><span>{answer.focus.subtitle} · {answer.focus.stageName}</span></div><div className="assistant-focus-card__metrics"><b className={answer.focus.healthScore < 50 ? 'is-risk' : answer.focus.healthScore < 70 ? 'is-warning' : ''}>{answer.focus.healthScore}/100</b><span>{formatCurrency(answer.focus.value)}</span></div></div> : null}
           <div className="assistant-answer__heading"><span className="eyebrow">{assistantIntentLabel[answer.intent] ?? 'RealTalent'}</span><h2>{answer.title}</h2><p>{answer.text}</p></div>
+          {activeWork && answer.toolOutput?.kind === 'script' ? <div className="assistant-work-state">
+            <span>Documento ativo · {activeWork.revisions.length} {activeWork.revisions.length === 1 ? 'versão' : 'versões'} · {workPersistence === 'cloud' ? 'sincronizado' : 'salvo neste navegador'}</span>
+            <div className="assistant-work-state__actions">
+              {activeWork.revisions.length > 1 ? <button type="button" onClick={() => {
+                const restored = restoreWorkRevision(activeWork,activeWork.revisions.length-2)
+                if (!restored) return
+                setActiveWork(restored)
+                setAnswer(answerFromWork(restored,'Versão anterior recuperada'))
+              }}>Voltar à versão anterior</button> : null}
+              <button type="button" onClick={() => {
+                setActiveWork(null)
+                if (currentUserId && currentWorkspace?.id) {
+                  void saveAgentWork(currentWorkspace.id,currentUserId,null).then(setWorkPersistence)
+                }
+              }}>Encerrar este trabalho</button>
+            </div>
+            {evaluateAgentWork(answer,activeWork.revisions.at(-2)?.body).warnings.length > 0 ?
+              <small className="assistant-work-state__quality">Para revisar: {evaluateAgentWork(answer,activeWork.revisions.at(-2)?.body).warnings.join(' · ')}</small> : null}
+          </div> : null}
           {answer.toolOutput?.kind === 'calculation' ? <div className="assistant-tool-card assistant-tool-card--calculation" aria-label="Resultado da calculadora comercial">
             <div className="assistant-tool-card__meta"><span>Calculadora comercial</span><span>Resultado verificável</span></div>
             <strong className="assistant-tool-card__value">{answer.toolOutput.result}</strong>

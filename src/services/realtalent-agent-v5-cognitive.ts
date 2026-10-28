@@ -7,6 +7,7 @@ import { calculateCommercialRequest } from './realtalent-agent-v41-calculator'
 import { env } from '../lib/env'
 import { runtimeFetch } from './realtalent-runtime-transport'
 import { diagnoseScriptResearchRequest, researchCommercialScript, resumeScriptResearchPrompt } from './realtalent-agent-v52-research'
+import { classifyDocumentFollowup, reviseAgentWork } from './realtalent-agent-v53-editor'
 
 const norm=(value:string)=>value.normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase()
 const words=(value:string)=>new Set(norm(value).split(/[^a-z0-9]+/).filter(x=>x.length>3))
@@ -54,6 +55,9 @@ export async function runAgentToolsV5(
   prompt:string,snapshot:WorkspaceSnapshot,context:AssistantContext={},
   options:{refiner?:ScriptRefiner; researcher?:typeof researchCommercialScript}={},
 ):Promise<AssistantAnswer|null>{
+  if(context.activeWork && await classifyDocumentFollowup(prompt,context.activeWork)) {
+    return reviseAgentWork(prompt,context.activeWork,snapshot,context)
+  }
   if(context.pendingCapability)return null
   const effectivePrompt=resumeScriptResearchPrompt(prompt,context.conversationContext??'')
   const route=classifyV5ToolRequest(effectivePrompt)

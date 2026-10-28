@@ -15,7 +15,7 @@ done
 if (( $(node -p 'Number(process.versions.node.split(".")[0])') < 22 )); then
   echo 'É necessário Node.js 22 ou superior.' >&2; exit 2
 fi
-for port in 4190 8794 8795; do
+for port in 4192 8794 8795; do
   if command -v ss >/dev/null 2>&1 && ss -ltn "( sport = :$port )" | grep -q LISTEN; then
     echo "Porta $port ocupada. A instalação não interromperá outros serviços." >&2; exit 2
   fi
@@ -92,9 +92,9 @@ curl -fsS --max-time 5 http://127.0.0.1:8794/tools/health || {
   echo "Gateway indisponível. Veja $LOG_DIR/gateway.log" >&2; exit 2;
 }
 echo
-echo 'Abrindo RealTalent Agent V6 de TESTE em http://127.0.0.1:4190'
+echo 'Abrindo RealTalent Agent V6 de TESTE em http://127.0.0.1:4192'
 echo 'O CRM em 4188 permanece intacto. Para encerrar esta versão: Ctrl+C.'
 if command -v xdg-open >/dev/null 2>&1; then
-  ( sleep 3; xdg-open 'http://127.0.0.1:4190' >/dev/null 2>&1 || true ) &
+  ( sleep 3; xdg-open 'http://127.0.0.1:4192' >/dev/null 2>&1 || true ) &
 fi
-./node_modules/.bin/vite --host 127.0.0.1 --port 4190 --strictPort
+./node_modules/.bin/vite --host 127.0.0.1 --port 4192 --strictPort

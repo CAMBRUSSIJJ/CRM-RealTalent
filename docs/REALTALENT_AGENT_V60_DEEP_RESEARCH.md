@@ -20,7 +20,7 @@
 ## Como abrir uma cópia isolada no Debian
 Use a branch feat/realtalent-agent-v60-deep-research-chat-20261028 e execute:
   bash scripts/agent-v60-linux/abrir-local.sh
-A aplicação será aberta em http://127.0.0.1:4190; gateway 127.0.0.1:8794 / 8795; Ollama e SearXNG continuam locais em 11434/8888. O CRM anterior na porta 4189 permanece intacto.
+A aplicação será aberta em http://127.0.0.1:4192; gateway 127.0.0.1:8794 / 8795; Ollama e SearXNG continuam locais em 11434/8888. O CRM anterior na porta 4189 permanece intacto.
 
 ## Critérios para validar manualmente
 1. Pesquisar "Thiago Reis Growth Machine scripts" e confirmar que fontes de blog aparecem antes de vídeos genéricos.

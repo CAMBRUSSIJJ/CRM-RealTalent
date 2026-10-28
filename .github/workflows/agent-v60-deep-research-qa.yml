@@ -28,7 +28,14 @@ jobs:
         run: npm run typecheck
       - name: Existing Agent conversation and research regressions
         run: npx vitest run src/services/realtalent-agent-v60-router.test.ts src/services/realtalent-agent-v56.test.ts src/services/realtalent-agent-v54-chat.test.ts src/services/realtalent-agent-v53.test.ts src/services/realtalent-agent-v4-conversation.test.ts
-      - name: Validate Linux launcher
-        run: bash -n scripts/agent-v60-linux/abrir-local.sh
+      - name: Validate Linux launcher and Firefox-safe port
+        run: |
+          bash -n scripts/agent-v60-linux/abrir-local.sh
+          grep -q -- '--port 4192 --strictPort' scripts/agent-v60-linux/abrir-local.sh
+          grep -q 'http://localhost:4192' runtime-host/RealTalent-Agent-Runtime-V3.1.2/gateway-ollama.mjs
+          if grep -Eq '\b4190\b' scripts/agent-v60-linux/abrir-local.sh; then
+            echo "Forbidden Firefox port 4190 remains in launcher"
+            exit 1
+          fi
       - name: Bundle
         run: npm run build

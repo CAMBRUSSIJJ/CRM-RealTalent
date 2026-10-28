@@ -22,6 +22,7 @@ import { appendAgendaMetadata } from '../../services/agenda-workspace'
 import { executeCrmCapabilityStep, undoCrmAgentOperation } from '../../services/realtalent-crm-universal-executor'
 import { continuationPrompt, type CrmPendingCapability } from '../../services/realtalent-crm-slot-filling'
 import { lastUndoableCrmAgentTransaction, markCrmAgentTransactionUndone, recordCrmAgentTransaction, type CrmAgentUndoOperation } from '../../services/realtalent-crm-agent-transactions'
+import { preflightCrmPlanV51 } from '../../services/realtalent-crm-plan-preflight-v51'
 import { executionTruthSlicesForCapability, executionTruthSlicesForPlan, executionTruthSlicesForUndoOperations, receiptLabel, receiptStatusFromEvidence, recordCrmExecutionReceipt, verifyCrmCapabilityExecution, verifyCrmUndoExecution, type CrmExecutionStepEvidence } from '../../services/realtalent-crm-execution-truth'
 import { usePreferences } from '../settings/preferences-context'
 import { useExperience } from '../experience/experience-context'
@@ -365,7 +366,8 @@ export function AssistantDrawer({ open, onClose, initialPrompt = '' }: Assistant
     if (!snapshot || !currentWorkspace || executing) return false
 
     if (plan.kind === 'crm_capabilities') {
-      if (!plan.steps.length) { notify('info', 'O plano não contém nenhuma ação executável.'); return false }
+      const preflight = preflightCrmPlanV51(plan.steps)
+      if (!preflight.ok) { notify('error', preflight.reason); return false }
       const writeSteps = plan.steps.filter((step) => step.risk !== 'read')
       if (writeSteps.length && !canWrite) { notify('error', 'Seu perfil está em modo somente leitura e não pode executar esta alteração.'); return false }
       const maxRisk = plan.steps.some((step) => step.risk === 'high') ? 'high'

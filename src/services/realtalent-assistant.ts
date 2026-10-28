@@ -218,7 +218,7 @@ export interface AssistantAnswer {
   items: AssistantResultItem[]
   facts: string[]
   suggestedPrompts: string[]
-  researchSources?: {title:string;url:string;excerpt?:string}[]
+  researchSources?: {title:string;url:string;excerpt?:string;reading?:'page'|'snippet'}[]
   plan?: AssistantExecutionPlan
   toolOutput?: AssistantToolOutput
   draft?: AssistantDraft
@@ -238,6 +238,7 @@ export interface AssistantContext {
   workspaceMembers?: WorkspaceMember[]
   currentUserId?: string | null
   conversationContext?: string
+  recentResearchTopic?: string
   semanticInterpretation?: SemanticSalesInterpretation | null
   activeWork?: AgentWorkDocument | null
   canReadPlaybooks?: boolean

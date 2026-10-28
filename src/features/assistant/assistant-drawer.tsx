@@ -88,6 +88,7 @@ export function AssistantDrawer({ open, onClose, initialPrompt = '' }: Assistant
   const [sending, setSending] = useState(false)
   const [lastUserPrompt, setLastUserPrompt] = useState('')
   const [conversationTurns, setConversationTurns] = useState<AgentConversationTurn[]>([])
+  const [recentResearchTopic, setRecentResearchTopic] = useState('')
   const [activeWork, setActiveWork] = useState<AgentWorkDocument | null>(null)
   const [workLoaded, setWorkLoaded] = useState(false)
   const [workPersistence, setWorkPersistence] = useState<WorkPersistenceState>('unavailable')
@@ -116,6 +117,7 @@ export function AssistantDrawer({ open, onClose, initialPrompt = '' }: Assistant
     setPreviousLeadIds([])
     setLastUserPrompt('')
     setConversationTurns([])
+    setRecentResearchTopic('')
     setActiveWork(null)
     setWorkLoaded(false)
     setPendingAction(null)
@@ -127,8 +129,9 @@ export function AssistantDrawer({ open, onClose, initialPrompt = '' }: Assistant
     try {
       const saved = window.sessionStorage.getItem(sessionKey)
       if (saved) {
-        const parsed = JSON.parse(saved) as { answer?: AssistantAnswer | null; previousLeadIds?: string[]; lastUserPrompt?: string; pendingAction?: { kind: 'create_task' | 'create_followups' | 'complete_task'; seed: string } | null; pendingCapability?: CrmPendingCapability | null; conversationTurns?: unknown }
+        const parsed = JSON.parse(saved) as { answer?: AssistantAnswer | null; previousLeadIds?: string[]; lastUserPrompt?: string; pendingAction?: { kind: 'create_task' | 'create_followups' | 'complete_task'; seed: string } | null; pendingCapability?: CrmPendingCapability | null; conversationTurns?: unknown; recentResearchTopic?: string }
         if (parsed.answer) setAnswer(parsed.answer)
+        if (typeof parsed.recentResearchTopic==='string')setRecentResearchTopic(parsed.recentResearchTopic.slice(0,300))
         if (Array.isArray(parsed.previousLeadIds)) setPreviousLeadIds(parsed.previousLeadIds)
         if (typeof parsed.lastUserPrompt === 'string') setLastUserPrompt(parsed.lastUserPrompt)
         setConversationTurns(parseAgentConversationTurns(parsed.conversationTurns).map(turn=>({
@@ -143,8 +146,8 @@ export function AssistantDrawer({ open, onClose, initialPrompt = '' }: Assistant
 
   useEffect(() => {
     if (!sessionRestored) return
-    try { window.sessionStorage.setItem(sessionKey, JSON.stringify({ answer, previousLeadIds, lastUserPrompt, conversationTurns, pendingAction, pendingCapability })) } catch { /* storage indisponível */ }
-  }, [answer, previousLeadIds, lastUserPrompt, conversationTurns, pendingAction, pendingCapability, sessionKey, sessionRestored])
+    try { window.sessionStorage.setItem(sessionKey, JSON.stringify({ answer, previousLeadIds, lastUserPrompt, conversationTurns, recentResearchTopic, pendingAction, pendingCapability })) } catch { /* storage indisponível */ }
+  }, [answer, previousLeadIds, lastUserPrompt, conversationTurns, recentResearchTopic, pendingAction, pendingCapability, sessionKey, sessionRestored])
 
   useEffect(() => {
     if (!sessionRestored || !currentUserId || !currentWorkspace?.id) return
@@ -346,6 +349,7 @@ export function AssistantDrawer({ open, onClose, initialPrompt = '' }: Assistant
         workTasks,
         workspaceMembers,
         currentUserId,
+        recentResearchTopic,
         conversationContext: [formatAgentConversationContext(conversationTurns, lastUserPrompt, answer ? `${answer.title}. ${answer.text}` : ''), pendingCapability ? `Ação pendente: ${pendingCapability.capabilityId}; faltando: ${pendingCapability.missingSlots.join(', ')}` : ''].filter(Boolean).join('\n').slice(0, 4000),
         pendingCapability: directAction || switchesRequest ? null : pendingCapability,
         activeWork:workLoaded ? activeWork : null,
@@ -380,6 +384,7 @@ export function AssistantDrawer({ open, onClose, initialPrompt = '' }: Assistant
         }
       }
       setAnswer(result)
+      if (result.researchSources?.length)setRecentResearchTopic(previous => previous && /^\s*(?:com base|compare as abordagens|adapte|aplique isso)/i.test(userPrompt) ? previous : userPrompt.slice(0,300))
       if (result.toolOutput?.kind === 'script') {
         // A distinct create request starts a new document; an edit keeps its ID.
         const revision = result.id.startsWith('work-edit:')
@@ -949,7 +954,13 @@ O programa coordenará várias missões. Cada marco só libera dependências ap�
           {sending ? <div className="assistant-thinking"><LoaderCircle className="spin" size={18}/><div><strong>Entendendo seu pedido...</strong><small>Ações simples usam o caminho rápido; análises complexas podem levar um pouco mais.</small></div></div> : null}
           {!sending && answer ? <section className="assistant-answer">
           {answer.focus ? <div className="assistant-focus-card"><div><small>Contexto analisado</small><strong>{answer.focus.title}</strong><span>{answer.focus.subtitle} · {answer.focus.stageName}</span></div><div className="assistant-focus-card__metrics"><b className={answer.focus.healthScore < 50 ? 'is-risk' : answer.focus.healthScore < 70 ? 'is-warning' : ''}>{answer.focus.healthScore}/100</b><span>{formatCurrency(answer.focus.value)}</span></div></div> : null}
-          <div className="assistant-answer__heading"><span className="eyebrow">{assistantIntentLabel[answer.intent] ?? 'RealTalent'}</span><h2>{answer.title}</h2><p>{answer.text}</p></div>
+          <div className="assistant-answer__heading"><span className="eyebrow">{assistantIntentLabel[answer.intent] ?? 'RealTalent'}</span><h2>{answer.title}</h2>
+            {answer.researchSources?.length ? <div className="assistant-rich-answer">{answer.text.split(/(\[\d+\])/g).map((part,index)=>{
+              const match=part.match(/^\[(\d+)\]$/)
+              const source=match?answer.researchSources?.[Number(match[1])-1]:null
+              return source ? <a key={index} href={source.url} target="_blank" rel="noopener noreferrer" title={source.title}>{part}</a> : <span key={index}>{part}</span>
+            })}</div> : <p>{answer.text}</p>}
+          </div>
           {activeWork && answer.toolOutput?.kind === 'script' ? <div className="assistant-work-state">
             <span>Documento ativo · {activeWork.revisions.length} {activeWork.revisions.length === 1 ? 'versão' : 'versões'} · {workPersistence === 'cloud' ? 'sincronizado' : 'salvo neste navegador'}</span>
             <div className="assistant-work-state__actions">
@@ -1009,13 +1020,14 @@ O programa coordenará várias missões. Cada marco só libera dependências ap�
             </div>
             <small className="assistant-tool-card__disclaimer">Salvar cria um Playbook inativo para revisão. Nenhuma mensagem é enviada automaticamente.</small>
           </div> : null}
-          {answer.researchSources?.length ? <section className="assistant-research-sources" aria-label="Fontes da pesquisa">
-            <strong>Fontes recuperadas · confira os links</strong>
+          {answer.researchSources?.length ? <details className="assistant-research-sources" aria-label="Fontes da pesquisa">
+            <summary>Fontes e evidências ({answer.researchSources.length}) · {answer.researchSources.filter(source=>source.reading==='page').length} páginas lidas</summary>
             <ol>{answer.researchSources.map((source,index)=><li key={source.url}>
-              <a href={source.url} target="_blank" rel="noopener noreferrer">{source.title || 'Fonte '+(index+1)}</a>
+              <a href={source.url} target="_blank" rel="noopener noreferrer">[{index+1}] {source.title || 'Fonte '+(index+1)}</a>
+              <span className="assistant-research-sources__status">{source.reading==='page'?'Página lida':'Apenas trecho da busca'}</span>
               {source.excerpt ? <small>{source.excerpt}</small> : null}
             </li>)}</ol>
-          </section> : null}
+          </details> : null}
           {answer.facts.length ? <div className="assistant-facts">{answer.facts.map((fact) => <span key={fact}>{fact}</span>)}</div> : null}
           {answer.items.length ? <div className="assistant-results">{answer.items.map((item, index) => <button type="button" key={item.id} onClick={() => openItem(item)}>
             <span className="assistant-results__rank">{String(index + 1).padStart(2, '0')}</span><div><strong>{item.title}</strong><small>{item.subtitle}</small><p>{item.reason}</p></div>{item.score !== undefined ? <b className={item.score < 50 ? 'is-risk' : item.score < 70 ? 'is-warning' : ''}>{item.score}</b> : <ExternalLink size={16}/>}</button>)}</div> : null}

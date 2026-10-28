@@ -9,6 +9,7 @@ import { isMultiToolRequest, verifyModelPlannerCoverage } from './crm-tool-selec
 import { selectOllamaToolsV51 } from './crm-ollama-tool-selector-v51.mjs'
 import { buildResearchedScript } from './crm-script-research-v52.mjs'
 import { researchQuestionV56 } from './crm-research-v56.mjs'
+import { deepResearchV60 } from './crm-deep-research-v60.mjs'
 
 const OUTER_HOST = process.env.REALTALENT_AGENT_HOST || '127.0.0.1'
 const OUTER_PORT = Number(process.env.REALTALENT_AGENT_PORT || 8791)
@@ -261,7 +262,7 @@ const handleCapabilityPlan = async (req, res) => {
   }
 }
 
-const LOCAL_BROWSER_ORIGINS = new Set(['http://127.0.0.1:4188', 'http://localhost:4188', 'http://127.0.0.1:4189', 'http://localhost:4189'])
+const LOCAL_BROWSER_ORIGINS = new Set(['http://127.0.0.1:4188', 'http://localhost:4188', 'http://127.0.0.1:4189', 'http://localhost:4189', 'http://127.0.0.1:4192', 'http://localhost:4192'])
 const applyLocalBrowserCors = (req, res) => {
   const origin = String(req.headers.origin || '')
   if (!LOCAL_BROWSER_ORIGINS.has(origin)) return false
@@ -502,13 +503,50 @@ const handleResearchV56=async(req,res)=>{
   researchV56Busy=true
   try {
     const input=await readJsonBody(req,9500)
-    const result=await researchQuestionV56({
-      question:input?.question,document:typeof input?.activeDocument==='string'?input.activeDocument:'', 
+    const result=await deepResearchV60({
+      question:input?.question,
+      document:typeof input?.activeDocument==='string'?input.activeDocument:'',
+      history:typeof input?.history==='string'?input.history.slice(-2700):'',
       model:CRM_OLLAMA_MODEL,ollamaUrl:OLLAMA_URL,
     })
     return sendJson(res,result.ok?200:503,result)
   }catch{return sendJson(res,503,{ok:false,error:'research_failed'})}
   finally{researchV56Busy=false}
+}
+
+// Optional semantic research router. The Ollama model can select a read-only
+// research operation; it never receives CRM records or permission to mutate.
+let intentRouterInflight=0
+const handleResearchIntentV60=async(req,res)=>{
+  if(!['127.0.0.1','localhost','::1'].includes(OUTER_HOST))
+    return sendJson(res,403,{ok:false,error:'local_only'})
+  if(intentRouterInflight>=2)return sendJson(res,429,{ok:false,error:'model_busy'})
+  intentRouterInflight++
+  const ctrl=new AbortController(),timer=setTimeout(()=>ctrl.abort(),14500)
+  try{
+    const input=await readJsonBody(req,3500)
+    const question=String(input?.question||'').slice(0,1250)
+    if(question.trim().length<12)return sendJson(res,400,{ok:false,error:'question_too_short'})
+    const format={type:'object',additionalProperties:false,properties:{
+      intent:{type:'string',enum:['research','chat','crm']},
+      confidence:{type:'number',minimum:0,maximum:1}
+    },required:['intent','confidence']}
+    const response=await fetch(OLLAMA_URL+'/api/chat',{
+      method:'POST',signal:ctrl.signal,headers:{'content-type':'application/json'},
+      body:JSON.stringify({model:CRM_OLLAMA_MODEL,stream:false,think:false,format,
+        messages:[
+          {role:'system',content:'Classifique a necessidade real da pergunta: research somente quando fontes públicas ATUAIS são necessárias para responder com precisão (autores, tendências, novidades, metodologias recentes, fatos externos); chat para explicação geral, redação ou opinião que não exige internet; crm para informação sobre dados ou operação do CRM. Não execute ferramentas. Retorne JSON com intent e confidence. Na dúvida escolha chat com confiança baixa.'},
+          {role:'user',content:question}
+        ],options:{temperature:0,num_predict:85,num_ctx:1024}}),
+    })
+    if(!response.ok)return sendJson(res,503,{ok:false,error:'ollama_unavailable'})
+    const responseData=await response.json()
+    const result=JSON.parse(String(responseData.message?.content||'{}'))
+    if(!['research','chat','crm'].includes(result.intent)||!Number.isFinite(result.confidence))
+      return sendJson(res,422,{ok:false,error:'invalid_classification'})
+    return sendJson(res,200,{ok:true,intent:result.intent,confidence:Math.max(0,Math.min(1,result.confidence))})
+  }catch{return sendJson(res,503,{ok:false,error:'classification_failed'})}
+  finally{clearTimeout(timer);intentRouterInflight--}
 }
 
 const proxyToInner = (req, res) => {
@@ -537,6 +575,7 @@ const routerServer = http.createServer((req, res) => {
   if (req.method === 'OPTIONS') { res.statusCode = 204; res.end(); return }
   if (req.method === 'GET' && String(req.url || '').split('?')[0] === '/tools/health') { void localOllamaStatusV56(req,res); return }
   if (req.method === 'POST' && String(req.url || '').split('?')[0] === '/tools/research') { void handleResearchV56(req,res); return }
+  if (req.method === 'POST' && String(req.url || '').split('?')[0] === '/tools/route-intent') { void handleResearchIntentV60(req,res); return }
   if (req.method === 'POST' && String(req.url || '').split('?')[0] === '/tools/chat') { void handleConversationV54(req,res); return }
   if (req.method === 'POST' && String(req.url || '').split('?')[0] === '/tools/classify-work') { void handleWorkModelV53(req,res,'classify'); return }
   if (req.method === 'POST' && String(req.url || '').split('?')[0] === '/tools/revise-work') { void handleWorkModelV53(req,res,'revise'); return }

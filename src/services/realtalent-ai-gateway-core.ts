@@ -4,6 +4,7 @@ import { buildRealTalentAiContext, type RealTalentAiContextEnvelope } from './re
 import { hybridRealTalentAssistantProvider } from './realtalent-assistant-provider'
 import { answerConversationalPrompt } from './realtalent-agent-v54-chat'
 import { answerExternalResearch } from './realtalent-agent-v56-research'
+import { answerResearchSelectedByModel } from './realtalent-agent-v60-router'
 import { runAgentToolsV5 } from './realtalent-agent-v5-cognitive'
 import type { AssistantAnswer, AssistantContext } from './realtalent-assistant'
 import { lastCrmExecutionReceipt } from './realtalent-crm-execution-truth'
@@ -381,7 +382,7 @@ export const realTalentAiGateway = {
       }
 
       // Research requests outrank the active-document editor and Script Studio.
-      const research = await answerExternalResearch(prompt,effectiveContext)
+      const research = await answerExternalResearch(prompt,effectiveContext) ?? await answerResearchSelectedByModel(prompt,effectiveContext)
       if(research){
         const durationMs=Math.max(0,Date.now()-started)
         appendRealTalentAiAudit({

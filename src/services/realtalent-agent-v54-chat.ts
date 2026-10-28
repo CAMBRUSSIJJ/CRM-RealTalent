@@ -13,6 +13,9 @@ export function isConversationalPrompt(prompt:string):boolean{
   if(/\b(meu pipeline|minhas tarefas|minhas propostas|meus contatos|minha agenda|meus leads|quais oportunidades|negocios em risco|quantos clientes|faturamento real)\b/.test(text))return false
   return /^(?:oi\b|ola\b|bom dia\b|boa tarde\b|boa noite\b|me explique\b|explique\b|me conte\b|me ajuda a entender\b|pode explicar\b|quero entender\b|como\b|por que\b|porque\b|o que\b|qual a diferenca\b|quais as diferencas\b|o que voce acha\b|vamos conversar\b|vamos pensar\b|qual a melhor abordagem\b|qual seria a melhor abordagem\b|compare\b|analise o mercado\b|me de ideias\b|me sugira\b)/.test(text)
     || /\b(o que acha|faz sentido|quais estrategias|como funciona|quais alternativas|melhor abordagem|qual estrategia)\b/.test(text)
+    // General analysis and open conversation must reach a language model,
+    // not fall back to rigid CRM capability keyword matching.
+    || text.length>=8
 }
 export interface ConversationalReply { text:string;model:string|null }
 export type NaturalChatTransport=(prompt:string,history:string)=>Promise<ConversationalReply|null>

@@ -27,3 +27,11 @@
 .assistant-formatted-table table{width:100%;border-collapse:collapse;font-size:13px;line-height:1.5}
 .assistant-formatted-table th,.assistant-formatted-table td{padding:9px;border:1px solid var(--rt-border,#dce4f1);text-align:left;vertical-align:top;overflow-wrap:anywhere}
 .assistant-formatted-table th{background:var(--rt-surface-subtle,#f4f6fb);font-weight:700}
+
+/* V6 conversational research: readable answer and citations inline */
+.assistant-rich-answer{white-space:pre-wrap;overflow-wrap:anywhere;line-height:1.65;font-size:13.5px;color:var(--rt-text,#263245)}
+.assistant-rich-answer a{color:var(--rt-color-brand,#245bb5);text-decoration:underline;font-weight:650}
+.assistant-research-sources summary{cursor:pointer;font-weight:700;font-size:13px;line-height:1.5;list-style-position:inside}
+.assistant-research-sources__status{display:block;font-size:11px;color:var(--rt-text-muted,#667085);margin:4px 0 0}
+.assistant-research-sources:not([open]){padding:9px 11px}
+@media(max-width:600px){.assistant-rich-answer{font-size:14px}}

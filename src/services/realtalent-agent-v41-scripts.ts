@@ -14,7 +14,7 @@ const normalize=(input:string)=>input.normalize('NFD').replace(/[\u0300-\u036f]/
 export const isCommercialScriptRequest = (prompt:string) => {
   const text=normalize(prompt)
   if (/\b(python|javascript|typescript|codigo|programacao|powershell|bash|sql|api)\b/.test(text)) return false
-  return /\b(roteiro|script(?:\s+(?:de|para)\s+(?:venda|ligacao|prospeccao|atendimento))?|abordagem|texto de prospeccao|modelo de ligacao)\b/.test(text)
+  return /\b(roteiro|script(?:\s+(?:de|para)\s+(?:venda|ligacao|prospeccao|atendimento))?|texto de prospeccao|modelo de ligacao)\b/.test(text)
     && /\b(crie|criar|monte|montar|prepare|preparar|gere|gerar|escreva|escrever|faca|faz|elabore|elaborar|quero|preciso|me de|me ajude)\b/.test(text)
 }
 const oneLine=(s:string,limit=250)=>s.replace(/\s+/g,' ').trim().slice(0,limit)

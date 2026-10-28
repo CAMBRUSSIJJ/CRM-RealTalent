@@ -238,6 +238,7 @@ export interface AssistantContext {
   workspaceMembers?: WorkspaceMember[]
   currentUserId?: string | null
   conversationContext?: string
+  onChatDelta?: (text:string)=>void
   recentResearchTopic?: string
   semanticInterpretation?: SemanticSalesInterpretation | null
   activeWork?: AgentWorkDocument | null

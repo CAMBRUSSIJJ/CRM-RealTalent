@@ -86,8 +86,10 @@ export function AssistantDrawer({ open, onClose, initialPrompt = '' }: Assistant
   const [qaRunning, setQaRunning] = useState(false)
   const [savingScript, setSavingScript] = useState(false)
   const [sending, setSending] = useState(false)
+  const [streamingText, setStreamingText] = useState('')
   const [lastUserPrompt, setLastUserPrompt] = useState('')
   const [conversationTurns, setConversationTurns] = useState<AgentConversationTurn[]>([])
+  const conversationRef = useRef<HTMLDivElement>(null)
   const [recentResearchTopic, setRecentResearchTopic] = useState('')
   const [activeWork, setActiveWork] = useState<AgentWorkDocument | null>(null)
   const [workLoaded, setWorkLoaded] = useState(false)
@@ -156,7 +158,7 @@ export function AssistantDrawer({ open, onClose, initialPrompt = '' }: Assistant
     void loadAgentWork(currentWorkspace.id,currentUserId).then((loaded) => {
       if (disposed) return
       setActiveWork(loaded.document)
-      if (loaded.document) setAnswer(current => current ?? answerFromWork(loaded.document!, 'Trabalho anterior recuperado'))
+      // Keep the saved document available without pushing a large old script into the chat.
       setWorkPersistence(loaded.state)
       setWorkLoaded(true)
     })
@@ -329,6 +331,7 @@ export function AssistantDrawer({ open, onClose, initialPrompt = '' }: Assistant
     setLastUserPrompt(userPrompt)
     setQuery('')
     setSending(true)
+    setStreamingText('')
     setExecutedPlanId(null)
     setQaResult(null)
     try {
@@ -350,6 +353,7 @@ export function AssistantDrawer({ open, onClose, initialPrompt = '' }: Assistant
         workspaceMembers,
         currentUserId,
         recentResearchTopic,
+        onChatDelta: setStreamingText,
         conversationContext: [formatAgentConversationContext(conversationTurns, lastUserPrompt, answer ? `${answer.title}. ${answer.text}` : ''), pendingCapability ? `Ação pendente: ${pendingCapability.capabilityId}; faltando: ${pendingCapability.missingSlots.join(', ')}` : ''].filter(Boolean).join('\n').slice(0, 4000),
         pendingCapability: directAction || switchesRequest ? null : pendingCapability,
         activeWork:workLoaded ? activeWork : null,
@@ -384,6 +388,7 @@ export function AssistantDrawer({ open, onClose, initialPrompt = '' }: Assistant
         }
       }
       setAnswer(result)
+      setStreamingText('')
       if (result.researchSources?.length)setRecentResearchTopic(previous => previous && /^\s*(?:com base|compare as abordagens|adapte|aplique isso)/i.test(userPrompt) ? previous : userPrompt.slice(0,300))
       if (result.toolOutput?.kind === 'script') {
         // A distinct create request starts a new document; an edit keeps its ID.
@@ -396,6 +401,7 @@ export function AssistantDrawer({ open, onClose, initialPrompt = '' }: Assistant
         window.setTimeout(() => void executePlan(result.plan!), 0)
       }
     } catch (error) {
+      setStreamingText('')
       setAnswer({
         id: `assistant-error:${Date.now()}`, intent: 'unknown', title: 'Não consegui concluir agora',
         text: 'A conexão com a Agent falhou nesta tentativa. Seu pedido não foi perdido; tente enviar novamente.',
@@ -407,6 +413,13 @@ export function AssistantDrawer({ open, onClose, initialPrompt = '' }: Assistant
       window.setTimeout(() => inputRef.current?.focus(), 0)
     }
   }
+
+  useEffect(() => {
+    const container=conversationRef.current
+    if(!container)return
+    const atBottom=container.scrollHeight-container.scrollTop-container.clientHeight < 320
+    if(atBottom)container.scrollTop=container.scrollHeight
+  },[streamingText,conversationTurns,sending,answer?.id])
 
   const explainCurrentScreen = () => void submit(`Explique esta tela do CRM (${routeLabel}). Contexto de navegação: ${window.location.pathname}${window.location.hash}; rota lógica: ${route}. Mostre os componentes principais, os dados relevantes, as dependências relacionadas e o que você consegue consultar aqui sem sair do CRM.`)
 
@@ -940,7 +953,7 @@ O programa coordenará várias missões. Cada marco só libera dependências ap�
         <button type="button" onClick={explainCurrentScreen}>Explicar</button>
       </div>}
 
-      <div className="assistant-conversation">
+      <div className="assistant-conversation" ref={conversationRef}>
         {!answer && !sending && !lastUserPrompt ? <section className="assistant-welcome"><span className="assistant-welcome__icon"><Sparkles size={24}/></span><h2>{routeFocusLead ? `Trabalhando em ${routeFocusLead.company || routeFocusLead.name}` : `O que você quer saber em ${routeLabel}?`}</h2><p>{routeFocusLead ? 'Estou acompanhando este contexto. Você pode perguntar, pedir uma análise ou solicitar uma ação em linguagem natural.' : `Estou conectado à tela de ${routeLabel}. Pergunte ou peça uma ação sem usar comandos técnicos.`}</p><div className="assistant-prompt-grid">{contextualPrompts.map((prompt) => <button key={prompt} type="button" onClick={() => void submit(prompt)}>{prompt}<ArrowRight size={14}/></button>)}</div></section> : <>
           {conversationTurns.slice(0,answer && conversationTurns.at(-1)?.user === lastUserPrompt ? -1 : undefined).map((turn,index)=>(
             <div className="assistant-history-turn" key={index}>
@@ -951,10 +964,18 @@ O programa coordenará várias missões. Cada marco só libera dependências ap�
             </div>
           ))}
           {lastUserPrompt ? <div className="assistant-user-message"><small>Você</small><p>{lastUserPrompt}</p></div> : null}
-          {sending ? <div className="assistant-thinking"><LoaderCircle className="spin" size={18}/><div><strong>Entendendo seu pedido...</strong><small>Ações simples usam o caminho rápido; análises complexas podem levar um pouco mais.</small></div></div> : null}
+          {sending ? streamingText ?
+            <section className="assistant-live-response" aria-live="off">
+              <div className="assistant-live-response__head"><Sparkles size={16}/> RealTalent <span className="assistant-live-response__cursor" aria-hidden="true">▍</span></div>
+              <div className="assistant-live-response__body">{streamingText}</div>
+            </section> :
+            <div className="assistant-thinking"><LoaderCircle className="spin" size={18}/><div><strong>Preparando resposta...</strong><small>O modelo analisa sua mensagem e escolhe o recurso necessário.</small></div></div>
+          : null}
           {!sending && answer ? <section className="assistant-answer">
           {answer.focus ? <div className="assistant-focus-card"><div><small>Contexto analisado</small><strong>{answer.focus.title}</strong><span>{answer.focus.subtitle} · {answer.focus.stageName}</span></div><div className="assistant-focus-card__metrics"><b className={answer.focus.healthScore < 50 ? 'is-risk' : answer.focus.healthScore < 70 ? 'is-warning' : ''}>{answer.focus.healthScore}/100</b><span>{formatCurrency(answer.focus.value)}</span></div></div> : null}
-          <div className="assistant-answer__heading"><span className="eyebrow">{assistantIntentLabel[answer.intent] ?? 'RealTalent'}</span><h2>{answer.title}</h2>
+          <div className="assistant-answer__heading">
+            {!answer.id.startsWith('chat:') ? <><span className="eyebrow">{assistantIntentLabel[answer.intent] ?? 'RealTalent'}</span><h2>{answer.title}</h2></> :
+              <span className="assistant-message-author"><Sparkles size={15}/> RealTalent</span>}
             {answer.researchSources?.length ? <div className="assistant-rich-answer">{answer.text.split(/(\[\d+\])/g).map((part,index)=>{
               const match=part.match(/^\[(\d+)\]$/)
               const source=match?answer.researchSources?.[Number(match[1])-1]:null
@@ -988,7 +1009,9 @@ O programa coordenará várias missões. Cada marco só libera dependências ap�
             <div className="assistant-tool-card__notes">{answer.toolOutput.details.map((item,index)=><p key={index}>{item}</p>)}</div>
             <Button variant="secondary" size="sm" onClick={() => void copyToolOutput()}><Clipboard size={15}/> Copiar cálculo</Button>
           </div> : null}
-          {answer.toolOutput?.kind === 'script' ? <div className="assistant-tool-card assistant-tool-card--script" aria-label="Roteiro comercial gerado">
+          {answer.toolOutput?.kind === 'script' ? <details className="assistant-document-container">
+            <summary><span><Wrench size={15}/> Documento criado · {answer.toolOutput.title}</span><span>Abrir / recolher</span></summary>
+            <div className="assistant-tool-card assistant-tool-card--script" aria-label="Roteiro comercial gerado">
             <div className="assistant-tool-card__meta"><span>Script Studio</span><span>{answer.toolOutput.grounded ? 'Baseado no contexto do CRM' : 'Modelo para personalizar'}</span></div>
             {answer.toolOutput.strategy ? <section className="assistant-strategy-brief" aria-label="Análise estratégica do roteiro">
               <strong>Estratégia recomendada: {answer.toolOutput.strategy.approach}</strong>
@@ -1019,7 +1042,7 @@ O programa coordenará várias missões. Cada marco só libera dependências ap�
               <Button size="sm" loading={savingScript} disabled={!canWrite || !canTeamAccess('edit','settings')} onClick={() => void saveCommercialScript()}><Wrench size={15}/> Salvar nos Playbooks</Button>
             </div>
             <small className="assistant-tool-card__disclaimer">Salvar cria um Playbook inativo para revisão. Nenhuma mensagem é enviada automaticamente.</small>
-          </div> : null}
+          </div></details> : null}
           {answer.researchSources?.length ? <details className="assistant-research-sources" aria-label="Fontes da pesquisa">
             <summary>Fontes e evidências ({answer.researchSources.length}) · {answer.researchSources.filter(source=>source.reading==='page').length} páginas lidas</summary>
             <ol>{answer.researchSources.map((source,index)=><li key={source.url}>

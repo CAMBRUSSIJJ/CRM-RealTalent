@@ -35,3 +35,43 @@
 .assistant-research-sources__status{display:block;font-size:11px;color:var(--rt-text-muted,#667085);margin:4px 0 0}
 .assistant-research-sources:not([open]){padding:9px 11px}
 @media(max-width:600px){.assistant-rich-answer{font-size:14px}}
+
+/* V6.1 — chat-first instead of an always-open Script Studio */
+.assistant-live-response,.assistant-history-answer{
+  border:0;background:transparent;box-shadow:none;
+  padding:12px 10px;margin:7px 4px 14px 0;color:var(--rt-text,#243247);
+}
+.assistant-live-response__head,.assistant-message-author{
+  display:inline-flex;align-items:center;gap:7px;
+  font-size:12px;font-weight:750;color:var(--rt-color-brand,#214aa6);
+}
+.assistant-live-response__body{white-space:pre-wrap;overflow-wrap:anywhere;
+  font-size:14px;line-height:1.7;margin-top:9px}
+.assistant-live-response__cursor{animation:rt-cursor-blink 1s step-end infinite}
+@keyframes rt-cursor-blink{50%{opacity:0}}
+@media(prefers-reduced-motion:reduce){.assistant-live-response__cursor{animation:none}}
+.assistant-history-turn{margin:8px 0 15px}
+.assistant-history-answer p{font-size:14px;line-height:1.65;white-space:pre-wrap}
+.assistant-user-message{max-width:86%;margin-left:auto;min-width:0;
+  border-radius:15px 15px 3px 15px;overflow-wrap:anywhere}
+.assistant-answer{box-shadow:none}
+.assistant-answer__heading{border:0}
+.assistant-answer__heading>p{font-size:14px;line-height:1.7;white-space:pre-wrap}
+.assistant-message-author{margin:0 0 9px}
+.assistant-document-container{
+  border:1px solid var(--rt-border,#d8e2f1);border-radius:11px;
+  margin:12px 0;background:var(--rt-surface,#fff);overflow:hidden;
+}
+.assistant-document-container>summary{
+  padding:13px;cursor:pointer;display:flex;align-items:center;
+  justify-content:space-between;gap:8px;font-size:12px;
+  font-weight:650;color:var(--rt-text,#263344);list-style:none;
+}
+.assistant-document-container>summary::-webkit-details-marker{display:none}
+.assistant-document-container>summary>span:first-child{display:flex;align-items:center;gap:6px;min-width:0}
+.assistant-document-container>summary>span:last-child{color:var(--rt-color-brand,#2b53a2);white-space:nowrap}
+.assistant-document-container .assistant-tool-card{margin:0;border:0;border-radius:0;box-shadow:none;border-top:1px solid var(--rt-border,#d8e2f1)}
+@media(max-width:540px){
+  .assistant-document-container>summary{flex-wrap:wrap}
+  .assistant-user-message{max-width:95%}
+}

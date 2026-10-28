@@ -28,7 +28,7 @@ export const parseCommercialNumber = (raw: string) => {
 }
 const TOKEN = '(-?\\d[\\d.,]*)'
 const field = (text: string, label: string) => {
-  const pattern = new RegExp('\\b(?:'+label+')\\s*(?:de|do|da|e|=|:)?\\s*(?:r\\$\\s*)?'+TOKEN+'\\s*(%?)','i')
+  const pattern = new RegExp('\\b(?:'+label+')\\s*(?:de|do|da|=|:)?\\s*(?:r\\$\\s*)?'+TOKEN+'\\s*(%?)','i')
   const direct = text.match(pattern)
   const reverse = new RegExp(TOKEN+'\\s*(%?)\\s+(?:'+label+')\\b','i')
   const match = direct ?? text.match(reverse)

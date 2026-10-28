@@ -67,6 +67,6 @@ export async function runPlannedReadOnlyTools(prompt:string,context:AssistantCon
     researchSources:research.researchSources,
     generatedAt:new Date().toISOString(),
     toolOutput:{kind:'calculation',title:calculation.title,result:calculation.result,
-      formula:calculation.formula,details:calculation.details,category:calculation.category}
+      formula:calculation.formula,details:calculation.details}
   }
 }

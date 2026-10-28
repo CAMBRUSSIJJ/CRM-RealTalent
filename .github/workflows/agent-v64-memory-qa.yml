@@ -1,0 +1,34 @@
+name: RealTalent Agent V6.4 — Local Memory QA
+on:
+  pull_request:
+    branches:
+      - feat/realtalent-agent-v63-contextual-workflow-20261028
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  memory:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci --include=dev
+      - name: TypeScript
+        run: npm run typecheck
+      - name: Local memory and regression suite
+        run: |
+          npx vitest run src/services/realtalent-agent-v64-memory.test.ts src/services/realtalent-agent-v63-workflow.test.ts src/services/realtalent-agent-v62-orchestrator.test.ts src/features/assistant/assistant-markdown.test.tsx src/services/realtalent-agent-v61-stream.test.ts src/services/realtalent-agent-v61-conversation.test.ts src/services/realtalent-agent-v56.test.ts
+          node --test runtime-host/RealTalent-Agent-Runtime-V3.1.2/crm-deep-research-v60.test.mjs
+      - name: Runtime and launcher
+        run: |
+          node --check runtime-host/RealTalent-Agent-Runtime-V3.1.2/gateway-ollama.mjs
+          bash -n scripts/agent-v64-linux/abrir-local.sh
+          grep -q -- '--port 4196 --strictPort' scripts/agent-v64-linux/abrir-local.sh
+      - name: Production build
+        run: npm run build

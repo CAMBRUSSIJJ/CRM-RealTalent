@@ -991,7 +991,15 @@ O programa coordenará várias missões. Cada marco só libera dependências ap�
             </section> : null}
             <details className="assistant-script-details">
               <summary>Ver roteiro completo</summary>
-              <pre className="assistant-tool-card__script">{answer.toolOutput.body}</pre>
+              {answer.toolOutput.body.startsWith('| Etapa / conteúdo |')
+                ? <div className="assistant-formatted-table"><table>
+                  <thead><tr><th>Etapa / conteúdo</th><th>Descrição</th></tr></thead>
+                  <tbody>{answer.toolOutput.body.split('\n').slice(2).filter(line=>line.startsWith('|')).map((line,index)=>{
+                    const columns=line.split('|').slice(1,-1).map(value=>value.trim())
+                    return <tr key={index}><td>{columns[0]||''}</td><td>{columns.slice(1).join(' | ')}</td></tr>
+                  })}</tbody>
+                </table></div>
+                : <pre className="assistant-tool-card__script">{answer.toolOutput.body}</pre>}
             </details>
             <div className="assistant-tool-card__actions">
               <Button variant="secondary" size="sm" onClick={() => void copyToolOutput()}><Clipboard size={15}/> Copiar roteiro</Button>

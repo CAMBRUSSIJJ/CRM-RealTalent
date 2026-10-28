@@ -50,7 +50,7 @@ describe('Agent V6.3 bounded contextual planning',()=>{
     expect(publicTopicForWorkflow('Plano para meus leads no CRM')).toBeNull()
   })
   it('creates a versionable document without invoking CRM mutations',async()=>{
-    const research=vi.fn(async()=>({
+    const research=vi.fn(async (_query:string)=>({
       id:'research:test',intent:'unknown',title:'Pesquisa',text:'Abordagens consultivas [1]',
       items:[],facts:[],suggestedPrompts:[],
       researchSources:[{title:'Fonte consultiva',url:'https://example.org/public'}],

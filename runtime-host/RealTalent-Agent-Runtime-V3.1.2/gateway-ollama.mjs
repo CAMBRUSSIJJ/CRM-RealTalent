@@ -7,6 +7,7 @@ import { fileURLToPath } from 'node:url'
 import { preserveExplicitPlannerArguments, routeBusinessDomain, routeCapability } from './crm-semantic-router.mjs'
 import { isMultiToolRequest, verifyModelPlannerCoverage } from './crm-tool-selection-v51.mjs'
 import { selectOllamaToolsV51 } from './crm-ollama-tool-selector-v51.mjs'
+import { buildResearchedScript } from './crm-script-research-v52.mjs'
 
 const OUTER_HOST = process.env.REALTALENT_AGENT_HOST || '127.0.0.1'
 const OUTER_PORT = Number(process.env.REALTALENT_AGENT_PORT || 8791)
@@ -317,6 +318,27 @@ const handleScriptGenerationV5 = async (req,res) => {
   }finally{scriptGenerationInflight--}
 }
 
+// Strategy Research V5.2 — no CRM writes and no external search without opt-in.
+let researchInflight=0
+const handleResearchScriptV52=async(req,res)=>{
+  if(!['127.0.0.1','localhost','::1'].includes(OUTER_HOST))
+    return sendJson(res,403,{ok:false,error:'research_requires_authenticated_local_runtime'})
+  if(researchInflight>=2)return sendJson(res,429,{ok:false,error:'research_capacity_busy'})
+  researchInflight++
+  try{
+    const input=await readJsonBody(req,14_000)
+    const research=await buildResearchedScript({
+      request:input?.request,draft:input?.draft,facts:input?.facts,
+      channel:input?.channel,topic:String(input?.topic||'').slice(0,90),
+      model:CRM_OLLAMA_MODEL,ollamaUrl:OLLAMA_URL,
+    })
+    if(!research)return sendJson(res,503,{ok:false,error:'research_generation_unavailable'})
+    return sendJson(res,200,research)
+  }catch(error){
+    return sendJson(res,503,{ok:false,error:error?.name==='AbortError'?'research_timeout':'research_runtime_unavailable'})
+  }finally{researchInflight--}
+}
+
 const proxyToInner = (req, res) => {
   const upstream = http.request({
     hostname: OUTER_HOST, port: INNER_PORT, path: req.url, method: req.method,
@@ -341,6 +363,7 @@ const proxyToInner = (req, res) => {
 const routerServer = http.createServer((req, res) => {
   applyLocalBrowserCors(req, res)
   if (req.method === 'OPTIONS') { res.statusCode = 204; res.end(); return }
+  if (req.method === 'POST' && String(req.url || '').split('?')[0] === '/tools/research-script') { void handleResearchScriptV52(req,res); return }
   if (req.method === 'POST' && String(req.url || '').split('?')[0] === '/tools/generate-script') { void handleScriptGenerationV5(req,res); return }
   if (req.method === 'POST' && String(req.url || '').split('?')[0] === '/capabilities/plan') { handleCapabilityPlan(req, res); return }
   proxyToInner(req, res)

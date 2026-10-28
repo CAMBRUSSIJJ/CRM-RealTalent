@@ -218,6 +218,7 @@ export interface AssistantAnswer {
   items: AssistantResultItem[]
   facts: string[]
   suggestedPrompts: string[]
+  researchSources?: {title:string;url:string;excerpt?:string}[]
   plan?: AssistantExecutionPlan
   toolOutput?: AssistantToolOutput
   draft?: AssistantDraft

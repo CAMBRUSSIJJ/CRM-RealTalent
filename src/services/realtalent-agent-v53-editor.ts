@@ -66,7 +66,8 @@ export async function reviseAgentWork(prompt:string,work:AgentWorkDocument,snaps
     generatedAt:new Date().toISOString(),
   }
   const check=evaluateAgentWork(base,work.body)
-  const meaningfullyChanged=newBody.length>=180&&newBody!==work.body&&
+  // A short requested edit is valid: length cannot be a quality proxy.
+  const meaningfullyChanged=newBody.length>0&&newBody!==work.body&&
     !check.warnings.some(w=>w.includes('afirma pesquisa externa'))
   if(!meaningfullyChanged){
     base.toolOutput={kind:'script',title:work.title,body:work.body,channel:work.channel,

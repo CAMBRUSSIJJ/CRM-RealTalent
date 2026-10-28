@@ -36,3 +36,13 @@ curl -fsS 'http://127.0.0.1:8888/search?q=Thiago%20Reis&format=json' | head -c 3
 curl -fsS http://127.0.0.1:8792/tools/health
 ```
 Se o JSON de busca não estiver disponível, use `docker logs --tail 80 realtalent-searxng-local` para diagnosticar. O serviço usa buscadores públicos, que podem bloquear ou limitar consultas.
+
+## Terminal que fecha durante a inicialização
+
+Use `bash scripts/agent-v56-linux/abrir-com-diagnostico.sh` **dentro de um terminal aberto manualmente**. O wrapper não fecha a janela ao encontrar um erro, mostra o motivo e grava todo o output em `~/RealTalent-Agent-V56-Teste/logs/inicializacao-AAAAmmdd-HHMMSS.log`.
+
+Causas frequentes: porta 4189/8792/8793 já ocupada, Node.js abaixo de 22, Ollama desligado, `npm ci` com problema de rede ou pressão de memória. O launcher não derruba processos existentes para liberar portas. Se a interface já responde em 4189, não abra outro servidor.
+
+Consulte também `~/RealTalent-Agent-V56-Teste/logs/gateway.log`. Se o terminal inteiro for encerrado pelo sistema operacional por falta de RAM, consulte `journalctl -k -b --no-pager | grep -Ei 'out of memory|oom|killed process'` (permissões do sistema podem limitar a leitura).
+
+O SearXNG é opcional. O CRM deve continuar funcionando mesmo quando o Docker ou a pesquisa estiverem indisponíveis.

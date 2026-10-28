@@ -1,0 +1,29 @@
+name: RealTalent Agent V5.4 Conversational Chat QA
+on:
+  pull_request:
+    branches:
+      - feat/realtalent-agent-v53-contextual-workspace-20261028
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  conversational:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci --include=dev
+      - name: TypeScript
+        run: npm run typecheck
+      - name: Conversational tests and regression
+        run: npx vitest run src/services/realtalent-agent-v54-chat.test.ts src/services/realtalent-agent-v53.test.ts src/services/realtalent-agent-v52-research.test.ts src/services/realtalent-agent-v5-cognitive.test.ts src/services/realtalent-agent-v4-conversation.test.ts
+      - name: Runtime syntax
+        run: node --check runtime-host/RealTalent-Agent-Runtime-V3.1.2/gateway-ollama.mjs
+      - name: Build
+        run: npm run build

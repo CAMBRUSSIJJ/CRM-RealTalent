@@ -369,7 +369,8 @@ export function AssistantDrawer({ open, onClose, initialPrompt = '' }: Assistant
         const revision = result.id.startsWith('work-edit:')
         setActiveWork(previous => workFromAnswer(result,userPrompt,revision ? previous : null))
       }
-      setConversationTurns((history) => appendAgentConversationTurn(history, userPrompt, `${result.title}. ${result.text}`))
+      setConversationTurns((history) => appendAgentConversationTurn(history,userPrompt,
+        `${result.title}. ${result.text}${result.toolOutput?.kind==='script'?'\nDocumento produzido: '+result.toolOutput.body.slice(0,1400):''}`))
       if (result.plan?.kind === 'crm_capabilities' && result.plan.steps.length && result.plan.steps.every((step) => step.risk === 'read')) {
         window.setTimeout(() => void executePlan(result.plan!), 0)
       }
@@ -913,6 +914,14 @@ O programa coordenará várias missões. Cada marco só libera dependências ap�
 
       <div className="assistant-conversation">
         {!answer && !sending && !lastUserPrompt ? <section className="assistant-welcome"><span className="assistant-welcome__icon"><Sparkles size={24}/></span><h2>{routeFocusLead ? `Trabalhando em ${routeFocusLead.company || routeFocusLead.name}` : `O que você quer saber em ${routeLabel}?`}</h2><p>{routeFocusLead ? 'Estou acompanhando este contexto. Você pode perguntar, pedir uma análise ou solicitar uma ação em linguagem natural.' : `Estou conectado à tela de ${routeLabel}. Pergunte ou peça uma ação sem usar comandos técnicos.`}</p><div className="assistant-prompt-grid">{contextualPrompts.map((prompt) => <button key={prompt} type="button" onClick={() => void submit(prompt)}>{prompt}<ArrowRight size={14}/></button>)}</div></section> : <>
+          {conversationTurns.slice(0,answer && conversationTurns.at(-1)?.user === lastUserPrompt ? -1 : undefined).map((turn,index)=>(
+            <div className="assistant-history-turn" key={index}>
+              <div className="assistant-user-message"><small>Você</small><p>{turn.user}</p></div>
+              <section className="assistant-history-answer" aria-label="Resposta anterior do RealTalent">
+                <strong>RealTalent</strong><p>{turn.assistant}</p>
+              </section>
+            </div>
+          ))}
           {lastUserPrompt ? <div className="assistant-user-message"><small>Você</small><p>{lastUserPrompt}</p></div> : null}
           {sending ? <div className="assistant-thinking"><LoaderCircle className="spin" size={18}/><div><strong>Entendendo seu pedido...</strong><small>Ações simples usam o caminho rápido; análises complexas podem levar um pouco mais.</small></div></div> : null}
           {!sending && answer ? <section className="assistant-answer">

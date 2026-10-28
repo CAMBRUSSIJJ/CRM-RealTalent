@@ -2,6 +2,7 @@ import type { WorkspaceSnapshot } from '../domain/types'
 import { appendRealTalentAiAudit } from './realtalent-ai-audit'
 import { buildRealTalentAiContext, type RealTalentAiContextEnvelope } from './realtalent-ai-context'
 import { hybridRealTalentAssistantProvider } from './realtalent-assistant-provider'
+import { answerConversationalPrompt } from './realtalent-agent-v54-chat'
 import { runAgentToolsV5 } from './realtalent-agent-v5-cognitive'
 import type { AssistantAnswer, AssistantContext } from './realtalent-assistant'
 import { lastCrmExecutionReceipt } from './realtalent-crm-execution-truth'
@@ -426,6 +427,21 @@ export const realTalentAiGateway = {
         return { answer: directDeal.answer, context, trace: { providerId: 'sales-intelligence:deterministic-v1', mode: 'local-orchestration', sendsDataExternally: false, durationMs, writeAuthority: false } }
       }
 
+      // General questions use the read-only model chat; operational requests
+      // keep the existing capability planner and CRM permission boundary.
+      const conversational = await answerConversationalPrompt(prompt,effectiveContext)
+      if (conversational) {
+        const durationMs=Math.max(0,Date.now()-started)
+        appendRealTalentAiAudit({
+          id:`ai:${Date.now()}:chat`,workspaceId,providerId:conversational.id.startsWith('chat:ollama:')?'ollama:chat-v5.4':'ollama:chat-unavailable',
+          intent:conversational.intent,focusLeadId:context.focusLeadId,route:context.route,
+          toolIds:[],outcome:conversational.id.startsWith('chat:ollama:')?'success':'fallback',durationMs,
+          generatedAt:new Date().toISOString(),
+        })
+        return {answer:conversational,context,trace:{
+          providerId:'ollama:chat-v5.4',mode:'local-orchestration',sendsDataExternally:false,durationMs,writeAuthority:false,
+        }}
+      }
       const providerResult = await hybridRealTalentAssistantProvider.answer(prompt, snapshot, effectiveContext)
       const answer = providerResult.answer
       if (answer.plan?.kind === 'crm_capabilities' && answer.plan.steps.length) {

@@ -261,7 +261,7 @@ const handleCapabilityPlan = async (req, res) => {
   }
 }
 
-const LOCAL_BROWSER_ORIGINS = new Set(['http://127.0.0.1:4188', 'http://localhost:4188'])
+const LOCAL_BROWSER_ORIGINS = new Set(['http://127.0.0.1:4188', 'http://localhost:4188', 'http://127.0.0.1:4189', 'http://localhost:4189'])
 const applyLocalBrowserCors = (req, res) => {
   const origin = String(req.headers.origin || '')
   if (!LOCAL_BROWSER_ORIGINS.has(origin)) return false

@@ -1,5 +1,5 @@
 // Agent V5.2 research helper for the local Ollama runtime.
-// External search is OFF unless RELTALENT_RESEARCH_SEARXNG_URL is configured.
+// External search is OFF unless REALTALENT_RESEARCH_SEARXNG_URL is configured.
 // Never transmit customer CRM data, contact records or conversation history to
 // the public search service. Only a short generic topic is searched.
 const normalize=(value)=>String(value||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase()

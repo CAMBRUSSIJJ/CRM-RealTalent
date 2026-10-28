@@ -5,7 +5,7 @@ import {isExplicitCrmMutation,requestsFormatting} from './realtalent-agent-v56-i
 import {isWorkContinuation} from './realtalent-agent-v53-work'
 import {answerExternalResearch} from './realtalent-agent-v56-research'
 
-const normalized=s=>s.normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().trim()
+const normalized=(s:string)=>s.normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().trim()
 export function canConsiderModelResearch(prompt:string,context:AssistantContext={}):boolean{
   const text=normalized(prompt)
   if(text.length<14||text.length>1500||isExplicitCrmMutation(prompt)||requestsFormatting(prompt))return false

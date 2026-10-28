@@ -9,7 +9,10 @@ export function isConversationalPrompt(prompt:string):boolean{
   const text=normalized(prompt)
   if(!text || text.length>2000)return false
   // Explicit actions are reserved for the existing permission-gated executor.
-  if(/\b(crie|criar|registre|registrar|agende|agendar|envie|enviar|salve|salvar|delete|exclua|excluir|mova|mover|cadastre|cadastrar|atualize|atualizar|dispare|disparar)\b/.test(text))return false
+  // "Crie uma abordagem" is a writing request, not a CRM mutation.
+  // Actual records/actions still use the permission-gated capability planner.
+  if(/\b(?:crie|criar|registre|registrar|agende|agendar|envie|enviar|salve|salvar|exclua|excluir|mova|mover|cadastre|cadastrar|atualize|atualizar|dispare|disparar)\b/.test(text)
+    && /\b(?:contato|lead|tarefa|reuniao|oportunidade|proposta|pipeline|compromisso|agenda|playbook|cliente|negocio|whatsapp para)\b/.test(text))return false
   // Read-only operational requests should still use verified CRM data.
   if(/\b(meu pipeline|minhas tarefas|minhas propostas|meus contatos|minha agenda|meus leads|quais oportunidades|negocios em risco|quantos clientes|faturamento real)\b/.test(text))return false
   return /^(?:oi\b|ola\b|bom dia\b|boa tarde\b|boa noite\b|me explique\b|explique\b|me conte\b|me ajuda a entender\b|pode explicar\b|quero entender\b|como\b|por que\b|porque\b|o que\b|qual a diferenca\b|quais as diferencas\b|o que voce acha\b|vamos conversar\b|vamos pensar\b|qual a melhor abordagem\b|qual seria a melhor abordagem\b|compare\b|analise o mercado\b|me de ideias\b|me sugira\b)/.test(text)

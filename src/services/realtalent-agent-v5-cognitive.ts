@@ -6,6 +6,7 @@ import { createCommercialScript, isCommercialScriptRequest, type GeneratedCommer
 import { calculateCommercialRequest } from './realtalent-agent-v41-calculator'
 import { env } from '../lib/env'
 import { runtimeFetch } from './realtalent-runtime-transport'
+import { diagnoseScriptResearchRequest, researchCommercialScript, resumeScriptResearchPrompt } from './realtalent-agent-v52-research'
 
 const norm=(value:string)=>value.normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase()
 const words=(value:string)=>new Set(norm(value).split(/[^a-z0-9]+/).filter(x=>x.length>3))
@@ -51,27 +52,52 @@ export const refineWithOllamaV5:ScriptRefiner=async(draft,request,facts)=>{
 // capability planner with server-side permission checks and user confirmation.
 export async function runAgentToolsV5(
   prompt:string,snapshot:WorkspaceSnapshot,context:AssistantContext={},
-  options:{refiner?:ScriptRefiner}={},
+  options:{refiner?:ScriptRefiner; researcher?:typeof researchCommercialScript}={},
 ):Promise<AssistantAnswer|null>{
   if(context.pendingCapability)return null
-  const route=classifyV5ToolRequest(prompt)
+  const effectivePrompt=resumeScriptResearchPrompt(prompt,context.conversationContext??'')
+  const route=classifyV5ToolRequest(effectivePrompt)
   if(route.mutation)return null
-  if(!route.script)return runAgentToolsV41(prompt,snapshot,context)
-  const draft=createCommercialScript(prompt,snapshot,context)
+  if(!route.script)return runAgentToolsV41(effectivePrompt,snapshot,context)
+  const draft=createCommercialScript(effectivePrompt,snapshot,context)
   if(!draft)return null
-  const numerical=route.compound?calculateCommercialRequest(prompt):null
-  const enhanced=await (options.refiner??refineWithOllamaV5)(draft,prompt,rankRelevantCRMContext(prompt,snapshot,context)).catch(()=>null)
-  const content=enhanced?.body??draft.body
+  const diagnosis=diagnoseScriptResearchRequest(effectivePrompt)
+  // A generic script would be misleading: the buyer and offer change the
+  // strategy. Ask one concrete question instead of inventing research.
+  if(diagnosis.missingPerspective)return {
+    id:`research:clarify:${Date.now()}`,intent:'crm_capability',
+    title:'Antes do roteiro: precisamos definir a estratégia',
+    text:diagnosis.question,
+    items:[],facts:[
+      `Público mencionado: ${diagnosis.audience || 'segmento de serviços'}.`,
+      'Ainda não está claro quem vende para quem e qual serviço será oferecido.',
+      'Nenhuma pesquisa externa foi realizada e nenhum roteiro foi produzido.',
+    ],
+    suggestedPrompts:[
+      'Crie um roteiro para um jardineiro vender manutenção de jardins a condomínios.',
+      'Crie um roteiro para vender meu serviço de [descreva a oferta] a jardineiros autônomos.',
+    ],
+    generatedAt:(context.now??new Date()).toISOString(),
+  }
+  const numerical=route.compound?calculateCommercialRequest(effectivePrompt):null
+  const facts=rankRelevantCRMContext(effectivePrompt,snapshot,context)
+  const researched=diagnosis.targeted
+    ? await (options.researcher??researchCommercialScript)(effectivePrompt,draft,facts).catch(()=>null)
+    : null
+  const enhanced=researched?null:await (options.refiner??refineWithOllamaV5)(draft,effectivePrompt,facts).catch(()=>null)
+  const content=researched?.body??enhanced?.body??draft.body
   const supplement=numerical
     ? `RESULTADO MATEMÁTICO VERIFICADO\n${numerical.title}: ${numerical.result}\nFórmula: ${numerical.formula}\n${numerical.details.join('\n')}\n\n`
     : ''
   return {
     id:`tools:v5:${Date.now()}`,intent:'crm_capability',
     title:route.compound?'Cálculo e roteiro comercial':draft.title,
-    text:`${draft.rationale} ${enhanced?'Conteúdo refinado pelo Ollama.':'Foi utilizado o modelo estruturado local.'} Revise antes de utilizar. Nenhuma ação foi executada.`,
+    text:researched
+      ? `Estratégia avaliada para o público informado. ${researched.strategy.evidence==='external'?'Foram recuperados resultados de busca com links para conferência.':'Não houve pesquisa externa: a recomendação é uma análise contextual com hipóteses.'} Revise antes de utilizar. Nenhuma ação foi executada.`
+      : `${draft.rationale} ${diagnosis.targeted?'Não foi possível concluir a pesquisa estratégica; este roteiro é apenas provisório.':enhanced?'Conteúdo refinado pelo Ollama.':'Foi utilizado o modelo estruturado local.'} Revise antes de utilizar. Nenhuma ação foi executada.`,
     items:[],facts:numerical?[`Cálculo confirmado pela ferramenta matemática: ${numerical.result}`]:[],
     suggestedPrompts:['Personalize o roteiro para venda consultiva','Calcule uma margem de 30% sobre custo de R$ 100'],
-    toolOutput:{kind:'script',title:draft.title,body:supplement+content,channel:draft.kind,leadId:draft.leadId,grounded:draft.grounded},
+    toolOutput:{kind:'script',title:draft.title,body:supplement+content,channel:researched?.strategy.channel??draft.kind,leadId:draft.leadId,grounded:draft.grounded,...(researched?{strategy:researched.strategy}:{})},
     generatedAt:(context.now??new Date()).toISOString(),
   }
 }

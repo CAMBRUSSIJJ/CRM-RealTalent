@@ -204,7 +204,10 @@ export interface AssistantExecutionSuggestion {
 
 export type AssistantToolOutput =
   | { kind:'calculation'; title:string; result:string; formula:string; details:string[] }
-  | { kind:'script'; title:string; body:string; channel:'call'|'meeting'|'whatsapp'|'email'; leadId:string|null; grounded:boolean }
+  | { kind:'script'; title:string; body:string; channel:'call'|'meeting'|'whatsapp'|'email'; leadId:string|null; grounded:boolean;
+      strategy?: {audience:string;channel?:'call'|'meeting'|'whatsapp'|'email';approach:string;rationale:string;alternatives:string[];assumptions:string[];
+        evidence:'external'|'contextual';sources:{title:string;url:string}[]}
+    }
 
 export interface AssistantAnswer {
   id: string

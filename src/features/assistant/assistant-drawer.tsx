@@ -33,6 +33,7 @@ import { appendAgentConversationTurn, formatAgentConversationContext, parseAgent
 import { answerFromWork, restoreWorkRevision, workFromAnswer, type AgentWorkDocument } from '../../services/realtalent-agent-v53-work'
 import { loadAgentWork, saveAgentWork, type WorkPersistenceState } from '../../services/realtalent-agent-v53-persistence'
 import { evaluateAgentWork } from '../../services/realtalent-agent-v53-quality'
+import { getAgentRuntimeHealth, type AgentRuntimeHealth } from '../../services/realtalent-agent-v56-health'
 import { approveCrmWorkflowStep, cancelCrmWorkflow, completeCrmWorkflowStep, continueCrmMission, continueCrmProgram, continueCrmWorkflow, getActiveCrmMission, getActiveCrmProgram, getActiveCrmWorkflow, planFromAction, resumeCrmWorkflow, runCrmBrowserQa, runUnifiedBrowserQa, runUnifiedBuilder, startCrmMission, startCrmProgram, startCrmWorkflow, syncAgentWorkspaceIdentity, syncCrmAppContext, type AutonomousMission, type AutonomousProgram, type AutonomousWorkflow, type BrowserQaResult } from '../../services/realtalent-agent-client'
 
 interface AssistantDrawerProps { open: boolean; onClose(): void; initialPrompt?: string }
@@ -90,6 +91,7 @@ export function AssistantDrawer({ open, onClose, initialPrompt = '' }: Assistant
   const [activeWork, setActiveWork] = useState<AgentWorkDocument | null>(null)
   const [workLoaded, setWorkLoaded] = useState(false)
   const [workPersistence, setWorkPersistence] = useState<WorkPersistenceState>('unavailable')
+  const [runtimeHealth, setRuntimeHealth] = useState<AgentRuntimeHealth | null>(null)
   const [pendingAction, setPendingAction] = useState<{ kind: 'create_task' | 'create_followups' | 'complete_task'; seed: string } | null>(null)
   const [pendingCapability, setPendingCapability] = useState<CrmPendingCapability | null>(null)
   const [qaResult, setQaResult] = useState<BrowserQaResult | null>(null)
@@ -129,7 +131,9 @@ export function AssistantDrawer({ open, onClose, initialPrompt = '' }: Assistant
         if (parsed.answer) setAnswer(parsed.answer)
         if (Array.isArray(parsed.previousLeadIds)) setPreviousLeadIds(parsed.previousLeadIds)
         if (typeof parsed.lastUserPrompt === 'string') setLastUserPrompt(parsed.lastUserPrompt)
-        setConversationTurns(parseAgentConversationTurns(parsed.conversationTurns))
+        setConversationTurns(parseAgentConversationTurns(parsed.conversationTurns).map(turn=>({
+          ...turn,assistant:turn.assistant.split('\nDocumento produzido:')[0],
+        })))
         if (parsed.pendingAction?.kind && typeof parsed.pendingAction.seed === 'string') setPendingAction(parsed.pendingAction)
         if (parsed.pendingCapability?.capabilityId && typeof parsed.pendingCapability.seed === 'string') setPendingCapability(parsed.pendingCapability)
       }
@@ -160,6 +164,17 @@ export function AssistantDrawer({ open, onClose, initialPrompt = '' }: Assistant
     if (!workLoaded || !currentUserId || !currentWorkspace?.id || !activeWork) return
     void saveAgentWork(currentWorkspace.id,currentUserId,activeWork).then(setWorkPersistence)
   }, [activeWork,workLoaded,currentUserId,currentWorkspace?.id])
+
+  useEffect(() => {
+    if (!open) return
+    let cancelled=false
+    const refresh=()=>void getAgentRuntimeHealth().then(status=>{
+      if(!cancelled)setRuntimeHealth(status)
+    })
+    refresh()
+    const timer=window.setInterval(refresh,30000)
+    return ()=>{cancelled=true;window.clearInterval(timer)}
+  },[open])
 
   useEffect(() => {
     try { window.localStorage.setItem(EMBEDDED_EXPANDED_KEY, expanded ? '1' : '0') } catch { /* storage indisponível */ }
@@ -371,7 +386,7 @@ export function AssistantDrawer({ open, onClose, initialPrompt = '' }: Assistant
         setActiveWork(previous => workFromAnswer(result,userPrompt,revision ? previous : null))
       }
       setConversationTurns((history) => appendAgentConversationTurn(history,userPrompt,
-        `${result.title}. ${result.text}${result.toolOutput?.kind==='script'?'\nDocumento produzido: '+result.toolOutput.body.slice(0,1400):''}`))
+        `${result.title}. ${result.text}${result.toolOutput?.kind==='script'?'\nRoteiro no documento ativo.':''}`))
       if (result.plan?.kind === 'crm_capabilities' && result.plan.steps.length && result.plan.steps.every((step) => step.risk === 'read')) {
         window.setTimeout(() => void executePlan(result.plan!), 0)
       }
@@ -891,7 +906,14 @@ O programa coordenará várias missões. Cada marco só libera dependências ap�
           <button className="icon-button" type="button" onClick={onClose} aria-label="Fechar Agent"><X size={19}/></button>
         </div>
       </header>
-      <div className="assistant-trust-strip assistant-trust-strip--embedded"><ShieldCheck size={16}/><span><strong>CRM conectado</strong> · leitura + ações seguras com confirmação · contexto acompanha a tela</span></div>
+      <div className="assistant-trust-strip assistant-trust-strip--embedded"><ShieldCheck size={16}/><span><strong>CRM conectado</strong> · ações com confirmação</span></div>
+      <div className="assistant-runtime-status" aria-live="polite" aria-label="Diagnóstico da inteligência">
+        <span className={runtimeHealth?.connected && runtimeHealth.modelInstalled ? 'is-connected' : 'is-unavailable'}>
+          Ollama: {runtimeHealth === null ? 'verificando…' : !runtimeHealth.connected ? 'indisponível' :
+            runtimeHealth.modelInstalled ? runtimeHealth.model : 'modelo '+runtimeHealth.model+' não instalado'}
+        </span>
+        <span>Pesquisa: {runtimeHealth?.researchConfigured ? 'configurada' : 'não configurada'}</span>
+      </div>
       {technicalMode ? <details className="assistant-technical">
         <summary>Detalhes técnicos</summary>
         <div className="assistant-ai-runtime">
@@ -971,7 +993,15 @@ O programa coordenará várias missões. Cada marco só libera dependências ap�
             </section> : null}
             <details className="assistant-script-details">
               <summary>Ver roteiro completo</summary>
-              <pre className="assistant-tool-card__script">{answer.toolOutput.body}</pre>
+              {answer.toolOutput.body.startsWith('| Etapa / conteúdo |')
+                ? <div className="assistant-formatted-table"><table>
+                  <thead><tr><th>Etapa / conteúdo</th><th>Descrição</th></tr></thead>
+                  <tbody>{answer.toolOutput.body.split('\n').slice(2).filter(line=>line.startsWith('|')).map((line,index)=>{
+                    const columns=line.split('|').slice(1,-1).map(value=>value.trim())
+                    return <tr key={index}><td>{columns[0]||''}</td><td>{columns.slice(1).join(' | ')}</td></tr>
+                  })}</tbody>
+                </table></div>
+                : <pre className="assistant-tool-card__script">{answer.toolOutput.body}</pre>}
             </details>
             <div className="assistant-tool-card__actions">
               <Button variant="secondary" size="sm" onClick={() => void copyToolOutput()}><Clipboard size={15}/> Copiar roteiro</Button>
@@ -979,6 +1009,13 @@ O programa coordenará várias missões. Cada marco só libera dependências ap�
             </div>
             <small className="assistant-tool-card__disclaimer">Salvar cria um Playbook inativo para revisão. Nenhuma mensagem é enviada automaticamente.</small>
           </div> : null}
+          {answer.researchSources?.length ? <section className="assistant-research-sources" aria-label="Fontes da pesquisa">
+            <strong>Fontes recuperadas · confira os links</strong>
+            <ol>{answer.researchSources.map((source,index)=><li key={source.url}>
+              <a href={source.url} target="_blank" rel="noopener noreferrer">{source.title || 'Fonte '+(index+1)}</a>
+              {source.excerpt ? <small>{source.excerpt}</small> : null}
+            </li>)}</ol>
+          </section> : null}
           {answer.facts.length ? <div className="assistant-facts">{answer.facts.map((fact) => <span key={fact}>{fact}</span>)}</div> : null}
           {answer.items.length ? <div className="assistant-results">{answer.items.map((item, index) => <button type="button" key={item.id} onClick={() => openItem(item)}>
             <span className="assistant-results__rank">{String(index + 1).padStart(2, '0')}</span><div><strong>{item.title}</strong><small>{item.subtitle}</small><p>{item.reason}</p></div>{item.score !== undefined ? <b className={item.score < 50 ? 'is-risk' : item.score < 70 ? 'is-warning' : ''}>{item.score}</b> : <ExternalLink size={16}/>}</button>)}</div> : null}

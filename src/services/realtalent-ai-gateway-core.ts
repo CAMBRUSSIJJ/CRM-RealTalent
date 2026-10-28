@@ -3,6 +3,7 @@ import { appendRealTalentAiAudit } from './realtalent-ai-audit'
 import { buildRealTalentAiContext, type RealTalentAiContextEnvelope } from './realtalent-ai-context'
 import { hybridRealTalentAssistantProvider } from './realtalent-assistant-provider'
 import { answerConversationalPrompt } from './realtalent-agent-v54-chat'
+import { answerExternalResearch } from './realtalent-agent-v56-research'
 import { runAgentToolsV5 } from './realtalent-agent-v5-cognitive'
 import type { AssistantAnswer, AssistantContext } from './realtalent-assistant'
 import { lastCrmExecutionReceipt } from './realtalent-crm-execution-truth'
@@ -379,6 +380,22 @@ export const realTalentAiGateway = {
         return { answer, context, trace: { providerId: 'sales-learning:portfolio-v1', mode: 'local-orchestration', sendsDataExternally: false, durationMs, writeAuthority: false } }
       }
 
+      // Research requests outrank the active-document editor and Script Studio.
+      const research = await answerExternalResearch(prompt,effectiveContext)
+      if(research){
+        const durationMs=Math.max(0,Date.now()-started)
+        appendRealTalentAiAudit({
+          id:`ai:${Date.now()}:research`,workspaceId,
+          providerId:'research:public-sources-v5.6',intent:research.intent,
+          focusLeadId:context.focusLeadId,route:context.route,toolIds:['web_research'],
+          outcome:research.researchSources?.length?'success':'error',durationMs,
+          generatedAt:new Date().toISOString(),
+        })
+        return {answer:research,context,trace:{
+          providerId:'research:public-sources-v5.6',mode:'local-orchestration',
+          sendsDataExternally:Boolean(research.researchSources?.length),durationMs,writeAuthority:false,
+        }}
+      }
       const toolAnswer = await runAgentToolsV5(prompt, snapshot, effectiveContext)
       if (toolAnswer) {
         const durationMs = Math.max(0, Date.now() - started)

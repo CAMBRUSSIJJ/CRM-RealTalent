@@ -8,6 +8,8 @@ import { env } from '../lib/env'
 import { runtimeFetch } from './realtalent-runtime-transport'
 import { diagnoseScriptResearchRequest, researchCommercialScript, resumeScriptResearchPrompt } from './realtalent-agent-v52-research'
 import { classifyDocumentFollowup, reviseAgentWork } from './realtalent-agent-v53-editor'
+import { formatWorkDocument } from './realtalent-agent-v56-format'
+import { requestsFormatting } from './realtalent-agent-v56-intents'
 
 const norm=(value:string)=>value.normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase()
 const words=(value:string)=>new Set(norm(value).split(/[^a-z0-9]+/).filter(x=>x.length>3))
@@ -56,6 +58,7 @@ export async function runAgentToolsV5(
   options:{refiner?:ScriptRefiner; researcher?:typeof researchCommercialScript;
     workEditor?:typeof reviseAgentWork; workClassifier?:typeof classifyDocumentFollowup}={},
 ):Promise<AssistantAnswer|null>{
+  if(context.activeWork && requestsFormatting(prompt))return formatWorkDocument(prompt,context.activeWork)
   if(context.activeWork && await (options.workClassifier??classifyDocumentFollowup)(prompt,context.activeWork)) {
     return (options.workEditor??reviseAgentWork)(prompt,context.activeWork,snapshot,context)
   }

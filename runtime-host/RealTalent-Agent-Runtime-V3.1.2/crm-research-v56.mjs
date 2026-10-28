@@ -12,7 +12,7 @@ const publicQuery=(input)=>{
 export async function searchSourcesV56(question,{searcher=searchResearchSources}={}){
   const query=publicQuery(question)
   if(!query)return []
-  return (await searcher(query))
+  return (await searcher(query,{queryMode:'public'}))
     .filter(item=>item.url.startsWith('https://')).slice(0,5)
 }
 const modelSchema={type:'object',additionalProperties:false,

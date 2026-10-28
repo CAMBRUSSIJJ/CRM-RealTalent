@@ -8,6 +8,7 @@ import { preserveExplicitPlannerArguments, routeBusinessDomain, routeCapability 
 import { isMultiToolRequest, verifyModelPlannerCoverage } from './crm-tool-selection-v51.mjs'
 import { selectOllamaToolsV51 } from './crm-ollama-tool-selector-v51.mjs'
 import { buildResearchedScript } from './crm-script-research-v52.mjs'
+import { researchQuestionV56 } from './crm-research-v56.mjs'
 
 const OUTER_HOST = process.env.REALTALENT_AGENT_HOST || '127.0.0.1'
 const OUTER_PORT = Number(process.env.REALTALENT_AGENT_PORT || 8791)
@@ -452,6 +453,42 @@ const handleConversationV54=async(req,res)=>{
   }finally{clearTimeout(timeout);conversationalInflight--}
 }
 
+// V5.6: observable model status and citation-grounded public research.
+let researchV56Busy=false
+const localOllamaStatusV56=async(req,res)=>{
+  if(!['127.0.0.1','localhost','::1'].includes(OUTER_HOST))
+    return sendJson(res,403,{ok:false,error:'local_only'})
+  const ctrl=new AbortController(),timer=setTimeout(()=>ctrl.abort(),2200)
+  let connected=false,installed=false
+  try {
+    const response=await fetch(OLLAMA_URL+'/api/tags',{signal:ctrl.signal})
+    if(response.ok) {
+      connected=true
+      const data=await response.json()
+      installed=Array.isArray(data.models) && data.models.some(item=>item.name===CRM_OLLAMA_MODEL||item.model===CRM_OLLAMA_MODEL)
+    }
+  }catch{}finally{clearTimeout(timer)}
+  return sendJson(res,200,{ok:true,ollamaConnected:connected,model:CRM_OLLAMA_MODEL,
+    modelInstalled:installed,researchConfigured:Boolean(process.env.REALTALENT_RESEARCH_SEARXNG_URL)})
+}
+const handleResearchV56=async(req,res)=>{
+  if(!['127.0.0.1','localhost','::1'].includes(OUTER_HOST))
+    return sendJson(res,403,{ok:false,error:'local_only'})
+  if(!process.env.REALTALENT_RESEARCH_SEARXNG_URL)
+    return sendJson(res,503,{ok:false,error:'search_not_configured'})
+  if(researchV56Busy)return sendJson(res,429,{ok:false,error:'research_busy'})
+  researchV56Busy=true
+  try {
+    const input=await readJsonBody(req,9500)
+    const result=await researchQuestionV56({
+      question:input?.question,document:typeof input?.activeDocument==='string'?input.activeDocument:'', 
+      model:CRM_OLLAMA_MODEL,ollamaUrl:OLLAMA_URL,
+    })
+    return sendJson(res,result.ok?200:503,result)
+  }catch{return sendJson(res,503,{ok:false,error:'research_failed'})}
+  finally{researchV56Busy=false}
+}
+
 const proxyToInner = (req, res) => {
   const upstream = http.request({
     hostname: OUTER_HOST, port: INNER_PORT, path: req.url, method: req.method,
@@ -476,6 +513,8 @@ const proxyToInner = (req, res) => {
 const routerServer = http.createServer((req, res) => {
   applyLocalBrowserCors(req, res)
   if (req.method === 'OPTIONS') { res.statusCode = 204; res.end(); return }
+  if (req.method === 'GET' && String(req.url || '').split('?')[0] === '/tools/health') { void localOllamaStatusV56(req,res); return }
+  if (req.method === 'POST' && String(req.url || '').split('?')[0] === '/tools/research') { void handleResearchV56(req,res); return }
   if (req.method === 'POST' && String(req.url || '').split('?')[0] === '/tools/chat') { void handleConversationV54(req,res); return }
   if (req.method === 'POST' && String(req.url || '').split('?')[0] === '/tools/classify-work') { void handleWorkModelV53(req,res,'classify'); return }
   if (req.method === 'POST' && String(req.url || '').split('?')[0] === '/tools/revise-work') { void handleWorkModelV53(req,res,'revise'); return }

@@ -24,8 +24,8 @@ export function safePublicSource(raw){
     }
   }catch{return null}
 }
-export async function searchResearchSources(topic,{endpoint=process.env.REALTALENT_RESEARCH_SEARXNG_URL,fetcher=fetch}={}){
-  const q=publicTopicSearchQuery(topic)
+export async function searchResearchSources(topic,{endpoint=process.env.REALTALENT_RESEARCH_SEARXNG_URL,fetcher=fetch,queryMode='commercial'}={}){
+  const q=queryMode==='public' ? String(topic).slice(0,160) : publicTopicSearchQuery(topic)
   if(!endpoint||!q)return []
   try{
     const base=new URL(endpoint)

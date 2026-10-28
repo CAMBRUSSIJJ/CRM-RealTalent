@@ -6,6 +6,7 @@ import { answerConversationalPrompt } from './realtalent-agent-v54-chat'
 import { answerExternalResearch } from './realtalent-agent-v56-research'
 import { answerResearchSelectedByModel } from './realtalent-agent-v60-router'
 import { runPlannedReadOnlyTools } from './realtalent-agent-v62-orchestrator'
+import { runContextualWorkflow } from './realtalent-agent-v63-workflow'
 import { runAgentToolsV5 } from './realtalent-agent-v5-cognitive'
 import type { AssistantAnswer, AssistantContext } from './realtalent-assistant'
 import { lastCrmExecutionReceipt } from './realtalent-crm-execution-truth'
@@ -382,6 +383,25 @@ export const realTalentAiGateway = {
         return { answer, context, trace: { providerId: 'sales-learning:portfolio-v1', mode: 'local-orchestration', sendsDataExternally: false, durationMs, writeAuthority: false } }
       }
 
+      // V6.3: orchestration is only invoked for explicit analysis of the
+      // caller's authorized CRM data, optionally with separate public sources.
+      // It prepares a versioned draft and never writes CRM records.
+      const workflowAnswer=await runContextualWorkflow(prompt,snapshot,effectiveContext)
+      if(workflowAnswer){
+        const durationMs=Math.max(0,Date.now()-started)
+        appendRealTalentAiAudit({
+          id:`ai:${Date.now()}:workflow`,workspaceId,
+          providerId:'tools:contextual-workflow-v6.3',
+          intent:workflowAnswer.intent,focusLeadId:context.focusLeadId,
+          route:context.route,toolIds:['crm_summary','web_research','draft_document'],
+          outcome:workflowAnswer.id.startsWith('workflow:v6.3:')?'success':'error',
+          durationMs,generatedAt:new Date().toISOString(),
+        })
+        return {answer:workflowAnswer,context,trace:{
+          providerId:'tools:contextual-workflow-v6.3',mode:'local-orchestration',
+          sendsDataExternally:Boolean(workflowAnswer.researchSources?.length),durationMs,writeAuthority:false,
+        }}
+      }
       // Safe compound requests may combine source-based research and
       // deterministic arithmetic. No CRM mutations are exposed to this planner.
       const combinedReadOnly=await runPlannedReadOnlyTools(prompt,effectiveContext)

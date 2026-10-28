@@ -27,7 +27,7 @@ jobs:
       - name: Frontend TypeScript
         run: npm run typecheck
       - name: Existing Agent conversation and research regressions
-        run: npx vitest run src/services/realtalent-agent-v56.test.ts src/services/realtalent-agent-v54-chat.test.ts src/services/realtalent-agent-v53.test.ts src/services/realtalent-agent-v4-conversation.test.ts
+        run: npx vitest run src/services/realtalent-agent-v60-router.test.ts src/services/realtalent-agent-v56.test.ts src/services/realtalent-agent-v54-chat.test.ts src/services/realtalent-agent-v53.test.ts src/services/realtalent-agent-v4-conversation.test.ts
       - name: Validate Linux launcher
         run: bash -n scripts/agent-v60-linux/abrir-local.sh
       - name: Bundle

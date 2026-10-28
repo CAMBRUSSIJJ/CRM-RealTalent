@@ -393,11 +393,11 @@ export function AssistantDrawer({ open, onClose, initialPrompt = '' }: Assistant
       if (result.researchSources?.length)setRecentResearchTopic(previous => previous && /^\s*(?:com base|compare as abordagens|adapte|aplique isso)/i.test(userPrompt) ? previous : userPrompt.slice(0,300))
       if (result.toolOutput?.kind === 'script') {
         // A distinct create request starts a new document; an edit keeps its ID.
-        const revision = result.id.startsWith('work-edit:')
+        const revision = result.id.startsWith('work-edit:') || (result.id.startsWith('workflow:v6.3:') && Boolean(activeWork) && /\b(?:ajuste|adapte|refine|revise|continue|melhore)\b/i.test(userPrompt))
         setActiveWork(previous => workFromAnswer(result,userPrompt,revision ? previous : null))
       }
       setConversationTurns((history) => appendAgentConversationTurn(history,userPrompt,
-        `${result.title}. ${result.text}${result.toolOutput?.kind==='script'?'\nRoteiro no documento ativo.':''}`))
+        `${result.title}. ${result.text}${result.toolOutput?.kind==='script'?'\nDocumento disponível no trabalho ativo.':''}`))
       if (result.plan?.kind === 'crm_capabilities' && result.plan.steps.length && result.plan.steps.every((step) => step.risk === 'read')) {
         window.setTimeout(() => void executePlan(result.plan!), 0)
       }
@@ -1007,9 +1007,9 @@ O programa coordenará várias missões. Cada marco só libera dependências ap�
             <Button variant="secondary" size="sm" onClick={() => void copyToolOutput()}><Clipboard size={15}/> Copiar cálculo</Button>
           </div> : null}
           {answer.toolOutput?.kind === 'script' ? <details className="assistant-document-container">
-            <summary><span><Wrench size={15}/> Documento criado · {answer.toolOutput.title}</span><span>Abrir / recolher</span></summary>
+            <summary><span><Wrench size={15}/> Documento de trabalho · {answer.toolOutput.title}</span><span>Abrir / recolher</span></summary>
             <div className="assistant-tool-card assistant-tool-card--script" aria-label="Roteiro comercial gerado">
-            <div className="assistant-tool-card__meta"><span>Script Studio</span><span>{answer.toolOutput.grounded ? 'Baseado no contexto do CRM' : 'Modelo para personalizar'}</span></div>
+            <div className="assistant-tool-card__meta"><span>{answer.toolOutput.title.startsWith("Plano comercial") ? "Plano comercial" : "Script Studio"}</span><span>{answer.toolOutput.grounded ? 'Baseado no contexto do CRM' : 'Modelo para personalizar'}</span></div>
             {answer.toolOutput.strategy ? <section className="assistant-strategy-brief" aria-label="Análise estratégica do roteiro">
               <strong>Estratégia recomendada: {answer.toolOutput.strategy.approach}</strong>
               <p>{answer.toolOutput.strategy.rationale}</p>
@@ -1035,7 +1035,7 @@ O programa coordenará várias missões. Cada marco só libera dependências ap�
                 : <div className="assistant-tool-card__script"><AssistantMarkdown text={answer.toolOutput.body}/></div>}
             </details>
             <div className="assistant-tool-card__actions">
-              <Button variant="secondary" size="sm" onClick={() => void copyToolOutput()}><Clipboard size={15}/> Copiar roteiro</Button>
+              <Button variant="secondary" size="sm" onClick={() => void copyToolOutput()}><Clipboard size={15}/> Copiar documento</Button>
               <Button size="sm" loading={savingScript} disabled={!canWrite || !canTeamAccess('edit','settings')} onClick={() => void saveCommercialScript()}><Wrench size={15}/> Salvar nos Playbooks</Button>
             </div>
             <small className="assistant-tool-card__disclaimer">Salvar cria um Playbook inativo para revisão. Nenhuma mensagem é enviada automaticamente.</small>

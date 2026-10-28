@@ -45,6 +45,7 @@ import { useAuth } from '../auth/auth-context'
 import { requireExportApproval } from '../../services/team-governance'
 import { buildProspectingIcp, prospectingIcpSummary, rankProspects } from '../../services/prospecting-intelligence'
 import { ProspectingRedesignSearch, ProspectingRedesignShell } from './prospecting-redesign'
+import { ProspectingG1G2Panel } from './prospecting-g1g2-panel'
 
  type ProspectingTab = 'search' | 'local' | 'results' | 'history'
  type ReviewMode = 'list' | 'guided' | 'sources'
@@ -1024,7 +1025,7 @@ export function ProspectingPage() {
           onOpenGuided={(id) => { setProcessingId(id); setReviewMode('guided') }}
         /> : <ProcessingWorkspace
           readOnly={!canProspectingEdit}
-          queue={guidedQueue} active={activeProspect} leads={snapshot.leads} onSelect={setProcessingId} onChange={updateProspect}
+          queue={guidedQueue} active={activeProspect} leads={snapshot.leads} snapshot={snapshot} onSelect={setProcessingId} onChange={updateProspect}
           onAnalyze={(id) => analyze([id])} onApprove={(id) => approveProspects([id])} onDiscard={(id) => setStatus([id], 'discarded')}
           onSend={(id) => openSend([id])} onAnalyzeAll={() => analyze(guidedQueue.filter((item) => item.status !== 'sent').map((item) => item.id))}
         />}
@@ -1515,8 +1516,8 @@ function EngineProcessingWorkspace({ job, busy, onRefresh, onRetry, onOpenReview
   </div>
 }
 
-function ProcessingWorkspace({ readOnly, queue, active, leads, onSelect, onChange, onAnalyze, onApprove, onDiscard, onSend, onAnalyzeAll }: {
-  readOnly: boolean; queue: ProspectRecord[]; active: ProspectRecord | null; leads: Array<{ id: string; name: string; company: string }>; onSelect(id: string): void
+function ProcessingWorkspace({ readOnly, queue, active, leads, snapshot, onSelect, onChange, onAnalyze, onApprove, onDiscard, onSend, onAnalyzeAll }: {
+  readOnly: boolean; queue: ProspectRecord[]; active: ProspectRecord | null; leads: Array<{ id: string; name: string; company: string }>; snapshot: import('../../domain/types').WorkspaceSnapshot; onSelect(id: string): void
   onChange(id: string, patch: Partial<ProspectRecord>): void; onAnalyze(id: string): void; onApprove(id: string): void; onDiscard(id: string): void; onSend(id: string): void; onAnalyzeAll(): void
 }) {
   useEffect(() => {
@@ -1556,6 +1557,7 @@ function ProcessingWorkspace({ readOnly, queue, active, leads, onSelect, onChang
         <article className={quality.readiness === 'ready' && active.duplicateLevel === 'none' ? 'is-ok' : 'is-warning'}><span>5</span><div><strong>Está pronta para sua base?</strong><small>{quality.readiness === 'ready' && active.duplicateLevel === 'none' ? 'Sem bloqueios conhecidos' : [...quality.blockers, ...active.duplicateReasons].slice(0, 2).join(' · ') || 'Requer decisão humana'}</small></div>{quality.readiness === 'ready' && active.duplicateLevel === 'none' ? <CheckCircle2 size={17}/> : <AlertTriangle size={17}/>}</article>
       </div>
       {attentionReasons.length ? <section className="prospecting-review-attention-v101106"><AlertTriangle size={16}/><div><strong>O que precisa da sua atenção</strong><div>{attentionReasons.map((reason) => <span key={reason}>{reason}</span>)}</div></div></section> : <section className="prospecting-review-attention-v101106 is-clear"><CheckCircle2 size={16}/><div><strong>Sem divergências importantes</strong><small>Identidade, local, contato e duplicidade atendem às regras atuais.</small></div></section>}
+      <ProspectingG1G2Panel prospect={active} snapshot={snapshot}/>
       <details className="prospecting-review-edit-v101106">
         <summary><div><span><SlidersHorizontal size={15}/> Editar dados</span><small>Abra somente se precisar corrigir alguma informação.</small></div><ChevronRight size={15}/></summary>
         <div className="prospecting-review-form">

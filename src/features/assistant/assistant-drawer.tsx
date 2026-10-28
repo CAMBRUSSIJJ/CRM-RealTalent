@@ -104,7 +104,7 @@ export function AssistantDrawer({ open, onClose, initialPrompt = '' }: Assistant
   const inputRef = useRef<HTMLTextAreaElement | null>(null)
   const workspaceLabel = currentWorkspace?.name ?? snapshot?.workspace.name ?? 'workspace'
   const technicalMode = useMemo(() => { try { return new URLSearchParams(window.location.search).get('agentDebug') === '1' } catch { return false } }, [])
-  const sessionKey = `${EMBEDDED_SESSION_KEY}:${currentWorkspace?.id ?? snapshot?.workspace.id ?? 'unknown'}`
+  const sessionKey = `${EMBEDDED_SESSION_KEY}:${currentWorkspace?.id ?? snapshot?.workspace.id ?? 'unknown'}:${currentUserId ?? 'anonymous'}`
 
   useEffect(() => { if (open && initialPrompt) setQuery(initialPrompt) }, [initialPrompt, open])
 

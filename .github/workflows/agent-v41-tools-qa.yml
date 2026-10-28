@@ -1,0 +1,30 @@
+name: RealTalent Agent V4.1 Tools QA
+on:
+  pull_request:
+    branches:
+      - feat/realtalent-agent-v4-semantic-core-20261028
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  tools-engine:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - name: Install
+        run: npm ci --include=dev
+      - name: Typecheck
+        run: npm run typecheck
+      - name: Tool tests and previous Agent regressions
+        run: npx vitest run src/services/realtalent-agent-v41-calculator.test.ts src/services/realtalent-agent-v41-scripts.test.ts src/services/realtalent-agent-v4-intent.test.ts src/services/realtalent-agent-v4-conversation.test.ts src/services/realtalent-agent-v4-planner.test.ts src/services/realtalent-assistant-provider-routing.test.ts
+      - name: Build
+        run: npm run build

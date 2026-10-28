@@ -69,7 +69,7 @@ export async function buildResearchedScript({
       },
     },required:['body','strategy'],
   }
-  const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),16500)
+  const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),55000)
   try{
     const response=await fetcher(ollamaUrl+'/api/chat',{
       method:'POST',headers:{'Content-Type':'application/json'},signal:controller.signal,

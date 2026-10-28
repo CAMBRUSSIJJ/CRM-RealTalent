@@ -34,7 +34,7 @@ export const classifyV5ToolRequest=(prompt:string)=>{
 export type ScriptRefiner=(draft:GeneratedCommercialScript,request:string,facts:string[])=>Promise<{body:string,model:string}|null>
 export const refineWithOllamaV5:ScriptRefiner=async(draft,request,facts)=>{
   const controller=new AbortController()
-  const timer=setTimeout(()=>controller.abort(),10_000)
+  const timer=setTimeout(()=>controller.abort(),65_000)
   try{
     const response=await runtimeFetch(`${env.agentGatewayUrl}/tools/generate-script`,{
       method:'POST',headers:{'Content-Type':'application/json'},signal:controller.signal,

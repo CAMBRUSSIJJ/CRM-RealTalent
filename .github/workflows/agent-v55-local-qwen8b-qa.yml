@@ -1,0 +1,34 @@
+name: RealTalent Agent V5.5 — Local Qwen3 8B QA
+on:
+  pull_request:
+    branches:
+      - feat/realtalent-agent-v54-conversational-chat-20261028
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  local-model-profile:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - name: Install
+        run: npm ci --include=dev
+      - name: Typecheck
+        run: npm run typecheck
+      - name: Conversational regressions
+        run: npx vitest run src/services/realtalent-agent-v54-chat.test.ts src/services/realtalent-agent-v53.test.ts src/services/realtalent-agent-v52-research.test.ts src/services/realtalent-agent-v4-conversation.test.ts
+      - name: Runtime syntax
+        run: |
+          node --check runtime-host/RealTalent-Agent-Runtime-V3.1.2/gateway-ollama.mjs
+          node --check runtime-host/RealTalent-Agent-Runtime-V3.1.2/crm-script-research-v52.mjs
+      - name: Bundle
+        run: npm run build

@@ -13,7 +13,7 @@ export async function classifyDocumentFollowup(prompt:string,work:AgentWorkDocum
   fetcher:typeof runtimeFetch=runtimeFetch):Promise<boolean>{
   if(isWorkContinuation(prompt,work))return true
   if(prompt.length>240 || /^(quem|quantos|qual a meta|liste|calcule|crie uma tarefa|agende|envie|registre)/i.test(prompt))return false
-  const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),5500)
+  const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),14000)
   try{
     const response=await fetcher(env.agentGatewayUrl+'/tools/classify-work',{
       method:'POST',headers:{'Content-Type':'application/json'},signal:controller.signal,
@@ -29,7 +29,7 @@ export async function reviseAgentWork(prompt:string,work:AgentWorkDocument,snaps
   context:AssistantContext,fetcher:typeof runtimeFetch=runtimeFetch):Promise<AssistantAnswer>{
   const facts=[...rankRelevantCRMContext(prompt,snapshot,context),
     ...retrieveAgentKnowledge(prompt,snapshot,context)].slice(0,7)
-  const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),22000)
+  const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),68000)
   let newBody='',reason='',proposedStrategy=work.strategy
   try{
     const response=await fetcher(env.agentGatewayUrl+'/tools/revise-work',{

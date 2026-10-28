@@ -17,7 +17,7 @@ export function isConversationalPrompt(prompt:string):boolean{
 export interface ConversationalReply { text:string;model:string|null }
 export type NaturalChatTransport=(prompt:string,history:string)=>Promise<ConversationalReply|null>
 export const queryOllamaConversation:NaturalChatTransport=async(prompt,history)=>{
-  const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),23000)
+  const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),70000)
   try{
     const response=await runtimeFetch(env.agentGatewayUrl+'/tools/chat',{
       method:'POST',headers:{'Content-Type':'application/json'},signal:controller.signal,

@@ -29,7 +29,9 @@ export const parseCommercialNumber = (raw: string) => {
 const TOKEN = '(-?\\d[\\d.,]*)'
 const field = (text: string, label: string) => {
   const pattern = new RegExp('\\b(?:'+label+')\\s*(?:de|do|da|e|=|:)?\\s*(?:r\\$\\s*)?'+TOKEN+'\\s*(%?)','i')
-  const match = text.match(pattern)
+  const direct = text.match(pattern)
+  const reverse = new RegExp(TOKEN+'\\s*(%?)\\s+(?:'+label+')\\b','i')
+  const match = direct ?? text.match(reverse)
   const parsed = match ? parseCommercialNumber(match[1]) : null
   return parsed === null ? null : { value:parsed, isPercent:match?.[2]==='%' }
 }
@@ -42,7 +44,7 @@ export function calculateCommercialRequest(input: string): SalesCalculation | nu
   if (!/\b(quanto|calcule|calcular|calcula|conta|somar|soma|divida|multiplique|desconto|margem|markup|precificacao|preco|custo|comissao|comissoes|conversao|meta|porcentagem|percentual|falta|restante)\b|^\s*-?\d[\d.,]*\s*[+*\/×÷-]\s*-?\d/.test(text)) return null
 
   const contacts = field(text, 'contatos?|leads?|prospectos?')
-  const sales = field(text, 'vendas?|negocios?\s+fechados?')
+  const sales = field(text, 'vendas?|negocios?\\s+fechados?')
   if (/\b(conversao|converteram|taxa de vendas)\b/.test(text) && contacts && sales && contacts.value>0 && sales.value>=0) {
     const rate=sales.value/contacts.value*100
     return calc('Taxa de conversão',percent(rate),`${number(sales.value)} ÷ ${number(contacts.value)} × 100`,[
@@ -64,9 +66,9 @@ export function calculateCommercialRequest(input: string): SalesCalculation | nu
   }
 
   const cost = field(text,'custo|custos|custa')
-  const margin = field(text,'margem(?:\s+(?:desejada|alvo|bruta))?')
+  const margin = field(text,'margem(?:\\s+(?:desejada|alvo|bruta))?')
   const markup = field(text,'markup')
-  const salePrice = field(text,'(?:preco|valor)(?:\s+de\s+venda)?|vendid[oa]\s+a|venda\s+por')
+  const salePrice = field(text,'(?:preco|valor)(?:\\s+de\\s+venda)?|vendid[oa]\\s+a|venda\\s+por')
   if (cost && margin?.isPercent && /\b(preco|cobr|precific|margem|vender)\b/.test(text) && cost.value>=0) {
     if (margin.value>=100 || margin.value<0) return null
     const price=round(cost.value/(1-margin.value/100))
@@ -93,12 +95,14 @@ export function calculateCommercialRequest(input: string): SalesCalculation | nu
 
   const discount=field(text,'desconto')
   const commission=field(text,'comissao|comissoes')
-  const amount=field(text,'(?:sobre|em|de|valor|venda|preco)\s*(?:total)?')
+  const amount=field(text,'(?:sobre|em|de|valor|venda|preco)\\s*(?:total)?')
   const genericAmount = (()=>{
     const m=text.match(/(?:de|em|sobre)\s+(?:r\$\s*)?(-?\d[\d.,]*)\s*(?:reais)?\b/)
     return m?parseCommercialNumber(m[1]):null
   })()
-  const principal = salePrice?.value ?? amount?.value ?? genericAmount
+  const afterPercent = text.match(/%\s*(?:de|em|sobre)\s+(?:r\$\s*)?(-?\d[\d.,]*)/)
+  const explicitBase = afterPercent ? parseCommercialNumber(afterPercent[1]) : null
+  const principal = salePrice?.value ?? explicitBase ?? amount?.value ?? genericAmount
   if (discount?.isPercent && principal!==null && principal!==undefined && principal>=0 && discount.value>=0 && discount.value<=100) {
     const saved=round(principal*discount.value/100), final=round(principal-saved)
     return calc('Preço após desconto',money(final),`${money(principal)} × (1 − ${percent(discount.value)})`,[

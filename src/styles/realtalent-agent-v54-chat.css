@@ -7,3 +7,8 @@
 .assistant-conversation{overflow-y:auto;overscroll-behavior:contain}
 .assistant-composer textarea{min-height:36px;max-height:170px;resize:vertical}
 @media (max-width:600px){.assistant-history-answer{margin-right:0}.assistant-history-answer p{font-size:14px}}
+
+.assistant-script-details{border-top:1px solid var(--rt-border,#dce4f1);padding-top:9px}
+.assistant-script-details>summary{cursor:pointer;font-weight:600;color:var(--rt-color-brand,#17469d);padding:6px 0;list-style-position:inside}
+.assistant-script-details:not([open]){margin-bottom:4px}
+.assistant-answer__heading>p{white-space:pre-wrap;overflow-wrap:anywhere;line-height:1.6}

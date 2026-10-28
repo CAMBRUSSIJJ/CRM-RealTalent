@@ -53,10 +53,11 @@ export const refineWithOllamaV5:ScriptRefiner=async(draft,request,facts)=>{
 // capability planner with server-side permission checks and user confirmation.
 export async function runAgentToolsV5(
   prompt:string,snapshot:WorkspaceSnapshot,context:AssistantContext={},
-  options:{refiner?:ScriptRefiner; researcher?:typeof researchCommercialScript}={},
+  options:{refiner?:ScriptRefiner; researcher?:typeof researchCommercialScript;
+    workEditor?:typeof reviseAgentWork; workClassifier?:typeof classifyDocumentFollowup}={},
 ):Promise<AssistantAnswer|null>{
-  if(context.activeWork && await classifyDocumentFollowup(prompt,context.activeWork)) {
-    return reviseAgentWork(prompt,context.activeWork,snapshot,context)
+  if(context.activeWork && await (options.workClassifier??classifyDocumentFollowup)(prompt,context.activeWork)) {
+    return (options.workEditor??reviseAgentWork)(prompt,context.activeWork,snapshot,context)
   }
   if(context.pendingCapability)return null
   const effectivePrompt=resumeScriptResearchPrompt(prompt,context.conversationContext??'')

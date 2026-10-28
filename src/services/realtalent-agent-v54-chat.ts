@@ -1,6 +1,7 @@
 import type { AssistantAnswer,AssistantContext } from './realtalent-assistant'
 import { runtimeFetch } from './realtalent-runtime-transport'
 import { env } from '../lib/env'
+import { streamLocalConversation } from './realtalent-agent-v61-stream'
 
 const normalized=(text:string)=>text.normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().trim()
 /** Conversations must not invoke a CRM write merely because a request is unknown. */
@@ -37,7 +38,9 @@ export async function answerConversationalPrompt(
   prompt:string,context:AssistantContext={},transport:NaturalChatTransport=queryOllamaConversation,
 ):Promise<AssistantAnswer|null>{
   if(!isConversationalPrompt(prompt))return null
-  const result=await transport(prompt,context.conversationContext||'').catch(()=>null)
+  const result=context.onChatDelta
+    ? await streamLocalConversation(prompt,context.conversationContext||'',context.onChatDelta)
+    : await transport(prompt,context.conversationContext||'').catch(()=>null)
   if(!result)return {
     id:'chat:unavailable:'+Date.now(),intent:'unknown',title:'Conversa indisponível',
     text:'O modelo conversacional não respondeu. O painel do CRM está disponível, mas o Ollama precisa estar conectado ao novo runtime para conversarmos livremente. Não vou substituir sua pergunta por um comando genérico.',

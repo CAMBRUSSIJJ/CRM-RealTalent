@@ -93,7 +93,16 @@ export async function runAgentToolsV5(
     ? await (options.researcher??researchCommercialScript)(effectivePrompt,draft,facts).catch(()=>null)
     : null
   const enhanced=researched?null:await (options.refiner??refineWithOllamaV5)(draft,effectivePrompt,facts).catch(()=>null)
-  const content=researched?.body??enhanced?.body??draft.body
+  // A failed model call must not masquerade as a personalized result.
+  // In particular, never display the same static template again.
+  if(!researched&&!enhanced)return {
+    id:`script:unavailable:${Date.now()}`,intent:'crm_capability',
+    title:'Ainda não consegui personalizar o roteiro',
+    text:'O modelo não concluiu uma versão específica para seu pedido. Preservei o documento anterior; confira a conexão Ollama e descreva público, oferta e canal. Não vou apresentar novamente um roteiro genérico como se tivesse sido criado agora.',
+    items:[],facts:[],suggestedPrompts:['Meu público é [público], vendo [serviço] e quero um roteiro original para [canal]'],
+    generatedAt:(context.now??new Date()).toISOString(),
+  }
+  const content=researched?.body??enhanced?.body
   const supplement=numerical
     ? `RESULTADO MATEMÁTICO VERIFICADO\n${numerical.title}: ${numerical.result}\nFórmula: ${numerical.formula}\n${numerical.details.join('\n')}\n\n`
     : ''

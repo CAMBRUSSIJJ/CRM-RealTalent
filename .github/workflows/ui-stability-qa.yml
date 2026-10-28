@@ -1,0 +1,65 @@
+name: UI Stability QA
+
+on:
+  pull_request:
+    branches:
+      - release/rc1-h1-persistence-safety
+    paths:
+      - 'src/app/overlay-manager*'
+      - 'src/components/ui/modal*'
+      - 'src/components/ui/drawer*'
+      - 'src/components/layout/mobile-nav.tsx'
+      - 'src/components/layout/topbar.tsx'
+      - 'src/features/tasks/**'
+      - 'src/styles/ui-stability.css'
+      - 'src/main.tsx'
+      - 'scripts/ui_stability_contract_audit.mjs'
+      - 'package.json'
+      - '.github/workflows/ui-stability-qa.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  ui-stability:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout PR head
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Node 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+
+      - name: Install reproducible dependencies
+        run: npm ci --include=dev
+
+      - name: UI stability source contracts
+        run: npm run qa:ui-stability
+
+      - name: TypeScript
+        run: npm run typecheck
+
+      - name: Inventory actionable controls and CSS risk
+        run: node scripts/ui_action_inventory.mjs
+        env:
+          REPORT_PATH: ${{ runner.temp }}/ui-action-inventory.json
+
+      - name: Upload UI inventory
+        uses: actions/upload-artifact@v4
+        with:
+          name: realtalent-ui-action-inventory
+          path: ${{ runner.temp }}/ui-action-inventory.json
+          retention-days: 7
+
+      - name: Modal and overlay unit regressions
+        run: npx vitest run src/app/overlay-manager.test.ts src/components/ui/modal.test.tsx
+
+      - name: Vite build
+        run: npm run build

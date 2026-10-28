@@ -1,7 +1,7 @@
 import { X } from 'lucide-react'
 import { useEffect, useId, useRef, useState, type PropsWithChildren, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
-import { registerOverlay } from '../../app/overlay-manager'
+import { isTopOverlay, registerOverlay } from '../../app/overlay-manager'
 import { IconButton } from './icon-button'
 
 interface ModalProps {
@@ -16,23 +16,6 @@ interface ModalProps {
 
 const EXIT_DURATION_MS = 180
 let modalLockCount = 0
-const modalStack: string[] = []
-
-function pushModal(id: string) {
-  const previous = modalStack.indexOf(id)
-  if (previous >= 0) modalStack.splice(previous, 1)
-  modalStack.push(id)
-}
-
-function removeModal(id: string) {
-  const index = modalStack.lastIndexOf(id)
-  if (index >= 0) modalStack.splice(index, 1)
-}
-
-function isTopModal(id: string) {
-  return modalStack.at(-1) === id
-}
-
 export function Modal({ open, title, subtitle, footer, headerActions, onClose, size = 'md', children }: PropsWithChildren<ModalProps>) {
   const titleId = useId()
   const subtitleId = useId()
@@ -64,16 +47,10 @@ export function Modal({ open, title, subtitle, footer, headerActions, onClose, s
 
   useEffect(() => {
     if (!open) return
-    pushModal(modalId)
-    return () => removeModal(modalId)
-  }, [modalId, open])
-
-  useEffect(() => {
-    if (!open) return
     const previouslyFocused = document.activeElement instanceof HTMLElement ? document.activeElement : null
     const focusableSelector = 'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
     const frame = window.requestAnimationFrame(() => {
-      if (!isTopModal(modalId)) return
+      if (!isTopOverlay(`modal:${modalId}`)) return
       const preferred = dialogRef.current?.querySelector<HTMLElement>('[autofocus], [data-autofocus]')
       const bodyFocusable = dialogRef.current?.querySelector<HTMLElement>(`.modal__body ${focusableSelector}`)
       const footerFocusable = dialogRef.current?.querySelector<HTMLElement>(`.modal__footer ${focusableSelector}`)
@@ -81,7 +58,7 @@ export function Modal({ open, title, subtitle, footer, headerActions, onClose, s
       ;(preferred ?? bodyFocusable ?? footerFocusable ?? fallbackFocusable ?? dialogRef.current)?.focus()
     })
     const onKeyDown = (event: KeyboardEvent) => {
-      if (!isTopModal(modalId)) return
+      if (!isTopOverlay(`modal:${modalId}`)) return
       if (event.key === 'Escape') {
         event.preventDefault()
         closeRef.current()
@@ -89,11 +66,12 @@ export function Modal({ open, title, subtitle, footer, headerActions, onClose, s
       }
       if (event.key !== 'Tab' || !dialogRef.current) return
       const focusable = [...dialogRef.current.querySelectorAll<HTMLElement>(focusableSelector)]
-        .filter((element) => !element.hidden && element.getAttribute('aria-hidden') !== 'true' && !element.closest('[hidden]'))
+        .filter((element) => !element.hidden && element.getAttribute('aria-hidden') !== 'true' && !element.closest('[hidden]') && element.getClientRects().length > 0)
       if (!focusable.length) { event.preventDefault(); dialogRef.current.focus(); return }
       const first = focusable[0]
       const last = focusable.at(-1)!
-      if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last.focus() }
+      if (!dialogRef.current.contains(document.activeElement)) { event.preventDefault(); (event.shiftKey ? last : first).focus() }
+      else if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last.focus() }
       else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus() }
     }
     document.addEventListener('keydown', onKeyDown)
@@ -116,7 +94,7 @@ export function Modal({ open, title, subtitle, footer, headerActions, onClose, s
 
   if (!mounted) return null
   const content = (
-    <div className={`modal-backdrop ${closing ? 'is-closing' : ''}`} role="presentation" onMouseDown={(event) => { if (open && isTopModal(modalId) && event.target === event.currentTarget) closeRef.current() }}>
+    <div data-overlay-id={`modal:${modalId}`} className={`modal-backdrop ${closing ? 'is-closing' : ''}`} role="presentation" onMouseDown={(event) => { if (open && isTopOverlay(`modal:${modalId}`) && event.target === event.currentTarget) closeRef.current() }}>
       <section ref={dialogRef} tabIndex={-1} data-rt-primitive="dialog" className={`rt-dialog modal modal--${size} ${closing ? 'is-closing' : ''}`} role="dialog" aria-modal="true" aria-labelledby={titleId} aria-describedby={subtitle ? subtitleId : undefined}>
         <header className="modal__header">
           <div>

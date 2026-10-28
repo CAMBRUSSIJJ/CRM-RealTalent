@@ -20,8 +20,15 @@ export function MobileNav() {
   const primaryItems = useMemo(() => visibleItems.filter((item) => preferredPrimaryRoutes.includes(item.route)).slice(0, 4), [visibleItems])
   const secondaryItems = useMemo(() => visibleItems.filter((item) => !primaryItems.some((primary) => primary.route === item.route)), [primaryItems, visibleItems])
   const secondaryActive = secondaryItems.some((item) => item.route === route)
+  const canOpenSettings = canTeamAccess('view','settings')
 
   useEffect(() => { setOpen(false) }, [route])
+  useEffect(() => {
+    if (!open) return
+    const onEscape = (event: KeyboardEvent) => { if (event.key === 'Escape') { event.preventDefault(); setOpen(false) } }
+    document.addEventListener('keydown', onEscape)
+    return () => document.removeEventListener('keydown', onEscape)
+  }, [open])
   const labelFor = (item: (typeof navigationItems)[number]) => preferences.navigation.labels[item.route]?.trim() || item.label
 
   return (
@@ -29,11 +36,11 @@ export function MobileNav() {
       {open ? <div className="mobile-more-backdrop" onClick={() => setOpen(false)} aria-hidden="true" /> : null}
       {open ? <section className="mobile-more-menu" aria-label="Mais opções de navegação">
         <header><div><strong>Mais áreas</strong><span>Acesse os outros módulos do CRM</span></div><button type="button" onClick={() => setOpen(false)} aria-label="Fechar"><X size={20} /></button></header>
-        <div>{secondaryItems.map((item) => <button key={item.route} type="button" className={route === item.route ? 'is-active' : ''} aria-current={route === item.route ? 'page' : undefined} onClick={() => setRoute(item.route)}><item.icon size={20} /><span>{labelFor(item)}</span></button>)}{canTeamAccess('view','settings') ? <button type="button" className={`mobile-more-menu__settings ${route === 'settings' ? 'is-active' : ''}`} aria-current={route === 'settings' ? 'page' : undefined} onClick={() => setRoute('settings')}><Settings size={20}/><span>Configurações</span></button> : null}</div>
+        <div>{secondaryItems.map((item) => <button key={item.route} type="button" className={route === item.route ? 'is-active' : ''} aria-current={route === item.route ? 'page' : undefined} onClick={() => setRoute(item.route)}><item.icon size={20} /><span>{labelFor(item)}</span></button>)}{canOpenSettings ? <button type="button" className={`mobile-more-menu__settings ${route === 'settings' ? 'is-active' : ''}`} aria-current={route === 'settings' ? 'page' : undefined} onClick={() => setRoute('settings')}><Settings size={20}/><span>Configurações</span></button> : null}</div>
       </section> : null}
       <nav className="mobile-nav" aria-label="Navegação móvel">
         {primaryItems.map((item) => <button key={item.route} type="button" className={route === item.route ? 'is-active' : ''} aria-current={route === item.route ? 'page' : undefined} onClick={() => setRoute(item.route)}><item.icon size={20} /><span>{labelFor(item)}</span></button>)}
-        {secondaryItems.length ? <button type="button" className={open || secondaryActive ? 'is-active' : ''} onClick={() => setOpen((value) => !value)}><MoreHorizontal size={21} /><span>Mais</span></button> : null}
+        {(secondaryItems.length > 0 || canOpenSettings) ? <button type="button" className={open || secondaryActive || route === 'settings' ? 'is-active' : ''} onClick={() => setOpen((value) => !value)}><MoreHorizontal size={21} /><span>Mais</span></button> : null}
       </nav>
     </>
   )

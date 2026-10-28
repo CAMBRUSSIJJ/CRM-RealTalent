@@ -222,11 +222,7 @@ export function AssistantDrawer({ open, onClose, initialPrompt = '' }: Assistant
     void saveAgentWork(currentWorkspace.id,currentUserId,activeWork).then(setWorkPersistence)
   }, [activeWork,workLoaded,currentUserId,currentWorkspace?.id])
 
-  useEffect(() => {
-    if(!sessionRestored||!workLoaded||!activeWork||!memoryScope)return
-    const stored=loadAgentMemory(memoryScope)
-    persistMemory(archiveMemoryDocument(stored,activeWork))
-  },[activeWork,workLoaded,sessionRestored,memoryScope])
+
 
   useEffect(() => {
     if (!open) return
@@ -451,7 +447,9 @@ export function AssistantDrawer({ open, onClose, initialPrompt = '' }: Assistant
       if (result.toolOutput?.kind === 'script') {
         // A distinct create request starts a new document; an edit keeps its ID.
         const revision = result.id.startsWith('work-edit:') || (result.id.startsWith('workflow:v6.3:') && Boolean(activeWork) && /\b(?:ajuste|adapte|refine|revise|continue|melhore)\b/i.test(userPrompt))
-        setActiveWork(previous => workFromAnswer(result,userPrompt,revision ? previous : null))
+        const producedWork=workFromAnswer(result,userPrompt,revision ? activeWork : null)
+        setActiveWork(producedWork)
+        if(producedWork&&memoryScope)persistMemory(archiveMemoryDocument(loadAgentMemory(memoryScope),producedWork))
       }
       const nextTurns=appendAgentConversationTurn(conversationTurns,userPrompt,
         `${result.title}. ${result.text}${result.toolOutput?.kind==='script'?'\nDocumento disponível no trabalho ativo.':''}`)
@@ -996,7 +994,10 @@ O programa coordenará várias missões. Cada marco só libera dependências ap�
           <div className="assistant-memory-panel__section"><strong>Conversas anteriores ({memory.threads.length})</strong>
             {memory.threads.slice(0,12).map(thread=><div className="assistant-memory-panel__row" key={thread.id}>
               <button type="button" disabled={sending} onClick={()=>resumeMemoryConversation(thread.id)}>{thread.title}</button>
-              <button type="button" aria-label={'Excluir conversa '+thread.title} onClick={()=>persistMemory(removeMemoryThread(memory,thread.id))}><X size={14}/></button>
+              <button type="button" aria-label={'Excluir conversa '+thread.title} onClick={()=>{
+                const changed=removeMemoryThread(memory,thread.id)
+                if(persistMemory(changed)&&activeMemoryThreadId===thread.id)startFreshConversation()
+              }}><X size={14}/></button>
             </div>)}
             {!memory.threads.length?<small>As conversas concluídas aparecerão aqui.</small>:null}
           </div>
@@ -1092,6 +1093,7 @@ O programa coordenará várias missões. Cada marco só libera dependências ap�
                 const restored = restoreWorkRevision(activeWork,activeWork.revisions.length-2)
                 if (!restored) return
                 setActiveWork(restored)
+                if(memoryScope)persistMemory(archiveMemoryDocument(loadAgentMemory(memoryScope),restored))
                 setAnswer(answerFromWork(restored,'Versão anterior recuperada'))
               }}>Voltar à versão anterior</button> : null}
               <button type="button" onClick={() => {

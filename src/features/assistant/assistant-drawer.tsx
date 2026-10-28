@@ -148,6 +148,7 @@ export function AssistantDrawer({ open, onClose, initialPrompt = '' }: Assistant
     void loadAgentWork(currentWorkspace.id,currentUserId).then((loaded) => {
       if (disposed) return
       setActiveWork(loaded.document)
+      if (loaded.document) setAnswer(current => current ?? answerFromWork(loaded.document!, 'Trabalho anterior recuperado'))
       setWorkPersistence(loaded.state)
       setWorkLoaded(true)
     })
@@ -928,6 +929,7 @@ O programa coordenará várias missões. Cada marco só libera dependências ap�
               }}>Voltar à versão anterior</button> : null}
               <button type="button" onClick={() => {
                 setActiveWork(null)
+                setAnswer(null)
                 if (currentUserId && currentWorkspace?.id) {
                   void saveAgentWork(currentWorkspace.id,currentUserId,null).then(setWorkPersistence)
                 }

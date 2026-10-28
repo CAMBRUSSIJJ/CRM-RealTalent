@@ -27,11 +27,11 @@ export const validResearchSources=(raw:unknown):ResearchCitation[]=>{
   }).slice(0,5)
 }
 export async function answerExternalResearch(prompt:string,context:AssistantContext={},
-  fetcher:typeof runtimeFetch=runtimeFetch):Promise<AssistantAnswer|null>{
+  fetcher:typeof runtimeFetch=runtimeFetch,forced=false):Promise<AssistantAnswer|null>{
   const followup=Boolean(context.recentResearchTopic) &&
     !isExplicitCrmMutation(prompt) &&
     /\b(?:com base|nesse estudo|nessa pesquisa|nessas fontes|princ[ií]pios|compare as abordagens|o que (?:achou|encontrou)|adapte o que|aplique isso)\b/i.test(prompt)
-  if(!requestsExternalResearch(prompt) && !followup)return null
+  if(!forced && !requestsExternalResearch(prompt) && !followup)return null
   const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),115000)
   const base={intent:'unknown' as const,items:[],facts:[],suggestedPrompts:[],
     generatedAt:new Date().toISOString()}

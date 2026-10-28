@@ -25,6 +25,12 @@ describe('Agent V4 – multi-step plan integrity', () => {
     expect(validateAgentCapabilityEnvelope(raw([step('one')]), 'invalid')).toBeNull()
     expect(validateAgentCapabilityEnvelope(raw([step('one')],0.22), 'execute')).toBeNull()
   })
+  it('não apresenta conclusão parcial quando foram solicitadas duas ações explícitas', () => {
+    const prompt = 'crie uma tarefa e agende um retorno amanhã'
+    expect(validateAgentCapabilityEnvelope(raw([step('one')]), 'execute', prompt)).toBeNull()
+    const accepted = validateAgentCapabilityEnvelope(raw([step('one'), step('two','calendar.create')]), 'execute', prompt)
+    expect(accepted?.plan.steps).toHaveLength(2)
+  })
   it('não aceita executar plano ainda marcado como pendente', () => {
     expect(validateAgentCapabilityEnvelope(raw([step('one')],0.98,true), 'execute')).toBeNull()
   })

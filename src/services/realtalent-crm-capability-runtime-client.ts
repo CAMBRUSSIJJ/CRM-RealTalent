@@ -1,4 +1,5 @@
 import { env } from '../lib/env'
+import { requestsMultipleCrmActions } from './realtalent-agent-v4-intent'
 import { runtimeFetch } from './realtalent-runtime-transport'
 import { universalCrmCapabilityById as crmCapabilityById, universalCrmCapabilityCatalogForModel as crmCapabilityCatalogForModel } from './realtalent-crm-universal-registry'
 import { crmCapabilitySlotRulesForModel } from './realtalent-crm-universal-slot-filling'
@@ -75,7 +76,7 @@ const normalizePlan = (value: unknown): CrmCapabilityPlan => {
 
 /** Reject partial model plans: dropping an unknown step and executing the rest
  * silently would be more dangerous than reporting a planning failure. */
-export function validateAgentCapabilityEnvelope(rawPlan: unknown, decision: unknown): {
+export function validateAgentCapabilityEnvelope(rawPlan: unknown, decision: unknown, prompt = ''): {
   plan: CrmCapabilityPlan
   decision: CrmCapabilityPlanningResult['decision']
 } | null {
@@ -88,6 +89,7 @@ export function validateAgentCapabilityEnvelope(rawPlan: unknown, decision: unkn
   if (new Set(plan.steps.map((step) => step.id)).size !== plan.steps.length) return null
   if (decision === 'execute') {
     if (!plan.steps.length || plan.needsClarification || plan.missingSlots.length) return null
+    if (requestsMultipleCrmActions(prompt) && plan.steps.length < 2) return null
     // A model confidence score is a signal, never permission to write.
     if (plan.steps.some((step) => step.risk !== 'read') && plan.confidence < 0.6) return null
   }
@@ -218,7 +220,7 @@ export async function planCrmCapabilitiesViaAgent(
       model?: string
     }
     if (!payload.ok) return null
-    const validated = validateAgentCapabilityEnvelope(payload.plan, payload.decision)
+    const validated = validateAgentCapabilityEnvelope(payload.plan, payload.decision, prompt)
     if (!validated) return null
     return {
       ...validated,

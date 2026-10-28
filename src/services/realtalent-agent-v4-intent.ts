@@ -21,6 +21,14 @@ export function isWriteOrCompoundRequest(prompt: string): boolean {
   return false
 }
 
+// Compound guard protects against false partial-success responses when the model
+// returns only one tool for two explicitly requested CRM operations.
+export function requestsMultipleCrmActions(prompt: string): boolean {
+  const text = normalized(prompt)
+  const verb = '(?:crie|criar|cadastre|adicione|atualize|mova|exclua|conclua|envie|mande|agende|marque|registre|defina|garimpe|execute)'
+  return new RegExp('\\b'+verb+'\\b.{0,150}\\b(?:e(?:\\s+tambem)?|depois|em seguida)\\s+'+verb+'\\b').test(text)
+}
+
 export function canAnswerSalesReadLocally(prompt: string, answer: AssistantAnswer, hasPendingOperation = false): boolean {
   if (hasPendingOperation || isWriteOrCompoundRequest(prompt)) return false
   if (answer.plan || !READ_INTENTS.has(answer.intent)) return false

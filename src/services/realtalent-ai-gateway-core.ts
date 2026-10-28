@@ -435,7 +435,7 @@ export const realTalentAiGateway = {
         appendRealTalentAiAudit({
           id:`ai:${Date.now()}:chat`,workspaceId,providerId:conversational.id.startsWith('chat:ollama:')?'ollama:chat-v5.4':'ollama:chat-unavailable',
           intent:conversational.intent,focusLeadId:context.focusLeadId,route:context.route,
-          toolIds:[],outcome:conversational.id.startsWith('chat:ollama:')?'success':'fallback',durationMs,
+          toolIds:[],outcome:conversational.id.startsWith('chat:ollama:')?'success':'error',durationMs,
           generatedAt:new Date().toISOString(),
         })
         return {answer:conversational,context,trace:{

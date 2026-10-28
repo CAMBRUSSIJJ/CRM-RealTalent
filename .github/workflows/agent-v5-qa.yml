@@ -1,0 +1,34 @@
+name: RealTalent Agent V5 Cognitive Tools QA
+on:
+  pull_request:
+    branches:
+      - feat/realtalent-agent-v4-1-tools-engine-20261028
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  agent-v5:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - name: Install
+        run: npm ci --include=dev
+      - name: TypeScript
+        run: npm run typecheck
+      - name: V5 and existing agent regression tests
+        run: npx vitest run src/services/realtalent-agent-v5-cognitive.test.ts src/services/realtalent-agent-v41-calculator.test.ts src/services/realtalent-agent-v41-scripts.test.ts src/services/realtalent-agent-v4-intent.test.ts src/services/realtalent-agent-v4-conversation.test.ts src/services/realtalent-agent-v4-planner.test.ts src/services/realtalent-assistant-provider-routing.test.ts
+      - name: Syntax of local Ollama runtime
+        run: node --check runtime-host/RealTalent-Agent-Runtime-V3.1.2/gateway-ollama.mjs
+      - name: Build
+        run: npm run build

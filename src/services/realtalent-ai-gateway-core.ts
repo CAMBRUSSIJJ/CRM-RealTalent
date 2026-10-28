@@ -2,7 +2,7 @@ import type { WorkspaceSnapshot } from '../domain/types'
 import { appendRealTalentAiAudit } from './realtalent-ai-audit'
 import { buildRealTalentAiContext, type RealTalentAiContextEnvelope } from './realtalent-ai-context'
 import { hybridRealTalentAssistantProvider } from './realtalent-assistant-provider'
-import { runAgentToolsV41 } from './realtalent-agent-v41-tools'
+import { runAgentToolsV5 } from './realtalent-agent-v5-cognitive'
 import type { AssistantAnswer, AssistantContext } from './realtalent-assistant'
 import { lastCrmExecutionReceipt } from './realtalent-crm-execution-truth'
 import {
@@ -352,7 +352,7 @@ const learningAwareContext = (workspaceId: string, prompt: string, snapshot: Wor
 }
 
 export const realTalentAiGateway = {
-  id: 'realtalent-ai-gateway-v5-sales-intelligence-learning',
+  id: 'realtalent-ai-gateway-v5-cognitive-tools',
   async answer(prompt: string, snapshot: WorkspaceSnapshot, assistantContext: AssistantContext = {}): Promise<RealTalentAiGatewayResult> {
     const started = Date.now()
     const workspaceId = snapshot.workspace.id
@@ -378,10 +378,10 @@ export const realTalentAiGateway = {
         return { answer, context, trace: { providerId: 'sales-learning:portfolio-v1', mode: 'local-orchestration', sendsDataExternally: false, durationMs, writeAuthority: false } }
       }
 
-      const toolAnswer = runAgentToolsV41(prompt, snapshot, effectiveContext)
+      const toolAnswer = await runAgentToolsV5(prompt, snapshot, effectiveContext)
       if (toolAnswer) {
         const durationMs = Math.max(0, Date.now() - started)
-        const providerId = toolAnswer.toolOutput?.kind === 'calculation' ? 'tools:calculator-v4.1' : 'tools:sales-script-v4.1'
+        const providerId = toolAnswer.toolOutput?.kind === 'calculation' ? 'tools:calculator-v5' : 'tools:cognitive-script-v5'
         appendRealTalentAiAudit({
           id: `ai:${Date.now()}:tool`, workspaceId, providerId, intent: toolAnswer.intent,
           focusLeadId: context.focusLeadId, route: context.route,

@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { ArrowRight, ExternalLink, Filter, Search, X } from 'lucide-react'
 import type { ProspectingAgentJob } from '../../services/prospecting-linux-agent'
 import type { CaptureDraft } from '../../services/prospecting-workspace'
@@ -6,6 +6,9 @@ import type { CaptureDraft } from '../../services/prospecting-workspace'
 export type RawSourceDecision = 'ignored' | 'promoted'
 type RawSource = NonNullable<ProspectingAgentJob['sourceLog']>[number]
 type ReviewSource = RawSource & { key: string }
+export type RawSourceScope = 'all' | 'raw' | 'filtered' | 'duplicates'
+const sourceScope = (row: ReviewSource): Exclude<RawSourceScope, 'all'> =>
+  row.type === 'rejected' ? 'filtered' : row.type === 'duplicate' ? 'duplicates' : 'raw'
 
 const clean = (value: string | undefined) => String(value || '').trim()
 const httpUrl = (value: string) => {
@@ -21,13 +24,13 @@ const uniqueSources = (job: ProspectingAgentJob | null): ReviewSource[] => {
   if (!job) return []
   const indexed = new Map<string, ReviewSource>()
   for (const row of job.sourceLog || []) {
-    if (row.type !== 'raw' && row.type !== 'rejected') continue
+    if (!['raw', 'candidate', 'rejected', 'duplicate'].includes(row.type)) continue
     const key = rawSourceKey(job.id, row)
     const before = indexed.get(key)
     indexed.set(key, {
       ...row,
       reason: row.type === 'rejected' ? row.reason : before?.reason || row.reason,
-      type: before?.type === 'raw' ? 'raw' : row.type,
+      type: before?.type === 'candidate' ? 'candidate' : row.type === 'candidate' ? 'candidate' : before?.type === 'raw' ? 'raw' : row.type,
       key,
     })
   }
@@ -38,9 +41,10 @@ export const rawSourceReviewCount = (job: ProspectingAgentJob | null) => uniqueS
 const EMPTY_DRAFT = { company: '', city: '', phone: '', email: '', website: '', notes: '' }
 
 export function RawSourceReview({
-  job, decisions, disabled, onDecision, onPromote, onShowCompanies,
+  job, decisions, disabled, onDecision, onPromote, onShowCompanies, initialScope = 'all',
 }: {
   job: ProspectingAgentJob | null
+  initialScope?: RawSourceScope
   decisions: Record<string, RawSourceDecision>
   disabled: boolean
   onDecision: (key: string, decision: RawSourceDecision | null) => void
@@ -49,15 +53,18 @@ export function RawSourceReview({
 }) {
   const sources = useMemo(() => uniqueSources(job), [job])
   const [query, setQuery] = useState('')
+  const [scope, setScope] = useState<RawSourceScope>(initialScope)
+  useEffect(() => { setScope(initialScope) }, [initialScope])
   const [includeIgnored, setIncludeIgnored] = useState(false)
   const [selected, setSelected] = useState<string | null>(null)
   const [draft, setDraft] = useState(EMPTY_DRAFT)
   const [visible, setVisible] = useState(24)
   const results = useMemo(() => sources.filter((row) => {
+    if (scope !== 'all' && sourceScope(row) !== scope) return false
     if (!includeIgnored && decisions[row.key]) return false
     const text = [row.name, row.url, row.provider, row.reason].join(' ').toLocaleLowerCase('pt-BR')
     return text.includes(query.trim().toLocaleLowerCase('pt-BR'))
-  }), [sources, decisions, includeIgnored, query])
+  }), [sources, decisions, includeIgnored, query, scope])
   const ignored = sources.filter((row) => decisions[row.key] === 'ignored').length
   const promoted = sources.filter((row) => decisions[row.key] === 'promoted').length
   const current = sources.find((source) => source.key === selected) || null
@@ -94,9 +101,9 @@ export function RawSourceReview({
   return <section className="prospecting-raw-review" aria-label="Triagem humana das fontes brutas">
     <header className="prospecting-raw-review__header">
       <div>
-        <span className="eyebrow">Triagem humana · antes de entrar na base comercial</span>
-        <h3>Fontes encontradas na busca</h3>
-        <p>Veja todos os documentos registrados, inclusive fontes que o motor não reconheceu como empresa. Revise o link antes de criar um cadastro; nenhuma fonte bruta vai automaticamente para o CRM.</p>
+        <span className="eyebrow">Revisar · fontes e evidências da execução</span>
+        <h3>Triagem das fontes coletadas</h3>
+        <p>Resultados brutos, candidatos, documentos filtrados e duplicidades ficam aqui para conferência. Uma fonte só vira empresa em revisão depois da sua confirmação; nada é enviado automaticamente ao CRM.</p>
       </div>
       <button type="button" onClick={onShowCompanies}>Ver empresas revisadas <ArrowRight size={15}/></button>
     </header>
@@ -108,6 +115,11 @@ export function RawSourceReview({
     </div>
     {job && Number(job.stats.webDocuments || job.stats.discovered || 0) > sources.length ? <p className="prospecting-raw-review__notice">Esta execução contabilizou mais ocorrências do que fontes individuais armazenadas. Buscas antigas podem ter apenas os totais; o histórico de fontes é limitado e não é equivalente à contagem de empresas.</p> : null}
     <div className="prospecting-raw-review__tools">
+      <div role="group" aria-label="Tipo de fonte" className="prospecting-raw-review__scope">
+        {([['all', 'Todas as fontes'], ['raw', 'Dados brutos'], ['filtered', 'Filtrados'], ['duplicates', 'Duplicidades']] as Array<[RawSourceScope, string]>).map(([value, label]) =>
+          <button type="button" key={value} aria-pressed={scope === value} className={scope === value ? 'is-active' : ''} onClick={() => { setScope(value); setVisible(24) }}>{label} <span>{sources.filter(row => value === 'all' || sourceScope(row) === value).length}</span></button>
+        )}
+      </div>
       <label><Search size={16}/><input aria-label="Buscar nas fontes brutas" placeholder="Buscar nome, site, Instagram ou motivo" value={query} onChange={(e) => { setQuery(e.target.value); setVisible(24) }}/></label>
       <label className="prospecting-raw-review__toggle"><input type="checkbox" checked={includeIgnored} onChange={(e) => setIncludeIgnored(e.target.checked)}/><Filter size={14}/> Mostrar já analisadas</label>
     </div>
@@ -117,8 +129,8 @@ export function RawSourceReview({
           <strong>{row.name || 'Fonte sem título'}</strong>
           {httpUrl(clean(row.url)) ? <a href={httpUrl(clean(row.url))} target="_blank" rel="noopener noreferrer">Ver origem <ExternalLink size={13}/></a> : null}
         </div>
-        <small>{row.provider || 'Web pública'} · {row.type === 'rejected' ? 'Filtrada automaticamente' : 'Documento bruto · empresa não confirmada'}</small>
-        {row.reason && row.type === 'rejected' ? <p className="prospecting-raw-review__reason">Filtro: {row.reason}</p> : null}
+        <small>{row.provider || 'Web pública'} · {row.type === 'rejected' ? 'Filtrada automaticamente' : row.type === 'duplicate' ? 'Possível repetição · confira a empresa original' : row.type === 'candidate' ? 'Candidato da busca · conferir na lista de empresas' : 'Documento bruto · empresa não confirmada'}</small>
+        {row.reason ? <p className="prospecting-raw-review__reason">{row.type === 'rejected' ? 'Filtro: ' : 'Motivo: '}{row.reason}</p> : null}
         <footer>
           {decisions[row.key] ? <button type="button" disabled={disabled} onClick={() => onDecision(row.key, null)}>Desfazer decisão ({decisions[row.key] === 'ignored' ? 'ignorada' : 'adicionada'})</button> : <>
             <button type="button" disabled={disabled} onClick={() => onDecision(row.key, 'ignored')}>Ignorar fonte</button>
@@ -131,7 +143,7 @@ export function RawSourceReview({
     {current ? <div className="prospecting-raw-review__dialog" role="dialog" aria-modal="true" aria-label="Confirmar empresa a partir da fonte">
       <div className="prospecting-raw-review__dialog-card">
         <header><div><h3>Revisar fonte e criar candidato</h3><p>{current.name}</p></div><button type="button" aria-label="Fechar revisão da fonte" onClick={() => setSelected(null)}><X size={18}/></button></header>
-        <p className="prospecting-raw-review__notice">O título pode ser uma lista ou diretório, não o nome de uma empresa. Confirme o nome real. A cidade digitada não comprova localização; faltando coordenadas, o registro continuará pendente.</p>
+        <p className="prospecting-raw-review__notice">O título pode ser uma lista, diretório ou resultado duplicado, não o nome de uma empresa. Confirme o nome real. A cidade digitada não comprova localização; faltando coordenadas, o registro continuará pendente.</p>
         {httpUrl(clean(current.url)) ? <a href={httpUrl(clean(current.url))} target="_blank" rel="noopener noreferrer">Abrir a fonte original para conferir <ExternalLink size={13}/></a> : null}
         <div className="prospecting-raw-review__form">
           <label>Nome confirmado da empresa *<input autoFocus value={draft.company} onChange={e => setDraft(d => ({...d,company:e.target.value}))} placeholder="Digite o nome da empresa real"/></label>

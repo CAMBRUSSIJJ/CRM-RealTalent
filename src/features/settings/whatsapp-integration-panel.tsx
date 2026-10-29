@@ -24,6 +24,7 @@ import {
 } from '../../services/whatsapp-workspace'
 import type { WorkspaceMember } from '../../domain/types'
 import type { CrmPreferences } from './preferences-context'
+import {whatsappGatewayIsHealthy} from '../../lib/integration-availability-s34'
 
 const purposeLabels: Record<WhatsAppTemplatePurpose, string> = {
   first_contact: 'Primeiro contato', followup: 'Follow-up', proposal: 'Proposta', meeting: 'Reunião', post_sale: 'Pós-venda', custom: 'Personalizado',
@@ -199,7 +200,7 @@ export function WhatsappIntegrationPanel({ preferences, onPreferencesChange }: {
   const connectedAccounts = accounts.filter((item) => item.status === 'connected')
   const qrConnected = qrStatus?.state === 'connected'
   const overallConnected = qrConnected || connectedAccounts.length > 0
-  const gatewayReady = !localGatewayMode || Boolean(gatewayHealth?.ok)
+  const gatewayReady = !localGatewayMode || whatsappGatewayIsHealthy(gatewayHealth,runtimeStatus)
   const persistTemplates = (next: WhatsAppTemplate[]) => { setTemplates(next); saveWhatsAppTemplates(workspaceId, next) }
   const activeTeams = workManagement.teams.filter((item) => item.active !== false)
   const selectedTeam = activeTeams.find((item) => item.id === controlPreferences.referenceTeamId) ?? null

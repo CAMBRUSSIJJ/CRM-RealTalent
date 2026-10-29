@@ -2,7 +2,7 @@ import {describe,it,expect,vi} from 'vitest'
 import type {WorkspaceSnapshot} from '../domain/types'
 import type {ProspectingAgentJob} from './prospecting-linux-agent'
 import type {ProspectRecord} from './prospecting-workspace'
-import {handleGarimpoFromMainAgent,isModelPlan,wantsGarimpoNativeTool,segmentStatedByUser,type GarimpoBridgeInput,type GarimpoBridgeDependencies} from './realtalent-agent-garimpo-bridge'
+import {handleGarimpoFromMainAgent,isModelPlan,wantsGarimpoNativeTool,segmentStatedByUser,quantityStatedByUser,type GarimpoBridgeInput,type GarimpoBridgeDependencies} from './realtalent-agent-garimpo-bridge'
 
 const snapshot={workspace:{id:'ws',role:'owner'},leads:[],companies:[],stages:[]} as unknown as WorkspaceSnapshot
 const job=(overrides:Record<string,unknown>={}):ProspectingAgentJob=>({
@@ -39,6 +39,14 @@ describe('RealTalent principal Agent -> Garimpo G3 native bridge',()=>{
     const deps=mockDeps(plan('search',{segment:'Barbearia'}))
     await handleGarimpoFromMainAgent(params('ache no Garimpo 40 empresas de jardinagem'),deps as never)
     expect(deps.createJob.mock.calls[0][0].segment).toBe('jardinagem')
+  })
+  it('uses the requested 40 even if the previous job and Qwen return 10',async()=>{
+    expect(quantityStatedByUser('ache 40 empresas de jardinagem')).toBe(40)
+    const deps=mockDeps(plan('clarify',{quantity:10,segment:'Barbearia',answer:'Que cidade?'}))
+    const result=await handleGarimpoFromMainAgent(params('ache no Garimpo 40 empresas de jardinagem'),deps as never)
+    expect(deps.createJob).toHaveBeenCalledTimes(1)
+    expect(deps.createJob.mock.calls[0][0]).toMatchObject({segment:'jardinagem',targetQuantity:40,regions:['Rio Grande, RS']})
+    expect(result?.title).toBe('Busca iniciada no Garimpo')
   })
   it('never starts a search when user explicitly says not to',()=>{
     expect(wantsGarimpoNativeTool('não busque empresas no Garimpo','prospecting')).toBe(false)

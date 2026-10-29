@@ -52,8 +52,24 @@ const EMPTY_DRAFT = { company: '', city: '', address: '', phone: '', email: '', 
 type ReviewDraft = typeof EMPTY_DRAFT
 const normalizeName = (value: string | undefined) => clean(value).normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLocaleLowerCase('pt-BR').replace(/[^a-z0-9]+/g, ' ').trim()
 const normalizeUrl = (value: string | undefined) => httpUrl(clean(value)).replace(/\/$/, '').toLowerCase()
-const genericSourceTitle = (name: string) => /\b(?:melhores|lista|listagem|diret[oó]rio|guia|op[cç][oõ]es|ranking|encontre|top\s*\d+|facebook|instagram)\b/i.test(name)
-  || /^(?:barbearias|barbearia|empresas|profissionais|sal[oõ]es|servi[cç]os)\s+(?:em|no|na|perto de)\s+/i.test(name)
+const genericSourceTitle = (name: string) =>
+  /\b(?:melhores|lista|listagem|diret[oó]rio|guia|op[cç][oõ]es|ranking|encontre|top\s*\d+|perto de mim)\b/i.test(name)
+  || /^(?:barbearias(?:\s*\/\s*barbeiros)?|barbeiros|empresas|profissionais|sal[oõ]es|servi[cç]os)\b/i.test(name)
+  || /^barbearia\s+(?:em|no|na|de|para)\b/i.test(name)
+  || /^\d+\s+(?:op[cç][oõ]es|resultados|melhores)\b/i.test(name)
+
+export function suggestBusinessNameFromTitle(source: Pick<RawSource, 'name' | 'type'>): string {
+  if (source.type === 'rejected' || source.type === 'duplicate') return ''
+  const title = clean(source.name)
+  if (!title || genericSourceTitle(title)) return ''
+  // Remover somente sufixos editoriais e handles sociais; nunca tomar URL de diretório como website oficial.
+  const first = title
+    .replace(/\s*\(@[\w.]+\)/g, '')
+    .split(/\s+(?:[-–|])\s+/)[0]
+    .replace(/\s+em\s+Rio Grande(?:\s*[-/]\s*RS)?$/i, '')
+    .trim()
+  return first.length >= 4 && first.length <= 90 && !genericSourceTitle(first) ? first : ''
+}
 
 export function matchingCandidate(source: Pick<RawSource, 'name' | 'url' | 'type'>, job: ProspectingAgentJob | null): (CaptureDraft & { candidateId?: string }) | null {
   if (!job || source.type === 'rejected' || source.type === 'duplicate') return null
@@ -68,10 +84,10 @@ export function matchingCandidate(source: Pick<RawSource, 'name' | 'url' | 'type
   return matches.length === 1 ? matches[0] : null
 }
 
-export function prepareSourceReview(source: Pick<RawSource, 'name' | 'url' | 'type' | 'reason'>, candidate: CaptureDraft | null): ReviewDraft {
-  const suggested = candidate?.company || candidate?.name || (source.type === 'candidate' && !genericSourceTitle(source.name) ? source.name : '')
+export function prepareSourceReview(source: Pick<RawSource, 'name' | 'url' | 'type' | 'reason'>, candidate: CaptureDraft | null, region = ''): ReviewDraft {
+  const suggested = candidate?.company || candidate?.name || suggestBusinessNameFromTitle(source)
   return {
-    company: clean(String(suggested || '')), city: clean(String(candidate?.city || '')),
+    company: clean(String(suggested || '')), city: clean(String(candidate?.city || region)),
     address: clean(String(candidate?.address || '')), phone: clean(String(candidate?.phone || '')),
     email: clean(String(candidate?.email || '')), website: clean(String(candidate?.website || '')),
     instagram: clean(String(candidate?.instagram || '')), cnpj: clean(String(candidate?.cnpj || '')),
@@ -124,7 +140,7 @@ export function RawSourceReview({
     const existing = findStored(source)
     if (existing) { onOpenProspect(existing.id); return }
     setSelected(source.key)
-    setDraft(prepareSourceReview(source, candidates.get(source.key) ?? null))
+    setDraft(prepareSourceReview(source, candidates.get(source.key) ?? null, job?.input?.regions?.[0] || ''))
   }
   const submit = () => {
     if (!current || !draft.company.trim()) return
@@ -139,7 +155,7 @@ export function RawSourceReview({
       phone: draft.phone.trim(),
       email: draft.email.trim(),
       website: draft.website.trim(),
-      notes: [draft.notes.trim(), 'Fonte original: ' + current.name, 'URL de origem: ' + current.url].filter(Boolean).join('\n'),
+      notes: [draft.notes.trim(), 'Título público consultado: ' + current.name, 'URL de origem: ' + (current.url || 'não disponível')].filter(Boolean).join('\n'),
       source: 'manual',
       sourceDetail: 'Fonte pública conferida, aguardando validação comercial',
       evidence: currentCandidate?.evidence || [],
@@ -203,8 +219,10 @@ export function RawSourceReview({
       <div className="prospecting-raw-review__dialog-card">
         <header><div><h3>Revisar fonte e criar candidato</h3><p>{current.name}</p></div><button type="button" aria-label="Fechar revisão da fonte" onClick={() => setSelected(null)}><X size={18}/></button></header>
         <p className="prospecting-raw-review__notice">{currentCandidate
-          ? 'Os dados disponíveis foram trazidos da busca. Confira antes de adicionar à fila; identidade e localização ainda exigem validação.'
-          : 'Esta fonte não possui empresa identificada com segurança. O título pode ser uma lista ou diretório. Informe o nome real antes de criar um candidato pendente.'}</p>
+          ? 'Informações recuperadas do candidato encontrado. Confira os dados antes de adicionar à revisão.'
+          : draft.company
+            ? 'Nome sugerido a partir do título público. Confira se é uma empresa real. A cidade é apenas a região pesquisada, não uma localização confirmada.'
+            : 'Esta fonte pode ser uma lista ou diretório. Identifique a empresa real antes de adicionar um candidato pendente.'}</p>
         {httpUrl(clean(current.url)) ? <a href={httpUrl(clean(current.url))} target="_blank" rel="noopener noreferrer">Abrir a fonte original para conferir <ExternalLink size={13}/></a> : null}
         <div className="prospecting-raw-review__form">
           <label>Nome da empresa (confirme) *<input autoFocus value={draft.company} onChange={e => setDraft(d => ({...d,company:e.target.value}))} placeholder="Nome real da empresa" /></label>

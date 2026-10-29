@@ -68,7 +68,7 @@ const defaults:GarimpoBridgeDependencies={
 const errorAnswer=(message:string)=>summary('Garimpo não executado',message)
 const trustworthyJobSummary=(job:ProspectingAgentJob):AssistantAnswer=>{
   const unique=Math.max(0,job.stats?.unique??0)
-  const ready=Math.max(0,job.stats?.ready??0)
+  const ready=job.results.filter(p=>p.qualityStatus==='ready').length
   return summary('Busca real no Garimpo',
     'Já existe uma busca '+(job.status==='paused'?'pausada':'em execução')+' para '+job.input.segment+
     ' em '+job.input.regions.join(', ')+'. Encontrei '+unique+' registro(s) único(s) até agora; '+

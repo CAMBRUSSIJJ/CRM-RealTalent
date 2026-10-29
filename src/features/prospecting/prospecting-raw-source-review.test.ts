@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { ProspectingAgentJob } from '../../services/prospecting-linux-agent'
-import { matchingCandidate, prepareSourceReview, rawSourceKey, rawSourceReviewCount } from './prospecting-raw-source-review'
+import { matchingCandidate, prepareSourceReview, suggestBusinessNameFromTitle, rawSourceKey, rawSourceReviewCount } from './prospecting-raw-source-review'
 
 const job = (sourceLog: NonNullable<ProspectingAgentJob['sourceLog']>): ProspectingAgentJob =>
   ({ id: 'execution-01', sourceLog }) as ProspectingAgentJob
@@ -53,6 +53,14 @@ describe('Revisão única das fontes do Garimpo', () => {
     expect(prepareSourceReview({ type: 'raw', name: '2 opções em barbearias que você deveria conhecer', reason: 'Documento público' }, null).company).toBe('')
     expect(prepareSourceReview({ type: 'candidate', name: 'Barbearias em Rio Grande', reason: '' }, null).company).toBe('')
     expect(prepareSourceReview({ type: 'candidate', name: 'Barbearia Matheus', reason: '' }, null).company).toBe('Barbearia Matheus')
+  })
+
+  it('sugere apenas a marca, sem copiar o título inteiro da página', () => {
+    expect(suggestBusinessNameFromTitle({ type: 'raw', name: 'Salento Barbearia - Barbearia em Rio Grande/RS' })).toBe('Salento Barbearia')
+    expect(suggestBusinessNameFromTitle({ type: 'raw', name: 'AUTÊNTICA® Barbearia e Visagismo (@autentica.barbearia) - Instagram' })).toBe('AUTÊNTICA® Barbearia e Visagismo')
+    expect(suggestBusinessNameFromTitle({ type: 'raw', name: 'Barbearias / Barbeiros no Rio Grande, RS — WhatsApp' })).toBe('')
+    expect(suggestBusinessNameFromTitle({ type: 'raw', name: 'Barbearia em Rio Grande - Perto de Mim' })).toBe('')
+    expect(prepareSourceReview({ type: 'raw', name: 'Salento Barbearia - Barbearia em Rio Grande/RS' }, null, 'Rio Grande, RS')).toMatchObject({company:'Salento Barbearia', city:'Rio Grande, RS'})
   })
 
   it('não associa automaticamente registros ambíguos, rejeitados ou duplicados', () => {

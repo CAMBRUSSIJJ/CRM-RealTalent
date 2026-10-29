@@ -60,6 +60,11 @@ export function moveStageOrder(ids:string[],fromId:string,toId:string):string[]{
   result.splice(result.indexOf(toId),0,fromId)
   return result
 }
+/** Returns opportunity IDs which cannot be moved by the source-stage lead batch. */
+export function orphanStageOpportunityIds(id:string,leads:Lead[],opportunities:OpportunityRecord[]):string[]{
+  const ids=new Set(leads.filter(lead=>lead.stageId===id).map(lead=>lead.id))
+  return opportunities.filter(op=>op.stageId===id&&!ids.has(op.leadId)).map(op=>op.id)
+}
 export interface StageUsage{leads:number;opportunities:number;automations:number;total:number}
 export function stageUsage(id:string,leads:Lead[],opportunities:OpportunityRecord[],rules:AutomationRule[]):StageUsage{
   const leadCount=leads.filter(x=>x.stageId===id).length

@@ -146,7 +146,7 @@ export function ProspectingPage() {
   const [qualityFilter, setQualityFilter] = useState<'all' | ProspectReadiness>('all')
   const [duplicateFilter, setDuplicateFilter] = useState<'all' | ProspectRecord['duplicateLevel']>('all')
   const [reviewMode, setReviewMode] = useState<ReviewMode>('list')
-  const [reviewScope, setReviewScope] = useState<ReviewScope>('exceptions')
+  const [reviewScope, setReviewScope] = useState<ReviewScope>('all')
   const [showTechnical, setShowTechnical] = useState(false)
   const [inspectorMode, setInspectorMode] = useState<ProspectingInspectorMode | null>(null)
   const [bulkRetryBusy, setBulkRetryBusy] = useState(false)
@@ -282,9 +282,10 @@ export function ProspectingPage() {
 
   const importCompletedAgentJob = useCallback(async (job: ProspectingAgentJob) => {
     if (!workspaceId || !canWrite || job.clientImportedAt || !['completed', 'cancelled'].includes(job.status) || !job.results.length) return
-    const acknowledged = job.reviewStream?.acknowledgedRevision ?? 0
-    const pending = job.results.filter((candidate) => candidate.qualityStatus !== 'ready' || !candidate.reviewRevision || candidate.reviewRevision > acknowledged)
-    const added = pending.length ? importDrafts(pending.map((entry) => ({ ...entry, agentJobId: job.id })), 'manual', 'import', `Prospecting Agent Linux · fechamento · ${job.stats.unique} único(s) · ${job.stats.websitesVisited} site(s) visitado(s)`, pending.length, true) : 0
+    // O fechamento também recupera candidatos prontos que não chegaram à fila progressiva.
+    // A ação capture ignora identidades já existentes e preserva edições/decisões humanas.
+    const missing = job.results.map((entry) => ({ ...entry, agentJobId: job.id }))
+    const added = missing.length ? importDrafts(missing, 'manual', 'capture', `Prospecting Agent Linux · fechamento · ${job.stats.unique} único(s) · ${job.stats.websitesVisited} site(s) visitado(s)`, missing.length, true) : 0
     try { await controlProspectingAgentJob(job.id, 'imported') } catch { /* mantém dedupe local como proteção */ }
     setAgentJob((current) => current?.id === job.id ? { ...job, clientImportedAt: new Date().toISOString() } : current)
     if (added) notify('success', `${added} empresa(s) restantes do Agent Linux foram enviadas para revisão.`)
@@ -525,6 +526,21 @@ export function ProspectingPage() {
     if (!processingId && guidedQueue[0]) setProcessingId(guidedQueue[0].id)
     if (processingId && !guidedQueue.some((item) => item.id === processingId)) setProcessingId(guidedQueue[0]?.id ?? null)
   }, [guidedQueue, processingId])
+
+  // Buscar apresenta os resultados; Revisar concentra empresas, evidências e fontes brutas.
+  // Resgata candidatos da execução local sem duplicar registros já editados.
+  const openReviewWorkspace = (mode?: ProspectingInspectorMode) => {
+    if (agentJob?.results.length && canWrite) {
+      const candidates = agentJob.results.map((entry) => ({ ...entry, agentJobId: agentJob.id }))
+      importDrafts(candidates, 'manual', 'capture', 'Resultados da execução atual enviados para revisão', candidates.length, true, false)
+    }
+    setReviewScope('all')
+    setSelectedIds(new Set())
+    const isSource = mode === 'raw' || mode === 'filtered' || mode === 'duplicates'
+    setReviewMode(isSource ? 'sources' : 'list')
+    setInspectorMode(mode ?? null)
+    setTab('results')
+  }
 
   const openSearch = () => {
     const url = buildProspectingSearchUrl(source, segment, city, query)
@@ -905,7 +921,7 @@ export function ProspectingPage() {
 
       <ProspectingRedesignShell
         activeTab={tab === 'results' ? 'results' : tab === 'history' ? 'history' : 'search'}
-        reviewCount={metrics.attention}
+        reviewCount={metrics.total}
         sentCount={metrics.sent}
         suggestionSegment={prospectingIcp?.segments[0]?.value ?? ''}
         suggestionCity={prospectingIcp?.cities[0]?.value ?? ''}
@@ -921,7 +937,7 @@ export function ProspectingPage() {
           setTab('search')
         }}
         onSearchTab={() => setTab('search')}
-        onReviewTab={() => setTab('results')}
+        onReviewTab={() => openReviewWorkspace()}
         onCrm={() => setRoute('leads')}
         onHistoryTab={() => setTab('history')}
       >
@@ -970,29 +986,31 @@ export function ProspectingPage() {
             onStart={() => void startLinuxAgentSearch()}
             onControl={(action) => void controlLinuxAgentSearch(action)}
             onDetails={() => setShowTechnical((value) => !value)}
-            onInspect={(mode) => {
-              setInspectorMode(mode)
-              window.setTimeout(() => document.getElementById('prospecting-evidence-explorer')?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 50)
-            }}
+            onInspect={(mode) => openReviewWorkspace(mode)}
           />
-          {inspectorMode ? <ProspectingEvidenceExplorer
-            job={agentJob} prospects={state.prospects} mode={inspectorMode}
-            onMode={setInspectorMode} onClose={() => setInspectorMode(null)}
-            onReview={() => setTab('results')}
-          /> : null}
           {showTechnical && agentJob ? <div className="prospecting-redesign-v4__legacy-content">
             <EngineProcessingWorkspace
               job={agentJob}
               busy={agentBusy}
               onRefresh={() => void refreshAgent()}
               onRetry={(candidateId, taskId) => void retryEnrichmentTask(candidateId, taskId)}
-              onOpenReview={() => setTab('results')}
+              onOpenReview={() => openReviewWorkspace()}
             />
           </div> : null}
         </> : null}
       {tab === 'results' ? <div className="prospecting-review-workspace-v101103-h7 prospecting-review-workspace-v101106">
-        <section className="panel prospecting-review-modebar-v101103-h7 prospecting-review-modebar-v101106"><div><span className="eyebrow"><ClipboardCheck size={14} /> Revisão por exceção</span><h3>Revise somente o que exige decisão humana</h3><p>Empresas confiáveis ficam separadas para aprovação em lote; duplicidades, baixa confiança e dados divergentes aparecem primeiro.</p></div><div className="prospecting-review-modebar-v101106__actions"><div className="prospecting-review-scope-v101106">{([['exceptions', 'Precisa atenção', metrics.attention], ['ready', 'Prontas', metrics.autoValidatable], ['all', 'Todas', metrics.total]] as Array<[ReviewScope,string,number]>).map(([value,label,count]) => <button type="button" key={value} className={reviewScope === value ? 'is-active' : ''} onClick={() => { setReviewScope(value); setSelectedIds(new Set()) }}>{label}<span>{count}</span></button>)}</div><div className="prospecting-review-switch-v101103-h7"><button type="button" className={reviewMode === 'list' ? 'is-active' : ''} onClick={() => setReviewMode('list')}><ClipboardList size={15}/> Lista</button><button type="button" className={reviewMode === 'guided' ? 'is-active' : ''} onClick={() => setReviewMode('guided')}><Sparkles size={15}/> Guiada</button><button type="button" className={reviewMode === 'sources' ? 'is-active' : ''} onClick={() => setReviewMode('sources')}><Globe2 size={15}/> Fontes brutas <span>{rawSourceReviewCount(agentJob)}</span></button></div></div></section>
+        <section className="panel prospecting-review-modebar-v101103-h7 prospecting-review-modebar-v101106"><div><span className="eyebrow"><ClipboardCheck size={14} /> Central de revisão</span><h3>Todos os resultados em um único lugar</h3><p>Empresas ficam na lista e na revisão guiada. Dados brutos, fontes filtradas e duplicidades ficam disponíveis para triagem, sem envio automático ao CRM.</p></div><div className="prospecting-review-modebar-v101106__actions"><div className="prospecting-review-scope-v101106">{([['exceptions', 'Precisa atenção', metrics.attention], ['ready', 'Prontas', metrics.autoValidatable], ['all', 'Todas', metrics.total]] as Array<[ReviewScope,string,number]>).map(([value,label,count]) => <button type="button" key={value} className={reviewScope === value ? 'is-active' : ''} onClick={() => { setReviewScope(value); setSelectedIds(new Set()) }}>{label}<span>{count}</span></button>)}</div><div className="prospecting-review-switch-v101103-h7"><button type="button" className={reviewMode === 'list' ? 'is-active' : ''} onClick={() => { setReviewMode('list'); setInspectorMode(null) }}><ClipboardList size={15}/> Lista</button><button type="button" className={reviewMode === 'guided' ? 'is-active' : ''} onClick={() => { setReviewMode('guided'); setInspectorMode(null) }}><Sparkles size={15}/> Guiada</button><button type="button" className={reviewMode === 'sources' ? 'is-active' : ''} onClick={() => { setReviewMode('sources'); setInspectorMode(null) }}><Globe2 size={15}/> Fontes brutas <span>{rawSourceReviewCount(agentJob)}</span></button></div></div></section>
+        {inspectorMode ? <ProspectingEvidenceExplorer
+          job={agentJob} prospects={state.prospects} mode={inspectorMode}
+          onMode={(next) => {
+            setInspectorMode(next)
+            setReviewMode(next === 'raw' || next === 'filtered' || next === 'duplicates' ? 'sources' : 'list')
+          }}
+          onClose={() => setInspectorMode(null)}
+          onReview={() => { setInspectorMode(null); setReviewMode(inspectorMode === 'raw' || inspectorMode === 'filtered' || inspectorMode === 'duplicates' ? 'sources' : 'list') }}
+        /> : null}
         {reviewMode === 'sources' ? <RawSourceReview
+          initialScope={inspectorMode === 'raw' ? 'raw' : inspectorMode === 'filtered' ? 'filtered' : inspectorMode === 'duplicates' ? 'duplicates' : 'all'}
           job={agentJob}
           decisions={state.rawSourceDecisions || {}}
           disabled={!canProspectingEdit}
@@ -1017,7 +1035,7 @@ export function ProspectingPage() {
             notify('success', 'Empresa enviada à fila de revisão. Dados não confirmados continuam pendentes.')
             return true
           }}
-          onShowCompanies={() => { setReviewMode('list'); setReviewScope('all') }}
+          onShowCompanies={() => { setReviewMode('list'); setReviewScope('all'); setInspectorMode(null) }}
         /> : reviewMode === 'list' ? <ResultsWorkspace
           readOnly={!canProspectingEdit} prospects={reviewFiltered} selectedIds={selectedIds} search={search} statusFilter={statusFilter} sourceFilter={sourceFilter} qualityFilter={qualityFilter} duplicateFilter={duplicateFilter} bulkRetryBusy={bulkRetryBusy}
           onSearch={setSearch} onStatusFilter={setStatusFilter} onSourceFilter={setSourceFilter} onQualityFilter={setQualityFilter} onDuplicateFilter={setDuplicateFilter} onSelected={setSelectedIds}

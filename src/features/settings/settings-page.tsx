@@ -342,14 +342,7 @@ export function SettingsPage() {
             <div className="settings-form-grid settings-form-grid--2"><label className="field"><span>Nome exibido</span><input value={profileName} onChange={(event) => setProfileName(event.target.value)} /></label><label className="field"><span>E-mail</span><input value={auth.user?.email ?? 'Modo local'} disabled /></label></div>
             <div className="settings-actions"><Button onClick={async () => { await auth.updateProfile(profileName); notify('success', 'Perfil atualizado.') }}><Save size={17} /> Salvar perfil</Button><Button variant="secondary" onClick={async () => { if (!auth.user?.email) return notify('info', 'A recuperação de senha fica disponível após conectar o Supabase.'); await auth.requestPasswordReset(auth.user.email); notify('success', 'E-mail de recuperação enviado.') }}><KeyRound size={17} /> Trocar senha</Button></div>
           </article>
-          <article className="panel"><div className="panel__heading"><div><span className="eyebrow">Aparência rápida</span><h3>Tema e densidade</h3><p>Cores completas, topbar, sidebar e fundo ficam na nova seção Aparência.</p></div><Palette size={22} /></div>
-            <div className="settings-choice-grid">
-              <label className={`settings-choice ${draft.appearance.theme === 'light' ? 'is-active' : ''}`}><input type="radio" name="theme" checked={draft.appearance.theme === 'light'} onChange={() => patchDraft('appearance', { theme: 'light' })} /><strong>Claro</strong><span>Maior contraste em ambientes iluminados.</span></label>
-              <label className={`settings-choice ${draft.appearance.theme === 'dark' ? 'is-active' : ''}`}><input type="radio" name="theme" checked={draft.appearance.theme === 'dark'} onChange={() => patchDraft('appearance', { theme: 'dark' })} /><strong>Escuro</strong><span>Interface escura para uso prolongado.</span></label>
-              <label className={`settings-choice ${draft.appearance.theme === 'system' ? 'is-active' : ''}`}><input type="radio" name="theme" checked={draft.appearance.theme === 'system'} onChange={() => patchDraft('appearance', { theme: 'system' })} /><strong>Automático</strong><span>Acompanha o tema do dispositivo.</span></label>
-            </div>
-            <div className="settings-form-grid settings-form-grid--3"><label className="field"><span>Densidade</span><NativeSelectionSelect value={draft.appearance.density} onChange={(event) => patchDraft('appearance', { density: event.target.value as CrmPreferences['appearance']['density'] })}><option value="comfortable">Confortável</option><option value="compact">Compacta</option></NativeSelectionSelect></label><label className="field"><span>Menu lateral</span><NativeSelectionSelect value={draft.appearance.sidebar} onChange={(event) => patchDraft('appearance', { sidebar: event.target.value as CrmPreferences['appearance']['sidebar'] })}><option value="expanded">Sempre expandido</option><option value="compact">Sempre compacto</option><option value="auto">Automático por espaço</option></NativeSelectionSelect></label><label className="settings-toggle"><input type="checkbox" checked={draft.appearance.reduceMotion} onChange={(event) => patchDraft('appearance', { reduceMotion: event.target.checked })} /><span><strong>Reduzir animações</strong><small>Remove movimentos não essenciais.</small></span></label></div><div className="settings-actions"><Button variant="secondary" onClick={() => setActiveTab('appearance')}><Palette size={16} /> Personalizar cores do CRM</Button></div>
-          </article>
+          <article className="panel settings-compact-link"><div><Palette size={20}/><span><strong>Deseja personalizar a interface?</strong><small>Temas, cores, fontes, densidade e menus estão reunidos em Aparência.</small></span></div><Button variant="secondary" onClick={()=>setActiveTab('appearance')}>Abrir Aparência</Button>          </article>
         </> : null}
 
         {activeTab === 'appearance' ? <div id="settings-appearance"><AppearanceSettingsPanel
@@ -401,7 +394,10 @@ export function SettingsPage() {
               <label className="field"><span>Silenciar a partir de</span><input type="time" disabled={!experience.preferences.notifications.quietHoursEnabled} value={experience.preferences.notifications.quietStart} onChange={(event) => experience.updateNotifications({ quietStart: event.target.value })} /></label>
               <label className="field"><span>Voltar a avisar às</span><input type="time" disabled={!experience.preferences.notifications.quietHoursEnabled} value={experience.preferences.notifications.quietEnd} onChange={(event) => experience.updateNotifications({ quietEnd: event.target.value })} /></label>
             </div>
-            <div className="settings-actions"><span className="settings-copy">{experience.syncing ? 'Sincronizando preferências...' : experience.lastSyncedAt ? 'Preferências de notificação sincronizadas com seu usuário.' : 'Preferências de notificação salvas neste dispositivo.'}</span></div>
+            <div className="settings-actions">
+                <Button variant="secondary" disabled={browserPermission!=='granted'} onClick={()=>{try{new Notification('RealTalent CRM · Teste',{body:'As notificações do navegador estão funcionando neste dispositivo.'})}catch{notify('error','O navegador não permitiu criar a notificação de teste.')}}}><Bell size={16}/> Testar aviso no navegador</Button>
+                <span className="settings-copy">{experience.syncing ? 'Sincronizando preferências...' : experience.lastSyncedAt ? 'Preferências de notificação sincronizadas com seu usuário.' : 'Preferências de notificação salvas neste dispositivo.'}</span>
+              </div>
           </article>
         </> : null}
 
@@ -429,7 +425,7 @@ export function SettingsPage() {
               <div className="sidebar-studio__preview-item is-active"><LayoutGrid size={15}/><span>Meu Dia</span></div>
               <div className="sidebar-studio__preview-item"><Users size={15}/><span>Contatos</span></div>
               <div className="sidebar-studio__preview-item"><MoreHorizontal size={15}/><span>Mais ferramentas</span></div>
-              {draft.appearance.sidebarShowProfile ? <div className="sidebar-studio__preview-profile">M <span>Marcelo</span></div> : null}
+              {draft.appearance.sidebarShowProfile ? <div className="sidebar-studio__preview-profile">{(auth.user?.displayName??'U').slice(0,1).toUpperCase()} <span>{auth.user?.displayName??'Usuário'}</span></div> : null}
             </div>
           </section>
           <div id="settings-navigation-tools" className="navigation-editor__subheading"><strong>Ferramentas e posição</strong><span>Menu principal, Mais ferramentas ou oculto.</span></div>
@@ -469,11 +465,14 @@ export function SettingsPage() {
               <label className="settings-toggle"><input type="checkbox" checked={draft.commercial.leadScoring.enabled} onChange={(event) => patchLeadScoring({ enabled: event.target.checked })} /><span><strong>Ativar Lead Score</strong><small>Calcula uma pontuação explicável de 0 a 100 para cada lead ativo.</small></span></label>
               <label className="settings-toggle"><input type="checkbox" checked={draft.commercial.leadScoring.autoReclassify} disabled={!draft.commercial.leadScoring.enabled} onChange={(event) => patchLeadScoring({ autoReclassify: event.target.checked })} /><span><strong>Reclassificar automaticamente</strong><small>Atualiza prioridade e temperatura quando o score muda.</small></span></label>
             </div>
+            <details className="settings-advanced-section"><summary>Configurar pesos do Lead Score</summary>
             <div className="lead-score-settings__section"><strong>Peso dos critérios</strong><div className="settings-form-grid settings-form-grid--3">
               <label className="field"><span>Perfil</span><input type="number" min="0" max="100" value={draft.commercial.leadScoring.weights.profile} onChange={(event) => patchLeadScoringWeights({ profile: Number(event.target.value) })} /><small>Dados, ICP, cidade e origem.</small></label>
               <label className="field"><span>Comportamento</span><input type="number" min="0" max="100" value={draft.commercial.leadScoring.weights.behavior} onChange={(event) => patchLeadScoringWeights({ behavior: Number(event.target.value) })} /><small>Respostas, reuniões e atividades.</small></label>
               <label className="field"><span>Potencial</span><input type="number" min="0" max="100" value={draft.commercial.leadScoring.weights.potential} onChange={(event) => patchLeadScoringWeights({ potential: Number(event.target.value) })} /><small>Valor, etapa e previsão de fechamento.</small></label>
             </div></div>
+            </details>
+            <details className="settings-advanced-section"><summary>Limites de classificação</summary>
             <div className="lead-score-settings__section"><strong>Faixas de classificação</strong><div className="settings-form-grid settings-form-grid--3">
               <label className="field"><span>Prioridade média</span><input type="number" min="1" max="90" value={draft.commercial.leadScoring.thresholds.medium} onChange={(event) => patchLeadScoringThresholds({ medium: Number(event.target.value) })} /></label>
               <label className="field"><span>Prioridade alta</span><input type="number" min="2" max="95" value={draft.commercial.leadScoring.thresholds.high} onChange={(event) => patchLeadScoringThresholds({ high: Number(event.target.value) })} /></label>
@@ -482,6 +481,8 @@ export function SettingsPage() {
               <label className="field"><span>Temperatura quente</span><input type="number" min="2" max="100" value={draft.commercial.leadScoring.thresholds.hot} onChange={(event) => patchLeadScoringThresholds({ hot: Number(event.target.value) })} /></label>
               <label className="field"><span>Lead parado após</span><input type="number" min="1" max="180" value={draft.commercial.leadScoring.staleDays} onChange={(event) => patchLeadScoring({ staleDays: Number(event.target.value) })} /><small>Dias sem interação.</small></label>
             </div></div>
+            </details>
+            <details className="settings-advanced-section"><summary>Perfil ideal e limites financeiros</summary>
             <div className="lead-score-settings__section"><strong>Potencial financeiro e perfil ideal</strong><div className="settings-form-grid settings-form-grid--3">
               <label className="field"><span>Valor relevante</span><input type="number" min="0" step="500" value={draft.commercial.leadScoring.mediumValue} onChange={(event) => patchLeadScoring({ mediumValue: Number(event.target.value) })} /></label>
               <label className="field"><span>Alto valor</span><input type="number" min="0" step="500" value={draft.commercial.leadScoring.highValue} onChange={(event) => patchLeadScoring({ highValue: Number(event.target.value) })} /></label>
@@ -489,11 +490,13 @@ export function SettingsPage() {
               <label className="field"><span>Origens preferenciais</span><textarea rows={4} value={joinList(draft.commercial.leadScoring.preferredSources)} onChange={(event) => patchLeadScoring({ preferredSources: splitList(event.target.value) })} /></label>
               <label className="field"><span>Tags do cliente ideal</span><textarea rows={4} value={joinList(draft.commercial.leadScoring.idealTags)} onChange={(event) => patchLeadScoring({ idealTags: splitList(event.target.value) })} /></label>
             </div></div>
+            </details>
             <p className="settings-copy">O score é recalculado com os dados atuais e sempre mostra os critérios que aumentaram a prioridade. A reclassificação não altera etapas nem cria atividades.</p>
           </article>
           <article className="panel deal-intelligence-settings">
             <div className="panel__heading"><div><span className="eyebrow">Deal Intelligence</span><h3>Saúde, risco e próxima melhor ação</h3><p>O RealTalent calcula a saúde da oportunidade com regras explicáveis e usa os riscos para priorizar ações.</p></div><Sparkles size={22} /></div>
             <label className="settings-toggle"><input type="checkbox" checked={draft.commercial.dealIntelligence.enabled} onChange={(event) => patchDealIntelligence({ enabled: event.target.checked })} /><span><strong>Ativar Deal Intelligence</strong><small>Exibe Deal Health, momentum, riscos e probabilidade RealTalent no Pipeline, Meu Dia e ficha comercial.</small></span></label>
+            <details className="settings-advanced-section"><summary>Configurar pesos da oportunidade</summary>
             <div className="lead-score-settings__section"><strong>Peso dos sinais</strong><div className="settings-form-grid settings-form-grid--3">
               <label className="field"><span>Atividade</span><input type="number" min="0" max="100" value={draft.commercial.dealIntelligence.weights.activity} onChange={(event) => patchDealIntelligenceWeights({ activity: Number(event.target.value) })} /><small>Recência e frequência de interações.</small></label>
               <label className="field"><span>Stakeholders</span><input type="number" min="0" max="100" value={draft.commercial.dealIntelligence.weights.stakeholders} onChange={(event) => patchDealIntelligenceWeights({ stakeholders: Number(event.target.value) })} /><small>Cobertura e força de relacionamento.</small></label>
@@ -502,6 +505,8 @@ export function SettingsPage() {
               <label className="field"><span>Timing</span><input type="number" min="0" max="100" value={draft.commercial.dealIntelligence.weights.timing} onChange={(event) => patchDealIntelligenceWeights({ timing: Number(event.target.value) })} /><small>Previsão de fechamento e envelhecimento.</small></label>
               <label className="field"><span>Engajamento</span><input type="number" min="0" max="100" value={draft.commercial.dealIntelligence.weights.engagement} onChange={(event) => patchDealIntelligenceWeights({ engagement: Number(event.target.value) })} /><small>Resultados de chamadas, reuniões e proposta.</small></label>
             </div></div>
+            </details>
+            <details className="settings-advanced-section"><summary>Limites e alertas comerciais</summary>
             <div className="lead-score-settings__section"><strong>Limites de risco</strong><div className="settings-form-grid settings-form-grid--3">
               <label className="field"><span>Negócio parado após</span><input type="number" min="1" max="90" value={draft.commercial.dealIntelligence.staleDays} onChange={(event) => patchDealIntelligence({ staleDays: Number(event.target.value) })} /><small>Dias sem interação concluída.</small></label>
               <label className="field"><span>Follow-up de proposta</span><input type="number" min="1" max="30" value={draft.commercial.dealIntelligence.proposalFollowupDays} onChange={(event) => patchDealIntelligence({ proposalFollowupDays: Number(event.target.value) })} /><small>Dias após visualização sem retorno.</small></label>
@@ -509,6 +514,7 @@ export function SettingsPage() {
               <label className="field"><span>Valor exige decisor</span><input type="number" min="0" step="500" value={draft.commercial.dealIntelligence.highValueThreshold} onChange={(event) => patchDealIntelligence({ highValueThreshold: Number(event.target.value) })} /><small>Acima deste valor, ausência de decisor vira risco alto.</small></label>
               <label className="field"><span>Valor exige multithreading</span><input type="number" min="0" step="500" value={draft.commercial.dealIntelligence.singleThreadThreshold} onChange={(event) => patchDealIntelligence({ singleThreadThreshold: Number(event.target.value) })} /><small>Acima deste valor, depender de um único contato gera alerta.</small></label>
             </div></div>
+            </details>
             <p className="settings-copy">A probabilidade RealTalent não substitui a probabilidade do vendedor: ela funciona como contraponto baseado em evidências. Todo score mostra seus componentes e riscos de origem.</p>
           </article>
           <article id="settings-commercial-pipeline" className="panel"><div className="panel__heading"><div><span className="eyebrow">Pipeline</span><h3>Etapas e probabilidades</h3></div><Gauge size={22} /></div><div className="settings-stage-list">{snapshot?.stages.map((stage) => <StageRow stage={stage} key={stage.id} />)}</div><div className="settings-new-stage"><input value={newStageName} onChange={(event) => setNewStageName(event.target.value)} placeholder="Nome da nova etapa" /><input type="number" min="0" max="100" value={newStageProbability} onChange={(event) => setNewStageProbability(Number(event.target.value))} /><Button disabled={!newStageName.trim()} onClick={async () => { await app.createStage({ name: newStageName, color: '#64748b', probability: newStageProbability, isWon: false, isLost: false }); setNewStageName(''); setNewStageProbability(10) }}><Plus size={16} /> Adicionar etapa</Button></div><label className="settings-toggle"><input type="checkbox" checked={draft.commercial.requireNextActionForActiveLeads} onChange={(event) => patchDraft('commercial', { requireNextActionForActiveLeads: event.target.checked })} /><span><strong>Exigir próxima ação nos negócios ativos</strong><small>Impede avanço no funil sem data e próximo passo. Prazos e critérios detalhados são configurados no menu de cada coluna do Pipeline.</small></span></label></article>

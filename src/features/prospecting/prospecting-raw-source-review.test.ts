@@ -25,6 +25,14 @@ describe('Revisão única das fontes do Garimpo', () => {
     expect(rawSourceKey('execution-01', instance.sourceLog![0])).toBe(rawSourceKey('execution-01', instance.sourceLog![1]))
   })
 
+  it('inclui rejeições estruturadas mesmo quando ausentes no log de origem', () => {
+    const instance = {
+      ...job([]),
+      rejections: [{ name: 'Documento descartado', source: 'web_discovery', type: 'content', reason: 'Não é empresa', at: '' }],
+    } as ProspectingAgentJob
+    expect(rawSourceReviewCount(instance)).toBe(1)
+  })
+
   it('mantém a contagem zerada sem execução', () => {
     expect(rawSourceReviewCount(null)).toBe(0)
   })

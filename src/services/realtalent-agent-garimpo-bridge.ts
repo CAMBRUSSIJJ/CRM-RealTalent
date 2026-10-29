@@ -131,8 +131,13 @@ export async function handleGarimpoFromMainAgent(
   // model mistakenly classified it as general advice.
   const requestedSearch=explicitSearchVerb.test(normalized(input.prompt))&&!negatedSearch.test(normalized(input.prompt))
   const specifiedSegment=segmentStatedByUser(input.prompt)
-  if(requestedSearch&&plan.intent==='answer')
-    plan={...plan,intent:plan.city.trim()&&(specifiedSegment||plan.segment.trim())?'search':'clarify'}
+  if(requestedSearch&&plan.intent==='answer'){
+    const ready=Boolean(plan.city.trim()&&(specifiedSegment||plan.segment.trim()))
+    plan={...plan,intent:ready?'search':'clarify',
+      answer:ready?'Preparando consulta territorial real.':
+        !plan.city.trim()?'Em qual cidade ou região devo buscar empresas reais?':
+          'Qual segmento de empresas devo pesquisar?'}
+  }
   if(requestedSearch&&plan.intent==='search'&&specifiedSegment)
     plan={...plan,segment:specifiedSegment}
   // A direct command to find companies must NOT be downgraded to advice.

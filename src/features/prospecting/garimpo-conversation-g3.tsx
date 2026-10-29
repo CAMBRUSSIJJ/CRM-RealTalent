@@ -27,7 +27,7 @@ interface Props {
   onSearch(request:GarimpoSearchProposal):Promise<boolean>
   onReview():void
 }
-const starter:Message={role:'assistant',text:'Posso buscar empresas na região escolhida, priorizar as que já estão na revisão e explicar os sinais comerciais. O envio ao CRM continua sob sua decisão.'}
+const starter:Message={role:'assistant' as const,text:'Posso buscar empresas na região escolhida, priorizar as que já estão na revisão e explicar os sinais comerciais. O envio ao CRM continua sob sua decisão.'}
 const safeText=(value:unknown,max=500)=>typeof value==='string'?value.trim().slice(0,max):''
 const validPlan=(value:unknown):value is Plan=>{
   if(!value||typeof value!=='object')return false
@@ -61,7 +61,7 @@ export function GarimpoConversationG3({
     setMessage('')
     setPending(null)
     const previous=turns.slice(-6)
-    setTurns(current=>[...current,{role:'user',text:prompt}].slice(-24))
+    setTurns(current=>[...current,{role:'user' as const,text:prompt}].slice(-24))
     setThinking(true)
     const controller=new AbortController()
     abortRef.current?.abort()
@@ -108,9 +108,9 @@ export function GarimpoConversationG3({
         onReview()
         reply='Abri a revisão das empresas disponíveis. Você pode analisar os dados e aprovar cada registro manualmente.'
       }else if(plan.intent==='clarify')reply=reply||'Qual segmento e cidade devo considerar?'
-      setTurns(current=>[...current,{role:'assistant',text:reply}].slice(-24))
+      setTurns(current=>[...current,{role:'assistant' as const,text:reply}].slice(-24))
     }catch(error){
-      if(!controller.signal.aborted)setTurns(current=>[...current,{role:'assistant',text:error instanceof Error?error.message:'Não consegui conversar com o Agent.'}].slice(-24))
+      if(!controller.signal.aborted)setTurns(current=>[...current,{role:'assistant' as const,text:error instanceof Error?error.message:'Não consegui conversar com o Agent.'}].slice(-24))
     }finally{
       clearTimeout(timer)
       if(abortRef.current===controller){abortRef.current=null;setThinking(false)}
@@ -122,12 +122,12 @@ export function GarimpoConversationG3({
     setExecuting(true)
     try{
       const ok=await onSearch(proposal)
-      setTurns(current=>[...current,{role:'assistant',text:ok?
+      setTurns(current=>[...current,{role:'assistant' as const,text:ok?
         'Busca iniciada pelo motor territorial. Os resultados reais serão encaminhados à Revisão; acompanhe o progresso na aba Buscar.':
         'A pesquisa não foi iniciada. Confira as permissões, o motor do Garimpo e o território selecionado.'}].slice(-24))
       if(ok)setPending(null)
     }catch(error){
-      setTurns(current=>[...current,{role:'assistant',text:error instanceof Error?error.message:'Não foi possível iniciar a busca.'}].slice(-24))
+      setTurns(current=>[...current,{role:'assistant' as const,text:error instanceof Error?error.message:'Não foi possível iniciar a busca.'}].slice(-24))
     }finally{setExecuting(false)}
   }
   const onKeyDown=(event:KeyboardEvent<HTMLTextAreaElement>)=>{

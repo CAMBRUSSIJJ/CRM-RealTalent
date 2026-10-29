@@ -44,6 +44,9 @@ jobs:
           grep -q 'PIPESTATUS\[0\]' scripts/garimpo-g1g2-linux/abrir-com-diagnostico.sh
           grep -q 'ultimo-inicio.log' scripts/garimpo-g1g2-linux/abrir-com-diagnostico.sh
           grep -q -- '--port 4197 --strictPort' scripts/garimpo-g1g2-linux/abrir-local.sh
+          grep -q 'node scripts/start.mjs --dev' scripts/garimpo-g1g2-linux/abrir-local.sh
+          grep -q 'for service_port in 3001 3002 3003' scripts/garimpo-g1g2-linux/abrir-local.sh
+          node --check scripts/start.mjs
           grep -q -- 'node scripts/realtalent-prospecting-agent.mjs' scripts/garimpo-g1g2-linux/abrir-local.sh
           grep -q -- '/api/prospecting-agent/health' scripts/garimpo-g1g2-linux/abrir-local.sh
           grep -q -- 'VITE_PROSPECTING_GATEWAY_URL=' scripts/garimpo-g1g2-linux/abrir-local.sh

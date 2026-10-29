@@ -141,14 +141,16 @@ if command -v xdg-open >/dev/null 2>&1; then
   ( sleep 3; xdg-open 'http://127.0.0.1:4197' >/dev/null 2>&1 || true ) &
 fi
 
-# The old launcher started only Vite, Ollama and prospecting. That made
-# /__rt/communications (3002) and /__rt/runtime (3003) return HTTP 502.
-# Use the existing supported RealTalent local runtime to manage Connect,
-# Communications, Runtime Control and their healthchecks.
-# NEVER reclaim ports owned by a second installation (including V6.4).
+# Run the supported local Communications runtime alongside the existing
+# Garimpo engine. Use dedicated ports so this preview cannot take over V6.4
+# or an unrelated CRM's communications/voice sessions.
+# Auth token is injected by scripts/start.mjs into Vite and all services.
+RT_CONNECT_PORT=3011
+RT_COMM_PORT=3012
+RT_CONTROL_PORT=3013
 COMMUNICATIONS_PORTS_FREE=1
 if command -v ss >/dev/null 2>&1; then
-  for service_port in 3001 3002 3003; do
+  for service_port in "$RT_CONNECT_PORT" "$RT_COMM_PORT" "$RT_CONTROL_PORT"; do
     if ss -ltn "( sport = :$service_port )" | grep -q LISTEN; then
       COMMUNICATIONS_PORTS_FREE=0
       echo "ATENCAO: porta $service_port usada. Preservando o outro runtime RealTalent, sem encerrar nenhum processo."
@@ -165,10 +167,12 @@ if [[ "${REALTALENT_GARIMPO_SKIP_MANAGED_RUNTIME:-0}" == "1" ]]; then
 fi
 
 if (( COMMUNICATIONS_PORTS_FREE )); then
-  echo 'Iniciando Runtime RealTalent: Connect 3001 | WhatsApp 3002 | Controle 3003'
-  echo 'O supervisor verifica a conexao e evita simular sessao conectada.'
-  if PORT=4197 REALTALENT_CRM_PORT=4197 REALTALENT_PROSPECTING_AGENT_PORT="$PROSPECTING_PORT" REALTALENT_NO_BROWSER=1 \
-    node scripts/start.mjs --dev; then
+  echo "Iniciando runtime isolado: Connect $RT_CONNECT_PORT | WhatsApp $RT_COMM_PORT | Controle $RT_CONTROL_PORT"
+  echo 'O Garimpo continua sob o inicializador dedicado, sem substituição de PID ou arquivos.'
+  if PORT=4197 REALTALENT_CRM_PORT=4197 REALTALENT_CONNECT_PORT="$RT_CONNECT_PORT" \
+    REALTALENT_COMMUNICATIONS_PORT="$RT_COMM_PORT" REALTALENT_RUNTIME_CONTROL_PORT="$RT_CONTROL_PORT" \
+    REALTALENT_PROSPECTING_AGENT_PORT="$PROSPECTING_PORT" REALTALENT_NO_BROWSER=1 \
+    node scripts/start.mjs --garimpo; then
     :
   else
     runtime_result=$?

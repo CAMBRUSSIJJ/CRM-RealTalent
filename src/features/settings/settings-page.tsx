@@ -29,6 +29,8 @@ import { PagePersonalizationSettings } from './page-personalization-settings'
 import { MapsIntegrationPanel } from './maps-integration-panel'
 import { PermissionMatrixPanel } from './permission-matrix-panel'
 import { AppearanceSettingsPanel } from './appearance-settings-panel'
+import { SETTINGS_GUIDES } from './settings-guides'
+import '../../styles/settings-automation-s1s2.css'
 
 const roleLabels: Record<WorkspaceRole, string> = { owner: 'Proprietário', admin: 'Administrador', member: 'Membro', viewer: 'Somente leitura' }
 const actionLabels: Record<string, string> = { insert: 'Criou', update: 'Atualizou', delete: 'Excluiu', lead_merged: 'Mesclou duplicados', invite_created: 'Criou convite', invite_revoked: 'Revogou convite', invite_accepted: 'Aceitou convite', member_role_updated: 'Alterou permissão', member_removed: 'Removeu membro' }
@@ -75,11 +77,15 @@ function StageRow({ stage }: { stage: PipelineStage }) {
 export function SettingsPage() {
   const app = useApp()
   const auth = useAuth()
-  const { preferences, savePreferences, resetPreferences } = usePreferences()
+  const { preferences, savePreferencesChecked, resetPreferencesChecked } = usePreferences()
   const experience = useExperience()
   const { repositoryMode, health, currentWorkspace, snapshot, importLegacyBackup, restoreWorkspaceBackup, notify, refresh } = app
   const [activeTab, setActiveTab] = useState<SettingsTab>(() => ['notifications', 'calendar', 'whatsapp', 'ai', 'navigation', 'pages', 'appearance', 'experience', 'maps'].includes(String(app.routeContext.filter)) ? app.routeContext.filter as SettingsTab : 'account')
   const [settingsQuery, setSettingsQuery] = useState('')
+  const [autoVisual, setAutoVisual] = useState(true)
+  const [savePhase, setSavePhase] = useState<'idle'|'saving'|'saved'|'error'>('idle')
+  const [saveProblem, setSaveProblem] = useState('')
+  const saveBusyRef = useRef(false)
   const [collapsedGroups, setCollapsedGroups] = useState<SettingsGroup[]>([])
   const [diagnosticsCollapsed, setDiagnosticsCollapsed] = useState(true)
   const [draft, setDraft] = useState<CrmPreferences>(preferences)
@@ -144,7 +150,31 @@ export function SettingsPage() {
   ], [currentWorkspace, health, integrity, repositoryMode, snapshot])
   const readiness = Math.round((((checks.filter((check) => check.ok).length / checks.length) * 60) + ((integrity?.score ?? 0) * 0.4)))
 
-  const saveDraft = () => { if (!canWrite) { notify('info', 'Seu perfil possui acesso somente para leitura.'); return }; savePreferences(draft); notify('success', 'Configurações aplicadas ao workspace.') }
+  const saveDraft = async (next:CrmPreferences=draft,quiet=false) => {
+    if(!canWrite){notify('info','Seu perfil possui acesso somente para leitura.');return}
+    if(saveBusyRef.current)return
+    saveBusyRef.current=true
+    setSavePhase('saving')
+    setSaveProblem('')
+    try{
+      await savePreferencesChecked(next)
+      setSavePhase('saved')
+      if(!quiet)notify('success',repositoryMode==='local'?
+        'Preferências salvas neste ambiente local.':'Configurações confirmadas no workspace.')
+    }catch(error){
+      const reason=error instanceof Error?error.message:'Não foi possível confirmar a sincronização.'
+      setSavePhase('error')
+      setSaveProblem(reason)
+      if(!quiet)notify('error',reason)
+    }finally{saveBusyRef.current=false}
+  }
+  useEffect(()=>{
+    if(!autoVisual||!dirty||!canWrite||saveBusyRef.current||!['appearance','navigation'].includes(activeTab))return
+    const timer=window.setTimeout(()=>void saveDraft(draft,true),1100)
+    return ()=>window.clearTimeout(timer)
+    // saving is deliberately scoped to cosmetic changes, not commercial,
+    // access control, integrations, scoring or data destruction.
+  },[activeTab,autoVisual,canWrite,dirty,draft])
   const patchDraft = <K extends Exclude<keyof CrmPreferences, 'version'>>(section: K, patch: Partial<CrmPreferences[K]>) => setDraft((current) => ({ ...current, [section]: { ...current[section], ...patch } }))
   const patchLeadScoring = (patch: Partial<CrmPreferences['commercial']['leadScoring']>) => patchDraft('commercial', { leadScoring: { ...draft.commercial.leadScoring, ...patch } })
   const patchLeadScoringWeights = (patch: Partial<CrmPreferences['commercial']['leadScoring']['weights']>) => patchLeadScoring({ weights: { ...draft.commercial.leadScoring.weights, ...patch } })
@@ -179,10 +209,16 @@ export function SettingsPage() {
     try {
       const raw = await file.text()
       const parsed = JSON.parse(raw) as { preferences?: CrmPreferences; workspace?: { snapshot?: unknown }; snapshot?: unknown }
-      if (parsed.preferences) savePreferences(parsed.preferences)
+      // Validate/import data FIRST. A failed import must not partially change
+      // workspace appearance, scoring or security preferences.
       const result = parsed.workspace?.snapshot || parsed.snapshot ? await restoreWorkspaceBackup(file) : await importLegacyBackup(file)
+      let preferencesApplied=false
+      if(parsed.preferences){
+        await savePreferencesChecked(parsed.preferences)
+        preferencesApplied=true
+      }
       setRestoreWarnings(result.warnings)
-      notify('success', `${result.imported} registro(s) restaurado(s); preferências aplicadas quando disponíveis.`)
+      notify('success', `${result.imported} registro(s) restaurado(s); ${preferencesApplied?'preferências confirmadas.':'sem novas preferências.'}`)
     } catch (error) { notify('error', error instanceof Error ? error.message : 'Não foi possível restaurar o backup.') }
     finally { setRestoring(false); if (restoreRef.current) restoreRef.current.value = '' }
   }
@@ -247,6 +283,13 @@ export function SettingsPage() {
   const filteredTabItems = normalizedQuery ? tabItems.filter((item) => `${item.label} ${item.description} ${item.keywords}`.toLocaleLowerCase('pt-BR').includes(normalizedQuery)) : tabItems
   const searchResults = normalizedQuery ? settingsSearchTargets.filter((item) => `${item.label} ${item.path} ${item.keywords}`.toLocaleLowerCase('pt-BR').includes(normalizedQuery)).slice(0, 8) : []
   const activeTabMeta = tabItems.find((item) => item.id === activeTab) ?? tabItems[0]
+  const tabGuide = SETTINGS_GUIDES[activeTab]
+  const visualAutoEligible=activeTab==='appearance'||activeTab==='navigation'
+  const statusLabel=savePhase==='saving'?'Salvando…':
+    savePhase==='error'?'Falha na sincronização':
+    dirty?(visualAutoEligible&&autoVisual?'Ajustes visuais pendentes':'Alterações pendentes'):
+    repositoryMode==='local'?'Salvo neste dispositivo':'Configuração aplicada'
+  const statusTone=savePhase==='error'?'danger':savePhase==='saving'?'info':dirty?'warning':'success'
   const jumpToSetting = (tab: SettingsTab, anchor?: string) => {
     setActiveTab(tab)
     setSettingsQuery('')
@@ -266,7 +309,7 @@ export function SettingsPage() {
           {normalizedQuery ? <div className="settings-search-results" role="listbox" aria-label="Resultados da busca">{searchResults.length ? searchResults.map((result) => <button key={result.id} type="button" onClick={() => jumpToSetting(result.tab, result.anchor)}><Search size={14}/><span><strong>{result.label}</strong><small>{result.path}</small></span></button>) : <div className="settings-search-empty">Nenhuma configuração encontrada. Tente outro termo.</div>}</div> : null}
         </div>
       </WorkspaceCommandGroup>
-      <WorkspaceCommandGroup align="end"><StatusPill tone={dirty ? 'warning' : 'success'}>{dirty ? 'Alterações pendentes' : 'Tudo salvo'}</StatusPill></WorkspaceCommandGroup>
+      <WorkspaceCommandGroup align="end"><StatusPill tone={statusTone}>{statusLabel}</StatusPill></WorkspaceCommandGroup>
     </WorkspaceCommandBar>
 
     <div className="settings-v1100__body">
@@ -281,11 +324,18 @@ export function SettingsPage() {
             {!collapsed ? <div className="settings-nav-group__items">{items.map(({ id, label, icon: Icon }) => <button key={id} type="button" className={activeTab === id ? 'is-active' : ''} onClick={() => jumpToSetting(id)}><Icon size={17}/><span>{label}</span></button>)}</div> : null}
           </div>
         })}
-        <div className="settings-v1100__nav-status"><StatusPill tone={dirty ? 'warning' : 'success'}>{dirty ? 'Alterações pendentes' : 'Tudo salvo'}</StatusPill></div>
+        <div className="settings-v1100__nav-status"><StatusPill tone={statusTone}>{statusLabel}</StatusPill></div>
       </aside>
 
       <main className="settings-v1100__content page-stack">
-        <section className="settings-section-intro settings-v1100__page-intro"><div><span>Configurações / {activeTabMeta.group}</span><h3>{activeTabMeta.label}</h3><p>{activeTabMeta.description}</p></div><StatusPill tone={dirty ? 'warning' : 'success'}>{dirty ? 'Não aplicado' : 'Atualizado'}</StatusPill></section>
+        <section className="settings-section-intro settings-v1100__page-intro"><div><span>Configurações / {activeTabMeta.group}</span><h3>{activeTabMeta.label}</h3><p>{activeTabMeta.description}</p></div><StatusPill tone={statusTone}>{statusLabel}</StatusPill></section>
+        <section className="settings-smartbar" aria-label="Assistência contextual de configuração">
+          <span className="settings-smartbar__icon"><Sparkles size={18}/></span>
+          <div><strong>{tabGuide.title}</strong><p>{tabGuide.description}</p></div>
+          <span className="settings-smartbar__scope">{tabGuide.scope}</span>
+          {visualAutoEligible?<label className="settings-smartbar__auto"><input type="checkbox" checked={autoVisual} onChange={event=>setAutoVisual(event.target.checked)} disabled={!canWrite}/><span>Salvar visual automaticamente</span></label>:null}
+        </section>
+        {savePhase==='error'?<div className="settings-save-error" role="alert"><AlertTriangle size={17}/><span>{saveProblem} As alterações continuam na tela; tente salvar novamente.</span><Button variant="secondary" size="sm" disabled={!dirty} onClick={()=>void saveDraft()}>Tentar novamente</Button></div>:null}
         {!diagnosticsCollapsed ? <section className="settings-health-panel panel"><div className="settings-health-panel__heading"><div><span className="eyebrow">Saúde do sistema</span><h3>Diagnóstico do workspace</h3><p>Informações técnicas ficam recolhidas e só aparecem quando você precisar investigar o ambiente.</p></div><Button size="sm" variant="ghost" onClick={() => setDiagnosticsCollapsed(true)}>Fechar</Button></div><div className="settings-health-metrics"><span><small>Integridade</small><strong>{integrity?.score ?? '—'}%</strong></span><span><small>Prontidão</small><strong>{readiness}%</strong></span><span><small>Banco</small><strong>{health?.connected ? 'Online' : repositoryMode === 'local' ? 'Local' : 'Atenção'}</strong></span><span><small>Repositório</small><strong>{repositoryMode}</strong></span></div><details className="settings-health-details"><summary>Ver verificações técnicas</summary><div className="production-checks">{checks.map((check) => <div className="production-check" key={check.label}>{check.ok ? <CheckCircle2 className="text-success" /> : <AlertTriangle className="text-warning" />}<div><strong>{check.label}</strong><small>{check.detail}</small></div></div>)}</div></details></section> : null}
         {activeTab === 'account' ? <>
           <article className="panel"><div className="panel__heading"><div><span className="eyebrow">Conta</span><h3>Perfil e recuperação</h3></div><KeyRound size={22} /></div>
@@ -478,10 +528,10 @@ export function SettingsPage() {
           <article id="settings-data-security" className="panel"><div className="panel__heading"><div><span className="eyebrow">Proteção</span><h3>Regras administrativas</h3></div><LockKeyhole size={22} /></div><div className="settings-form-grid settings-form-grid--3"><label className="settings-toggle"><input type="checkbox" checked={draft.security.confirmCriticalActions} onChange={(event) => patchDraft('security', { confirmCriticalActions: event.target.checked })} /><span><strong>Confirmar ações críticas</strong><small>Solicita confirmação em exclusões e limpezas.</small></span></label><label className="settings-toggle"><input type="checkbox" checked={draft.security.autoBackupReminder} onChange={(event) => patchDraft('security', { autoBackupReminder: event.target.checked })} /><span><strong>Lembrete de backup</strong><small>Recomenda exportação antes de mudanças grandes.</small></span></label><label className="field"><span>Retenção de auditoria</span><NativeSelectionSelect value={draft.security.auditRetentionDays} onChange={(event) => patchDraft('security', { auditRetentionDays: Number(event.target.value) })}><option value="30">30 dias</option><option value="90">90 dias</option><option value="180">180 dias</option><option value="365">1 ano</option></NativeSelectionSelect></label></div></article>
           <article className="panel"><div className="panel__heading"><div><span className="eyebrow">Diagnóstico operacional local</span><h3>Falhas recentes</h3></div><AlertTriangle size={22} /></div><p className="settings-copy">Registra no próprio navegador erros inesperados e perda de conexão, com referência para suporte. Não envia dados para terceiros.</p><div className="settings-actions"><Button variant="secondary" onClick={() => setDiagnostics(listDiagnostics())}><RefreshCw size={16} /> Atualizar</Button><Button variant="secondary" disabled={!diagnostics.length} onClick={() => downloadJson(`realtalent-diagnostico-${new Date().toISOString().slice(0, 10)}.json`, diagnostics)}><Download size={16} /> Exportar diagnóstico</Button><Button variant="ghost" disabled={!diagnostics.length} onClick={() => { clearDiagnostics(); setDiagnostics([]) }}><Trash2 size={16} /> Limpar</Button></div><div className="audit-list">{diagnostics.length ? diagnostics.slice(0, 10).map((item) => <div className="audit-row" key={item.id}><span><strong>{item.reference}</strong> {item.message} <em>{item.source}</em></span><time>{formatDateTime(item.createdAt)}</time></div>) : <p className="settings-copy">Nenhuma falha operacional registrada neste navegador.</p>}</div></article>
           {canManageTeam ? <article className="panel"><div className="panel__heading"><div><span className="eyebrow">Auditoria</span><h3>Alterações recentes</h3></div><ShieldCheck size={22} /></div><div className="audit-list">{auditLogs.length ? auditLogs.map((log) => <div className="audit-row" key={log.id}><span><strong>{log.userName}</strong> {actionLabels[log.action] ?? log.action} <em>{log.entityType}</em></span><time>{formatDateTime(log.createdAt)}</time></div>) : <p className="settings-copy">Nenhuma alteração auditada ainda.</p>}</div></article> : null}
-          {canManageTeam ? <article className="panel danger-zone"><div className="panel__heading"><div><span className="eyebrow">Zona de risco</span><h3>Limpeza e restauração visual</h3></div><Trash2 size={22} /></div><div className="danger-zone__grid"><div><strong>Restaurar configurações</strong><p>Volta tema, marca, navegação e regras comerciais ao padrão do workspace. Os contatos não são alterados.</p><Button variant="secondary" onClick={() => void (async () => { if (await app.confirmAction({ title: 'Restaurar configurações?', description: 'Tema, marca, navegação e regras comerciais voltarão ao padrão. Os leads não serão alterados.', confirmLabel: 'Restaurar padrões', tone: 'warning' })) { resetPreferences(); notify('success', 'Configurações restauradas.') } })()}><RotateCcw size={16} /> Restaurar padrões</Button></div><div><strong>Limpar dados operacionais</strong><p>Remove contatos, atividades, ligações, agenda, playbooks, metas e automações. Mantém o workspace, equipe, Pipeline e configurações.</p><label className="field"><span>Digite APAGAR para confirmar</span><input value={dangerText} onChange={(event) => setDangerText(event.target.value)} /></label><Button variant="danger" loading={clearing} disabled={dangerText !== 'APAGAR'} onClick={() => void clearWorkspace()}><Trash2 size={16} /> Limpar dados</Button></div></div></article> : null}
+          {canManageTeam ? <article className="panel danger-zone"><div className="panel__heading"><div><span className="eyebrow">Zona de risco</span><h3>Limpeza e restauração visual</h3></div><Trash2 size={22} /></div><div className="danger-zone__grid"><div><strong>Restaurar configurações</strong><p>Volta tema, marca, navegação e regras comerciais ao padrão do workspace. Os contatos não são alterados.</p><Button variant="secondary" onClick={() => void (async () => { if (await app.confirmAction({ title: 'Restaurar configurações?', description: 'Tema, marca, navegação e regras comerciais voltarão ao padrão. Os leads não serão alterados.', confirmLabel: 'Restaurar padrões', tone: 'warning' })) { await saveDraft(createDefaultPreferences(currentWorkspace?.name??'RealTalent')); } })()}><RotateCcw size={16} /> Restaurar padrões</Button></div><div><strong>Limpar dados operacionais</strong><p>Remove contatos, atividades, ligações, agenda, playbooks, metas e automações. Mantém o workspace, equipe, Pipeline e configurações.</p><label className="field"><span>Digite APAGAR para confirmar</span><input value={dangerText} onChange={(event) => setDangerText(event.target.value)} /></label><Button variant="danger" loading={clearing} disabled={dangerText !== 'APAGAR'} onClick={() => void clearWorkspace()}><Trash2 size={16} /> Limpar dados</Button></div></div></article> : null}
         </> : null}
 
-        {dirty ? <div className="settings-savebar"><div><strong>Alterações não salvas</strong><span>{canWrite ? 'Revise e salve para atualizar o workspace.' : 'Seu perfil pode consultar, mas não alterar o workspace.'}</span></div><Button variant="secondary" onClick={() => setDraft(preferences)}><RotateCcw size={16} /> Descartar</Button><Button disabled={!canWrite} onClick={saveDraft}><Save size={16} /> Salvar alterações</Button></div> : null}
+        {dirty ? <div className="settings-savebar" role="status"><div><strong>{savePhase==='saving'?'Confirmando gravação…':statusLabel}</strong><span>{!canWrite?'Seu perfil possui acesso somente para leitura.':visualAutoEligible&&autoVisual?'Aparência e navegação são salvas após 1,1 s sem novas alterações.':'Revise e confirme antes de atualizar o workspace.'}</span></div><Button variant="secondary" disabled={savePhase==='saving'} onClick={() => {setDraft(preferences);setSaveProblem('');setSavePhase('idle')}}><RotateCcw size={16} /> Descartar</Button><Button disabled={!canWrite||savePhase==='saving'} onClick={()=>void saveDraft()}><Save size={16} /> {savePhase==='saving'?'Salvando…':'Aplicar alterações'}</Button></div> : null}
       </main>
 
     </div>

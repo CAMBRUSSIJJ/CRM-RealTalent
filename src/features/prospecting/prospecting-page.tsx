@@ -47,6 +47,7 @@ import { buildProspectingIcp, prospectingIcpSummary, rankProspects } from '../..
 import { ProspectingRedesignSearch, ProspectingRedesignShell } from './prospecting-redesign'
 import { ProspectingG1G2Panel } from './prospecting-g1g2-panel'
 import { GarimpoConversationG3, type GarimpoSearchProposal } from './garimpo-conversation-g3'
+import {GARIMPO_REVIEW_REQUEST,garimpoReviewStorageKey} from '../../services/realtalent-agent-garimpo-bridge'
 
  type ProspectingTab = 'search' | 'local' | 'results' | 'history'
  type ReviewMode = 'list' | 'guided' | 'sources'
@@ -175,6 +176,27 @@ export function ProspectingPage() {
   const [providerDiagnostics, setProviderDiagnostics] = useState<ProspectingProviderDiagnostics | null>(null)
   const [workspaceMembers, setWorkspaceMembers] = useState<WorkspaceMember[]>([])
   const fileInputRef = useRef<HTMLInputElement>(null)
+
+  // Allow the main RealTalent Agent to open this exact Review Workspace even
+  // when the user issued the command from a different CRM route.
+  useEffect(()=>{
+    if(!workspaceId)return
+    const showReview=()=>{
+      setTab('results')
+      setReviewMode('list')
+      setReviewScope('all')
+      setInspectorMode(null)
+      try{window.sessionStorage.removeItem(garimpoReviewStorageKey(workspaceId))}catch{/* storage optional */}
+    }
+    const onReview=(event:Event)=>{
+      const data=(event as CustomEvent<{workspaceId:string}>).detail
+      if(data?.workspaceId===workspaceId)showReview()
+    }
+    window.addEventListener(GARIMPO_REVIEW_REQUEST,onReview)
+    try{if(window.sessionStorage.getItem(garimpoReviewStorageKey(workspaceId))==='1')showReview()}
+    catch{/* storage optional */}
+    return ()=>window.removeEventListener(GARIMPO_REVIEW_REQUEST,onReview)
+  },[workspaceId])
 
   useEffect(() => {
     if (!workspaceId) { setWorkspaceMembers([]); return }

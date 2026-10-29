@@ -534,7 +534,7 @@ export function ProspectingPage() {
       const candidates = agentJob.results.map((entry) => ({ ...entry, agentJobId: agentJob.id }))
       importDrafts(candidates, 'manual', 'capture', 'Resultados da execução atual enviados para revisão', candidates.length, true, false)
     }
-    setReviewScope('all')
+    setReviewScope(mode === 'ready' ? 'ready' : mode === 'attention' ? 'exceptions' : 'all')
     setSelectedIds(new Set())
     const isSource = mode === 'raw' || mode === 'filtered' || mode === 'duplicates'
     setReviewMode(isSource ? 'sources' : 'list')
@@ -1000,7 +1000,7 @@ export function ProspectingPage() {
         </> : null}
       {tab === 'results' ? <div className="prospecting-review-workspace-v101103-h7 prospecting-review-workspace-v101106">
         <section className="panel prospecting-review-modebar-v101103-h7 prospecting-review-modebar-v101106"><div><span className="eyebrow"><ClipboardCheck size={14} /> Central de revisão</span><h3>Todos os resultados em um único lugar</h3><p>Empresas ficam na lista e na revisão guiada. Dados brutos, fontes filtradas e duplicidades ficam disponíveis para triagem, sem envio automático ao CRM.</p></div><div className="prospecting-review-modebar-v101106__actions"><div className="prospecting-review-scope-v101106">{([['exceptions', 'Precisa atenção', metrics.attention], ['ready', 'Prontas', metrics.autoValidatable], ['all', 'Todas', metrics.total]] as Array<[ReviewScope,string,number]>).map(([value,label,count]) => <button type="button" key={value} className={reviewScope === value ? 'is-active' : ''} onClick={() => { setReviewScope(value); setSelectedIds(new Set()) }}>{label}<span>{count}</span></button>)}</div><div className="prospecting-review-switch-v101103-h7"><button type="button" className={reviewMode === 'list' ? 'is-active' : ''} onClick={() => { setReviewMode('list'); setInspectorMode(null) }}><ClipboardList size={15}/> Lista</button><button type="button" className={reviewMode === 'guided' ? 'is-active' : ''} onClick={() => { setReviewMode('guided'); setInspectorMode(null) }}><Sparkles size={15}/> Guiada</button><button type="button" className={reviewMode === 'sources' ? 'is-active' : ''} onClick={() => { setReviewMode('sources'); setInspectorMode(null) }}><Globe2 size={15}/> Fontes brutas <span>{rawSourceReviewCount(agentJob)}</span></button></div></div></section>
-        {inspectorMode ? <ProspectingEvidenceExplorer
+        {inspectorMode && reviewMode === 'list' ? <ProspectingEvidenceExplorer
           job={agentJob} prospects={state.prospects} mode={inspectorMode}
           onMode={(next) => {
             setInspectorMode(next)
@@ -1036,7 +1036,7 @@ export function ProspectingPage() {
             return true
           }}
           onShowCompanies={() => { setReviewMode('list'); setReviewScope('all'); setInspectorMode(null) }}
-        /> : reviewMode === 'list' ? <ResultsWorkspace
+        /> : inspectorMode && reviewMode === 'list' ? null : reviewMode === 'list' ? <ResultsWorkspace
           readOnly={!canProspectingEdit} prospects={reviewFiltered} selectedIds={selectedIds} search={search} statusFilter={statusFilter} sourceFilter={sourceFilter} qualityFilter={qualityFilter} duplicateFilter={duplicateFilter} bulkRetryBusy={bulkRetryBusy}
           onSearch={setSearch} onStatusFilter={setStatusFilter} onSourceFilter={setSourceFilter} onQualityFilter={setQualityFilter} onDuplicateFilter={setDuplicateFilter} onSelected={setSelectedIds}
           onAnalyze={analyze} onApprove={approveProspects} onDiscard={(ids) => setStatus(ids, 'discarded')} onSend={openSend} onDelete={(ids) => void removeProspects(ids)} onExport={exportResults} onBulkRetry={(ids) => void retrySelectedEnrichment(ids)}

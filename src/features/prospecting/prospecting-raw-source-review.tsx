@@ -52,8 +52,8 @@ const EMPTY_DRAFT = { company: '', city: '', address: '', phone: '', email: '', 
 type ReviewDraft = typeof EMPTY_DRAFT
 const normalizeName = (value: string | undefined) => clean(value).normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLocaleLowerCase('pt-BR').replace(/[^a-z0-9]+/g, ' ').trim()
 const normalizeUrl = (value: string | undefined) => httpUrl(clean(value)).replace(/\/$/, '').toLowerCase()
-const genericSourceTitle = (name: string) => /\\b(?:melhores|lista|listagem|diret[oó]rio|guia|op[cç][oõ]es|ranking|encontre|top\\s*\\d+|facebook|instagram)\\b/i.test(name)
-  || /^(?:barbearias|barbearia|empresas|profissionais|sal[oõ]es|servi[cç]os)\\s+(?:em|no|na|perto de)\\s+/i.test(name)
+const genericSourceTitle = (name: string) => /\b(?:melhores|lista|listagem|diret[oó]rio|guia|op[cç][oõ]es|ranking|encontre|top\s*\d+|facebook|instagram)\b/i.test(name)
+  || /^(?:barbearias|barbearia|empresas|profissionais|sal[oõ]es|servi[cç]os)\s+(?:em|no|na|perto de)\s+/i.test(name)
 
 export function matchingCandidate(source: Pick<RawSource, 'name' | 'url' | 'type'>, job: ProspectingAgentJob | null): (CaptureDraft & { candidateId?: string }) | null {
   if (!job || source.type === 'rejected' || source.type === 'duplicate') return null

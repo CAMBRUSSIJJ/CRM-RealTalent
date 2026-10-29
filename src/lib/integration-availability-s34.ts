@@ -14,3 +14,10 @@ export function describeLocalServiceError(status:number,source:'supervisor'|'gat
   if(status===503)return 'HTTP 503: serviço temporariamente indisponível. Confira o supervisor local.'
   return 'Falha HTTP '+status+'. Consulte o diagnóstico do serviço.'
 }
+
+/** Do not delete previously discovered accounts when an HTTP gateway check
+ * fails. Show the cached record as needing attention, not connected.
+ * This is a read-only projection: callers must not persist the degraded copy. */
+export function offlineIntegrationAccountView<T extends {status:string}>(accounts:T[]):T[]{
+  return accounts.map(account=>({...account,status:account.status==='connected'?'attention':account.status}))
+}

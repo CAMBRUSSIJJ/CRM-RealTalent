@@ -24,7 +24,7 @@ jobs:
         run: npm run typecheck
       - name: G1/G2 safety and regression tests
         run: |
-          npx vitest run src/features/prospecting/prospecting-raw-source-review.test.ts src/services/prospecting-g1g2-intelligence.test.ts src/services/prospecting-intelligence.test.ts src/services/prospecting-data-layer.test.ts src/services/prospecting-search-automation.test.ts
+          npx vitest run src/features/prospecting/prospecting-raw-source-review.test.ts src/services/prospecting-g1g2-intelligence.test.ts src/services/prospecting-intelligence.test.ts src/services/prospecting-data-layer.test.ts src/services/prospecting-search-automation.test.ts src/services/realtalent-agent-garimpo-bridge.test.ts
           node --test runtime-host/RealTalent-Agent-Runtime-V3.1.2/crm-prospect-investigation-g1.test.mjs
           node --test runtime-host/RealTalent-Agent-Runtime-V3.1.2/crm-garimpo-conversation-g3.test.mjs
           node --test runtime-host/RealTalent-Agent-Runtime-V3.1.2/crm-deep-research-v60.test.mjs

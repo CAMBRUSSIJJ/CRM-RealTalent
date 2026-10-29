@@ -637,6 +637,12 @@ async function prepareConnectRuntime(token) {
 
 async function startServices(token, { preserveProspecting = false } = {}) {
   log('3/4 — Iniciando serviços locais: Connect + Communications Gateway + Prospecting Agent...')
+  // Fail before launching sidecars if the externally managed search engine is
+  // missing. This avoids leaving orphaned supervisors on startup errors.
+  if(preserveProspecting){
+    const preflight=await probe(`http://127.0.0.1:${PROSPECTING_PORT}/api/prospecting-agent/health`)
+    if(!preflight.ok)fail(`O Garimpo em ${PROSPECTING_PORT} deve estar ativo antes do runtime de comunicações.`)
+  }
   const connectPreparation = await prepareConnectRuntime(token)
   let connect = null
   if (!connectPreparation.reuse && !connectPreparation.blocked) {

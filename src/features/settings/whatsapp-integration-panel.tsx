@@ -176,17 +176,32 @@ export function WhatsappIntegrationPanel({ preferences, onPreferencesChange }: {
   useEffect(() => {
     if (!localGatewayMode || !showQr) return
     let active = true
+    let inFlight = false
+    let consecutiveFailures = 0
     const tick = async () => {
+      if(inFlight || !active)return
+      inFlight=true
       try {
         const next = await loadGatewayWhatsAppQrStatus(workspaceId)
         if (!active) return
+        consecutiveFailures=0
         setQrStatus(next)
         if (next.state === 'connected') {
           await refreshAccounts()
+          if(!active)return
           notify('success', `WhatsApp QR conectado${next.phone ? `: +${next.phone}` : ''}.`)
           setShowQr(false)
         }
-      } catch {}
+      } catch {
+        if(!active)return
+        consecutiveFailures++
+        if(consecutiveFailures>=3){
+          setShowQr(false)
+          setGatewayHealth(null)
+          setGatewayError('A consulta do QR falhou três vezes consecutivas. Verifique se o gateway está ativo.')
+          notify('info','Consulta do QR interrompida: o gateway deixou de responder.')
+        }
+      } finally {inFlight=false}
     }
     void tick()
     const id = window.setInterval(() => void tick(), 1500)
@@ -198,9 +213,9 @@ export function WhatsappIntegrationPanel({ preferences, onPreferencesChange }: {
     [accounts, preferences.whatsappOfficialAccountId],
   )
   const connectedAccounts = accounts.filter((item) => item.status === 'connected')
-  const qrConnected = qrStatus?.state === 'connected'
-  const overallConnected = qrConnected || connectedAccounts.length > 0
   const gatewayReady = !localGatewayMode || whatsappGatewayIsHealthy(gatewayHealth,runtimeStatus)
+  const qrConnected = gatewayReady && qrStatus?.state === 'connected'
+  const overallConnected = gatewayReady && (qrConnected || connectedAccounts.length > 0)
   const persistTemplates = (next: WhatsAppTemplate[]) => { setTemplates(next); saveWhatsAppTemplates(workspaceId, next) }
   const activeTeams = workManagement.teams.filter((item) => item.active !== false)
   const selectedTeam = activeTeams.find((item) => item.id === controlPreferences.referenceTeamId) ?? null

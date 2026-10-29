@@ -1,4 +1,4 @@
-name: RealTalent Settings S3.4 — Calendar and WhatsApp Recovery QA
+name: RealTalent S3.5 — Local Runtime Stability QA
 on:
   pull_request:
     branches:
@@ -10,6 +10,7 @@ on:
       - feat/realtalent-settings-s3-visual-navigation-20261029
       - feat/realtalent-settings-s33-smart-forms-20261029
       - feat/realtalent-settings-s331-pipeline-editor-20261029
+      - fix/realtalent-settings-s34-calendar-whatsapp-20261029
   workflow_dispatch:
 permissions:
   contents: read
@@ -34,6 +35,7 @@ jobs:
           node --test runtime-host/RealTalent-Agent-Runtime-V3.1.2/crm-prospect-investigation-g1.test.mjs
           node --test runtime-host/RealTalent-Agent-Runtime-V3.1.2/crm-garimpo-conversation-g3.test.mjs
           node --test runtime-host/RealTalent-Agent-Runtime-V3.1.2/crm-deep-research-v60.test.mjs
+          node --test scripts/garimpo-runtime-isolation.test.mjs
       - name: Runtime and installer
         run: |
           node --check runtime-host/RealTalent-Agent-Runtime-V3.1.2/gateway-ollama.mjs
@@ -41,12 +43,14 @@ jobs:
           node --check runtime-host/RealTalent-Agent-Runtime-V3.1.2/crm-garimpo-conversation-g3.mjs
           bash -n scripts/garimpo-g1g2-linux/abrir-local.sh
           bash -n scripts/garimpo-g1g2-linux/abrir-com-diagnostico.sh
+          bash -n scripts/garimpo-g1g2-linux/diagnosticar-runtime.sh
           grep -q 'PIPESTATUS\[0\]' scripts/garimpo-g1g2-linux/abrir-com-diagnostico.sh
           grep -q 'ultimo-inicio.log' scripts/garimpo-g1g2-linux/abrir-com-diagnostico.sh
           grep -q -- '--port 4197 --strictPort' scripts/garimpo-g1g2-linux/abrir-local.sh
-          grep -q 'node scripts/start.mjs --dev' scripts/garimpo-g1g2-linux/abrir-local.sh
-          grep -q 'for service_port in 3001 3002 3003' scripts/garimpo-g1g2-linux/abrir-local.sh
+          grep -q 'node scripts/start.mjs --garimpo' scripts/garimpo-g1g2-linux/abrir-local.sh
+          grep -q 'for service_port in "$RT_CONNECT_PORT" "$RT_COMM_PORT" "$RT_CONTROL_PORT"' scripts/garimpo-g1g2-linux/abrir-local.sh
           node --check scripts/start.mjs
+          node --check scripts/garimpo-runtime-isolation.test.mjs
           grep -q -- 'node scripts/realtalent-prospecting-agent.mjs' scripts/garimpo-g1g2-linux/abrir-local.sh
           grep -q -- '/api/prospecting-agent/health' scripts/garimpo-g1g2-linux/abrir-local.sh
           grep -q -- 'VITE_PROSPECTING_GATEWAY_URL=' scripts/garimpo-g1g2-linux/abrir-local.sh

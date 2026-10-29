@@ -1,10 +1,15 @@
-import { env } from '../lib/env'
+import { env,effectiveDataMode } from '../lib/env'
 import { createUuid } from '../lib/id'
 import { getSupabaseClient } from '../lib/supabase'
 import { safeStorage } from '../lib/storage'
 import { commandForJob, extensionLifecycle, providerExtensionId, providerManifest, type OAuthExtensionProviderId } from '../platform/extensions'
 import type { Database, Json } from '../lib/supabase.types'
 import { beginGatewayOAuth, gatewayAccountAction, loadCommunicationsGatewayHealth, loadGatewayAccounts, syncGatewayCommunications, testGatewayAccount } from './local-communications-gateway'
+import {offlineIntegrationAccountView} from '../lib/integration-availability-s34'
+
+// Never route a deliberately local workspace to Supabase merely because
+// credentials happen to remain in an .env file from another installation.
+const integrationClient=()=>effectiveDataMode==='local'?null:getSupabaseClient()
 
 export type OAuthProvider = OAuthExtensionProviderId
 export type ConnectedAccountStatus = 'demo' | 'connected' | 'attention' | 'expired' | 'paused' | 'revoked' | 'error'
@@ -78,13 +83,17 @@ const mapExtensionJob=(row:ExtensionJobRow):ExtensionCaptureJob=>({id:row.id,wor
 const mapExtensionEvent=(row:ExtensionEventRow):ExtensionEvent=>({id:row.id,workspaceId:row.organization_id,installationId:row.installation_id,jobId:row.job_id,eventType:row.event_type,status:row.status as ExtensionEventStatus,correlationId:row.correlation_id,payload:objectValue(row.payload),createdAt:row.created_at})
 
 export async function loadIntegrationFramework(workspaceId:string):Promise<IntegrationFrameworkState>{
-  const local=readLocal(workspaceId);const client=getSupabaseClient();if(!client){
+  const local=readLocal(workspaceId);const client=integrationClient();if(!client){
     if(!local.extensionSettings.some(i=>i.productKey==='realtalent_capture'))local.extensionSettings.push(defaultExtensionProductSettings(workspaceId))
     try {
       const gatewayAccounts=await loadGatewayAccounts(workspaceId)
       const localById=new Map(local.accounts.map((item)=>[item.id,item]))
       local.accounts=gatewayAccounts.map((item)=>{const existing=localById.get(item.id);return existing?{...item,accessMode:existing.accessMode,allowedUserIds:existing.allowedUserIds,allowedRoles:existing.allowedRoles}:item})
-    } catch { local.accounts=[] }
+    } catch {
+      // Outage must not erase cached accounts from localStorage. Return a
+      // degraded read-only view, without persisting a false disconnect.
+      return {...local,accounts:offlineIntegrationAccountView(local.accounts)}
+    }
     writeLocal(workspaceId,local);return local
   }
   const [accounts,jobs,attempts,diagnostics,audit,extensions,settings,extensionJobs,extensionEvents]=await Promise.all([
@@ -129,7 +138,7 @@ export async function enqueueIntegrationSync(workspaceId:string,account:Connecte
   const extensionId=providerExtensionId(account.provider);const command=commandForJob(account.provider,jobType)
   await extensionLifecycle.emit(extensionId,'beforeSync',{provider:account.provider,jobType,commandId:command?.id??null},{workspaceId,accountId:account.id})
   try{
-    const client=getSupabaseClient();const idempotencyKey=integrationJobIdempotencyKey(account,jobType,payload)
+    const client=integrationClient();const idempotencyKey=integrationJobIdempotencyKey(account,jobType,payload)
     if(client){const{data,error}=await client.rpc('enqueue_integration_sync_job',{p_organization_id:workspaceId,p_account_id:account.id,p_job_type:jobType,p_idempotency_key:idempotencyKey,p_payload:{requested_by:'crm',requested_at:now(),command_id:command?.id??null,...payload}});if(error)throw new Error(`Não foi possível colocar a sincronização na fila: ${error.message}`);await extensionLifecycle.emit(extensionId,'afterSync',{provider:account.provider,jobType,jobId:String(data),queued:true},{workspaceId,accountId:account.id});return String(data)}
     const started=now();await syncGatewayCommunications(workspaceId,account.id);const state=readLocal(workspaceId);const job:IntegrationSyncJob={id:createUuid(),workspaceId,accountId:account.id,provider:account.provider,jobType,workerKey:'local-communications-gateway',status:'succeeded',priority:100,attempts:1,maxAttempts:1,availableAt:started,lockedAt:null,lockedBy:null,leaseExpiresAt:null,recoveredCount:0,completedAt:now(),idempotencyKey,payload:{mode:'local-gateway',commandId:command?.id??null,...payload},lastError:null,createdAt:started,updatedAt:now()};writeLocal(workspaceId,{...state,jobs:[job,...state.jobs]});await extensionLifecycle.emit(extensionId,'afterSync',{provider:account.provider,jobType,jobId:job.id,queued:false},{workspaceId,accountId:account.id});return job.id
   }catch(error){
@@ -140,31 +149,31 @@ export async function enqueueIntegrationSync(workspaceId:string,account:Connecte
 
 export async function testConnectedAccount(workspaceId:string,account:ConnectedAccount){
   if(account.connectionMode==='demo')return{status:'warn' as const,message:'Conta de demonstração: nenhuma credencial externa foi testada.',latencyMs:0}
-  const client=getSupabaseClient();if(!client)return testGatewayAccount(workspaceId,account.id)
+  const client=integrationClient();if(!client)return testGatewayAccount(workspaceId,account.id)
   const{data,error}=await client.functions.invoke('integration-account-test',{body:{organizationId:workspaceId,accountId:account.id}});if(error)throw new Error(error.message);return data as {status:DiagnosticStatus;message:string;latencyMs:number}
 }
 
 export async function runIntegrationDiagnostics(workspaceId:string){
-  const client=getSupabaseClient();if(!client){
+  const client=integrationClient();if(!client){
     const health=await loadCommunicationsGatewayHealth();const accounts=await loadGatewayAccounts(workspaceId)
     return{runId:createUuid(),checks:[{provider:'framework',checkKey:'local_communications_gateway',status:health.ok?'pass':'fail',message:health.ok?'Gateway local de comunicações operacional.':'Gateway local indisponível.',accountId:null,details:{version:health.version,accounts:accounts.length}}]}
   }
   const{data,error}=await client.functions.invoke('integration-diagnostics',{body:{organizationId:workspaceId}});if(error)throw new Error(error.message);return data as {runId:string;checks:Array<Record<string,unknown>>}
 }
 
-export async function updateConnectedAccountAccess(workspaceId:string,accountId:string,accessMode:IntegrationAccountAccessMode,allowedUserIds:string[]=[],allowedRoles:string[]=[]){const client=getSupabaseClient();if(client){const{error}=await client.rpc('update_integration_account_access',{p_account_id:accountId,p_access_mode:accessMode,p_allowed_user_ids:allowedUserIds,p_allowed_roles:allowedRoles});if(error)throw new Error(`Não foi possível atualizar as permissões: ${error.message}`);return}const state=readLocal(workspaceId);writeLocal(workspaceId,{...state,accounts:state.accounts.map(i=>i.id===accountId?{...i,accessMode,allowedUserIds,allowedRoles,updatedAt:now()}:i)})}
+export async function updateConnectedAccountAccess(workspaceId:string,accountId:string,accessMode:IntegrationAccountAccessMode,allowedUserIds:string[]=[],allowedRoles:string[]=[]){const client=integrationClient();if(client){const{error}=await client.rpc('update_integration_account_access',{p_account_id:accountId,p_access_mode:accessMode,p_allowed_user_ids:allowedUserIds,p_allowed_roles:allowedRoles});if(error)throw new Error(`Não foi possível atualizar as permissões: ${error.message}`);return}const state=readLocal(workspaceId);writeLocal(workspaceId,{...state,accounts:state.accounts.map(i=>i.id===accountId?{...i,accessMode,allowedUserIds,allowedRoles,updatedAt:now()}:i)})}
 export async function updateConnectedAccount(workspaceId:string,accountId:string,action:'pause'|'resume'|'disconnect'){
-  const client=getSupabaseClient();if(client){if(action==='disconnect'){const{error}=await client.functions.invoke('integration-account-revoke',{body:{organizationId:workspaceId,accountId}});if(error)throw new Error(`Não foi possível revogar a conta: ${error.message}`);return}const{error}=await client.rpc('update_integration_account_status',{p_account_id:accountId,p_action:action});if(error)throw new Error(`Não foi possível atualizar a conta: ${error.message}`);return}
+  const client=integrationClient();if(client){if(action==='disconnect'){const{error}=await client.functions.invoke('integration-account-revoke',{body:{organizationId:workspaceId,accountId}});if(error)throw new Error(`Não foi possível revogar a conta: ${error.message}`);return}const{error}=await client.rpc('update_integration_account_status',{p_account_id:accountId,p_action:action});if(error)throw new Error(`Não foi possível atualizar a conta: ${error.message}`);return}
   await gatewayAccountAction(workspaceId,accountId,action)
   const state=readLocal(workspaceId);const status:ConnectedAccountStatus=action==='pause'?'paused':action==='resume'?'connected':'revoked';writeLocal(workspaceId,{...state,accounts:state.accounts.map(i=>i.id===accountId?{...i,status,hasCredential:action==='disconnect'?false:i.hasCredential,revokedAt:action==='disconnect'?now():null,updatedAt:now()}:i)})
 }
 
-export async function retryIntegrationJob(workspaceId:string,jobId:string){const client=getSupabaseClient();if(client){const{error}=await client.rpc('retry_integration_sync_job',{p_job_id:jobId});if(error)throw new Error(`Não foi possível reagendar: ${error.message}`);return}const state=readLocal(workspaceId);writeLocal(workspaceId,{...state,jobs:state.jobs.map(i=>i.id===jobId?{...i,status:'retry',availableAt:now(),lastError:null,updatedAt:now()}:i)})}
-export async function updateExtensionInstallation(workspaceId:string,installationId:string,action:'pause'|'resume'|'revoke'){const client=getSupabaseClient();if(client){const{error}=await client.rpc('update_extension_installation_status',{p_installation_id:installationId,p_action:action});if(error)throw new Error(`Não foi possível atualizar a extensão: ${error.message}`);return}const state=readLocal(workspaceId);const status:ExtensionInstallationStatus=action==='pause'?'paused':action==='resume'?'connected':'revoked';writeLocal(workspaceId,{...state,extensions:state.extensions.map(i=>i.id===installationId?{...i,status,lastError:action==='revoke'?'Instalação revogada pelo administrador':null,updatedAt:now()}:i)})}
-export async function retryExtensionCaptureJob(workspaceId:string,jobId:string){const client=getSupabaseClient();if(client){const{error}=await client.rpc('retry_extension_capture_job',{p_job_id:jobId});if(error)throw new Error(`Não foi possível reagendar a captura: ${error.message}`);return}const state=readLocal(workspaceId);writeLocal(workspaceId,{...state,extensionJobs:state.extensionJobs.map(i=>i.id===jobId?{...i,status:'retry',availableAt:now(),lastError:null,completedAt:null,updatedAt:now()}:i)})}
-export async function saveExtensionProductSettings(workspaceId:string,settings:ExtensionProductSettings){const client=getSupabaseClient();if(client){const{data,error}=await client.rpc('save_extension_product_settings',{p_organization_id:workspaceId,p_product_key:settings.productKey,p_enabled:settings.enabled,p_destination:settings.destination,p_require_confirmation:settings.requireConfirmation,p_duplicate_policy:settings.duplicatePolicy,p_minimum_version:settings.minimumVersion,p_recommended_version:settings.recommendedVersion,p_max_batch_size:settings.maxBatchSize,p_process_interval_ms:settings.processIntervalMs,p_close_tab_after_analysis:settings.closeTabAfterAnalysis,p_allowed_sources:settings.allowedSources,p_settings:settings.settings as Json});if(error)throw new Error(`Não foi possível salvar a configuração da extensão: ${error.message}`);return mapExtensionSettings(data as unknown as ExtensionSettingsRow)}const state=readLocal(workspaceId);const next={...settings,configVersion:settings.configVersion+1,updatedAt:now()};writeLocal(workspaceId,{...state,extensionSettings:[next,...state.extensionSettings.filter(i=>i.productKey!==settings.productKey)]});return next}
-export async function rotateExtensionToken(workspaceId:string){const client=getSupabaseClient();if(!client)throw new Error('A rotação de token exige o modo hospedado.');const{data,error}=await client.rpc('rotate_extension_ingest_token',{p_organization_id:workspaceId});if(error)throw new Error(error.message);return String(data)}
-export async function revokeExtensionToken(workspaceId:string){const client=getSupabaseClient();if(!client)throw new Error('A revogação de token exige o modo hospedado.');const{error}=await client.rpc('revoke_extension_ingest_token',{p_organization_id:workspaceId});if(error)throw new Error(error.message)}
+export async function retryIntegrationJob(workspaceId:string,jobId:string){const client=integrationClient();if(client){const{error}=await client.rpc('retry_integration_sync_job',{p_job_id:jobId});if(error)throw new Error(`Não foi possível reagendar: ${error.message}`);return}const state=readLocal(workspaceId);writeLocal(workspaceId,{...state,jobs:state.jobs.map(i=>i.id===jobId?{...i,status:'retry',availableAt:now(),lastError:null,updatedAt:now()}:i)})}
+export async function updateExtensionInstallation(workspaceId:string,installationId:string,action:'pause'|'resume'|'revoke'){const client=integrationClient();if(client){const{error}=await client.rpc('update_extension_installation_status',{p_installation_id:installationId,p_action:action});if(error)throw new Error(`Não foi possível atualizar a extensão: ${error.message}`);return}const state=readLocal(workspaceId);const status:ExtensionInstallationStatus=action==='pause'?'paused':action==='resume'?'connected':'revoked';writeLocal(workspaceId,{...state,extensions:state.extensions.map(i=>i.id===installationId?{...i,status,lastError:action==='revoke'?'Instalação revogada pelo administrador':null,updatedAt:now()}:i)})}
+export async function retryExtensionCaptureJob(workspaceId:string,jobId:string){const client=integrationClient();if(client){const{error}=await client.rpc('retry_extension_capture_job',{p_job_id:jobId});if(error)throw new Error(`Não foi possível reagendar a captura: ${error.message}`);return}const state=readLocal(workspaceId);writeLocal(workspaceId,{...state,extensionJobs:state.extensionJobs.map(i=>i.id===jobId?{...i,status:'retry',availableAt:now(),lastError:null,completedAt:null,updatedAt:now()}:i)})}
+export async function saveExtensionProductSettings(workspaceId:string,settings:ExtensionProductSettings){const client=integrationClient();if(client){const{data,error}=await client.rpc('save_extension_product_settings',{p_organization_id:workspaceId,p_product_key:settings.productKey,p_enabled:settings.enabled,p_destination:settings.destination,p_require_confirmation:settings.requireConfirmation,p_duplicate_policy:settings.duplicatePolicy,p_minimum_version:settings.minimumVersion,p_recommended_version:settings.recommendedVersion,p_max_batch_size:settings.maxBatchSize,p_process_interval_ms:settings.processIntervalMs,p_close_tab_after_analysis:settings.closeTabAfterAnalysis,p_allowed_sources:settings.allowedSources,p_settings:settings.settings as Json});if(error)throw new Error(`Não foi possível salvar a configuração da extensão: ${error.message}`);return mapExtensionSettings(data as unknown as ExtensionSettingsRow)}const state=readLocal(workspaceId);const next={...settings,configVersion:settings.configVersion+1,updatedAt:now()};writeLocal(workspaceId,{...state,extensionSettings:[next,...state.extensionSettings.filter(i=>i.productKey!==settings.productKey)]});return next}
+export async function rotateExtensionToken(workspaceId:string){const client=integrationClient();if(!client)throw new Error('A rotação de token exige o modo hospedado.');const{data,error}=await client.rpc('rotate_extension_ingest_token',{p_organization_id:workspaceId});if(error)throw new Error(error.message);return String(data)}
+export async function revokeExtensionToken(workspaceId:string){const client=integrationClient();if(!client)throw new Error('A revogação de token exige o modo hospedado.');const{error}=await client.rpc('revoke_extension_ingest_token',{p_organization_id:workspaceId});if(error)throw new Error(error.message)}
 export const extensionIngestEndpoint=()=>env.supabaseUrl?`${env.supabaseUrl.replace(/\/$/,'')}/functions/v1/extension-ingest`:''
 
 export function recordLocalIntegrationEvent(workspaceId:string,itemCount:number,eventType='extension_local_capture'){

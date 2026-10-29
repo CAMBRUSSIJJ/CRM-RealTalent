@@ -1,0 +1,106 @@
+/* Settings S1/S2 — accessible, quieter layout, consistent touch targets.
+   Scoped to settings route: does not change global CRM density. */
+.settings-v1100{
+  --settings-nav-width:246px;
+  --settings-control-height:42px;
+  --settings-font:14px;
+  --settings-caption:12px;
+  --settings-radius:12px;
+  gap:16px;
+  color:var(--text,#24344c);
+}
+.settings-v1100__body{gap:18px}
+.settings-v1100 .panel{border-radius:var(--settings-radius)}
+.settings-v1100 .panel__heading{gap:12px;margin-bottom:16px}
+.settings-v1100 .panel__heading h3{font-size:18px;letter-spacing:-.01em;line-height:1.32}
+.settings-v1100 .panel__heading p{font-size:13px;line-height:1.55;max-width:66ch}
+.settings-v1100 .eyebrow{font-size:11px;line-height:1.4;letter-spacing:.045em}
+.settings-v1100 .field>span{font-size:13px;font-weight:650;line-height:1.4}
+.settings-v1100 .field>small{font-size:12px;line-height:1.5}
+.settings-v1100 .field input,
+.settings-v1100 .field select,
+.settings-v1100 .field textarea,
+.settings-v1100 .navigation-editor__row input,
+.settings-v1100 .settings-search input{font-size:14px;line-height:1.45;min-height:var(--settings-control-height)}
+.settings-v1100 .field textarea{padding:12px 13px;resize:vertical}
+.settings-v1100 .settings-copy{font-size:12px;line-height:1.55}
+.settings-v1100 .settings-choice{padding:14px;border-radius:11px;min-height:100px;gap:5px}
+.settings-v1100 .settings-choice strong{font-size:14px;line-height:1.38}
+.settings-v1100 .settings-choice span{font-size:12px;line-height:1.55}
+.settings-v1100 .settings-toggle{min-height:64px;padding:13px 15px;border-color:var(--border)}
+.settings-v1100 .settings-toggle strong{font-size:14px;line-height:1.45}
+.settings-v1100 .settings-toggle small{font-size:12px;line-height:1.55}
+.settings-v1100 .settings-actions .button{min-height:38px;font-size:13px}
+.settings-v1100 .settings-nav-group{gap:5px;padding:8px 0}
+.settings-v1100 .settings-nav-group__header{min-height:35px;padding:6px 9px}
+.settings-v1100 .settings-nav-group__header span{font-size:11px;font-weight:750;letter-spacing:.055em}
+.settings-v1100 .settings-nav-group__items>button{min-height:40px;padding:8px 11px;gap:9px;font-size:13px;border-radius:9px}
+.settings-v1100__nav-title strong{font-size:13px}
+.settings-v1100__nav-title small{font-size:11px}
+.settings-v1100__nav{padding:12px;gap:4px;scrollbar-width:thin}
+.settings-v1100__nav-status .status-pill{font-size:12px}
+.settings-v1100__page-intro{padding:16px 18px;min-height:86px}
+.settings-v1100__page-intro h3{font-size:21px;line-height:1.3}
+.settings-v1100__page-intro p{font-size:13px;line-height:1.5;max-width:75ch}
+.settings-v1100 .settings-health-chip strong{font-size:13px}
+.settings-v1100 .settings-health-chip small{font-size:11px}
+.settings-v1100 .settings-workspace-chip strong{font-size:12px}
+.settings-v1100 .settings-workspace-chip small{font-size:10px}
+.settings-v1100 .settings-search{min-height:42px}
+.settings-v1100 .settings-search-results>button{min-height:52px}
+.settings-v1100 .settings-search-results>button strong{font-size:13px}
+.settings-v1100 .settings-search-results>button small{font-size:11px}
+.settings-smartbar{display:flex;align-items:center;gap:13px;padding:12px 15px;border:1px solid var(--border);border-radius:12px;background:var(--surface,#fff);flex-wrap:wrap}
+.settings-smartbar__icon{flex:none;width:36px;height:36px;border-radius:10px;display:grid;place-items:center;color:var(--rt-color-brand,#2863bb);background:color-mix(in srgb,var(--rt-color-brand,#2863bb) 9%,var(--surface,#fff))}
+.settings-smartbar>div{min-width:230px;flex:1}
+.settings-smartbar strong{display:block;font-size:13px;font-weight:700;line-height:1.5}
+.settings-smartbar p{margin:0;color:var(--muted,#69758a);font-size:12px;line-height:1.55}
+.settings-smartbar__scope{font-size:11px;white-space:nowrap;padding:6px 9px;border-radius:8px;background:var(--surface-soft,#f4f7fb);border:1px solid var(--border)}
+.settings-smartbar__auto{display:flex;align-items:center;gap:9px;white-space:nowrap;font-size:12px;cursor:pointer}
+.settings-smartbar__auto input{width:17px;height:17px;accent-color:var(--rt-color-brand,#2663b9)}
+.settings-save-error{display:flex;gap:10px;align-items:center;flex-wrap:wrap;padding:12px 14px;border:1px solid #d99b91;border-radius:11px;background:color-mix(in srgb,#fbd6d0 18%,var(--surface,#fff));color:var(--text,#7c2d22);font-size:13px;line-height:1.5}
+.settings-save-error>span{flex:1;min-width:220px}
+.settings-v1100 .settings-savebar{padding:12px 15px;border-radius:12px;gap:12px}
+.settings-v1100 .settings-savebar strong{font-size:13px}
+.settings-v1100 .settings-savebar span{font-size:12px;line-height:1.45}
+.settings-v1100 .settings-savebar .button{font-size:13px;min-height:38px}
+/* Dense nested consoles become readable without adding permanent help columns. */
+.settings-v1100 .notification-channel-card,.settings-v1100 .notification-rule-card{padding:13px 15px;min-height:76px;gap:11px}
+.settings-v1100 .notification-channel-card strong,.settings-v1100 .notification-rule-card strong{font-size:14px}
+.settings-v1100 .notification-channel-card small,.settings-v1100 .notification-rule-card small{font-size:12px;line-height:1.45}
+.settings-v1100 .settings-subnav{padding:7px;gap:5px;flex-wrap:wrap}
+.settings-v1100 .settings-subnav button{min-height:38px;font-size:13px;padding:7px 11px}
+.settings-v1100 .settings-stage-row{padding:11px;gap:9px}
+.settings-v1100 .settings-stage-row>input:not([type=color]),.settings-v1100 .settings-stage-row label input,.settings-v1100 .settings-stage-row select{min-height:40px;font-size:13px}
+.settings-v1100 .navigation-editor__row{min-height:58px;padding:9px 10px;gap:8px}
+.settings-v1100 .navigation-placement{min-height:38px;font-size:12px;padding-inline:10px}
+.settings-v1100 .permission-matrix-v1100__table-row{min-height:46px}
+.settings-v1100 .permission-matrix-v1100__table-row strong{font-size:12px}
+.settings-v1100 .permission-matrix-v1100__table-row>span{font-size:12px}
+.settings-v1100 .permission-matrix-v1100__table-row.is-header>*{font-size:11px}
+.settings-v1100 .permission-matrix-v1100__role small{font-size:11px}
+.settings-v1100 .integration-framework__tabs button{min-height:39px;font-size:13px;padding:7px 12px}
+.settings-v1100 .integration-framework__hero h3{font-size:18px}
+.settings-v1100 .settings-metric-grid>.panel{min-height:85px}
+.settings-v1100 .settings-health-panel__heading h3{font-size:17px}
+.settings-v1100 .settings-health-panel__heading p{font-size:12px}
+.settings-v1100 .settings-health-metrics small{font-size:11px}
+.settings-v1100 .settings-health-metrics strong{font-size:20px}
+.settings-v1100 .settings-step-section::before{font-size:12px;width:28px;height:28px}
+.settings-v1100 .settings-form-grid{gap:14px;margin-bottom:16px}
+/* Prevent tiny text in all settings children using targeted high-specificity defaults. */
+.settings-v1100 .page-personalization-settings small,
+.settings-v1100 .realtalent-ai-settings small,
+.settings-v1100 .whatsapp-control-center-h198 small,
+.settings-v1100 .calendar-integration-v84 small,
+.settings-v1100 .integration-framework small,
+.settings-v1100 .maps-settings-v101__hero small{font-size:12px;line-height:1.5}
+.settings-v1100 .page-personalization-settings button,
+.settings-v1100 .whatsapp-control-center-h198 button,
+.settings-v1100 .calendar-integration-v84 button{font-size:13px}
+.settings-v1100 .whatsapp-control-content-h198 h3{font-size:18px}
+.settings-v1100 .sidebar-studio__preview-profile{font-size:12px}
+@media(max-width:1180px){.settings-v1100{--settings-nav-width:214px}.settings-v1100__body{grid-template-columns:var(--settings-nav-width) minmax(0,1fr)}}
+@media(max-width:880px){.settings-v1100__body{grid-template-columns:1fr}.settings-smartbar__scope{margin-left:49px}.settings-v1100__nav{position:relative;top:0;max-height:none}}
+@media(max-width:620px){.settings-smartbar{align-items:flex-start}.settings-smartbar>div{min-width:0;flex-basis:calc(100% - 55px)}.settings-smartbar__scope{margin-left:0}.settings-smartbar__auto{white-space:normal}.settings-v1100 .settings-form-grid--2,.settings-v1100 .settings-form-grid--3{grid-template-columns:1fr}.settings-v1100 .settings-savebar{bottom:8px}.settings-v1100 .settings-choice-grid{grid-template-columns:1fr}.settings-v1100 .settings-subnav{position:static}}
+@media(prefers-reduced-motion:reduce){.settings-v1100 *, .settings-v1100 *::before,.settings-v1100 *::after{scroll-behavior:auto!important;transition-duration:.01ms!important;animation-duration:.01ms!important}}

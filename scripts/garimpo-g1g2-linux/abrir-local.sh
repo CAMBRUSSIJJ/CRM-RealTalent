@@ -167,8 +167,16 @@ fi
 if (( COMMUNICATIONS_PORTS_FREE )); then
   echo 'Iniciando Runtime RealTalent: Connect 3001 | WhatsApp 3002 | Controle 3003'
   echo 'O supervisor verifica a conexao e evita simular sessao conectada.'
-  PORT=4197 REALTALENT_CRM_PORT=4197 REALTALENT_PROSPECTING_AGENT_PORT="$PROSPECTING_PORT" REALTALENT_NO_BROWSER=1 \
-    node scripts/start.mjs --dev
+  if PORT=4197 REALTALENT_CRM_PORT=4197 REALTALENT_PROSPECTING_AGENT_PORT="$PROSPECTING_PORT" REALTALENT_NO_BROWSER=1 \
+    node scripts/start.mjs --dev; then
+    :
+  else
+    runtime_result=$?
+    if (( runtime_result == 130 || runtime_result == 143 )); then exit "$runtime_result"; fi
+    echo "ATENCAO: o runtime completo falhou (codigo $runtime_result). Consulte o log de inicializacao."
+    echo 'Abrindo somente o CRM e Garimpo em modo degradado, sem acesso garantido ao WhatsApp.'
+    ./node_modules/.bin/vite --host 127.0.0.1 --port 4197 --strictPort
+  fi
 else
   echo 'Abrindo interface em modo degradado; WhatsApp local pode ficar offline.'
   ./node_modules/.bin/vite --host 127.0.0.1 --port 4197 --strictPort

@@ -18,6 +18,17 @@ const isActive=(job:ProspectingAgentJob)=>['queued','running','paused'].includes
 const isReadable=(p:ProspectRecord,userId:string|null,privileged:boolean)=>
   privileged||p.createdBy===userId
 const bounded=(s:unknown,max:number)=>typeof s==='string'?s.trim().slice(0,max):''
+const explicitSearchVerb=/\b(busque|buscar|encontre|encontrar|ache|achar|pesquise|pesquisar|procure|procurar|garimpe|garimpar|localize|localizar)\b/
+const negatedSearch=/\b(nao|nunca|sem|evite)\s+(?:me\s+)?(busque|buscar|encontre|encontrar|ache|achar|pesquise|pesquisar|procure|procurar|garimpe|garimpar|localize|localizar)\b/
+/** A visibly stated sector takes precedence over any older search context.
+ * This is a narrow entity extraction guard, not a substitute for Qwen planning. */
+export function segmentStatedByUser(prompt:string):string|null {
+  const clean=normalized(prompt)
+  const match=clean.match(/\b(?:empresas?|negocios?|estabelecimentos?|prestadores?)\s+(?:de|do|da)\s+(.{3,100}?)(?=\s+(?:em|na cidade|no municipio|no garimpo|para mim|pra mim|que|e depois|e me|e quais)\b|[,.!?]|$)/)
+  const found=match?.[1]?.trim().replace(/\s+/g,' ')??''
+  return found.length>=3?found.slice(0,100):null
+}
+
 const summary=(title:string,text:string,facts:string[]=[]):AssistantAnswer=>({
   id:'garimpo-native:'+Date.now()+':'+Math.random().toString(36).slice(2,6),
   intent:'unknown',title,text,items:[],facts,suggestedPrompts:[],
@@ -28,10 +39,11 @@ const summary=(title:string,text:string,facts:string[]=[]):AssistantAnswer=>({
 export function wantsGarimpoNativeTool(prompt:string,route:AppRoute,history:AgentConversationTurn[]=[]):boolean {
   const text=normalized(prompt)
   const explicit=/\b(garimpo|prospeccao territorial)\b/.test(text)
-  const discovery=/\b(busque|buscar|encontre|encontrar|ache|achar|pesquise|pesquisar|procure|procurar|localize|localizar|garimpe|garimpar|liste|listar)\b/.test(text)
+  const discovery=explicitSearchVerb.test(text)||/\b(liste|listar)\b/.test(text)
   const company=/\b(empresas?|estabelecimentos?|negocios?|comercios?|prestadores?|fornecedores?)\b/.test(text)
-  const review=/\b(revis(?:ao|ar)|prioriz(?:ar|e)|qual(?:is|ificar)|resultados?|encontrad[ao]s?|dessas?|delas?|daquelas?)\b/.test(text)
+  const review=/\b(revis(?:ao|ar)|prioriz(?:ar|e)|qual(?:is|ificar)|resultados?|encontrad[ao]s?|encontrou|achou|quantas?|quantos?|andamento|status|progresso|dessas?|delas?|daquelas?)\b/.test(text)
   const relatedHistory=history.slice(-2).some(turn=>/\b(garimpo|busca iniciada|empresas encontradas|prospeccao)\b/.test(normalized(turn.user+' '+turn.assistant)))
+  if(negatedSearch.test(text))return false
   return (explicit && (discovery||company||review)) ||
     (route==='prospecting' && ((discovery&&company)||(review&&relatedHistory)))
 }
@@ -115,6 +127,14 @@ export async function handleGarimpoFromMainAgent(
       (error instanceof Error?error.message:'falha desconhecida')+
       '. Nenhuma lista foi inventada nem pesquisa simulada.')
   }
+  // Treat an explicit operational request as an action even if the language
+  // model mistakenly classified it as general advice.
+  const requestedSearch=explicitSearchVerb.test(normalized(input.prompt))&&!negatedSearch.test(normalized(input.prompt))
+  const specifiedSegment=segmentStatedByUser(input.prompt)
+  if(requestedSearch&&plan.intent==='answer')
+    plan={...plan,intent:plan.city.trim()&&(specifiedSegment||plan.segment.trim())?'search':'clarify'}
+  if(requestedSearch&&plan.intent==='search'&&specifiedSegment)
+    plan={...plan,segment:specifiedSegment}
   // A direct command to find companies must NOT be downgraded to advice.
   if(/\b(busque|buscar|encontre|encontrar|ache|achar|pesquise|pesquisar|procure|procurar|garimpe|garimpar|localize|localizar)\b/.test(normalized(input.prompt)) &&
     plan.intent!=='search' && plan.intent!=='clarify')
@@ -165,6 +185,17 @@ export async function handleGarimpoFromMainAgent(
   if(plan.intent==='review'){
     input.onNavigateToGarimpo(true)
     return summary('Revisão aberta','Abri a área Revisar do Garimpo. A aprovação e o envio ao CRM continuam manuais.')
+  }
+  if(plan.intent==='answer'&&/\b(quantas?|quantos?|andamento|status|progresso|encontrou|achou|total)\b/.test(normalized(input.prompt))){
+    if(!lastJob)return summary('Sem execução registrada','Não localizei uma pesquisa real anterior neste workspace.')
+    const unique=Math.max(0,lastJob.stats?.unique??0)
+    const found=lastJob.results.length
+    return summary('Andamento real do Garimpo',
+      'Pesquisa '+lastJob.id+' · '+lastJob.input.segment+' em '+lastJob.input.regions.join(', ')+
+      '. Situação: '+lastJob.status+'. Foram contabilizadas '+unique+
+      ' empresa(s) única(s) até agora; '+found+' registro(s) estão disponíveis no resultado da execução. '+
+      'A meta solicitada é '+lastJob.input.targetQuantity+
+      '. Não estou considerando a meta como empresas já encontradas.')
   }
   if(plan.intent==='rank'){
     const local=visibleProspects(deps.localState(input.workspaceId).prospects,input.currentUserId,input.snapshot.workspace.role)

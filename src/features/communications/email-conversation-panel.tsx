@@ -116,6 +116,24 @@ export function EmailConversationPanel({
     </div>
   </section>
 
+  // Imported e-mails can exist before they are matched to a CRM lead.
+  // Never hide these genuine provider messages just because the CRM has
+  // not associated their sender/recipient with a contact yet.
+  if (!lead && orderedEvents.length) return <section className="email-workspace-panel email-workspace-panel--unlinked">
+    <header className="email-workspace-header"><div className="email-workspace-panel__unlinked-heading">
+      <Mail size={19}/><div><strong>Conversa importada</strong><small>Conta conectada · ainda não vinculada a um contato do CRM</small></div>
+    </div><Button size="sm" variant="secondary" loading={loading} onClick={onSync}><RefreshCw size={15}/> Sincronizar</Button></header>
+    <div className="email-thread">{orderedEvents.map(item=><article key={item.id} className={`email-message-card is-${item.direction}`}>
+      <div className="email-message-card__avatar">{item.direction==='inbound'?'IN':'RT'}</div>
+      <div className="email-message-card__content">
+        <header><div><strong>{String(item.metadata?.senderAddress||'Remetente')}</strong>
+          <span>{item.direction==='inbound'?'recebido':'enviado'}</span></div><time>{formatDateTime(item.occurredAt)}</time></header>
+        {item.subject?<h4>{item.subject}</h4>:null}<p>{item.body||'Mensagem sem conteúdo textual.'}</p>
+        <footer><span>{item.status==='sent'?'Enviado':item.status==='received'?'Recebido':item.status}</span><b>Oficial</b></footer>
+      </div>
+    </article>)}</div>
+    <div className="email-composer email-composer--unlinked"><Info size={17}/><span>Este e-mail foi recebido, mas ainda não possui um contato associado no CRM. Vincule o remetente a um contato para responder e registrar o relacionamento comercial.</span></div>
+  </section>
   if (!lead) return <section className="email-workspace-panel email-workspace-panel--empty"><Mail size={34}/><strong>Selecione uma conversa de e-mail</strong><p>O histórico e a resposta por e-mail aparecem aqui ao escolher um contato. Você já pode sincronizar a caixa conectada.</p></section>
 
   return <section className="email-workspace-panel">

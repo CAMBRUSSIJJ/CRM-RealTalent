@@ -61,6 +61,7 @@ describe('Revisão única das fontes do Garimpo', () => {
     expect(suggestBusinessNameFromTitle({ type: 'raw', name: 'Barbearias / Barbeiros no Rio Grande, RS — WhatsApp' })).toBe('')
     expect(suggestBusinessNameFromTitle({ type: 'raw', name: 'Barbearia em Rio Grande - Perto de Mim' })).toBe('')
     expect(prepareSourceReview({ type: 'raw', name: 'Salento Barbearia - Barbearia em Rio Grande/RS' }, null, 'Rio Grande, RS')).toMatchObject({company:'Salento Barbearia', city:'Rio Grande, RS'})
+    expect(prepareSourceReview({ type: 'raw', name: 'Barbearia Rio Grande (@barbearia_riogrande) - Instagram', url: 'https://www.instagram.com/barbearia_riogrande' }, null)).toMatchObject({company:'Barbearia Rio Grande', instagram:'@barbearia_riogrande'})
   })
 
   it('não associa automaticamente registros ambíguos, rejeitados ou duplicados', () => {

@@ -2,7 +2,7 @@ import {describe,it,expect,vi} from 'vitest'
 import type {WorkspaceSnapshot} from '../domain/types'
 import type {ProspectingAgentJob} from './prospecting-linux-agent'
 import type {ProspectRecord} from './prospecting-workspace'
-import {handleGarimpoFromMainAgent,isModelPlan,wantsGarimpoNativeTool,segmentStatedByUser,quantityStatedByUser,type GarimpoBridgeInput,type GarimpoBridgeDependencies} from './realtalent-agent-garimpo-bridge'
+import {handleGarimpoFromMainAgent,isModelPlan,wantsGarimpoNativeTool,wantsGarimpoHandoff,segmentStatedByUser,quantityStatedByUser,type GarimpoBridgeInput,type GarimpoBridgeDependencies} from './realtalent-agent-garimpo-bridge'
 
 const snapshot={workspace:{id:'ws',role:'owner'},leads:[],companies:[],stages:[]} as unknown as WorkspaceSnapshot
 const job=(overrides:Record<string,unknown>={}):ProspectingAgentJob=>({
@@ -29,6 +29,20 @@ const mockDeps=(p=plan(),jobs:ProspectingAgentJob[]=[job()])=>{
   return {createJob,listJobs,health,fetcher,localState}
 }
 describe('RealTalent principal Agent -> Garimpo G3 native bridge',()=>{
+  it('opens approved-to-CRM transfer for human review without writing records',async()=>{
+    const deps=mockDeps()
+    const input=params('Envie as empresas aprovadas do Garimpo para o CRM')
+    const answer=await handleGarimpoFromMainAgent(input,deps as never)
+    expect(wantsGarimpoHandoff(input.prompt)).toBe(true)
+    expect(input.onNavigateToGarimpo).toHaveBeenCalledWith(true)
+    expect(deps.createJob).not.toHaveBeenCalled()
+    expect(deps.fetcher).not.toHaveBeenCalled()
+    expect(answer?.text).toContain('Nenhuma empresa foi aprovada ou enviada automaticamente')
+  })
+  it('does not interpret a negated request to send as an authorization',()=>{
+    expect(wantsGarimpoHandoff('Não envie as empresas do Garimpo para o CRM')).toBe(false)
+  })
+
   it('intercepts explicit search even though generic AI would answer hypothetically',()=>{
     expect(wantsGarimpoNativeTool('eu quero que tu ache no garimpo 40 empresas de jardinagem','prospecting')).toBe(true)
     expect(wantsGarimpoNativeTool('resuma minhas tarefas de hoje','prospecting')).toBe(false)

@@ -40,6 +40,15 @@ const summary=(title:string,text:string,facts:string[]=[]):AssistantAnswer=>({
 })
 /** Only explicit requests for Garimpo work enter the specialized planner.
  * Does NOT redirect generic CRM conversations or email/WhatsApp actions. */
+/** Verbs alone do not grant permission to mutate records: sending needs
+ * review + explicit confirmation in the existing Garimpo modal. */
+export function wantsGarimpoHandoff(prompt:string):boolean{
+  const text=normalized(prompt)
+  if(/\b(nao|nunca|sem)\s+(?:me\s+)?(envie|enviar|mande|mandar|transfira|transferir)\b/.test(text))return false
+  return /\b(garimpo|garimpad[ao]s?|prospeccao)\b/.test(text)&&
+    /\b(envie|enviar|mande|mandar|transfira|transferir|leve|levar)\b/.test(text)&&
+    /\b(crm|pipeline|contatos?|empresas?|aprovad[ao]s?)\b/.test(text)
+}
 export function wantsGarimpoNativeTool(prompt:string,route:AppRoute,history:AgentConversationTurn[]=[]):boolean {
   const text=normalized(prompt)
   const explicit=/\b(garimpo|prospeccao territorial)\b/.test(text)
@@ -100,6 +109,15 @@ const visibleProspects=(prospects:ProspectRecord[],userId:string|null,role:strin
 export async function handleGarimpoFromMainAgent(
   input:GarimpoBridgeInput,inject:Partial<GarimpoBridgeDependencies>={},
 ):Promise<AssistantAnswer|null>{
+  if(wantsGarimpoHandoff(input.prompt)){
+    if(!input.canView||!input.workspaceId)return errorAnswer('Não foi possível acessar a revisão deste workspace.')
+    if(!input.canSearch)return errorAnswer('Seu perfil não permite enviar registros do Garimpo ao CRM.')
+    input.onNavigateToGarimpo(true)
+    return summary('Transferência pronta para revisão',
+      'Abri o Garimpo em Revisar. Confira as empresas e escolha “Enviar aprovadas ao CRM”. '+
+      'O envio mostra uma confirmação com a política de duplicidades, o responsável e a opção de criar oportunidades. '+
+      'Nenhuma empresa foi aprovada ou enviada automaticamente.')
+  }
   if(!wantsGarimpoNativeTool(input.prompt,input.route,input.history))return null
   if(!input.canView||!input.workspaceId)return errorAnswer('Você não tem acesso à revisão do Garimpo neste workspace.')
   const deps={...defaults,...inject}

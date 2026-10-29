@@ -1,0 +1,27 @@
+/* RealTalent R1: single Agent entry and compact evidence-backed handoff. */
+.prospecting-r1-agent{display:flex;align-items:center;gap:12px;padding:13px 15px;background:var(--surface,#fff);border:1px solid var(--border,#dbe4ef);border-radius:13px;margin:10px 0 14px}
+.prospecting-r1-agent__icon{display:grid;place-items:center;width:34px;height:34px;flex:none;color:#285bc1;background:#eaf1ff;border-radius:10px}
+.prospecting-r1-agent>div{flex:1;min-width:0;display:grid;gap:3px}
+.prospecting-r1-agent strong,.prospecting-r1-handoff__title strong{font-size:13px;color:var(--text-primary,#243b5b)}
+.prospecting-r1-agent small,.prospecting-r1-handoff__title span{color:var(--text-secondary,#64758f);font-size:11px;line-height:1.45}
+.prospecting-r1-handoff{display:flex;align-items:center;gap:18px;flex-wrap:wrap;padding:15px;margin-bottom:12px}
+.prospecting-r1-handoff__title{display:grid;gap:3px;min-width:180px;flex:1}
+.prospecting-r1-handoff__metrics{display:flex;align-items:center;flex-wrap:wrap;gap:14px}
+.prospecting-r1-handoff__metrics span{display:grid;gap:1px;font-size:10px;color:var(--text-secondary,#67778e);white-space:nowrap}
+.prospecting-r1-handoff__metrics b{font-size:19px;color:var(--text-primary,#203a60)}
+.prospecting-r1-handoff__actions{display:flex;gap:7px;flex-wrap:wrap;margin-left:auto}
+.prospecting-r1-receipt{display:grid;gap:12px;padding:16px;margin-top:12px}
+.prospecting-r1-receipt header{display:flex;justify-content:space-between;gap:12px;align-items:flex-start}
+.prospecting-r1-receipt h3{margin:4px 0;font-size:16px}
+.prospecting-r1-receipt p{font-size:11px;color:var(--text-secondary,#6b7789);margin:0;line-height:1.5}
+.prospecting-r1-receipt__totals{display:flex;gap:18px;flex-wrap:wrap;border-top:1px solid var(--border,#e4e9ef);padding-top:11px}
+.prospecting-r1-receipt__totals span{display:grid;gap:2px;font-size:11px;color:var(--text-secondary,#60758f)}
+.prospecting-r1-receipt__totals strong{font-size:18px;color:var(--text-primary,#274267)}
+.prospecting-r1-receipt__warning{color:#9a551b!important}
+.prospecting-r1-receipt__rows{display:grid;max-height:360px;overflow-y:auto}
+.prospecting-r1-receipt__rows>div{display:flex;align-items:center;gap:12px;border-top:1px solid var(--border,#e4e9ef);padding:9px 0}
+.prospecting-r1-receipt__rows>div>div{display:grid;gap:3px;min-width:0;flex:1}
+.prospecting-r1-receipt__rows strong{font-size:12px}
+.prospecting-r1-receipt__rows small{color:var(--text-secondary,#66758c);font-size:11px;overflow-wrap:anywhere}
+.prospecting-r1-receipt__rows span{font-size:11px;color:var(--text-secondary,#556981);white-space:nowrap}
+@media(max-width:760px){.prospecting-r1-agent{flex-wrap:wrap}.prospecting-r1-agent>button{margin-left:auto}.prospecting-r1-handoff{align-items:stretch}.prospecting-r1-handoff__metrics{gap:12px}.prospecting-r1-handoff__actions{margin-left:0}.prospecting-r1-receipt__rows>div{flex-wrap:wrap}}

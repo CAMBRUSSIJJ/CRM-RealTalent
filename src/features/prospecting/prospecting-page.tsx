@@ -3,7 +3,7 @@ import {
   AlertTriangle, ArrowRight, BadgeCheck, Ban, Building2, Check, CheckCircle2, ChevronLeft, ChevronRight, CircleDashed,
   Clipboard, ClipboardCheck, ClipboardList, Database, Download, ExternalLink, FileJson, Filter, Globe2, History, Inbox, AtSign, KanbanSquare, Link2,
   ListFilter, LoaderCircle, MapPinned, Merge, MoreHorizontal, Pause, Phone, Play, Plus, RefreshCw, Search, Send, ShieldCheck, ShieldX, SlidersHorizontal,
-  Sparkles, Target, Trash2, Upload, UserRoundCheck, UsersRound, X, Zap,
+  Sparkles, Target, Trash2, Upload, UserRoundCheck, UsersRound, X, Zap, MessageCircle,
 } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type PointerEvent as ReactPointerEvent, type ReactNode } from 'react'
 import { useAppActions, useAppNavigation, useAppUi, useAppWorkspace } from '../../app/app-context'
@@ -46,7 +46,11 @@ import { requireExportApproval } from '../../services/team-governance'
 import { buildProspectingIcp, prospectingIcpSummary, rankProspects } from '../../services/prospecting-intelligence'
 import { ProspectingRedesignSearch, ProspectingRedesignShell } from './prospecting-redesign'
 import { ProspectingG1G2Panel } from './prospecting-g1g2-panel'
-import { GarimpoConversationG3, type GarimpoSearchProposal } from './garimpo-conversation-g3'
+import type { GarimpoSearchProposal } from './garimpo-conversation-g3'
+import {buildProspectingHandoffMetrics,isProspectTransferable,transferableProspectIds,
+  linkedCrmLeadId,linkedCrmCompanyId,summarizeHandoffReceipt,type ProspectingBatchReceipt,type ProspectingHandoffReceipt
+} from '../../services/prospecting-handoff-r1'
+import '../../styles/prospecting-r1.css'
 import {GARIMPO_REVIEW_REQUEST,garimpoReviewStorageKey} from '../../services/realtalent-agent-garimpo-bridge'
 
  type ProspectingTab = 'search' | 'local' | 'results' | 'history'
@@ -120,7 +124,7 @@ const initialState: ProspectingState = { prospects: [], history: [], lastExtensi
 
 export function ProspectingPage() {
   const { snapshot, currentWorkspace, currentUserId, repositoryMode, teamAccess, canTeamAccess, canTeamAccessRecord } = useAppWorkspace()
-  const { setRoute, routeContext, clearRouteContext } = useAppNavigation()
+  const { setRoute, navigate, routeContext, clearRouteContext } = useAppNavigation()
   const { notify, confirmAction } = useAppUi()
   const { createCompany, updateCompany, createContact, updateContact, createLead, updateLead, createActivity, listWorkspaceMembers } = useAppActions()
   const { preferences } = usePreferences()
@@ -156,6 +160,7 @@ export function ProspectingPage() {
   const [processingId, setProcessingId] = useState<string | null>(null)
   const [sendIds, setSendIds] = useState<string[]>([])
   const [sending, setSending] = useState(false)
+  const [handoffReceipt, setHandoffReceipt] = useState<ProspectingBatchReceipt|null>(null)
   const [providerBusy, setProviderBusy] = useState(false)
   const [automationProgress, setAutomationProgress] = useState<ProspectingSearchAutomationProgress | null>(null)
   const automationAbortRef = useRef<AbortController | null>(null)
@@ -519,6 +524,8 @@ export function ProspectingPage() {
     }
   }, [readinessCounts.ready, state.prospects])
 
+  const r1Handoff=useMemo(()=>buildProspectingHandoffMetrics(state.prospects),[state.prospects])
+  const openMainAgent=(prompt='')=>window.dispatchEvent(new CustomEvent('crm:assistant-open',{detail:{prompt}}))
   const prospectingIcp = useMemo(() => snapshot ? buildProspectingIcp(snapshot) : null, [snapshot])
   const prospectingRanking = useMemo(() => snapshot ? rankProspects(state.prospects, snapshot).slice(0, 5) : [], [snapshot, state.prospects])
 
@@ -832,9 +839,14 @@ export function ProspectingPage() {
   }
 
   const openSend = (ids: string[]) => {
-    const validIds = ids.filter((id) => state.prospects.some((item) => item.id === id && item.status === 'approved' && prospectDataQuality(item).readiness !== 'blocked'))
-    if (!validIds.length) { notify('info', 'Revise e aprove as empresas antes de enviar ao CRM. Registros bloqueados pelo Data Layer não são enviados.'); return }
-    if (validIds.length < ids.length) notify('warning', `${ids.length - validIds.length} registro(s) ficaram de fora por ainda não estarem aprovados.`)
+    const unique=new Set(ids)
+    const validIds = state.prospects.filter(item=>unique.has(item.id)&&isProspectTransferable(item)).map(item=>item.id)
+    if (!validIds.length) {
+      notify('info', 'É necessário revisar e aprovar empresas elegíveis. Registros bloqueados ou duplicados não são enviados.')
+      return
+    }
+    if (validIds.length < unique.size) notify('warning', `${unique.size - validIds.length} registro(s) não serão enviados: ainda precisam de revisão.`)
+    setHandoffReceipt(null)
     setSendIds(validIds)
   }
 
@@ -844,12 +856,18 @@ export function ProspectingPage() {
     setSending(true)
     let companiesCreated = 0; let companiesUpdated = 0; let contactsCreated = 0; let contactsUpdated = 0; let opportunitiesCreated = 0; let skipped = 0; let failed = 0; let activityWarnings = 0
     const sentIds: string[] = []
+    const receipts:ProspectingHandoffReceipt[]=[]
     const batchId = `garimpo-${Date.now().toString(36)}`
     const tagsFromOptions = options.tags.split(',').map((tag) => tag.trim()).filter(Boolean)
     const companyCache = [...snapshot.companies]
     const contactCache = [...snapshot.contacts]
+    const existingLeadIds=new Set(snapshot.leads.map(lead=>lead.id))
+    const existingCompanyIds=new Set(snapshot.companies.map(company=>company.id))
 
     const resolveCompany = (prospect: ProspectRecord) => {
+      const previouslyLinked=linkedCrmCompanyId(prospect,existingCompanyIds)
+      const linked=previouslyLinked?companyCache.find(company=>company.id===previouslyLinked):null
+      if(linked)return {company:linked,strength:'confirmed' as const}
       const cnpj = crmDigits(prospect.cnpj).slice(0, 14)
       if (cnpj.length === 14) {
         const exact = companyCache.find((company) => crmDigits(company.cnpj).slice(0, 14) === cnpj)
@@ -870,9 +888,31 @@ export function ProspectingPage() {
 
     try {
       for (const prospect of prospects) {
+        if(!isProspectTransferable(prospect)){
+          skipped+=1
+          receipts.push({id:batchId+':'+prospect.id,prospectId:prospect.id,
+            company:prospect.company,status:'skipped',note:'Aprovação, identidade ou qualidade inválida no momento do envio.'})
+          continue
+        }
         try {
+          const importedLeadId=linkedCrmLeadId(prospect,existingLeadIds)
+          const priorLead=snapshot.leads.find(lead=>lead.id===importedLeadId||
+            lead.tags.includes('garimpo-id:'+prospect.id))
+          if(priorLead&&options.createOpportunity&&options.duplicateBehavior!=='update'){
+            skipped+=1
+            receipts.push({id:batchId+':'+prospect.id,prospectId:prospect.id,
+              company:prospect.company,status:'skipped',crmLeadId:priorLead.id,
+              note:'O registro já possui oportunidade. Criação duplicada bloqueada; escolha Atualizar existente para reaproveitá-la.'})
+            continue
+          }
           const match = resolveCompany(prospect)
-          if (match.company && options.duplicateBehavior === 'skip') { skipped += 1; continue }
+          if (match.company && options.duplicateBehavior === 'skip') {
+            skipped += 1
+            receipts.push({id:batchId+':'+prospect.id,prospectId:prospect.id,
+              company:prospect.company,status:'skipped',crmCompanyId:match.company.id,
+              note:'Empresa já existe; política do lote: ignorar duplicados.'})
+            continue
+          }
           const raw = prospect.rawData ?? {}
           const domain = crmDomain(prospect.website)
           const companyPayload = {
@@ -929,7 +969,7 @@ export function ProspectingPage() {
           if (options.createOpportunity) {
             const importTag = `garimpo-id:${prospect.id}`
             const details = [`Lote Garimpo: ${batchId}`, `Empresa canônica: ${company.id}`, contactId ? `Contato canônico: ${contactId}` : '', prospect.instagram ? `Instagram: ${prospect.instagram}` : '', prospect.website ? `Site: ${prospect.website}` : '', prospect.bookingUrl ? `Agendamento: ${prospect.bookingUrl}` : '', prospect.cnpj ? `CNPJ: ${prospect.cnpj}` : '', prospect.address ? `Endereço: ${prospect.address}` : '', prospect.description, prospect.notes].filter(Boolean).join('\n')
-            const alreadyImported = snapshot.leads.find((lead) => lead.tags.includes(importTag))
+            const alreadyImported = snapshot.leads.find((lead) => lead.tags.includes(importTag)||lead.id===importedLeadId)
             if (alreadyImported && options.duplicateBehavior === 'update') {
               const tags = Array.from(new Set([...alreadyImported.tags, ...tagsFromOptions, 'garimpo', importTag]))
               const lead = await updateLead(alreadyImported.id, { companyId: company.id, primaryContactId: contactId, company: company.name, cnpj: company.cnpj, website: company.website, phone: prospect.phone || alreadyImported.phone, email: prospect.email || alreadyImported.email, city: prospect.city || alreadyImported.city, source: `Garimpo · ${prospectOriginLabel(prospect)}`, priority: options.priority, temperature: options.temperature, ownerId: options.ownerId || alreadyImported.ownerId, ownerName: options.ownerName || alreadyImported.ownerName, tags, nextActionAt: options.nextActionAt ? new Date(options.nextActionAt).toISOString() : alreadyImported.nextActionAt, notes: [alreadyImported.notes, details].filter(Boolean).join('\n\n') })
@@ -946,10 +986,19 @@ export function ProspectingPage() {
           }
 
           sentIds.push(prospect.id)
+          receipts.push({id:batchId+':'+prospect.id,prospectId:prospect.id,company:prospect.company,
+            status:'transferred',crmCompanyId:company.id,
+            ...(contactId?{crmContactId:contactId}:{}),...(leadId?{crmLeadId:leadId}:{}),
+            note:options.createOpportunity?'Empresa processada e oportunidade solicitada.':'Empresa cadastrada sem criar oportunidade.'})
           const now = new Date().toISOString()
           commit((current) => ({ ...current, prospects: current.prospects.map((item) => item.id === prospect.id ? { ...item, status: 'sent' as const, sentAt: now, updatedAt: now, rawData: { ...item.rawData, crmCompanyId: company.id, ...(contactId ? { crmContactId: contactId } : {}), ...(leadId ? { crmLeadId: leadId } : {}) } } : item) }))
-        } catch { failed += 1 }
+        } catch(error) {
+          failed += 1
+          receipts.push({id:batchId+':'+prospect.id,prospectId:prospect.id,company:prospect.company,
+            status:'failed',note:error instanceof Error?error.message:'Falha ao gravar este registro no CRM.'})
+        }
       }
+      setHandoffReceipt({id:batchId,createdAt:new Date().toISOString(),rows:receipts,activityWarnings})
       commit((current) => appendHistory(current, workspaceId, { action: companiesUpdated || contactsUpdated ? 'merge' : 'send', title: `Lote ${batchId} enviado ao CRM`, description: `${companiesCreated} empresa(s) criada(s) · ${companiesUpdated} atualizada(s) · ${contactsCreated} contato(s) criado(s) · ${contactsUpdated} atualizado(s) · ${opportunitiesCreated} oportunidade(s) criada(s) · ${skipped} ignorada(s) · ${failed} falha(s)${activityWarnings ? ` · ${activityWarnings} atividade(s) pendente(s)` : ''}`, count: sentIds.length }))
       setSendIds((current) => current.filter((id) => !sentIds.includes(id))); setSelectedIds(new Set())
       if (failed || activityWarnings) notify('info', `${sentIds.length} empresa(s) processada(s); ${failed} falha(s) e ${activityWarnings} atividade(s) precisam de revisão.`)
@@ -994,13 +1043,15 @@ export function ProspectingPage() {
         onCrm={() => setRoute('leads')}
         onHistoryTab={() => setTab('history')}
       >
-        {(tab === 'search' || tab === 'local' || tab === 'results') ? <GarimpoConversationG3
-          key={workspaceId}
-          prospects={state.prospects} snapshot={snapshot}
-          currentSegment={segment} currentCity={city} currentQuantity={quantity}
-          canWrite={canWrite} searchBusy={agentBusy}
-          onSearch={startLinuxAgentSearch} onReview={() => openReviewWorkspace()}
-        /> : null}
+        {(tab === 'search' || tab === 'local' || tab === 'results') ? <section className="prospecting-r1-agent" aria-label="Agent integrado">
+          <span className="prospecting-r1-agent__icon"><MessageCircle size={18}/></span>
+          <div><strong>RealTalent Agent</strong><small>Uma conversa para buscar, investigar e acompanhar empresas reais.</small></div>
+          <Button variant="secondary" onClick={()=>openMainAgent(
+            tab==='results'?'Quais empresas do Garimpo devo revisar primeiro?':
+            segment&&city?`Encontre ${quantity} empresas de ${segment} em ${city} no Garimpo`:
+            'Quero encontrar empresas reais no Garimpo.'
+          )}>Conversar <ArrowRight size={15}/></Button>
+        </section> : null}
         {tab === 'search' || tab === 'local' ? <>
           <ProspectingRedesignSearch
             segment={segment}
@@ -1059,6 +1110,19 @@ export function ProspectingPage() {
           </div> : null}
         </> : null}
       {tab === 'results' ? <div className="prospecting-review-workspace-v101103-h7 prospecting-review-workspace-v101106">
+        <section className="prospecting-r1-handoff panel" aria-label="Fluxo até o CRM">
+          <div className="prospecting-r1-handoff__title"><strong>Da pesquisa à oportunidade</strong><span>A IA não aprova nem envia empresas automaticamente.</span></div>
+          <div className="prospecting-r1-handoff__metrics">
+            <span><b>{r1Handoff.toReview}</b> Para revisar</span>
+            <span><b>{r1Handoff.transferable}</b> Aprovadas para envio</span>
+            <span><b>{r1Handoff.blocked}</b> Aprovadas com bloqueio</span>
+            <span><b>{r1Handoff.sent}</b> Enviadas</span>
+          </div>
+          <div className="prospecting-r1-handoff__actions">
+            <Button variant="secondary" onClick={()=>{setReviewMode('guided');setReviewScope('all');setInspectorMode(null)}}>Revisar <ArrowRight size={15}/></Button>
+            <Button disabled={!canProspectingEdit||!r1Handoff.transferable||sending} onClick={()=>openSend(transferableProspectIds(state.prospects))}>Enviar aprovadas ao CRM <ArrowRight size={15}/></Button>
+          </div>
+        </section>
         <section className="panel prospecting-review-modebar-v101103-h7 prospecting-review-modebar-v101106"><div><span className="eyebrow"><ClipboardCheck size={14} /> Central de revisão</span><h3>Todos os resultados em um único lugar</h3><p>Empresas ficam na lista e na revisão guiada. Dados brutos, fontes filtradas e duplicidades ficam disponíveis para triagem, sem envio automático ao CRM.</p></div><div className="prospecting-review-modebar-v101106__actions"><div className="prospecting-review-scope-v101106">{([['exceptions', 'Precisa atenção', metrics.attention], ['ready', 'Prontas', metrics.autoValidatable], ['all', 'Todas', metrics.total]] as Array<[ReviewScope,string,number]>).map(([value,label,count]) => <button type="button" key={value} className={reviewScope === value ? 'is-active' : ''} onClick={() => { setReviewScope(value); setSelectedIds(new Set()) }}>{label}<span>{count}</span></button>)}</div><div className="prospecting-review-switch-v101103-h7"><button type="button" className={reviewMode === 'list' ? 'is-active' : ''} onClick={() => { setReviewMode('list'); setInspectorMode(null) }}><ClipboardList size={15}/> Lista</button><button type="button" className={reviewMode === 'guided' ? 'is-active' : ''} onClick={() => { setReviewMode('guided'); setInspectorMode(null) }}><Sparkles size={15}/> Guiada</button><button type="button" className={reviewMode === 'sources' ? 'is-active' : ''} onClick={() => { setReviewMode('sources'); setInspectorMode(null) }}><Globe2 size={15}/> Fontes brutas <span>{rawSourceReviewCount(agentJob)}</span></button></div></div></section>
         {inspectorMode && reviewMode === 'list' ? <ProspectingEvidenceExplorer
           job={agentJob} prospects={state.prospects} mode={inspectorMode}
@@ -1126,6 +1190,18 @@ export function ProspectingPage() {
       </ProspectingRedesignShell>
       <SendToCrmModal open={canProspectingEdit && sendIds.length > 0} count={sendIds.length} stages={snapshot.stages} ownerOptions={(canProspectingAssign ? workspaceMembers : workspaceMembers.filter((member) => member.userId === currentUserId)).map((member) => ({ id: member.userId, name: member.displayName || member.email }))} loading={sending} onClose={() => setSendIds([])} onSubmit={sendToCrm} />
 
+      {handoffReceipt ? <section className="panel prospecting-r1-receipt" aria-label="Recibo de transferência ao CRM">
+        <header><div><span className="eyebrow">Resultado da operação · {handoffReceipt.id}</span><h3>Transferência para o CRM</h3><p>Contagens confirmadas pelas respostas de gravação. A confirmação da persistência após recarga depende da sincronização do workspace.</p></div><Button variant="ghost" onClick={()=>setHandoffReceipt(null)}>Fechar</Button></header>
+        <div className="prospecting-r1-receipt__totals">{(()=>{
+          const result=summarizeHandoffReceipt(handoffReceipt)
+          return <><span><strong>{result.transferred}</strong> Processadas</span><span><strong>{result.skipped}</strong> Ignoradas</span><span><strong>{result.failed}</strong> Falhas</span><span><strong>{result.opportunities}</strong> Oportunidades</span></>
+        })()}</div>
+        {handoffReceipt.activityWarnings?<p className="prospecting-r1-receipt__warning">{handoffReceipt.activityWarnings} atividade(s) não confirmada(s); revise antes de contar com o acompanhamento.</p>:null}
+        <div className="prospecting-r1-receipt__rows">{handoffReceipt.rows.slice(0,30).map(row=><div key={row.id}>
+          <div><strong>{row.company}</strong><small>{row.note}</small></div><span>{row.status==='transferred'?'Processada':row.status==='failed'?'Falha':'Ignorada'}</span>
+          {row.crmLeadId?<><Button variant="ghost" onClick={()=>navigate('leads',{leadId:row.crmLeadId,action:'contact-record'})}>Contato <ArrowRight size={13}/></Button><Button variant="ghost" onClick={()=>navigate('pipeline',{leadId:row.crmLeadId,action:'deal-inspector'})}>Pipeline <ArrowRight size={13}/></Button></>:row.crmCompanyId?<Button variant="ghost" onClick={()=>setRoute('commercial-map')}>Mapa de Contas <ArrowRight size={13}/></Button>:null}
+        </div>)}</div>
+      </section>:null}
       {metrics.sent > 0 ? <section className="prospecting-footer-callout"><div><CheckCircle2 size={20} /><div><strong>Integração ativa com o CRM</strong><span>Empresas enviadas entram primeiro como CompanyRecord; pessoas identificadas viram ContactRecord. Oportunidades só são criadas quando você solicitar.</span></div></div><Button variant="secondary" onClick={() => setRoute('leads')}>Abrir Contatos <ArrowRight size={16} /></Button></section> : null}
     </div>
   )

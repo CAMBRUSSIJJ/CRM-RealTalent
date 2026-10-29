@@ -54,6 +54,14 @@ export function CalendarIntegrationPanel() {
 
   const refresh = async () => {
     if (!currentWorkspace) return
+    if (repositoryMode === 'local') {
+      // In local/demo mode there are no hosted OAuth credentials. Avoid
+      // issuing gateway requests which would only trigger proxy 502 errors.
+      setDashboard(emptyDashboard)
+      setSelectedId('')
+      setLoading(false)
+      return
+    }
     setLoading(true)
     try {
       const next = await loadCalendarIntegrationDashboard(currentWorkspace.id)
@@ -63,7 +71,7 @@ export function CalendarIntegrationPanel() {
     finally { setLoading(false) }
   }
 
-  useEffect(() => { void refresh() }, [currentWorkspace?.id])
+  useEffect(() => { void refresh() }, [currentWorkspace?.id, repositoryMode])
   const selected = useMemo(() => dashboard.accounts.find((item) => item.account.id === selectedId) ?? null, [dashboard.accounts, selectedId])
   useEffect(() => {
     if (!selected) return
@@ -71,6 +79,7 @@ export function CalendarIntegrationPanel() {
   }, [selected?.account.id, selected?.calendarId, selected?.direction, selected?.enabled])
 
   const connect = async (provider: 'google' | 'microsoft') => {
+    if (repositoryMode === 'local') return notify('info', 'A conexão real exige o workspace hospedado com OAuth configurado. A Agenda interna continua disponível no modo local.')
     if (!currentWorkspace || !canManage) return notify('info', 'Somente administradores podem conectar contas externas.')
     setBusy(`connect-${provider}`)
     try {
@@ -161,6 +170,25 @@ export function CalendarIntegrationPanel() {
   const totalLinks = dashboard.accounts.reduce((sum, item) => sum + item.linkedEvents, 0)
   const totalPending = dashboard.accounts.reduce((sum, item) => sum + item.pendingJobs, 0)
   const totalConflicts = dashboard.conflicts.filter((item) => item.status === 'open').length
+
+  if (repositoryMode === 'local') return <section className="calendar-integration-v84 calendar-integration-s34 page-stack" aria-label="Configuração de agendas externas">
+    <article className="panel calendar-integration-s34__hero">
+      <div><span className="eyebrow">Agenda externa</span><h3>Conectar Google Agenda ou Microsoft Calendar</h3>
+        <p>Configure uma conta hospedada para sincronizar compromissos. A Agenda interna do RealTalent continua funcionando neste computador.</p></div>
+      <StatusPill tone="info">Modo local · sem sincronização externa</StatusPill>
+    </article>
+    <article className="panel calendar-integration-s34__connection">
+      <div className="calendar-integration-s34__symbol"><Cloud size={23}/></div>
+      <div><h3>Nenhuma conta externa conectada</h3>
+        <p>Os provedores Google e Microsoft precisam de autenticação OAuth e de serviços de sincronização configurados no ambiente hospedado. Conectar a partir desta sessão local não habilita esses serviços.</p>
+        <div className="calendar-integration-s34__providers"><span><CalendarCheck2 size={17}/> Google Agenda <small>Requer configuração hospedada</small></span><span><CalendarClock size={17}/> Microsoft Calendar <small>Requer configuração hospedada</small></span></div>
+      </div>
+    </article>
+    <details className="panel calendar-integration-s34__steps"><summary>O que falta para ativar a sincronização?</summary>
+      <ol><li>Acessar um workspace hospedado com Supabase e autenticação configurados.</li><li>Implantar e configurar os serviços OAuth e sincronização do Google ou Microsoft.</li><li>Conectar a conta e autorizar os calendários desejados.</li><li>Validar a conexão antes de ativar a sincronização bidirecional.</li></ol>
+      <p>O modo de demonstração não executa sincronização, não importa eventos e não cria conexões fictícias.</p>
+    </details>
+  </section>
 
   return <section className="calendar-integration-v84 page-stack">
     <article className="panel calendar-integration-v84__hero">

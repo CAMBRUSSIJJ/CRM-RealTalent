@@ -69,3 +69,12 @@
 .settings-s3 .settings-s33__brand-demo-main small{font-size:12px;line-height:1.5;color:var(--muted)}
 .settings-s3 .settings-s33__brand-demo-button{margin-top:6px;background:var(--preview-accent,#2f59db);color:#fff;display:inline-flex;font-size:12px;padding:9px 13px;border-radius:8px}
 @media(max-width:590px){.settings-s3 .settings-s33__brand-demo-body{grid-template-columns:minmax(105px,35%) minmax(0,1fr)}.settings-s3 .settings-s33__brand-demo-main{padding:14px 12px}}
+
+/* Native, keyboard-accessible disclosure for optional events/sidebar controls. */
+.settings-s3 .settings-s33__details>.notification-rule-grid{padding:12px;gap:9px}
+.settings-s3 details.settings-s33__sidebar-controls{display:block;min-width:0;align-self:start;border:1px solid var(--border);border-radius:10px;overflow:hidden;background:var(--surface)}
+.settings-s3 .settings-s33__sidebar-controls>summary{cursor:pointer;min-height:44px;padding:12px 14px;font-size:12px;font-weight:720;line-height:1.4;background:var(--surface-soft)}
+.settings-s3 .settings-s33__sidebar-controls[open]>summary{border-bottom:1px solid var(--border);margin-bottom:12px}
+.settings-s3 .settings-s33__sidebar-controls>.field,.settings-s3 .settings-s33__sidebar-controls>.settings-toggle{margin:10px 12px}
+.settings-s3 .settings-s33__sidebar-controls>.settings-toggle:last-child{margin-bottom:12px}
+@media(max-width:990px){.settings-s3 .sidebar-studio{grid-template-columns:1fr}.settings-s3 .settings-s33__sidebar-controls{order:2}.settings-s3 .sidebar-studio__preview{order:1}}

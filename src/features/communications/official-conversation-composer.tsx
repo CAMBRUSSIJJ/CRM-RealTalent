@@ -17,7 +17,7 @@ export function OfficialConversationComposer({
   countryCode: string
   preferredWhatsAppAccountId?: string
   readOnly?: boolean
-  onSent(message: string): void
+  onSent(message: string, channel: 'email' | 'whatsapp'): void
   onError(message: string): void
 }) {
   const [channel, setChannel] = useState<'email' | 'whatsapp'>(() => initialChannel === 'whatsapp' ? 'whatsapp' : 'email')
@@ -66,10 +66,10 @@ export function OfficialConversationComposer({
     try {
       if (channel === 'email') {
         const event = await sendOfficialEmail({ workspaceId, leadId: lead.id, contactId: lead.primaryContactId ?? null, accountId: account.id, recipient, subject: subject.trim(), body: body.trim() })
-        onSent(event.status === 'sent' ? 'E-mail enviado pelo CRM.' : 'E-mail registrado e colocado na fila de envio.')
+        onSent(event.status === 'sent' ? 'E-mail enviado pelo CRM.' : 'E-mail registrado e colocado na fila de envio.', 'email')
       } else {
         const event = await sendOfficialWhatsApp({ workspaceId, leadId: lead.id, contactId: lead.primaryContactId ?? null, accountId: account.id, recipient, body: body.trim() })
-        onSent(event.status === 'sent' ? 'WhatsApp enviado pelo CRM.' : 'WhatsApp registrado e colocado na fila de envio.')
+        onSent(event.status === 'sent' ? 'WhatsApp enviado pelo CRM.' : 'WhatsApp registrado e colocado na fila de envio.', 'whatsapp')
       }
       clearRecoveryDraft(draftKey)
       setBody('')

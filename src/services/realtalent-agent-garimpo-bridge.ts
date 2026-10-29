@@ -22,6 +22,10 @@ const explicitSearchVerb=/\b(busque|buscar|encontre|encontrar|ache|achar|pesquis
 const negatedSearch=/\b(nao|nunca|sem|evite)\s+(?:me\s+)?(busque|buscar|encontre|encontrar|ache|achar|pesquise|pesquisar|procure|procurar|garimpe|garimpar|localize|localizar)\b/
 /** A visibly stated sector takes precedence over any older search context.
  * This is a narrow entity extraction guard, not a substitute for Qwen planning. */
+export function quantityStatedByUser(prompt:string):number|null {
+  const match=normalized(prompt).match(/\b([1-9][0-9]{0,2})\s+(?:empresas?|negocios?|estabelecimentos?|prestadores?)\b/)
+  return match?Math.min(150,Number(match[1])):null
+}
 export function segmentStatedByUser(prompt:string):string|null {
   const clean=normalized(prompt)
   const match=clean.match(/\b(?:empresas?|negocios?|estabelecimentos?|prestadores?)\s+(?:de|do|da)\s+(.{3,100}?)(?=\s+(?:em|na cidade|no municipio|no garimpo|para mim|pra mim|que|e depois|e me|e quais)\b|[,.!?]|$)/)
@@ -131,15 +135,24 @@ export async function handleGarimpoFromMainAgent(
   // model mistakenly classified it as general advice.
   const requestedSearch=explicitSearchVerb.test(normalized(input.prompt))&&!negatedSearch.test(normalized(input.prompt))
   const specifiedSegment=segmentStatedByUser(input.prompt)
-  if(requestedSearch&&plan.intent==='answer'){
-    const ready=Boolean(plan.city.trim()&&(specifiedSegment||plan.segment.trim()))
-    plan={...plan,intent:ready?'search':'clarify',
-      answer:ready?'Preparando consulta territorial real.':
-        !plan.city.trim()?'Em qual cidade ou região devo buscar empresas reais?':
-          'Qual segmento de empresas devo pesquisar?'}
+  const specifiedQuantity=quantityStatedByUser(input.prompt)
+  const groundedSegment=specifiedSegment||plan.segment.trim()||context.segment
+  const groundedCity=plan.city.trim()||context.city
+  if(requestedSearch){
+    // Structured planning chooses the action; explicitly stated parameters
+    // and a verified prior territory take precedence over stale model slots.
+    if((plan.intent==='answer'||plan.intent==='clarify')&&groundedSegment&&groundedCity)
+      plan={...plan,intent:'search',confidence:Math.max(0.7,plan.confidence)}
+    if(plan.intent==='search'){
+      plan={...plan,segment:groundedSegment,city:groundedCity,
+        quantity:specifiedQuantity??plan.quantity,
+        confidence:Math.max(plan.confidence,groundedSegment&&groundedCity?0.7:0)}
+    }else if(plan.intent==='answer'||plan.intent==='clarify'){
+      plan={...plan,intent:'clarify',answer:!groundedCity?
+        'Em qual cidade ou região devo buscar empresas reais?':
+        'Qual segmento de empresas devo pesquisar?'}
+    }
   }
-  if(requestedSearch&&plan.intent==='search'&&specifiedSegment)
-    plan={...plan,segment:specifiedSegment}
   // A direct command to find companies must NOT be downgraded to advice.
   if(/\b(busque|buscar|encontre|encontrar|ache|achar|pesquise|pesquisar|procure|procurar|garimpe|garimpar|localize|localizar)\b/.test(normalized(input.prompt)) &&
     plan.intent!=='search' && plan.intent!=='clarify')

@@ -552,10 +552,14 @@ export class LocalCrmRepository implements CrmRepository {
     if (index < 0) throw new Error('Etapa não encontrada.')
     const current = db.stages[index]; const name = input.name?.trim()
     if (name && db.stages.some((stage) => stage.workspaceId === current.workspaceId && stage.id !== stageId && stage.name.toLocaleLowerCase('pt-BR') === name.toLocaleLowerCase('pt-BR'))) throw new Error('Já existe uma etapa com esse nome.')
+    if (input.order !== undefined && (!Number.isInteger(input.order) || input.order < 1)) throw new Error('A ordem da etapa deve ser um inteiro positivo.')
     const next: PipelineStage = { ...current, ...input, ...(name ? { name } : {}), probability: input.probability === undefined ? current.probability : clampNumber(input.probability, 0, 100, current.probability) }
     if (next.isWon && next.isLost) throw new Error('Uma etapa não pode ser ganha e perdida ao mesmo tempo.')
     db.stages[index] = next
+    // Pure order/name/color/percent changes must not rewrite the activity
+    // history timestamps of leads that were not moved between stages.
     const now = new Date().toISOString()
+    if (next.isWon!==current.isWon||next.isLost!==current.isLost)
     db.leads = db.leads.map((lead) => lead.workspaceId === next.workspaceId && lead.stageId === stageId ? { ...lead, status: lead.status === 'archived' ? 'archived' : stageStatus(next), updatedAt: now } : lead)
     db.opportunities = db.opportunities.map((opportunity) => opportunity.workspaceId === next.workspaceId && opportunity.stageId === stageId ? {
       ...opportunity,

@@ -49,6 +49,7 @@ function help() {
   log('')
   log('  npm run start / ./start-linux.sh     abertura rápida e serviços locais')
   log('  npm run start:dev / --dev            Vite dev + serviços locais')
+  log('  --garimpo                            Garimpo preservado + Connect/WhatsApp/Controle isolados')
   log('  npm run verify / --verify            gates completos + npm audit + runtime')
   log('  npm run rebuild / --rebuild          rebuild controlado')
   log('  npm run doctor / --doctor            diagnóstico sem iniciar a UI')
@@ -61,6 +62,7 @@ function parseMode(argv) {
   if (argv.includes('--verify')) return 'verify'
   if (argv.includes('--rebuild')) return 'rebuild'
   if (argv.includes('--dev')) return 'dev'
+  if (argv.includes('--garimpo')) return 'garimpo'
   if (argv.includes('--doctor')) return 'doctor'
   if (argv.includes('--preview-only')) return 'preview-only'
   if (argv.includes('--fast')) return 'fast'
@@ -633,7 +635,7 @@ async function prepareConnectRuntime(token) {
   return { reuse:false, blocked:false, port, discovered }
 }
 
-async function startServices(token) {
+async function startServices(token, { preserveProspecting = false } = {}) {
   log('3/4 — Iniciando serviços locais: Connect + Communications Gateway + Prospecting Agent...')
   const connectPreparation = await prepareConnectRuntime(token)
   let connect = null
@@ -649,19 +651,27 @@ async function startServices(token) {
   if (!commPreparation.reuse && !commPreparation.blocked) comm = spawnCommunicationsSupervisor(token)
 
   let prospectingChild = null
-  const existing = await probe(`http://127.0.0.1:${PROSPECTING_PORT}/api/prospecting-agent/health`)
-  if (existing.ok && existing.data?.version !== '101.10.4' && Number(existing.data?.pid)) {
-    log(`↻ Agent anterior detectado (${existing.data.version}); substituindo pelo runtime atual...`)
-    await terminatePid(Number(existing.data.pid))
-    await sleep(500)
-  }
-  const after = await probe(`http://127.0.0.1:${PROSPECTING_PORT}/api/prospecting-agent/health`, { expectedVersion: '101.10.4' })
-  if (after.ok) {
-    log('✓ Prospecting Agent já está ativo via serviço local/systemd.')
+  if (preserveProspecting) {
+    // G1/G2 owns its own agent and workspace state on port 4320.
+    // Never replace its PID, version, directory or search data.
+    const existing = await probe(`http://127.0.0.1:${PROSPECTING_PORT}/api/prospecting-agent/health`)
+    if (!existing.ok) fail(`Garimpo em ${PROSPECTING_PORT} não respondeu. O inicializador dedicado deve subi-lo antes do runtime.`)
+    log(`✓ Garimpo existente preservado em ${PROSPECTING_PORT}; nenhum agente foi iniciado ou encerrado pelo runtime.`)
   } else {
-    prospectingChild = spawnService('prospecting', 'scripts/realtalent-prospecting-agent.mjs', {
-      REALTALENT_PROSPECTING_AGENT_HOST: '127.0.0.1', REALTALENT_PROSPECTING_AGENT_PORT: String(PROSPECTING_PORT),
-    }, '.realtalent-prospecting-agent.log')
+    const existing = await probe(`http://127.0.0.1:${PROSPECTING_PORT}/api/prospecting-agent/health`)
+    if (existing.ok && existing.data?.version !== '101.10.4' && Number(existing.data?.pid)) {
+      log(`↻ Agent anterior detectado (${existing.data.version}); substituindo pelo runtime atual...`)
+      await terminatePid(Number(existing.data.pid))
+      await sleep(500)
+    }
+    const after = await probe(`http://127.0.0.1:${PROSPECTING_PORT}/api/prospecting-agent/health`, { expectedVersion: '101.10.4' })
+    if (after.ok) {
+      log('✓ Prospecting Agent já está ativo via serviço local/systemd.')
+    } else {
+      prospectingChild = spawnService('prospecting', 'scripts/realtalent-prospecting-agent.mjs', {
+        REALTALENT_PROSPECTING_AGENT_HOST: '127.0.0.1', REALTALENT_PROSPECTING_AGENT_PORT: String(PROSPECTING_PORT),
+      }, '.realtalent-prospecting-agent.log')
+    }
   }
 
   let commReady = commPreparation.reuse
@@ -682,9 +692,10 @@ async function startServices(token) {
     log(`   Outlook OAuth: ${commReady.data.providers?.microsoft ? 'configurado' : 'execute ./configure-communications-local.sh'}`)
   }
 
-  const prospectingReady = await waitFor(`http://127.0.0.1:${PROSPECTING_PORT}/api/prospecting-agent/health`, { expectedVersion: '101.10.4' })
-  if (!prospectingReady.ok) fail('Prospecting Agent não ficou pronto. Consulte .realtalent-prospecting-agent.log')
-  log(`✓ Prospecting Agent: V${prospectingReady.data.version} ativo`)
+  const prospectingReady = await waitFor(`http://127.0.0.1:${PROSPECTING_PORT}/api/prospecting-agent/health`,
+    preserveProspecting ? {} : { expectedVersion: '101.10.4' })
+  if (!prospectingReady.ok) fail('Prospecting Agent não ficou pronto. Consulte o diagnóstico do Garimpo.')
+  log(`✓ Prospecting Agent: V${prospectingReady.data.version || 'externa'} ativo`)
 
   const connectReady = connectPreparation.reuse
     ? connectPreparation.existing
@@ -903,6 +914,12 @@ async function main() {
     npm(['run', 'qa:v101.11.3:h19.2'])
     npm(['run', 'build'])
     log(`✓ Rebuild V${RELEASE}-${HOTFIX} concluído.`)
+  } else if (mode === 'garimpo') {
+    // The Garimpo launcher has already checked the lockfile and installed
+    // the web app. Avoid running older release gates or a second build.
+    // Only the communications sidecar needs optional isolated dependencies.
+    log('1/4 — Garimpo existente: iniciando runtime de comunicação sem substituir a busca...')
+    ensureCommunicationsRuntimeDependencies({ allowInstall: true })
   } else if (mode === 'dev') {
     log('1/4 — Desenvolvimento: gates rápidos de runtime...')
     npm(['run', 'qa:v101.10.8'])
@@ -977,13 +994,15 @@ async function main() {
     } else log(`✓ Build V${RELEASE} existente reutilizado.`)
   }
 
-  if (mode !== 'dev') verifyDistLineage()
+  if (mode !== 'dev' && mode !== 'garimpo') verifyDistLineage()
   log('2/4 — Runtime e lineage validados.')
 
-  await startServices(token)
+  await startServices(token, { preserveProspecting: mode === 'garimpo' })
   startControlServer(token)
   startCommunicationsWatchdog(token)
-  await recoverPreviewPort()
+  // The Garimpo launcher already checks port 4197, and must not stop any
+  // unrelated Vite server on a race or when another installation is active.
+  if (mode !== 'garimpo') await recoverPreviewPort()
   log('4/4 — Iniciando interface...')
   const url = `http://127.0.0.1:${CRM_PORT}/?rt_release=101.11.3-h2-runtime-service-recovery&rt_ui=101.11.3-h19-13-whatsapp-work-management&rt_cohesion=101.11.3-h20-7-global-ui-final-pass&rt_hotfix=101.11.3-h20-7-h1-appearance-sidebar-truth&rt_hotfix2=101.11.3-h20-7-h2-whatsapp-conversation-inbox&rt_garimpo=101.11.3-h21-1-coverage-runtime-truth&rt_launcher_fix=101.11.3-h21-1-h1-communication-lineage-guard&rt_access=101.11.3-h22-1-team-profiles-access-control&rt_access2=101.11.3-h22-2-cross-module-access-control&rt_governance=101.11.3-h22-3-field-approvals-audit&rt_closure=101.11.3-h22-3-h1-stability-security-closure&rt_cr1=101.11.3-cr1-build-dependency-closure&rt_cr2=101.11.3-cr2-supabase-auth-rls-validation&rt_cr3=101.11.3-cr3-e2e-commercial-workflow&rt_cr4=101.11.3-cr4-commercial-ux-failure-recovery&rt_cr5=101.11.3-cr5-performance-observability&rt_cr6=101.11.3-cr6-performance-payload-reduction&rt_cr7=101.11.3-cr7-production-operational-readiness&rt_cr8=101.11.3-cr8-commercial-launch-gate&rt_cr9=101.11.3-cr9-launch-hard-stop-closure&rt_readiness=101.11.3-cr10-supabase-staging-bootstrap&rt_cr10_h1=101.11.3-cr10-h1-css-cascade-governance`
   log(`CRM: ${url}`)
@@ -996,7 +1015,7 @@ async function main() {
   log('Para encerrar os processos iniciados por este runtime: Ctrl+C')
 
   const viteBin = abs('node_modules/vite/bin/vite.js')
-  const viteArgs = mode === 'dev'
+  const viteArgs = mode === 'dev' || mode === 'garimpo'
     ? [viteBin, '--host', '127.0.0.1', '--port', String(CRM_PORT), '--strictPort']
     : [viteBin, 'preview', '--host', '127.0.0.1', '--port', String(CRM_PORT), '--strictPort']
   const ui = spawn(process.execPath, viteArgs, { cwd: ROOT, env: { ...process.env, REALTALENT_CONNECT_PORT: String(CONNECT_PORT), REALTALENT_COMMUNICATIONS_PORT: String(COMM_PORT) }, stdio: 'inherit' })

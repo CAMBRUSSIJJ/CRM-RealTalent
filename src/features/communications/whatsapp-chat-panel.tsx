@@ -12,6 +12,7 @@ import { normalizeWhatsAppPhone, sendOfficialWhatsApp } from '../../services/wha
 import { loadGatewayWhatsAppGroupInfo, retryGatewayCommunication, type GatewayWhatsAppAttachmentInput, type GatewayWhatsAppGroupInfo } from '../../services/local-communications-gateway'
 import { WhatsAppConnectionCenter } from './whatsapp-connection-center'
 import { acknowledgedInTimeline, statusAfterGatewayAck, type PendingSendState } from './whatsapp-send-feedback'
+import { formatVoiceTime, safeAudioSeconds } from './whatsapp-voice-time'
 
 const sameDay = (left: string, right: string) => {
   const a = new Date(left); const b = new Date(right)
@@ -34,7 +35,7 @@ const looksLikeEncodedMediaText = (value: unknown) => {
   return text.length >= 512 && !/\s/.test(text.slice(0, 512)) && /^[A-Za-z0-9+/=_-]+$/.test(text.slice(0, Math.min(text.length, 4096)))
 }
 const safeMessageText = (value: unknown) => looksLikeEncodedMediaText(value) ? '' : String(value || '').trim()
-const formatDuration = (seconds: number) => `${Math.floor(Math.max(0, seconds) / 60)}:${String(Math.floor(Math.max(0, seconds) % 60)).padStart(2, '0')}`
+const formatDuration = formatVoiceTime
 
 type ComposerAttachment = GatewayWhatsAppAttachmentInput & { previewUrl: string }
 type PendingMessage = { id: string; idempotencyKey: string; serverEventId?: string | null; body: string; occurredAt: string; status: PendingSendState; attachment?: ComposerAttachment | null; replyToExternalMessageId?: string | null; replyPreview?: string | null }
@@ -67,11 +68,11 @@ function VoicePlayer({ src, label = 'Mensagem de voz' }: { src: string; label?: 
     if (audioRef.current) audioRef.current.playbackRate = next
   }
   return <div className="whatsapp-voice-player">
-    <audio ref={audioRef} src={src} preload="metadata" onPlay={() => setPlaying(true)} onPause={() => setPlaying(false)} onEnded={() => { setPlaying(false); setCurrent(0) }} onLoadedMetadata={(event) => setDuration(Number(event.currentTarget.duration || 0))} onTimeUpdate={(event) => setCurrent(Number(event.currentTarget.currentTime || 0))}/>
+    <audio ref={audioRef} src={src} preload="metadata" onPlay={() => setPlaying(true)} onPause={() => setPlaying(false)} onEnded={() => { setPlaying(false); setCurrent(0) }} onLoadedMetadata={(event) => setDuration(safeAudioSeconds(event.currentTarget.duration))} onDurationChange={(event) => setDuration(safeAudioSeconds(event.currentTarget.duration))} onTimeUpdate={(event) => setCurrent(safeAudioSeconds(event.currentTarget.currentTime))}/>
     <button type="button" className="whatsapp-voice-player__play" onClick={() => void toggle()} aria-label={playing ? 'Pausar áudio' : 'Reproduzir áudio'}>{playing ? <Pause size={16}/> : <Play size={16}/>}</button>
     <div className="whatsapp-voice-player__main">
       <div className="whatsapp-voice-player__wave" aria-hidden="true">{Array.from({ length: 28 }, (_, index) => <i key={index} className={index / 28 <= ratio ? 'is-active' : ''} style={{ height: `${7 + ((index * 13) % 15)}px` }}/>)}</div>
-      <input aria-label="Posição do áudio" type="range" min={0} max={Math.max(1, duration)} step={0.05} value={Math.min(current, Math.max(1, duration))} onChange={(event) => { const next = Number(event.target.value); setCurrent(next); if (audioRef.current) audioRef.current.currentTime = next }}/>
+      <input aria-label="Posição do áudio" type="range" min={0} max={Math.max(1, duration)} step={0.05} disabled={duration===0} value={Math.min(current, Math.max(1, duration))} onChange={(event) => { const next = safeAudioSeconds(Number(event.target.value)); setCurrent(next); if (audioRef.current) audioRef.current.currentTime = next }}/>
       <div className="whatsapp-voice-player__meta"><span>{label}</span><time>{formatDuration(current || duration)}</time></div>
     </div>
     <button type="button" className="whatsapp-voice-player__rate" onClick={cycleRate} aria-label={`Velocidade ${rate} vezes`}>{rate}x</button>

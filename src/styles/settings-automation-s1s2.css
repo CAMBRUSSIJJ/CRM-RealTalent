@@ -104,3 +104,18 @@
 @media(max-width:880px){.settings-v1100__body{grid-template-columns:1fr}.settings-smartbar__scope{margin-left:49px}.settings-v1100__nav{position:relative;top:0;max-height:none}}
 @media(max-width:620px){.settings-smartbar{align-items:flex-start}.settings-smartbar>div{min-width:0;flex-basis:calc(100% - 55px)}.settings-smartbar__scope{margin-left:0}.settings-smartbar__auto{white-space:normal}.settings-v1100 .settings-form-grid--2,.settings-v1100 .settings-form-grid--3{grid-template-columns:1fr}.settings-v1100 .settings-savebar{bottom:8px}.settings-v1100 .settings-choice-grid{grid-template-columns:1fr}.settings-v1100 .settings-subnav{position:static}}
 @media(prefers-reduced-motion:reduce){.settings-v1100 *, .settings-v1100 *::before,.settings-v1100 *::after{scroll-behavior:auto!important;transition-duration:.01ms!important;animation-duration:.01ms!important}}
+
+/* Advanced scoring only expands when a rule needs calibration. */
+.settings-v1100 .settings-advanced-section{border:1px solid var(--border);border-radius:11px;overflow:hidden;background:var(--surface,#fff);margin:10px 0}
+.settings-v1100 .settings-advanced-section>summary{list-style:none;position:relative;cursor:pointer;min-height:48px;padding:13px 40px 13px 15px;display:flex;align-items:center;font-size:13px;font-weight:700}
+.settings-v1100 .settings-advanced-section>summary::-webkit-details-marker{display:none}
+.settings-v1100 .settings-advanced-section>summary::after{content:'⌄';position:absolute;right:16px;color:var(--muted);font-size:18px;line-height:1;transform:rotate(0deg)}
+.settings-v1100 .settings-advanced-section[open]>summary::after{transform:rotate(180deg)}
+.settings-v1100 .settings-advanced-section[open]>summary{border-bottom:1px solid var(--border);background:var(--surface-soft)}
+.settings-v1100 .settings-advanced-section>.lead-score-settings__section{padding:15px 16px;margin:0;border:0}
+.settings-v1100 .settings-advanced-section>.lead-score-settings__section>strong{display:none}
+.settings-v1100 .settings-compact-link{display:flex;align-items:center;justify-content:space-between;gap:15px;flex-wrap:wrap;padding:16px}
+.settings-v1100 .settings-compact-link>div{display:flex;align-items:center;gap:12px}
+.settings-v1100 .settings-compact-link>div>span{display:grid;gap:3px}
+.settings-v1100 .settings-compact-link strong{font-size:14px}
+.settings-v1100 .settings-compact-link small{font-size:12px;color:var(--muted)}

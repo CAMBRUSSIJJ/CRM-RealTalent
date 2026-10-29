@@ -401,7 +401,7 @@ const conversationStatusText = (conversation: CommunicationConversation) => conv
   : conversation.status === 'needs_reply' ? 'Responder' : conversation.status === 'waiting_reply' ? 'Aguardando' : conversation.status === 'internal' ? 'Interno' : 'Histórico'
 
 export function CommunicationsPage() {
-  const { snapshot, currentWorkspace, canTeamAccess, canTeamAccessRecord, teamAccessScope } = useAppWorkspace()
+  const { snapshot, currentWorkspace, repositoryMode, can, canTeamAccess, canTeamAccessRecord, teamAccessScope } = useAppWorkspace()
   const { routeContext, navigate } = useAppNavigation()
   const { notify } = useAppUi()
   const { preferences } = usePreferences()
@@ -439,9 +439,32 @@ export function CommunicationsPage() {
   const realtimeState = useRealtimeTransportState('communications-sse')
   const communicationsRevision = useDomainProjectionRevision('communications')
   const realtimeRefreshTimerRef = useRef<number | null>(null)
+  const communicationShellRef=useRef<HTMLElement|null>(null)
   const realtimeReloadingRef = useRef(false)
   const realtimeReloadQueuedRef = useRef(false)
 
+  // The route lives below the global app bar and variable-height header.
+  // A static `100vh - Npx` made the composer stop above the viewport,
+  // leaving an empty strip at the bottom (Firefox 1280x720/desktop).
+  useEffect(()=>{
+    const shell=communicationShellRef.current
+    if(!shell)return
+    let raf=0
+    const measure=()=>{
+      window.cancelAnimationFrame(raf)
+      raf=window.requestAnimationFrame(()=>{
+        const top=shell.getBoundingClientRect().top
+        const available=Math.max(440,Math.round(window.innerHeight-top-10))
+        shell.style.setProperty('--rt-communication-area-height',available+'px')
+      })
+    }
+    measure()
+    const observer=typeof ResizeObserver!=='undefined'?new ResizeObserver(measure):null
+    const header=shell.previousElementSibling
+    if(header)observer?.observe(header)
+    window.addEventListener('resize',measure)
+    return ()=>{window.cancelAnimationFrame(raf);observer?.disconnect();window.removeEventListener('resize',measure)}
+  },[])
   const workspaceId = currentWorkspace?.id ?? 'default'
   const localTimeline = useMemo(() => snapshot ? buildLocalCommunicationTimeline(snapshot) : [], [snapshot])
   const timeline = useMemo(() => mergeCommunicationTimeline(localTimeline, official, assisted), [assisted, localTimeline, official])
@@ -707,7 +730,7 @@ export function CommunicationsPage() {
 
     {officialError ? <div className="communications-warning"><WifiOff size={17}/><span><strong>{officialError.startsWith('WhatsApp QR') ? (realtimeState === 'live' ? 'Histórico do WhatsApp precisa de atenção; tempo real está ativo.' : 'WhatsApp QR precisa de atenção.') : 'Histórico oficial indisponível.'}</strong> {officialError} A timeline local continua funcionando; ações assistidas também permanecem disponíveis.</span></div> : null}
 
-    <section className="omnichannel-shell">
+    <section className="omnichannel-shell" ref={communicationShellRef}>
       <aside className={`panel omnichannel-conversations communication-focus-inbox ${workspaceView === 'whatsapp' ? 'communication-focus-inbox--conversations-only' : ''}`}>
         <header><div><span className="eyebrow">Conversas</span><h3>{communicationAreaLabel}</h3></div><StatusPill tone="neutral">{visibleConversations.length}</StatusPill></header>
         <div className="communication-focus-inbox__tools">
@@ -769,6 +792,8 @@ export function CommunicationsPage() {
           events={displayedSelectedEvents.filter((item) => item.channel === 'email')}
           workspaceId={workspaceId}
           accounts={channelState?.emailAccounts ?? []}
+          repositoryMode={repositoryMode}
+          canConnect={can('manage','integration')}
           loading={officialLoading}
           readOnly={!canCommunicationEdit || (selectedLead ? !canTeamAccessRecord('communications', selectedLead.ownerId) : true)}
           onSync={() => void syncNow()}

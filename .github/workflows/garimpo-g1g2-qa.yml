@@ -1,4 +1,4 @@
-name: RealTalent Settings S3 — AI Layout and Navigation QA
+name: RealTalent Settings S3.3 — Smart Forms QA
 on:
   pull_request:
     branches:
@@ -7,6 +7,7 @@ on:
       - feat/realtalent-garimpo-g3-conversational-20261028
       - feat/realtalent-r1-fluxo-comercial-inteligente-20261029
       - feat/realtalent-settings-s1s2-automation-ux-20261029
+      - feat/realtalent-settings-s3-visual-navigation-20261029
   workflow_dispatch:
 permissions:
   contents: read
@@ -27,7 +28,7 @@ jobs:
         run: npm run typecheck
       - name: G1/G2 safety and regression tests
         run: |
-          npx vitest run src/features/prospecting/prospecting-raw-source-review.test.ts src/services/prospecting-g1g2-intelligence.test.ts src/services/prospecting-intelligence.test.ts src/services/prospecting-data-layer.test.ts src/services/prospecting-search-automation.test.ts src/services/realtalent-agent-garimpo-bridge.test.ts src/services/prospecting-handoff-r1.test.ts src/features/settings/preferences-context.test.ts src/features/settings/settings-automation-policy.test.ts src/features/settings/settings-s3-navigation.test.ts
+          npx vitest run src/features/prospecting/prospecting-raw-source-review.test.ts src/services/prospecting-g1g2-intelligence.test.ts src/services/prospecting-intelligence.test.ts src/services/prospecting-data-layer.test.ts src/services/prospecting-search-automation.test.ts src/services/realtalent-agent-garimpo-bridge.test.ts src/services/prospecting-handoff-r1.test.ts src/features/settings/preferences-context.test.ts src/features/settings/settings-automation-policy.test.ts src/features/settings/settings-s3-navigation.test.ts src/features/settings/settings-smart-forms.test.ts
           node --test runtime-host/RealTalent-Agent-Runtime-V3.1.2/crm-prospect-investigation-g1.test.mjs
           node --test runtime-host/RealTalent-Agent-Runtime-V3.1.2/crm-garimpo-conversation-g3.test.mjs
           node --test runtime-host/RealTalent-Agent-Runtime-V3.1.2/crm-deep-research-v60.test.mjs

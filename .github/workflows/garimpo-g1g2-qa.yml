@@ -1,4 +1,4 @@
-name: RealTalent Settings S3.3.1 — Pipeline Editor QA
+name: RealTalent Settings S3.4 — Calendar and WhatsApp Recovery QA
 on:
   pull_request:
     branches:
@@ -9,6 +9,7 @@ on:
       - feat/realtalent-settings-s1s2-automation-ux-20261029
       - feat/realtalent-settings-s3-visual-navigation-20261029
       - feat/realtalent-settings-s33-smart-forms-20261029
+      - feat/realtalent-settings-s331-pipeline-editor-20261029
   workflow_dispatch:
 permissions:
   contents: read
@@ -29,7 +30,7 @@ jobs:
         run: npm run typecheck
       - name: G1/G2 safety and regression tests
         run: |
-          npx vitest run src/features/prospecting/prospecting-raw-source-review.test.ts src/services/prospecting-g1g2-intelligence.test.ts src/services/prospecting-intelligence.test.ts src/services/prospecting-data-layer.test.ts src/services/prospecting-search-automation.test.ts src/services/realtalent-agent-garimpo-bridge.test.ts src/services/prospecting-handoff-r1.test.ts src/features/settings/preferences-context.test.ts src/features/settings/settings-automation-policy.test.ts src/features/settings/settings-s3-navigation.test.ts src/features/settings/settings-smart-forms.test.ts src/features/settings/pipeline-editor-s331.test.ts
+          npx vitest run src/features/prospecting/prospecting-raw-source-review.test.ts src/services/prospecting-g1g2-intelligence.test.ts src/services/prospecting-intelligence.test.ts src/services/prospecting-data-layer.test.ts src/services/prospecting-search-automation.test.ts src/services/realtalent-agent-garimpo-bridge.test.ts src/services/prospecting-handoff-r1.test.ts src/features/settings/preferences-context.test.ts src/features/settings/settings-automation-policy.test.ts src/features/settings/settings-s3-navigation.test.ts src/features/settings/settings-smart-forms.test.ts src/features/settings/pipeline-editor-s331.test.ts src/lib/integration-availability-s34.test.ts
           node --test runtime-host/RealTalent-Agent-Runtime-V3.1.2/crm-prospect-investigation-g1.test.mjs
           node --test runtime-host/RealTalent-Agent-Runtime-V3.1.2/crm-garimpo-conversation-g3.test.mjs
           node --test runtime-host/RealTalent-Agent-Runtime-V3.1.2/crm-deep-research-v60.test.mjs

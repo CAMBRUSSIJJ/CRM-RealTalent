@@ -121,7 +121,7 @@ export interface AppContextValue {
   bulkAddLeadTag(leadIds: string[], tag: string): Promise<number>
   bulkDeleteLeads(leadIds: string[]): Promise<number>
   createStage(input: Omit<NewStageInput, 'workspaceId'>): Promise<PipelineStage>
-  updateStage(stageId: string, input: UpdateStageInput): Promise<PipelineStage>
+  updateStage(stageId: string, input: UpdateStageInput, options?: {quiet?:boolean}): Promise<PipelineStage>
   deleteStage(stageId: string): Promise<void>
   createActivity(input: ActivityCreatePayload): Promise<ActivityItem>
   createActivities(inputs: ActivityCreatePayload[]): Promise<ActivityItem[]>

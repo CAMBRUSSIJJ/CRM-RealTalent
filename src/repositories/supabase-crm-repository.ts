@@ -497,12 +497,18 @@ export class SupabaseCrmRepository implements CrmRepository {
     if (nextWon && nextLost) throw new Error('Uma etapa não pode ser ganha e perdida ao mesmo tempo.')
     if (input.name !== undefined && !input.name.trim()) throw new Error('Informe o nome da etapa.')
     if (input.probability !== undefined && (!Number.isFinite(Number(input.probability)) || Number(input.probability) < 0 || Number(input.probability) > 100)) throw new Error('A probabilidade da etapa deve ficar entre 0 e 100%.')
+    if(input.order!==undefined&&(!Number.isInteger(input.order)||input.order<1))throw new Error('A ordem da etapa deve ser um inteiro positivo.')
     const { data, error } = await client.from('pipeline_stages').update({
       ...(input.name !== undefined ? { name: input.name.trim() } : {}), ...(input.color !== undefined ? { color: input.color } : {}),
       ...(input.probability !== undefined ? { probability: input.probability } : {}), ...(input.isWon !== undefined ? { is_won: input.isWon } : {}),
       ...(input.isLost !== undefined ? { is_lost: input.isLost } : {}),
+      ...(input.order !== undefined ? { stage_order: input.order } : {}),
     }).eq('id', stageId).select().single(); if (error) throw error
-    const stage = mapStage(data); const { error: leadsError } = await client.from('leads').update({ status: stage.isWon ? 'won' : stage.isLost ? 'lost' : 'active' }).eq('stage_id', stageId); if (leadsError) throw leadsError
+    const stage = mapStage(data)
+    if(stage.isWon!==current.is_won||stage.isLost!==current.is_lost){
+      const {error:leadsError}=await client.from('leads').update({status:stage.isWon?'won':stage.isLost?'lost':'active'}).eq('stage_id',stageId)
+      if(leadsError)throw leadsError
+    }
     return stage
   }
 

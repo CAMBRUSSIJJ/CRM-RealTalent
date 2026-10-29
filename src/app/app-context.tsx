@@ -428,7 +428,7 @@ export function AppProvider({ children }: PropsWithChildren) {
       if (!currentWorkspace) throw new Error('Selecione um workspace.')
       const stage = await repository.createStage({ ...input, workspaceId: currentWorkspace.id }); await publishDomainChange('pipeline.structure.changed', { entityType: 'pipeline_stage', entityId: stage.id }); notify('success', 'Etapa criada.'); return stage
     },
-    async updateStage(stageId, input) { assertWritable(); const stage = await repository.updateStage(stageId, input); await publishDomainChange('pipeline.structure.changed', { entityType: 'pipeline_stage', entityId: stage.id }); notify('success', 'Etapa atualizada.'); return stage },
+    async updateStage(stageId, input, options) { assertWritable(); const stage = await repository.updateStage(stageId, input); await publishDomainChange('pipeline.structure.changed', { entityType: 'pipeline_stage', entityId: stage.id }); if(!options?.quiet)notify('success', 'Etapa atualizada.'); return stage },
     async deleteStage(stageId) { assertWritable(); await repository.deleteStage(stageId); await publishDomainChange('pipeline.structure.changed', { entityType: 'pipeline_stage', entityId: stageId }); notify('success', 'Etapa removida.') },
     async createActivity(input) { assertWritable();
       if (!currentWorkspace) throw new Error('Selecione um workspace.')

@@ -46,6 +46,8 @@ import { requireExportApproval } from '../../services/team-governance'
 import { buildProspectingIcp, prospectingIcpSummary, rankProspects } from '../../services/prospecting-intelligence'
 import { ProspectingRedesignSearch, ProspectingRedesignShell } from './prospecting-redesign'
 import { ProspectingG1G2Panel } from './prospecting-g1g2-panel'
+import { GarimpoConversationG3, type GarimpoSearchProposal } from './garimpo-conversation-g3'
+import {GARIMPO_REVIEW_REQUEST,garimpoReviewStorageKey} from '../../services/realtalent-agent-garimpo-bridge'
 
  type ProspectingTab = 'search' | 'local' | 'results' | 'history'
  type ReviewMode = 'list' | 'guided' | 'sources'
@@ -174,6 +176,27 @@ export function ProspectingPage() {
   const [providerDiagnostics, setProviderDiagnostics] = useState<ProspectingProviderDiagnostics | null>(null)
   const [workspaceMembers, setWorkspaceMembers] = useState<WorkspaceMember[]>([])
   const fileInputRef = useRef<HTMLInputElement>(null)
+
+  // Allow the main RealTalent Agent to open this exact Review Workspace even
+  // when the user issued the command from a different CRM route.
+  useEffect(()=>{
+    if(!workspaceId)return
+    const showReview=()=>{
+      setTab('results')
+      setReviewMode('list')
+      setReviewScope('all')
+      setInspectorMode(null)
+      try{window.sessionStorage.removeItem(garimpoReviewStorageKey(workspaceId))}catch{/* storage optional */}
+    }
+    const onReview=(event:Event)=>{
+      const data=(event as CustomEvent<{workspaceId:string}>).detail
+      if(data?.workspaceId===workspaceId)showReview()
+    }
+    window.addEventListener(GARIMPO_REVIEW_REQUEST,onReview)
+    try{if(window.sessionStorage.getItem(garimpoReviewStorageKey(workspaceId))==='1')showReview()}
+    catch{/* storage optional */}
+    return ()=>window.removeEventListener(GARIMPO_REVIEW_REQUEST,onReview)
+  },[workspaceId])
 
   useEffect(() => {
     if (!workspaceId) { setWorkspaceMembers([]); return }
@@ -392,41 +415,71 @@ export function ProspectingPage() {
     } finally { setMapPreviewBusy(false) }
   }
 
-  const startLinuxAgentSearch = async () => {
-    if (!canWrite || !workspaceId) return
+  const startLinuxAgentSearch = async (proposal?: GarimpoSearchProposal): Promise<boolean> => {
+    if (!canWrite || !workspaceId) return false
+    if (agentBusy || (agentJob && ['queued','running','paused'].includes(agentJob.status))) {
+      notify('warning', 'Já existe uma pesquisa em andamento. Conclua ou cancele a execução antes de iniciar outra.')
+      return false
+    }
+    const requestedSegment = proposal?.segment ?? segment
+    const requestedCity = proposal?.city ?? city
+    const requestedQuantity = proposal?.quantity ?? quantity
+    if (proposal && areaMode === 'map' && normalize(requestedCity) !== normalize(city)) {
+      notify('warning', 'O mapa desenhado está vinculado à região atual. Confirme a nova região no mapa antes de pesquisar.')
+      return false
+    }
     const liveHealth = agentHealth ?? await getProspectingAgentHealth()
     if (!liveHealth) {
-      notify('warning', 'Serviço do Garimpo indisponível. Verifique a conexão com o runtime em nuvem e tente novamente.')
-      return
+      notify('warning', 'Serviço do Garimpo indisponível. Abra o inicializador local e tente novamente.')
+      return false
     }
     if (!agentHealth) setAgentHealth(liveHealth)
-    if (!segment.trim()) {
+    if (!requestedSegment.trim()) {
       notify('warning', 'Informe o tipo de empresa que deseja encontrar.')
       document.getElementById('prospecting-linux-segment')?.focus()
-      return
+      return false
     }
-    const regions = city.split(/[;\n]+/).map((item) => item.trim()).filter(Boolean)
+    const regions = requestedCity.split(/[;\n]+/).map((item) => item.trim()).filter(Boolean)
     if (!regions.length) {
       notify('warning', 'Informe pelo menos uma cidade ou região para o Garimpo.')
       document.getElementById('prospecting-linux-regions')?.focus()
-      return
+      return false
     }
     if (areaMode === 'map' && mapPolygon.length < 3) {
       notify('warning', 'Desenhe a área no mapa com pelo menos 3 pontos antes de iniciar o Garimpo.')
-      return
+      return false
     }
+    const changedRegion=normalize(requestedCity)!==normalize(city)
+    const safeQuantity=Math.min(150,Math.max(1,Math.round(requestedQuantity)))
     setAgentBusy(true)
     try {
       const existingKeys = existingProspectingIdentityKeys(snapshot?.leads ?? [])
-      const job = await createProspectingAgentJob({ workspaceId, segment: segment.trim(), regions, targetQuantity: quantity, targetMode, areaMode, radiusKm, searchMode, categoryMode, mapPolygon: areaMode === 'map' ? mapPolygon : undefined, searchCenter: areaMode === 'radius' ? searchCenter : undefined, existingKeys, enrichWeb: searchMode !== 'fast', enrichCnpj: searchMode !== 'fast', browserFallback: searchMode !== 'fast' })
+      const job = await createProspectingAgentJob({ workspaceId, segment: requestedSegment.trim(),
+        regions, targetQuantity: safeQuantity, targetMode, areaMode, radiusKm, searchMode,
+        categoryMode, mapPolygon: areaMode === 'map' ? mapPolygon : undefined,
+        searchCenter: areaMode === 'radius' && !changedRegion ? searchCenter : undefined,
+        existingKeys, enrichWeb: searchMode !== 'fast', enrichCnpj: searchMode !== 'fast', browserFallback: searchMode !== 'fast' })
       setAgentJob(job)
-      notify('success', 'Garimpo iniciado. No modo Captura rápida, as primeiras empresas aparecem antes do enriquecimento completo.')
-      if (agentCadence !== 'off') {
-        await createProspectingAgentCampaign({ workspaceId, name: `${segment} · ${regions.join(', ')}`, cadence: agentCadence, segment, regions, targetQuantity: quantity, targetMode, areaMode, radiusKm, searchMode, categoryMode, mapPolygon: areaMode === 'map' ? mapPolygon : undefined, searchCenter: areaMode === 'radius' ? searchCenter : undefined, existingKeys })
+      if (proposal) {
+        setSegment(requestedSegment.trim())
+        setCity(requestedCity.trim())
+        setQuantity(safeQuantity)
+        setTab('search')
+        if (changedRegion) { setMapPreview(null);setSearchCenter(null);setMapPolygon([]) }
+      }
+      notify('success', 'Garimpo iniciado. Os primeiros registros serão disponibilizados na revisão à medida que forem processados.')
+      if (agentCadence !== 'off' && !proposal) {
+        await createProspectingAgentCampaign({ workspaceId, name: `${requestedSegment} · ${regions.join(', ')}`,
+          cadence: agentCadence, segment: requestedSegment, regions, targetQuantity: safeQuantity,
+          targetMode, areaMode, radiusKm, searchMode, categoryMode,
+          mapPolygon: areaMode === 'map' ? mapPolygon : undefined,
+          searchCenter: areaMode === 'radius' && !changedRegion ? searchCenter : undefined, existingKeys })
         notify('success', `Garimpo iniciado e campanha ${agentCadence === 'daily' ? 'diária' : 'semanal'} salva.`)
       }
+      return true
     } catch (error) {
       notify('error', error instanceof Error ? error.message : 'Não foi possível iniciar o Prospecting Agent.')
+      return false
     } finally { setAgentBusy(false) }
   }
 
@@ -941,6 +994,13 @@ export function ProspectingPage() {
         onCrm={() => setRoute('leads')}
         onHistoryTab={() => setTab('history')}
       >
+        {(tab === 'search' || tab === 'local' || tab === 'results') ? <GarimpoConversationG3
+          key={workspaceId}
+          prospects={state.prospects} snapshot={snapshot}
+          currentSegment={segment} currentCity={city} currentQuantity={quantity}
+          canWrite={canWrite} searchBusy={agentBusy}
+          onSearch={startLinuxAgentSearch} onReview={() => openReviewWorkspace()}
+        /> : null}
         {tab === 'search' || tab === 'local' ? <>
           <ProspectingRedesignSearch
             segment={segment}

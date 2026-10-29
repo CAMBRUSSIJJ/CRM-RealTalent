@@ -32,5 +32,9 @@ jobs:
           node --check runtime-host/RealTalent-Agent-Runtime-V3.1.2/crm-prospect-investigation-g1.mjs
           bash -n scripts/garimpo-g1g2-linux/abrir-local.sh
           grep -q -- '--port 4197 --strictPort' scripts/garimpo-g1g2-linux/abrir-local.sh
+          grep -q -- 'node scripts/realtalent-prospecting-agent.mjs' scripts/garimpo-g1g2-linux/abrir-local.sh
+          grep -q -- '/api/prospecting-agent/health' scripts/garimpo-g1g2-linux/abrir-local.sh
+          grep -q -- 'VITE_PROSPECTING_GATEWAY_URL=' scripts/garimpo-g1g2-linux/abrir-local.sh
+          grep -q -- 'PROSPECTING_STATE_DIR=' scripts/garimpo-g1g2-linux/abrir-local.sh
       - name: Build
         run: npm run build

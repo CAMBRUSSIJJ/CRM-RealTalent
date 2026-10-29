@@ -23,7 +23,17 @@ export const rawSourceKey = (jobId: string, row: Pick<RawSource, 'url' | 'name' 
 const uniqueSources = (job: ProspectingAgentJob | null): ReviewSource[] => {
   if (!job) return []
   const indexed = new Map<string, ReviewSource>()
-  for (const row of job.sourceLog || []) {
+  // Também incluir rejeições armazenadas fora do sourceLog. Algumas buscas registram
+  // somente a rejeição estruturada e antes elas ficavam invisíveis na triagem.
+  const sources: RawSource[] = [
+    ...(job.sourceLog || []),
+    ...(job.rejections || [])
+      .filter((rejection) => !(job.sourceLog || []).some((row) =>
+        row.type === 'rejected' && row.name === rejection.name && row.provider === rejection.source))
+      .map((rejection) => ({ type: 'rejected' as const, name: rejection.name,
+        provider: rejection.source, reason: rejection.reason, at: rejection.at })),
+  ]
+  for (const row of sources) {
     if (!['raw', 'candidate', 'rejected', 'duplicate'].includes(row.type)) continue
     const key = rawSourceKey(job.id, row)
     const before = indexed.get(key)

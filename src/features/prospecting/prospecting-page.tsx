@@ -1035,7 +1035,7 @@ export function ProspectingPage() {
               ...(current.rawSourceDecisions || {}), [sourceRecord.key]: 'promoted',
             }}))
             // Depois de confirmar a fonte, abrir a lista com a empresa recuperada.
-            setSearch(draft.company.trim())
+            setSearch(String(draft.company || '').trim())
             setReviewScope('all')
             setInspectorMode(null)
             setReviewMode('list')

@@ -896,11 +896,13 @@ export function ProspectingPage() {
         }
         try {
           const importedLeadId=linkedCrmLeadId(prospect,existingLeadIds)
-          if(importedLeadId&&options.createOpportunity&&options.duplicateBehavior==='create'){
+          const priorLead=snapshot.leads.find(lead=>lead.id===importedLeadId||
+            lead.tags.includes('garimpo-id:'+prospect.id))
+          if(priorLead&&options.createOpportunity&&options.duplicateBehavior!=='update'){
             skipped+=1
             receipts.push({id:batchId+':'+prospect.id,prospectId:prospect.id,
-              company:prospect.company,status:'skipped',crmLeadId:importedLeadId,
-              note:'O registro já está vinculado ao Pipeline; criação duplicada bloqueada.'})
+              company:prospect.company,status:'skipped',crmLeadId:priorLead.id,
+              note:'O registro já possui oportunidade. Criação duplicada bloqueada; escolha Atualizar existente para reaproveitá-la.'})
             continue
           }
           const match = resolveCompany(prospect)
@@ -1197,7 +1199,7 @@ export function ProspectingPage() {
         {handoffReceipt.activityWarnings?<p className="prospecting-r1-receipt__warning">{handoffReceipt.activityWarnings} atividade(s) não confirmada(s); revise antes de contar com o acompanhamento.</p>:null}
         <div className="prospecting-r1-receipt__rows">{handoffReceipt.rows.slice(0,30).map(row=><div key={row.id}>
           <div><strong>{row.company}</strong><small>{row.note}</small></div><span>{row.status==='transferred'?'Processada':row.status==='failed'?'Falha':'Ignorada'}</span>
-          {row.crmLeadId?<Button variant="ghost" onClick={()=>navigate('pipeline',{leadId:row.crmLeadId,action:'deal-inspector'})}>Pipeline <ArrowRight size={13}/></Button>:row.crmCompanyId?<Button variant="ghost" onClick={()=>setRoute('commercial-map')}>Mapa de Contas <ArrowRight size={13}/></Button>:null}
+          {row.crmLeadId?<><Button variant="ghost" onClick={()=>navigate('leads',{leadId:row.crmLeadId,action:'contact-record'})}>Contato <ArrowRight size={13}/></Button><Button variant="ghost" onClick={()=>navigate('pipeline',{leadId:row.crmLeadId,action:'deal-inspector'})}>Pipeline <ArrowRight size={13}/></Button></>:row.crmCompanyId?<Button variant="ghost" onClick={()=>setRoute('commercial-map')}>Mapa de Contas <ArrowRight size={13}/></Button>:null}
         </div>)}</div>
       </section>:null}
       {metrics.sent > 0 ? <section className="prospecting-footer-callout"><div><CheckCircle2 size={20} /><div><strong>Integração ativa com o CRM</strong><span>Empresas enviadas entram primeiro como CompanyRecord; pessoas identificadas viram ContactRecord. Oportunidades só são criadas quando você solicitar.</span></div></div><Button variant="secondary" onClick={() => setRoute('leads')}>Abrir Contatos <ArrowRight size={16} /></Button></section> : null}

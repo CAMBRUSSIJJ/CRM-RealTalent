@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { ProspectingAgentJob } from '../../services/prospecting-linux-agent'
-import { rawSourceKey, rawSourceReviewCount } from './prospecting-raw-source-review'
+import { matchingCandidate, prepareSourceReview, rawSourceKey, rawSourceReviewCount } from './prospecting-raw-source-review'
 
 const job = (sourceLog: NonNullable<ProspectingAgentJob['sourceLog']>): ProspectingAgentJob =>
   ({ id: 'execution-01', sourceLog }) as ProspectingAgentJob
@@ -31,6 +31,36 @@ describe('Revisão única das fontes do Garimpo', () => {
       rejections: [{ name: 'Documento descartado', source: 'web_discovery', type: 'content', reason: 'Não é empresa', at: '' }],
     } as ProspectingAgentJob
     expect(rawSourceReviewCount(instance)).toBe(1)
+  })
+
+  it('reaproveita todos os campos públicos quando a fonte corresponde a candidato único', () => {
+    const source = { type: 'raw' as const, name: 'Barbearia Alfa', url: 'https://alfa.example/', reason: 'Busca web' }
+    const item = matchingCandidate(source, {
+      id: 'execution-01',
+      results: [{ candidateId: 'one', company: 'Barbearia Alfa', city: 'Rio Grande', phone: '53999999999',
+        address: 'Rua A, 1', email: 'contato@alfa.example', website: 'https://alfa.example/',
+        instagram: '@alfa', cnpj: '12345678000190', description: 'Corte masculino' }],
+    } as ProspectingAgentJob)
+    expect(item?.candidateId).toBe('one')
+    expect(prepareSourceReview(source, item)).toMatchObject({
+      company: 'Barbearia Alfa', city: 'Rio Grande', phone: '53999999999',
+      address: 'Rua A, 1', email: 'contato@alfa.example', website: 'https://alfa.example/',
+      instagram: '@alfa', cnpj: '12345678000190', description: 'Corte masculino',
+    })
+  })
+
+  it('não inventa empresa a partir de títulos de diretórios ou listas', () => {
+    expect(prepareSourceReview({ type: 'raw', name: '2 opções em barbearias que você deveria conhecer', reason: 'Documento público' }, null).company).toBe('')
+    expect(prepareSourceReview({ type: 'candidate', name: 'Barbearias em Rio Grande', reason: '' }, null).company).toBe('')
+    expect(prepareSourceReview({ type: 'candidate', name: 'Barbearia Matheus', reason: '' }, null).company).toBe('Barbearia Matheus')
+  })
+
+  it('não associa automaticamente registros ambíguos, rejeitados ou duplicados', () => {
+    const jobWithTwo = { id: 'job-1', results: [{ company: 'Barbearia Alfa' }, { company: 'Barbearia Alfa' }] } as ProspectingAgentJob
+    const source = { type: 'raw' as const, name: 'Barbearia Alfa' }
+    expect(matchingCandidate(source, jobWithTwo)).toBeNull()
+    expect(matchingCandidate({ type: 'rejected', name: 'Barbearia Alfa' }, jobWithTwo)).toBeNull()
+    expect(matchingCandidate({ type: 'duplicate', name: 'Barbearia Alfa' }, jobWithTwo)).toBeNull()
   })
 
   it('mantém a contagem zerada sem execução', () => {

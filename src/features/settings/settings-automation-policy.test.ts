@@ -21,6 +21,14 @@ describe('Settings S1/S2 safety and consistency',()=>{
   it('accepts safe default commercial settings',()=>{
     expect(validateCommercialSettingsDraft(createDefaultPreferences())).toEqual([])
   })
+  it('generates independent default score configurations for each workspace',()=>{
+    const first=createDefaultPreferences()
+    const second=createDefaultPreferences()
+    first.commercial.leadScoring.weights.profile=0
+    first.commercial.dealIntelligence.weights.activity=0
+    expect(second.commercial.leadScoring.weights.profile).toBeGreaterThan(0)
+    expect(second.commercial.dealIntelligence.weights.activity).toBeGreaterThan(0)
+  })
   it('blocks zero-weight commercial engines',()=>{
     const draft=createDefaultPreferences()
     draft.commercial.leadScoring.weights={profile:0,behavior:0,potential:0}

@@ -39,6 +39,8 @@ const subscriptionLabel = (value: string) => value === 'active' ? 'Webhook ativo
 const externalTitle = (snapshot: Record<string, unknown>) => String(snapshot.summary || snapshot.subject || 'Evento externo')
 const localTitle = (snapshot: Record<string, unknown>) => String(snapshot.title || 'Evento no CRM')
 
+import {hostedCalendarConnectionAvailable} from '../../lib/integration-availability-s34'
+
 export function CalendarIntegrationPanel() {
   const { currentWorkspace, repositoryMode, can } = useAppWorkspace()
   const { notify } = useAppUi()
@@ -54,7 +56,7 @@ export function CalendarIntegrationPanel() {
 
   const refresh = async () => {
     if (!currentWorkspace) return
-    if (repositoryMode === 'local') {
+    if (!hostedCalendarConnectionAvailable(repositoryMode)) {
       // In local/demo mode there are no hosted OAuth credentials. Avoid
       // issuing gateway requests which would only trigger proxy 502 errors.
       setDashboard(emptyDashboard)
@@ -79,7 +81,7 @@ export function CalendarIntegrationPanel() {
   }, [selected?.account.id, selected?.calendarId, selected?.direction, selected?.enabled])
 
   const connect = async (provider: 'google' | 'microsoft') => {
-    if (repositoryMode === 'local') return notify('info', 'A conexão real exige o workspace hospedado com OAuth configurado. A Agenda interna continua disponível no modo local.')
+    if (!hostedCalendarConnectionAvailable(repositoryMode)) return notify('info', 'A conexão real exige o workspace hospedado com OAuth configurado. A Agenda interna continua disponível no modo local.')
     if (!currentWorkspace || !canManage) return notify('info', 'Somente administradores podem conectar contas externas.')
     setBusy(`connect-${provider}`)
     try {
@@ -171,7 +173,7 @@ export function CalendarIntegrationPanel() {
   const totalPending = dashboard.accounts.reduce((sum, item) => sum + item.pendingJobs, 0)
   const totalConflicts = dashboard.conflicts.filter((item) => item.status === 'open').length
 
-  if (repositoryMode === 'local') return <section className="calendar-integration-v84 calendar-integration-s34 page-stack" aria-label="Configuração de agendas externas">
+  if (!hostedCalendarConnectionAvailable(repositoryMode)) return <section className="calendar-integration-v84 calendar-integration-s34 page-stack" aria-label="Configuração de agendas externas">
     <article className="panel calendar-integration-s34__hero">
       <div><span className="eyebrow">Agenda externa</span><h3>Conectar Google Agenda ou Microsoft Calendar</h3>
         <p>Configure uma conta hospedada para sincronizar compromissos. A Agenda interna do RealTalent continua funcionando neste computador.</p></div>

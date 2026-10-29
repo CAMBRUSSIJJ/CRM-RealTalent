@@ -5,6 +5,7 @@ import { safeStorage } from '../lib/storage'
 import { commandForJob, extensionLifecycle, providerExtensionId, providerManifest, type OAuthExtensionProviderId } from '../platform/extensions'
 import type { Database, Json } from '../lib/supabase.types'
 import { beginGatewayOAuth, gatewayAccountAction, loadCommunicationsGatewayHealth, loadGatewayAccounts, syncGatewayCommunications, testGatewayAccount } from './local-communications-gateway'
+import {offlineIntegrationAccountView} from '../lib/integration-availability-s34'
 
 export type OAuthProvider = OAuthExtensionProviderId
 export type ConnectedAccountStatus = 'demo' | 'connected' | 'attention' | 'expired' | 'paused' | 'revoked' | 'error'
@@ -84,7 +85,11 @@ export async function loadIntegrationFramework(workspaceId:string):Promise<Integ
       const gatewayAccounts=await loadGatewayAccounts(workspaceId)
       const localById=new Map(local.accounts.map((item)=>[item.id,item]))
       local.accounts=gatewayAccounts.map((item)=>{const existing=localById.get(item.id);return existing?{...item,accessMode:existing.accessMode,allowedUserIds:existing.allowedUserIds,allowedRoles:existing.allowedRoles}:item})
-    } catch { local.accounts=[] }
+    } catch {
+      // Outage must not erase cached accounts from localStorage. Return a
+      // degraded read-only view, without persisting a false disconnect.
+      return {...local,accounts:offlineIntegrationAccountView(local.accounts)}
+    }
     writeLocal(workspaceId,local);return local
   }
   const [accounts,jobs,attempts,diagnostics,audit,extensions,settings,extensionJobs,extensionEvents]=await Promise.all([

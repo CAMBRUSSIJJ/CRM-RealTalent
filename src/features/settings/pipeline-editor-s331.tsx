@@ -87,12 +87,12 @@ export function PipelineEditorS331({stages,leads,opportunities,rules,workspaceId
       for(const stage of stages){
         const current=drafts[stage.id]
         if(current&&stageIsChanged(stage,current)){
-          await app.updateStage(stage.id,toStagePatch(current));completed++
+          await app.updateStage(stage.id,toStagePatch(current),{quiet:true});completed++
         }
       }
       if(orderChanged){
         const result=await commitStageOrder(stages,safeOrder,
-          (id,position)=>app.updateStage(id,{order:position}))
+          (id,position)=>app.updateStage(id,{order:position},{quiet:true}))
         if(!result.saved)throw Error(result.error)
       }
       app.notify('success','Alterações confirmadas: '+completed+' etapa(s) e'+

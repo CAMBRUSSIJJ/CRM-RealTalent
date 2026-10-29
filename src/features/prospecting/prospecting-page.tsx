@@ -124,7 +124,7 @@ const initialState: ProspectingState = { prospects: [], history: [], lastExtensi
 
 export function ProspectingPage() {
   const { snapshot, currentWorkspace, currentUserId, repositoryMode, teamAccess, canTeamAccess, canTeamAccessRecord } = useAppWorkspace()
-  const { setRoute, routeContext, clearRouteContext } = useAppNavigation()
+  const { setRoute, navigate, routeContext, clearRouteContext } = useAppNavigation()
   const { notify, confirmAction } = useAppUi()
   const { createCompany, updateCompany, createContact, updateContact, createLead, updateLead, createActivity, listWorkspaceMembers } = useAppActions()
   const { preferences } = usePreferences()
@@ -839,9 +839,13 @@ export function ProspectingPage() {
   }
 
   const openSend = (ids: string[]) => {
-    const validIds = ids.filter((id) => state.prospects.some((item) => item.id === id && item.status === 'approved' && prospectDataQuality(item).readiness !== 'blocked'))
-    if (!validIds.length) { notify('info', 'Revise e aprove as empresas antes de enviar ao CRM. Registros bloqueados pelo Data Layer não são enviados.'); return }
-    if (validIds.length < ids.length) notify('warning', `${ids.length - validIds.length} registro(s) ficaram de fora por ainda não estarem aprovados.`)
+    const unique=new Set(ids)
+    const validIds = state.prospects.filter(item=>unique.has(item.id)&&isProspectTransferable(item)).map(item=>item.id)
+    if (!validIds.length) {
+      notify('info', 'É necessário revisar e aprovar empresas elegíveis. Registros bloqueados ou duplicados não são enviados.')
+      return
+    }
+    if (validIds.length < unique.size) notify('warning', `${unique.size - validIds.length} registro(s) não serão enviados: ainda precisam de revisão.`)
     setHandoffReceipt(null)
     setSendIds(validIds)
   }
@@ -1193,7 +1197,7 @@ export function ProspectingPage() {
         {handoffReceipt.activityWarnings?<p className="prospecting-r1-receipt__warning">{handoffReceipt.activityWarnings} atividade(s) não confirmada(s); revise antes de contar com o acompanhamento.</p>:null}
         <div className="prospecting-r1-receipt__rows">{handoffReceipt.rows.slice(0,30).map(row=><div key={row.id}>
           <div><strong>{row.company}</strong><small>{row.note}</small></div><span>{row.status==='transferred'?'Processada':row.status==='failed'?'Falha':'Ignorada'}</span>
-          {row.crmLeadId?<Button variant="ghost" onClick={()=>setRoute('pipeline')}>Pipeline <ArrowRight size={13}/></Button>:row.crmCompanyId?<Button variant="ghost" onClick={()=>setRoute('commercial-map')}>Mapa de Contas <ArrowRight size={13}/></Button>:null}
+          {row.crmLeadId?<Button variant="ghost" onClick={()=>navigate('pipeline',{leadId:row.crmLeadId,action:'deal-inspector'})}>Pipeline <ArrowRight size={13}/></Button>:row.crmCompanyId?<Button variant="ghost" onClick={()=>setRoute('commercial-map')}>Mapa de Contas <ArrowRight size={13}/></Button>:null}
         </div>)}</div>
       </section>:null}
       {metrics.sent > 0 ? <section className="prospecting-footer-callout"><div><CheckCircle2 size={20} /><div><strong>Integração ativa com o CRM</strong><span>Empresas enviadas entram primeiro como CompanyRecord; pessoas identificadas viram ContactRecord. Oportunidades só são criadas quando você solicitar.</span></div></div><Button variant="secondary" onClick={() => setRoute('leads')}>Abrir Contatos <ArrowRight size={16} /></Button></section> : null}

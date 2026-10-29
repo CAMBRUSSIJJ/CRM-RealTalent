@@ -1010,6 +1010,8 @@ export function ProspectingPage() {
           onReview={() => { setInspectorMode(null); setReviewMode(inspectorMode === 'raw' || inspectorMode === 'filtered' || inspectorMode === 'duplicates' ? 'sources' : 'list') }}
         /> : null}
         {reviewMode === 'sources' ? <RawSourceReview
+          prospects={state.prospects}
+          onOpenProspect={(id) => { setProcessingId(id); setReviewScope('all'); setInspectorMode(null); setReviewMode('guided') }}
           initialScope={inspectorMode === 'raw' ? 'raw' : inspectorMode === 'filtered' ? 'filtered' : inspectorMode === 'duplicates' ? 'duplicates' : 'all'}
           job={agentJob}
           decisions={state.rawSourceDecisions || {}}
@@ -1032,7 +1034,12 @@ export function ProspectingPage() {
             commit((current) => ({ ...current, rawSourceDecisions: {
               ...(current.rawSourceDecisions || {}), [sourceRecord.key]: 'promoted',
             }}))
-            notify('success', 'Empresa enviada à fila de revisão. Dados não confirmados continuam pendentes.')
+            // Depois de confirmar a fonte, abrir a lista com a empresa recuperada.
+            setSearch(draft.company.trim())
+            setReviewScope('all')
+            setInspectorMode(null)
+            setReviewMode('list')
+            notify('success', 'Empresa adicionada à revisão com os dados disponíveis. Confira antes de aprovar.')
             return true
           }}
           onShowCompanies={() => { setReviewMode('list'); setReviewScope('all'); setInspectorMode(null) }}

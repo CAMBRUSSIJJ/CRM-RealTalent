@@ -12,7 +12,7 @@ import { NativeSelectionSelect, SelectionSelect } from '../../components/selecti
 import { StatusPill } from '../../components/ui/status-pill'
 import { WorkspaceCommandBar, WorkspaceCommandGroup, WorkspacePageHeader } from '../../components/workspace/workspace-shell'
 import { formatDateTime } from '../../domain/formatters'
-import type { AppRoute, AuditLog, PipelineStage, WorkspaceInvite, WorkspaceMember, WorkspaceRole } from '../../domain/types'
+import type { AppRoute, AuditLog, WorkspaceInvite, WorkspaceMember, WorkspaceRole } from '../../domain/types'
 import { env, hasSupabaseConfig } from '../../lib/env'
 import { APP_VERSION, APP_VERSION_LABEL, BACKUP_SCHEMA_VERSION } from '../../lib/app-version'
 import { clearDiagnostics, listDiagnostics } from '../../lib/diagnostics'
@@ -37,6 +37,7 @@ import '../../styles/settings-automation-s1s2.css'
 import '../../styles/settings-s3.css'
 import '../../styles/settings-s33.css'
 import {SettingsPresetPicker} from './settings-preset-picker'
+import {PipelineEditorS331,AuxiliarySettingsListEditor} from './pipeline-editor-s331'
 import {COMMERCIAL_FORM_PRESETS,NOTIFICATION_FORM_PRESETS,previewCommercialPreset,commercialPresetChanges,previewNotificationPreset,notificationPresetChanges} from './settings-smart-forms'
 
 const roleLabels: Record<WorkspaceRole, string> = { owner: 'Proprietário', admin: 'Administrador', member: 'Membro', viewer: 'Somente leitura' }
@@ -60,26 +61,6 @@ const downloadJson = (name: string, value: unknown) => {
 const splitList = (value: string) => value.split(/\n|,|;/).map((item) => item.trim()).filter(Boolean)
 const joinList = (items: string[]) => items.join('\n')
 
-function StageRow({ stage }: { stage: PipelineStage }) {
-  const app = useApp()
-  const [name, setName] = useState(stage.name)
-  const [color, setColor] = useState(stage.color)
-  const [probability, setProbability] = useState(stage.probability)
-  const [kind, setKind] = useState(stage.isWon ? 'won' : stage.isLost ? 'lost' : 'open')
-
-  useEffect(() => {
-    setName(stage.name); setColor(stage.color); setProbability(stage.probability); setKind(stage.isWon ? 'won' : stage.isLost ? 'lost' : 'open')
-  }, [stage])
-
-  return <div className="settings-stage-row">
-    <input aria-label={`Cor de ${stage.name}`} type="color" value={color} onChange={(event) => setColor(event.target.value)} />
-    <input aria-label="Nome da etapa" value={name} onChange={(event) => setName(event.target.value)} />
-    <label><span>Probabilidade</span><input type="number" min="0" max="100" value={probability} onChange={(event) => setProbability(Number(event.target.value))} /></label>
-    <SelectionSelect ariaLabel="Tipo da etapa" value={kind} onValueChange={setKind} options={[{ value: 'open', label: 'Aberta' }, { value: 'won', label: 'Ganha' }, { value: 'lost', label: 'Perdida' }]} />
-    <Button size="sm" variant="secondary" onClick={() => void app.updateStage(stage.id, { name, color, probability: Math.max(0, Math.min(100, probability)), isWon: kind === 'won', isLost: kind === 'lost' })}><Save size={15} /> Salvar</Button>
-    <button className="icon-button" type="button" aria-label={`Excluir ${stage.name}`} onClick={() => void (async () => { if (await app.confirmAction({ title: `Excluir a etapa ${stage.name}?`, description: 'A etapa precisa estar sem leads para ser removida do Pipeline.', confirmLabel: 'Excluir etapa', tone: 'danger' })) await app.deleteStage(stage.id) })()}><Trash2 size={16} /></button>
-  </div>
-}
 
 export function SettingsPage() {
   const app = useApp()
@@ -110,8 +91,6 @@ export function SettingsPage() {
   const [localMemberEmail, setLocalMemberEmail] = useState('')
   const [localMemberRole, setLocalMemberRole] = useState<'admin' | 'member' | 'viewer'>('member')
   const [profileName, setProfileName] = useState(auth.user?.displayName ?? '')
-  const [newStageName, setNewStageName] = useState('')
-  const [newStageProbability, setNewStageProbability] = useState(10)
   const [restoreWarnings, setRestoreWarnings] = useState<string[]>([])
   const [restoring, setRestoring] = useState(false)
   const [dangerText, setDangerText] = useState('')
@@ -584,11 +563,23 @@ export function SettingsPage() {
             </details>
             <p className="settings-copy">A probabilidade RealTalent não substitui a probabilidade do vendedor: ela funciona como contraponto baseado em evidências. Todo score mostra seus componentes e riscos de origem.</p>
           </article>
-          <article id="settings-commercial-pipeline" className="panel"><div className="panel__heading"><div><span className="eyebrow">Pipeline</span><h3>Etapas e probabilidades</h3></div><Gauge size={22} /></div><div className="settings-stage-list">{snapshot?.stages.map((stage) => <StageRow stage={stage} key={stage.id} />)}</div><div className="settings-new-stage"><input value={newStageName} onChange={(event) => setNewStageName(event.target.value)} placeholder="Nome da nova etapa" /><input type="number" min="0" max="100" value={newStageProbability} onChange={(event) => setNewStageProbability(Number(event.target.value))} /><Button disabled={!newStageName.trim()} onClick={async () => { await app.createStage({ name: newStageName, color: '#64748b', probability: newStageProbability, isWon: false, isLost: false }); setNewStageName(''); setNewStageProbability(10) }}><Plus size={16} /> Adicionar etapa</Button></div><label className="settings-toggle"><input type="checkbox" checked={draft.commercial.requireNextActionForActiveLeads} onChange={(event) => patchDraft('commercial', { requireNextActionForActiveLeads: event.target.checked })} /><span><strong>Exigir próxima ação nos negócios ativos</strong><small>Impede avanço no funil sem data e próximo passo. Prazos e critérios detalhados são configurados no menu de cada coluna do Pipeline.</small></span></label></article>
-          <article className="panel"><div className="panel__heading"><div><span className="eyebrow">Cadastros</span><h3>Motivos, etiquetas e atividades</h3></div><SlidersHorizontal size={22} /></div>
-          <details className="settings-advanced-section settings-s33__details"><summary>Editar cadastros auxiliares</summary>
-          <div className="settings-form-grid settings-form-grid--3"><label className="field"><span>Motivos de perda</span><textarea rows={8} value={joinList(draft.commercial.lossReasons)} onChange={(event) => patchDraft('commercial', { lossReasons: splitList(event.target.value) })} /></label><label className="field"><span>Etiquetas padrão</span><textarea rows={8} value={joinList(draft.commercial.tags)} onChange={(event) => patchDraft('commercial', { tags: splitList(event.target.value) })} /></label><label className="field"><span>Tipos de atividade</span><textarea rows={8} value={joinList(draft.commercial.activityTypes)} onChange={(event) => patchDraft('commercial', { activityTypes: splitList(event.target.value) })} /></label></div>
-          </details></article>
+          <PipelineEditorS331
+            stages={snapshot?.stages??[]} leads={snapshot?.leads??[]}
+            opportunities={snapshot?.opportunities??[]} rules={snapshot?.automationRules??[]}
+            workspaceId={currentWorkspace?.id??''} canWrite={canWrite}
+          />
+          <article className="panel settings-aux-s331__panel">
+            <div className="panel__heading"><div><span className="eyebrow">Cadastros</span><h3>Motivos, etiquetas e atividades</h3>
+              <p>Edite cada item diretamente, sem caixas de texto extensas. As alterações são salvas junto às configurações comerciais.</p></div><SlidersHorizontal size={22}/></div>
+            <div className="settings-aux-s331__grid">
+              <AuxiliarySettingsListEditor title="Motivos de perda" items={draft.commercial.lossReasons}
+                disabled={!canWrite} onChange={lossReasons=>patchDraft('commercial',{lossReasons})}/>
+              <AuxiliarySettingsListEditor title="Etiquetas padrão" items={draft.commercial.tags}
+                disabled={!canWrite} onChange={tags=>patchDraft('commercial',{tags})}/>
+              <AuxiliarySettingsListEditor title="Tipos de atividade" items={draft.commercial.activityTypes}
+                disabled={!canWrite} onChange={activityTypes=>patchDraft('commercial',{activityTypes})}/>
+            </div>
+          </article>
         </> : null}
 
         {activeTab === 'ai' ? <RealTalentAiPanel /> : null}

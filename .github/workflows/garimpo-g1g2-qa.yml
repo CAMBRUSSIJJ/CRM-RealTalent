@@ -1,4 +1,4 @@
-name: RealTalent S3.6 — WhatsApp Quiet Send QA
+name: RealTalent S3.7 — Email OAuth and Calendar UX QA
 on:
   pull_request:
     branches:
@@ -12,6 +12,7 @@ on:
       - feat/realtalent-settings-s331-pipeline-editor-20261029
       - fix/realtalent-settings-s34-calendar-whatsapp-20261029
       - fix/realtalent-s35-runtime-stability-20261029
+      - fix/realtalent-s36-whatsapp-quiet-send-20261029
   workflow_dispatch:
 permissions:
   contents: read
@@ -32,7 +33,7 @@ jobs:
         run: npm run typecheck
       - name: G1/G2 safety and regression tests
         run: |
-          npx vitest run src/features/prospecting/prospecting-raw-source-review.test.ts src/services/prospecting-g1g2-intelligence.test.ts src/services/prospecting-intelligence.test.ts src/services/prospecting-data-layer.test.ts src/services/prospecting-search-automation.test.ts src/services/realtalent-agent-garimpo-bridge.test.ts src/services/prospecting-handoff-r1.test.ts src/features/settings/preferences-context.test.ts src/features/settings/settings-automation-policy.test.ts src/features/settings/settings-s3-navigation.test.ts src/features/settings/settings-smart-forms.test.ts src/features/settings/pipeline-editor-s331.test.ts src/lib/integration-availability-s34.test.ts src/features/communications/whatsapp-send-feedback.test.ts src/features/communications/whatsapp-voice-time.test.ts
+          npx vitest run src/features/prospecting/prospecting-raw-source-review.test.ts src/services/prospecting-g1g2-intelligence.test.ts src/services/prospecting-intelligence.test.ts src/services/prospecting-data-layer.test.ts src/services/prospecting-search-automation.test.ts src/services/realtalent-agent-garimpo-bridge.test.ts src/services/prospecting-handoff-r1.test.ts src/features/settings/preferences-context.test.ts src/features/settings/settings-automation-policy.test.ts src/features/settings/settings-s3-navigation.test.ts src/features/settings/settings-smart-forms.test.ts src/features/settings/pipeline-editor-s331.test.ts src/lib/integration-availability-s34.test.ts src/features/communications/whatsapp-send-feedback.test.ts src/features/communications/whatsapp-voice-time.test.ts src/features/communications/email-connection-s37.test.ts
           node --test runtime-host/RealTalent-Agent-Runtime-V3.1.2/crm-prospect-investigation-g1.test.mjs
           node --test runtime-host/RealTalent-Agent-Runtime-V3.1.2/crm-garimpo-conversation-g3.test.mjs
           node --test runtime-host/RealTalent-Agent-Runtime-V3.1.2/crm-deep-research-v60.test.mjs
@@ -43,6 +44,8 @@ jobs:
           node --check runtime-host/RealTalent-Agent-Runtime-V3.1.2/crm-prospect-investigation-g1.mjs
           node --check runtime-host/RealTalent-Agent-Runtime-V3.1.2/crm-garimpo-conversation-g3.mjs
           bash -n scripts/garimpo-g1g2-linux/abrir-local.sh
+          bash -n configure-communications-local.sh
+          grep -Fq 'COMM_PORT="${REALTALENT_COMMUNICATIONS_PORT:-3012}"' configure-communications-local.sh
           bash -n scripts/garimpo-g1g2-linux/abrir-com-diagnostico.sh
           bash -n scripts/garimpo-g1g2-linux/diagnosticar-runtime.sh
           grep -q 'PIPESTATUS\[0\]' scripts/garimpo-g1g2-linux/abrir-com-diagnostico.sh

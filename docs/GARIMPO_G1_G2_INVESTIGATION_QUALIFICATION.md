@@ -29,11 +29,16 @@ Primeira entrega integrada ao Garimpo atual, sem substituição do motor de desc
 
 ### Teste local
 Branch: feat/realtalent-garimpo-g1g2-investigation-20261028
-Launcher: bash scripts/garimpo-g1g2-linux/abrir-local.sh
-Endereço: http://127.0.0.1:4197
-Gateway local: http://127.0.0.1:8804
-Ollama: 127.0.0.1:11434 | SearXNG: 127.0.0.1:8888
-V6.4 permanece em 4196.
+Launcher único: bash scripts/garimpo-g1g2-linux/abrir-local.sh
+Endereço do CRM de teste: http://127.0.0.1:4197
+Motor de prospecção (auto-start + healthcheck): http://127.0.0.1:4320/api/prospecting-agent/health
+Gateway de IA (auto-start + healthcheck): http://127.0.0.1:8804/tools/health
+Ollama: 127.0.0.1:11434 | SearXNG opcional: 127.0.0.1:8888
+A V6.4 permanece em 4196, e seu motor anterior em 4319 não é modificado.
+O motor G1/G2 grava estado isolado em ~/RealTalent-Garimpo-G1G2-Teste/garimpo-agent-state.
+Logs: ~/RealTalent-Garimpo-G1G2-Teste/logs/prospecting-agent.log e gateway.log.
+Ao encerrar com Ctrl+C, somente serviços iniciados pelo launcher G1/G2 são desligados. Se o motor 4320 já estava ativo, ele é reaproveitado sem ser encerrado.
+Caso uma das portas esteja ocupada por serviço inesperado ou o healthcheck falhe, o launcher mostra um erro sem interferir na V6.4.
 
 ### Checklist de QA
 - Criar Garimpo com cidade e raio; buscar empresas sem ampliar território.

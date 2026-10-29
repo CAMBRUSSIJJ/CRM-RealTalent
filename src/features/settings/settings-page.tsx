@@ -30,16 +30,18 @@ import { MapsIntegrationPanel } from './maps-integration-panel'
 import { PermissionMatrixPanel } from './permission-matrix-panel'
 import { AppearanceSettingsPanel } from './appearance-settings-panel'
 import { SETTINGS_GUIDES } from './settings-guides'
+import {collapsedGroupsForSettingsTab,type SettingsS3Group} from './settings-s3-navigation'
 import {SettingsLiveDiagnostics} from './settings-live-diagnostics'
 import { shouldAutoSaveSettings, validateCommercialSettingsDraft } from './settings-automation-policy'
 import '../../styles/settings-automation-s1s2.css'
+import '../../styles/settings-s3.css'
 
 const roleLabels: Record<WorkspaceRole, string> = { owner: 'Proprietário', admin: 'Administrador', member: 'Membro', viewer: 'Somente leitura' }
 const actionLabels: Record<string, string> = { insert: 'Criou', update: 'Atualizou', delete: 'Excluiu', lead_merged: 'Mesclou duplicados', invite_created: 'Criou convite', invite_revoked: 'Revogou convite', invite_accepted: 'Aceitou convite', member_role_updated: 'Alterou permissão', member_removed: 'Removeu membro' }
 const dayLabels = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb']
 
 type SettingsTab = 'account' | 'appearance' | 'experience' | 'pages' | 'notifications' | 'company' | 'navigation' | 'team' | 'commercial' | 'ai' | 'calendar' | 'whatsapp' | 'integrations' | 'maps' | 'audit' | 'data'
-type SettingsGroup = 'Minha experiência' | 'Workspace' | 'Vendas' | 'Conexões' | 'Inteligência' | 'Administração'
+type SettingsGroup = SettingsS3Group
 type NotificationToggleKey = 'overdueActivities' | 'upcomingActivities' | 'upcomingEvents' | 'proposalFollowups' | 'staleLeads' | 'goalsAtRisk' | 'automationFailures'
 
 const downloadJson = (name: string, value: unknown) => {
@@ -88,7 +90,8 @@ export function SettingsPage() {
   const [savePhase, setSavePhase] = useState<'idle'|'saving'|'saved'|'error'>('idle')
   const [saveProblem, setSaveProblem] = useState('')
   const saveBusyRef = useRef(false)
-  const [collapsedGroups, setCollapsedGroups] = useState<SettingsGroup[]>([])
+  const [collapsedGroups, setCollapsedGroups] = useState<SettingsGroup[]>(()=>collapsedGroupsForSettingsTab(activeTab))
+  const settingsContentRef=useRef<HTMLElement|null>(null)
   const [diagnosticsCollapsed, setDiagnosticsCollapsed] = useState(true)
   const [draft, setDraft] = useState<CrmPreferences>(preferences)
   const [members, setMembers] = useState<WorkspaceMember[]>([])
@@ -290,6 +293,10 @@ export function SettingsPage() {
   const searchResults = normalizedQuery ? settingsSearchTargets.filter((item) => `${item.label} ${item.path} ${item.keywords}`.toLocaleLowerCase('pt-BR').includes(normalizedQuery)).slice(0, 8) : []
   const activeTabMeta = tabItems.find((item) => item.id === activeTab) ?? tabItems[0]
   const tabGuide = SETTINGS_GUIDES[activeTab]
+  useEffect(()=>{
+    const group=tabItems.find(item=>item.id===activeTab)?.group
+    if(group)setCollapsedGroups(current=>current.includes(group)?current.filter(value=>value!==group):current)
+  },[activeTab])
   const visualAutoEligible=activeTab==='appearance'||activeTab==='navigation'
   const statusLabel=savePhase==='saving'?'Salvando…':
     savePhase==='error'?'Não foi possível aplicar':
@@ -299,11 +306,14 @@ export function SettingsPage() {
   const jumpToSetting = (tab: SettingsTab, anchor?: string) => {
     setActiveTab(tab)
     setSettingsQuery('')
-    if (anchor) window.setTimeout(() => document.getElementById(anchor)?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 40)
+    window.setTimeout(()=>{
+      const target=anchor?document.getElementById(anchor):settingsContentRef.current
+      target?.scrollIntoView({behavior:'smooth',block:'start'})
+    },40)
   }
   const toggleSettingsGroup = (group: SettingsGroup) => setCollapsedGroups((current) => current.includes(group) ? current.filter((item) => item !== group) : [...current, group])
 
-  return <div className="settings-v16 settings-v100682 settings-v1100 settings-page-h20">
+  return <div className="settings-v16 settings-v100682 settings-v1100 settings-page-h20 settings-s3">
     <WorkspacePageHeader className="settings-page-header-h20" eyebrow="Administração do workspace" icon={ShieldCheck} title="Configurações" description="Administre experiência, workspace, vendas e conexões em uma estrutura única e previsível." actions={<>
       <div className="settings-workspace-chip"><small>Workspace</small><strong>{currentWorkspace?.name ?? 'Local'}</strong></div>
       <button className={`settings-health-chip ${integrity?.errors ? 'has-error' : integrity?.warnings ? 'has-warning' : 'is-healthy'}`} type="button" aria-expanded={!diagnosticsCollapsed} onClick={() => setDiagnosticsCollapsed((value) => !value)}><ShieldCheck size={17}/><span><strong>{integrity?.errors ? 'Sistema requer atenção' : 'Sistema saudável'}</strong><small>{integrity ? `${integrity.score}% integridade · ${readiness}% prontidão` : `${readiness}% prontidão`}</small></span>{diagnosticsCollapsed ? <ChevronDown size={16}/> : <ChevronUp size={16}/>}</button>
@@ -320,26 +330,27 @@ export function SettingsPage() {
 
     <div className="settings-v1100__body">
       <aside className="settings-v1100__nav panel" aria-label="Seções de configurações">
-        <div className="settings-v1100__nav-title"><strong>Configurações</strong><small>{dirty ? 'Alterações pendentes' : 'Tudo salvo'}</small></div>
+        <div className="settings-v1100__nav-title"><strong>Explorar seções</strong><small>Selecione uma área</small></div>
         {settingsGroups.map((group) => {
           const items = filteredTabItems.filter((item) => item.group === group)
           if (!items.length) return null
           const collapsed = collapsedGroups.includes(group)
           return <div className="settings-nav-group" key={group}>
             <button className="settings-nav-group__header" type="button" onClick={() => toggleSettingsGroup(group)} aria-expanded={!collapsed}><span>{group}</span><ChevronDown size={14} className={collapsed ? '' : 'is-open'}/></button>
-            {!collapsed ? <div className="settings-nav-group__items">{items.map(({ id, label, icon: Icon }) => <button key={id} type="button" className={activeTab === id ? 'is-active' : ''} onClick={() => jumpToSetting(id)}><Icon size={17}/><span>{label}</span></button>)}</div> : null}
+            {!collapsed ? <div className="settings-nav-group__items">{items.map(({ id, label, icon: Icon }) => <button key={id} type="button" className={activeTab === id ? 'is-active' : ''} onClick={() => jumpToSetting(id)} aria-current={activeTab===id?'page':undefined}><Icon size={17}/><span>{label}</span></button>)}</div> : null}
           </div>
         })}
-        <div className="settings-v1100__nav-status"><StatusPill tone={statusTone}>{statusLabel}</StatusPill></div>
       </aside>
 
-      <main className="settings-v1100__content page-stack">
-        <section className="settings-section-intro settings-v1100__page-intro"><div><span>Configurações / {activeTabMeta.group}</span><h3>{activeTabMeta.label}</h3><p>{activeTabMeta.description}</p></div><StatusPill tone={statusTone}>{statusLabel}</StatusPill></section>
-        <section className="settings-smartbar" aria-label="Assistência contextual de configuração">
-          <span className="settings-smartbar__icon"><Sparkles size={18}/></span>
-          <div><strong>{tabGuide.title}</strong><p>{tabGuide.description}</p></div>
-          <span className="settings-smartbar__scope">{tabGuide.scope}</span>
-          {visualAutoEligible?<label className="settings-smartbar__auto"><input type="checkbox" checked={autoVisual} onChange={event=>setAutoVisual(event.target.checked)} disabled={!canWrite}/><span>Salvar visual automaticamente</span></label>:null}
+      <main ref={settingsContentRef} className="settings-v1100__content page-stack">
+        <section className="settings-section-intro settings-v1100__page-intro">
+          <div><span className="settings-s3__eyebrow">{activeTabMeta.group} · {tabGuide.scope}</span>
+            <h3>{activeTabMeta.label}</h3><p>{tabGuide.description}</p></div>
+          <div className="settings-s3__intro-actions">
+            {visualAutoEligible?<label><input type="checkbox" checked={autoVisual}
+              onChange={event=>setAutoVisual(event.target.checked)} disabled={!canWrite}/>
+              Salvar automaticamente</label>:null}
+          </div>
         </section>
         {savePhase==='error'?<div className="settings-save-error" role="alert"><AlertTriangle size={17}/><span>{saveProblem} As alterações continuam na tela; tente salvar novamente.</span><Button variant="secondary" size="sm" disabled={!dirty} onClick={()=>void saveDraft()}>Tentar novamente</Button></div>:null}
         {!diagnosticsCollapsed ? <section className="settings-health-panel panel"><div className="settings-health-panel__heading"><div><span className="eyebrow">Saúde do sistema</span><h3>Diagnóstico do workspace</h3><p>Informações técnicas ficam recolhidas e só aparecem quando você precisar investigar o ambiente.</p></div><Button size="sm" variant="ghost" onClick={() => setDiagnosticsCollapsed(true)}>Fechar</Button></div><div className="settings-health-metrics"><span><small>Integridade</small><strong>{integrity?.score ?? '—'}%</strong></span><span><small>Prontidão</small><strong>{readiness}%</strong></span><span><small>Banco</small><strong>{health?.connected ? 'Online' : repositoryMode === 'local' ? 'Local' : 'Atenção'}</strong></span><span><small>Repositório</small><strong>{repositoryMode}</strong></span></div><details className="settings-health-details"><summary>Ver verificações técnicas</summary><div className="production-checks">{checks.map((check) => <div className="production-check" key={check.label}>{check.ok ? <CheckCircle2 className="text-success" /> : <AlertTriangle className="text-warning" />}<div><strong>{check.label}</strong><small>{check.detail}</small></div></div>)}</div></details><SettingsLiveDiagnostics onNavigate={tab=>jumpToSetting(tab)}/></section> : null}
@@ -348,7 +359,7 @@ export function SettingsPage() {
             <div className="settings-form-grid settings-form-grid--2"><label className="field"><span>Nome exibido</span><input value={profileName} onChange={(event) => setProfileName(event.target.value)} /></label><label className="field"><span>E-mail</span><input value={auth.user?.email ?? 'Modo local'} disabled /></label></div>
             <div className="settings-actions"><Button onClick={async () => { await auth.updateProfile(profileName); notify('success', 'Perfil atualizado.') }}><Save size={17} /> Salvar perfil</Button><Button variant="secondary" onClick={async () => { if (!auth.user?.email) return notify('info', 'A recuperação de senha fica disponível após conectar o Supabase.'); await auth.requestPasswordReset(auth.user.email); notify('success', 'E-mail de recuperação enviado.') }}><KeyRound size={17} /> Trocar senha</Button></div>
           </article>
-          <article className="panel settings-compact-link"><div><Palette size={20}/><span><strong>Deseja personalizar a interface?</strong><small>Temas, cores, fontes, densidade e menus estão reunidos em Aparência.</small></span></div><Button variant="secondary" onClick={()=>setActiveTab('appearance')}>Abrir Aparência</Button>          </article>
+          <article className="panel settings-compact-link"><div><Palette size={20}/><span><strong>Deseja personalizar a interface?</strong><small>Temas, cores, fontes, densidade e menus estão reunidos em Aparência.</small></span></div><Button variant="secondary" onClick={()=>jumpToSetting('appearance')}>Abrir Aparência</Button>          </article>
         </> : null}
 
         {activeTab === 'appearance' ? <div id="settings-appearance"><AppearanceSettingsPanel

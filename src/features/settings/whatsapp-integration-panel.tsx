@@ -276,17 +276,24 @@ export function WhatsappIntegrationPanel({ preferences, onPreferencesChange }: {
   ]
 
   return <section className="whatsapp-control-center-h198">
-    <header className="whatsapp-control-center-h198__hero">
-      <div><span className="eyebrow">WhatsApp</span><h2>Central de configuração</h2><p>Conexão, mensagens e operação organizadas em um único lugar, sem misturar configuração técnica com o chat.</p></div>
-      <div className={`whatsapp-control-status-h198 ${gatewayReady && overallConnected ? 'is-connected' : ''}`}><i/><span><strong>{!gatewayReady ? 'Serviço indisponível' : overallConnected ? 'Operacional' : 'Desconectado'}</strong><small>{!gatewayReady ? 'Reinicie o gateway para usar o WhatsApp' : qrConnected ? 'WhatsApp por QR' : connectedAccounts.length ? 'WhatsApp Cloud API' : 'Conecte uma conta para enviar'}</small></span></div>
+    <header className="whatsapp-control-center-h198__hero whatsapp-control-hero-s3">
+      <div className="whatsapp-control-hero-s3__intro"><h2>Canal WhatsApp</h2><p>Conexões, mensagens e equipe em uma única área.</p></div>
+      <div className={`whatsapp-control-status-h198 whatsapp-control-status-s3 ${gatewayReady && overallConnected?'is-connected':''}`} aria-live="polite">
+        <i/><span><strong>{!gatewayReady?'Serviço indisponível':overallConnected?'Conectado':'Sem conta conectada'}</strong><small>{!gatewayReady?'Gateway de comunicação offline':qrConnected?'Conectado via QR':connectedAccounts.length?'Cloud API':'Configure sua conexão'}</small></span>
+      </div>
+      {!gatewayReady&&localGatewayMode?
+        <Button size="sm" variant="secondary" loading={busy==='runtime-recovery'} onClick={()=>void recoverGateway()}><RefreshCw size={15}/> Recuperar serviço</Button>:
+        !overallConnected?<Button variant="secondary" size="sm" onClick={()=>setSection('accounts')}><Cloud size={15}/> Configurar conexão</Button>:null}
     </header>
 
-    <div className="whatsapp-control-layout-h198">
-      <nav className="whatsapp-control-nav-h198" aria-label="Configurações do WhatsApp">
-        {sections.map((item) => { const Icon = item.icon; return <button type="button" key={item.id} className={section === item.id ? 'is-active' : ''} onClick={() => setSection(item.id)}><Icon size={17}/><span><strong>{item.label}</strong><small>{item.description}</small></span></button> })}
+    <div className="whatsapp-control-layout-h198 whatsapp-control-layout-s3">
+      <nav className="whatsapp-control-nav-h198 whatsapp-control-nav-s3" aria-label="Configurações do WhatsApp">
+        {sections.map(item=>{const Icon=item.icon;return <button type="button" key={item.id}
+          className={section===item.id?'is-active':''} aria-current={section===item.id?'page':undefined}
+          title={item.description} onClick={()=>setSection(item.id)}><Icon size={16}/><span><strong>{item.label}</strong></span></button>})}
       </nav>
 
-      <main className="whatsapp-control-content-h198">
+      <main className="whatsapp-control-content-h198 whatsapp-control-content-s3">
         {section === 'overview' ? <div className="whatsapp-settings-section-h198">
           <header><span className="eyebrow">Visão geral</span><h3>WhatsApp no RealTalent</h3><p>Veja a situação do canal e acesse rapidamente a configuração necessária.</p></header>
           <div className="whatsapp-overview-grid-h198">

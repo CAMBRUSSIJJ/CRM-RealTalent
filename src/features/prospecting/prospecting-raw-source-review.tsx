@@ -86,11 +86,13 @@ export function matchingCandidate(source: Pick<RawSource, 'name' | 'url' | 'type
 
 export function prepareSourceReview(source: Pick<RawSource, 'name' | 'url' | 'type' | 'reason'>, candidate: CaptureDraft | null, region = ''): ReviewDraft {
   const suggested = candidate?.company || candidate?.name || suggestBusinessNameFromTitle(source)
+  const socialHandle = clean(source.name).match(/\(@([a-zA-Z0-9._]{2,30})\)/)?.[1]
+    || normalizeUrl(source.url).match(/^https?:\/\/(?:www\.)?instagram\.com\/([a-zA-Z0-9._]{2,30})/)?.[1]
   return {
     company: clean(String(suggested || '')), city: clean(String(candidate?.city || region)),
     address: clean(String(candidate?.address || '')), phone: clean(String(candidate?.phone || '')),
     email: clean(String(candidate?.email || '')), website: clean(String(candidate?.website || '')),
-    instagram: clean(String(candidate?.instagram || '')), cnpj: clean(String(candidate?.cnpj || '')),
+    instagram: clean(String(candidate?.instagram || (socialHandle ? '@' + socialHandle : ''))), cnpj: clean(String(candidate?.cnpj || '')),
     description: clean(String(candidate?.description || '')), notes: clean(source.reason),
   }
 }

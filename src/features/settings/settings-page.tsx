@@ -405,6 +405,7 @@ export function SettingsPage() {
           </article>
 
           <article id="settings-notifications-events" className="panel settings-step-section" data-step="2"><div className="panel__heading"><div><span className="eyebrow">Regras</span><h3>O que deve gerar um aviso</h3><p>As mesmas regras alimentam a campainha, a Central e o canal de navegador.</p></div><Target size={22} /></div>
+            <details className="settings-advanced-section settings-s33__details"><summary>Escolher quais eventos geram avisos · ${(['overdueActivities','upcomingActivities','upcomingEvents','proposalFollowups','staleLeads','goalsAtRisk','automationFailures'] as NotificationToggleKey[]).filter(key=>Boolean(experience.preferences.notifications[key])).length} ativos</summary>
             <div className="notification-rule-grid">
               {([
                 ['overdueActivities', 'Follow-up atrasado', 'Atividades vencidas e ainda não concluídas.', Clock3],
@@ -416,7 +417,7 @@ export function SettingsPage() {
                 ['automationFailures', 'Falha de automação', 'Execuções de automação com erro.', Workflow],
               ] as Array<[NotificationToggleKey, string, string, typeof Bell]>).map(([key, title, detail, Icon]) => <label className="notification-rule-card" key={String(key)}><span><Icon size={18} /></span><div><strong>{String(title)}</strong><small>{String(detail)}</small></div><input type="checkbox" checked={Boolean(experience.preferences.notifications[key as keyof typeof experience.preferences.notifications])} onChange={(event) => experience.updateNotifications({ [key]: event.target.checked } as Partial<NotificationPreferences>)} /></label>)}
               <div className="notification-rule-card is-disabled"><span><SlidersHorizontal size={18} /></span><div><strong>Alteração no Pipeline</strong><small>Será ativada quando o histórico granular de mudança de etapa estiver disponível no snapshot operacional.</small><StatusPill tone="warning">Não simulado</StatusPill></div></div>
-            </div>
+            </div></details>
           </article>
 
           <article id="settings-notifications-schedule" className="panel settings-step-section" data-step="3"><div className="panel__heading"><div><span className="eyebrow">Frequência e silêncio</span><h3>Quando o CRM pode interromper você</h3><p>Essas preferências pessoais são salvas ao editar. O horário silencioso afeta avisos do navegador.</p></div><Clock3 size={22} /></div>
@@ -458,14 +459,14 @@ export function SettingsPage() {
         {activeTab === 'navigation' ? <article id="settings-navigation-sidebar" className="panel navigation-workspace-editor">
           <div className="panel__heading"><div><span className="eyebrow">Barra lateral</span><h3>Navegação e comportamento da Sidebar</h3><p>Defina largura, modo de abertura, elementos visíveis e a posição de cada ferramenta. O modo automático compacta somente quando o espaço realmente exigir.</p></div><LayoutGrid size={22} /></div>
           <section className="sidebar-studio">
-            <div className="sidebar-studio__controls">
+            <details className="sidebar-studio__controls settings-s33__sidebar-controls"><summary>Editar largura e comportamento da sidebar</summary>
               <label className="field"><span>Comportamento</span><SelectionSelect value={draft.appearance.sidebar} onValueChange={(value) => patchDraft('appearance', { sidebar: value as CrmPreferences['appearance']['sidebar'] })} options={[{ value: 'expanded', label: 'Sempre expandida' }, { value: 'compact', label: 'Compacta com expansão ao passar o mouse' }, { value: 'auto', label: 'Automática' }]} /><small>Compacta economiza espaço e revela os nomes ao passar o mouse. Automática compacta apenas quando necessário.</small></label>
               <label className="field"><span>Largura expandida</span><SelectionSelect value={draft.appearance.sidebarWidth} onValueChange={(value) => patchDraft('appearance', { sidebarWidth: value as CrmPreferences['appearance']['sidebarWidth'] })} options={[{ value: 'comfortable', label: 'Confortável · 224 px' }, { value: 'wide', label: 'Ampla · 252 px' }]} /><small>Evita larguras livres que poderiam quebrar páginas e topbar.</small></label>
               <label className="settings-toggle"><input type="checkbox" checked={draft.appearance.sidebarShowBrand} onChange={(event) => patchDraft('appearance', { sidebarShowBrand: event.target.checked })}/><span><strong>Marca e versão</strong><small>Exibe logo, nome do workspace e versão do CRM.</small></span></label>
               <label className="settings-toggle"><input type="checkbox" checked={draft.appearance.sidebarShowGroups} onChange={(event) => patchDraft('appearance', { sidebarShowGroups: event.target.checked })}/><span><strong>Separadores de área</strong><small>Mostra Operação, Estratégia e Sistema.</small></span></label>
               <label className="settings-toggle"><input type="checkbox" checked={draft.appearance.sidebarShowProfile} onChange={(event) => patchDraft('appearance', { sidebarShowProfile: event.target.checked })}/><span><strong>Perfil no rodapé</strong><small>Mostra usuário e acesso rápido às configurações.</small></span></label>
               <label className="settings-toggle"><input type="checkbox" checked={draft.appearance.sidebarOpenSecondary} onChange={(event) => patchDraft('appearance', { sidebarOpenSecondary: event.target.checked })}/><span><strong>Mais ferramentas aberto</strong><small>Inicia o grupo secundário expandido e lembra esta preferência.</small></span></label>
-            </div>
+            </details>
             <div className={`sidebar-studio__preview sidebar-studio__preview--${draft.appearance.sidebar === 'compact' ? 'compact' : 'expanded'}`}>
               <div className="sidebar-studio__preview-brand">RT <span>{draft.appearance.sidebarShowBrand ? (draft.company.name || 'RealTalent') : ''}</span></div>
               <div className="sidebar-studio__preview-item is-active"><LayoutGrid size={15}/><span>Meu Dia</span></div>

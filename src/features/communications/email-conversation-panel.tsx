@@ -7,6 +7,7 @@ import { formatDateTime } from '../../domain/formatters'
 import { connectedAccountLabel, sendOfficialEmail, type UnifiedCommunicationItem } from '../../services/communication-workspace'
 import {beginOAuthConnection, type ConnectedAccount} from '../../services/integration-framework'
 import {loadCommunicationsGatewayHealth,type CommunicationsGatewayHealth} from '../../services/local-communications-gateway'
+import {emailConnectGate,localOAuthCallbacks} from './email-connection-s37'
 
 const eventSender = (item: UnifiedCommunicationItem, lead: Lead) => {
   if (item.direction === 'inbound') return String(item.metadata?.senderAddress || lead.email || lead.name)
@@ -71,6 +72,9 @@ export function EmailConversationPanel({
     setBody('')
   }, [lead?.id, lastSubject])
 
+  const googleGate=emailConnectGate(repositoryMode,gatewayHealth,'google',canConnect)
+  const microsoftGate=emailConnectGate(repositoryMode,gatewayHealth,'microsoft',canConnect)
+  const callbacks=localOAuthCallbacks()
   const account = accounts.find((item) => item.id === accountId) ?? null
   const recipient = lead?.email.trim() ?? ''
   const canSend = Boolean(!readOnly && lead && account && recipient && subject.trim() && body.trim() && !lead.doNotContact)
@@ -92,11 +96,11 @@ export function EmailConversationPanel({
       <h3>Conecte seu e-mail ao RealTalent</h3>
       <p>Leia e responda mensagens na Central de Comunicação. O envio só ficará disponível depois que o provedor confirmar a autorização da conta.</p>
       <div className="email-onboarding-s37__providers">
-        <button type="button" disabled={!canConnect||Boolean(connectBusy)||(repositoryMode==='local'&&!gatewayHealth?.providers.google)} onClick={()=>void connect('google')}>
-          <strong>Google Gmail</strong><small>{connectBusy==='google'?'Abrindo autorização…':repositoryMode==='local'&&!gatewayHealth?.providers.google?'OAuth não configurado':'Conectar com Google'}</small>
+        <button type="button" disabled={!googleGate.ready||Boolean(connectBusy)} onClick={()=>void connect('google')}>
+          <strong>Google Gmail</strong><small>{connectBusy==='google'?'Abrindo autorização…':!googleGate.ready?googleGate.reason:'Conectar com Google'}</small>
         </button>
-        <button type="button" disabled={!canConnect||Boolean(connectBusy)||(repositoryMode==='local'&&!gatewayHealth?.providers.microsoft)} onClick={()=>void connect('microsoft')}>
-          <strong>Microsoft Outlook</strong><small>{connectBusy==='microsoft'?'Abrindo autorização…':repositoryMode==='local'&&!gatewayHealth?.providers.microsoft?'OAuth não configurado':'Conectar com Microsoft'}</small>
+        <button type="button" disabled={!microsoftGate.ready||Boolean(connectBusy)} onClick={()=>void connect('microsoft')}>
+          <strong>Microsoft Outlook</strong><small>{connectBusy==='microsoft'?'Abrindo autorização…':!microsoftGate.ready?microsoftGate.reason:'Conectar com Microsoft'}</small>
         </button>
       </div>
       {repositoryMode==='local'?<div className="email-onboarding-s37__setup">
@@ -105,8 +109,8 @@ export function EmailConversationPanel({
         {gatewayHealth?.ok&&!gatewayHealth.providers.google&&!gatewayHealth.providers.microsoft?
           <p>Para configurar o OAuth, execute <code>bash configure-communications-local.sh</code> na pasta da versão, cadastre as URLs de retorno na plataforma escolhida e reinicie o RealTalent.</p>:null}
         <details><summary>URLs de retorno do OAuth local</summary>
-          <code>Google: http://127.0.0.1:3012/oauth/google/callback</code><br/>
-          <code>Microsoft: http://localhost:3012/oauth/microsoft/callback</code>
+          <code>Google: {callbacks.google}</code><br/>
+          <code>Microsoft: {callbacks.microsoft}</code>
           <p>As URLs cadastradas no Google Cloud ou Microsoft Entra precisam corresponder exatamente às do gateway.</p>
         </details></div>
       </div>:<div className="email-onboarding-s37__setup"><Cloud size={16}/><p>No workspace hospedado, o OAuth e os workers de e-mail devem estar implantados no Supabase antes de conectar.</p></div>}

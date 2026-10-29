@@ -52,3 +52,20 @@
 @media(max-width:1340px){.settings-s3 .settings-presets-s33__cards{grid-template-columns:1fr}.settings-s3 .settings-presets-s33__option{min-height:55px}.settings-s3 .navigation-editor__row{grid-template-columns:26px 20px minmax(112px,1fr) auto 32px 32px 32px}}
 @media(max-width:880px){.settings-s3 .settings-s33__brand-colors{grid-template-columns:1fr}.settings-s3 .settings-presets-s33__changes>div{grid-template-columns:minmax(95px,1fr) minmax(65px,1fr) 14px minmax(65px,1fr)}}
 @media(max-width:590px){.settings-s3 .settings-s33__operation-summary{grid-template-columns:1fr}.settings-s3 .settings-presets-s33__changes>div{grid-template-columns:1fr 1fr;gap:6px}.settings-s3 .settings-presets-s33__changes>div strong{grid-column:1/-1}.settings-s3 .settings-presets-s33__changes svg{display:none}.settings-s3 .settings-presets-s33__changes>div b{grid-column:2}.settings-s3 .settings-s33__nav-toolbar{align-items:stretch}.settings-s3 .settings-s33__nav-views{width:100%}.settings-s3 .settings-s33__nav-views button{flex:1}.settings-s3 .navigation-editor__row{grid-template-columns:22px 20px minmax(115px,1fr) 1fr}.settings-s3 .navigation-editor__row>.icon-button{justify-self:center}}
+
+/* Live identity preview: colors are derived only from the draft. */
+.settings-s3 .settings-s33__brand-demo{border:1px solid var(--border);border-radius:12px;overflow:hidden;min-width:0;background:var(--surface)}
+.settings-s3 .settings-s33__brand-demo-top{background:var(--preview-nav,#17264a);color:#fff;min-height:38px;display:flex;align-items:center;gap:12px;justify-content:space-between;padding:8px 13px;font-size:11px}
+.settings-s3 .settings-s33__brand-demo-top span:first-child{font-weight:700}
+.settings-s3 .settings-s33__brand-demo-body{display:grid;grid-template-columns:minmax(155px,200px) minmax(0,1fr);min-height:190px}
+.settings-s3 .settings-s33__brand-demo-body>aside{display:grid;align-content:start;gap:8px;padding:13px;border-right:1px solid var(--border);background:var(--surface-soft);min-width:0}
+.settings-s3 .settings-s33__brand-demo-logo{display:flex;align-items:center;gap:9px;min-width:0;margin-bottom:9px}
+.settings-s3 .settings-s33__brand-demo-logo>img{width:28px;height:28px;object-fit:contain}
+.settings-s3 .settings-s33__brand-demo-logo strong{font-size:11px;line-height:1.35;overflow-wrap:anywhere}
+.settings-s3 .settings-s33__brand-demo-body>aside>span{display:flex;align-items:center;gap:8px;border-radius:7px;font-size:11px;padding:7px 8px}
+.settings-s3 .settings-s33__brand-demo-body>aside>span.is-selected{background:color-mix(in srgb,var(--preview-accent,#2f59db) 12%,var(--surface));color:var(--preview-accent,#2f59db);font-weight:700}
+.settings-s3 .settings-s33__brand-demo-main{display:flex;flex-direction:column;align-items:flex-start;gap:8px;min-width:0;padding:23px 18px}
+.settings-s3 .settings-s33__brand-demo-main strong{font-size:16px;overflow-wrap:anywhere}
+.settings-s3 .settings-s33__brand-demo-main small{font-size:12px;line-height:1.5;color:var(--muted)}
+.settings-s3 .settings-s33__brand-demo-button{margin-top:6px;background:var(--preview-accent,#2f59db);color:#fff;display:inline-flex;font-size:12px;padding:9px 13px;border-radius:8px}
+@media(max-width:590px){.settings-s3 .settings-s33__brand-demo-body{grid-template-columns:minmax(105px,35%) minmax(0,1fr)}.settings-s3 .settings-s33__brand-demo-main{padding:14px 12px}}

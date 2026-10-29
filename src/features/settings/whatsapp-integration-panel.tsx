@@ -306,9 +306,7 @@ export function WhatsappIntegrationPanel({ preferences, onPreferencesChange }: {
       <Activity size={19}/>
       <div><strong>Gateway local do WhatsApp indisponível</strong>
         <p>A recuperação utiliza o supervisor local do RealTalent. Se não funcionar, abra o CRM pelo inicializador com diagnóstico e consulte o log de execução.</p>
-        {gatewayError?<details><summary>Detalhes técnicos</summary><p>{gatewayError}</p>
-          {runtimeStatus?.communications.logTail?<pre>{runtimeStatus.communications.logTail.slice(-2400)}</pre>:null}
-        </details>:null}
+        {gatewayError?<details><summary>Detalhes técnicos</summary><p>{gatewayError}</p></details>:null}
       </div>
     </div>:null}
 

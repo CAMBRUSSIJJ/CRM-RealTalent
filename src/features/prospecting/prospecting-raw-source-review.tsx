@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { ArrowRight, ExternalLink, Filter, Search, X } from 'lucide-react'
 import type { ProspectingAgentJob } from '../../services/prospecting-linux-agent'
-import type { CaptureDraft } from '../../services/prospecting-workspace'
+import type { CaptureDraft, ProspectRecord } from '../../services/prospecting-workspace'
 
 export type RawSourceDecision = 'ignored' | 'promoted'
 type RawSource = NonNullable<ProspectingAgentJob['sourceLog']>[number]
@@ -48,18 +48,49 @@ const uniqueSources = (job: ProspectingAgentJob | null): ReviewSource[] => {
 }
 export const rawSourceReviewCount = (job: ProspectingAgentJob | null) => uniqueSources(job).length
 
-const EMPTY_DRAFT = { company: '', city: '', phone: '', email: '', website: '', notes: '' }
+const EMPTY_DRAFT = { company: '', city: '', address: '', phone: '', email: '', website: '', instagram: '', cnpj: '', description: '', notes: '' }
+type ReviewDraft = typeof EMPTY_DRAFT
+const normalizeName = (value: string | undefined) => clean(value).normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLocaleLowerCase('pt-BR').replace(/[^a-z0-9]+/g, ' ').trim()
+const normalizeUrl = (value: string | undefined) => httpUrl(clean(value)).replace(/\/$/, '').toLowerCase()
+const genericSourceTitle = (name: string) => /\\b(?:melhores|lista|listagem|diret[oó]rio|guia|op[cç][oõ]es|ranking|encontre|top\\s*\\d+|facebook|instagram)\\b/i.test(name)
+  || /^(?:barbearias|barbearia|empresas|profissionais|sal[oõ]es|servi[cç]os)\\s+(?:em|no|na|perto de)\\s+/i.test(name)
+
+export function matchingCandidate(source: Pick<RawSource, 'name' | 'url' | 'type'>, job: ProspectingAgentJob | null): (CaptureDraft & { candidateId?: string }) | null {
+  if (!job || source.type === 'rejected' || source.type === 'duplicate') return null
+  const sourceName = normalizeName(source.name)
+  const sourceUrl = normalizeUrl(source.url)
+  const matches = job.results.filter((candidate) => {
+    const candidateName = normalizeName(String(candidate.company || candidate.name || ''))
+    const candidateUrl = normalizeUrl(String(candidate.sourceUrl || candidate.website || ''))
+    return (sourceName && candidateName && sourceName === candidateName)
+      || (sourceUrl && candidateUrl && sourceUrl === candidateUrl)
+  })
+  return matches.length === 1 ? matches[0] : null
+}
+
+export function prepareSourceReview(source: Pick<RawSource, 'name' | 'url' | 'type' | 'reason'>, candidate: CaptureDraft | null): ReviewDraft {
+  const suggested = candidate?.company || candidate?.name || (source.type === 'candidate' && !genericSourceTitle(source.name) ? source.name : '')
+  return {
+    company: clean(String(suggested || '')), city: clean(String(candidate?.city || '')),
+    address: clean(String(candidate?.address || '')), phone: clean(String(candidate?.phone || '')),
+    email: clean(String(candidate?.email || '')), website: clean(String(candidate?.website || '')),
+    instagram: clean(String(candidate?.instagram || '')), cnpj: clean(String(candidate?.cnpj || '')),
+    description: clean(String(candidate?.description || '')), notes: clean(source.reason),
+  }
+}
 
 export function RawSourceReview({
-  job, decisions, disabled, onDecision, onPromote, onShowCompanies, initialScope = 'all',
+  job, prospects, decisions, disabled, onDecision, onPromote, onShowCompanies, onOpenProspect, initialScope = 'all',
 }: {
   job: ProspectingAgentJob | null
+  prospects: ProspectRecord[]
   initialScope?: RawSourceScope
   decisions: Record<string, RawSourceDecision>
   disabled: boolean
   onDecision: (key: string, decision: RawSourceDecision | null) => void
   onPromote: (source: ReviewSource, data: CaptureDraft) => boolean
   onShowCompanies: () => void
+  onOpenProspect: (id: string) => void
 }) {
   const sources = useMemo(() => uniqueSources(job), [job])
   const [query, setQuery] = useState('')
@@ -78,9 +109,22 @@ export function RawSourceReview({
   const ignored = sources.filter((row) => decisions[row.key] === 'ignored').length
   const promoted = sources.filter((row) => decisions[row.key] === 'promoted').length
   const current = sources.find((source) => source.key === selected) || null
+  const candidates = useMemo(() => new Map(sources.map(source => [source.key, matchingCandidate(source, job)])), [sources, job])
+  const currentCandidate = current ? candidates.get(current.key) ?? null : null
+  const findStored = (source: ReviewSource) => {
+    const candidate = candidates.get(source.key)
+    if (!candidate) return null
+    const sameJob = prospects.filter(prospect => String(prospect.rawData.agentJobId || '') === job?.id)
+    const matching = sameJob.filter(prospect =>
+      (candidate.candidateId && String(prospect.rawData.candidateId || '') === candidate.candidateId)
+      || normalizeName(prospect.company) === normalizeName(String(candidate.company || candidate.name || '')))
+    return matching.length === 1 && ['new', 'analyzing', 'review', 'approved'].includes(matching[0].status) ? matching[0] : null
+  }
   const openReview = (source: ReviewSource) => {
+    const existing = findStored(source)
+    if (existing) { onOpenProspect(existing.id); return }
     setSelected(source.key)
-    setDraft({ ...EMPTY_DRAFT, notes: source.reason || '' })
+    setDraft(prepareSourceReview(source, candidates.get(source.key) ?? null))
   }
   const submit = () => {
     if (!current || !draft.company.trim()) return
@@ -88,12 +132,17 @@ export function RawSourceReview({
       company: draft.company.trim(),
       name: draft.company.trim(),
       city: draft.city.trim(),
+      address: draft.address.trim(),
+      instagram: draft.instagram.trim(),
+      cnpj: draft.cnpj.trim(),
+      description: draft.description.trim(),
       phone: draft.phone.trim(),
       email: draft.email.trim(),
       website: draft.website.trim(),
       notes: [draft.notes.trim(), 'Fonte original: ' + current.name, 'URL de origem: ' + current.url].filter(Boolean).join('\n'),
       source: 'manual',
-      sourceDetail: 'Fonte pública recuperada na revisão humana',
+      sourceDetail: 'Fonte pública conferida, aguardando validação comercial',
+      evidence: currentCandidate?.evidence || [],
       provider: 'web_discovery',
       sourceUrl: current.url,
       sourceTitle: current.name,
@@ -144,7 +193,7 @@ export function RawSourceReview({
         <footer>
           {decisions[row.key] ? <button type="button" disabled={disabled} onClick={() => onDecision(row.key, null)}>Desfazer decisão ({decisions[row.key] === 'ignored' ? 'ignorada' : 'adicionada'})</button> : <>
             <button type="button" disabled={disabled} onClick={() => onDecision(row.key, 'ignored')}>Ignorar fonte</button>
-            <button type="button" className="is-primary" disabled={disabled} onClick={() => openReview(row)}>Revisar como empresa</button>
+            <button type="button" className="is-primary" disabled={disabled && !findStored(row)} onClick={() => openReview(row)}>{findStored(row) ? 'Abrir empresa na revisão' : 'Conferir e enviar à revisão'}</button>
           </>}
         </footer>
       </article>)}
@@ -153,14 +202,22 @@ export function RawSourceReview({
     {current ? <div className="prospecting-raw-review__dialog" role="dialog" aria-modal="true" aria-label="Confirmar empresa a partir da fonte">
       <div className="prospecting-raw-review__dialog-card">
         <header><div><h3>Revisar fonte e criar candidato</h3><p>{current.name}</p></div><button type="button" aria-label="Fechar revisão da fonte" onClick={() => setSelected(null)}><X size={18}/></button></header>
-        <p className="prospecting-raw-review__notice">O título pode ser uma lista, diretório ou resultado duplicado, não o nome de uma empresa. Confirme o nome real. A cidade digitada não comprova localização; faltando coordenadas, o registro continuará pendente.</p>
+        <p className="prospecting-raw-review__notice">{currentCandidate
+          ? 'Os dados disponíveis foram trazidos da busca. Confira antes de adicionar à fila; identidade e localização ainda exigem validação.'
+          : 'Esta fonte não possui empresa identificada com segurança. O título pode ser uma lista ou diretório. Informe o nome real antes de criar um candidato pendente.'}</p>
         {httpUrl(clean(current.url)) ? <a href={httpUrl(clean(current.url))} target="_blank" rel="noopener noreferrer">Abrir a fonte original para conferir <ExternalLink size={13}/></a> : null}
         <div className="prospecting-raw-review__form">
-          <label>Nome confirmado da empresa *<input autoFocus value={draft.company} onChange={e => setDraft(d => ({...d,company:e.target.value}))} placeholder="Digite o nome da empresa real"/></label>
+          <label>Nome da empresa (confirme) *<input autoFocus value={draft.company} onChange={e => setDraft(d => ({...d,company:e.target.value}))} placeholder="Nome real da empresa" /></label>
           <label>Cidade (a confirmar)<input value={draft.city} onChange={e => setDraft(d => ({...d,city:e.target.value}))} placeholder="Ex.: Rio Grande, RS"/></label>
           <label>Telefone<input value={draft.phone} onChange={e => setDraft(d => ({...d,phone:e.target.value}))} placeholder="Opcional"/></label>
           <label>E-mail<input value={draft.email} onChange={e => setDraft(d => ({...d,email:e.target.value}))} placeholder="Opcional"/></label>
+          <label className="is-wide">Endereço (a confirmar)<input value={draft.address} onChange={e => setDraft(d => ({...d,address:e.target.value}))} placeholder="Endereço disponível na busca" /></label>
           <label>Website oficial (não é o diretório)<input value={draft.website} onChange={e => setDraft(d => ({...d,website:e.target.value}))} placeholder="https://..."/></label>
+          <details className="is-wide"><summary>Mais dados disponíveis</summary>
+            <label>Instagram<input value={draft.instagram} onChange={e => setDraft(d => ({...d,instagram:e.target.value}))} /></label>
+            <label>CNPJ<input value={draft.cnpj} onChange={e => setDraft(d => ({...d,cnpj:e.target.value}))} /></label>
+            <label>Descrição<input value={draft.description} onChange={e => setDraft(d => ({...d,description:e.target.value}))} /></label>
+          </details>
           <label className="is-wide">Observações<textarea value={draft.notes} onChange={e => setDraft(d => ({...d,notes:e.target.value}))}/></label>
         </div>
         <footer><button type="button" onClick={() => setSelected(null)}>Cancelar</button><button className="is-primary" type="button" disabled={disabled || !draft.company.trim()} onClick={submit}>Adicionar à fila Revisar</button></footer>

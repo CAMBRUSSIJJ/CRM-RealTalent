@@ -1,11 +1,12 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Info, Mail, RefreshCw, Send, WifiOff } from 'lucide-react'
+import { Info, Mail, RefreshCw, Send, WifiOff, Cloud, ShieldCheck } from 'lucide-react'
 import { NativeSelectionSelect } from '../../components/selection'
 import { Button } from '../../components/ui/button'
 import type { Lead } from '../../domain/types'
 import { formatDateTime } from '../../domain/formatters'
 import { connectedAccountLabel, sendOfficialEmail, type UnifiedCommunicationItem } from '../../services/communication-workspace'
-import type { ConnectedAccount } from '../../services/integration-framework'
+import {beginOAuthConnection, type ConnectedAccount} from '../../services/integration-framework'
+import {loadCommunicationsGatewayHealth,type CommunicationsGatewayHealth} from '../../services/local-communications-gateway'
 
 const eventSender = (item: UnifiedCommunicationItem, lead: Lead) => {
   if (item.direction === 'inbound') return String(item.metadata?.senderAddress || lead.email || lead.name)
@@ -18,7 +19,7 @@ const cleanReplySubject = (value: string) => {
 }
 
 export function EmailConversationPanel({
-  lead, events, workspaceId, accounts, loading, readOnly = false, onSync, onOpenLeadContext, onSent, onError,
+  lead, events, workspaceId, accounts, loading, readOnly = false, onSync, onOpenLeadContext, onSent, onError, repositoryMode, canConnect,
 }: {
   lead: Lead | null
   events: UnifiedCommunicationItem[]
@@ -26,6 +27,8 @@ export function EmailConversationPanel({
   accounts: ConnectedAccount[]
   loading: boolean
   readOnly?: boolean
+  repositoryMode:'local'|'supabase'
+  canConnect:boolean
   onSync(): void
   onOpenLeadContext?(): void
   onSent(message: string): void
@@ -37,6 +40,28 @@ export function EmailConversationPanel({
   const [subject, setSubject] = useState('')
   const [body, setBody] = useState('')
   const [sending, setSending] = useState(false)
+  const [connectBusy,setConnectBusy]=useState<'google'|'microsoft'|null>(null)
+  const [connectionError,setConnectionError]=useState('')
+  const [gatewayHealth,setGatewayHealth]=useState<CommunicationsGatewayHealth|null>(null)
+  const [gatewayLoading,setGatewayLoading]=useState(false)
+  const checkGateway=async()=>{
+    if(repositoryMode!=='local')return
+    setGatewayLoading(true)
+    try{setGatewayHealth(await loadCommunicationsGatewayHealth());setConnectionError('')}
+    catch(error){setGatewayHealth(null);setConnectionError(error instanceof Error?error.message:'Gateway local não respondeu.')}
+    finally{setGatewayLoading(false)}
+  }
+  useEffect(()=>{if(repositoryMode==='local'&&!accounts.length)void checkGateway()},[repositoryMode,accounts.length])
+  const connect=async(provider:'google'|'microsoft')=>{
+    if(!canConnect)return
+    setConnectBusy(provider);setConnectionError('')
+    try{
+      const result=await beginOAuthConnection(workspaceId,provider)
+      if(result.url){window.location.assign(result.url);return}
+      setConnectionError(result.message||'O provedor não retornou a página de autorização.')
+    }catch(error){setConnectionError(error instanceof Error?error.message:'Não foi possível iniciar o OAuth.')}
+    finally{setConnectBusy(null)}
+  }
 
   useEffect(() => {
     setAccountId((current) => accounts.some((item) => item.id === current) ? current : accounts[0]?.id ?? '')
@@ -61,7 +86,37 @@ export function EmailConversationPanel({
     finally { setSending(false) }
   }
 
-  if (!lead) return <section className="email-workspace-panel email-workspace-panel--empty"><Mail size={34}/><strong>Selecione uma conversa de e-mail</strong><p>O histórico da thread e o composer oficial aparecerão aqui.</p></section>
+  if(!accounts.length) return <section className="email-workspace-panel email-onboarding-s37" aria-label="Conectar e-mail ao RealTalent">
+    <div className="email-onboarding-s37__body">
+      <div className="email-onboarding-s37__icon"><Mail size={25}/></div>
+      <h3>Conecte seu e-mail ao RealTalent</h3>
+      <p>Leia e responda mensagens na Central de Comunicação. O envio só ficará disponível depois que o provedor confirmar a autorização da conta.</p>
+      <div className="email-onboarding-s37__providers">
+        <button type="button" disabled={!canConnect||Boolean(connectBusy)||(repositoryMode==='local'&&!gatewayHealth?.providers.google)} onClick={()=>void connect('google')}>
+          <strong>Google Gmail</strong><small>{connectBusy==='google'?'Abrindo autorização…':repositoryMode==='local'&&!gatewayHealth?.providers.google?'OAuth não configurado':'Conectar com Google'}</small>
+        </button>
+        <button type="button" disabled={!canConnect||Boolean(connectBusy)||(repositoryMode==='local'&&!gatewayHealth?.providers.microsoft)} onClick={()=>void connect('microsoft')}>
+          <strong>Microsoft Outlook</strong><small>{connectBusy==='microsoft'?'Abrindo autorização…':repositoryMode==='local'&&!gatewayHealth?.providers.microsoft?'OAuth não configurado':'Conectar com Microsoft'}</small>
+        </button>
+      </div>
+      {repositoryMode==='local'?<div className="email-onboarding-s37__setup">
+        <ShieldCheck size={16}/><div><strong>{gatewayHealth?.ok?'Gateway local respondendo':'Verifique o gateway local'}</strong>
+        <p>{gatewayHealth?.ok?'A autorização será realizada diretamente no Google ou Microsoft; tokens ficam no gateway.':'Inicie o CRM pelo launcher do RealTalent para habilitar o gateway de comunicação.'}</p>
+        {gatewayHealth?.ok&&!gatewayHealth.providers.google&&!gatewayHealth.providers.microsoft?
+          <p>Para configurar o OAuth, execute <code>bash configure-communications-local.sh</code> na pasta da versão, cadastre as URLs de retorno na plataforma escolhida e reinicie o RealTalent.</p>:null}
+        <details><summary>URLs de retorno do OAuth local</summary>
+          <code>Google: http://127.0.0.1:3012/oauth/google/callback</code><br/>
+          <code>Microsoft: http://localhost:3012/oauth/microsoft/callback</code>
+          <p>As URLs cadastradas no Google Cloud ou Microsoft Entra precisam corresponder exatamente às do gateway.</p>
+        </details></div>
+      </div>:<div className="email-onboarding-s37__setup"><Cloud size={16}/><p>No workspace hospedado, o OAuth e os workers de e-mail devem estar implantados no Supabase antes de conectar.</p></div>}
+      {connectionError?<p className="email-onboarding-s37__error" role="alert">{connectionError}</p>:null}
+      {!canConnect?<p className="email-onboarding-s37__error">Somente quem possui permissão para administrar integrações pode conectar uma conta.</p>:null}
+      <Button variant="secondary" loading={gatewayLoading||loading} onClick={()=>{void checkGateway();onSync()}}><RefreshCw size={15}/> Verificar conexão</Button>
+    </div>
+  </section>
+
+  if (!lead) return <section className="email-workspace-panel email-workspace-panel--empty"><Mail size={34}/><strong>Selecione uma conversa de e-mail</strong><p>O histórico e a resposta por e-mail aparecem aqui ao escolher um contato. Você já pode sincronizar a caixa conectada.</p></section>
 
   return <section className="email-workspace-panel">
     <header className="email-workspace-header">

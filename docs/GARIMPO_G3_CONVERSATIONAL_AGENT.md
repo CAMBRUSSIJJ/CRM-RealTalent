@@ -39,3 +39,16 @@ Gateway local: http://127.0.0.1:8804
 5. Escolher nova cidade com mapa poligonal desenhado: deve bloquear troca silenciosa.
 6. Parar Ollama: deve informar indisponibilidade, sem pesquisas fictícias.
 7. Perfil somente leitura: consulta permitida, mas não pode iniciar busca.
+
+## Correção da integração com o Agent principal — 2026-10-29
+- Antes: o painel lateral RealTalent Agent recebia pedidos operacionais para prospectar empresas, mas respondia com métodos e listas hipotéticas; o painel G3 era independente.
+- Agora: o submit do AssistantDrawer intercepta comandos claros de busca/prospecção do Garimpo ANTES do pipeline geral de conversa, usando o mesmo endpoint local de planejamento estruturado.
+- Usa createProspectingAgentJob existente com escopo do workspace, permissões, ICP e georrestrição; não gera nenhum nome de empresa artificial.
+- Reaproveita cidade/região da última execução do workspace quando o pedido não indica outra. Segmento explicitamente solicitado (por exemplo, "empresas de jardinagem") prevalece sobre segmento antigo ("Barbearia").
+- Pesquisas são iniciadas somente para usuários com permissão de criar/editar Garimpo; buscas em andamento são identificadas, evitando job duplicado.
+- A ação explícita "ache no Garimpo" autoriza iniciar uma busca, mas nenhuma aprovação, importação final ou envio ao CRM é automático por decisão do modelo.
+- Perguntas de andamento respondem com as contagens reais do job e diferenciam objetivo (40) de encontradas (por exemplo, 6).
+- "Abra a revisão do Garimpo" abre a aba Revisar na página do Garimpo, inclusive quando o comando parte de outra tela.
+- Se o Ollama, o gateway ou o motor de prospecção falhar, o Agent relata o erro. Nunca transforma falha operacional em pesquisa simulada ou lista hipotética.
+- Segurança: proteção contra mudança silenciosa de área desenhada, escopo do usuário, negação de buscas e ausência de município/segmento.
+- Testes de regressão novos em src/services/realtalent-agent-garimpo-bridge.test.ts.

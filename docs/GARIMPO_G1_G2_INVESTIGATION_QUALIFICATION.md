@@ -44,6 +44,15 @@ Logs: ~/RealTalent-Garimpo-G1G2-Teste/logs/prospecting-agent.log e gateway.log.
 Ao encerrar com Ctrl+C, somente serviços iniciados pelo launcher G1/G2 são desligados. Se o motor 4320 já estava ativo, ele é reaproveitado sem ser encerrado.
 Caso uma das portas esteja ocupada por serviço inesperado ou o healthcheck falhe, o launcher mostra um erro sem interferir na V6.4.
 
+### Revisão única — empresas + dados brutos (UX)
+
+- **Buscar** concentra somente território, busca, execução e números de investigação. Os atalhos "Empresas", "Dados brutos", "Filtrados" e "Duplicidades" abrem diretamente a aba **Revisar**.
+- **Revisar > Lista** inicia mostrando todas as empresas da base de revisão, com filtros de atenção e prontidão à disposição. O botão "Guiada" abre os dados completos e o painel G1/G2 de cada empresa.
+- **Revisar > Fontes brutas** concentra resultados de origem dos quatro tipos `raw`, `candidate`, `rejected` e `duplicate`; a pessoa pode revisar, ignorar ou, após conferir o nome real e outras informações, adicionar um registro pendente à revisão.
+- Os candidatos da execução atual são recuperados para a base de revisão por deduplicação ao abrir a etapa. Importações repetidas não substituem edições manuais já existentes.
+- Conteúdos de sites, diretórios, resultados repetidos e demais ocorrências não são classificados como empresas confirmadas só por terem sido encontrados. A triagem humana e as restrições para aprovação e envio ao CRM são preservadas.
+- Os totais de ocorrências na busca podem ser maiores do que o número de fontes individuais armazenadas; o app informa essa limitação.
+
 ### Checklist de QA
 - Criar Garimpo com cidade e raio; buscar empresas sem ampliar território.
 - Revisão > Guiada > conferir scores e motivos; sem alterar aprovação automática.

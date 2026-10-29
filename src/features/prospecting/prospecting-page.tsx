@@ -1028,8 +1028,13 @@ export function ProspectingPage() {
             const added = importDrafts([draft], 'manual', 'capture',
               'Fonte pública conferida e promovida para revisão humana · ' + (sourceRecord.url || sourceRecord.name), 1, true)
             if (!added) {
-              notify('info', 'Essa empresa já está na sua base de revisão. Abra a lista para verificar o registro.')
-              return false
+              // Já existe na base: abrir a revisão em vez de manter o formulário bloqueado.
+              setSearch(String(draft.company || '').trim())
+              setReviewScope('all')
+              setInspectorMode(null)
+              setReviewMode('list')
+              notify('info', 'Empresa já presente na revisão. Abra o registro para conferir os dados antes de aprovar.')
+              return true
             }
             commit((current) => ({ ...current, rawSourceDecisions: {
               ...(current.rawSourceDecisions || {}), [sourceRecord.key]: 'promoted',

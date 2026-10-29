@@ -30,6 +30,7 @@ import { MapsIntegrationPanel } from './maps-integration-panel'
 import { PermissionMatrixPanel } from './permission-matrix-panel'
 import { AppearanceSettingsPanel } from './appearance-settings-panel'
 import { SETTINGS_GUIDES } from './settings-guides'
+import { shouldAutoSaveSettings, validateCommercialSettingsDraft } from './settings-automation-policy'
 import '../../styles/settings-automation-s1s2.css'
 
 const roleLabels: Record<WorkspaceRole, string> = { owner: 'Proprietário', admin: 'Administrador', member: 'Membro', viewer: 'Somente leitura' }
@@ -152,6 +153,8 @@ export function SettingsPage() {
 
   const saveDraft = async (next:CrmPreferences=draft,quiet=false) => {
     if(!canWrite){notify('info','Seu perfil possui acesso somente para leitura.');return}
+    const issues=validateCommercialSettingsDraft(next)
+    if(issues.length){setSavePhase('error');setSaveProblem(issues.join(' '));if(!quiet)notify('warning',issues[0]);return}
     if(saveBusyRef.current)return
     saveBusyRef.current=true
     setSavePhase('saving')
@@ -169,7 +172,7 @@ export function SettingsPage() {
     }finally{saveBusyRef.current=false}
   }
   useEffect(()=>{
-    if(!autoVisual||!dirty||!canWrite||saveBusyRef.current||!['appearance','navigation'].includes(activeTab))return
+    if(!dirty||saveBusyRef.current||!shouldAutoSaveSettings(activeTab,autoVisual,canWrite))return
     const timer=window.setTimeout(()=>void saveDraft(draft,true),1100)
     return ()=>window.clearTimeout(timer)
     // saving is deliberately scoped to cosmetic changes, not commercial,
@@ -213,12 +216,14 @@ export function SettingsPage() {
       // workspace appearance, scoring or security preferences.
       const result = parsed.workspace?.snapshot || parsed.snapshot ? await restoreWorkspaceBackup(file) : await importLegacyBackup(file)
       let preferencesApplied=false
+      let preferenceWarning=''
       if(parsed.preferences){
-        await savePreferencesChecked(parsed.preferences)
-        preferencesApplied=true
+        try{await savePreferencesChecked(parsed.preferences);preferencesApplied=true}
+        catch(error){preferenceWarning=error instanceof Error?error.message:'Falha ao sincronizar preferências.'}
       }
-      setRestoreWarnings(result.warnings)
-      notify('success', `${result.imported} registro(s) restaurado(s); ${preferencesApplied?'preferências confirmadas.':'sem novas preferências.'}`)
+      setRestoreWarnings([...result.warnings,...(preferenceWarning?[preferenceWarning]:[])])
+      notify(preferenceWarning?'warning':'success',
+        `${result.imported} registro(s) restaurado(s); ${preferenceWarning?'preferências pendentes de sincronização.':preferencesApplied?'preferências confirmadas.':'sem novas preferências.'}`)
     } catch (error) { notify('error', error instanceof Error ? error.message : 'Não foi possível restaurar o backup.') }
     finally { setRestoring(false); if (restoreRef.current) restoreRef.current.value = '' }
   }
@@ -286,8 +291,8 @@ export function SettingsPage() {
   const tabGuide = SETTINGS_GUIDES[activeTab]
   const visualAutoEligible=activeTab==='appearance'||activeTab==='navigation'
   const statusLabel=savePhase==='saving'?'Salvando…':
-    savePhase==='error'?'Falha na sincronização':
-    dirty?(visualAutoEligible&&autoVisual?'Ajustes visuais pendentes':'Alterações pendentes'):
+    savePhase==='error'?'Não foi possível aplicar':
+    dirty?(visualAutoEligible&&autoVisual?'Salvamento visual pendente':'Alterações pendentes'):
     repositoryMode==='local'?'Salvo neste dispositivo':'Configuração aplicada'
   const statusTone=savePhase==='error'?'danger':savePhase==='saving'?'info':dirty?'warning':'success'
   const jumpToSetting = (tab: SettingsTab, anchor?: string) => {

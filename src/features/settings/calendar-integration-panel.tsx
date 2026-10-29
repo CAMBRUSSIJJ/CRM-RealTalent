@@ -5,6 +5,7 @@ import {
 } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 import { useAppUi, useAppWorkspace } from '../../app/app-context'
+import {hostedCalendarConnectionAvailable} from '../../lib/integration-availability-s34'
 import { Button } from '../../components/ui/button'
 import { StatusPill } from '../../components/ui/status-pill'
 import { formatDateTime } from '../../domain/formatters'
@@ -38,8 +39,6 @@ const accountStatusLabel = (status: ConnectedAccount['status']) => ({ connected:
 const subscriptionLabel = (value: string) => value === 'active' ? 'Webhook ativo' : value === 'not_configured' ? 'Webhook não configurado' : value
 const externalTitle = (snapshot: Record<string, unknown>) => String(snapshot.summary || snapshot.subject || 'Evento externo')
 const localTitle = (snapshot: Record<string, unknown>) => String(snapshot.title || 'Evento no CRM')
-
-import {hostedCalendarConnectionAvailable} from '../../lib/integration-availability-s34'
 
 export function CalendarIntegrationPanel() {
   const { currentWorkspace, repositoryMode, can } = useAppWorkspace()

@@ -43,6 +43,7 @@ jobs:
           node --check runtime-host/RealTalent-Agent-Runtime-V3.1.2/crm-garimpo-conversation-g3.mjs
           bash -n scripts/garimpo-g1g2-linux/abrir-local.sh
           bash -n scripts/garimpo-g1g2-linux/abrir-com-diagnostico.sh
+          bash -n scripts/garimpo-g1g2-linux/diagnosticar-runtime.sh
           grep -q 'PIPESTATUS\[0\]' scripts/garimpo-g1g2-linux/abrir-com-diagnostico.sh
           grep -q 'ultimo-inicio.log' scripts/garimpo-g1g2-linux/abrir-com-diagnostico.sh
           grep -q -- '--port 4197 --strictPort' scripts/garimpo-g1g2-linux/abrir-local.sh

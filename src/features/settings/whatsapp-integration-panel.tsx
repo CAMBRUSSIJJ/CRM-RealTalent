@@ -24,6 +24,7 @@ import {
 } from '../../services/whatsapp-workspace'
 import type { WorkspaceMember } from '../../domain/types'
 import type { CrmPreferences } from './preferences-context'
+import {whatsappGatewayIsHealthy} from '../../lib/integration-availability-s34'
 
 const purposeLabels: Record<WhatsAppTemplatePurpose, string> = {
   first_contact: 'Primeiro contato', followup: 'Follow-up', proposal: 'Proposta', meeting: 'Reunião', post_sale: 'Pós-venda', custom: 'Personalizado',
@@ -74,6 +75,7 @@ export function WhatsappIntegrationPanel({ preferences, onPreferencesChange }: {
   const [members, setMembers] = useState<WorkspaceMember[]>([])
   const [gatewayHealth, setGatewayHealth] = useState<CommunicationsGatewayHealth | null>(null)
   const [runtimeStatus, setRuntimeStatus] = useState<RuntimeStatus | null>(null)
+  const [gatewayError, setGatewayError] = useState<string>('')
 
   const saveControlPreferences = (patch: Partial<WhatsAppControlPreferences>) => {
     setControlPreferences((current) => {
@@ -91,14 +93,20 @@ export function WhatsappIntegrationPanel({ preferences, onPreferencesChange }: {
   const refreshRuntimeState = async () => {
     if (!localGatewayMode) return true
     let runtime: RuntimeStatus | null = null
-    try { runtime = await loadRuntimeStatus(); setRuntimeStatus(runtime) } catch { setRuntimeStatus(null) }
+    try { runtime = await loadRuntimeStatus(); setRuntimeStatus(runtime) }
+    catch { setRuntimeStatus(null) }
     try {
       const health = await loadCommunicationsGatewayHealth()
+      if(!health.ok)throw Error('O gateway respondeu, mas não está saudável.')
       setGatewayHealth(health)
+      setGatewayError('')
       return true
-    } catch {
+    } catch (error) {
       setGatewayHealth(null)
-      return Boolean(runtime?.services.communications)
+      setGatewayError(error instanceof Error?error.message:'O gateway não respondeu.')
+      // A supervisor process may be alive without a usable HTTP gateway.
+      // Never present it as connected without a successful health request.
+      return false
     }
   }
 
@@ -110,19 +118,28 @@ export function WhatsappIntegrationPanel({ preferences, onPreferencesChange }: {
       setRuntimeStatus(result.status)
       if (!result.ok || !result.status.services.communications) throw new Error('O serviço do WhatsApp não ficou pronto. Abra Diagnóstico para verificar o estado do gateway.')
       const health = await loadCommunicationsGatewayHealth()
+      if(!health.ok)throw Error('O gateway não respondeu ao teste de saúde após a recuperação.')
       setGatewayHealth(health)
-      if (showNotice) notify('success', result.recovered ? 'Serviço do WhatsApp reiniciado.' : 'Serviço do WhatsApp já estava ativo.')
+      setGatewayError('')
+      if (showNotice) notify('success', result.recovered ? 'Gateway recuperado. Agora você pode gerar o QR Code.' : 'Gateway está respondendo. Agora você pode gerar o QR Code.')
       return true
     } catch (error) {
       setGatewayHealth(null)
-      if (showNotice) notify('error', error instanceof Error ? error.message : 'Não foi possível recuperar o serviço do WhatsApp.')
+      const reason=error instanceof Error?error.message:'Não foi possível recuperar o serviço do WhatsApp.'
+      setGatewayError(reason)
+      if (showNotice) notify('error', 'Recuperação não concluída. Consulte os detalhes nesta tela.')
       return false
     } finally { setBusy('') }
   }
 
   const ensureGatewayReady = async () => {
     if (!localGatewayMode) return true
-    try { setGatewayHealth(await loadCommunicationsGatewayHealth()); return true } catch { return recoverGateway(false) }
+    try{
+      const health=await loadCommunicationsGatewayHealth()
+      if(!health.ok)return false
+      setGatewayHealth(health);setGatewayError('')
+      return true
+    }catch{return false}
   }
 
   const refreshDiagnostics = async () => {
@@ -137,7 +154,7 @@ export function WhatsappIntegrationPanel({ preferences, onPreferencesChange }: {
       } else {
         setQrStatus(null)
       }
-      notify(gatewayReady ? 'success' : 'info', gatewayReady ? 'Status do WhatsApp atualizado.' : 'Serviço do WhatsApp está indisponível. Use “Reiniciar serviço”.')
+      notify(gatewayReady ? 'success' : 'info', gatewayReady ? 'Gateway respondeu ao teste de saúde.' : 'Gateway não respondeu. Veja o aviso no topo desta página.')
     } catch { notify('error', 'Não foi possível atualizar o diagnóstico do WhatsApp.') }
     finally { setBusy('') }
   }
@@ -183,7 +200,7 @@ export function WhatsappIntegrationPanel({ preferences, onPreferencesChange }: {
   const connectedAccounts = accounts.filter((item) => item.status === 'connected')
   const qrConnected = qrStatus?.state === 'connected'
   const overallConnected = qrConnected || connectedAccounts.length > 0
-  const gatewayReady = !localGatewayMode || Boolean(gatewayHealth?.ok || runtimeStatus?.services.communications)
+  const gatewayReady = !localGatewayMode || whatsappGatewayIsHealthy(gatewayHealth,runtimeStatus)
   const persistTemplates = (next: WhatsAppTemplate[]) => { setTemplates(next); saveWhatsAppTemplates(workspaceId, next) }
   const activeTeams = workManagement.teams.filter((item) => item.active !== false)
   const selectedTeam = activeTeams.find((item) => item.id === controlPreferences.referenceTeamId) ?? null
@@ -224,7 +241,7 @@ export function WhatsappIntegrationPanel({ preferences, onPreferencesChange }: {
   const startQr = async () => {
     setBusy('qr-start')
     const ready = await ensureGatewayReady()
-    if (!ready) { setBusy(''); setShowQr(false); notify('error', 'Serviço do WhatsApp indisponível. Use “Reiniciar serviço” em Diagnóstico.'); return }
+    if (!ready) { setBusy(''); setShowQr(false); notify('info', 'Recupere o gateway no topo desta página antes de solicitar um QR Code.'); return }
     setShowQr(true)
     try { setQrStatus(await startGatewayWhatsAppQr(workspaceId, 'WhatsApp QR Local')) }
     catch (error) { setShowQr(false); notify('error', error instanceof Error ? error.message : 'Não foi possível iniciar o QR Code.') }
@@ -282,9 +299,16 @@ export function WhatsappIntegrationPanel({ preferences, onPreferencesChange }: {
         <i/><span><strong>{!gatewayReady?'Serviço indisponível':overallConnected?'Conectado':'Sem conta conectada'}</strong><small>{!gatewayReady?'Gateway de comunicação offline':qrConnected?'Conectado via QR':connectedAccounts.length?'Cloud API':'Configure sua conexão'}</small></span>
       </div>
       {!gatewayReady&&localGatewayMode?
-        <Button size="sm" variant="secondary" loading={busy==='runtime-recovery'} onClick={()=>void recoverGateway()}><RefreshCw size={15}/> Recuperar serviço</Button>:
+        <Button size="sm" variant="secondary" disabled={Boolean(busy)&&busy!=='runtime-recovery'} loading={busy==='runtime-recovery'} onClick={()=>void recoverGateway()}><RefreshCw size={15}/> Recuperar gateway</Button>:
         !overallConnected?<Button variant="secondary" size="sm" onClick={()=>setSection('accounts')}><Cloud size={15}/> Configurar conexão</Button>:null}
     </header>
+    {localGatewayMode&&!gatewayReady?<div className="whatsapp-service-alert-s34" role="status">
+      <Activity size={19}/>
+      <div><strong>Gateway local do WhatsApp indisponível</strong>
+        <p>A recuperação utiliza o supervisor local do RealTalent. Se não funcionar, abra o CRM pelo inicializador com diagnóstico e consulte o log de execução.</p>
+        {gatewayError?<details><summary>Detalhes técnicos</summary><p>{gatewayError}</p></details>:null}
+      </div>
+    </div>:null}
 
     <div className="whatsapp-control-layout-h198 whatsapp-control-layout-s3">
       <nav className="whatsapp-control-nav-h198 whatsapp-control-nav-s3" aria-label="Configurações do WhatsApp">
@@ -313,7 +337,7 @@ export function WhatsappIntegrationPanel({ preferences, onPreferencesChange }: {
 
         {section === 'accounts' ? <div className="whatsapp-settings-section-h198">
           <header><span className="eyebrow">Contas e conexão</span><h3>Conectar WhatsApp</h3><p>Mantenha QR Local e Cloud API no mesmo lugar, com ações separadas e estado claro.</p></header>
-          {localGatewayMode ? <section className="whatsapp-setting-card-h198"><div className="whatsapp-setting-card-h198__heading"><span><QrCode size={20}/></span><div><strong>WhatsApp por QR Code</strong><small>Conexão local por WhatsApp Web/Chromium.</small></div><StatusPill tone={gatewayReady && qrConnected ? 'success' : 'neutral'}>{!gatewayReady ? 'Serviço offline' : qrConnected ? 'Conectado' : qrStatus?.state || 'Desconectado'}</StatusPill></div><p>A sessão fica neste computador. Use para operação local e testes; para equipes e produção, prefira a Cloud API.</p>{!gatewayReady ? <div className="integration-note"><Activity size={18}/><span><strong>Serviço local do WhatsApp não está ativo.</strong> O RealTalent pode reiniciar o gateway sem fechar o CRM.</span><Button size="sm" loading={busy === 'runtime-recovery'} onClick={() => void recoverGateway()}><RefreshCw size={14}/> Reiniciar serviço</Button></div> : null}<div className="settings-actions"><Button loading={busy === 'qr-start'} onClick={() => void startQr()}><QrCode size={16}/> {!gatewayReady ? 'Iniciar serviço e gerar QR' : qrConnected ? 'Gerar novo QR' : 'Gerar QR Code'}</Button><Button variant="ghost" disabled={!gatewayReady} loading={busy === 'qr-disconnect'} onClick={() => void disconnectQr()}><Unplug size={15}/> Remover sessão</Button></div>{showQr ? <div className="whatsapp-qr-panel-h198">{qrStatus?.qrDataUrl ? <img src={qrStatus.qrDataUrl} alt="QR Code para conectar o WhatsApp" width={260} height={260}/> : <div className="integration-note"><QrCode size={18}/><span><strong>Preparando QR...</strong> Aguarde alguns segundos.</span></div>}<small>Motor: WhatsApp Web (Chromium) · Status: {qrStatus?.state ?? 'starting'}{qrStatus?.lastError ? ` · ${qrStatus.lastError}` : ''}</small></div> : null}</section> : null}
+          {localGatewayMode ? <section className="whatsapp-setting-card-h198"><div className="whatsapp-setting-card-h198__heading"><span><QrCode size={20}/></span><div><strong>WhatsApp por QR Code</strong><small>Conexão local por WhatsApp Web/Chromium.</small></div><StatusPill tone={gatewayReady && qrConnected ? 'success' : 'neutral'}>{!gatewayReady ? 'Serviço offline' : qrConnected ? 'Conectado' : qrStatus?.state || 'Desconectado'}</StatusPill></div><p>A sessão fica neste computador. Use para operação local e testes; para equipes e produção, prefira a Cloud API.</p>{!gatewayReady ? <div className="integration-note"><Activity size={18}/><span><strong>Conexão por QR indisponível.</strong> Use “Recuperar gateway” no topo da página antes de gerar um código.</span></div> : null}<div className="settings-actions"><Button disabled={!gatewayReady||Boolean(busy)&&busy!=='qr-start'} loading={busy === 'qr-start'} onClick={() => void startQr()}><QrCode size={16}/> {qrConnected ? 'Gerar novo QR' : 'Gerar QR Code'}</Button><Button variant="ghost" disabled={!gatewayReady} loading={busy === 'qr-disconnect'} onClick={() => void disconnectQr()}><Unplug size={15}/> Remover sessão</Button></div>{showQr ? <div className="whatsapp-qr-panel-h198">{qrStatus?.qrDataUrl ? <img src={qrStatus.qrDataUrl} alt="QR Code para conectar o WhatsApp" width={260} height={260}/> : <div className="integration-note"><QrCode size={18}/><span><strong>Preparando QR...</strong> Aguarde alguns segundos.</span></div>}<small>Motor: WhatsApp Web (Chromium) · Status: {qrStatus?.state ?? 'starting'}{qrStatus?.lastError ? ` · ${qrStatus.lastError}` : ''}</small></div> : null}</section> : null}
           <section className="whatsapp-setting-card-h198"><div className="whatsapp-setting-card-h198__heading"><span><Cloud size={20}/></span><div><strong>WhatsApp Cloud API</strong><small>Integração oficial da Meta para operação comercial.</small></div><StatusPill tone={selectedAccount?.status === 'connected' ? 'success' : 'neutral'}>{selectedAccount?.status === 'connected' ? 'Conectado' : 'Sem conta'}</StatusPill></div>{selectedAccount ? <div className="whatsapp-account-v85 whatsapp-account-h198"><div><strong>{selectedAccount.displayName}</strong><small>{selectedAccount.externalAccountId}</small></div><div className="settings-actions"><Button size="sm" variant="secondary" loading={busy === 'test'} onClick={() => void test()}>Testar conexão</Button><Button size="sm" variant="ghost" loading={busy === 'disconnect'} onClick={() => void disconnect()}><Unplug size={15}/> Revogar</Button></div></div> : <p>Nenhuma conta oficial conectada. O QR Local continua disponível quando o gateway local estiver ativo.</p>}<div className="settings-actions"><Button loading={busy === 'connect'} onClick={() => void connect()}><Plus size={16}/> {localGatewayMode ? 'Configurar Cloud API' : 'Conectar WhatsApp Business'}</Button>{accounts.filter((item) => item.status === 'connected').map((account) => <button type="button" key={account.id} className={preferences.whatsappOfficialAccountId === account.id ? 'whatsapp-account-option is-active' : 'whatsapp-account-option'} onClick={() => onPreferencesChange({ whatsappOfficialAccountId: account.id, whatsappMode: 'official' })}><CheckCircle2 size={14}/>{account.displayName}</button>)}</div>{localGatewayMode && showLocalSetup ? <div className="settings-form-grid settings-form-grid--2 whatsapp-cloud-form-h198"><label className="field"><span>Access Token permanente</span><input type="password" autoComplete="off" value={accessToken} onChange={(event) => setAccessToken(event.target.value)} placeholder="EAAG..."/></label><label className="field"><span>Phone Number ID</span><input value={phoneNumberId} onChange={(event) => setPhoneNumberId(event.target.value.replace(/\D/g, ''))} placeholder="123456789..."/></label><label className="field"><span>WhatsApp Business Account ID</span><input value={wabaId} onChange={(event) => setWabaId(event.target.value.replace(/\D/g, ''))} placeholder="Opcional"/></label><label className="field"><span>Nome da conta</span><input value={displayName} onChange={(event) => setDisplayName(event.target.value)} placeholder="RealTalent Comercial"/></label><div className="settings-actions"><Button loading={busy === 'local-connect'} onClick={() => void saveLocalConnection()}><ShieldCheck size={16}/> Validar e conectar</Button><Button variant="ghost" onClick={() => setShowLocalSetup(false)}>Cancelar</Button></div></div> : null}</section>
         </div> : null}
 
@@ -339,7 +363,7 @@ export function WhatsappIntegrationPanel({ preferences, onPreferencesChange }: {
         {section === 'diagnostics' ? <div className="whatsapp-settings-section-h198">
           <header className="whatsapp-template-heading-h198"><div><span className="eyebrow">Diagnóstico</span><h3>Saúde da integração</h3><p>Informação técnica fica aqui, longe da conversa do vendedor.</p></div><Button variant="secondary" loading={busy === 'diagnostics'} onClick={() => void refreshDiagnostics()}><RefreshCw size={15}/> Atualizar status</Button></header>
           <div className="whatsapp-diagnostic-grid-h198"><article><span>Gateway</span><strong>{gatewayReady ? 'Online' : 'Offline'}</strong><small>{runtimeStatus?.communications.version || gatewayHealth?.version || 'Aguardando serviço'}</small></article><article><span>Supervisor</span><strong>{runtimeStatus?.communications.supervisorRunning ? 'Ativo' : gatewayReady ? 'Gerenciado' : 'Parado'}</strong><small>{runtimeStatus?.communications.recovering ? 'Recuperando agora' : runtimeStatus?.communications.gatewayRunning ? 'Gateway em execução' : 'Watchdog automático'}</small></article><article><span>QR Local</span><strong>{qrStatus?.state || 'Sem sessão'}</strong><small>{qrStatus?.phone ? `+${qrStatus.phone}` : 'Nenhum telefone reportado'}</small></article><article><span>Cloud API</span><strong>{connectedAccounts.length ? 'Operacional' : 'Sem conta'}</strong><small>{connectedAccounts.length} conta(s) conectada(s)</small></article></div>
-          <section className="whatsapp-setting-card-h198"><div className="whatsapp-setting-card-h198__heading"><span><ShieldCheck size={20}/></span><div><strong>Testes e manutenção</strong><small>O runtime monitora o gateway e tenta recuperar automaticamente após falhas consecutivas.</small></div></div><div className="settings-actions">{localGatewayMode ? <Button loading={busy === 'runtime-recovery'} onClick={() => void recoverGateway()}><RefreshCw size={15}/> Reiniciar serviço</Button> : null}<Button variant="secondary" disabled={!selectedAccount || !gatewayReady} loading={busy === 'test'} onClick={() => void test()}>Testar Cloud API</Button>{localGatewayMode ? <Button variant="secondary" onClick={() => void startQr()}><QrCode size={15}/> Gerar QR</Button> : null}</div>{localGatewayMode && !gatewayReady ? <div className="integration-note"><Activity size={18}/><span><strong>Communications Gateway indisponível.</strong> O chat continua acessível para histórico; envio e QR voltam quando o serviço estiver online.</span></div> : null}</section>
+          <section className="whatsapp-setting-card-h198"><div className="whatsapp-setting-card-h198__heading"><span><ShieldCheck size={20}/></span><div><strong>Testes e manutenção</strong><small>O runtime monitora o gateway e tenta recuperar automaticamente após falhas consecutivas.</small></div></div><div className="settings-actions">{localGatewayMode?<span className="settings-copy">A recuperação do gateway fica no topo desta página. Aqui você pode apenas consultar o diagnóstico.</span>:null}<Button variant="secondary" disabled={!selectedAccount || !gatewayReady} loading={busy === 'test'} onClick={() => void test()}>Testar Cloud API</Button>{localGatewayMode ? <Button variant="secondary" onClick={() => void startQr()}><QrCode size={15}/> Gerar QR</Button> : null}</div>{localGatewayMode && !gatewayReady ? <div className="integration-note"><Activity size={18}/><span><strong>Communications Gateway indisponível.</strong> O chat continua acessível para histórico; envio e QR voltam quando o serviço estiver online.</span></div> : null}</section>
           <section className="whatsapp-setting-card-h198"><div className="whatsapp-setting-card-h198__heading"><span><Activity size={20}/></span><div><strong>Webhook</strong><small>Recebimento de mensagens oficiais.</small></div></div><p>O gateway expõe <code>/webhooks/whatsapp</code>. Para receber eventos da Meta em uma instalação local, publique esse endpoint por HTTPS com URL estável. O envio oficial pode funcionar sem publicar o webhook.</p></section>
         </div> : null}
       </main>

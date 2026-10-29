@@ -36,6 +36,7 @@ import { shouldAutoSaveSettings, validateCommercialSettingsDraft } from './setti
 import '../../styles/settings-automation-s1s2.css'
 import '../../styles/settings-s3.css'
 import '../../styles/settings-s33.css'
+import '../../styles/settings-s34.css'
 import {SettingsPresetPicker} from './settings-preset-picker'
 import {PipelineEditorS331,AuxiliarySettingsListEditor} from './pipeline-editor-s331'
 import {COMMERCIAL_FORM_PRESETS,NOTIFICATION_FORM_PRESETS,previewCommercialPreset,commercialPresetChanges,previewNotificationPreset,notificationPresetChanges} from './settings-smart-forms'

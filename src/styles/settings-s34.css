@@ -1,0 +1,30 @@
+/* S3.4 integration states — no global CRM layout changes. */
+.settings-s3 .calendar-integration-s34{display:grid;gap:12px;min-width:0}
+.settings-s3 .calendar-integration-s34__hero{display:flex;justify-content:space-between;align-items:center;gap:18px;flex-wrap:wrap;padding:19px}
+.settings-s3 .calendar-integration-s34__hero>div{max-width:72ch;min-width:0}
+.settings-s3 .calendar-integration-s34__hero h3{font-size:19px;line-height:1.35;margin:5px 0}
+.settings-s3 .calendar-integration-s34__hero p{font-size:13px;line-height:1.6;color:var(--muted);margin:0}
+.settings-s3 .calendar-integration-s34__connection{display:flex;align-items:flex-start;gap:17px;padding:26px;min-height:180px}
+.settings-s3 .calendar-integration-s34__connection>div:last-child{flex:1;min-width:0}
+.settings-s3 .calendar-integration-s34__symbol{height:46px;width:46px;display:grid;place-items:center;flex:none;color:var(--rt-color-brand,#3469bc);background:color-mix(in srgb,var(--rt-color-brand,#3469bc) 10%,var(--surface));border-radius:13px}
+.settings-s3 .calendar-integration-s34__connection h3{font-size:17px;margin:0 0 6px}
+.settings-s3 .calendar-integration-s34__connection p{font-size:13px;color:var(--muted);line-height:1.6;margin:0}
+.settings-s3 .calendar-integration-s34__providers{display:flex;gap:9px;flex-wrap:wrap;margin-top:18px}
+.settings-s3 .calendar-integration-s34__providers>span{display:flex;gap:8px;align-items:center;padding:11px;border:1px solid var(--border);border-radius:10px;min-width:190px;flex-wrap:wrap;font-size:13px;font-weight:700}
+.settings-s3 .calendar-integration-s34__providers svg{color:var(--rt-color-brand,#3469bc)}
+.settings-s3 .calendar-integration-s34__providers small{color:var(--muted);font-size:11px;font-weight:400;width:100%;padding-left:25px}
+.settings-s3 .calendar-integration-s34__steps{padding:0;overflow:hidden}
+.settings-s3 .calendar-integration-s34__steps summary{padding:15px 18px;cursor:pointer;font-size:13px;font-weight:750;min-height:48px}
+.settings-s3 .calendar-integration-s34__steps[open] summary{border-bottom:1px solid var(--border)}
+.settings-s3 .calendar-integration-s34__steps ol{padding:12px 24px 0 40px;margin:0;font-size:13px;line-height:1.7;color:var(--text)}
+.settings-s3 .calendar-integration-s34__steps li{padding-bottom:8px}
+.settings-s3 .calendar-integration-s34__steps>p{font-size:12px;line-height:1.5;margin:0;padding:8px 18px 18px;color:var(--muted)}
+.settings-s3 .whatsapp-service-alert-s34{display:flex;align-items:flex-start;gap:12px;padding:15px 16px;border:1px solid color-mix(in srgb,#d89a56 60%,var(--border));background:color-mix(in srgb,#f4c782 10%,var(--surface));border-radius:11px;min-width:0}
+.settings-s3 .whatsapp-service-alert-s34>svg{margin-top:3px;flex:none;color:#bd7b1c}
+.settings-s3 .whatsapp-service-alert-s34>div{min-width:0;flex:1}
+.settings-s3 .whatsapp-service-alert-s34 strong{font-size:13px;line-height:1.5}
+.settings-s3 .whatsapp-service-alert-s34 p{font-size:12px;line-height:1.55;color:var(--muted);margin:4px 0 0}
+.settings-s3 .whatsapp-service-alert-s34 details{margin-top:10px;border-top:1px solid var(--border);padding-top:8px}
+.settings-s3 .whatsapp-service-alert-s34 summary{font-size:12px;cursor:pointer;font-weight:650}
+.settings-s3 .whatsapp-service-alert-s34 pre{white-space:pre-wrap;word-break:break-word;max-height:220px;overflow:auto;background:var(--surface-soft);padding:10px;font-size:11px;border-radius:8px}
+@media(max-width:720px){.settings-s3 .calendar-integration-s34__connection{padding:17px;flex-wrap:wrap}.settings-s3 .calendar-integration-s34__providers{flex-direction:column}.settings-s3 .calendar-integration-s34__providers>span{min-width:0;width:100%}}

@@ -1,3 +1,5 @@
+import {describeLocalServiceError} from '../lib/integration-availability-s34'
+
 export interface RuntimeCommunicationsStatus {
   ready: boolean
   version: string | null
@@ -36,7 +38,7 @@ const request = async <T>(path: string, init?: RequestInit): Promise<T> => {
     const message = typeof payload.error === 'string' && payload.error !== 'unauthorized'
       ? payload.error
       : 'Não foi possível recuperar o serviço do WhatsApp.'
-    throw new Error(message)
+    throw new Error(response.status===502||response.status===503?describeLocalServiceError(response.status,'supervisor'):message)
   }
   return payload as T
 }

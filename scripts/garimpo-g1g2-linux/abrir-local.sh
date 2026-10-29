@@ -136,8 +136,48 @@ curl -fsS --max-time 5 http://127.0.0.1:8804/tools/health || {
 }
 echo
 echo 'RealTalent Garimpo G1/G2 pronto: CRM 4197 | Busca 4320 | IA 8804'
-echo 'A V6.4 na porta 4196 e o motor 4319 permanecem intactos. Ctrl+C encerra apenas os serviços desta sessão.'
+echo 'A V6.4 na porta 4196 e o motor 4319 permanecem intactos.'
 if command -v xdg-open >/dev/null 2>&1; then
   ( sleep 3; xdg-open 'http://127.0.0.1:4197' >/dev/null 2>&1 || true ) &
 fi
-./node_modules/.bin/vite --host 127.0.0.1 --port 4197 --strictPort
+
+# The old launcher started only Vite, Ollama and prospecting. That made
+# /__rt/communications (3002) and /__rt/runtime (3003) return HTTP 502.
+# Use the existing supported RealTalent local runtime to manage Connect,
+# Communications, Runtime Control and their healthchecks.
+# NEVER reclaim ports owned by a second installation (including V6.4).
+COMMUNICATIONS_PORTS_FREE=1
+if command -v ss >/dev/null 2>&1; then
+  for service_port in 3001 3002 3003; do
+    if ss -ltn "( sport = :$service_port )" | grep -q LISTEN; then
+      COMMUNICATIONS_PORTS_FREE=0
+      echo "ATENCAO: porta $service_port usada. Preservando o outro runtime RealTalent, sem encerrar nenhum processo."
+    fi
+  done
+else
+  COMMUNICATIONS_PORTS_FREE=0
+  echo 'ATENCAO: ss (iproute2) indisponivel. Preservando servicos existentes sem tentar recuperar portas desconhecidas.'
+fi
+
+if [[ "${REALTALENT_GARIMPO_SKIP_MANAGED_RUNTIME:-0}" == "1" ]]; then
+  COMMUNICATIONS_PORTS_FREE=0
+  echo 'Modo de compatibilidade solicitado: somente interface Vite (sem recovery do gateway).'
+fi
+
+if (( COMMUNICATIONS_PORTS_FREE )); then
+  echo 'Iniciando Runtime RealTalent: Connect 3001 | WhatsApp 3002 | Controle 3003'
+  echo 'O supervisor verifica a conexao e evita simular sessao conectada.'
+  if PORT=4197 REALTALENT_CRM_PORT=4197 REALTALENT_PROSPECTING_AGENT_PORT="$PROSPECTING_PORT" REALTALENT_NO_BROWSER=1 \
+    node scripts/start.mjs --dev; then
+    :
+  else
+    runtime_result=$?
+    if (( runtime_result == 130 || runtime_result == 143 )); then exit "$runtime_result"; fi
+    echo "ATENCAO: o runtime completo falhou (codigo $runtime_result). Consulte o log de inicializacao."
+    echo 'Abrindo somente o CRM e Garimpo em modo degradado, sem acesso garantido ao WhatsApp.'
+    ./node_modules/.bin/vite --host 127.0.0.1 --port 4197 --strictPort
+  fi
+else
+  echo 'Abrindo interface em modo degradado; WhatsApp local pode ficar offline.'
+  ./node_modules/.bin/vite --host 127.0.0.1 --port 4197 --strictPort
+fi

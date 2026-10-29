@@ -1,7 +1,7 @@
 import {describe,it,expect,vi} from 'vitest'
 import type {PipelineStage,Lead,OpportunityRecord,AutomationRule} from '../../domain/types'
 import {draftStage,validStage,stageIsChanged,moveStageOrder,stageUsage,missingPresetStages,
-  PIPELINE_PRESETS,validateStageOrder,normalizeAuxItems} from './pipeline-editor-model'
+  PIPELINE_PRESETS,validateStageOrder,normalizeAuxItems,orphanStageOpportunityIds} from './pipeline-editor-model'
 import {commitStageOrder} from './pipeline-editor-order'
 const stage=(id:string,order:number,extra:Partial<PipelineStage>={}):PipelineStage=>({
   id,workspaceId:'ws',name:'Etapa '+id,order,probability:order*10,color:'#4261EE',
@@ -29,6 +29,13 @@ describe('Configurações S3.3.1 — editor seguro do Pipeline',()=>{
     const opportunities=[{stageId:'a'}] as OpportunityRecord[]
     const rules=[{actions:[{type:'move_stage',value:'a'}]}] as AutomationRule[]
     expect(stageUsage('a',leads,opportunities,rules)).toEqual({leads:2,opportunities:1,automations:1,total:4})
+  })
+  it('blocks migrating orphan opportunities without corresponding source leads',()=>{
+    const leads=[{id:'l1',stageId:'a'}] as Lead[]
+    const opportunities=[{id:'o1',stageId:'a',leadId:'l1'},
+      {id:'o2',stageId:'a',leadId:'missing'}] as OpportunityRecord[]
+    expect(orphanStageOpportunityIds('a',leads,opportunities)).toEqual(['o2'])
+    expect(orphanStageOpportunityIds('b',leads,opportunities)).toEqual([])
   })
   it('adds only absent stages in templates and does not overwrite existing stages',()=>{
     const current=[stage('1',1,{name:'Novo lead',probability:99})]

@@ -9,7 +9,7 @@ import {StageModal} from '../pipeline/stage-modal'
 import {
   PIPELINE_PRESETS, type PipelinePresetId,type StageDraft, type StageKind,
   draftStage,validStage,toStagePatch,stageIsChanged,moveStageOrder,stageUsage,missingPresetStages,
-  validateStageOrder,
+  validateStageOrder,orphanStageOpportunityIds,
 } from './pipeline-editor-model'
 import {commitStageOrder} from './pipeline-editor-order'
 import '../../styles/settings-s331.css'
@@ -165,8 +165,9 @@ export function PipelineEditorS331({stages,leads,opportunities,rules,workspaceId
     if(impact.automations>0){app.notify('warning','Ajuste as automações vinculadas a esta etapa antes de migrar.');return}
     // A source may have opportunity-only records. Do not claim that moving
     // the lead IDs also moves these independent opportunity records.
-    if(impact.opportunities>impact.leads){
-      app.notify('warning','Há oportunidades sem correspondência suficiente entre os leads. Revise essas oportunidades no Pipeline.');return
+    const orphanIds=orphanStageOpportunityIds(stage.id,leads,opportunities)
+    if(orphanIds.length){
+      app.notify('warning','Há '+orphanIds.length+' oportunidade(s) não vinculadas aos leads selecionados. Revise essas oportunidades no Pipeline antes de mover.');return
     }
     const ids=leads.filter(l=>l.stageId===stage.id).map(l=>l.id)
     if(!ids.length){app.notify('info','Não há leads para migrar automaticamente.');return}
@@ -231,7 +232,7 @@ export function PipelineEditorS331({stages,leads,opportunities,rules,workspaceId
             </NativeSelectionSelect></label>
             <div className="settings-pipeline-s331__edit-actions">
               {changed?<StatusPill tone="warning">Não salvo</StatusPill>:null}
-              <Button variant="secondary" onClick={()=>setAdvancedStage(stage)}><Workflow size={15}/> Critérios e regras</Button>
+              <Button variant="secondary" disabled={saving||isDirty} onClick={()=>setAdvancedStage(stage)}><Workflow size={15}/> Critérios e regras</Button>
               <Button variant="ghost" disabled={!canWrite||saving} onClick={()=>void remove(stage)}><Trash2 size={15}/> Excluir</Button>
             </div>
           </div>:null}
@@ -247,9 +248,11 @@ export function PipelineEditorS331({stages,leads,opportunities,rules,workspaceId
           <option value="">Escolha uma etapa…</option>
           {stages.filter(s=>s.id!==selectedMigrationStage.id).map(s=><option key={s.id} value={s.id}>{s.name}</option>)}
         </NativeSelectionSelect></label>
-        <Button disabled={!canWrite||saving||!migrationTarget||usage.automations>0||isDirty} onClick={()=>void migrate(selectedMigrationStage)}>Mover negócios com confirmação</Button>
+        <Button disabled={!canWrite||saving||!migrationTarget||usage.automations>0||isDirty||orphanStageOpportunityIds(selectedMigrationStage.id,leads,opportunities).length>0} onClick={()=>void migrate(selectedMigrationStage)}>Mover negócios com confirmação</Button>
         <Button variant="ghost" onClick={()=>{setMigration(null);setMigrationTarget('')}}>Cancelar</Button>
         {usage.automations>0?<small>Altere primeiro as automações que utilizam esta etapa como destino.</small>:null}
+        {orphanStageOpportunityIds(selectedMigrationStage.id,leads,opportunities).length>0?
+          <small>Há oportunidades sem lead correspondente na etapa. Resolva esses vínculos no Pipeline antes da migração.</small>:null}
       </div>
     })():null}
     <div className="settings-pipeline-s331__footer">

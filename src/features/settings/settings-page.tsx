@@ -30,6 +30,7 @@ import { MapsIntegrationPanel } from './maps-integration-panel'
 import { PermissionMatrixPanel } from './permission-matrix-panel'
 import { AppearanceSettingsPanel } from './appearance-settings-panel'
 import { SETTINGS_GUIDES } from './settings-guides'
+import {collapsedGroupsForSettingsTab,type SettingsS3Group} from './settings-s3-navigation'
 import {SettingsLiveDiagnostics} from './settings-live-diagnostics'
 import { shouldAutoSaveSettings, validateCommercialSettingsDraft } from './settings-automation-policy'
 import '../../styles/settings-automation-s1s2.css'
@@ -40,7 +41,7 @@ const actionLabels: Record<string, string> = { insert: 'Criou', update: 'Atualiz
 const dayLabels = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb']
 
 type SettingsTab = 'account' | 'appearance' | 'experience' | 'pages' | 'notifications' | 'company' | 'navigation' | 'team' | 'commercial' | 'ai' | 'calendar' | 'whatsapp' | 'integrations' | 'maps' | 'audit' | 'data'
-type SettingsGroup = 'Minha experiência' | 'Workspace' | 'Vendas' | 'Conexões' | 'Inteligência' | 'Administração'
+type SettingsGroup = SettingsS3Group
 type NotificationToggleKey = 'overdueActivities' | 'upcomingActivities' | 'upcomingEvents' | 'proposalFollowups' | 'staleLeads' | 'goalsAtRisk' | 'automationFailures'
 
 const downloadJson = (name: string, value: unknown) => {
@@ -89,7 +90,7 @@ export function SettingsPage() {
   const [savePhase, setSavePhase] = useState<'idle'|'saving'|'saved'|'error'>('idle')
   const [saveProblem, setSaveProblem] = useState('')
   const saveBusyRef = useRef(false)
-  const [collapsedGroups, setCollapsedGroups] = useState<SettingsGroup[]>(['Workspace','Vendas','Conexões','Inteligência','Administração'])
+  const [collapsedGroups, setCollapsedGroups] = useState<SettingsGroup[]>(()=>collapsedGroupsForSettingsTab(activeTab))
   const settingsContentRef=useRef<HTMLElement|null>(null)
   const [diagnosticsCollapsed, setDiagnosticsCollapsed] = useState(true)
   const [draft, setDraft] = useState<CrmPreferences>(preferences)

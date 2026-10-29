@@ -1,0 +1,43 @@
+name: RealTalent Garimpo G1-G2 — Investigation and Qualification QA
+on:
+  pull_request:
+    branches:
+      - feat/realtalent-agent-v64-local-memory-20261028
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  garimpo:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci --include=dev
+      - name: TypeScript
+        run: npm run typecheck
+      - name: G1/G2 safety and regression tests
+        run: |
+          npx vitest run src/features/prospecting/prospecting-raw-source-review.test.ts src/services/prospecting-g1g2-intelligence.test.ts src/services/prospecting-intelligence.test.ts src/services/prospecting-data-layer.test.ts src/services/prospecting-search-automation.test.ts
+          node --test runtime-host/RealTalent-Agent-Runtime-V3.1.2/crm-prospect-investigation-g1.test.mjs
+          node --test runtime-host/RealTalent-Agent-Runtime-V3.1.2/crm-deep-research-v60.test.mjs
+      - name: Runtime and installer
+        run: |
+          node --check runtime-host/RealTalent-Agent-Runtime-V3.1.2/gateway-ollama.mjs
+          node --check runtime-host/RealTalent-Agent-Runtime-V3.1.2/crm-prospect-investigation-g1.mjs
+          bash -n scripts/garimpo-g1g2-linux/abrir-local.sh
+          bash -n scripts/garimpo-g1g2-linux/abrir-com-diagnostico.sh
+          grep -q 'PIPESTATUS\[0\]' scripts/garimpo-g1g2-linux/abrir-com-diagnostico.sh
+          grep -q 'ultimo-inicio.log' scripts/garimpo-g1g2-linux/abrir-com-diagnostico.sh
+          grep -q -- '--port 4197 --strictPort' scripts/garimpo-g1g2-linux/abrir-local.sh
+          grep -q -- 'node scripts/realtalent-prospecting-agent.mjs' scripts/garimpo-g1g2-linux/abrir-local.sh
+          grep -q -- '/api/prospecting-agent/health' scripts/garimpo-g1g2-linux/abrir-local.sh
+          grep -q -- 'VITE_PROSPECTING_GATEWAY_URL=' scripts/garimpo-g1g2-linux/abrir-local.sh
+          grep -q -- 'PROSPECTING_STATE_DIR=' scripts/garimpo-g1g2-linux/abrir-local.sh
+      - name: Build
+        run: npm run build

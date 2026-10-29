@@ -10,6 +10,7 @@ import { selectOllamaToolsV51 } from './crm-ollama-tool-selector-v51.mjs'
 import { buildResearchedScript } from './crm-script-research-v52.mjs'
 import { researchQuestionV56 } from './crm-research-v56.mjs'
 import { deepResearchV60 } from './crm-deep-research-v60.mjs'
+import { investigateProspectG1 } from './crm-prospect-investigation-g1.mjs'
 
 const OUTER_HOST = process.env.REALTALENT_AGENT_HOST || '127.0.0.1'
 const OUTER_PORT = Number(process.env.REALTALENT_AGENT_PORT || 8791)
@@ -262,7 +263,7 @@ const handleCapabilityPlan = async (req, res) => {
   }
 }
 
-const LOCAL_BROWSER_ORIGINS = new Set(['http://127.0.0.1:4188', 'http://localhost:4188', 'http://127.0.0.1:4189', 'http://localhost:4189', 'http://127.0.0.1:4192', 'http://localhost:4192', 'http://127.0.0.1:4193', 'http://localhost:4193', 'http://127.0.0.1:4194', 'http://localhost:4194', 'http://127.0.0.1:4195', 'http://localhost:4195', 'http://127.0.0.1:4196', 'http://localhost:4196'])
+const LOCAL_BROWSER_ORIGINS = new Set(['http://127.0.0.1:4188', 'http://localhost:4188', 'http://127.0.0.1:4189', 'http://localhost:4189', 'http://127.0.0.1:4192', 'http://localhost:4192', 'http://127.0.0.1:4193', 'http://localhost:4193', 'http://127.0.0.1:4194', 'http://localhost:4194', 'http://127.0.0.1:4195', 'http://localhost:4195', 'http://127.0.0.1:4196', 'http://localhost:4196', 'http://127.0.0.1:4197', 'http://localhost:4197'])
 const applyLocalBrowserCors = (req, res) => {
   const origin = String(req.headers.origin || '')
   if (!LOCAL_BROWSER_ORIGINS.has(origin)) return false
@@ -769,6 +770,19 @@ const handleContextualWorkflowV63=async(req,res,mode)=>{
   }finally{clearTimeout(timer);workflowInflight--}
 }
 
+let prospectInvestigationInflight=0
+const handleProspectInvestigationG1=async(req,res)=>{
+  if(!['127.0.0.1','localhost','::1'].includes(OUTER_HOST))return sendJson(res,403,{ok:false,error:'local_only'})
+  if(prospectInvestigationInflight>=1)return sendJson(res,429,{ok:false,error:'busy'})
+  prospectInvestigationInflight++
+  try{
+    const input=await readJsonBody(req,4500)
+    const result=await investigateProspectG1(input,{ollamaUrl:OLLAMA_URL,model:CRM_OLLAMA_MODEL})
+    return sendJson(res,result.ok?200:400,result)
+  }catch{return sendJson(res,503,{ok:false,error:'investigation_unavailable'})}
+  finally{prospectInvestigationInflight--}
+}
+
 const routerServer = http.createServer((req, res) => {
   applyLocalBrowserCors(req, res)
   if (req.method === 'OPTIONS') { res.statusCode = 204; res.end(); return }
@@ -778,6 +792,7 @@ const routerServer = http.createServer((req, res) => {
   if (req.method === 'POST' && String(req.url || '').split('?')[0] === '/tools/plan-readonly') { void handleReadOnlyPlannerV62(req,res); return }
   if (req.method === 'POST' && String(req.url || '').split('?')[0] === '/tools/workflow-plan') { void handleContextualWorkflowV63(req,res,'plan'); return }
   if (req.method === 'POST' && String(req.url || '').split('?')[0] === '/tools/workflow-synthesize') { void handleContextualWorkflowV63(req,res,'synthesize'); return }
+  if (req.method === 'POST' && String(req.url || '').split('?')[0] === '/tools/prospect-investigate') { void handleProspectInvestigationG1(req,res); return }
   if (req.method === 'POST' && String(req.url || '').split('?')[0] === '/tools/chat-stream') { void handleConversationStreamV61(req,res); return }
   if (req.method === 'POST' && String(req.url || '').split('?')[0] === '/tools/chat') { void handleConversationV54(req,res); return }
   if (req.method === 'POST' && String(req.url || '').split('?')[0] === '/tools/classify-work') { void handleWorkModelV53(req,res,'classify'); return }

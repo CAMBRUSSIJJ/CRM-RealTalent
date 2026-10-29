@@ -1,0 +1,78 @@
+import { describe, expect, it } from 'vitest'
+import type { ProspectingAgentJob } from '../../services/prospecting-linux-agent'
+import { matchingCandidate, prepareSourceReview, suggestBusinessNameFromTitle, rawSourceKey, rawSourceReviewCount } from './prospecting-raw-source-review'
+
+const job = (sourceLog: NonNullable<ProspectingAgentJob['sourceLog']>): ProspectingAgentJob =>
+  ({ id: 'execution-01', sourceLog }) as ProspectingAgentJob
+
+describe('Revisão única das fontes do Garimpo', () => {
+  it('inclui dados brutos, candidatos, filtrados e duplicidades', () => {
+    const instance = job([
+      { type: 'raw', name: 'Lista pública de empresas', provider: 'web_discovery', url: 'https://example.com/lista', at: '' },
+      { type: 'candidate', name: 'Barbearia Alfa', provider: 'openstreetmap', at: '' },
+      { type: 'rejected', name: 'Documento de terceiros', provider: 'web_discovery', at: '', reason: 'Não é empresa' },
+      { type: 'duplicate', name: 'Barbearia Alfa repetida', provider: 'web_discovery', at: '', reason: 'Mesmo local' },
+    ])
+    expect(rawSourceReviewCount(instance)).toBe(4)
+  })
+
+  it('não duplica uma mesma URL recebida mais de uma vez', () => {
+    const instance = job([
+      { type: 'raw', name: 'Fonte A', url: 'https://example.com/page/', provider: 'web_discovery', at: '' },
+      { type: 'candidate', name: 'Fonte A', url: 'https://example.com/page', provider: 'web_discovery', at: '' },
+    ])
+    expect(rawSourceReviewCount(instance)).toBe(1)
+    expect(rawSourceKey('execution-01', instance.sourceLog![0])).toBe(rawSourceKey('execution-01', instance.sourceLog![1]))
+  })
+
+  it('inclui rejeições estruturadas mesmo quando ausentes no log de origem', () => {
+    const instance = {
+      ...job([]),
+      rejections: [{ name: 'Documento descartado', source: 'web_discovery', type: 'content', reason: 'Não é empresa', at: '' }],
+    } as ProspectingAgentJob
+    expect(rawSourceReviewCount(instance)).toBe(1)
+  })
+
+  it('reaproveita todos os campos públicos quando a fonte corresponde a candidato único', () => {
+    const source = { type: 'raw' as const, name: 'Barbearia Alfa', url: 'https://alfa.example/', reason: 'Busca web' }
+    const item = matchingCandidate(source, {
+      id: 'execution-01',
+      results: [{ candidateId: 'one', company: 'Barbearia Alfa', city: 'Rio Grande', phone: '53999999999',
+        address: 'Rua A, 1', email: 'contato@alfa.example', website: 'https://alfa.example/',
+        instagram: '@alfa', cnpj: '12345678000190', description: 'Corte masculino' }],
+    } as ProspectingAgentJob)
+    expect(item?.candidateId).toBe('one')
+    expect(prepareSourceReview(source, item)).toMatchObject({
+      company: 'Barbearia Alfa', city: 'Rio Grande', phone: '53999999999',
+      address: 'Rua A, 1', email: 'contato@alfa.example', website: 'https://alfa.example/',
+      instagram: '@alfa', cnpj: '12345678000190', description: 'Corte masculino',
+    })
+  })
+
+  it('não inventa empresa a partir de títulos de diretórios ou listas', () => {
+    expect(prepareSourceReview({ type: 'raw', name: '2 opções em barbearias que você deveria conhecer', reason: 'Documento público' }, null).company).toBe('')
+    expect(prepareSourceReview({ type: 'candidate', name: 'Barbearias em Rio Grande', reason: '' }, null).company).toBe('')
+    expect(prepareSourceReview({ type: 'candidate', name: 'Barbearia Matheus', reason: '' }, null).company).toBe('Barbearia Matheus')
+  })
+
+  it('sugere apenas a marca, sem copiar o título inteiro da página', () => {
+    expect(suggestBusinessNameFromTitle({ type: 'raw', name: 'Salento Barbearia - Barbearia em Rio Grande/RS' })).toBe('Salento Barbearia')
+    expect(suggestBusinessNameFromTitle({ type: 'raw', name: 'AUTÊNTICA® Barbearia e Visagismo (@autentica.barbearia) - Instagram' })).toBe('AUTÊNTICA® Barbearia e Visagismo')
+    expect(suggestBusinessNameFromTitle({ type: 'raw', name: 'Barbearias / Barbeiros no Rio Grande, RS — WhatsApp' })).toBe('')
+    expect(suggestBusinessNameFromTitle({ type: 'raw', name: 'Barbearia em Rio Grande - Perto de Mim' })).toBe('')
+    expect(prepareSourceReview({ type: 'raw', name: 'Salento Barbearia - Barbearia em Rio Grande/RS' }, null, 'Rio Grande, RS')).toMatchObject({company:'Salento Barbearia', city:'Rio Grande, RS'})
+    expect(prepareSourceReview({ type: 'raw', name: 'Barbearia Rio Grande (@barbearia_riogrande) - Instagram', url: 'https://www.instagram.com/barbearia_riogrande' }, null)).toMatchObject({company:'Barbearia Rio Grande', instagram:'@barbearia_riogrande'})
+  })
+
+  it('não associa automaticamente registros ambíguos, rejeitados ou duplicados', () => {
+    const jobWithTwo = { id: 'job-1', results: [{ company: 'Barbearia Alfa' }, { company: 'Barbearia Alfa' }] } as ProspectingAgentJob
+    const source = { type: 'raw' as const, name: 'Barbearia Alfa' }
+    expect(matchingCandidate(source, jobWithTwo)).toBeNull()
+    expect(matchingCandidate({ type: 'rejected', name: 'Barbearia Alfa' }, jobWithTwo)).toBeNull()
+    expect(matchingCandidate({ type: 'duplicate', name: 'Barbearia Alfa' }, jobWithTwo)).toBeNull()
+  })
+
+  it('mantém a contagem zerada sem execução', () => {
+    expect(rawSourceReviewCount(null)).toBe(0)
+  })
+})

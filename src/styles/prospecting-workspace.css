@@ -284,3 +284,41 @@
 .prospecting-raw-review__form textarea{min-height:74px}
 .prospecting-raw-review__dialog-card footer{display:flex;justify-content:flex-end;gap:10px}
 @media(max-width:740px){.prospecting-raw-review__header{flex-direction:column}.prospecting-raw-review__form{grid-template-columns:1fr}.prospecting-raw-review__grid{grid-template-columns:1fr}}
+
+
+/* Garimpo G1/G2 — compact, explainable decisions in guided review */
+.prospecting-g1g2{border:1px solid var(--rt-border,#d9e3ee);border-radius:12px;background:var(--rt-surface,#fff);padding:15px;display:grid;gap:12px;margin:12px 0}
+.prospecting-g1g2__header{display:flex;align-items:flex-start;justify-content:space-between;gap:12px}
+.prospecting-g1g2__header h4{font-size:16px;font-weight:750;line-height:1.35;margin:4px 0 3px;color:var(--rt-text,#233248)}
+.prospecting-g1g2__header p{font-size:12px;line-height:1.5;color:var(--rt-text-muted,#667085);margin:0}
+.prospecting-g1g2__decision{border-radius:9px;border:1px solid #d6dfeb;background:#eff3fa;color:#355274;padding:6px 9px;font-size:11px;font-weight:750;max-width:170px}
+.prospecting-g1g2__decision.is-prioritize{border-color:#b8dec9;background:#f0faf3;color:#245b3a}
+.prospecting-g1g2__decision.is-verify_first,.prospecting-g1g2__decision.is-do_not_advance{border-color:#eed3b7;background:#fff7ed;color:#895012}
+.prospecting-g1g2__dimensions{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+.prospecting-g1g2__dimension{padding:10px;border-radius:9px;background:var(--rt-canvas,#f6f8fb);border:1px solid var(--rt-border,#e4e9f0);min-width:0}
+.prospecting-g1g2__dimension>span{display:block;color:var(--rt-text-muted,#657184);font-size:11px;min-height:29px;line-height:1.3}
+.prospecting-g1g2__dimension>strong{font-size:19px;font-weight:770;color:var(--rt-text,#263044)}
+.prospecting-g1g2__dimension>strong>small{font-size:10px;font-weight:500;color:var(--rt-text-muted,#667085)}
+.prospecting-g1g2__meter{height:5px;border-radius:99px;background:#dce6f2;margin-top:7px;overflow:hidden}
+.prospecting-g1g2__meter i{display:block;height:100%;background:var(--rt-color-brand,#3763be);border-radius:inherit}
+.prospecting-g1g2__note{margin:0;color:var(--rt-text-muted,#667085);font-size:11px;line-height:1.5}
+.prospecting-g1g2__detail{padding:9px 11px;background:#f4f7fb;border-radius:8px}
+.prospecting-g1g2__detail.is-warning{background:#fff9ed}
+.prospecting-g1g2__detail>strong{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--rt-text,#253249)}
+.prospecting-g1g2__detail ul,.prospecting-g1g2__evidence ul,.prospecting-g1g2__report ul{margin:7px 0 0;padding-left:19px;font-size:12px;line-height:1.55}
+.prospecting-g1g2__detail li,.prospecting-g1g2__evidence li,.prospecting-g1g2__report li{margin:3px 0}
+.prospecting-g1g2__evidence{font-size:12px;color:var(--rt-text-muted,#657184)}
+.prospecting-g1g2__evidence>summary{cursor:pointer;font-weight:650}
+.prospecting-g1g2__investigate{display:flex;align-items:center;justify-content:space-between;gap:12px;border-top:1px solid var(--rt-border,#e1e8f1);padding-top:12px}
+.prospecting-g1g2__investigate>div{max-width:420px}
+.prospecting-g1g2__investigate strong,.prospecting-g1g2__investigate small{display:block}
+.prospecting-g1g2__investigate strong{font-size:13px}
+.prospecting-g1g2__investigate small{font-size:11px;color:var(--rt-text-muted,#667085);margin-top:4px;line-height:1.55}
+.prospecting-g1g2__error{color:#a13e31;font-size:12px}
+.prospecting-g1g2__report{display:grid;gap:9px;padding:12px;border:1px solid #cfe0f7;background:#f5f9ff;border-radius:9px;font-size:12px;line-height:1.6}
+.prospecting-g1g2__report>p,.prospecting-g1g2__report section>p{margin:0}
+.prospecting-g1g2__report section>strong{font-size:12px}
+.prospecting-g1g2__report>small{color:var(--rt-text-muted,#667085)}
+.prospecting-g1g2__report-source{display:flex;align-items:center;justify-content:space-between;gap:8px;font-weight:700}
+.prospecting-g1g2__report-source a{display:inline-flex;gap:4px;align-items:center;color:var(--rt-color-brand,#245bb5)}
+@media(max-width:750px){.prospecting-g1g2__dimensions{grid-template-columns:1fr}.prospecting-g1g2__dimension>span{min-height:0}.prospecting-g1g2__header,.prospecting-g1g2__investigate{flex-wrap:wrap}.prospecting-g1g2__decision{max-width:none}}

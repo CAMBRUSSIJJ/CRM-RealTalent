@@ -561,6 +561,7 @@ export class LocalCrmRepository implements CrmRepository {
     const now = new Date().toISOString()
     if (next.isWon!==current.isWon||next.isLost!==current.isLost)
     db.leads = db.leads.map((lead) => lead.workspaceId === next.workspaceId && lead.stageId === stageId ? { ...lead, status: lead.status === 'archived' ? 'archived' : stageStatus(next), updatedAt: now } : lead)
+    if(next.probability!==current.probability||next.isWon!==current.isWon||next.isLost!==current.isLost)
     db.opportunities = db.opportunities.map((opportunity) => opportunity.workspaceId === next.workspaceId && opportunity.stageId === stageId ? {
       ...opportunity,
       status: stageStatus(next),

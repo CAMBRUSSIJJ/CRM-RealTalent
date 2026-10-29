@@ -11,6 +11,7 @@ import { buildResearchedScript } from './crm-script-research-v52.mjs'
 import { researchQuestionV56 } from './crm-research-v56.mjs'
 import { deepResearchV60 } from './crm-deep-research-v60.mjs'
 import { investigateProspectG1 } from './crm-prospect-investigation-g1.mjs'
+import { planGarimpoG3 } from './crm-garimpo-conversation-g3.mjs'
 
 const OUTER_HOST = process.env.REALTALENT_AGENT_HOST || '127.0.0.1'
 const OUTER_PORT = Number(process.env.REALTALENT_AGENT_PORT || 8791)
@@ -783,6 +784,21 @@ const handleProspectInvestigationG1=async(req,res)=>{
   finally{prospectInvestigationInflight--}
 }
 
+// G3 is planning-only. Data mutations and search execution remain in the
+// existing permission-gated UI; the model cannot call native CRM tools here.
+let garimpoConversationInflight=0
+const handleGarimpoConversationG3=async(req,res)=>{
+  if(!['127.0.0.1','localhost','::1'].includes(OUTER_HOST))return sendJson(res,403,{ok:false,error:'local_only'})
+  if(garimpoConversationInflight>=1)return sendJson(res,429,{ok:false,error:'model_busy'})
+  garimpoConversationInflight++
+  try{
+    const input=await readJsonBody(req,6000)
+    const result=await planGarimpoG3(input,{ollamaUrl:OLLAMA_URL,model:CRM_OLLAMA_MODEL})
+    return sendJson(res,result.ok?200:result.error==='invalid_request'?400:503,result)
+  }catch{return sendJson(res,503,{ok:false,error:'garimpo_conversation_unavailable'})}
+  finally{garimpoConversationInflight--}
+}
+
 const routerServer = http.createServer((req, res) => {
   applyLocalBrowserCors(req, res)
   if (req.method === 'OPTIONS') { res.statusCode = 204; res.end(); return }
@@ -793,6 +809,7 @@ const routerServer = http.createServer((req, res) => {
   if (req.method === 'POST' && String(req.url || '').split('?')[0] === '/tools/workflow-plan') { void handleContextualWorkflowV63(req,res,'plan'); return }
   if (req.method === 'POST' && String(req.url || '').split('?')[0] === '/tools/workflow-synthesize') { void handleContextualWorkflowV63(req,res,'synthesize'); return }
   if (req.method === 'POST' && String(req.url || '').split('?')[0] === '/tools/prospect-investigate') { void handleProspectInvestigationG1(req,res); return }
+  if (req.method === 'POST' && String(req.url || '').split('?')[0] === '/tools/garimpo-conversation') { void handleGarimpoConversationG3(req,res); return }
   if (req.method === 'POST' && String(req.url || '').split('?')[0] === '/tools/chat-stream') { void handleConversationStreamV61(req,res); return }
   if (req.method === 'POST' && String(req.url || '').split('?')[0] === '/tools/chat') { void handleConversationV54(req,res); return }
   if (req.method === 'POST' && String(req.url || '').split('?')[0] === '/tools/classify-work') { void handleWorkModelV53(req,res,'classify'); return }

@@ -29,7 +29,11 @@ Primeira entrega integrada ao Garimpo atual, sem substituição do motor de desc
 
 ### Teste local
 Branch: feat/realtalent-garimpo-g1g2-investigation-20261028
-Launcher único: bash scripts/garimpo-g1g2-linux/abrir-local.sh
+Launcher recomendado (diagnóstico e terminal persistente): bash scripts/garimpo-g1g2-linux/abrir-com-diagnostico.sh
+Serviço interno: bash scripts/garimpo-g1g2-linux/abrir-local.sh
+O launcher recomendado grava ~/RealTalent-Garimpo-G1G2-Teste/logs/ultimo-inicio.log,
+mostra os logs relevantes quando a inicialização falha e aguarda Enter antes de encerrar.
+Ao atualizar pelo terminal, NÃO use comandos "|| exit 1" no shell interativo; eles fecham o terminal do usuário.
 Endereço do CRM de teste: http://127.0.0.1:4197
 Motor de prospecção (auto-start + healthcheck): http://127.0.0.1:4320/api/prospecting-agent/health
 Gateway de IA (auto-start + healthcheck): http://127.0.0.1:8804/tools/health

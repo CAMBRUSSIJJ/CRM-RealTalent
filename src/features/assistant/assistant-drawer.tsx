@@ -12,6 +12,7 @@ import { useAppActions, useAppNavigation, useAppUi, useAppWorkspace } from '../.
 import { Button } from '../../components/ui/button'
 import { assistantSupportedPrompts, type AssistantAnswer, type AssistantExecutionPlan, type AssistantResultItem } from '../../services/realtalent-assistant'
 import { realTalentAiGateway, type RealTalentAiGatewayResult } from '../../services/realtalent-ai-gateway'
+import {handleGarimpoFromMainAgent,GARIMPO_REVIEW_REQUEST,garimpoReviewStorageKey} from '../../services/realtalent-agent-garimpo-bridge'
 import { resolveAssistantRecommendationContinuation } from '../../services/realtalent-assistant-continuation'
 import { formatCurrency } from '../../domain/formatters'
 import type { AppRoute } from '../../domain/types'
@@ -389,6 +390,37 @@ export function AssistantDrawer({ open, onClose, initialPrompt = '' }: Assistant
     setExecutedPlanId(null)
     setQaResult(null)
     try {
+      // G3 native bridge: a request to FIND companies invokes the real
+      // prospecting engine before the general chat/model-answer pipeline.
+      // Do not let an operational Garimpo command degrade into invented lists.
+      const nativeGarimpo=await handleGarimpoFromMainAgent({
+        prompt:userPrompt,route,workspaceId:currentWorkspace?.id??'',
+        currentUserId,snapshot,history:conversationTurns,
+        canView:canTeamAccess('view','prospecting'),
+        canSearch:canTeamAccess('create','prospecting')||canTeamAccess('edit','prospecting'),
+        onNavigateToGarimpo:(review)=>{
+          if(review&&currentWorkspace?.id){
+            try{window.sessionStorage.setItem(garimpoReviewStorageKey(currentWorkspace.id),'1')}catch{/* storage optional */}
+          }
+          navigate('prospecting')
+          if(review)window.dispatchEvent(new CustomEvent(GARIMPO_REVIEW_REQUEST,{
+            detail:{workspaceId:currentWorkspace?.id??''}
+          }))
+        },
+      })
+      if(nativeGarimpo){
+        setAnswer(nativeGarimpo)
+        setAiTrace(null)
+        setPendingCapability(null)
+        setPendingAction(null)
+        setStreamingText('')
+        const nextTurns=appendAgentConversationTurn(conversationTurns,userPrompt,
+          nativeGarimpo.title+'. '+nativeGarimpo.text)
+        setConversationTurns(nextTurns)
+        if(memoryScope&&activeMemoryThreadId)
+          persistMemory(saveMemoryTurn(loadAgentMemory(memoryScope),activeMemoryThreadId,nextTurns))
+        return
+      }
       let workTasks: Array<{ id: string; title: string; status: string; dueAt?: string | null; assigneeId?: string | null; teamId?: string | null }> | undefined
       if (actionIntent === 'complete_task' && currentWorkspace) {
         const work = await loadWorkManagement(repositoryMode, currentWorkspace.id)

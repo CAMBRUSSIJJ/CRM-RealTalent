@@ -2,7 +2,7 @@ import {describe,it,expect,vi} from 'vitest'
 import type {WorkspaceSnapshot} from '../domain/types'
 import type {ProspectingAgentJob} from './prospecting-linux-agent'
 import type {ProspectRecord} from './prospecting-workspace'
-import {handleGarimpoFromMainAgent,isModelPlan,wantsGarimpoNativeTool,type GarimpoBridgeInput,type GarimpoBridgeDependencies} from './realtalent-agent-garimpo-bridge'
+import {handleGarimpoFromMainAgent,isModelPlan,wantsGarimpoNativeTool,segmentStatedByUser,type GarimpoBridgeInput,type GarimpoBridgeDependencies} from './realtalent-agent-garimpo-bridge'
 
 const snapshot={workspace:{id:'ws',role:'owner'},leads:[],companies:[],stages:[]} as unknown as WorkspaceSnapshot
 const job=(overrides:Record<string,unknown>={}):ProspectingAgentJob=>({
@@ -34,6 +34,27 @@ describe('RealTalent principal Agent -> Garimpo G3 native bridge',()=>{
     expect(wantsGarimpoNativeTool('resuma minhas tarefas de hoje','prospecting')).toBe(false)
     expect(wantsGarimpoNativeTool('procure oportunidades no pipeline','pipeline')).toBe(false)
   })
+  it('keeps the user-stated sector instead of the previous Barber shop search',async()=>{
+    expect(segmentStatedByUser('quero que tu ache no Garimpo 40 empresas de jardinagem')).toBe('jardinagem')
+    const deps=mockDeps(plan('search',{segment:'Barbearia'}))
+    await handleGarimpoFromMainAgent(params('ache no Garimpo 40 empresas de jardinagem'),deps as never)
+    expect(deps.createJob.mock.calls[0][0].segment).toBe('jardinagem')
+  })
+  it('never starts a search when user explicitly says not to',()=>{
+    expect(wantsGarimpoNativeTool('não busque empresas no Garimpo','prospecting')).toBe(false)
+  })
+  it('converts a mistaken generic answer into a real request when parameters are verified',async()=>{
+    const deps=mockDeps(plan('answer',{segment:'Barbearia',answer:'Sugestões hipotéticas'}))
+    const result=await handleGarimpoFromMainAgent(params('ache no Garimpo 40 empresas de jardinagem'),deps as never)
+    expect(deps.createJob).toHaveBeenCalledTimes(1)
+    expect(result?.title).toBe('Busca iniciada no Garimpo')
+  })
+  it('reports real engine progress rather than claiming target quantity found',async()=>{
+    const deps=mockDeps(plan('answer'),[job({status:'running',stats:{unique:6},results:[]})])
+    const result=await handleGarimpoFromMainAgent(params('quantas empresas encontrou no garimpo?'),deps as never)
+    expect(result?.text).toContain('6 empresa(s) única(s)')
+    expect(result?.text).toContain('A meta solicitada é 10')
+  })
   it('checks typed structured model plan',()=>{
     expect(isModelPlan(plan())).toBe(true)
     expect(isModelPlan(plan('executar_whatsapp'))).toBe(false)
@@ -44,7 +65,7 @@ describe('RealTalent principal Agent -> Garimpo G3 native bridge',()=>{
     const answer=await handleGarimpoFromMainAgent(input,deps as never)
     expect(deps.createJob).toHaveBeenCalledTimes(1)
     expect(deps.createJob.mock.calls[0][0]).toMatchObject({
-      workspaceId:'ws',segment:'Jardinagem',regions:['Rio Grande, RS'],targetQuantity:40,
+      workspaceId:'ws',segment:'jardinagem',regions:['Rio Grande, RS'],targetQuantity:40,
       searchMode:'coverage',categoryMode:'exact',areaMode:'radius',
     })
     expect(input.onNavigateToGarimpo).toHaveBeenCalledWith(false)
@@ -76,11 +97,11 @@ describe('RealTalent principal Agent -> Garimpo G3 native bridge',()=>{
     expect(deps.createJob).not.toHaveBeenCalled()
     expect(answer?.text).toContain('Nenhuma lista foi inventada')
   })
-  it('rejects false conversational answer for an explicit search request',async()=>{
-    const deps=mockDeps(plan('answer',{answer:'Aqui tem lista hipotética'}))
-    const answer=await handleGarimpoFromMainAgent(params('ache no garimpo 40 empresas'),deps as never)
+  it('never invents a territory on an explicit search without region',async()=>{
+    const deps=mockDeps(plan('answer',{city:'',segment:'jardinagem',answer:'Aqui tem lista hipotética'}),[])
+    const answer=await handleGarimpoFromMainAgent(params('ache no garimpo 40 empresas de jardinagem'),deps as never)
     expect(deps.createJob).not.toHaveBeenCalled()
-    expect(answer?.text).toContain('não vou substituir a busca por exemplos fictícios')
+    expect(answer?.text).not.toContain('Aqui tem lista hipotética')
   })
   it('grounds ranking in actual candidates rather than fabricated records',async()=>{
     const deps=mockDeps(plan('rank'),[job({results:[{company:'Jardins Reais',city:'Rio Grande',qualityStatus:'attention'}]})])

@@ -108,7 +108,7 @@ export async function beginOAuthConnection(workspaceId:string,provider:OAuthProv
   const extensionId=providerExtensionId(provider)
   await extensionLifecycle.emit(extensionId,'beforeConnect',{provider},{workspaceId})
   try{
-    const client=getSupabaseClient()
+    const client=integrationClient()
     if(!client||!env.supabaseUrl){
       const result=await beginGatewayOAuth(workspaceId,provider)
       await extensionLifecycle.emit(extensionId,'afterConnect',{provider,mode:result.mode,hasUrl:Boolean(result.url)},{workspaceId})

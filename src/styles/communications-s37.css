@@ -134,3 +134,26 @@
  .email-onboarding-s37__providers{grid-template-columns:1fr}
  .email-onboarding-s37 h3{font-size:17px}
 }
+
+/* Calendar uses the existing hosted OAuth / delta workers, not a new local mock. */
+.settings-s3 .calendar-onboarding-s37{display:grid;gap:14px;min-width:0}
+.settings-s3 .calendar-onboarding-s37__hero{padding:21px}
+.settings-s3 .calendar-onboarding-s37__hero h3{font-size:20px;margin:5px 0 7px}
+.settings-s3 .calendar-onboarding-s37__hero p{font-size:13px;line-height:1.6;color:var(--muted);max-width:75ch}
+.settings-s3 .calendar-onboarding-s37__steps{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+.settings-s3 .calendar-onboarding-s37__steps article{padding:17px;display:grid;align-content:start;justify-items:start;gap:8px;min-width:0}
+.settings-s3 .calendar-onboarding-s37__steps b{display:grid;place-items:center;width:26px;height:26px;border-radius:8px;background:color-mix(in srgb,var(--blue) 10%,var(--surface));color:var(--blue);font-size:12px}
+.settings-s3 .calendar-onboarding-s37__steps strong{font-size:14px}
+.settings-s3 .calendar-onboarding-s37__steps p{font-size:12px;line-height:1.5;color:var(--muted);margin:0}
+.settings-s3 .calendar-onboarding-s37__providers{padding:20px;display:grid;gap:10px}
+.settings-s3 .calendar-onboarding-s37__providers h4{margin:0;font-size:16px}
+.settings-s3 .calendar-onboarding-s37__providers p{margin:0;font-size:12px;line-height:1.55;color:var(--muted)}
+.settings-s3 .calendar-onboarding-s37__providers>div{display:flex;gap:10px;flex-wrap:wrap}
+.settings-s3 .calendar-onboarding-s37__providers small{font-size:12px;color:var(--muted)}
+.email-workspace-panel__unlinked-heading{display:flex;align-items:center;gap:10px;min-width:0}
+.email-workspace-panel__unlinked-heading>div{display:grid;gap:4px;min-width:0}
+.email-workspace-panel__unlinked-heading strong{font-size:13px}
+.email-workspace-panel__unlinked-heading small{font-size:11px;color:var(--muted)}
+.email-composer--unlinked{display:flex!important;align-items:center;gap:9px;padding:13px;font-size:12px;color:var(--muted);line-height:1.5}
+.email-composer--unlinked svg{flex:none}
+@media(max-width:900px){.settings-s3 .calendar-onboarding-s37__steps{grid-template-columns:1fr}}

@@ -111,7 +111,16 @@ export const createDefaultPreferences = (companyName = 'RealTalent'): CrmPrefere
     lossReasons: ['Sem interesse', 'Preço', 'Sem orçamento', 'Escolheu concorrente', 'Não respondeu', 'Momento inadequado'],
     tags: ['Quente', 'Indicação', 'Retorno', 'Evento', 'Proposta'],
     activityTypes: ['Ligação', 'Follow-up', 'Reunião', 'Proposta', 'Tarefa interna'],
-    pipelineStagePolicies: {}, requireNextActionForActiveLeads: true, leadScoring: DEFAULT_LEAD_SCORING_CONFIG, dealIntelligence: DEFAULT_DEAL_INTELLIGENCE_CONFIG,
+    pipelineStagePolicies: {}, requireNextActionForActiveLeads: true,
+    leadScoring:{
+      ...DEFAULT_LEAD_SCORING_CONFIG,
+      weights:{...DEFAULT_LEAD_SCORING_CONFIG.weights},
+      thresholds:{...DEFAULT_LEAD_SCORING_CONFIG.thresholds},
+      targetCities:[...DEFAULT_LEAD_SCORING_CONFIG.targetCities],
+      preferredSources:[...DEFAULT_LEAD_SCORING_CONFIG.preferredSources],
+      idealTags:[...DEFAULT_LEAD_SCORING_CONFIG.idealTags],
+    },
+    dealIntelligence:{...DEFAULT_DEAL_INTELLIGENCE_CONFIG,weights:{...DEFAULT_DEAL_INTELLIGENCE_CONFIG.weights}},
   },
   integrations: { extensionEnabled: true, endpointUrl: '', inboxKey: 'realtalent-extension-inbox-v1', assistedWhatsapp: true, assistedInstagram: true, assistedFacebook: true, assistedLinkedin: true, assistedEmail: true, whatsappMode: 'assisted', whatsappCountryCode: '55', whatsappRegisterActivity: true, whatsappUseLeadOwnerName: true, whatsappOfficialAccountId: '' },
   security: { confirmCriticalActions: true, autoBackupReminder: true, auditRetentionDays: 180 },
@@ -292,6 +301,9 @@ interface PreferencesContextValue {
   preferences: CrmPreferences
   savePreferences(next: CrmPreferences): void
   resetPreferences(): void
+  /** Waits for remote confirmation before committing shared settings locally. */
+  savePreferencesChecked(next: CrmPreferences): Promise<void>
+  resetPreferencesChecked(): Promise<void>
 }
 
 const PreferencesContext = createContext<PreferencesContextValue | null>(null)
@@ -409,6 +421,19 @@ export function PreferencesProvider({ children }: PropsWithChildren) {
     return () => query?.removeEventListener?.('change', listener)
   }, [preferences])
 
+  const saveChecked=async(next:CrmPreferences)=>{
+    const normalized=normalizePreferences(next,companyName)
+    const supabase=getSupabaseClient()
+    if(supabase&&currentWorkspace?.id){
+      if(!can('configure','settings'))throw Error('Você não tem permissão para configurar este workspace.')
+      const settings=JSON.parse(JSON.stringify(normalized)) as Json
+      const {error}=await supabase.from('organization_settings').upsert({organization_id:workspaceId,settings})
+      if(error)throw Error('As configurações não foram sincronizadas: '+error.message)
+    }
+    safeStorage.setItem(`${STORAGE_PREFIX}${workspaceId}`,JSON.stringify(normalized))
+    setPreferences(normalized)
+  }
+
   const value = useMemo<PreferencesContextValue>(() => ({
     preferences,
     savePreferences(next) {
@@ -428,7 +453,9 @@ export function PreferencesProvider({ children }: PropsWithChildren) {
       safeStorage.removeItem(`${STORAGE_PREFIX}${workspaceId}`)
       setPreferences(defaults)
     },
-  }), [can, companyName, preferences, workspaceId])
+    savePreferencesChecked:saveChecked,
+    resetPreferencesChecked:()=>saveChecked(createDefaultPreferences(companyName)),
+  }), [can, companyName, preferences, workspaceId, currentWorkspace?.id])
 
   return <PreferencesContext.Provider value={value}>{children}</PreferencesContext.Provider>
 }

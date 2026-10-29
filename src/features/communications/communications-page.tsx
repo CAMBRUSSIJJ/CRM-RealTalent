@@ -566,6 +566,19 @@ export function CommunicationsPage() {
     } finally { setOfficialLoading(false) }
   }
   useEffect(() => { setPreferredChannels(loadPreferredChannels(workspaceId)); setAssisted(loadAssistedCommunicationTimeline(workspaceId)); void reloadOfficial() }, [workspaceId])
+  useEffect(()=>{
+    if(!currentWorkspace?.id)return
+    // OAuth returns to the current CRM page with these non-secret flags.
+    // Refresh only once, then remove them without changing the route.
+    const url=new URL(window.location.href)
+    if(url.searchParams.get('integration')!=='connected')return
+    if(!['google','microsoft'].includes(url.searchParams.get('provider')||''))return
+    url.searchParams.delete('integration')
+    url.searchParams.delete('provider')
+    window.history.replaceState(window.history.state,'',url.pathname+url.search+url.hash)
+    setWorkspaceView('email')
+    void syncNow()
+  },[workspaceId,currentWorkspace?.id])
   useEffect(() => {
     if (!currentWorkspace?.id || communicationsRevision < 1) return
     if (realtimeRefreshTimerRef.current !== null) window.clearTimeout(realtimeRefreshTimerRef.current)

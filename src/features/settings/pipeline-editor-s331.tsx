@@ -14,7 +14,6 @@ import {
 import {commitStageOrder} from './pipeline-editor-order'
 import '../../styles/settings-s331.css'
 
-type OpportunityImpact={leads:number;opportunities:number;automations:number}
 type StageEditorProps={
   stages:PipelineStage[]
   leads:Lead[]
@@ -295,7 +294,6 @@ export function AuxiliarySettingsListEditor({title,items,onChange,disabled=false
   const [text,setText]=useState('')
   const [editing,setEditing]=useState<number|null>(null)
   const [draft,setDraft]=useState('')
-  const [moving,setMoving]=useState<number|null>(null)
   const add=()=>{
     const value=text.trim()
     if(!value||items.some(x=>x.toLocaleLowerCase('pt-BR')===value.toLocaleLowerCase('pt-BR')))return
@@ -323,6 +321,5 @@ export function AuxiliarySettingsListEditor({title,items,onChange,disabled=false
       <input aria-label={'Novo item em '+title} disabled={disabled} placeholder="Adicionar item…" value={text} onChange={e=>setText(e.target.value)}/>
       <Button type="submit" disabled={disabled||!text.trim()||items.some(x=>x.toLocaleLowerCase('pt-BR')===text.trim().toLocaleLowerCase('pt-BR'))} variant="secondary"><Plus size={14}/> Adicionar</Button>
     </form>
-    {moving!==null?<small>Movendo item {moving+1}</small>:null}
   </section>
 }

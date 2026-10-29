@@ -2,7 +2,7 @@ import {describe,it,expect,vi} from 'vitest'
 import type {WorkspaceSnapshot} from '../domain/types'
 import type {ProspectingAgentJob} from './prospecting-linux-agent'
 import type {ProspectRecord} from './prospecting-workspace'
-import {handleGarimpoFromMainAgent,isModelPlan,wantsGarimpoNativeTool,type GarimpoBridgeInput} from './realtalent-agent-garimpo-bridge'
+import {handleGarimpoFromMainAgent,isModelPlan,wantsGarimpoNativeTool,type GarimpoBridgeInput,type GarimpoBridgeDependencies} from './realtalent-agent-garimpo-bridge'
 
 const snapshot={workspace:{id:'ws',role:'owner'},leads:[],companies:[],stages:[]} as unknown as WorkspaceSnapshot
 const job=(overrides:Record<string,unknown>={}):ProspectingAgentJob=>({
@@ -20,7 +20,7 @@ const plan=(intent:string='search',overrides:Record<string,unknown>={})=>({
   confidence:0.95,answer:'Planejei a busca.',...overrides
 })
 const mockDeps=(p=plan(),jobs:ProspectingAgentJob[]=[job()])=>{
-  const createJob=vi.fn(async()=>job({id:'new-job',status:'queued',
+  const createJob=vi.fn(async(_input:Parameters<GarimpoBridgeDependencies['createJob']>[0])=>job({id:'new-job',status:'queued',
     input:{...job().input,segment:'Jardinagem',targetQuantity:40}}))
   const listJobs=vi.fn(async()=>jobs)
   const health=vi.fn(async()=>({ok:true}))

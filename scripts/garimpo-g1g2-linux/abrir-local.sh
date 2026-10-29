@@ -1,10 +1,12 @@
 #!/usr/bin/env bash
 set -Eeuo pipefail
-trap 'rc=$?; echo "Falha na inicialização do RealTalent: linha $LINENO, código $rc. Abra com scripts/agent-v56-linux/abrir-com-diagnostico.sh para salvar o erro." >&2' ERR
+trap 'rc=$?; echo "Falha na inicialização do RealTalent: linha $LINENO, código $rc. Logs: $HOME/RealTalent-Garimpo-G1G2-Teste/logs" >&2' ERR
 
 ROOT="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/../.." && pwd)"
 LOG_DIR="$HOME/RealTalent-Garimpo-G1G2-Teste/logs"
-mkdir -p "$LOG_DIR"
+PROSPECTING_STATE_DIR="$HOME/RealTalent-Garimpo-G1G2-Teste/garimpo-agent-state"
+PROSPECTING_PORT=4320
+mkdir -p "$LOG_DIR" "$PROSPECTING_STATE_DIR"
 cd "$ROOT"
 
 for required in node npm curl ollama; do
@@ -23,11 +25,15 @@ done
 
 LOCAL_OLLAMA_PID=''
 GATEWAY_PID=''
+PROSPECTING_PID=''
 cleanup() {
   if [[ -n "$GATEWAY_PID" ]]; then kill "$GATEWAY_PID" 2>/dev/null || true; fi
+  if [[ -n "$PROSPECTING_PID" ]]; then kill "$PROSPECTING_PID" 2>/dev/null || true; fi
   if [[ -n "$LOCAL_OLLAMA_PID" ]]; then kill "$LOCAL_OLLAMA_PID" 2>/dev/null || true; fi
 }
-trap cleanup EXIT INT TERM
+trap cleanup EXIT
+trap 'exit 130' INT
+trap 'exit 143' TERM
 
 if ! curl -fsS --max-time 3 http://127.0.0.1:11434/api/tags >/dev/null; then
   echo 'Inicializando Ollama local em 127.0.0.1:11434'
@@ -53,6 +59,42 @@ else
   echo 'Dependências já instaladas: evitando reinstalação desnecessária.'
 fi
 
+# G1/G2 possui motor de garimpo isolado: nao interfere na porta 4319 nem nos dados da V6.4.
+PROSPECTING_URL="http://127.0.0.1:$PROSPECTING_PORT"
+is_prospecting_ready() {
+  curl -fsS --max-time 3 "$PROSPECTING_URL/api/prospecting-agent/health" 2>/dev/null \
+    | node -e 'let s="";process.stdin.on("data",v=>s+=v);process.stdin.on("end",()=>{try{const v=JSON.parse(s);process.exit(v.ok===true&&v.port===Number(process.argv[1])?0:1)}catch{process.exit(1)}})' "$PROSPECTING_PORT" \
+    >/dev/null 2>&1
+}
+if is_prospecting_ready; then
+  echo "Garimpo local já ativo em $PROSPECTING_URL. Reutilizando sem encerrá-lo."
+else
+  if command -v ss >/dev/null 2>&1 && ss -ltn "( sport = :$PROSPECTING_PORT )" | grep -q LISTEN; then
+    echo "Porta $PROSPECTING_PORT ocupada por outro serviço. Verifique antes de iniciar; nenhum processo será interrompido." >&2
+    exit 2
+  fi
+  echo "Inicializando motor de Garimpo em $PROSPECTING_URL"
+  REALTALENT_PROSPECTING_AGENT_HOST=127.0.0.1 \
+    REALTALENT_PROSPECTING_AGENT_PORT="$PROSPECTING_PORT" \
+    REALTALENT_PROSPECTING_AGENT_STATE_DIR="$PROSPECTING_STATE_DIR" \
+    node scripts/realtalent-prospecting-agent.mjs >"$LOG_DIR/prospecting-agent.log" 2>&1 &
+  PROSPECTING_PID=$!
+  for i in $(seq 1 30); do
+    if is_prospecting_ready; then break; fi
+    if ! kill -0 "$PROSPECTING_PID" 2>/dev/null; then
+      echo "Motor do Garimpo parou. Últimas mensagens:" >&2
+      tail -n 30 "$LOG_DIR/prospecting-agent.log" >&2
+      exit 2
+    fi
+    sleep 1
+  done
+  if ! is_prospecting_ready; then
+    echo "Motor do Garimpo não respondeu. Veja $LOG_DIR/prospecting-agent.log" >&2
+    exit 2
+  fi
+fi
+echo "Garimpo conectado e pronto para busca."
+
 SEARCH_URL=''
 # Capture the entire response: grep -q can close the pipe early and make curl
 # exit with SIGPIPE under pipefail even though the search API is healthy.
@@ -77,6 +119,7 @@ export REALTALENT_AGENT_PORT=8804
 export REALTALENT_AGENT_INNER_PORT=8805
 export REALTALENT_RESEARCH_SEARXNG_URL="$SEARCH_URL"
 export VITE_AGENT_GATEWAY_URL=http://127.0.0.1:8804
+export VITE_PROSPECTING_GATEWAY_URL="$PROSPECTING_URL"
 export VITE_DATA_MODE=local
 
 node runtime-host/RealTalent-Agent-Runtime-V3.1.2/gateway-ollama.mjs >"$LOG_DIR/gateway.log" 2>&1 &
@@ -92,8 +135,8 @@ curl -fsS --max-time 5 http://127.0.0.1:8804/tools/health || {
   echo "Gateway indisponível. Veja $LOG_DIR/gateway.log" >&2; exit 2;
 }
 echo
-echo 'Abrindo RealTalent Agent Garimpo G1/G2 de TESTE em http://127.0.0.1:4197'
-echo 'O CRM em 4188 permanece intacto. Para encerrar esta versão: Ctrl+C.'
+echo 'RealTalent Garimpo G1/G2 pronto: CRM 4197 | Busca 4320 | IA 8804'
+echo 'A V6.4 na porta 4196 e o motor 4319 permanecem intactos. Ctrl+C encerra apenas os serviços desta sessão.'
 if command -v xdg-open >/dev/null 2>&1; then
   ( sleep 3; xdg-open 'http://127.0.0.1:4197' >/dev/null 2>&1 || true ) &
 fi

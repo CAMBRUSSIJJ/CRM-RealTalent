@@ -11,6 +11,7 @@ import type { RealtimeTransportState } from '../../platform/events/realtime-stat
 import { normalizeWhatsAppPhone, sendOfficialWhatsApp } from '../../services/whatsapp-workspace'
 import { loadGatewayWhatsAppGroupInfo, retryGatewayCommunication, type GatewayWhatsAppAttachmentInput, type GatewayWhatsAppGroupInfo } from '../../services/local-communications-gateway'
 import { WhatsAppConnectionCenter } from './whatsapp-connection-center'
+import { acknowledgedInTimeline, statusAfterGatewayAck, type PendingSendState } from './whatsapp-send-feedback'
 
 const sameDay = (left: string, right: string) => {
   const a = new Date(left); const b = new Date(right)
@@ -36,7 +37,7 @@ const safeMessageText = (value: unknown) => looksLikeEncodedMediaText(value) ? '
 const formatDuration = (seconds: number) => `${Math.floor(Math.max(0, seconds) / 60)}:${String(Math.floor(Math.max(0, seconds) % 60)).padStart(2, '0')}`
 
 type ComposerAttachment = GatewayWhatsAppAttachmentInput & { previewUrl: string }
-type PendingMessage = { id: string; idempotencyKey: string; body: string; occurredAt: string; status: 'queued' | 'failed'; attachment?: ComposerAttachment | null; replyToExternalMessageId?: string | null; replyPreview?: string | null }
+type PendingMessage = { id: string; idempotencyKey: string; serverEventId?: string | null; body: string; occurredAt: string; status: PendingSendState; attachment?: ComposerAttachment | null; replyToExternalMessageId?: string | null; replyPreview?: string | null }
 
 function MessageStatus({ status }: { status: UnifiedCommunicationItem['status'] }) {
   if (status === 'read') return <span className="whatsapp-chat__ticks is-read" title="Lida"><CheckCheck size={14}/></span>
@@ -118,8 +119,7 @@ export function WhatsAppChatPanel({ lead, externalIdentity, workspaceId, events,
   const groupTransportReady = !externalIdentity?.isGroup || account?.metadata?.transport === 'qr'
   const hasPayload = Boolean(safeMessageText(body) || attachment)
   const canSend = Boolean(!readOnly && account && (recipient || groupThreadId) && hasPayload && !blocked && !sending && !recording && groupTransportReady)
-  const deliveredKeys = useMemo(() => new Set(messages.map(item => String(item.metadata?.idempotencyKey || '')).filter(Boolean)), [messages])
-  const optimisticItems = useMemo<UnifiedCommunicationItem[]>(() => pendingMessages.filter(item => !deliveredKeys.has(item.idempotencyKey)).map(item => ({ id: `optimistic:${item.id}`, source: 'official' as const, leadId: lead?.id ?? null, contactId: lead?.primaryContactId ?? null, channel: 'whatsapp' as const, direction: 'outbound' as const, status: item.status, title: identityName, body: item.body || (`[${item.attachment?.kind === 'voice' ? 'Áudio' : item.attachment?.kind === 'image' ? 'Imagem' : 'Arquivo'}]`), subject: '', occurredAt: item.occurredAt, official: false, metadata: { idempotencyKey: item.idempotencyKey, optimistic: true, attachment: item.attachment ? { ...item.attachment, url: item.attachment.previewUrl } : null, replyToExternalMessageId: item.replyToExternalMessageId || null, replyPreview: item.replyPreview || null } })), [deliveredKeys, identityName, lead?.id, lead?.primaryContactId, pendingMessages])
+  const optimisticItems = useMemo<UnifiedCommunicationItem[]>(() => pendingMessages.filter(item => !acknowledgedInTimeline(item, messages)).map(item => ({ id: `optimistic:${item.id}`, source: 'official' as const, leadId: lead?.id ?? null, contactId: lead?.primaryContactId ?? null, channel: 'whatsapp' as const, direction: 'outbound' as const, status: item.status, title: identityName, body: item.body || (`[${item.attachment?.kind === 'voice' ? 'Áudio' : item.attachment?.kind === 'image' ? 'Imagem' : 'Arquivo'}]`), subject: '', occurredAt: item.occurredAt, official: false, metadata: { idempotencyKey: item.idempotencyKey, optimistic: true, attachment: item.attachment ? { ...item.attachment, url: item.attachment.previewUrl } : null, replyToExternalMessageId: item.replyToExternalMessageId || null, replyPreview: item.replyPreview || null } })), [identityName, lead?.id, lead?.primaryContactId, messages, pendingMessages])
   const displayMessages = useMemo(() => [...messages, ...optimisticItems].sort((a, b) => Date.parse(a.occurredAt) - Date.parse(b.occurredAt)), [messages, optimisticItems])
   const externalIndex = useMemo(() => {
     const index = new Map<string, UnifiedCommunicationItem>()
@@ -146,7 +146,12 @@ export function WhatsAppChatPanel({ lead, externalIdentity, workspaceId, events,
   useEffect(() => { void loadAccounts() }, [workspaceId, preferredAccountId])
   useEffect(() => { endRef.current?.scrollIntoView({ block: 'end' }) }, [displayMessages.length, lead?.id, externalIdentity?.phone])
   useEffect(() => { textareaRef.current?.focus() }, [lead?.id, externalIdentity?.phone, externalIdentity?.threadId])
-  useEffect(() => { if (deliveredKeys.size) setPendingMessages(current => current.filter(item => !deliveredKeys.has(item.idempotencyKey))) }, [deliveredKeys])
+  useEffect(() => {
+    setPendingMessages(current => {
+      const unresolved=current.filter(item => !acknowledgedInTimeline(item, messages))
+      return unresolved.length===current.length?current:unresolved
+    })
+  }, [messages])
   useEffect(() => () => {
     recorderStreamRef.current?.getTracks().forEach(track => track.stop())
     if (recordingTimerRef.current) window.clearInterval(recordingTimerRef.current)
@@ -219,9 +224,14 @@ export function WhatsAppChatPanel({ lead, externalIdentity, workspaceId, events,
     window.setTimeout(() => textareaRef.current?.focus(), 0)
     try {
       const event = await sendOfficialWhatsApp({ workspaceId, leadId: lead?.id ?? null, contactId: lead?.primaryContactId ?? null, accountId: account.id, recipient: recipient || undefined, threadId: groupThreadId || null, body: text, idempotencyKey, attachment: selectedAttachment ? { dataBase64: selectedAttachment.dataBase64, mimeType: selectedAttachment.mimeType, fileName: selectedAttachment.fileName, size: selectedAttachment.size, kind: selectedAttachment.kind } : null, replyToExternalMessageId: replyId, replyPreview })
-      setPendingMessages(current => current.filter(item => item.idempotencyKey !== idempotencyKey))
+      // Keep the bubble until the official event is visible. Removing it on
+      // HTTP acknowledgement caused the message to disappear during reload.
+      setPendingMessages(current => current.map(item => item.idempotencyKey === idempotencyKey
+        ? { ...item, serverEventId: String(event.id), status: statusAfterGatewayAck(event.status) }
+        : item))
       if (event.status === 'failed') { onSync(); onError(String(event.metadata?.lastSendError || 'Não foi possível enviar a mídia. Use “Tentar novamente”.')); return }
-      onSent(event.status === 'queued' ? 'Mensagem guardada na fila. Será enviada quando o WhatsApp reconectar.' : 'Mensagem enviada pelo WhatsApp.')
+      // Signal the parent to refresh silently; status is shown on the bubble.
+      onSent('refresh')
     } catch (error) {
       setPendingMessages(current => current.map(item => item.idempotencyKey === idempotencyKey ? { ...item, status: 'failed' } : item))
       setBody(current => current.trim() ? current : text)

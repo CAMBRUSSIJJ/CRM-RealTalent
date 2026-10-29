@@ -1,16 +1,31 @@
-import { BrainCircuit, Database, Eraser, LockKeyhole, ShieldCheck, Sparkles, Wrench } from 'lucide-react'
-import { useMemo, useState } from 'react'
+import { BrainCircuit, Database, Eraser, LockKeyhole, ShieldCheck, Sparkles, Wrench, RefreshCw } from 'lucide-react'
+import { useEffect, useMemo, useState } from 'react'
 import { useAppWorkspace } from '../../app/app-context'
 import { Button } from '../../components/ui/button'
 import { StatusPill } from '../../components/ui/status-pill'
 import { listRealTalentAiAudit, clearRealTalentAiAudit } from '../../services/realtalent-ai-audit'
 import { buildRealTalentAiContext } from '../../services/realtalent-ai-context'
 import { REALTALENT_AI_TOOLS } from '../../services/realtalent-ai-tools'
+import { getAgentRuntimeHealth, type AgentRuntimeHealth } from '../../services/realtalent-agent-v56-health'
 
 export function RealTalentAiPanel() {
   const { snapshot, currentWorkspace } = useAppWorkspace()
   const workspaceId = currentWorkspace?.id ?? snapshot?.workspace.id ?? 'local'
   const [refreshKey, setRefreshKey] = useState(0)
+  const [runtime,setRuntime]=useState<AgentRuntimeHealth|null>(null)
+  const [healthBusy,setHealthBusy]=useState(false)
+  const checkRuntime=async()=>{
+    setHealthBusy(true)
+    try{setRuntime(await getAgentRuntimeHealth())}
+    finally{setHealthBusy(false)}
+  }
+  useEffect(()=>{
+    let disposed=false
+    const refresh=async()=>{const data=await getAgentRuntimeHealth();if(!disposed)setRuntime(data)}
+    void refresh()
+    const timer=window.setInterval(()=>void refresh(),45000)
+    return ()=>{disposed=true;window.clearInterval(timer)}
+  },[])
   const audit = useMemo(() => listRealTalentAiAudit(workspaceId), [workspaceId, refreshKey])
   const context = useMemo(() => snapshot ? buildRealTalentAiContext(snapshot) : null, [snapshot])
   const enabledTools = REALTALENT_AI_TOOLS.filter((tool) => tool.enabled)
@@ -20,11 +35,13 @@ export function RealTalentAiPanel() {
     <article className="panel">
       <div className="panel__heading"><div><span className="eyebrow">RealTalent AI</span><h3>Camada proprietária de inteligência comercial</h3><p>Contexto, memória, tools, permissões e auditoria ficam sob controle do CRM. O Agent Runtime usa IA Local via Ollama por padrão. OpenAI é opcional e pode ser habilitada apenas quando você quiser.</p></div><BrainCircuit size={24}/></div>
       <div className="settings-health-grid">
-        <div><span>Gateway</span><strong>realtalent-ai-gateway-v2-agent</strong><small>Orquestra o Agent Runtime sem dar ao modelo acesso direto ao banco.</small></div>
-        <div><span>Provider ativo</span><strong>Ollama local-first</strong><small>Sem cobrança por token no modo local. OpenAI pode ser usada como provider opcional ou fallback híbrido.</small></div>
+        <div><span>Modelo local</span><strong>{runtime===null?'Verificando…':runtime.connected&&runtime.modelInstalled?runtime.model:'Não disponível'}</strong><small>{runtime?.modelInstalled?'Modelo confirmado pelo gateway.':'Disponibilidade do Qwen ainda não confirmada.'}</small></div>
+        <div><span>Ollama e gateway</span><strong>{runtime===null?'Verificando…':runtime.connected?'Conectado':'Indisponível'}</strong><small>{runtime?.connected?'Healthcheck real respondendo.':'Inicie o Agent Runtime e verifique a porta do gateway.'}</small></div>
         <div><span>Tools habilitadas</span><strong>{enabledTools.length}</strong><small>{writeTools.filter((tool) => tool.enabled).length} ferramenta(s) de escrita ativa(s), todas com confirmação.</small></div>
         <div><span>Trilha local</span><strong>{audit.length} execução(ões)</strong><small>Metadados técnicos; o prompt completo não é persistido.</small></div>
       </div>
+      <div className="settings-actions"><Button variant="secondary" loading={healthBusy} onClick={()=>void checkRuntime()}><RefreshCw size={16}/> Verificar modelo e gateway</Button>
+      <StatusPill tone={runtime?.connected&&runtime.modelInstalled?'success':'warning'}>{runtime?.connected&&runtime.modelInstalled?'Modelo disponível':'Disponibilidade não confirmada'}</StatusPill></div>
     </article>
 
     <article className="panel">

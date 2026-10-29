@@ -63,3 +63,8 @@ Implementação construída sobre a S3.1/S3.2, preservando as regras de persist�
 Porta web 4197 — fechar antes outra versão da mesma porta.
 Script: scripts/garimpo-g1g2-linux/abrir-com-diagnostico.sh
 Nenhuma publicação de Production até homologação.
+
+## Ajustes finais de densidade
+- Eventos de Notificações agora aparecem recolhidos, com contagem dinâmica de regras ativas.
+- Aparência da sidebar passou a ser opcional e recolhível, sem esconder a prévia de navegação.
+- A prévia de Empresa usa uma pequena interface com topbar, sidebar e botão principal, não apenas uma faixa abstrata.

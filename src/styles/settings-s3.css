@@ -1,0 +1,108 @@
+/* RealTalent S3.1/S3.2 — settings video review, no global CRM overrides. */
+.settings-v1100.settings-s3{--settings-nav-width:212px;gap:12px}
+.settings-s3 .settings-v1100__body{grid-template-columns:var(--settings-nav-width) minmax(0,1fr);gap:12px}
+.settings-s3 .settings-v1100__nav{padding:8px 9px;top:82px;max-height:calc(100dvh - 96px)}
+.settings-s3 .settings-nav-group{padding:4px 0}
+.settings-s3 .settings-nav-group__header{min-height:32px;padding:5px 9px}
+.settings-s3 .settings-nav-group__items>button{min-height:38px;font-size:12.5px;line-height:1.35;padding:7px 10px}
+.settings-s3 .settings-v1100__content{min-width:0;gap:12px;scroll-margin-top:76px}
+.settings-s3 .settings-v1100__page-intro{min-height:64px;padding:13px 17px;display:flex;align-items:center;justify-content:space-between;gap:15px;flex-wrap:wrap}
+.settings-s3 .settings-v1100__page-intro h3{font-size:20px;line-height:1.3;margin:2px 0}
+.settings-s3 .settings-v1100__page-intro p{font-size:12.5px;line-height:1.5;margin:0;max-width:65ch}
+.settings-s3 .settings-v1100__page-intro .settings-s3__eyebrow{font-size:11px;color:var(--muted);line-height:1.5}
+.settings-s3__intro-actions{display:flex;align-items:center;flex-wrap:wrap;gap:10px;margin-left:auto}
+.settings-s3__intro-actions .status-pill{flex-shrink:0}
+.settings-s3__intro-actions label{font-size:12px;display:flex;align-items:center;gap:7px;cursor:pointer}
+.settings-s3__intro-actions input{height:17px;width:17px;accent-color:var(--rt-color-brand,#2965b3)}
+.settings-s3 .settings-command-bar-h20{min-height:48px}
+.settings-s3 .settings-page-header-h20{margin-bottom:0}
+.settings-s3 .settings-v1100__nav-title{padding:6px 9px 8px}
+.settings-s3 .settings-v1100__nav-status{padding:8px 5px}
+.settings-s3 .settings-v1100__content>.panel{max-width:100%;min-width:0}
+/* AI: strong boundaries. Old generic styles have no authority over this grid. */
+.settings-s3 .rt-ai-s3{min-width:0;display:grid;gap:14px}
+.settings-s3 .rt-ai-s3>.panel{min-width:0;padding:18px 20px;margin:0}
+.settings-s3 .rt-ai-s3__hero{display:grid;gap:16px}
+.settings-s3 .rt-ai-s3__heading{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.settings-s3 .rt-ai-s3__symbol{height:42px;width:42px;flex:none;display:grid;place-items:center;background:color-mix(in srgb,var(--rt-color-brand,#2865bb) 10%,var(--surface));border-radius:12px;color:var(--rt-color-brand,#2865bb)}
+.settings-s3 .rt-ai-s3__heading>div{flex:1;min-width:180px}
+.settings-s3 .rt-ai-s3 h3{font-size:18px;line-height:1.35;margin:0;font-weight:730;letter-spacing:-.01em}
+.settings-s3 .rt-ai-s3 p{margin:0;font-size:12.5px;line-height:1.55;color:var(--muted)}
+.settings-s3 .rt-ai-s3__heading p{margin-top:3px}
+.settings-s3 .rt-ai-s3__status-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;min-width:0}
+.settings-s3 .rt-ai-s3__metric{min-width:0;display:flex;flex-direction:column;gap:5px;border:1px solid var(--border);background:var(--surface-soft);padding:13px 14px;border-radius:11px}
+.settings-s3 .rt-ai-s3__metric>span{font-size:11px;font-weight:700;color:var(--muted)}
+.settings-s3 .rt-ai-s3__metric>strong{font-size:18px;font-weight:750;line-height:1.3;overflow-wrap:anywhere;color:var(--text)}
+.settings-s3 .rt-ai-s3__metric>small{font-size:12px;line-height:1.5;color:var(--muted);overflow-wrap:anywhere}
+.settings-s3 .rt-ai-s3__hero-actions{display:flex;gap:12px;align-items:center;flex-wrap:wrap;justify-content:space-between}
+.settings-s3 .rt-ai-s3__hero-actions>span{display:flex;align-items:center;gap:6px;font-size:11px;color:var(--muted)}
+.settings-s3 .rt-ai-s3__section{display:grid;gap:14px}
+.settings-s3 .rt-ai-s3__section-title{display:flex;align-items:flex-start;gap:12px}
+.settings-s3 .rt-ai-s3__section-title>svg{flex:none;margin-top:2px;color:var(--rt-color-brand,#2865bb)}
+.settings-s3 .rt-ai-s3__section-title>div{min-width:0;flex:1}
+.settings-s3 .rt-ai-s3__section-title p{margin-top:3px}
+.settings-s3 .rt-ai-s3__context-list{display:grid;gap:0;border:1px solid var(--border);border-radius:12px;overflow:hidden}
+.settings-s3 .rt-ai-s3__context-list>div{padding:12px 14px;display:flex;align-items:flex-start;gap:11px;min-width:0}
+.settings-s3 .rt-ai-s3__context-list>div+div{border-top:1px solid var(--border)}
+.settings-s3 .rt-ai-s3__context-list svg{flex:none;margin-top:2px;color:var(--rt-color-brand,#2865bb)}
+.settings-s3 .rt-ai-s3__context-list span{display:flex;flex-direction:column;gap:4px;min-width:0;flex:1}
+.settings-s3 .rt-ai-s3__context-list strong{font-size:13px;line-height:1.4}
+.settings-s3 .rt-ai-s3__context-list small{font-size:12px;line-height:1.55;color:var(--muted);overflow-wrap:anywhere}
+.settings-s3 .rt-ai-s3__toolbar{display:flex;align-items:center;gap:10px;justify-content:space-between;flex-wrap:wrap}
+.settings-s3 .rt-ai-s3__search{flex:1;min-width:180px}
+.settings-s3 .rt-ai-s3__search input{width:100%;min-height:39px;padding:9px 12px;font-size:13px;color:var(--text);background:var(--surface);border:1px solid var(--border);border-radius:9px}
+.settings-s3 .rt-ai-s3__filters{display:flex;gap:3px;flex-wrap:wrap;background:var(--surface-soft);padding:4px;border-radius:10px}
+.settings-s3 .rt-ai-s3__filters button{border:0;background:transparent;color:var(--muted);font-size:12px;border-radius:7px;cursor:pointer;min-height:32px;padding:5px 9px}
+.settings-s3 .rt-ai-s3__filters button.is-active{background:var(--surface);color:var(--text);font-weight:750;box-shadow:0 1px 3px rgba(0,0,0,.09)}
+.settings-s3 .rt-ai-s3__tool-list{display:grid;min-width:0;border:1px solid var(--border);border-radius:11px;overflow:hidden}
+.settings-s3 .rt-ai-s3__tool{display:grid;grid-template-columns:minmax(0,1fr) minmax(185px,auto);align-items:center;gap:14px;padding:13px 14px;min-width:0}
+.settings-s3 .rt-ai-s3__tool+.rt-ai-s3__tool{border-top:1px solid var(--border)}
+.settings-s3 .rt-ai-s3__tool-description{min-width:0}
+.settings-s3 .rt-ai-s3__tool-description strong{display:block;font-size:13.5px;line-height:1.4;margin-bottom:3px}
+.settings-s3 .rt-ai-s3__tool-description p{font-size:12px;line-height:1.55;overflow-wrap:anywhere}
+.settings-s3 .rt-ai-s3__tool-states{min-width:0;display:flex;flex-wrap:wrap;align-items:center;justify-content:flex-end;gap:6px}
+.settings-s3 .rt-ai-s3__tool-states .status-pill{font-size:11px}
+.settings-s3 .rt-ai-s3__confirmation{font-size:11px;color:var(--muted);white-space:nowrap}
+.settings-s3 .rt-ai-s3__empty{padding:20px 14px;background:var(--surface-soft);font-size:13px}
+.settings-s3 .rt-ai-s3__audit{display:grid;border:1px solid var(--border);border-radius:11px;overflow:hidden}
+.settings-s3 .rt-ai-s3__audit-row{display:flex;align-items:center;justify-content:space-between;gap:14px;padding:12px 14px}
+.settings-s3 .rt-ai-s3__audit-row+.rt-ai-s3__audit-row{border-top:1px solid var(--border)}
+.settings-s3 .rt-ai-s3__audit-row>div{display:grid;gap:3px;min-width:0}
+.settings-s3 .rt-ai-s3__audit-row strong{font-size:13px}
+.settings-s3 .rt-ai-s3__audit-row small{font-size:11px;color:var(--muted);overflow-wrap:anywhere}
+.settings-s3 .rt-ai-s3__audit-actions{display:flex;align-items:center;justify-content:flex-end;flex-wrap:wrap;gap:8px}
+/* WhatsApp: a single tab strip replaces a third fixed sidebar. */
+.settings-s3 .whatsapp-control-center-h198{display:grid;min-width:0;gap:11px}
+.settings-s3 .whatsapp-control-hero-s3{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;min-width:0;padding:12px 15px;border-radius:11px}
+.settings-s3 .whatsapp-control-hero-s3__intro{flex:1;min-width:170px}
+.settings-s3 .whatsapp-control-hero-s3__intro h2{font-size:17px;line-height:1.35;margin:0}
+.settings-s3 .whatsapp-control-hero-s3__intro p{margin:3px 0 0;font-size:12px;line-height:1.5}
+.settings-s3 .whatsapp-control-status-s3{flex:none;min-width:0}
+.settings-s3 .whatsapp-control-layout-h198.whatsapp-control-layout-s3{display:grid;grid-template-columns:minmax(0,1fr);gap:12px;min-width:0}
+.settings-s3 .whatsapp-control-nav-h198.whatsapp-control-nav-s3{display:flex;align-items:center;flex-wrap:nowrap;gap:4px;min-width:0;max-width:100%;overflow-x:auto;overscroll-behavior-x:contain;scrollbar-width:thin;position:sticky;top:74px;z-index:12;background:var(--surface);border:1px solid var(--border);border-radius:11px;padding:5px}
+.settings-s3 .whatsapp-control-nav-h198.whatsapp-control-nav-s3 button{display:flex;flex:none;align-items:center;justify-content:center;gap:7px;border:0;border-radius:8px;background:transparent;color:var(--muted);padding:9px 12px;min-height:39px;font-size:12.5px;line-height:1.3;cursor:pointer;width:auto;min-width:0}
+.settings-s3 .whatsapp-control-nav-h198.whatsapp-control-nav-s3 button span{display:block;min-width:0}
+.settings-s3 .whatsapp-control-nav-h198.whatsapp-control-nav-s3 button strong{font-size:12.5px;font-weight:650;white-space:nowrap;display:block}
+.settings-s3 .whatsapp-control-nav-h198.whatsapp-control-nav-s3 button.is-active{background:color-mix(in srgb,var(--rt-color-brand,#2865bb) 10%,var(--surface));color:var(--rt-color-brand,#2865bb)}
+.settings-s3 .whatsapp-control-nav-h198.whatsapp-control-nav-s3 button.is-active strong{font-weight:750}
+.settings-s3 .whatsapp-control-content-h198.whatsapp-control-content-s3{display:block;min-width:0;max-width:100%;padding:0}
+.settings-s3 .whatsapp-settings-section-h198{display:grid;gap:12px}
+.settings-s3 .whatsapp-settings-section-h198>header{margin:0;padding:5px 2px;min-width:0}
+.settings-s3 .whatsapp-settings-section-h198>header h3{font-size:17px;line-height:1.4;margin:0}
+.settings-s3 .whatsapp-settings-section-h198>header p{font-size:12px;line-height:1.5;margin:4px 0 0}
+.settings-s3 .whatsapp-settings-section-h198>header .eyebrow{display:none}
+.settings-s3 .whatsapp-setting-card-h198{min-width:0;border-radius:11px}
+.settings-s3 .whatsapp-setting-card-h198__heading{min-width:0}
+.settings-s3 .whatsapp-setting-card-h198__heading>div{min-width:0}
+.settings-s3 .whatsapp-setting-card-h198__heading strong{font-size:14px;line-height:1.4}
+.settings-s3 .whatsapp-setting-card-h198__heading small{font-size:12px;line-height:1.5;overflow-wrap:anywhere}
+.settings-s3 .whatsapp-overview-grid-h198{min-width:0;grid-template-columns:repeat(2,minmax(0,1fr))}
+.settings-s3 .whatsapp-overview-grid-h198 article{min-width:0}
+.settings-s3 .whatsapp-overview-grid-h198 strong{overflow-wrap:anywhere}
+.settings-s3 .whatsapp-control-content-h198 .settings-actions{flex-wrap:wrap}
+/* Responsive behavior accounts for 2 outer sidebars at 1280x720. */
+@media(min-width:1700px){.settings-s3 .rt-ai-s3__status-grid{grid-template-columns:repeat(4,minmax(0,1fr))}}
+@media(max-width:1260px){.settings-s3.settings-v1100{--settings-nav-width:186px}.settings-s3 .rt-ai-s3__tool{grid-template-columns:minmax(0,1fr)}.settings-s3 .rt-ai-s3__tool-states{justify-content:flex-start}}
+@media(max-width:990px){.settings-s3 .settings-v1100__body{grid-template-columns:1fr}.settings-s3 .settings-v1100__nav{position:relative;top:auto;max-height:275px;overflow-y:auto}.settings-s3 .whatsapp-control-nav-h198.whatsapp-control-nav-s3{position:relative;top:auto}}
+@media(max-width:650px){.settings-s3 .settings-v1100__page-intro{align-items:flex-start}.settings-s3__intro-actions{margin-left:0}.settings-s3 .rt-ai-s3>.panel{padding:14px}.settings-s3 .rt-ai-s3__status-grid{grid-template-columns:1fr}.settings-s3 .rt-ai-s3__hero-actions{justify-content:flex-start}.settings-s3 .rt-ai-s3__toolbar{align-items:stretch}.settings-s3 .rt-ai-s3__filters{width:100%}.settings-s3 .whatsapp-overview-grid-h198{grid-template-columns:1fr}.settings-s3 .whatsapp-control-hero-s3{align-items:flex-start}}
+@media(prefers-reduced-motion:reduce){.settings-s3 .whatsapp-control-nav-s3{scroll-behavior:auto}}

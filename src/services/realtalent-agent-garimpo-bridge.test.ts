@@ -96,7 +96,7 @@ describe('RealTalent principal Agent -> Garimpo G3 native bridge',()=>{
     const deps=mockDeps(plan('clarify',{city:'',answer:'Qual cidade?'}),[])
     const answer=await handleGarimpoFromMainAgent(params('ache no garimpo 40 empresas'),deps as never)
     expect(deps.createJob).not.toHaveBeenCalled()
-    expect(answer?.text).toContain('Qual cidade?')
+    expect(answer?.text).toContain('Em qual cidade')
   })
   it('reports model outages without pretending to search',async()=>{
     const deps=mockDeps()

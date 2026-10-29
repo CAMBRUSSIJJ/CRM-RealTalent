@@ -534,7 +534,9 @@ export function CommunicationsPage() {
           ? `WhatsApp QR em recuperação: ${syncResult.imported} nova(s) mensagem(ns). ${details}`
           : `Sincronização parcial: ${syncResult.imported} nova(s) mensagem(ns). ${syncResult.failures.length} conta(s) falharam. ${details}`
         setOfficialError(message); notify('info', message)
-      } else notify('success', syncResult.imported > 0 ? `Central sincronizada: ${syncResult.imported} nova(s) mensagem(ns) importada(s).` : 'Central sincronizada. Nenhuma mensagem nova encontrada.')
+      }
+      // The updated conversation list already confirms sync. No success toast;
+      // actual errors and partial synchronization remain visible.
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Não foi possível sincronizar as comunicações.'
       setOfficialError(message); notify('error', message)
@@ -760,7 +762,7 @@ export function CommunicationsPage() {
           onManageContact={() => setContactLinkOpen(true)}
           onOpenLeadContext={selectedLead ? () => { setLeadContextTab('summary'); setLeadContextOpen(true) } : undefined}
           onSalesStateChanged={() => setSalesStateRevision((current) => current + 1)}
-          onSent={(message) => { notify('success', message); window.setTimeout(() => void reloadOfficial(true), 900) }}
+          onSent={() => { void reloadOfficial(true) }}
           onError={(message) => notify('error', message)}
         /> : workspaceView === 'email' ? <EmailConversationPanel
           lead={selectedLead}
@@ -771,7 +773,7 @@ export function CommunicationsPage() {
           readOnly={!canCommunicationEdit || (selectedLead ? !canTeamAccessRecord('communications', selectedLead.ownerId) : true)}
           onSync={() => void syncNow()}
           onOpenLeadContext={selectedLead ? () => { setLeadContextTab('summary'); setLeadContextOpen(true) } : undefined}
-          onSent={(message) => { notify('success', message); window.setTimeout(() => void reloadOfficial(true), 350) }}
+          onSent={(message) => { notify('success', message); void reloadOfficial(true) }}
           onError={(message) => notify('error', message)}
         /> : selectedLead ? <>
           <header className="omnichannel-thread__header">
@@ -811,7 +813,7 @@ export function CommunicationsPage() {
               countryCode={preferences.integrations.whatsappCountryCode}
               preferredWhatsAppAccountId={preferences.integrations.whatsappOfficialAccountId}
               readOnly={!canCommunicationEdit || !canTeamAccessRecord('communications', selectedLead.ownerId)}
-              onSent={(message) => { notify('success', message); window.setTimeout(() => void reloadOfficial(true), 350) }}
+              onSent={(message, channel) => { if (channel === 'email') notify('success', message); void reloadOfficial(true) }}
               onError={(message) => notify('error', message)}
             />
           </div>

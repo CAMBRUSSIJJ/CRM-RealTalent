@@ -26,6 +26,8 @@ const CallsPage = lazy(() => import('../features/calls/calls-page').then((module
 const CommunicationsPage = lazy(() => import('../features/communications/communications-page').then((module) => ({ default: module.CommunicationsPage })))
 const ProposalsPage = lazy(() => import('../features/proposals/proposals-page').then((module) => ({ default: module.ProposalsPage })))
 const AgendaPage = lazy(() => import('../features/agenda/agenda-page').then((module) => ({ default: module.AgendaPage })))
+const MeetPage = lazy(() => import('../features/meet/meet-page').then((module) => ({ default: module.MeetPage })))
+const MeetPublicPage = lazy(() => import('../features/meet/meet-public-page').then((module) => ({ default: module.MeetPublicPage })))
 const PlaybooksPage = lazy(() => import('../features/playbooks/playbooks-page').then((module) => ({ default: module.PlaybooksPage })))
 const GoalsPage = lazy(() => import('../features/goals/goals-page').then((module) => ({ default: module.GoalsPage })))
 const AutomationsPage = lazy(() => import('../features/automations/automations-page').then((module) => ({ default: module.AutomationsPage })))
@@ -68,6 +70,7 @@ function RouteContent() {
   else if (route === 'communications') content = <CommunicationsPage />
   else if (route === 'proposals') content = <ProposalsPage />
   else if (route === 'agenda') content = <AgendaPage />
+  else if (route === 'meet') content = <MeetPage />
   else if (route === 'playbooks') content = <PlaybooksPage />
   else if (route === 'goals') content = <GoalsPage />
   else if (route === 'automations') content = <AutomationsPage />
@@ -117,6 +120,7 @@ export function App() {
   const [minimumIntroComplete, setMinimumIntroComplete] = useState(false)
   const [introComplete, setIntroComplete] = useState(false)
   const buyerRoomToken = new URLSearchParams(window.location.search).get('buyer-room')
+  const meetToken = new URLSearchParams(window.location.search).get('rt-meet')
 
   useEffect(() => {
     const reducedMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false
@@ -135,6 +139,7 @@ export function App() {
   }, [authLoading, introComplete, minimumIntroComplete])
 
   if (buyerRoomToken) return <Suspense fallback={<LoadingModule/>}><BuyerRoomPublicPage token={buyerRoomToken}/></Suspense>
+  if (meetToken) return <Suspense fallback={<LoadingModule/>}><MeetPublicPage token={meetToken}/></Suspense>
   if (configurationError) return <div className="fatal-state"><h1>Ambiente não configurado</h1><p>{configurationError}</p><p>O modo local não foi ativado automaticamente para evitar perda ou divergência de dados.</p></div>
   if (!introComplete) return <BrandSplash message={authLoading ? 'Validando sua sessão...' : 'Preparando seu CRM...'} />
   if (!user || recoveryMode) return <AuthPage />

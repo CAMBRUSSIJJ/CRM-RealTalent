@@ -42,6 +42,9 @@ export type NewMeetRoom = {
   endsAt: string
   hostName: string
   leadId?: string | null
+  contactId?: string | null
+  companyId?: string | null
+  opportunityId?: string | null
 }
 const key = 'realtalent:meet:v1:rooms'
 const defaults: MeetSettings = { waitingRoom: false, chat: true, screenShare: true, maxPeers: 4 }
@@ -84,14 +87,14 @@ export async function createMeetRoom(input: NewMeetRoom, mode: MeetMode): Promis
   const token = newToken()
   const now = new Date().toISOString()
   if(mode === 'local'){
-    const room: MeetRoom = { id: crypto.randomUUID(), workspaceId: input.workspaceId, createdBy: input.createdBy, title: input.title.trim(), agenda: input.agenda.trim(), startsAt: input.startsAt, endsAt: input.endsAt, status: 'scheduled', publicToken: token, hostName: input.hostName, leadId: input.leadId || null, contactId: null, companyId: null, opportunityId: null, settings: defaults, createdAt: now, updatedAt: now }
+    const room: MeetRoom = { id: crypto.randomUUID(), workspaceId: input.workspaceId, createdBy: input.createdBy, title: input.title.trim(), agenda: input.agenda.trim(), startsAt: input.startsAt, endsAt: input.endsAt, status: 'scheduled', publicToken: token, hostName: input.hostName, leadId: input.leadId || null, contactId: input.contactId || null, companyId: input.companyId || null, opportunityId: input.opportunityId || null, settings: defaults, createdAt: now, updatedAt: now }
     writeLocal([room,...fromLocal()])
     return room
   }
   const { data,error } = await api().from('realtalent_meet_rooms').insert({
     organization_id: input.workspaceId, created_by: input.createdBy, title: input.title.trim(),
     agenda: input.agenda.trim(), starts_at: input.startsAt, ends_at: input.endsAt,
-    public_token: token, host_name: input.hostName, lead_id: input.leadId || null, settings: defaults,
+    public_token: token, host_name: input.hostName, lead_id: input.leadId || null, contact_id: input.contactId || null, company_id: input.companyId || null, opportunity_id: input.opportunityId || null, settings: defaults,
   }).select('*').single()
   if(error) throw error
   return fromDb(data)

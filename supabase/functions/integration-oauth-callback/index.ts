@@ -1,6 +1,22 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.57.4'
 const appUrl=()=>Deno.env.get('APP_PUBLIC_URL')||'http://localhost:5173'
-const redirect=(status:'success'|'error',provider='',detail='')=>{const url=new URL(appUrl());url.searchParams.set('route','settings');url.searchParams.set('tab','integrations');url.searchParams.set('oauth',status);if(provider)url.searchParams.set('provider',provider);if(detail)url.searchParams.set('detail',detail.slice(0,160));return Response.redirect(url.toString(),302)}
+const redirect=(status:'success'|'error',provider='',detail='')=>{
+  const url=new URL(appUrl())
+  // Email authorization returns to the communication workspace, which reconciles
+  // accounts once using the non-sensitive integration/provider query flags.
+  if(status==='success'&&(provider==='google'||provider==='microsoft')){
+    url.searchParams.set('integration','connected')
+    url.searchParams.set('provider',provider)
+    url.hash='/communications'
+  }else{
+    url.searchParams.set('route','settings')
+    url.searchParams.set('tab','integrations')
+    url.searchParams.set('oauth',status)
+    if(provider)url.searchParams.set('provider',provider)
+    if(detail)url.searchParams.set('detail',detail.slice(0,160))
+  }
+  return Response.redirect(url.toString(),302)
+}
 const sha256hex=async(value:string)=>Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256',new TextEncoder().encode(value)))).map((item)=>item.toString(16).padStart(2,'0')).join('')
 type Provider='google'|'microsoft'|'meta'|'whatsapp_cloud'
 const configs={

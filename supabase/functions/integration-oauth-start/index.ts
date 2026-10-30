@@ -6,7 +6,7 @@ const randomUrl=(size:number)=>{const bytes=new Uint8Array(size);crypto.getRando
 const sha256=async(value:string)=>new Uint8Array(await crypto.subtle.digest('SHA-256',new TextEncoder().encode(value)))
 const hex=async(value:string)=>Array.from(await sha256(value)).map((item)=>item.toString(16).padStart(2,'0')).join('')
 const providers={
-  google:{client:'GOOGLE_OAUTH_CLIENT_ID',auth:'https://accounts.google.com/o/oauth2/v2/auth',scopes:'openid email profile https://www.googleapis.com/auth/gmail.send https://www.googleapis.com/auth/gmail.readonly https://www.googleapis.com/auth/calendar.events https://www.googleapis.com/auth/calendar.calendarlist.readonly'},
+  google:{client:'GOOGLE_OAUTH_CLIENT_ID',auth:'https://accounts.google.com/o/oauth2/v2/auth',scopes:'openid email profile https://www.googleapis.com/auth/gmail.send https://www.googleapis.com/auth/gmail.readonly'},
   microsoft:{client:'MICROSOFT_OAUTH_CLIENT_ID',auth:'https://login.microsoftonline.com/common/oauth2/v2.0/authorize',scopes:'openid profile email offline_access User.Read Mail.Send Mail.Read Calendars.ReadWrite'},
   meta:{client:'META_OAUTH_CLIENT_ID',auth:`https://www.facebook.com/${Deno.env.get('META_GRAPH_VERSION')||'v23.0'}/dialog/oauth`,scopes:'public_profile,email,pages_show_list,pages_read_engagement,leads_retrieval,instagram_basic,instagram_manage_messages'},
   whatsapp_cloud:{client:'META_OAUTH_CLIENT_ID',auth:`https://www.facebook.com/${Deno.env.get('META_GRAPH_VERSION')||'v23.0'}/dialog/oauth`,scopes:'public_profile,business_management,whatsapp_business_management,whatsapp_business_messaging'},

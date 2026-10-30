@@ -10,6 +10,7 @@ export type AppRoute =
   | 'communications'
   | 'proposals'
   | 'agenda'
+  | 'meet'
   | 'playbooks'
   | 'goals'
   | 'automations'

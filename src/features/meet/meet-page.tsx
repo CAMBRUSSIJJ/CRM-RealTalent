@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { CalendarDays, CheckCircle2, Clock3, Copy, ExternalLink, Plus, RefreshCw, Trash2, Video, XCircle } from 'lucide-react'
-import { useAppActions, useAppWorkspace } from '../../app/app-context'
+import { CalendarDays, CheckCircle2, Clock3, Copy, ExternalLink, MoreHorizontal, Plus, RefreshCw, Search, Trash2, Video, XCircle } from 'lucide-react'
+import { useAppActions, useAppNavigation, useAppWorkspace } from '../../app/app-context'
 import { useAuth } from '../auth/auth-context'
 import { Button } from '../../components/ui/button'
 import { changeMeetRoom, createMeetRoom, deleteMeetRoom, listMeetRooms, meetUrl, type MeetRoom, type PublicMeetRoom } from '../../services/realtalent-meet'
@@ -22,7 +22,8 @@ const label = (status:MeetRoom['status']) => ({
 export function MeetPage(){
   const {currentWorkspace,repositoryMode,canWrite,snapshot}=useAppWorkspace()
   const {user}=useAuth()
-  const {createCalendarEvent}=useAppActions()
+  const {createCalendarEvent,createActivity}=useAppActions()
+  const {setRoute}=useAppNavigation()
   const [rooms,setRooms]=useState<MeetRoom[]>([])
   const [busy,setBusy]=useState(false)
   const [loading,setLoading]=useState(false)
@@ -30,6 +31,8 @@ export function MeetPage(){
   const [notice,setNotice]=useState('')
   const [active,setActive]=useState<MeetRoom|null>(null)
   const [creating,setCreating]=useState(false)
+  const [tab,setTab]=useState<'upcoming'|'history'>('upcoming')
+  const [search,setSearch]=useState('')
   const [title,setTitle]=useState('')
   const [leadId,setLeadId]=useState('')
   const [agenda,setAgenda]=useState('')
@@ -52,19 +55,21 @@ export function MeetPage(){
     setRooms(list=>list.map(r=>r.id===next.id?next:r))
     return next
   }
-  const add=async()=>{
+  const add=async(kind:'scheduled'|'instant'='scheduled')=>{
     if(!workspaceId || !user || !canWrite)return
     setBusy(true);setError('')
     try{
-      const startsAt=new Date(start)
+      const startsAt=kind==='instant'?new Date():new Date(start)
       if(Number.isNaN(startsAt.getTime()))throw new Error('Escolha uma data e horário válidos.')
       const endsAt=new Date(startsAt.getTime()+duration*60_000)
-      const room=await createMeetRoom({workspaceId,createdBy:user.id,hostName:user.displayName||'RealTalent',
-        title,agenda,startsAt:startsAt.toISOString(),endsAt:endsAt.toISOString(),leadId: selectedLead?.id ?? null,
-        contactId: selectedLead?.primaryContactId ?? null,companyId:selectedLead?.companyId ?? null,opportunityId:selectedLead?.opportunityId ?? null},mode)
+      let room=await createMeetRoom({workspaceId,createdBy:user.id,hostName:user.displayName||'RealTalent',
+        title:kind==='instant'?'Reunião imediata':title,agenda:kind==='instant'?'':agenda,startsAt:startsAt.toISOString(),endsAt:endsAt.toISOString(),leadId: kind==='instant'?null:selectedLead?.id ?? null,
+        contactId: kind==='instant'?null:selectedLead?.primaryContactId ?? null,companyId:kind==='instant'?null:selectedLead?.companyId ?? null,opportunityId:kind==='instant'?null:selectedLead?.opportunityId ?? null},mode)
+      if(kind==='instant')room=await changeMeetRoom(room,'live',mode)
       setRooms(list=>[room,...list])
       setCreating(false);setTitle('');setLeadId('');setAgenda('');setStart(initialStart())
-      setNotice('Sala criada. Copie o convite ou entre na reunião.')
+      setNotice(kind==='instant'?'Sala pronta. Confira câmera e microfone.':'Sala criada. Copie o convite ou entre na reunião.')
+      if(kind==='instant')setActive(room)
       try{
         await createCalendarEvent({leadId:room.leadId,contactId:room.contactId,title:room.title,
           description:(room.agenda ? room.agenda+'\n\n' : '')+'RealTalent Meet: '+meetUrl(room.publicToken),
@@ -90,13 +95,23 @@ export function MeetPage(){
     }catch(e){setError(e instanceof Error?e.message:'Não foi possível iniciar a reunião.')}
   }
   const groups=useMemo(()=>{
-    const upcoming=rooms.filter(r=>r.status==='scheduled'||r.status==='live')
-    const history=rooms.filter(r=>r.status==='completed'||r.status==='cancelled')
+    const q=search.trim().toLocaleLowerCase('pt-BR')
+    const matching=rooms.filter(r=>!q||[r.title,r.agenda,r.hostName].some(x=>x.toLocaleLowerCase('pt-BR').includes(q)))
+    const upcoming=matching.filter(r=>r.status==='scheduled'||r.status==='live')
+      .sort((a,b)=>a.status==='live'?-1:b.status==='live'?1:a.startsAt.localeCompare(b.startsAt))
+    const history=matching.filter(r=>r.status==='completed'||r.status==='cancelled')
     return {upcoming,history}
-  },[rooms])
-  if(active && user)return <MeetRoomSession room={publicView(active)} displayName={user.displayName||'Anfitrião'} isHost
-    onLeave={()=>{setActive(null);void refresh()}}
-    onEnd={async()=>{try{await statusUpdate(active,'completed')}catch(e){setError(e instanceof Error?e.message:'Falha ao concluir a reunião.')}}}/>
+  },[rooms,search])
+  if(active && user){
+    const lead=leadOptions.find(x=>x.id===active.leadId)
+    const opportunity=snapshot?.opportunities?.find(x=>x.id===active.opportunityId)
+    return <MeetRoomSession room={publicView(active)} displayName={user.displayName||'Anfitrião'} isHost
+      commercialContext={{customer:lead?.name||'',company:lead?.company||'',opportunity:opportunity?.title||'',stage:''}}
+      onSaveNote={async(text)=>{await createActivity({leadId:active.leadId,contactId:active.contactId,
+        type:'note',title:'Anotações · '+active.title,description:text,dueAt:null,completedAt:null,assignedTo:user.id})}}
+      onLeave={()=>{setActive(null);void refresh()}}
+      onEnd={async()=>{try{await statusUpdate(active,'completed')}catch(e){setError(e instanceof Error?e.message:'Falha ao concluir a reunião.');throw e}}}/>
+  }
   const row=(room:MeetRoom)=><article key={room.id} className="rtmeet-card">
     <div className="rtmeet-card-main">
       <span className={'rtmeet-state rtmeet-state--'+room.status}>{label(room.status)}</span>
@@ -105,27 +120,42 @@ export function MeetPage(){
       <div className="rtmeet-meta"><CalendarDays size={15}/>{new Date(room.startsAt).toLocaleString('pt-BR',{dateStyle:'short',timeStyle:'short'})}<span>·</span><Clock3 size={15}/>{Math.max(15,Math.round((new Date(room.endsAt).getTime()-new Date(room.startsAt).getTime())/60000))} min</div>
     </div>
     <div className="rtmeet-card-actions">
-      <Button size="sm" variant="secondary" onClick={()=>void copy(room)}><Copy size={15}/> Copiar link</Button>
       {room.status!=='cancelled'&&room.status!=='completed'&&<Button size="sm" onClick={()=>void join(room)} disabled={!canWrite}><Video size={16}/> Entrar</Button>}
-      {canWrite&&<button className="rtmeet-icon-button" title="Excluir reunião" aria-label="Excluir reunião" onClick={()=>void remove(room)}><Trash2 size={17}/></button>}
+      <details className="rtmeet-more"><summary title="Mais opções" aria-label="Mais opções"><MoreHorizontal size={19}/></summary>
+        <div className="rtmeet-more-menu"><button onClick={()=>void copy(room)}><Copy size={15}/> Copiar convite</button>
+          {canWrite&&<button className="rtmeet-danger-action" onClick={()=>void remove(room)}><Trash2 size={15}/> Excluir</button>}
+        </div>
+      </details>
     </div>
   </article>
   return <div className="rtmeet-page">
     <div className="rtmeet-heading">
-      <div><span className="eyebrow">COMUNICAÇÃO · VIDEOCONFERÊNCIA</span><h1>RealTalent Meet</h1><p>Reuniões por vídeo com convite por link e registro na Agenda do CRM.</p></div>
-      <div className="rtmeet-heading-actions"><Button variant="secondary" onClick={()=>void refresh()} disabled={loading}><RefreshCw size={16}/> Atualizar</Button><Button onClick={()=>setCreating(true)} disabled={!canWrite}><Plus size={17}/> Nova reunião</Button></div>
+      <div><span className="eyebrow">COMUNICAÇÃO · VIDEOCONFERÊNCIA</span><h1>Reuniões</h1><p>Prepare encontros, converse e acompanhe os próximos passos.</p></div>
+      <div className="rtmeet-heading-actions">
+        <Button variant="secondary" onClick={()=>setRoute('agenda')}><CalendarDays size={16}/> Agenda</Button>
+        <Button variant="secondary" onClick={()=>{setCreating(true);setTab('upcoming')}} disabled={!canWrite}><CalendarDays size={16}/> Agendar</Button>
+        <Button onClick={()=>void add('instant')} disabled={!canWrite||busy}><Video size={17}/> Iniciar agora</Button>
+      </div>
     </div>
     {error && <div className="rtmeet-alert" role="alert">{error}</div>}
     {notice && <div className="rtmeet-success" role="status">{notice}<button onClick={()=>setNotice('')} aria-label="Fechar aviso">×</button></div>}
     {creating&&<section className="rtmeet-create panel" aria-label="Criar reunião">
       <div className="rtmeet-create-title"><h2>Nova reunião</h2><button onClick={()=>setCreating(false)} aria-label="Fechar"><XCircle size={20}/></button></div>
       <div className="rtmeet-fields"><label>Título<input autoFocus value={title} onChange={e=>setTitle(e.target.value)} maxLength={180} placeholder="Ex.: Apresentação de proposta"/></label><label>Data e horário<input type="datetime-local" value={start} onChange={e=>setStart(e.target.value)}/></label><label>Duração<select value={duration} onChange={e=>setDuration(Number(e.target.value))}><option value={15}>15 min</option><option value={30}>30 min</option><option value={45}>45 min</option><option value={60}>60 min</option><option value={90}>90 min</option></select></label><label className="rtmeet-fields-wide">Vincular ao contato do CRM (opcional)<select value={leadId} onChange={e=>setLeadId(e.target.value)}><option value="">Sem vínculo</option>{leadOptions.map(item=><option key={item.id} value={item.id}>{item.name}{item.company?' · '+item.company:''}</option>)}</select></label><label className="rtmeet-fields-wide">Pauta (opcional)<textarea rows={2} value={agenda} onChange={e=>setAgenda(e.target.value)} placeholder="Objetivo e assuntos principais"/></label></div>
-      <div className="rtmeet-create-actions"><Button variant="secondary" onClick={()=>setCreating(false)}>Cancelar</Button><Button onClick={()=>void add()} disabled={!title.trim()||busy}>{busy?'Criando...':'Criar reunião'}</Button></div>
+      <div className="rtmeet-create-actions"><Button variant="secondary" onClick={()=>setCreating(false)}>Cancelar</Button><Button onClick={()=>void add('scheduled')} disabled={!title.trim()||busy}>{busy?'Criando...':'Agendar reunião'}</Button></div>
     </section>}
-    <section className="rtmeet-section"><div className="rtmeet-section-header"><div><Video size={19}/><h2>Próximas e em andamento</h2></div><span>{groups.upcoming.length}</span></div>
-      {groups.upcoming.length? <div className="rtmeet-list">{groups.upcoming.map(row)}</div>:<div className="rtmeet-empty"><Video size={28}/><h3>Nenhuma reunião agendada</h3><p>Crie uma sala para gerar o convite e adicioná-la à Agenda.</p>{canWrite&&<Button onClick={()=>setCreating(true)}><Plus size={16}/> Criar reunião</Button>}</div>}
+    <div className="rtmeet-navigation">
+      <div className="rtmeet-tabs" role="tablist" aria-label="Visualizar reuniões">
+        <button role="tab" aria-selected={tab==='upcoming'} className={tab==='upcoming'?'is-active':''} onClick={()=>setTab('upcoming')}>Próximas <span>{groups.upcoming.length}</span></button>
+        <button role="tab" aria-selected={tab==='history'} className={tab==='history'?'is-active':''} onClick={()=>setTab('history')}>Histórico <span>{groups.history.length}</span></button>
+      </div>
+      <label className="rtmeet-search"><Search size={16}/><input placeholder="Buscar reuniões" value={search} onChange={e=>setSearch(e.target.value)} aria-label="Buscar reuniões"/></label>
+      <button className="rtmeet-refresh" onClick={()=>void refresh()} disabled={loading} title="Atualizar reuniões"><RefreshCw size={17}/></button>
+    </div>
+    <section className="rtmeet-section" role="tabpanel">
+      {tab==='upcoming'?(groups.upcoming.length? <div className="rtmeet-list">{groups.upcoming.map(row)}</div>:<div className="rtmeet-empty"><Video size={28}/><h3>Nenhuma reunião próxima</h3><p>Comece uma reunião agora ou agende um encontro com seu cliente.</p>{canWrite&&<Button onClick={()=>setCreating(true)}><Plus size={16}/> Agendar reunião</Button>}</div>)
+        :(groups.history.length?<div className="rtmeet-list">{groups.history.map(row)}</div>:<div className="rtmeet-empty"><CheckCircle2 size={28}/><h3>Sem reuniões no histórico</h3><p>Os encontros concluídos aparecerão aqui.</p></div>)}
     </section>
-    {groups.history.length>0&&<section className="rtmeet-section"><div className="rtmeet-section-header"><div><CheckCircle2 size={19}/><h2>Histórico de reuniões</h2></div><span>{groups.history.length}</span></div><div className="rtmeet-list">{groups.history.map(row)}</div></section>}
     <div className="rtmeet-footnote"><ExternalLink size={15}/> Convites podem ser abertos sem uma conta no CRM. O vídeo usa conexão WebRTC ponto a ponto; redes restritas podem exigir um servidor TURN.</div>
   </div>
 }

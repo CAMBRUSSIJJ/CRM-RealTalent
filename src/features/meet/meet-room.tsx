@@ -1,10 +1,12 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { Camera, CameraOff, Copy, LogOut, MessageSquare, Mic, MicOff, MonitorUp, Send, Users, Video } from 'lucide-react'
+import { Camera, CameraOff, Copy, LogOut, MessageSquare, Mic, MicOff, MonitorUp, Send, Users, Video, ClipboardList } from 'lucide-react'
 import { getSupabaseClient } from '../../lib/supabase'
-import { meetUrl, type PublicMeetRoom } from '../../services/realtalent-meet'
+import { getPublicMeetRoom, meetUrl, type PublicMeetRoom } from '../../services/realtalent-meet'
+import { MeetPrejoin, type MeetPreparation } from './meet-prejoin'
+import { MeetContextPanel, type MeetCommercialContext } from './meet-context-panel'
 import '../../styles/realtalent-meet.css'
 
-type Signal = { type: 'join' | 'offer' | 'answer' | 'ice' | 'leave' | 'chat' | 'end'; from: string; to?: string; name?: string; text?: string; sdp?: RTCSessionDescriptionInit; candidate?: RTCIceCandidateInit }
+type Signal = { type: 'join' | 'hello' | 'offer' | 'answer' | 'ice' | 'leave' | 'chat' | 'end'; from: string; to?: string; name?: string; text?: string; sdp?: RTCSessionDescriptionInit; candidate?: RTCIceCandidateInit }
 type ChatItem = { id: string; name: string; text: string }
 type PeerStream = { id: string; name: string; stream: MediaStream }
 const iceServers: RTCConfiguration = { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }, { urls: 'stun:stun1.l.google.com:19302' }] }
@@ -13,30 +15,36 @@ function VideoTile({ stream, label, muted = false }: { stream: MediaStream | nul
   useEffect(() => { if(el.current) el.current.srcObject = stream }, [stream])
   return <div className="rtmeet-tile"><video ref={el} autoPlay playsInline muted={muted}/><span>{label}</span></div>
 }
-export function MeetRoomSession({ room, displayName, isHost, onLeave, onEnd }: {
-  room: PublicMeetRoom
-  displayName: string
-  isHost?: boolean
-  onLeave(): void
-  onEnd?(): Promise<void>
-}) {
+type SessionProps = {room:PublicMeetRoom; displayName:string; isHost?:boolean; onLeave():void; onEnd?():Promise<void>;
+  commercialContext?:MeetCommercialContext; onSaveNote?:(text:string)=>Promise<void>}
+export function MeetRoomSession(props:SessionProps){
+  const [preparation,setPreparation]=useState<MeetPreparation|null>(null)
+  if(!preparation)return <MeetPrejoin room={props.room} displayName={props.displayName}
+    onJoin={setPreparation} onBack={props.onLeave}/>
+  return <ConnectedRoom {...props} preparation={preparation}/>
+}
+function ConnectedRoom({ room, displayName, isHost, onLeave, onEnd, preparation, commercialContext, onSaveNote }: SessionProps & {preparation:MeetPreparation}) {
   const [selfId] = useState(() => crypto.randomUUID())
-  const [stream, setStream] = useState<MediaStream | null>(null)
-  const localRef = useRef<MediaStream | null>(null)
+  const [stream, setStream] = useState<MediaStream | null>(preparation.stream)
+  const localRef = useRef<MediaStream | null>(preparation.stream)
   const [peers, setPeers] = useState<PeerStream[]>([])
   const pcs = useRef(new Map<string,RTCPeerConnection>())
   const peerNames = useRef(new Map<string,string>())
   const pending = useRef(new Map<string,RTCIceCandidateInit[]>())
   const channel = useRef<any>(null)
-  const [micOn, setMicOn] = useState(true)
-  const [cameraOn, setCameraOn] = useState(true)
+  const [micOn, setMicOn] = useState(preparation.micOn)
+  const [cameraOn, setCameraOn] = useState(preparation.cameraOn)
   const [screenOn, setScreenOn] = useState(false)
   const [message, setMessage] = useState('')
   const [chat, setChat] = useState<ChatItem[]>([])
-  const [chatOpen, setChatOpen] = useState(true)
+  const [panel, setPanel] = useState<'chat'|'context'|null>(null)
   const [notice, setNotice] = useState('')
   const [connecting, setConnecting] = useState(true)
   const screenRef = useRef<MediaStream | null>(null)
+  const [startedAt] = useState(Date.now)
+  const [seconds,setSeconds] = useState(0)
+  useEffect(()=>{const timer=window.setInterval(()=>setSeconds(Math.floor((Date.now()-startedAt)/1000)),1000);return()=>window.clearInterval(timer)},[startedAt])
+  const clock=`${String(Math.floor(seconds/60)).padStart(2,'0')}:${String(seconds%60).padStart(2,'0')}`
 
   const broadcast = useCallback(async (signal: Omit<Signal,'from'>) => {
     if(!channel.current) return
@@ -63,11 +71,21 @@ export function MeetRoomSession({ room, displayName, isHost, onLeave, onEnd }: {
       setPeers(items => [...items.filter(x=>x.id!==id),{id,name:peerNames.current.get(id)||name,stream:next}])
     }
     pc.onconnectionstatechange = () => {
-      if(pc?.connectionState==='failed') setNotice('A conexão de mídia falhou. Para redes restritas é necessário configurar TURN.')
+      if(pc?.connectionState==='disconnected'){
+        window.setTimeout(()=>{
+          if(pc?.connectionState!=='disconnected')return
+          pc.restartIce()
+          if(selfId<id && pc.signalingState==='stable'){
+            void (async()=>{const offer=await pc.createOffer({iceRestart:true});await pc.setLocalDescription(offer);await broadcast({type:'offer',to:id,sdp:offer})})()
+              .catch(()=>setNotice('Falha na reconexão de mídia. Tente entrar novamente.'))
+          }
+        },3500)
+      }
+      if(pc?.connectionState==='failed') setNotice('A rede bloqueou a chamada. Configure um servidor TURN para permitir conexões restritas.')
       if(pc?.connectionState==='closed') disconnectPeer(id)
     }
     return pc
-  },[broadcast,disconnectPeer])
+  },[broadcast,disconnectPeer,selfId])
 
   useEffect(() => {
     let active = true
@@ -80,7 +98,12 @@ export function MeetRoomSession({ room, displayName, isHost, onLeave, onEnd }: {
     const handle = async (signal:Signal) => {
       if(!active || !signal || signal.from===selfId || (signal.to && signal.to!==selfId))return
       if(signal.type==='chat') {setChat(x=>[...x,{id:crypto.randomUUID(),name:signal.name||'Convidado',text:signal.text||''}]);return}
-      if(signal.type==='end'){setNotice('O anfitrião encerrou a reunião.');return}
+      if(signal.type==='end'){
+        // A client broadcast alone never proves host authority.
+        const latest=await getPublicMeetRoom(room.publicToken).catch(()=>null)
+        if(!latest){setNotice('A reunião foi encerrada.');onLeave()}
+        return
+      }
       if(signal.type==='leave'){disconnectPeer(signal.from);return}
       if(signal.type==='ice'){
         const pc=pcs.current.get(signal.from)
@@ -88,7 +111,13 @@ export function MeetRoomSession({ room, displayName, isHost, onLeave, onEnd }: {
         else if(signal.candidate) pending.current.set(signal.from,[...(pending.current.get(signal.from)||[]),signal.candidate])
         return
       }
-      if(signal.type==='join'){
+      if(signal.type==='join'||signal.type==='hello'){
+        if(signal.type==='join')await broadcast({type:'hello',to:signal.from})
+        // Deterministic offerer prevents simultaneous-offer glare.
+        if(selfId>signal.from)return
+        if(pcs.current.size>=room.settings.maxPeers && !pcs.current.has(signal.from)){
+          setNotice('A sala atingiu a capacidade definida.');return
+        }
         const pc=createPeer(signal.from,signal.name||'Convidado')
         if(pc.signalingState!=='stable')return
         const offer=await pc.createOffer()
@@ -112,12 +141,9 @@ export function MeetRoomSession({ room, displayName, isHost, onLeave, onEnd }: {
       }
     }
     const start=async()=>{
-      try {
-        const media=await navigator.mediaDevices.getUserMedia({audio:true,video:true})
-        if(!active){media.getTracks().forEach(x=>x.stop());return}
-        localRef.current=media
-        setStream(media)
-      } catch { if(active) setNotice('Câmera ou microfone indisponíveis. Você ainda pode participar do chat.') }
+      // Prepared media is transferred from prejoin. No second permission prompt.
+      localRef.current=preparation.stream
+      setStream(preparation.stream)
       if(!active)return
       if(client){
         const ch=client.channel('realtalent-meet:'+room.publicToken)
@@ -145,6 +171,15 @@ export function MeetRoomSession({ room, displayName, isHost, onLeave, onEnd }: {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   },[room.publicToken,selfId])
 
+  useEffect(()=>{
+    if(isHost)return
+    const timer=window.setInterval(()=>{
+      void getPublicMeetRoom(room.publicToken).then(latest=>{
+        if(!latest){setNotice('Esta reunião foi encerrada.');onLeave()}
+      }).catch(()=>{/* recover on next poll */})
+    },10000)
+    return()=>window.clearInterval(timer)
+  },[isHost,onLeave,room.publicToken])
   const toggleAudio=()=>{
     const next=!micOn
     localRef.current?.getAudioTracks().forEach(t=>{t.enabled=next})
@@ -178,12 +213,15 @@ export function MeetRoomSession({ room, displayName, isHost, onLeave, onEnd }: {
   }
   const leave=()=>{onLeave()}
   const end=async()=>{
-    await broadcast({type:'end'})
-    if(onEnd)await onEnd()
-    onLeave()
+    if(!onEnd)return
+    try{
+      await onEnd() // Host must persist an authorized status change first.
+      await broadcast({type:'end'})
+      onLeave()
+    }catch{setNotice('Não foi possível encerrar a sala no servidor. Tente novamente.')}
   }
   return <div className="rtmeet-call">
-    <header className="rtmeet-call-header"><div className="rtmeet-brand"><Video size={19}/><span>RealTalent Meet</span><small>{room.title}</small></div><div><span className="rtmeet-badge"><Users size={14}/> {peers.length+1}</span><button onClick={()=>{void navigator.clipboard.writeText(meetUrl(room.publicToken)).then(()=>setNotice('Link copiado.')).catch(()=>setNotice('Copie o link da barra de endereço.'))}}><Copy size={15}/> Convidar</button></div></header>
+    <header className="rtmeet-call-header"><div className="rtmeet-brand"><Video size={19}/><span>RealTalent Meet</span><small>{room.title}</small></div><div><span className="rtmeet-badge">⏱ {clock}</span><span className="rtmeet-badge"><Users size={14}/> {peers.length+1}</span><button onClick={()=>{void navigator.clipboard.writeText(meetUrl(room.publicToken)).then(()=>setNotice('Link copiado.')).catch(()=>setNotice('Copie o link da barra de endereço.'))}}><Copy size={15}/> Convidar</button></div></header>
     {notice && <div className="rtmeet-notice" role="status">{notice}<button aria-label="Dispensar aviso" onClick={()=>setNotice('')}>×</button></div>}
     <div className="rtmeet-call-body"><div className="rtmeet-video-grid">
       <VideoTile stream={stream} label={displayName+' (você)'} muted />
@@ -191,13 +229,15 @@ export function MeetRoomSession({ room, displayName, isHost, onLeave, onEnd }: {
       {connecting && <div className="rtmeet-connecting">Conectando à sala...</div>}
       {peers.length===0 && !connecting && <p className="rtmeet-alone">Sala aberta. Envie o convite para receber participantes.</p>}
     </div>
-    {chatOpen && room.settings.chat && <aside className="rtmeet-chat"><header><strong>Chat da reunião</strong><button aria-label="Fechar chat" onClick={()=>setChatOpen(false)}>×</button></header><div className="rtmeet-chat-items">{chat.map(c=><p key={c.id}><strong>{c.name}</strong><span>{c.text}</span></p>)}</div><form onSubmit={e=>{e.preventDefault();send()}}><input aria-label="Mensagem" value={message} onChange={e=>setMessage(e.target.value)} placeholder="Escrever mensagem..." maxLength={2000}/><button type="submit" disabled={!message.trim()} aria-label="Enviar"><Send size={16}/></button></form></aside>}
+    {panel==='chat' && room.settings.chat && <aside className="rtmeet-chat"><header><strong>Chat da reunião</strong><button aria-label="Fechar chat" onClick={()=>setPanel(null)}>×</button></header><div className="rtmeet-chat-items">{chat.map(c=><p key={c.id}><strong>{c.name}</strong><span>{c.text}</span></p>)}</div><form onSubmit={e=>{e.preventDefault();send()}}><input aria-label="Mensagem" value={message} onChange={e=>setMessage(e.target.value)} placeholder="Escrever mensagem..." maxLength={2000}/><button type="submit" disabled={!message.trim()} aria-label="Enviar"><Send size={16}/></button></form></aside>}
+    {panel==='context' && isHost && <aside className="rtmeet-chat rtmeet-context-panel"><header><strong>Contexto da reunião</strong><button aria-label="Fechar contexto" onClick={()=>setPanel(null)}>×</button></header><MeetContextPanel room={room} context={commercialContext} onSaveNote={onSaveNote}/></aside>}
     </div>
     <footer className="rtmeet-controls">
       <button onClick={toggleAudio} aria-label={micOn?'Desativar microfone':'Ativar microfone'}>{micOn?<Mic/>:<MicOff/>}<span>Microfone</span></button>
       <button onClick={toggleVideo} aria-label={cameraOn?'Desativar câmera':'Ativar câmera'}>{cameraOn?<Camera/>:<CameraOff/>}<span>Câmera</span></button>
       {room.settings.screenShare && <button onClick={()=>void shareScreen()} className={screenOn?'is-active':''}><MonitorUp/><span>{screenOn?'Parar tela':'Compartilhar'}</span></button>}
-      {room.settings.chat && <button onClick={()=>setChatOpen(v=>!v)}><MessageSquare/><span>Chat</span></button>}
+      {room.settings.chat && <button className={panel==='chat'?'is-active':''} onClick={()=>setPanel(v=>v==='chat'?null:'chat')}><MessageSquare/><span>Chat</span></button>}
+      {isHost && <button className={panel==='context'?'is-active':''} onClick={()=>setPanel(v=>v==='context'?null:'context')}><ClipboardList/><span>Contexto</span></button>}
       <button className="rtmeet-leave" onClick={leave}><LogOut/><span>Sair</span></button>
       {isHost && <button className="rtmeet-end" onClick={()=>void end()}><LogOut/><span>Encerrar</span></button>}
     </footer>

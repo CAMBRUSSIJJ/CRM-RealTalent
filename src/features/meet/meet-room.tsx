@@ -37,7 +37,6 @@ export function MeetRoomSession({ room, displayName, isHost, onLeave, onEnd }: {
   const [notice, setNotice] = useState('')
   const [connecting, setConnecting] = useState(true)
   const screenRef = useRef<MediaStream | null>(null)
-  const leaving = useRef(false)
 
   const broadcast = useCallback(async (signal: Omit<Signal,'from'>) => {
     if(!channel.current) return
@@ -137,7 +136,6 @@ export function MeetRoomSession({ room, displayName, isHost, onLeave, onEnd }: {
     void start()
     return ()=>{
       active=false
-      leaving.current=true
       if(channel.current) {void channel.current.send({type:'broadcast',event:'signal',payload:{type:'leave',from:selfId,name:displayName}});void client?.removeChannel(channel.current);channel.current=null}
       pcs.current.forEach(pc=>pc.close());pcs.current.clear()
       localRef.current?.getTracks().forEach(t=>t.stop())

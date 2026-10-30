@@ -140,3 +140,18 @@
 .rtmeet-call-header{min-height:57px}
 .rtmeet-call-header .rtmeet-badge{white-space:nowrap}
 @media(max-width:800px){.rtmeet-prejoin-layout{grid-template-columns:1fr;gap:20px}.rtmeet-prejoin-content{max-width:none;padding-bottom:25px}.rtmeet-prejoin{min-height:0}.rtmeet-call .rtmeet-context-panel{width:auto;max-width:none}.rtmeet-navigation{align-items:stretch;gap:8px}.rtmeet-search{flex:1}.rtmeet-search input{width:100%}}
+
+
+/* Meet M3 — follow-up capture */
+.rtmeet-wrap{min-height:calc(100dvh - 172px);padding:28px 16px;display:flex;align-items:center;justify-content:center}
+.rtmeet-wrap-card{width:min(570px,100%);padding:32px 38px;border-radius:17px;border:1px solid #e0e7f1;background:var(--surface,#fff);box-shadow:0 14px 40px #1c355018;display:flex;flex-direction:column;gap:13px}
+.rtmeet-wrap-icon{width:60px;height:60px;border-radius:18px;background:#e8f5ee;color:#217648;display:grid;place-items:center}
+.rtmeet-wrap-card h1{font-size:25px;letter-spacing:-.025em;margin:0}
+.rtmeet-wrap-card p{margin:0 0 7px;color:#68768b;font-size:13px}
+.rtmeet-wrap-card label{display:flex;flex-direction:column;gap:7px;font-size:13px;font-weight:640;color:#3e4f69}
+.rtmeet-wrap-card label svg{display:inline-block;color:#416ac1}
+.rtmeet-wrap-card textarea,.rtmeet-wrap-card input{border:1px solid #d8e1ed;border-radius:9px;color:#24334c;padding:11px;font-size:14px;font-family:inherit;background:white}
+.rtmeet-wrap-card textarea{resize:vertical}
+.rtmeet-wrap-actions{display:flex;justify-content:flex-end;gap:10px;margin-top:8px}
+.rtmeet-wrap-card small{font-size:11px;color:#8190a5;line-height:1.5}
+@media(max-width:600px){.rtmeet-wrap-card{padding:24px 20px}}

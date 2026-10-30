@@ -5,6 +5,7 @@ import { useAuth } from '../auth/auth-context'
 import { Button } from '../../components/ui/button'
 import { changeMeetRoom, createMeetRoom, deleteMeetRoom, listMeetRooms, meetUrl, type MeetRoom, type PublicMeetRoom } from '../../services/realtalent-meet'
 import { MeetRoomSession } from './meet-room'
+import { MeetWrapUp } from './meet-wrap-up'
 import '../../styles/realtalent-meet.css'
 
 const initialStart = () => {
@@ -30,6 +31,7 @@ export function MeetPage(){
   const [error,setError]=useState('')
   const [notice,setNotice]=useState('')
   const [active,setActive]=useState<MeetRoom|null>(null)
+  const [wrapRoom,setWrapRoom]=useState<MeetRoom|null>(null)
   const [creating,setCreating]=useState(false)
   const [tab,setTab]=useState<'upcoming'|'history'>('upcoming')
   const [search,setSearch]=useState('')
@@ -102,6 +104,20 @@ export function MeetPage(){
     const history=matching.filter(r=>r.status==='completed'||r.status==='cancelled')
     return {upcoming,history}
   },[rooms,search])
+  if(wrapRoom && user){
+    return <MeetWrapUp room={wrapRoom} onSkip={()=>{setWrapRoom(null);void refresh()}}
+      onFinish={async(outcome,next,dueAt)=>{
+        if(outcome)await createActivity({leadId:wrapRoom.leadId,contactId:wrapRoom.contactId,
+          type:'note',title:'Resultado · '+wrapRoom.title,description:outcome,
+          dueAt:null,completedAt:null,assignedTo:user.id})
+        if(next)await createActivity({leadId:wrapRoom.leadId,contactId:wrapRoom.contactId,
+          type:'followup',title:next,description:'Próxima ação após '+wrapRoom.title,
+          dueAt,completedAt:null,assignedTo:user.id})
+        setWrapRoom(null)
+        setNotice('Resultado e próximas ações registrados no CRM.')
+        await refresh()
+      }}/>
+  }
   if(active && user){
     const lead=leadOptions.find(x=>x.id===active.leadId)
     const opportunity=snapshot?.opportunities?.find(x=>x.id===active.opportunityId)
@@ -110,7 +126,7 @@ export function MeetPage(){
       onSaveNote={async(text)=>{await createActivity({leadId:active.leadId,contactId:active.contactId,
         type:'note',title:'Anotações · '+active.title,description:text,dueAt:null,completedAt:null,assignedTo:user.id})}}
       onLeave={()=>{setActive(null);void refresh()}}
-      onEnd={async()=>{try{await statusUpdate(active,'completed')}catch(e){setError(e instanceof Error?e.message:'Falha ao concluir a reunião.');throw e}}}/>
+      onEnd={async()=>{try{await statusUpdate(active,'completed');setWrapRoom(active)}catch(e){setError(e instanceof Error?e.message:'Falha ao concluir a reunião.');throw e}}}/>
   }
   const row=(room:MeetRoom)=><article key={room.id} className="rtmeet-card">
     <div className="rtmeet-card-main">

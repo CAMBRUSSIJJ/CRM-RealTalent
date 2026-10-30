@@ -31,6 +31,7 @@ function ConnectedRoom({ room, displayName, isHost, onLeave, onEnd, preparation,
   const pcs = useRef(new Map<string,RTCPeerConnection>())
   const peerNames = useRef(new Map<string,string>())
   const pending = useRef(new Map<string,RTCIceCandidateInit[]>())
+  const iceConfigRef = useRef<RTCConfiguration>(iceServers)
   const channel = useRef<any>(null)
   const [micOn, setMicOn] = useState(preparation.micOn)
   const [cameraOn, setCameraOn] = useState(preparation.cameraOn)
@@ -61,7 +62,7 @@ function ConnectedRoom({ room, displayName, isHost, onLeave, onEnd, preparation,
   const createPeer = useCallback((id: string, name: string) => {
     let pc = pcs.current.get(id)
     if(pc) return pc
-    pc = new RTCPeerConnection(iceServers)
+    pc = new RTCPeerConnection(iceConfigRef.current)
     pcs.current.set(id,pc)
     peerNames.current.set(id,name)
     for(const track of localRef.current?.getTracks()||[]) pc.addTrack(track,localRef.current!)
@@ -146,6 +147,17 @@ function ConnectedRoom({ room, displayName, isHost, onLeave, onEnd, preparation,
       setStream(preparation.stream)
       if(!active)return
       if(client){
+        // Optional coturn relay: ephemeral credentials come from Supabase, never bundled in the app.
+        try{
+          const {data,error}=await client.functions.invoke('meet-turn-credentials',{body:{token:room.publicToken}})
+          if(!error&&Array.isArray(data?.iceServers)){
+            const valid=data.iceServers.filter((s:unknown)=>s&&typeof s==='object'&&
+              typeof (s as RTCIceServer).username==='string'&&typeof (s as RTCIceServer).credential==='string'&&
+              Array.isArray((s as RTCIceServer).urls)&&((s as RTCIceServer).urls as string[]).every(u=>/^turns?:/i.test(u)))
+            if(valid.length)iceConfigRef.current={iceServers:[...(iceServers.iceServers||[]),...valid]}
+          }
+        }catch{/* STUN-only fallback until coturn is configured */}
+        if(!active)return
         const ch=client.channel('realtalent-meet:'+room.publicToken)
         channel.current=ch
         ch.on('broadcast',{event:'signal'},({payload}:any)=>{void handle(payload as Signal).catch(()=>setNotice('Falha na negociação de mídia. Tente sair e entrar novamente.'))})

@@ -191,6 +191,25 @@ export function CalendarIntegrationPanel() {
     </details>
   </section>
 
+  if(repositoryMode==='supabase'&&!dashboard.accounts.length&&!loading) return <section className="calendar-integration-v84 calendar-onboarding-s37 page-stack" aria-label="Conectar agenda hospedada">
+    <article className="panel calendar-onboarding-s37__hero">
+      <span className="eyebrow">Agenda conectada · recomendação para equipes</span>
+      <h3>Conecte sua agenda em três passos</h3>
+      <p>O CRM usa o backend hospedado para sincronizar eventos mesmo quando seu computador estiver desligado. A Agenda interna permanece a fonte operacional do RealTalent.</p>
+    </article>
+    <div className="calendar-onboarding-s37__steps">
+      <article className="panel"><b>1</b><strong>Autorizar conta</strong><p>Entre com Google ou Microsoft e conceda acesso à agenda escolhida.</p></article>
+      <article className="panel"><b>2</b><strong>Escolher calendário</strong><p>Defina calendário, direção da sincronização e conta padrão.</p></article>
+      <article className="panel"><b>3</b><strong>Testar e ativar</strong><p>Valide a conexão e acompanhe eventos, fila e conflitos antes de sincronizar.</p></article>
+    </div>
+    <article className="panel calendar-onboarding-s37__providers">
+      <h4>Escolha seu provedor</h4><p>O início da autorização depende das funções OAuth e dos workers instalados no Supabase.</p>
+      <div><Button disabled={!canManage} loading={busy==='connect-google'} onClick={()=>void connect('google')}><CalendarCheck2 size={16}/> Conectar Google Agenda</Button>
+      <Button disabled={!canManage} variant="secondary" loading={busy==='connect-microsoft'} onClick={()=>void connect('microsoft')}><CalendarClock size={16}/> Conectar Microsoft Calendar</Button></div>
+      {!canManage?<small>A conexão exige permissão para gerenciar integrações.</small>:null}
+    </article>
+  </section>
+
   return <section className="calendar-integration-v84 page-stack">
     <article className="panel calendar-integration-v84__hero">
       <div><span className="eyebrow"><CalendarCheck2 size={15} /> V100.84 · Calendar Integration 2.0</span><h3>Google Agenda e Microsoft Calendar dentro do fluxo do CRM</h3><p>Sincronização incremental e bidirecional para reuniões, ligações, follow-ups, retornos e tarefas criados na Agenda do RealTalent. Criação, alteração, cancelamento e conflitos usam vínculos externos idempotentes.</p></div>

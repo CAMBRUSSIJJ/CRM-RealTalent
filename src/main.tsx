@@ -70,6 +70,7 @@ import './styles/work-management.css'
 import './styles/h20-product-cohesion.css'
 import './styles/prospecting-territory-interaction-hotfix.css'
 import './styles/ui-stability.css'
+import './styles/communications-s37.css'
 
 installMetadataInspector()
 installUniversalViewInspector()

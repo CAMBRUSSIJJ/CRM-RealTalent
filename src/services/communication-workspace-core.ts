@@ -1,9 +1,12 @@
 import type { CommunicationChannel, CommunicationDirection, CommunicationEvent, CommunicationStatus, Lead, WorkspaceSnapshot } from '../domain/types'
 import { createUuid } from '../lib/id'
 import { getSupabaseClient } from '../lib/supabase'
+import {effectiveDataMode} from '../lib/env'
 import { loadGatewayCommunicationEvents, markGatewayConversationRead, sendGatewayCommunication, syncGatewayCommunications, type GatewaySyncFailure } from './local-communications-gateway'
 import { safeStorage } from '../lib/storage'
 import { loadIntegrationFramework, type ConnectedAccount } from './integration-framework'
+
+const communicationCloudClient=()=>effectiveDataMode==='local'?null:getSupabaseClient()
 
 export type UnifiedCommunicationSource = 'activity' | 'call' | 'calendar' | 'official' | 'assisted'
 export interface UnifiedCommunicationItem {
@@ -205,7 +208,7 @@ const mapGatewayCommunicationEvent = (row: CommunicationEvent): UnifiedCommunica
 }
 
 export async function loadOfficialCommunicationTimeline(workspaceId: string, limit = 3000): Promise<UnifiedCommunicationItem[]> {
-  const client = getSupabaseClient() as any
+  const client = communicationCloudClient() as any
   if (!client) return (await loadGatewayCommunicationEvents(workspaceId, limit)).map(mapGatewayCommunicationEvent).filter((item) => !isTechnicalWhatsAppItem(item))
   const { data, error } = await client.from('communication_events').select('id,lead_id,contact_id,account_id,thread_id,channel,direction,status,external_message_id,subject,body_text,sender_address,recipient_addresses,occurred_at,created_at,metadata').eq('organization_id', workspaceId).order('occurred_at', { ascending: false }).limit(limit)
   if (error) throw new Error(`Não foi possível carregar o histórico oficial: ${error.message}`)
@@ -310,7 +313,7 @@ export async function loadCommunicationChannelState(workspaceId: string) {
 }
 
 export async function sendOfficialEmail(input: { workspaceId: string; leadId: string; contactId?: string | null; accountId?: string | null; recipient: string; subject: string; body: string; idempotencyKey?: string }): Promise<CommunicationEvent> {
-  const client = getSupabaseClient()
+  const client = communicationCloudClient()
   if (!client) {
     if (!input.accountId) throw new Error('Selecione uma conta de e-mail conectada.')
     return sendGatewayCommunication({ workspaceId: input.workspaceId, leadId: input.leadId, contactId: input.contactId ?? null, accountId: input.accountId, channel: 'email', recipient: input.recipient, subject: input.subject, body: input.body, idempotencyKey: input.idempotencyKey ?? `crm-email:${input.leadId}:${Date.now()}` })
@@ -324,7 +327,7 @@ export async function sendOfficialEmail(input: { workspaceId: string; leadId: st
 
 
 export async function syncOfficialCommunications(workspaceId: string): Promise<{ queued: string[]; triggered: string[]; accounts: number; imported: number; failures: GatewaySyncFailure[] }> {
-  const client = getSupabaseClient()
+  const client = communicationCloudClient()
   if (!client) { const result = await syncGatewayCommunications(workspaceId); return { queued: result.queued, triggered: result.triggered, accounts: result.accounts, imported: result.imported, failures: result.failures ?? [] } }
   const { data, error } = await client.functions.invoke('communication-sync-now', { body: { organizationId: workspaceId } })
   if (error) throw new Error(error.message)
@@ -334,7 +337,7 @@ export async function syncOfficialCommunications(workspaceId: string): Promise<{
 }
 
 export async function markCommunicationConversationRead(workspaceId: string, conversation: Pick<CommunicationConversation, 'externalThreadId' | 'externalAddress'>): Promise<number> {
-  if (getSupabaseClient()) return 0
+  if (communicationCloudClient()) return 0
   const result = await markGatewayConversationRead(workspaceId, conversation.externalThreadId, conversation.externalAddress)
   return result.updated
 }

@@ -35,7 +35,8 @@ export function MeetPage(){
   const [agenda,setAgenda]=useState('')
   const [start,setStart]=useState(initialStart)
   const [duration,setDuration]=useState(45)
-  const selectedLead=snapshot.leads.find(item=>item.id===leadId)
+  const leadOptions=snapshot?.leads ?? []
+  const selectedLead=leadOptions.find(item=>item.id===leadId)
   const workspaceId=currentWorkspace?.id||''
   const mode=repositoryMode
   const refresh=useCallback(async()=>{
@@ -118,7 +119,7 @@ export function MeetPage(){
     {notice && <div className="rtmeet-success" role="status">{notice}<button onClick={()=>setNotice('')} aria-label="Fechar aviso">×</button></div>}
     {creating&&<section className="rtmeet-create panel" aria-label="Criar reunião">
       <div className="rtmeet-create-title"><h2>Nova reunião</h2><button onClick={()=>setCreating(false)} aria-label="Fechar"><XCircle size={20}/></button></div>
-      <div className="rtmeet-fields"><label>Título<input autoFocus value={title} onChange={e=>setTitle(e.target.value)} maxLength={180} placeholder="Ex.: Apresentação de proposta"/></label><label>Data e horário<input type="datetime-local" value={start} onChange={e=>setStart(e.target.value)}/></label><label>Duração<select value={duration} onChange={e=>setDuration(Number(e.target.value))}><option value={15}>15 min</option><option value={30}>30 min</option><option value={45}>45 min</option><option value={60}>60 min</option><option value={90}>90 min</option></select></label><label className="rtmeet-fields-wide">Vincular ao contato do CRM (opcional)<select value={leadId} onChange={e=>setLeadId(e.target.value)}><option value="">Sem vínculo</option>{snapshot.leads.map(item=><option key={item.id} value={item.id}>{item.name}{item.company?' · '+item.company:''}</option>)}</select></label><label className="rtmeet-fields-wide">Pauta (opcional)<textarea rows={2} value={agenda} onChange={e=>setAgenda(e.target.value)} placeholder="Objetivo e assuntos principais"/></label></div>
+      <div className="rtmeet-fields"><label>Título<input autoFocus value={title} onChange={e=>setTitle(e.target.value)} maxLength={180} placeholder="Ex.: Apresentação de proposta"/></label><label>Data e horário<input type="datetime-local" value={start} onChange={e=>setStart(e.target.value)}/></label><label>Duração<select value={duration} onChange={e=>setDuration(Number(e.target.value))}><option value={15}>15 min</option><option value={30}>30 min</option><option value={45}>45 min</option><option value={60}>60 min</option><option value={90}>90 min</option></select></label><label className="rtmeet-fields-wide">Vincular ao contato do CRM (opcional)<select value={leadId} onChange={e=>setLeadId(e.target.value)}><option value="">Sem vínculo</option>{leadOptions.map(item=><option key={item.id} value={item.id}>{item.name}{item.company?' · '+item.company:''}</option>)}</select></label><label className="rtmeet-fields-wide">Pauta (opcional)<textarea rows={2} value={agenda} onChange={e=>setAgenda(e.target.value)} placeholder="Objetivo e assuntos principais"/></label></div>
       <div className="rtmeet-create-actions"><Button variant="secondary" onClick={()=>setCreating(false)}>Cancelar</Button><Button onClick={()=>void add()} disabled={!title.trim()||busy}>{busy?'Criando...':'Criar reunião'}</Button></div>
     </section>}
     <section className="rtmeet-section"><div className="rtmeet-section-header"><div><Video size={19}/><h2>Próximas e em andamento</h2></div><span>{groups.upcoming.length}</span></div>

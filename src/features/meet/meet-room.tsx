@@ -100,8 +100,8 @@ function ConnectedRoom({ room, displayName, isHost, onLeave, onEnd, preparation,
       if(signal.type==='chat') {setChat(x=>[...x,{id:crypto.randomUUID(),name:signal.name||'Convidado',text:signal.text||''}]);return}
       if(signal.type==='end'){
         // A client broadcast alone never proves host authority.
-        const latest=await getPublicMeetRoom(room.publicToken).catch(()=>null)
-        if(!latest){setNotice('A reunião foi encerrada.');onLeave()}
+        const latest=await getPublicMeetRoom(room.publicToken).catch(()=>undefined)
+        if(latest===null){setNotice('A reunião foi encerrada.');onLeave()}
         return
       }
       if(signal.type==='leave'){disconnectPeer(signal.from);return}
@@ -181,17 +181,25 @@ function ConnectedRoom({ room, displayName, isHost, onLeave, onEnd, preparation,
     return()=>window.clearInterval(timer)
   },[isHost,onLeave,room.publicToken])
   const toggleAudio=()=>{
+    if(!localRef.current?.getAudioTracks().length){setNotice('Microfone indisponível. Saia e selecione um dispositivo na preparação.');return}
     const next=!micOn
     localRef.current?.getAudioTracks().forEach(t=>{t.enabled=next})
     setMicOn(next)
   }
   const toggleVideo=()=>{
+    if(!localRef.current?.getVideoTracks().length){setNotice('Câmera indisponível. Saia e selecione um dispositivo na preparação.');return}
     const next=!cameraOn
     localRef.current?.getVideoTracks().forEach(t=>{t.enabled=next})
     setCameraOn(next)
   }
   const shareScreen=async()=>{
-    if(screenOn){screenRef.current?.getTracks().forEach(t=>t.stop());return}
+    if(screenOn){
+      screenRef.current?.getTracks().forEach(t=>t.stop())
+      const camera=localRef.current?.getVideoTracks()[0]||null
+      for(const pc of pcs.current.values())for(const sender of pc.getSenders())if(sender.track?.kind==='video')await sender.replaceTrack(camera)
+      setScreenOn(false)
+      return
+    }
     try{
       const capture=await navigator.mediaDevices.getDisplayMedia({video:true})
       screenRef.current=capture

@@ -1,0 +1,24 @@
+name: RealTalent Contact Workspace Responsive QA
+on:
+  push:
+    branches:
+      - fix/contact-workspace-responsive-20261031
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci --include=dev
+      - run: node --test scripts/contact-workspace-responsive-audit.test.mjs
+      - run: npm run typecheck
+      - run: npm run build

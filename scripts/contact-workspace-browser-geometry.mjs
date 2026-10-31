@@ -16,7 +16,7 @@ function measure(){
  const drawer=one('.lead-drawer--sales-workspace'), body=one('.sales-workspace-v1013__body')
  const a=rect(one('.sales-workspace-v1015__strategy-summary-actions'))
  const b=rect(one('.sales-workspace-v1015__strategy-summary>div:first-child'))
- const data={viewport:{width:innerWidth,height:innerHeight},drawer:rect(drawer),
+ const data={viewport:{width:innerWidth,height:innerHeight},overlay:rect(one('.lead-drawer-layer')),shell:rect(one('.app-shell')),drawer:rect(drawer),
   main:rect(one('.sales-workspace-v1013__main')),context:rect(one('.sales-workspace-v1013__context-panel')),
   button:rect(one('.sales-workspace-v1015__strategy-summary-actions .button')),
   overlap:a.y<b.bottom-2&&a.x<b.right-2&&a.right>b.x+2,

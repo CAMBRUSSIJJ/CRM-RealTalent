@@ -23,5 +23,6 @@ jobs:
       - run: bash -n scripts/realtalent-ai-linux/start-linux.sh
       - run: bash -n scripts/realtalent-ai-linux/configurar-tunnel.sh
       - run: node --test scripts/realtalent-ai-linux/secure-bridge.test.mjs
+      - run: node --test scripts/realtalent-ai-linux/browser-connector.test.mjs
       - run: npm run typecheck
       - run: npm run build

@@ -7,7 +7,7 @@ import {listRealTalentAiAudit,clearRealTalentAiAudit} from '../../services/realt
 import {buildRealTalentAiContext} from '../../services/realtalent-ai-context'
 import {REALTALENT_AI_TOOLS} from '../../services/realtalent-ai-tools'
 import {getAgentRuntimeHealth,type AgentRuntimeHealth} from '../../services/realtalent-agent-v56-health'
-import {pairLocalAi,localAiPairingPresent,forgetLocalAiPairing} from '../../services/realtalent-ai-local-browser'
+import {pairLocalAi,localAiPairingPresent,forgetLocalAiPairing,getLocalAiBrowserState,type LocalAiBrowserState} from '../../services/realtalent-ai-local-browser'
 
 export function RealTalentAiPanel(){
   const {snapshot,currentWorkspace}=useAppWorkspace()
@@ -20,6 +20,7 @@ export function RealTalentAiPanel(){
   const [pairBusy,setPairBusy]=useState(false)
   const [pairMessage,setPairMessage]=useState('')
   const [pairedLocal,setPairedLocal]=useState(()=>localAiPairingPresent())
+  const [localConnectivity,setLocalConnectivity]=useState<LocalAiBrowserState>('not_paired')
   const connectLocal=async()=>{
     setPairBusy(true)
     try{
@@ -28,6 +29,7 @@ export function RealTalentAiPanel(){
       setPairedLocal(localAiPairingPresent())
       if(result.ok){
         setPairCode('')
+        setLocalConnectivity(await getLocalAiBrowserState())
         await checkRuntime()
       }
     }finally{setPairBusy(false)}
@@ -35,6 +37,7 @@ export function RealTalentAiPanel(){
   const disconnectLocal=()=>{
     forgetLocalAiPairing()
     setPairedLocal(false)
+    setLocalConnectivity('not_paired')
     setPairMessage('Pareamento local removido deste navegador.')
     void checkRuntime()
   }
@@ -57,14 +60,16 @@ export function RealTalentAiPanel(){
     try{
       const result=await getAgentRuntimeHealth()
       setRuntime(result)
+      setLocalConnectivity(await getLocalAiBrowserState())
+      setPairedLocal(localAiPairingPresent())
       setLastChecked(new Date().toISOString())
     }finally{setHealthBusy(false)}
   }
   useEffect(()=>{
     let disposed=false
     const refresh=async()=>{
-      const result=await getAgentRuntimeHealth()
-      if(!disposed){setRuntime(result);setLastChecked(new Date().toISOString())}
+      const [result,local]=await Promise.all([getAgentRuntimeHealth(),getLocalAiBrowserState()])
+      if(!disposed){setRuntime(result);setLocalConnectivity(local);setPairedLocal(localAiPairingPresent());setLastChecked(new Date().toISOString())}
     }
     void refresh()
     const timer=window.setInterval(()=>void refresh(),45000)
@@ -99,7 +104,7 @@ export function RealTalentAiPanel(){
         <p>Conecte o Qwen3 8B do Linux diretamente ao CRM deste navegador, sem Cloudflare. A autorização permanece neste navegador e a reconexão é automática.</p>
       </div></header>
       <div className="rt-ai-s3__context-list">
-        <div><ShieldCheck size={18}/><span><strong>{pairedLocal?'Navegador pareado':'Pareamento necessário uma única vez'}</strong>
+        <div><ShieldCheck size={18}/><span><strong>{localConnectivity==='online'?'IA local conectada':pairedLocal?'Navegador pareado · IA local offline':'Pareamento necessário uma única vez'}</strong>
           <small>{pairedLocal?'Verifique o estado do Agent acima. O CRM priorizará a IA deste Linux.':
             'No terminal do Linux, execute: node ~/.local/share/realtalent-ai/pair-local.mjs. O código vale por cinco minutos.'}</small>
         </span></div>

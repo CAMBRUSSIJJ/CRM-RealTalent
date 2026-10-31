@@ -29,6 +29,14 @@ mkdir -p "$ROOT" "$CONF" "$UNITS"
 if [[ ! -e "$ROOT/repo/.git" ]];then
   echo 'Baixando código RealTalent em pasta permanente, sem alterar sua instalação atual...'
   git clone --depth 1 --single-branch --branch "$REPO_BRANCH" "$REPO_URL" "$ROOT/repo"
+else
+  if [[ -n "$(git -C "$ROOT/repo" status --porcelain)" ]];then
+    echo 'ERRO: alterações locais detectadas na instalação anterior. Não sobrescreverei arquivos.'
+    echo "Verifique: git -C $ROOT/repo status --short"
+    exit 2
+  fi
+  echo 'Atualizando código do conector local RealTalent sem sobrescrever alterações...'
+  git -C "$ROOT/repo" pull --ff-only origin "$REPO_BRANCH"
 fi
 if [[ ! -f "$ROOT/repo/runtime-host/RealTalent-Agent-Runtime-V3.1.2/gateway-ollama.mjs" ]];then
   echo 'ERRO: Agent Runtime não encontrado no repositório.' >&2;exit 2
@@ -40,6 +48,8 @@ fi
 BRIDGE_SRC="$ROOT/repo/scripts/realtalent-ai-linux/secure-bridge.mjs"
 [[ -s "$BRIDGE_SRC" ]] || { echo 'ERRO: bridge não encontrado.' >&2;exit 2; }
 install -m 600 "$BRIDGE_SRC" "$ROOT/secure-bridge.mjs"
+install -m 600 "$ROOT/repo/scripts/realtalent-ai-linux/browser-connector.mjs" "$ROOT/browser-connector.mjs"
+install -m 600 "$ROOT/repo/scripts/realtalent-ai-linux/pair-local.mjs" "$ROOT/pair-local.mjs"
 
 ENV="$CONF/agent.env"
 if [[ ! -s "$ENV" ]];then
@@ -190,5 +200,7 @@ echo 'Ponte sem token (HTTP 401 esperado):'
 curl -sS --max-time 5 -o /dev/null -w '%{http_code}\n' http://127.0.0.1:8798/tools/health || true
 echo
 echo 'Pronto. Agent e bridge funcionam sem manter o terminal aberto.'
+echo 'Para parear o Firefox/CRM local (válido por 5 min):'
+echo "  node $ROOT/pair-local.mjs"
 echo 'Cloudflare Access, domínio e variáveis Vercel ainda precisam ser configurados.'
 echo 'Logs: journalctl --user -u realtalent-ai-agent -u realtalent-ai-bridge -n 40 --no-pager'

@@ -1,8 +1,7 @@
-import { ArrowLeft, ArrowRight, CheckCircle2, Database, KeyRound, LockKeyhole, MailCheck, Sparkles, Zap } from 'lucide-react'
+import { ArrowLeft, ArrowRight, KeyRound, LockKeyhole, MailCheck, Sparkles } from 'lucide-react'
 import { useEffect, useState, type FormEvent } from 'react'
 import { Button } from '../../components/ui/button'
 import { useAuth } from './auth-context'
-import { APP_VERSION_LABEL } from '../../lib/app-version'
 import { readLocalProfile } from '../../lib/local-experience'
 import { RealTalentBrandMark } from '../../components/ui/realtalent-brand-mark'
 import { useFpsMonitor } from '../../lib/use-fps-monitor'
@@ -69,17 +68,14 @@ export function AuthPage() {
       <div className="auth-page__wave auth-page__wave--one" aria-hidden="true" />
       <div className="auth-page__wave auth-page__wave--two" aria-hidden="true" />
       <section className="auth-showcase">
-        <div className="auth-brand"><span><RealTalentBrandMark size="sm" animated={false} /></span><div><strong>RealTalent</strong><small>CRM {APP_VERSION_LABEL}</small></div></div>
         <div className="auth-logo-stage">
           <RealTalentBrandMark size="lg" sharedTransition />
           <div className="auth-showcase__copy"><span className="eyebrow"><Sparkles size={15} /> RealTalent CRM</span><h1>Venda com contexto. Cresça com processo.</h1><p>Centralize relacionamento, pipeline, ligações e comunicação em uma operação comercial clara e confiável.</p></div>
         </div>
-        <div className="auth-benefits"><span><CheckCircle2 /> Acesso protegido</span><span><CheckCircle2 /> Equipes e permissões</span><span><CheckCircle2 /> Operação omnichannel</span></div>
-        <div className="auth-architecture"><span><Database /> Dados organizados</span><span><LockKeyhole /> Sessão segura</span><span><Zap /> Tempo real</span></div>
       </section>
       <section className="auth-form-area">
         <form className="auth-card" onSubmit={auth.mode === 'local' ? (event) => { event.preventDefault(); void enterLocal() } : submit}>
-          <div><span className="eyebrow">{auth.mode === 'local' ? 'Seu workspace' : 'Acesso seguro'}</span><h2>{title}</h2><p>{auth.mode === 'local' ? 'Entre para continuar no workspace deste dispositivo.' : mode === 'confirmation' ? 'Abra o link recebido e depois volte para entrar.' : mode === 'forgot' ? 'Informe o e-mail usado no CRM.' : mode === 'recovery' ? 'Escolha uma senha nova e segura.' : 'Use suas credenciais protegidas pelo Supabase.'}</p></div>
+          <div><span className="eyebrow">{auth.mode === 'local' ? 'Seu workspace' : 'RealTalent CRM'}</span><h2>{title}</h2><p>{auth.mode === 'local' ? 'Entre para continuar no workspace deste dispositivo.' : mode === 'confirmation' ? 'Abra o link recebido e depois volte para entrar.' : mode === 'forgot' ? 'Informe o e-mail usado no CRM.' : mode === 'recovery' ? 'Escolha uma senha nova e segura.' : 'Entre com seu e-mail e senha.'}</p></div>
           {auth.mode === 'local' ? <>
             <div className="auth-local-profile" aria-label="Perfil local deste dispositivo">
               <span className="auth-local-profile__avatar">{(localProfile?.displayName || 'RT').split(/\s+/).slice(0,2).map((part) => part[0]).join('').toUpperCase()}</span>

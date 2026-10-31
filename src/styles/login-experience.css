@@ -428,7 +428,7 @@
 .auth-brand { position: relative; z-index: 3; display: flex; align-items: center; gap: 12px; animation: rt-auth-rise 540ms 120ms ease-out both; }
 .auth-brand strong { font-size: 16px; letter-spacing: -.025em; }
 .auth-brand small { display: block; margin-top: 2px; color: rgba(225,240,250,.44); }
-.auth-logo-stage { position: relative; z-index: 2; margin: auto 0 34px; display: grid; align-content: center; justify-items: start; gap: 22px; }
+.auth-logo-stage { position: relative; z-index: 2; margin: auto 0; display: grid; align-content: center; justify-items: start; gap: 22px; }
 .auth-logo-stage > .rt-brand-mark { --rt-mark-size: clamp(170px, 15vw, 224px); margin-left: -18px; }
 .auth-showcase__copy { max-width: 660px; animation: rt-auth-rise 650ms 220ms ease-out both; }
 .auth-showcase__copy .eyebrow { color: #8de7cf; }

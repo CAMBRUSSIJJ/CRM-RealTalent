@@ -1,4 +1,4 @@
-import {Activity, BrainCircuit, Database, Eraser, LockKeyhole, RefreshCw, ShieldCheck, Sparkles, Wrench} from 'lucide-react'
+import {Activity, MonitorCheck, BrainCircuit, Database, Eraser, LockKeyhole, RefreshCw, ShieldCheck, Sparkles, Wrench} from 'lucide-react'
 import {useEffect,useMemo,useState} from 'react'
 import {useAppWorkspace} from '../../app/app-context'
 import {Button} from '../../components/ui/button'

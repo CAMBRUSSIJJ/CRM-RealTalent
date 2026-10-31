@@ -47,7 +47,8 @@ mv -f "$TMP_FILE" "$TOKEN_FILE"
 trap - EXIT
 
 systemctl --user daemon-reload
-systemctl --user enable --now "$UNIT"
+systemctl --user enable "$UNIT"
+systemctl --user restart "$UNIT"
 sleep 3
 if systemctl --user is-active --quiet "$UNIT";then
   echo 'Tunnel ativo. Ele reiniciará automaticamente se falhar.'

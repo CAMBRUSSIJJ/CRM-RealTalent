@@ -44,6 +44,24 @@ export async function pairLocalAi(code:string):Promise<{ok:boolean;message:strin
   }
 }
 
+export type LocalAiBrowserState='not_paired'|'online'|'offline'
+export async function getLocalAiBrowserState():Promise<LocalAiBrowserState>{
+  const token=currentToken()
+  if(!/^[a-f0-9]{64}$/i.test(token))return 'not_paired'
+  try{
+    const response=await fetch(LOCAL_AI_BROWSER_URL+'/tools/health',{
+      mode:'cors',credentials:'omit',cache:'no-store',redirect:'error',
+      referrerPolicy:'no-referrer',
+      headers:{'x-realtalent-browser-token':token},
+      signal:AbortSignal.timeout(3500),
+    })
+    if(response.status===401){forgetLocalAiPairing();return 'not_paired'}
+    if(!response.ok)return 'offline'
+    const data=await response.json() as {ok?:boolean;ollamaConnected?:boolean;modelInstalled?:boolean}
+    return data.ok===true&&data.ollamaConnected===true&&data.modelInstalled===true?'online':'offline'
+  }catch{return 'offline'}
+}
+
 const agentSuffix=(input:string)=>{
   const base=env.agentGatewayUrl.replace(/\/$/,'')
   if(!input.startsWith(base+'/'))return null

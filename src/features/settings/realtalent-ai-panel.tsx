@@ -28,7 +28,7 @@ export function RealTalentAiPanel(){
       (toolsFilter==='all'||(toolsFilter==='enabled'?tool.enabled:!tool.enabled))
   }),[toolsQuery,toolsFilter])
   const ready=runtime?.connected===true&&runtime.modelInstalled===true
-  const healthText=runtime===null?'Verificando…':ready?'Disponível':runtime.connected?'Modelo indisponível':'Desconectado'
+  const healthText=runtime===null?'Verificando…':ready?'Disponível':runtime.runtimeConnected?'Modelo indisponível':'Conexão indisponível'
   const checkRuntime=async()=>{
     setHealthBusy(true)
     try{
@@ -56,11 +56,11 @@ export function RealTalentAiPanel(){
       <div className="rt-ai-s3__heading">
         <span className="rt-ai-s3__symbol"><BrainCircuit size={22}/></span>
         <div><h3>Estado do Agent</h3><p>Disponibilidade verificada do modelo local; executar uma ferramenta exige validação separada.</p></div>
-        <StatusPill tone={ready?'success':runtime?.connected?'warning':'neutral'}>{healthText}</StatusPill>
+        <StatusPill tone={ready?'success':runtime?.runtimeConnected?'warning':'neutral'}>{healthText}</StatusPill>
       </div>
       <div className="rt-ai-s3__status-grid">
         <div className="rt-ai-s3__metric"><span>Modelo local</span><strong title={runtime?.model||''}>{ready?runtime?.model??'Modelo confirmado':runtime===null?'Verificando…':'Não confirmado'}</strong><small>{runtime?.modelInstalled?'Instalação confirmada':'Não foi possível confirmar a instalação'}</small></div>
-        <div className="rt-ai-s3__metric"><span>Gateway / Ollama</span><strong>{runtime===null?'Verificando…':runtime.connected?'Respondendo':'Sem resposta'}</strong><small>{runtime?.connected?'Healthcheck operacional':'Confira o inicializador do Agent Runtime'}</small></div>
+        <div className="rt-ai-s3__metric"><span>Gateway / Ollama</span><strong>{runtime===null?'Verificando…':runtime.runtimeConnected?(runtime.connected?'Respondendo':'Agent conectado · Ollama offline'):'Sem resposta'}</strong><small>{runtime?.issue|| (runtime?.runtimeConnected?'Agent acessível; verificação da IA concluída.':'Confira a conexão do Agent Runtime.')}</small></div>
         <div className="rt-ai-s3__metric"><span>Ferramentas habilitadas</span><strong>{enabledTools.length}</strong><small>{writeTools.length} com capacidade de escrita; regras de autorização preservadas</small></div>
         <div className="rt-ai-s3__metric"><span>Auditoria local</span><strong>{audit.length}</strong><small>Execuções registradas neste dispositivo</small></div>
       </div>

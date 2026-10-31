@@ -1,6 +1,6 @@
 import {
   BarChart3, CalendarDays, ContactRound, Goal, LayoutDashboard, ListChecks, MapPinned, MessagesSquare, Phone, ReceiptText,
-  Settings, Sparkles, Workflow, BookOpenText, Pickaxe, UsersRound, ClipboardCheck,
+  Settings, Sparkles, Workflow, BookOpenText, Pickaxe, UsersRound, ClipboardCheck, Video,
 } from 'lucide-react'
 import type { AppRoute, TeamAccessResource } from '../../domain/types'
 
@@ -25,6 +25,7 @@ export const navigationItems: Array<{
   { route: 'communications', label: 'Comunicação', icon: MessagesSquare, phase: 'ready', group: 'Operação', priority: 'primary' },
   { route: 'proposals', label: 'Propostas', icon: ReceiptText, phase: 'ready', group: 'Operação', priority: 'primary' },
   { route: 'agenda', label: 'Agenda', icon: CalendarDays, phase: 'ready', group: 'Operação', priority: 'primary' },
+  { route: 'meet', label: 'Reuniões', icon: Video, phase: 'ready', group: 'Operação', priority: 'primary' },
   { route: 'playbooks', label: 'Playbooks', icon: BookOpenText, phase: 'foundation', group: 'Estratégia', priority: 'secondary' },
   { route: 'goals', label: 'Metas', icon: Goal, phase: 'ready', group: 'Estratégia', priority: 'secondary' },
   { route: 'automations', label: 'Automações', icon: Sparkles, phase: 'ready', group: 'Estratégia', priority: 'secondary' },
@@ -45,6 +46,7 @@ export const routeTitles: Record<AppRoute, { title: string; subtitle: string }> 
   communications: { title: 'Central de Comunicação', subtitle: 'WhatsApp e e-mail em workspaces dedicados' },
   proposals: { title: 'Propostas e Forecast', subtitle: 'Produtos, propostas, receita e previsão comercial' },
   agenda: { title: 'Agenda', subtitle: 'Reuniões, tarefas e compromissos comerciais' },
+  meet: { title: 'RealTalent Meet', subtitle: 'Videoconferências e histórico comercial' },
   playbooks: { title: 'Playbooks', subtitle: 'Scripts, objeções e padrões de atendimento' },
   goals: { title: 'Metas', subtitle: 'Resultados por usuário e por equipe' },
   automations: { title: 'Automações', subtitle: 'Regras comerciais seguras e auditáveis' },
@@ -64,6 +66,7 @@ export const routeAccessResource = (route: AppRoute): TeamAccessResource | null 
   communications: 'communications',
   proposals: 'proposals',
   agenda: 'tasks',
+  meet: 'communications',
   goals: 'goals',
   automations: 'settings',
   prospecting: 'prospecting',

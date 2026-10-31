@@ -215,12 +215,15 @@ export const normalizePreferences = (value: Partial<CrmPreferences> | null | und
   if ((value.version ?? 1) < 2) {
     for (const route of ['tasks', 'teams'] as AppRoute[]) if (!visible.includes(route)) visible.push(route)
   }
+  const hadMeet = Array.isArray(value.navigation?.order) && value.navigation.order.includes('meet')
+  if (!hadMeet && !visible.includes('meet')) visible.push('meet')
   if (!visible.includes('dashboard')) visible.unshift('dashboard')
   if (!visible.includes('settings')) visible.push('settings')
   const requestedPrimary = Array.isArray(value.navigation?.primaryRoutes)
     ? value.navigation.primaryRoutes.filter((route): route is AppRoute => visible.includes(route as AppRoute))
     : defaults.navigation.primaryRoutes.filter((route) => visible.includes(route))
   const primaryRoutes = [...new Set(requestedPrimary)]
+  if (!hadMeet && visible.includes('meet') && !primaryRoutes.includes('meet')) primaryRoutes.push('meet')
   if (!primaryRoutes.includes('settings')) primaryRoutes.push('settings')
   const company: Partial<CrmPreferences['company']> = value.company ?? {}
   const appearance: Partial<CrmPreferences['appearance']> = value.appearance ?? {}

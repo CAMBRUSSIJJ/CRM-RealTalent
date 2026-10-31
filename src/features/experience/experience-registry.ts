@@ -90,6 +90,9 @@ export const pageSectionRegistry: Record<AppRoute, ExperienceSectionDefinition[]
     { id: 'summary', label: 'Resumo da Agenda', description: 'Compromissos, conflitos e lembretes.', selector: '.agenda-summary-strip-h20' },
     { id: 'calendar', label: 'Calendário', description: 'Grade principal de compromissos.', selector: '.agenda-workspace-layout', required: true },
   ],
+  meet: [
+    { id: 'overview', label: 'RealTalent Meet', description: 'Criação de salas, convites e histórico de reuniões.', selector: '.rtmeet-page', required: true, sizeOptions: ['full'], defaultSize: 'full' },
+  ],
   playbooks: [
     { id: 'command', label: 'Busca e categorias', description: 'Pesquisa, filtros e novo conteúdo.', selector: '.playbooks-command-bar', required: true },
     { id: 'library', label: 'Biblioteca', description: 'Scripts, objeções e modelos.', selector: '.playbook-grid, .playbook-execution-shell, .coaching-dashboard-grid', required: true },

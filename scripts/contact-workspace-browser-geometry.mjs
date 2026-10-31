@@ -6,7 +6,7 @@ import {pathToFileURL} from 'node:url'
 
 const main=readFileSync('src/main.tsx','utf8')
 const imports=[...main.matchAll(/import ['"]\.\/styles\/([^'"]+\.css)['"]/g)].map(match=>match[1])
-const css=imports.map(file=>readFileSync(path.join('src/styles',file),'utf8')).join('\n')
+const css=imports.map(file=>readFileSync(path.join('src/styles',file),'utf8')).join('\n') + '\n/* Fixture only: evaluate final layout, not initial 24px drawer entrance transform. */\n.lead-drawer-layer > .lead-drawer--sales-workspace{animation:none!important;transform:none!important}'
 const chrome=[process.env.CHROMIUM_BIN,'google-chrome','chromium','chromium-browser'].filter(Boolean).find(cmd=>spawnSync(cmd,['--version'],{stdio:'ignore'}).status===0)
 if(!chrome)throw Error('Chrome ou Chromium obrigatório para visual QA')
 

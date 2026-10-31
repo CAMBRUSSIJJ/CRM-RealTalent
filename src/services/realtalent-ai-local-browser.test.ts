@@ -17,7 +17,7 @@ beforeEach(()=>{
 })
 describe('RealTalent local browser connector',()=>{
   it('pairs with one-time 6-digit code without exposing master runtime secret',async()=>{
-    const fetcher=vi.fn(async()=>new Response(JSON.stringify({ok:true,token}),{status:200}))
+    const fetcher=vi.fn(async(_input:RequestInfo|URL,_init?:RequestInit)=>new Response(JSON.stringify({ok:true,token}),{status:200}))
     vi.stubGlobal('fetch',fetcher)
     expect((await pairLocalAi('654321')).ok).toBe(true)
     expect(localAiPairingPresent()).toBe(true)
@@ -30,7 +30,7 @@ describe('RealTalent local browser connector',()=>{
   })
   it('uses localhost only for allowed read-only Agent routes',async()=>{
     memory.set('realtalent:ai:browser-pairing:v1',token)
-    const fetcher=vi.fn(async()=>new Response('{"ok":true}',{status:200}))
+    const fetcher=vi.fn(async(_input:RequestInfo|URL,_init?:RequestInit)=>new Response('{"ok":true}',{status:200}))
     vi.stubGlobal('fetch',fetcher)
     await tryLocalAiBrowserRequest('/api/runtime/agent/tools/chat',{method:'POST',body:'{}'})
     expect(fetcher.mock.calls[0][0]).toBe('http://127.0.0.1:8798/browser/tools/chat')

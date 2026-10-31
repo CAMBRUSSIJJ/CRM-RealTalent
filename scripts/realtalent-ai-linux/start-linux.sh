@@ -15,6 +15,12 @@ done
   echo "ERRO: Node.js 22 necessário; encontrado: $(node --version)" >&2
   exit 2
 }
+# systemd --user does not inherit NVM/fnm PATH from the interactive shell.
+# Pin the resolved executable directory to service Environment= at install time.
+NODE_BIN="$(readlink -f "$(command -v node)")"
+[[ -x "$NODE_BIN" ]] || { echo 'ERRO: executável Node.js não encontrado.' >&2; exit 2; }
+NODE_DIR="$(dirname "$NODE_BIN")"
+echo "Node.js dos serviços: $NODE_BIN"
 systemctl --user show-environment >/dev/null 2>&1 || {
   echo 'ERRO: systemd --user inativo. Execute como seu usuário normal em uma sessão Linux.' >&2
   exit 2
@@ -113,6 +119,7 @@ Type=simple
 ExecStart=$cmd
 Restart=always
 RestartSec=10
+Environment="PATH=$NODE_DIR:/usr/local/bin:/usr/bin:/bin"
 $options
 [Install]
 WantedBy=default.target

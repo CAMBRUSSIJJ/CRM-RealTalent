@@ -37,7 +37,7 @@ const html=[
  '<section class="lead-drawer__section sales-workspace-v1013__strategy sales-workspace-v1015__strategy-card"><div class="sales-workspace-v1015__strategy-summary"><div><span class="eyebrow">Preparação da abordagem</span><strong>Sem roteiro</strong><p>Seleção manual</p></div><div class="sales-workspace-v1015__strategy-summary-actions"><button class="button">Ligar com roteiro</button><button class="sales-workspace-v1015__disclosure">Ajustar</button></div></div></section>',
  '<section class="lead-drawer__section sales-workspace-v1013__summary"><h3>Contexto do lead</h3><div class="sales-workspace-v1013__facts"><div>Empresa</div><div>Responsável</div><div>Valor</div><div>Próxima ação</div></div></section>',
  '</main><aside class="sales-workspace-v1013__context-panel"><div class="sales-workspace-v1013__tabs"><button>Contexto</button><button>Histórico</button><button>Notas</button></div><div class="sales-workspace-v1013__context-content"><section><span class="eyebrow">Agora</span><div class="sales-workspace-v1013__context-list"><div><span><small>Próxima ação</small><strong>30/10/2026</strong></span></div></div></section><section>Próximas reuniões</section><section>Conta e decisores</section></div></aside></div>',
- '<footer class="lead-drawer__footer sales-workspace-v1013__footer"><button class="button">Abrir registro completo</button></footer></aside></div></div><pre id="report"></pre>',
+ '<footer class="lead-drawer__footer sales-workspace-v1013__footer"><button class="button">Abrir registro completo</button></footer></aside></div></div><pre id="report" style="display:none"></pre>',
  '<script>window.addEventListener("load",(',measure.toString(),'));</script></body></html>'
 ].join('')
 
@@ -51,7 +51,7 @@ for(const [width,height] of [[1920,1080],[1536,864],[1366,768]]){
  const common=['--headless=new','--no-sandbox','--disable-gpu','--disable-dev-shm-usage','--hide-scrollbars','--window-size='+width+','+height,'--virtual-time-budget=2000']
  const run=spawnSync(chrome,[...common,'--dump-dom',pathToFileURL(file).href],{encoding:'utf8',maxBuffer:25*1024*1024,timeout:50000})
  if(run.status!==0){console.error('FAIL '+width+'x'+height+' browser: '+run.stderr?.slice(-450));failCount++;continue}
- const match=run.stdout.match(/<pre id="report">([^<]+)<\/pre>/)
+ const match=run.stdout.match(/<pre id="report"[^>]*>([^<]+)<\/pre>/)
  if(!match){console.error('FAIL '+width+'x'+height+': browser não retornou geometria');failCount++;continue}
  let result
  try{result=JSON.parse(match[1].replace(/&quot;/g,'"').replace(/&amp;/g,'&'))}catch(err){console.error('FAIL '+width+'x'+height+': '+err);failCount++;continue}

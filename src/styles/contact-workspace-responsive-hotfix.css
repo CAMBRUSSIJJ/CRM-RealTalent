@@ -1,0 +1,83 @@
+/* RealTalent CRM — Contact Workspace responsive layout hotfix (2026-10-31).
+   The global ui-foundation.css drawer width of 520px must not apply to the
+   commercial workspace: its inner grid needs a full-size editing surface. */
+.lead-drawer-layer > .lead-drawer.lead-drawer--sales-workspace.sales-workspace-v1015{
+  box-sizing:border-box;
+  width:min(1120px,98vw);
+  max-width:100vw;
+  min-width:0;
+}
+
+/* Prevent the context sidebar and action cards from forcing horizontal overflow. */
+.sales-workspace-v1015 .sales-workspace-v1013__body,
+.sales-workspace-v1015 .sales-workspace-v1013__main,
+.sales-workspace-v1015 .sales-workspace-v1013__context-panel,
+.sales-workspace-v1015 .sales-workspace-v1013__primary,
+.sales-workspace-v1015 .sales-workspace-v1015__strategy-summary{
+  min-width:0;
+}
+.sales-workspace-v1015 .sales-workspace-v1013__primary-copy,
+.sales-workspace-v1015 .sales-workspace-v1015__strategy-summary > div:first-child{
+  min-width:0;
+  overflow-wrap:break-word;
+}
+.sales-workspace-v1015 .sales-workspace-v1015__strategy-summary{
+  flex-wrap:wrap;
+}
+.sales-workspace-v1015 .sales-workspace-v1015__strategy-summary-actions{
+  display:flex;
+  flex:0 1 auto;
+  min-width:0;
+  flex-wrap:wrap;
+  justify-content:flex-end;
+}
+.sales-workspace-v1015 .sales-workspace-v1015__strategy-summary-actions > *{
+  max-width:100%;
+}
+.sales-workspace-v1015 .sales-workspace-v1013__facts > div{
+  min-width:0;
+}
+.sales-workspace-v1015 .sales-workspace-v1013__facts strong{
+  min-width:0;
+}
+
+/* A narrow browser may not have room for an action CTA beside the title. */
+@media (max-width:1200px){
+  .sales-workspace-v1015 .sales-workspace-v1013__primary{
+    flex-wrap:wrap;
+  }
+  .sales-workspace-v1015 .sales-workspace-v1013__facts{
+    grid-template-columns:repeat(2,minmax(0,1fr));
+  }
+}
+@media (max-width:980px){
+  .lead-drawer-layer > .lead-drawer.lead-drawer--sales-workspace.sales-workspace-v1015{
+    width:100vw;
+  }
+  .sales-workspace-v1015 .sales-workspace-v1013__body{
+    grid-template-columns:minmax(0,1fr);
+    overflow-y:auto;
+  }
+  .sales-workspace-v1015 .sales-workspace-v1013__main{
+    max-height:none;
+    overflow:visible;
+  }
+  .sales-workspace-v1015 .sales-workspace-v1013__context-panel{
+    height:auto;
+    min-height:300px;
+  }
+}
+@media (max-width:720px){
+  .sales-workspace-v1015 .sales-workspace-v1015__strategy-summary-actions{
+    width:100%;
+    justify-content:flex-start;
+  }
+  .sales-workspace-v1015 .sales-workspace-v1013__primary > .button{
+    width:100%;
+  }
+}
+@media (max-width:460px){
+  .sales-workspace-v1015 .sales-workspace-v1013__facts{
+    grid-template-columns:minmax(0,1fr);
+  }
+}

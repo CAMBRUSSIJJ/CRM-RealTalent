@@ -1,4 +1,5 @@
 import { Readable } from 'node:stream'
+import {cloudflareAgentAccessHeaders} from './_cloudflare-access.mjs'
 
 const clean = (value) => String(value || '').trim().replace(/\/$/, '')
 const serviceConfig = {
@@ -54,10 +55,16 @@ export async function proxyRuntime(req, res, service) {
     ? req.__realtalentRuntimePath
     : (rawUrl.startsWith(prefix) ? rawUrl.slice(prefix.length) || '/' : '/')
   const target = `${upstream}${suffix.startsWith('/') ? suffix : `/${suffix}`}`
+  let cloudflareHeaders = {}
+  if (service === 'agent') {
+    try { cloudflareHeaders = cloudflareAgentAccessHeaders() }
+    catch { return sendJson(res, 503, { ok:false, error:'cloudflare_access_not_configured', service }) }
+  }
   const headers = {
     accept: String(req.headers.accept || 'application/json'),
     [config.header]: token,
     'x-realtalent-user-id': String(user.id),
+    ...cloudflareHeaders,
   }
   const protectionBypass = clean(process.env.VERCEL_AUTOMATION_BYPASS_SECRET)
   if (service === 'prospecting' && protectionBypass) headers['x-vercel-protection-bypass'] = protectionBypass

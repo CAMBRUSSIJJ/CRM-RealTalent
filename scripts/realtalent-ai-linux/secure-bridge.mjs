@@ -2,6 +2,7 @@
 /* RealTalent bridge: local loopback-only endpoint, requires a separate application secret. */
 import http from 'node:http'
 import {createHash,timingSafeEqual} from 'node:crypto'
+import {createBrowserHandler} from './browser-connector.mjs'
 
 const host='127.0.0.1'
 const bridgePort=Number(process.env.REALTALENT_BRIDGE_PORT||8798)
@@ -22,7 +23,9 @@ const json=(res,status,code)=>{
   res.writeHead(status,{'content-type':'application/json; charset=utf-8','cache-control':'no-store','x-content-type-options':'nosniff'})
   res.end(JSON.stringify({ok:false,error:code}))
 }
+const browserHandler=createBrowserHandler({bridgePort,agentPort})
 const server=http.createServer((req,res)=>{
+  if(browserHandler(req,res))return
   if(!authorized(req.headers['x-realtalent-agent-token']))return json(res,401,'unauthorized_bridge')
   let uri
   try{uri=new URL(req.url||'/',`http://${host}:${bridgePort}`)}catch{return json(res,400,'invalid_request')}

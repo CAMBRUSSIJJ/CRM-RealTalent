@@ -25,6 +25,7 @@ const allowedOrigins=()=>new Set([
   'http://127.0.0.1:4188','http://localhost:4188',
   'http://127.0.0.1:4189','http://localhost:4189',
   'http://127.0.0.1:4196','http://localhost:4196',
+  'http://127.0.0.1:4197','http://localhost:4197',
   ...String(process.env.REALTALENT_BROWSER_ALLOWED_ORIGINS||'').split(',').map(x=>x.trim())
     .filter(x=>{try{const u=new URL(x);return u.origin===x&&u.protocol==='https:'}catch{return false}})
 ])

@@ -178,6 +178,8 @@ if ! systemctl is-active --quiet ollama;then
   systemctl --user enable --now realtalent-ollama.service
 fi
 systemctl --user enable --now realtalent-ai-agent.service realtalent-ai-bridge.service realtalent-ai-watchdog.timer
+# Existing active units must restart to load the updated browser connector.
+systemctl --user restart realtalent-ai-agent.service realtalent-ai-bridge.service
 if [[ -s "$CONF/tunnel.token" ]] && command -v cloudflared >/dev/null 2>&1;then
   systemctl --user enable --now realtalent-ai-tunnel.service
 fi

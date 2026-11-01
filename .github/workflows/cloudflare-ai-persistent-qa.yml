@@ -25,5 +25,6 @@ jobs:
       - run: node --test scripts/realtalent-ai-linux/secure-bridge.test.mjs
       - run: node --test scripts/realtalent-ai-linux/browser-connector.test.mjs
       - run: npx vitest run src/services/realtalent-ai-local-browser.test.ts
+      - run: node --test scripts/contact-workspace-responsive-audit.test.mjs
       - run: npm run typecheck
       - run: npm run build

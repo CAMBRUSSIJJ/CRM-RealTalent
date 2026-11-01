@@ -1,4 +1,4 @@
-import {Activity, BrainCircuit, Database, Eraser, LockKeyhole, RefreshCw, ShieldCheck, Sparkles, Wrench} from 'lucide-react'
+import {Activity, MonitorCheck, BrainCircuit, Database, Eraser, LockKeyhole, RefreshCw, ShieldCheck, Sparkles, Wrench} from 'lucide-react'
 import {useEffect,useMemo,useState} from 'react'
 import {useAppWorkspace} from '../../app/app-context'
 import {Button} from '../../components/ui/button'
@@ -7,6 +7,7 @@ import {listRealTalentAiAudit,clearRealTalentAiAudit} from '../../services/realt
 import {buildRealTalentAiContext} from '../../services/realtalent-ai-context'
 import {REALTALENT_AI_TOOLS} from '../../services/realtalent-ai-tools'
 import {getAgentRuntimeHealth,type AgentRuntimeHealth} from '../../services/realtalent-agent-v56-health'
+import {pairLocalAi,localAiPairingPresent,forgetLocalAiPairing,getLocalAiBrowserState,type LocalAiBrowserState} from '../../services/realtalent-ai-local-browser'
 
 export function RealTalentAiPanel(){
   const {snapshot,currentWorkspace}=useAppWorkspace()
@@ -15,6 +16,31 @@ export function RealTalentAiPanel(){
   const [runtime,setRuntime]=useState<AgentRuntimeHealth|null>(null)
   const [lastChecked,setLastChecked]=useState<string|null>(null)
   const [healthBusy,setHealthBusy]=useState(false)
+  const [pairCode,setPairCode]=useState('')
+  const [pairBusy,setPairBusy]=useState(false)
+  const [pairMessage,setPairMessage]=useState('')
+  const [pairedLocal,setPairedLocal]=useState(()=>localAiPairingPresent())
+  const [localConnectivity,setLocalConnectivity]=useState<LocalAiBrowserState>('not_paired')
+  const connectLocal=async()=>{
+    setPairBusy(true)
+    try{
+      const result=await pairLocalAi(pairCode)
+      setPairMessage(result.message)
+      setPairedLocal(localAiPairingPresent())
+      if(result.ok){
+        setPairCode('')
+        setLocalConnectivity(await getLocalAiBrowserState())
+        await checkRuntime()
+      }
+    }finally{setPairBusy(false)}
+  }
+  const disconnectLocal=()=>{
+    forgetLocalAiPairing()
+    setPairedLocal(false)
+    setLocalConnectivity('not_paired')
+    setPairMessage('Pareamento local removido deste navegador.')
+    void checkRuntime()
+  }
   const [toolsQuery,setToolsQuery]=useState('')
   const [toolsFilter,setToolsFilter]=useState<'all'|'enabled'|'restricted'>('all')
   const [showAllAudit,setShowAllAudit]=useState(false)
@@ -28,20 +54,22 @@ export function RealTalentAiPanel(){
       (toolsFilter==='all'||(toolsFilter==='enabled'?tool.enabled:!tool.enabled))
   }),[toolsQuery,toolsFilter])
   const ready=runtime?.connected===true&&runtime.modelInstalled===true
-  const healthText=runtime===null?'Verificando…':ready?'Disponível':runtime.connected?'Modelo indisponível':'Desconectado'
+  const healthText=runtime===null?'Verificando…':ready?'Disponível':runtime.runtimeConnected?'Modelo indisponível':'Conexão indisponível'
   const checkRuntime=async()=>{
     setHealthBusy(true)
     try{
       const result=await getAgentRuntimeHealth()
       setRuntime(result)
+      setLocalConnectivity(await getLocalAiBrowserState())
+      setPairedLocal(localAiPairingPresent())
       setLastChecked(new Date().toISOString())
     }finally{setHealthBusy(false)}
   }
   useEffect(()=>{
     let disposed=false
     const refresh=async()=>{
-      const result=await getAgentRuntimeHealth()
-      if(!disposed){setRuntime(result);setLastChecked(new Date().toISOString())}
+      const [result,local]=await Promise.all([getAgentRuntimeHealth(),getLocalAiBrowserState()])
+      if(!disposed){setRuntime(result);setLocalConnectivity(local);setPairedLocal(localAiPairingPresent());setLastChecked(new Date().toISOString())}
     }
     void refresh()
     const timer=window.setInterval(()=>void refresh(),45000)
@@ -56,11 +84,11 @@ export function RealTalentAiPanel(){
       <div className="rt-ai-s3__heading">
         <span className="rt-ai-s3__symbol"><BrainCircuit size={22}/></span>
         <div><h3>Estado do Agent</h3><p>Disponibilidade verificada do modelo local; executar uma ferramenta exige validação separada.</p></div>
-        <StatusPill tone={ready?'success':runtime?.connected?'warning':'neutral'}>{healthText}</StatusPill>
+        <StatusPill tone={ready?'success':runtime?.runtimeConnected?'warning':'neutral'}>{healthText}</StatusPill>
       </div>
       <div className="rt-ai-s3__status-grid">
         <div className="rt-ai-s3__metric"><span>Modelo local</span><strong title={runtime?.model||''}>{ready?runtime?.model??'Modelo confirmado':runtime===null?'Verificando…':'Não confirmado'}</strong><small>{runtime?.modelInstalled?'Instalação confirmada':'Não foi possível confirmar a instalação'}</small></div>
-        <div className="rt-ai-s3__metric"><span>Gateway / Ollama</span><strong>{runtime===null?'Verificando…':runtime.connected?'Respondendo':'Sem resposta'}</strong><small>{runtime?.connected?'Healthcheck operacional':'Confira o inicializador do Agent Runtime'}</small></div>
+        <div className="rt-ai-s3__metric"><span>Gateway / Ollama</span><strong>{runtime===null?'Verificando…':runtime.runtimeConnected?(runtime.connected?'Respondendo':'Agent conectado · Ollama offline'):'Sem resposta'}</strong><small>{runtime?.issue|| (runtime?.runtimeConnected?'Agent acessível; verificação da IA concluída.':'Confira a conexão do Agent Runtime.')}</small></div>
         <div className="rt-ai-s3__metric"><span>Ferramentas habilitadas</span><strong>{enabledTools.length}</strong><small>{writeTools.length} com capacidade de escrita; regras de autorização preservadas</small></div>
         <div className="rt-ai-s3__metric"><span>Auditoria local</span><strong>{audit.length}</strong><small>Execuções registradas neste dispositivo</small></div>
       </div>
@@ -68,6 +96,30 @@ export function RealTalentAiPanel(){
         <Button variant="secondary" loading={healthBusy} onClick={()=>void checkRuntime()}><RefreshCw size={16}/> Verificar conexão</Button>
         <span><Activity size={14}/>{lastCheckedLabel}</span>
       </footer>
+    </section>
+
+    <section className="panel rt-ai-s3__section" aria-label="Conexão da IA neste computador">
+      <header className="rt-ai-s3__section-title"><MonitorCheck size={19}/><div>
+        <h3>IA deste computador</h3>
+        <p>Conecte o Qwen3 8B do Linux diretamente ao CRM deste navegador, sem Cloudflare. A autorização permanece neste navegador e a reconexão é automática.</p>
+      </div></header>
+      <div className="rt-ai-s3__context-list">
+        <div><ShieldCheck size={18}/><span><strong>{localConnectivity==='online'?'IA local conectada':pairedLocal?'Navegador pareado · IA local offline':'Pareamento necessário uma única vez'}</strong>
+          <small>{pairedLocal?'Verifique o estado do Agent acima. O CRM priorizará a IA deste Linux.':
+            'No terminal do Linux, execute: node ~/.local/share/realtalent-ai/pair-local.mjs. O código vale por cinco minutos.'}</small>
+        </span></div>
+      </div>
+      <div className="rt-ai-s3__hero-actions" style={{display:'flex',gap:10,flexWrap:'wrap',alignItems:'end'}}>
+        {!pairedLocal?<label style={{display:'grid',gap:5,maxWidth:220}}>
+          <span>Código de seis dígitos</span>
+          <input aria-label="Código para parear IA do Linux" type="text" inputMode="numeric" autoComplete="off" maxLength={6}
+            value={pairCode} onChange={event=>setPairCode(event.target.value.replace(/\D/g,'').slice(0,6))}
+            placeholder="000000" />
+        </label>:null}
+        {!pairedLocal?<Button loading={pairBusy} disabled={pairCode.length!==6} onClick={()=>void connectLocal()}>Conectar IA local</Button>:
+          <Button variant="secondary" onClick={disconnectLocal}>Desconectar deste navegador</Button>}
+        {pairMessage?<small role="status">{pairMessage}</small>:null}
+      </div>
     </section>
 
     <section className="panel rt-ai-s3__section">

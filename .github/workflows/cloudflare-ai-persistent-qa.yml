@@ -26,5 +26,15 @@ jobs:
       - run: node --test scripts/realtalent-ai-linux/browser-connector.test.mjs
       - run: npx vitest run src/services/realtalent-ai-local-browser.test.ts
       - run: node --test scripts/contact-workspace-responsive-audit.test.mjs
+      - run: node --test scripts/local-ai-vercel-csp.test.mjs
       - run: npm run typecheck
       - run: npm run build
+      - name: Contact drawer three-viewport browser geometry
+        run: node scripts/contact-workspace-browser-geometry.mjs
+      - name: Save responsive snapshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ai-and-contact-release-screenshots
+          path: artifacts/contact-workspace/*.png
+          if-no-files-found: ignore

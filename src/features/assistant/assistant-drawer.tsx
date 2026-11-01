@@ -46,7 +46,7 @@ const EMBEDDED_EXPANDED_KEY = 'realtalent:crm:embedded-agent:expanded:v313'
 
 const routeLabels: Record<AppRoute, string> = {
   dashboard: 'Meu Dia', leads: 'Contatos', 'commercial-map': 'Mapa comercial', pipeline: 'Pipeline', tasks: 'Tarefas', teams: 'Equipes',
-  followups: 'Follow-ups', calls: 'Ligações', communications: 'Comunicações', proposals: 'Propostas', agenda: 'Agenda', playbooks: 'Roteiro Comercial',
+  followups: 'Follow-ups', calls: 'Ligações', communications: 'Comunicações', proposals: 'Propostas', agenda: 'Agenda', meet: 'Reuniões', playbooks: 'Roteiro Comercial',
   goals: 'Metas', automations: 'Automações', metrics: 'Inteligência de Receita', prospecting: 'Garimpo', settings: 'Configurações',
 }
 

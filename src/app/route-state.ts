@@ -12,6 +12,7 @@ export const APP_ROUTES: readonly AppRoute[] = [
   'communications',
   'proposals',
   'agenda',
+  'meet',
   'playbooks',
   'goals',
   'automations',

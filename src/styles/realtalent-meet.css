@@ -1,0 +1,157 @@
+.rtmeet-page{max-width:1240px;margin:0 auto;padding:28px 24px 54px;color:var(--text-primary,#182b47)}
+.rtmeet-page h1,.rtmeet-page h2,.rtmeet-page h3{margin:0}
+.rtmeet-heading{display:flex;justify-content:space-between;gap:24px;align-items:center;margin-bottom:26px}
+.rtmeet-heading h1{font-size:28px;letter-spacing:-.035em;margin:7px 0 6px;font-weight:730}
+.rtmeet-heading p{color:var(--text-muted,#6a768c);font-size:14px;margin:0}
+.rtmeet-heading-actions{display:flex;gap:10px;flex-wrap:wrap}
+.rtmeet-section{margin-top:30px}
+.rtmeet-section-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px}
+.rtmeet-section-header>div{display:flex;align-items:center;gap:9px}
+.rtmeet-section-header svg{color:#335ac2}
+.rtmeet-section-header h2{font-size:17px;font-weight:700}
+.rtmeet-section-header>span{background:#eef2ff;border-radius:999px;padding:3px 9px;font-size:12px;color:#243f91}
+.rtmeet-list{display:grid;gap:10px}
+.rtmeet-card{border:1px solid #e5e8ef;border-radius:14px;padding:20px 22px;background:var(--surface,#fff);display:flex;align-items:center;justify-content:space-between;gap:16px;box-shadow:0 2px 5px rgba(20,39,75,.025)}
+.rtmeet-card-main{min-width:0}
+.rtmeet-card-main h3{font-size:16px;margin:8px 0 6px}
+.rtmeet-card-main p{font-size:13px;color:#66768d;margin:0 0 12px}
+.rtmeet-state{display:inline-flex;align-items:center;padding:4px 9px;border-radius:50px;font-size:11px;font-weight:650;background:#eff3fc;color:#506280}
+.rtmeet-state--live{background:#dff7e9;color:#15774a}
+.rtmeet-state--completed{background:#e9eff9;color:#405879}
+.rtmeet-state--cancelled{background:#fff0ed;color:#a04e3c}
+.rtmeet-meta{display:flex;align-items:center;gap:7px;color:#637089;font-size:12px}
+.rtmeet-meta svg{color:#62738e}
+.rtmeet-card-actions{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.rtmeet-icon-button{display:inline-flex;align-items:center;justify-content:center;width:34px;height:34px;border:1px solid #e4e8ef;border-radius:9px;background:white;color:#9b5061;cursor:pointer}
+.rtmeet-empty{border:1px dashed #cdd8ea;border-radius:14px;background:#f9fbff;display:flex;min-height:220px;flex-direction:column;align-items:center;justify-content:center;gap:10px;text-align:center}
+.rtmeet-empty svg{color:#617dc9}
+.rtmeet-empty h3{font-size:16px}
+.rtmeet-empty p{font-size:13px;color:#728096;margin:0 0 6px}
+.rtmeet-create{margin-bottom:22px;padding:22px;border-radius:14px}
+.rtmeet-create-title{display:flex;justify-content:space-between;align-items:center;margin-bottom:18px}
+.rtmeet-create-title h2{font-size:18px}
+.rtmeet-create-title button{background:none;border:0;color:#7e89a0;cursor:pointer}
+.rtmeet-fields{display:grid;grid-template-columns:1fr 220px 130px;gap:16px}
+.rtmeet-fields label,.rtmeet-guest-card label{display:flex;flex-direction:column;gap:6px;font-size:12px;font-weight:650;color:#43536d}
+.rtmeet-fields input,.rtmeet-fields select,.rtmeet-fields textarea,.rtmeet-guest-card input{width:100%;box-sizing:border-box;border:1px solid #d9e0eb;border-radius:9px;padding:10px 11px;background:white;color:#172943;font:inherit;font-size:14px}
+.rtmeet-fields-wide{grid-column:1/-1}
+.rtmeet-create-actions{display:flex;justify-content:flex-end;gap:9px;margin-top:16px}
+.rtmeet-alert,.rtmeet-success{padding:12px 15px;border-radius:10px;font-size:13px;margin:12px 0;display:flex;justify-content:space-between;gap:12px}
+.rtmeet-alert{background:#fff0ee;color:#9b302e;border:1px solid #ffd2c8}
+.rtmeet-success{background:#eef8f2;color:#18593a;border:1px solid #cae6d4}
+.rtmeet-success button{border:0;background:transparent;cursor:pointer;color:inherit}
+.rtmeet-footnote{margin-top:28px;font-size:12px;color:#798499;display:flex;align-items:center;gap:8px}
+.rtmeet-call{position:relative;display:flex;flex-direction:column;height:calc(100dvh - 155px);min-height:440px;background:#10192b;color:white;border-radius:13px;overflow:hidden}
+.rtmeet-call-header{display:flex;align-items:center;justify-content:space-between;padding:12px 18px;background:#131f35;border-bottom:1px solid rgba(255,255,255,.08)}
+.rtmeet-call-header>div{display:flex;align-items:center;gap:12px}
+.rtmeet-brand{font-weight:700}
+.rtmeet-brand svg{color:#8daeff}
+.rtmeet-brand small{font-size:12px;font-weight:400;color:#adb9ce}
+.rtmeet-badge{display:flex;align-items:center;gap:5px;color:#cbd6e9;font-size:12px}
+.rtmeet-call button{background:#263653;border:1px solid #394c69;color:#eff5ff;border-radius:9px;cursor:pointer;padding:9px 11px;display:flex;align-items:center;justify-content:center;gap:7px;font-size:12px}
+.rtmeet-call button:hover{background:#395076}
+.rtmeet-notice{background:#2e3d5a;color:#f2f6fe;padding:9px 16px;font-size:12px;display:flex;align-items:center;justify-content:space-between}
+.rtmeet-notice button{padding:0 5px;border:0;background:transparent}
+.rtmeet-call-body{display:flex;flex:1;min-height:0}
+.rtmeet-video-grid{padding:18px;display:grid;grid-template-columns:repeat(auto-fit,minmax(min(320px,100%),1fr));grid-auto-rows:minmax(180px,1fr);gap:12px;overflow:auto;align-content:stretch;flex:1}
+.rtmeet-tile{position:relative;border-radius:11px;background:#050b13;overflow:hidden;min-height:160px}
+.rtmeet-tile video{width:100%;height:100%;object-fit:cover}
+.rtmeet-tile span{position:absolute;bottom:10px;left:12px;padding:5px 10px;background:rgba(0,0,0,.53);border-radius:7px;font-size:12px}
+.rtmeet-alone,.rtmeet-connecting{color:#aab9cf;font-size:13px;align-self:start}
+.rtmeet-chat{width:315px;max-width:38vw;display:flex;flex-direction:column;background:#1a2943;border-left:1px solid #2a3b57;min-height:0}
+.rtmeet-chat header{display:flex;align-items:center;justify-content:space-between;padding:16px;border-bottom:1px solid #3c4a61;font-size:13px}
+.rtmeet-chat header button{padding:2px 8px}
+.rtmeet-chat-items{flex:1;overflow:auto;padding:16px}
+.rtmeet-chat-items p{display:flex;flex-direction:column;gap:4px;font-size:12px;padding:8px 0;margin:0;border-bottom:1px solid rgba(255,255,255,.07)}
+.rtmeet-chat-items strong{color:#b5cbff}
+.rtmeet-chat form{display:flex;gap:6px;padding:10px;border-top:1px solid #34435c}
+.rtmeet-chat input{min-width:0;flex:1;padding:9px;background:#111d30;color:#fff;border:1px solid #4b5b71;border-radius:9px}
+.rtmeet-controls{display:flex;flex-wrap:wrap;gap:8px;padding:13px 16px;justify-content:center;background:#111b2d;border-top:1px solid rgba(255,255,255,.09)}
+.rtmeet-controls button{min-width:80px;flex-direction:column;gap:5px}
+.rtmeet-controls button svg{width:19px;height:19px}
+.rtmeet-controls button.rtmeet-leave{background:#8b343a;border-color:#a54a50}
+.rtmeet-controls button.rtmeet-end{background:#a92630;border-color:#a92630}
+.rtmeet-controls button.is-active{background:#325597}
+.rtmeet-public-state,.rtmeet-guest-page{display:flex;align-items:center;justify-content:center;min-height:100dvh;background:#f2f5fb;color:#1a2942;text-align:center;padding:20px}
+.rtmeet-public-state{flex-direction:column}
+.rtmeet-guest-card{background:white;border:1px solid #e1e6ee;box-shadow:0 18px 54px #182d4a1a;border-radius:16px;padding:36px;max-width:530px;width:100%;text-align:left;display:flex;flex-direction:column;gap:17px}
+.rtmeet-guest-card h1{font-size:26px;margin:0}
+.rtmeet-guest-card p{margin:0;color:#66758a;font-size:14px}
+.rtmeet-guest-card small{color:#798598;text-align:center}
+.rtmeet-guest-brand{display:flex;gap:10px;align-items:center;color:#21499e;font-size:16px;margin-bottom:8px}
+.rtmeet-guest-time{font-size:13px;color:#425673}
+.rtmeet-consent{display:flex;align-items:flex-start;gap:8px;font-size:12px!important}
+.rtmeet-consent svg{flex:none}
+@media(max-width:800px){.rtmeet-heading,.rtmeet-card{flex-direction:column;align-items:stretch}.rtmeet-fields{grid-template-columns:1fr}.rtmeet-page{padding:20px 14px}.rtmeet-call{height:calc(100dvh - 175px)}.rtmeet-call-body{flex-direction:column}.rtmeet-chat{max-width:none;width:auto;height:210px}.rtmeet-video-grid{min-height:210px}.rtmeet-controls button{min-width:55px}.rtmeet-brand small{display:none}}
+
+
+/* Meet M2 — focused workspace and prejoin */
+.rtmeet-navigation{display:flex;align-items:center;gap:13px;justify-content:space-between;border-bottom:1px solid #e0e6f1;margin:12px 0 17px;flex-wrap:wrap}
+.rtmeet-tabs{display:flex;align-items:center;gap:6px;margin-right:auto}
+.rtmeet-tabs button{border:0;border-bottom:2px solid transparent;color:#69788e;background:transparent;padding:13px 15px;font-size:13px;font-weight:640;cursor:pointer}
+.rtmeet-tabs button span{font-size:11px;margin-left:7px;color:#71819a;background:#eef2f9;padding:3px 6px;border-radius:12px}
+.rtmeet-tabs button.is-active{color:#2359c3;border-color:#3265d9}
+.rtmeet-search{display:flex;align-items:center;gap:7px;border:1px solid #dce3ee;background:#fff;padding:0 12px;border-radius:9px;color:#71819a}
+.rtmeet-search input{border:0;background:transparent;outline:none;height:38px;color:#20334e;width:165px;font-size:13px}
+.rtmeet-refresh{border:0;background:transparent;color:#74849a;cursor:pointer;padding:10px}
+.rtmeet-more{position:relative;min-width:34px}
+.rtmeet-more summary{list-style:none;cursor:pointer;display:flex;align-items:center;justify-content:center;width:34px;height:34px;border-radius:9px;border:1px solid #e2e7f0;background:white;color:#64738b}
+.rtmeet-more summary::-webkit-details-marker{display:none}
+.rtmeet-more-menu{position:absolute;z-index:10;right:0;top:40px;background:white;border:1px solid #dfe5ee;border-radius:10px;box-shadow:0 10px 30px #1a2c4a22;padding:5px;min-width:160px}
+.rtmeet-more-menu button{width:100%;padding:9px;display:flex;align-items:center;gap:8px;border:0;background:white;text-align:left;border-radius:6px;color:#354663;cursor:pointer;font-size:12px}
+.rtmeet-more-menu button:hover{background:#f0f4fb}
+.rtmeet-more-menu .rtmeet-danger-action{color:#ab4147}
+.rtmeet-section{margin-top:16px}
+.rtmeet-prejoin{width:min(1080px,100%);min-height:calc(100dvh - 160px);margin:0 auto;display:flex;flex-direction:column;color:#1a2b47}
+.rtmeet-prejoin-top{display:flex;align-items:center;justify-content:space-between;padding:14px 12px 28px}
+.rtmeet-prejoin-top button{border:0;background:none;display:flex;align-items:center;gap:7px;font-size:13px;color:#586a85;cursor:pointer}
+.rtmeet-prejoin-top span{display:flex;align-items:center;gap:8px;color:#2c59aa;font-weight:680;font-size:14px}
+.rtmeet-prejoin-layout{display:grid;grid-template-columns:minmax(0,1.55fr) minmax(270px,1fr);gap:42px;align-items:center;margin:auto 0}
+.rtmeet-prejoin-preview{background:#10192a;aspect-ratio:16/10;border-radius:17px;position:relative;overflow:hidden;display:flex;align-items:center;justify-content:center;box-shadow:0 12px 44px #15294719}
+.rtmeet-prejoin-preview video{width:100%;height:100%;object-fit:cover;transform:scaleX(-1)}
+.rtmeet-prejoin-disabled{display:flex;align-items:center;flex-direction:column;gap:9px;color:#b9c6d9;font-size:14px}
+.rtmeet-prejoin-controls{position:absolute;left:0;bottom:20px;width:100%;display:flex;justify-content:center;gap:10px}
+.rtmeet-prejoin-controls button{border:1px solid #6873896a;border-radius:50%;width:44px;height:44px;display:grid;place-items:center;color:#f4f7fc;background:#29384ea8;cursor:pointer}
+.rtmeet-prejoin-controls button.is-off{background:#b23343;border-color:#b23343}
+.rtmeet-prejoin-content{display:flex;flex-direction:column;align-items:stretch;gap:13px;max-width:370px}
+.rtmeet-prejoin-content h1{font-size:27px;line-height:1.2;margin:0;font-weight:730;letter-spacing:-.03em}
+.rtmeet-prejoin-content p{color:#66768a;margin:0 0 10px;font-size:13px}
+.rtmeet-prejoin-device{display:flex;flex-direction:column;gap:6px}
+.rtmeet-prejoin-device label{display:flex;align-items:center;gap:8px;font-size:12px;color:#44546e;font-weight:650}
+.rtmeet-prejoin-device select{border:1px solid #dae2ef;background:white;border-radius:9px;font-size:13px;color:#304159;padding:11px}
+.rtmeet-prejoin-status{display:flex;align-items:flex-start;gap:7px;line-height:1.5;font-size:12px;color:#667a91;min-height:25px}
+.rtmeet-join-button{background:#2459bf;color:white;border:0;border-radius:10px;font-size:14px;font-weight:680;padding:14px;cursor:pointer}
+.rtmeet-join-button:disabled{opacity:.55;cursor:wait}
+.rtmeet-prejoin-content small{color:#7c879b;line-height:1.4}
+.rtmeet-call .rtmeet-context-panel{width:360px;max-width:42vw}
+.rtmeet-context-body{overflow:auto;flex:1;padding:6px 14px 22px}
+.rtmeet-context-section{padding:15px 0;border-bottom:1px solid #354764}
+.rtmeet-context-section h4{margin:0 0 13px;color:#e4edf9;font-size:13px;display:flex;align-items:center;gap:8px}
+.rtmeet-context-section dl{display:grid;grid-template-columns:90px 1fr;gap:10px;font-size:12px;margin:0}
+.rtmeet-context-section dt{color:#90a5c2}
+.rtmeet-context-section dd{margin:0;word-break:break-word;color:#f2f6fb}
+.rtmeet-context-section .rtmeet-context-hint,.rtmeet-context-section .rtmeet-agenda{font-size:12px;color:#a9b9cd;line-height:1.6;white-space:pre-wrap}
+.rtmeet-context-section textarea{width:100%;box-sizing:border-box;resize:vertical;min-height:130px;border:1px solid #526684;border-radius:9px;background:#14223a;color:#f1f5fc;padding:11px;font-size:13px;font-family:inherit}
+.rtmeet-context-section small{font-size:11px;color:#93a7c2;display:block;line-height:1.6;margin-top:5px}
+.rtmeet-context-section button.rtmeet-context-save{width:100%;display:flex;align-items:center;gap:8px;padding:11px;margin-top:11px;background:#3564bd;border:0;border-radius:8px;color:white}
+.rtmeet-context-section button.rtmeet-context-save:disabled{opacity:.5}
+.rtmeet-context-error{font-size:12px;color:#ffb2ae}
+.rtmeet-video-grid{background:#0c1728}
+.rtmeet-call-header{min-height:57px}
+.rtmeet-call-header .rtmeet-badge{white-space:nowrap}
+@media(max-width:800px){.rtmeet-prejoin-layout{grid-template-columns:1fr;gap:20px}.rtmeet-prejoin-content{max-width:none;padding-bottom:25px}.rtmeet-prejoin{min-height:0}.rtmeet-call .rtmeet-context-panel{width:auto;max-width:none}.rtmeet-navigation{align-items:stretch;gap:8px}.rtmeet-search{flex:1}.rtmeet-search input{width:100%}}
+
+
+/* Meet M3 — follow-up capture */
+.rtmeet-wrap{min-height:calc(100dvh - 172px);padding:28px 16px;display:flex;align-items:center;justify-content:center}
+.rtmeet-wrap-card{width:min(570px,100%);padding:32px 38px;border-radius:17px;border:1px solid #e0e7f1;background:var(--surface,#fff);box-shadow:0 14px 40px #1c355018;display:flex;flex-direction:column;gap:13px}
+.rtmeet-wrap-icon{width:60px;height:60px;border-radius:18px;background:#e8f5ee;color:#217648;display:grid;place-items:center}
+.rtmeet-wrap-card h1{font-size:25px;letter-spacing:-.025em;margin:0}
+.rtmeet-wrap-card p{margin:0 0 7px;color:#68768b;font-size:13px}
+.rtmeet-wrap-card label{display:flex;flex-direction:column;gap:7px;font-size:13px;font-weight:640;color:#3e4f69}
+.rtmeet-wrap-card label svg{display:inline-block;color:#416ac1}
+.rtmeet-wrap-card textarea,.rtmeet-wrap-card input{border:1px solid #d8e1ed;border-radius:9px;color:#24334c;padding:11px;font-size:14px;font-family:inherit;background:white}
+.rtmeet-wrap-card textarea{resize:vertical}
+.rtmeet-wrap-actions{display:flex;justify-content:flex-end;gap:10px;margin-top:8px}
+.rtmeet-wrap-card small{font-size:11px;color:#8190a5;line-height:1.5}
+@media(max-width:600px){.rtmeet-wrap-card{padding:24px 20px}}

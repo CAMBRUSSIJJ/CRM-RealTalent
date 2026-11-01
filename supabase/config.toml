@@ -160,3 +160,7 @@ verify_jwt = true
 
 [functions.communications-gateway]
 verify_jwt = false
+
+# RealTalent Meet — temporary TURN credentials validated by invitation token
+[functions.meet-turn-credentials]
+verify_jwt = false

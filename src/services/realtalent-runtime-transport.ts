@@ -1,4 +1,5 @@
 import { getSupabaseClient } from '../lib/supabase'
+import {tryLocalAiBrowserRequest} from './realtalent-ai-local-browser'
 
 const loopback = (value: string) => {
   try {
@@ -19,6 +20,8 @@ export async function runtimeAuthHeaders(target: string): Promise<Record<string,
 }
 
 export async function runtimeFetch(input: string, init: RequestInit = {}): Promise<Response> {
+  const local = await tryLocalAiBrowserRequest(input, init)
+  if (local) return local
   const auth = await runtimeAuthHeaders(input)
   return fetch(input, {
     ...init,

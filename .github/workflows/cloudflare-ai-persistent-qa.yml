@@ -1,0 +1,40 @@
+name: RealTalent AI Persistent Cloudflare Bridge QA
+on:
+  push:
+    branches:
+      - feat/realtalent-ai-persistent-cloudflare-20261031
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci --include=dev
+      - run: node --test scripts/cloudflare-agent-access.test.mjs
+      - run: bash -n scripts/realtalent-ai-linux/start-linux.sh
+      - run: bash -n scripts/realtalent-ai-linux/configurar-tunnel.sh
+      - run: node --test scripts/realtalent-ai-linux/secure-bridge.test.mjs
+      - run: node --test scripts/realtalent-ai-linux/browser-connector.test.mjs
+      - run: npx vitest run src/services/realtalent-ai-local-browser.test.ts
+      - run: node --test scripts/contact-workspace-responsive-audit.test.mjs
+      - run: node --test scripts/local-ai-vercel-csp.test.mjs
+      - run: npm run typecheck
+      - run: npm run build
+      - name: Contact drawer three-viewport browser geometry
+        run: node scripts/contact-workspace-browser-geometry.mjs
+      - name: Save responsive snapshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ai-and-contact-release-screenshots
+          path: artifacts/contact-workspace/*.png
+          if-no-files-found: ignore

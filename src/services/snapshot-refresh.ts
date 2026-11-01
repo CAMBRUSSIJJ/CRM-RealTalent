@@ -32,6 +32,7 @@ const ROUTE_SNAPSHOT_SLICES: Record<AppRoute, SnapshotSlice[]> = {
   communications: ['activities'],
   proposals: ['products', 'proposals', 'buyerRooms', 'revenue'],
   agenda: ['activities', 'events', 'playbooks'],
+  meet: ['events', 'activities', 'playbooks'],
   playbooks: ['playbooks'],
   goals: ['activities', 'calls', 'events', 'goals', 'proposals', 'revenue'],
   automations: ['automationRules', 'automationRuns'],

@@ -111,10 +111,10 @@ export function TaskWhatsAppTestModal({ open, workspaceId, userId, tasks, onClos
       <section className="work-form-section">
         <header><ShieldCheck size={18}/><div>
           <strong>Conexão de envio</strong>
-          <small>Este teste utiliza o mesmo WhatsApp por QR Code do chat do CRM, sem configurar a Meta Cloud API.</small>
+          <small>A conexão de Comunicações é compartilhada automaticamente. Não é necessário conectar o WhatsApp novamente.</small>
         </div></header>
         <div role="status" aria-live="polite">
-          <strong>{checking ? 'Verificando conexão…' : readiness?.available ? 'WhatsApp QR conectado' : 'WhatsApp não disponível para o teste'}</strong>
+          <strong>{checking ? 'Verificando conexão…' : readiness?.available ? 'WhatsApp conectado ao CRM' : 'WhatsApp aguardando conexão ativa'}</strong>
           <p>{connectionError || readiness?.message || 'Verifique o gateway de comunicação do RealTalent.'}</p>
           {readiness?.senderPhone ? <small>Número remetente conectado: +{readiness.senderPhone.replace(/\D/g, '')}</small> : null}
         </div>
@@ -136,8 +136,12 @@ export function TaskWhatsAppTestModal({ open, workspaceId, userId, tasks, onClos
             <label className="form-field form-field--full">
               <span>Meu número pessoal de WhatsApp</span>
               <input type="tel" inputMode="tel" autoComplete="tel" placeholder="+5551999999999" value={phone}
-                disabled={sending} onChange={event => { setPhone(event.target.value); setResult(null); setSendError('') }} />
-              <small>Informe +55, DDD e número. O telefone não será salvo pelo teste.</small>
+                disabled={sending}
+                onChange={event => { setPhone(event.target.value); setResult(null); setSendError('') }}
+                onBlur={() => { const normalized = normalizeTaskTestPhone(phone); if (normalized) setPhone(`+${normalized}`) }} />
+              {phone.trim() && !normalizeTaskTestPhone(phone)
+                ? <small role="alert">Confira o DDD e o número. Exemplo: (53) 99999-9999. O CRM adiciona +55 automaticamente.</small>
+                : <small>Digite DDD + número, com ou sem +55. O teste não salva o telefone.</small>}
             </label>
           </div>
           <label className="settings-toggle">
@@ -145,7 +149,7 @@ export function TaskWhatsAppTestModal({ open, workspaceId, userId, tasks, onClos
               onChange={event => { setConsent(event.target.checked); setResult(null); setSendError('') }} />
             <span>Confirmo que este WhatsApp é meu e autorizo o envio de uma única mensagem real de teste.</span>
           </label>
-          <p className="settings-copy">Este botão não ativa lembretes automáticos e não envia mensagens para outros integrantes da equipe. O QR Code é uma conexão não oficial e pode estar indisponível em alguns ambientes.</p>
+          <p className="settings-copy">Envio único pela sessão de Comunicações. Isso não ativa lembretes automáticos nem envia mensagens para outros integrantes da equipe. A conexão QR é não oficial e pode ficar temporariamente indisponível.</p>
         </section>
         {sendError ? <p role="alert" className="settings-copy"><strong>Envio não confirmado:</strong> {sendError} Confira a conversa no CRM antes de tentar outra vez para evitar duplicações.</p> : null}
         {result ? <div role="status" aria-live="polite" className="work-assignment-summary">

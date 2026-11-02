@@ -26,9 +26,10 @@ describe('Agent V5 — tool orchestration and factual context',()=>{
     expect(a?.toolOutput&&'body' in a.toolOutput?a.toolOutput.body:'').toContain('R$')
     expect(a?.facts.length).toBeGreaterThan(0)
   })
-  it('usa fallback local quando Ollama não responde',async()=>{
+  it('não apresenta roteiro genérico como se tivesse sido personalizado pelo modelo',async()=>{
     const a=await runAgentToolsV5('crie um roteiro de prospecção',snapshot,{}, {refiner:async()=>null})
-    expect(a?.toolOutput&&'body' in a.toolOutput?a.toolOutput.body:'').toContain('DIAGNÓSTICO')
+    expect(a?.toolOutput).toBeUndefined()
+    expect(a?.text).toMatch(/público|oferta|estratégia|modelo/i)
   })
   it('limita a recuperação ao proprietário do registro',()=>{
     const restricted={...snapshot,leads:[{id:'lead-secret',name:'Restrito',ownerId:'other',notes:'dado privado',stageId:'none'}]} as WorkspaceSnapshot

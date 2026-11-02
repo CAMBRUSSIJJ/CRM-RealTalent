@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState, type DragEvent } from 'react'
-import { AlertTriangle, CalendarDays, CheckCircle2, CircleDot, Clock3, Kanban, ListChecks, Pencil, Plus, Search, Trash2, UserRound, UsersRound } from 'lucide-react'
+import { AlertTriangle, CalendarDays, CheckCircle2, CircleDot, Clock3, Kanban, ListChecks, MessageCircle, Pencil, Plus, Search, Trash2, UserRound, UsersRound } from 'lucide-react'
 import { useAppActions, useAppUi, useAppWorkspace } from '../../app/app-context'
 import { useAuth } from '../auth/auth-context'
 import { Button } from '../../components/ui/button'
@@ -9,6 +9,7 @@ import { NativeSelectionSelect } from '../../components/selection'
 import type { TaskRelation, TaskStatus, Team, WorkTask, WorkspaceMember } from '../../domain/types'
 import { deleteTask, loadWorkManagement, saveTask, taskPriorityLabel, taskStatusLabel, updateTaskStatus, type WorkManagementSnapshot } from '../../services/work-management'
 import { TaskModal } from './task-modal'
+import { TaskWhatsAppTestModal } from './task-whatsapp-test-modal'
 import { WorkspaceCommandBar, WorkspaceCommandGroup, WorkspacePageHeader, WorkspaceSummaryMetric, WorkspaceSummaryStrip, WorkspaceViewStrip } from '../../components/workspace/workspace-shell'
 
 type ViewMode = 'list' | 'board' | 'today' | 'overdue' | 'completed'
@@ -34,6 +35,7 @@ export function TasksPage() {
   const [modalOpen, setModalOpen] = useState(false)
   const [editing, setEditing] = useState<WorkTask | null>(null)
   const [saving, setSaving] = useState(false)
+  const [testWhatsappOpen, setTestWhatsappOpen] = useState(false)
 
   const workspaceId = currentWorkspace?.id ?? ''
   const canTaskCreate = canTeamAccess('create','tasks')
@@ -110,7 +112,10 @@ export function TasksPage() {
   const checklistForEditing = editing ? data.checklistItems.filter((item) => item.taskId === editing.id) : []
 
   return <div className="workspace-page tasks-page-v101112">
-    <WorkspacePageHeader className="tasks-page-header-h223h1" eyebrow="Execução comercial" icon={ListChecks} title="Tarefas" description="Centralize o que precisa ser feito, por quem e em qual contexto do CRM." actions={canTaskCreate ? <Button onClick={() => { setEditing(null); setModalOpen(true) }}><Plus size={17}/> Nova tarefa</Button> : null} />
+    <WorkspacePageHeader className="tasks-page-header-h223h1" eyebrow="Execução comercial" icon={ListChecks} title="Tarefas" description="Centralize o que precisa ser feito, por quem e em qual contexto do CRM." actions={<>
+      {user?.id && workspaceId ? <Button variant="secondary" onClick={() => setTestWhatsappOpen(true)}><MessageCircle size={17}/> Testar lembrete WhatsApp</Button> : null}
+      {canTaskCreate ? <Button onClick={() => { setEditing(null); setModalOpen(true) }}><Plus size={17}/> Nova tarefa</Button> : null}
+    </>} />
 
     <WorkspaceSummaryStrip className="tasks-summary-strip-h223h1">
       <WorkspaceSummaryMetric icon={CircleDot} label="Abertas" value={metrics.open} meta="Em execução" tone="brand" onClick={() => setView('list')} />
@@ -134,6 +139,7 @@ export function TasksPage() {
 
     {view === 'board' ? <TaskBoard tasks={filtered} teamById={teamById} relationByTask={relationByTask} checklistItems={data.checklistItems} readOnly={!canTaskEdit} onEdit={openEdit} onStatus={changeStatus} /> : filtered.length ? <section className="work-task-list">{filtered.map((task) => <TaskRow key={task.id} task={task} team={task.teamId ? teamById.get(task.teamId) ?? null : null} relation={relationByTask.get(task.id) ?? null} checklist={data.checklistItems.filter((item)=>item.taskId===task.id)} readOnly={!canTaskEdit} onEdit={()=>openEdit(task)} onStatus={(status)=>void changeStatus(task,status)} onDelete={()=>{ if(canTaskDelete) void remove(task); else notify('info','Seu perfil não permite excluir tarefas.') }} />)}</section> : <EmptyState icon={ListChecks} title="Nenhuma tarefa neste filtro" description="Crie uma tarefa ou ajuste os filtros para acompanhar a execução da equipe." />}
 
+    <TaskWhatsAppTestModal open={testWhatsappOpen} workspaceId={workspaceId} userId={user?.id ?? null} tasks={data.tasks} onClose={() => setTestWhatsappOpen(false)} />
     <TaskModal open={canTaskCreate || canTaskEdit ? modalOpen : false} task={editing} relation={relationForEditing} checklist={checklistForEditing} teams={data.teams} memberships={data.memberships} members={members} snapshot={snapshot} loading={saving} onClose={()=>{setModalOpen(false);setEditing(null)}} onSubmit={save}/>
   </div>
 }

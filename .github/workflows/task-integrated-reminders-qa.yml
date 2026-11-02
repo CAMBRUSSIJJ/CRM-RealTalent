@@ -6,14 +6,17 @@ on:
   pull_request:
     paths:
       - 'src/features/tasks/**'
+      - 'src/features/teams/**'
       - 'src/features/settings/task-reminder-*'
       - 'src/services/work-management.ts'
       - 'src/services/task-reminder-*'
       - 'src/domain/types.ts'
       - 'supabase/migrations/*task_reminder*'
+      - 'supabase/migrations/*team_member_notification_contacts*'
       - 'supabase/functions/task-reminder-*'
       - 'src/styles/task-reminders.css'
       - 'scripts/task-reminder-ui-contract.test.mjs'
+      - 'scripts/team-notification-routing-contract.test.mjs'
 permissions:
   contents: read
 jobs:
@@ -32,6 +35,8 @@ jobs:
         run: npm ci --include=dev
       - name: UI and RLS contract
         run: node --test scripts/task-reminder-ui-contract.test.mjs
+      - name: Team contact and reminder routing contracts
+        run: node --test scripts/team-notification-routing-contract.test.mjs
       - name: Existing reminder security contracts
         run: node --test scripts/task-reminder-contract.test.mjs
       - name: CSS governance

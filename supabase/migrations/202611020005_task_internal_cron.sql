@@ -51,8 +51,8 @@ begin
         case when job.event_type='assigned' then 'Nova tarefa atribuída no RealTalent'
              else 'Sua tarefa está próxima do prazo' end,
         'Tarefa: ' || left(coalesce(t.title,'Tarefa'),120)
-         || E'\\nPrazo: ' || coalesce(to_char(timezone('America/Sao_Paulo',t.due_at),'DD/MM/YYYY HH24:MI'),'Sem prazo')
-         || E'\\nAcesse Tarefas no RealTalent.',
+         || E'\nPrazo: ' || coalesce(to_char(timezone('America/Sao_Paulo',t.due_at),'DD/MM/YYYY HH24:MI'),'Sem prazo')
+         || E'\nAcesse Tarefas no RealTalent.',
         case when t.priority='urgent' then 'warning' else 'info' end,
         'unread','tasks','task-reminder',job.id::text
       ) on conflict do nothing;

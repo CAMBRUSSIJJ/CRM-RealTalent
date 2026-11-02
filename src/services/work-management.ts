@@ -39,6 +39,11 @@ export interface TaskInput {
   assigneeName?: string
   teamId?: string | null
   recurrence?: WorkTask['recurrence']
+  reminderEnabled?: boolean
+  reminderOnAssignment?: boolean
+  reminderChannels?: Array<'in_app' | 'email' | 'whatsapp'>
+  reminderOffsetsMinutes?: number[]
+  reminderCustomMinutes?: number | null
   tags?: string[]
   relation?: { entityType: TaskRelationEntity; entityId: string; entityLabel: string } | null
   checklist?: Array<{ id?: string; title: string; completed?: boolean }>

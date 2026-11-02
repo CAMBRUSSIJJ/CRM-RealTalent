@@ -345,7 +345,13 @@ function previewProcessInfo(pid) {
   try {
     const cwd = fs.readlinkSync(`/proc/${pid}/cwd`)
     const cmdline = fs.readFileSync(`/proc/${pid}/cmdline`, 'utf8').replace(/\0/g, ' ').trim()
-    const trusted = /^RealTalent-CRM-V/i.test(path.basename(cwd)) && /vite(?:\.js)?\s+(preview|--host)|vite\/bin\/vite\.js/.test(cmdline)
+    // Previous releases were installed in RealTalent-CRM-V* folders, while
+    // this task/WhatsApp preview may use RealTalent-Teste-WhatsApp. Verify the
+    // actual checkout root, not merely a legacy directory naming convention.
+    const sameCheckout = fs.realpathSync(cwd) === fs.realpathSync(ROOT)
+    const knownLegacyCheckout = /^RealTalent-CRM-V/i.test(path.basename(cwd))
+    const viteProcess = /(?:^|[\s/])vite(?:\.js)?\s+(?:preview|--host)|node_modules\/vite\/bin\/vite\.js/.test(cmdline)
+    const trusted = (sameCheckout || knownLegacyCheckout) && viteProcess
     return { pid:Number(pid), cwd, cmdline, trusted }
   } catch { return null }
 }
@@ -355,7 +361,9 @@ async function recoverPreviewPort() {
   if (!owner.busy) return
   const infos = owner.pids.map(previewProcessInfo).filter(Boolean)
   const trusted = infos.filter(item => item.trusted)
-  if (!trusted.length) {
+  // Refuse to kill *any* process if the port has an unidentified co-owner.
+  // This also guards against a PID disappearing/reappearing during inspection.
+  if (!owner.pids.length || trusted.length !== owner.pids.length) {
     const detail = owner.lines.slice(0,3).map(line => line.trim()).join(' | ')
     fail(`porta ${CRM_PORT} ocupada por processo não reconhecido; nada foi encerrado. ${detail}`)
   }

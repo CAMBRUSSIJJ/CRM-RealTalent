@@ -40,3 +40,11 @@ test('recognizes symlink to same checkout without trusting sibling directories',
   fs.symlinkSync(appRoot,link,'dir')
   assert.equal(trusted({cwd:link,appRoot,cmdline:oldNode}),true)
 })
+
+test('the launcher frees its Vite port before starting the local sidecars', () => {
+  const launcher = fs.readFileSync(new URL('./start.mjs', import.meta.url), 'utf8')
+  const lastPortCheck = launcher.lastIndexOf("if (mode !== 'garimpo') await recoverPreviewPort()")
+  const startServices = launcher.lastIndexOf("await startServices(token, { preserveProspecting: mode === 'garimpo' })")
+  assert.ok(lastPortCheck > 0 && startServices > lastPortCheck,
+    'port reclaim must run before Communications Gateway and Connect startup')
+})

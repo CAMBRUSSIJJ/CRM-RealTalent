@@ -84,6 +84,16 @@ describe('Teste WhatsApp de tarefa pelo CRM', () => {
       .toBeLessThan(bridge.indexOf('if (prior?.client) await destroySession(prior)'))
   })
 
+  it('não entra em ciclo infinito de Chromium nem apaga a autenticação após falha de QR', () => {
+    const bridge = readFileSync(new URL('../../scripts/whatsapp-browser-qr-bridge.mjs', import.meta.url), 'utf8')
+    expect(bridge).toContain('session.reconnectAttempts > 5')
+    expect(bridge).toContain('reconexão automática foi suspensa para proteger a memória')
+    expect(bridge).toContain('Number(prior?.reconnectAttempts || 0)')
+    expect(bridge).toContain('const previousError = String(session.lastError ||')
+    expect(bridge).toContain('if (prior?.client) await destroySession(prior)')
+    expect(bridge).not.toContain('await destroySession(prior, { logout: true })')
+  })
+
   it('informa que uma sessão restaurada não precisa exibir novo QR', () => {
     const settings = readFileSync(new URL('../features/settings/whatsapp-integration-panel.tsx', import.meta.url), 'utf8')
     const communication = readFileSync(new URL('../features/communications/whatsapp-connection-center.tsx', import.meta.url), 'utf8')

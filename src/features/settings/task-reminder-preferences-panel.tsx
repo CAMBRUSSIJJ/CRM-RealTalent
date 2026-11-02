@@ -6,6 +6,7 @@ interface Props { workspaceId: string | null; userId: string | null; enabled: bo
 interface ReminderReadiness {
   databaseReady: boolean
   deliveryEnabled: boolean
+  internalEnabled: boolean
   appUrlConfigured: boolean
   schedulerAuthenticated: boolean
   emailCredentialsPresent: boolean
@@ -118,7 +119,8 @@ export function TaskReminderPreferencesPanel({ workspaceId, userId, enabled }: P
         readiness.schedulerAuthenticated ? 'Segredo de agendamento presente' : 'Agendador não configurado',
         readiness.emailCredentialsPresent ? 'Credenciais de e-mail presentes (entrega não verificada)' : 'E-mail não configurado',
         readiness.whatsappCredentialsPresent ? 'Credenciais de WhatsApp presentes (modelo não verificado)' : 'WhatsApp oficial não configurado',
-        readiness.deliveryEnabled ? 'Envio liberado pelo servidor' : 'Envios externos desativados',
+        readiness.internalEnabled ? 'Avisos internos habilitados no servidor' : 'Avisos internos aguardam ativação',
+        readiness.deliveryEnabled ? 'Envios externos liberados pelo servidor' : 'Envios externos desativados',
       ].join(' · ') : readinessError
         ? 'Diagnóstico indisponível. Os lembretes externos ainda não estão confirmados.'
         : 'Consultando configurações do serviço…'}

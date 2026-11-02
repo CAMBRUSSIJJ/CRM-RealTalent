@@ -144,7 +144,11 @@ export async function sendOwnTaskWhatsAppTest(input: {
     idempotencyKey: key,
   })
   if (event.status === 'queued') return { status: 'queued', eventId: event.id, senderPhone: current.senderPhone, recipientPhone: recipient }
-  if (event.status === 'failed') throw new Error('O gateway registrou falha de envio. Consulte o histórico do WhatsApp no CRM.')
+  if (event.status === 'failed') {
+    const rawError = event.metadata?.lastSendError
+    const details = typeof rawError === 'string' && rawError.trim() ? rawError.trim().slice(0, 350) : 'O WhatsApp Web não confirmou o envio.'
+    throw new Error(`Envio não confirmado: ${details}. Não houve reenvio automático deste teste. Confira a conversa antes de tentar novamente.`)
+  }
   if (!['sent', 'delivered', 'read'].includes(event.status)) {
     throw new Error('O gateway não confirmou a aceitação da mensagem. Verifique a conversa antes de tentar novamente.')
   }

@@ -1,3 +1,6 @@
+.settings-team-panel .member-row{gap:12px;flex-wrap:wrap;align-items:center}
+.settings-team-panel .member-row>.local-member-wa{flex:1 1 380px}
+.settings-team-panel .member-row>.member-actions{margin-left:auto}
 .local-member-wa{display:grid;gap:.55rem;max-width:540px;min-width:270px;font-size:12px;margin:6px 0;color:var(--text-primary,#344054)}
 .local-member-wa__phone{display:flex;align-items:center;gap:8px;font-weight:600}
 .local-member-wa__phone span{white-space:nowrap}

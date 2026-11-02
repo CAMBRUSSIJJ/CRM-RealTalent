@@ -31,6 +31,22 @@ jobs:
         run: npm ci --include=dev
       - name: CSS governance (dev startup)
         run: npm run css:governance
+      - name: Linux dev launcher historical gates
+        run: |
+          set -e
+          for gate in \
+            qa:v101.10.8 \
+            qa:v101.10.9 qa:v101.10.9:h4 qa:v101.10.9:h5 \
+            qa:v101.11.0 \
+            qa:v101.11.1 qa:v101.11.1:h1 qa:v101.11.1:h2 qa:v101.11.1:h3 qa:v101.11.1:h4 qa:v101.11.1:h5 \
+            qa:v101.11.2 qa:v101.11.3 \
+            qa:v101.11.3:h1 qa:v101.11.3:h2 qa:v101.11.3:h3 qa:v101.11.3:h4 \
+            qa:v101.11.3:h5 qa:v101.11.3:h6 qa:v101.11.3:h7 qa:v101.11.3:h8 \
+            qa:v101.11.3:h9 qa:v101.11.3:h10 qa:v101.11.3:h11 qa:v101.11.3:h12 \
+            qa:v101.11.3:h13 qa:v101.11.3:h14 qa:v101.11.3:h14:ui1 qa:v101.11.3:h15
+          do
+            npm run "$gate"
+          done
       - name: WhatsApp task test contracts
         run: npx vitest run src/services/task-reminder-whatsapp-test.test.ts --reporter=dot
       - name: Application regression

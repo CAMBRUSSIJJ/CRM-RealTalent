@@ -32,6 +32,7 @@ import { AppearanceSettingsPanel } from './appearance-settings-panel'
 import { SETTINGS_GUIDES } from './settings-guides'
 import {collapsedGroupsForSettingsTab,type SettingsS3Group} from './settings-s3-navigation'
 import {SettingsLiveDiagnostics} from './settings-live-diagnostics'
+import { TaskReminderPreferencesPanel } from './task-reminder-preferences-panel'
 import { shouldAutoSaveSettings, validateCommercialSettingsDraft } from './settings-automation-policy'
 import '../../styles/settings-automation-s1s2.css'
 import '../../styles/settings-s3.css'
@@ -381,6 +382,7 @@ export function SettingsPage() {
               <div className="notification-channel-card is-disabled"><span><Mail size={19} /></span><div><strong>E-mail</strong><small>Será habilitado quando Gmail/Outlook estiver conectado e o backend de entrega estiver validado.</small><StatusPill tone="warning">Depende de integração</StatusPill></div></div>
               <div className="notification-channel-card is-disabled"><span><MessageCircle size={19} /></span><div><strong>WhatsApp</strong><small>Canal de notificação ficará disponível após a conexão oficial do WhatsApp Business.</small><StatusPill tone="warning">Planejado</StatusPill></div></div>
             </div>
+            <TaskReminderPreferencesPanel workspaceId={currentWorkspace?.id ?? null} userId={auth.user?.id ?? null} enabled={repositoryMode === 'supabase'} />
             {browserPermission === 'default' ? <div className="settings-actions"><Button variant="secondary" onClick={() => void Notification.requestPermission().then((permission) => { setBrowserPermission(permission); if (permission === 'granted') experience.updateNotifications({ browserEnabled: true }) })}><MonitorSmartphone size={16} /> Permitir avisos no navegador</Button><span className="settings-copy">A permissão é controlada pelo navegador e pode ser revogada nas configurações do site.</span></div> : null}
           </article>
 

@@ -20,11 +20,11 @@ type ContactRow = { user_id: string; phone_e164: string | null }
 export function normalizeTeamWhatsApp(raw: string): string | null {
   const value = raw.trim()
   if (!value) return null
-  if (/[^\\d+\\s().-]/.test(value) || (value.match(/\\+/g) || []).length > 1 || (value.includes('+') && !value.startsWith('+'))) return null
-  const digits = value.replace(/\\D/g, '')
+  if (/[^\d+\s().-]/.test(value) || (value.match(/\+/g) || []).length > 1 || (value.includes('+') && !value.startsWith('+'))) return null
+  const digits = value.replace(/\D/g, '')
   const e164 = value.startsWith('+') || digits.startsWith('55') ? '+' + digits
     : digits.length === 10 || digits.length === 11 ? '+55' + digits : ''
-  return /^\\+[1-9][0-9]{7,14}$/.test(e164) ? e164 : null
+  return /^\+[1-9][0-9]{7,14}$/.test(e164) ? e164 : null
 }
 
 export function TeamNotificationContacts({ workspaceId, members, currentUserId, canManage, mode, leaderId }: Props) {

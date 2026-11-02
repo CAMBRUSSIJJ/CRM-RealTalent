@@ -123,7 +123,10 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
     throw new Error('Serviço local do WhatsApp indisponível. Use “Reiniciar serviço” em Configurações > WhatsApp > Diagnóstico ou tente novamente em alguns segundos.')
   }
   const payload = await response.json().catch(() => ({})) as Record<string, unknown>
-  if (!response.ok) throw new Error(response.status===502||response.status===503?describeLocalServiceError(response.status,'gateway'):String(payload.error || payload.message || `Falha HTTP ${response.status}`))
+  if (!response.ok) {
+    if (payload.error === 'runtime_upstream_auth_rejected') throw new Error('Autenticação Vercel ↔ Railway rejeitada para o gateway de comunicação. Verifique as credenciais internas nos dois ambientes.')
+    throw new Error(response.status===502||response.status===503?describeLocalServiceError(response.status,'gateway'):String(payload.error || payload.message || `Falha HTTP ${response.status}`))
+  }
   return payload as T
 }
 

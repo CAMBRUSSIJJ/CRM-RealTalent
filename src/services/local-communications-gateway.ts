@@ -25,6 +25,24 @@ const base = () => {
 
 const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms))
 
+// Upstream gateway errors are not the same as Vite's proxy being unreachable.
+// Keep the error returned by the local service instead of misdiagnosing all
+// HTTP 502 responses as a disconnected gateway.
+export function describeGatewayResponseError(status: number, payload: Record<string, unknown>): string {
+  if (payload.error === 'runtime_upstream_auth_rejected') {
+    return 'Autenticação Vercel ↔ Railway rejeitada para o gateway de comunicação. Verifique as credenciais internas nos dois ambientes.'
+  }
+  const error = typeof payload.error === 'string' ? payload.error.trim() : ''
+  const message = typeof payload.message === 'string' ? payload.message.trim() : ''
+  const upstream = (error && !['Bad Gateway', 'bad_gateway', 'proxy_error', 'ECONNREFUSED', 'ECONNRESET'].includes(error))
+    ? error : (message || '')
+  if ((status === 502 || status === 503) && upstream) {
+    return `Falha no serviço de Comunicação (HTTP ${status}): ${upstream.slice(0, 350)}`
+  }
+  if (status === 502 || status === 503) return describeLocalServiceError(status, 'gateway')
+  return upstream || `Falha HTTP ${status}`
+}
+
 export type CommunicationsRealtimeState = 'connecting' | 'live' | 'offline'
 export interface CommunicationsRealtimeSignal { type: string; workspaceId: string; revision?: number; at?: string; reason?: string }
 
@@ -124,8 +142,7 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   }
   const payload = await response.json().catch(() => ({})) as Record<string, unknown>
   if (!response.ok) {
-    if (payload.error === 'runtime_upstream_auth_rejected') throw new Error('Autenticação Vercel ↔ Railway rejeitada para o gateway de comunicação. Verifique as credenciais internas nos dois ambientes.')
-    throw new Error(response.status===502||response.status===503?describeLocalServiceError(response.status,'gateway'):String(payload.error || payload.message || `Falha HTTP ${response.status}`))
+    throw new Error(describeGatewayResponseError(response.status, payload))
   }
   return payload as T
 }

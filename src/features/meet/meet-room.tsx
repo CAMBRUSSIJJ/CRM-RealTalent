@@ -61,15 +61,37 @@ function ConnectedRoom({ room, displayName, isHost, onLeave, onEnd, onReady, onE
   const [screenOn, setScreenOn] = useState(false)
   const [message, setMessage] = useState('')
   const [chat, setChat] = useState<ChatItem[]>([])
-  const [panel, setPanel] = useState<'chat'|'context'|'people'|null>(null)
+  const [panel, setPanel] = useState<'chat'|'context'|'people'|'network'|null>(null)
   const [notice, setNotice] = useState('')
   const [sharingBusy, setSharingBusy] = useState(false)
   const [screenStream, setScreenStream] = useState<MediaStream | null>(null)
   const [connecting, setConnecting] = useState(true)
   const [relayState,setRelayState] = useState<'checking'|'available'|'degraded'>('checking')
   const [mediaStatus,setMediaStatus] = useState<'waiting'|'connecting'|'connected'|'failed'>('waiting')
+  const [transport,setTransport] = useState<'unknown'|'direct'|'relay'>('unknown')
   const [participants,setParticipants] = useState<Array<{id:string;name:string}>>([])
   const screenRef = useRef<MediaStream | null>(null)
+  useEffect(()=>{
+    if(!pcs.current.size){setTransport('unknown');return}
+    let alive=true
+    const inspect=async()=>{
+      for(const pc of pcs.current.values()){
+        if(pc.connectionState!=='connected')continue
+        try{
+          const stats=await pc.getStats()
+          let selected:RTCStats|undefined
+          stats.forEach(item=>{
+            if(item.type==='candidate-pair' && item.state==='succeeded' && item.nominated)selected=item
+          })
+          const local=selected && stats.get(selected.localCandidateId)
+          if(alive && local?.candidateType)setTransport(local.candidateType==='relay'?'relay':'direct')
+        }catch{/* browser may omit ICE stats */}
+      }
+    }
+    void inspect()
+    const timer=window.setInterval(()=>void inspect(),6000)
+    return()=>{alive=false;window.clearInterval(timer)}
+  },[peers.length,mediaStatus])
   const [startedAt] = useState(Date.now)
   const [seconds,setSeconds] = useState(0)
   useEffect(()=>{const timer=window.setInterval(()=>setSeconds(Math.floor((Date.now()-startedAt)/1000)),1000);return()=>window.clearInterval(timer)},[startedAt])
@@ -370,7 +392,11 @@ function ConnectedRoom({ room, displayName, isHost, onLeave, onEnd, onReady, onE
       const video=capture.getVideoTracks()[0]
       if(!video){capture.getTracks().forEach(t=>t.stop());setNotice('Nenhuma tela foi selecionada.');return}
       try{await replaceVideo(video)}
-      catch(e){capture.getTracks().forEach(t=>t.stop());throw e}
+      catch(e){
+        await replaceVideo(localRef.current?.getVideoTracks()[0]||null).catch(()=>{/* connection may have closed */})
+        capture.getTracks().forEach(t=>t.stop())
+        throw e
+      }
       screenRef.current=capture
       setScreenStream(capture)
       setScreenOn(true)
@@ -402,6 +428,23 @@ function ConnectedRoom({ room, displayName, isHost, onLeave, onEnd, onReady, onE
     setChat(x=>x.map(item=>item.id===id && item.status!=='delivered'
       ?{...item,status:ok?'sent':'failed'}:item))
     if(!ok)setNotice('A mensagem não foi transmitida. Verifique a conexão da sala.')
+  }
+  const reconnect=async()=>{
+    setMediaStatus('connecting')
+    let initiated=false
+    for(const [id,pc] of pcs.current.entries()){
+      if(pc.signalingState==='closed')continue
+      pc.restartIce()
+      if(selfId<id && pc.signalingState==='stable'){
+        try{
+          const offer=await pc.createOffer({iceRestart:true})
+          await pc.setLocalDescription(offer)
+          initiated=await broadcast({type:'offer',to:id,sdp:offer}) || initiated
+        }catch{/* remote peer may be negotiating already */}
+      }
+    }
+    const announced=await broadcast({type:'join'})
+    if(!announced && !initiated)setNotice('Não foi possível solicitar reconexão. Verifique sua internet.')
   }
   const retryMessage=async(id:string)=>{
     const item=chat.find(x=>x.id===id)
@@ -437,11 +480,21 @@ function ConnectedRoom({ room, displayName, isHost, onLeave, onEnd, onReady, onE
         <VideoTile stream={screenStream||stream} label={screenOn?'Sua tela (compartilhando)':displayName+' (você)'} muted screen={screenOn}/>
         {peers.map(p=><VideoTile key={p.id} stream={p.stream} label={p.name}/>)}
         {connecting ? <div className="rtmeet-status-overlay" role="status">Conectando à sala...</div>:
-          mediaStatus==='failed' ? <div className="rtmeet-status-overlay" role="alert">Conexão instável. Tente outra rede ou entre novamente.</div> :
+          mediaStatus==='failed' ? <div className="rtmeet-status-overlay" role="alert"><span>Conexão instável.</span><button type="button" onClick={()=>void reconnect()}>Reconectar</button></div> :
           peers.length===0 && <div className="rtmeet-status-overlay rtmeet-status-overlay--alone"><Users size={16}/><span>Você está na sala. Convide alguém para começar.</span><button type="button" onClick={()=>void copyInvite()}>Copiar convite</button></div>}
       </div>
       {panel==='chat' && room.settings.chat && <aside className="rtmeet-chat"><header><strong>Chat da reunião</strong><button type="button" aria-label="Fechar chat" onClick={()=>setPanel(null)}>×</button></header><div className="rtmeet-chat-items">{chat.length===0&&<p className="rtmeet-chat-empty">As mensagens desta reunião aparecerão aqui.</p>}{chat.map(c=><p key={c.id}><strong>{c.name}</strong><span>{c.text}</span>{c.status&&<small className={'rtmeet-chat-status rtmeet-chat-status--'+c.status}>{c.status==='sending'?'Enviando…':c.status==='sent'?'Enviada · aguardando confirmação':c.status==='delivered'?'Recebida':'Falha no envio'}{c.status==='failed'&&<button type="button" onClick={()=>void retryMessage(c.id)}>Tentar novamente</button>}</small>}</p>)}</div><form onSubmit={e=>{e.preventDefault();void send()}}><input aria-label="Mensagem" value={message} onChange={e=>setMessage(e.target.value)} placeholder="Escrever mensagem..." maxLength={2000}/><button type="submit" disabled={!message.trim()} aria-label="Enviar"><Send size={16}/></button></form></aside>}
       {panel==='people' && <aside className="rtmeet-chat rtmeet-people"><header><strong>Participantes ({Math.max(1+peers.length,participants.length)})</strong><button type="button" aria-label="Fechar participantes" onClick={()=>setPanel(null)}>×</button></header><div className="rtmeet-people-list"><div><Users size={16}/><span>{displayName} (você)</span></div>{(participants.length?participants.filter(p=>p.id!==selfId):peers).map(p=><div key={p.id}><Users size={16}/><span>{p.name}</span></div>)}</div><div className="rtmeet-people-invite"><p>Compartilhe o convite para adicionar participantes à sala.</p><button type="button" onClick={()=>void copyInvite()}><Copy size={15}/> Copiar link</button></div></aside>}
+      {panel==='network' && <aside className="rtmeet-chat rtmeet-network-panel"><header><strong>Diagnóstico da conexão</strong><button type="button" aria-label="Fechar diagnóstico" onClick={()=>setPanel(null)}>×</button></header>
+        <div className="rtmeet-network-details">
+          <dl><dt>Sinalização</dt><dd>{connecting?'Conectando':channel.current?'Canal Supabase ativo':'Indisponível'}</dd>
+          <dt>Servidor TURN</dt><dd>{relayState==='checking'?'Verificando':relayState==='available'?'Disponível':'Não configurado ou indisponível'}</dd>
+          <dt>Áudio/vídeo</dt><dd>{mediaStatus==='connected'?'Conectado':mediaStatus==='failed'?'Falha de conexão':mediaStatus==='connecting'?'Negociando':'Aguardando participante'}</dd>
+          <dt>Tipo de rota</dt><dd>{transport==='relay'?'Retransmissão TURN':transport==='direct'?'Conexão direta':'Ainda não determinado'}</dd></dl>
+          {relayState==='degraded'&&<p>A conexão direta pode funcionar, mas algumas redes corporativas e móveis exigem TURN. O administrador precisa configurar o servidor de retransmissão.</p>}
+          <button type="button" onClick={()=>void reconnect()}>Tentar reconectar</button>
+        </div>
+      </aside>}
       {panel==='context' && isHost && <aside className="rtmeet-chat rtmeet-context-panel"><header><strong>Contexto da reunião</strong><button type="button" aria-label="Fechar contexto" onClick={()=>setPanel(null)}>×</button></header><MeetContextPanel room={room} context={commercialContext} onSaveNote={onSaveNote} onCreateFollowup={onCreateFollowup}/></aside>}
     </div>
     <footer className="rtmeet-controls" aria-label="Controles da reunião">
@@ -452,7 +505,7 @@ function ConnectedRoom({ room, displayName, isHost, onLeave, onEnd, onReady, onE
         {room.settings.chat && <button type="button" className={panel==='chat'?'is-active':''} aria-pressed={panel==='chat'} onClick={()=>setPanel(v=>v==='chat'?null:'chat')}><MessageSquare/><span>Chat</span></button>}
         {isHost && <button type="button" className={panel==='context'?'is-active':''} aria-pressed={panel==='context'} onClick={()=>setPanel(v=>v==='context'?null:'context')}><ClipboardList/><span>Contexto</span></button>}
       </div>
-      <div className="rtmeet-controls-exit"><button type="button" className="rtmeet-leave" onClick={leave} title="Sair sem encerrar para os demais"><LogOut/><span>Sair</span></button>
+      <div className="rtmeet-controls-exit"><button type="button" className={panel==='network'?'is-active':''} onClick={()=>setPanel(v=>v==='network'?null:'network')} aria-pressed={panel==='network'} title="Diagnosticar conexão">Rede</button><button type="button" className="rtmeet-leave" onClick={leave} title="Sair sem encerrar para os demais"><LogOut/><span>Sair</span></button>
       {isHost && <button type="button" className="rtmeet-end" onClick={()=>void end()} title="Encerrar para todos os participantes"><LogOut/><span>Encerrar todos</span></button>}</div>
     </footer>
   </div>

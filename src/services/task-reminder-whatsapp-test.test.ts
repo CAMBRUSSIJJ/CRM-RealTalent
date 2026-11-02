@@ -75,10 +75,12 @@ describe('Teste WhatsApp de tarefa pelo CRM', () => {
 
   it('não reinicia uma sessão QR ativa nem descarta um QR aguardando leitura', () => {
     const bridge = readFileSync(new URL('../../scripts/whatsapp-browser-qr-bridge.mjs', import.meta.url), 'utf8')
-    expect(bridge).toContain("if (prior?.client && ['connected', 'starting', 'qr'].includes(prior.state))")
+    expect(bridge).toContain("prior.state === 'connected' || prior.state === 'qr' || startupInProgress")
     expect(bridge).toContain('return status(workspaceId)')
     expect(bridge).toContain('const pendingStarts = new Map()')
-    expect(bridge.indexOf("if (prior?.client && ['connected', 'starting', 'qr'].includes(prior.state))"))
+    expect(bridge).toContain("Boolean(prior.reconnectTimer)")
+    expect(bridge).toContain("Number(prior.reconnectAttempts || 0) === 0")
+    expect(bridge.indexOf("prior.state === 'connected' || prior.state === 'qr' || startupInProgress"))
       .toBeLessThan(bridge.indexOf('if (prior?.client) await destroySession(prior)'))
   })
 

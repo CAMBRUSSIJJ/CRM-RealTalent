@@ -9,7 +9,7 @@ create table if not exists public.team_member_notification_contacts (
   foreign key (organization_id, user_id)
     references public.organization_members(organization_id, user_id) on delete cascade,
   constraint team_contact_phone_format check (
-    phone_e164 is null or phone_e164 ~ '^\\+[1-9][0-9]{7,14}$'
+    phone_e164 is null or phone_e164 ~ '^\+[1-9][0-9]{7,14}$'
   )
 );
 create index if not exists team_member_notification_contacts_updated_idx

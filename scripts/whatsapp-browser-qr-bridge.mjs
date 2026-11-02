@@ -813,11 +813,18 @@ export function createWhatsAppBrowserQrBridge({ root, now, uuid, store, saveStor
         sent = await session.client.sendMessage(chatId, String(body), sendOptions)
       }
       const externalMessageId = serializedId(sent?.id)
-      if (externalMessageId) context.externalMessageId = externalMessageId
+      // WhatsApp Web sometimes returns undefined on a failed/ambiguous send.
+      // A fabricated UUID was previously being treated as proof of delivery.
+      // Keep the operation indeterminate so the manual test is never retried
+      // automatically and the operator can inspect the conversation.
+      if (!externalMessageId) {
+        throw new Error('WhatsApp Web não confirmou o envio com um ID de mensagem. Verifique a conversa antes de tentar novamente: a operação pode ter sido aceita sem confirmação.')
+      }
+      context.externalMessageId = externalMessageId
       setTimeout(() => {
         session.outboundSendContexts = (session.outboundSendContexts || []).filter(item => item !== context)
       }, 15_000).unref?.()
-      return { id: externalMessageId || uuid(), threadId: chatId }
+      return { id: externalMessageId, threadId: chatId }
     } catch (error) {
       context.failed = true
       session.outboundSendContexts = (session.outboundSendContexts || []).filter(item => item !== context)

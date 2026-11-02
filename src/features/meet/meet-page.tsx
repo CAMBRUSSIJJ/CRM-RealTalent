@@ -67,7 +67,7 @@ export function MeetPage(){
       let room=await createMeetRoom({workspaceId,createdBy:user.id,hostName:user.displayName||'RealTalent',
         title:kind==='instant'?'Reunião imediata':title,agenda:kind==='instant'?'':agenda,startsAt:startsAt.toISOString(),endsAt:endsAt.toISOString(),leadId: kind==='instant'?null:selectedLead?.id ?? null,
         contactId: kind==='instant'?null:selectedLead?.primaryContactId ?? null,companyId:kind==='instant'?null:selectedLead?.companyId ?? null,opportunityId:kind==='instant'?null:selectedLead?.opportunityId ?? null},mode)
-      if(kind==='instant')room=await changeMeetRoom(room,'live',mode)
+      // Only mark a meeting live once signaling is actually subscribed.
       setRooms(list=>[room,...list])
       setCreating(false);setTitle('');setLeadId('');setAgenda('');setStart(initialStart())
       setNotice(kind==='instant'?'Sala pronta. Confira câmera e microfone.':'Sala criada. Copie o convite ou entre na reunião.')
@@ -92,7 +92,7 @@ export function MeetPage(){
   const join=async(room:MeetRoom)=>{
     if(!user)return
     try{
-      if(room.status!=='live')room=await statusUpdate(room,'live')
+      // Prejoin may be cancelled; do not mark the room live yet.
       setActive(room)
     }catch(e){setError(e instanceof Error?e.message:'Não foi possível iniciar a reunião.')}
   }
@@ -129,7 +129,9 @@ export function MeetPage(){
         type:'followup',title,description:'Acompanhamento criado durante '+active.title,
         dueAt,completedAt:null,assignedTo:user.id})}}
       onLeave={()=>{setActive(null);void refresh()}}
-      onEnd={async()=>{try{await statusUpdate(active,'completed');setWrapRoom(active)}catch(e){setError(e instanceof Error?e.message:'Falha ao concluir a reunião.');throw e}}}/>
+      onReady={async()=>{if(active.status!=='live')await statusUpdate(active,'live')}}
+      onEnd={async()=>{try{await statusUpdate(active,'completed')}catch(e){setError(e instanceof Error?e.message:'Falha ao concluir a reunião.');throw e}}}
+      onEnded={()=>{setActive(null);setWrapRoom(active)}}/>
   }
   const row=(room:MeetRoom)=><article key={room.id} className="rtmeet-card">
     <div className="rtmeet-card-main">

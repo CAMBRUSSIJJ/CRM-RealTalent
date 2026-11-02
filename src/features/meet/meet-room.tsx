@@ -79,11 +79,11 @@ function ConnectedRoom({ room, displayName, isHost, onLeave, onEnd, onReady, onE
         if(pc.connectionState!=='connected')continue
         try{
           const stats=await pc.getStats()
-          let selected:RTCStats|undefined
-          stats.forEach(item=>{
+          let selected:{localCandidateId:string}|undefined
+          stats.forEach((item:any)=>{
             if(item.type==='candidate-pair' && item.state==='succeeded' && item.nominated)selected=item
           })
-          const local=selected && stats.get(selected.localCandidateId)
+          const local=(selected && stats.get(selected.localCandidateId)) as {candidateType?:string}|undefined
           if(alive && local?.candidateType)setTransport(local.candidateType==='relay'?'relay':'direct')
         }catch{/* browser may omit ICE stats */}
       }

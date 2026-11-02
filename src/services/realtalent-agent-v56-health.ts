@@ -52,7 +52,7 @@ export async function getAgentRuntimeHealth(transport:typeof runtimeFetch=runtim
           !modelPresent(list,model)?'Ollama respondeu, mas o modelo configurado não está instalado.':''}
     }
     if(!response.ok){
-      const reason=await response.clone().json().catch(()=>({})) as {error?:string}
+      const reason=await response.json().catch(()=>({})) as {error?:string}
       if(reason.error==='runtime_upstream_auth_rejected')return unreachable('O Agent rejeitou a credencial interna Vercel ↔ Railway. O serviço não está autenticado.')
       if(response.status===401||response.status===403)return unreachable('Acesso negado pelo Agent. Verifique sua sessão e a autenticação do serviço.')
       return unreachable('O Agent não respondeu: HTTP '+response.status+'.')

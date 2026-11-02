@@ -49,6 +49,8 @@ jobs:
           done
       - name: QR bridge JavaScript syntax
         run: node --check scripts/whatsapp-browser-qr-bridge.mjs
+      - name: WhatsApp LID addressing (no external sends)
+        run: node --test scripts/whatsapp-lid-addressing.test.mjs
       - name: WhatsApp task test contracts
         run: npx vitest run src/services/task-reminder-whatsapp-test.test.ts --reporter=dot
       - name: Application regression

@@ -1,3 +1,4 @@
+import { readFileSync } from 'node:fs'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { WorkTask } from '../domain/types'
 
@@ -64,6 +65,12 @@ describe('Teste WhatsApp de tarefa pelo CRM', () => {
     const readiness = await checkTaskWhatsAppTestConnection('workspace-1')
     expect(readiness.available).toBe(false)
     expect(readiness.accountId).toBeNull()
+  })
+
+  it('o status QR do gateway expõe accountId apenas para uma sessão conectada', () => {
+    const source = readFileSync(new URL('../../scripts/whatsapp-browser-qr-bridge.mjs', import.meta.url), 'utf8')
+    expect(source).toContain("accountId: s.state === 'connected' ? (s.accountId || null) : null")
+    expect(source).toContain("session.accountId = account.id")
   })
 
   it('herda a identidade da sessão QR conectada sem depender da lista de contas', async () => {

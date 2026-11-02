@@ -39,6 +39,11 @@ export interface TaskInput {
   assigneeName?: string
   teamId?: string | null
   recurrence?: WorkTask['recurrence']
+  reminderEnabled?: boolean
+  reminderOnAssignment?: boolean
+  reminderChannels?: Array<'in_app' | 'email' | 'whatsapp'>
+  reminderOffsetsMinutes?: number[]
+  reminderCustomMinutes?: number | null
   tags?: string[]
   relation?: { entityType: TaskRelationEntity; entityId: string; entityLabel: string } | null
   checklist?: Array<{ id?: string; title: string; completed?: boolean }>
@@ -80,7 +85,13 @@ const mapTask = (row: any): WorkTask => ({
   id: row.id, workspaceId: row.organization_id, title: row.title, description: row.description ?? '',
   status: row.status, priority: row.priority, startsAt: row.starts_at ?? null, dueAt: row.due_at ?? null, completedAt: row.completed_at ?? null,
   assigneeId: row.assignee_id ?? null, assigneeName: row.assignee_name ?? '', teamId: row.team_id ?? null,
-  recurrence: row.recurrence ?? 'none', tags: Array.isArray(row.tags) ? row.tags : [], createdBy: row.created_by ?? null,
+  recurrence: row.recurrence ?? 'none',
+  reminderEnabled: row.reminder_enabled !== false,
+  reminderOnAssignment: row.reminder_on_assignment !== false,
+  reminderChannels: Array.isArray(row.reminder_channels) ? row.reminder_channels : ['in_app'],
+  reminderOffsetsMinutes: Array.isArray(row.reminder_offsets_minutes) ? row.reminder_offsets_minutes : [60],
+  reminderCustomMinutes: typeof row.reminder_custom_minutes === 'number' ? row.reminder_custom_minutes : null,
+  tags: Array.isArray(row.tags) ? row.tags : [], createdBy: row.created_by ?? null,
   createdAt: row.created_at, updatedAt: row.updated_at,
 })
 const mapRelation = (row: any): TaskRelation => ({ id: row.id, workspaceId: row.organization_id, taskId: row.task_id, entityType: row.entity_type, entityId: row.entity_id, entityLabel: row.entity_label ?? '', createdAt: row.created_at })
@@ -186,7 +197,13 @@ export async function saveTask(mode: 'local' | 'supabase', workspaceId: string, 
   const task: WorkTask = {
     id, workspaceId, title: input.title.trim(), description: input.description?.trim() ?? '', status: input.status ?? 'todo', priority: input.priority ?? 'normal',
     startsAt: input.startsAt ?? null, dueAt: input.dueAt ?? null, completedAt: completed ? (input.completedAt ?? timestamp) : null, assigneeId: input.assigneeId ?? null,
-    assigneeName: input.assigneeName?.trim() ?? '', teamId: input.teamId ?? null, recurrence: input.recurrence ?? 'none', tags: Array.from(new Set(input.tags ?? [])),
+    assigneeName: input.assigneeName?.trim() ?? '', teamId: input.teamId ?? null, recurrence: input.recurrence ?? previous?.recurrence ?? 'none',
+    reminderEnabled: input.reminderEnabled ?? previous?.reminderEnabled ?? true,
+    reminderOnAssignment: input.reminderOnAssignment ?? previous?.reminderOnAssignment ?? true,
+    reminderChannels: input.reminderChannels ?? previous?.reminderChannels ?? ['in_app'],
+    reminderOffsetsMinutes: input.reminderOffsetsMinutes ?? previous?.reminderOffsetsMinutes ?? [60],
+    reminderCustomMinutes: input.reminderCustomMinutes !== undefined ? input.reminderCustomMinutes : previous?.reminderCustomMinutes ?? null,
+    tags: Array.from(new Set(input.tags ?? [])),
     createdBy, createdAt: timestamp, updatedAt: timestamp,
   }
   if (!client) {
@@ -204,7 +221,10 @@ export async function saveTask(mode: 'local' | 'supabase', workspaceId: string, 
   const payload = {
     id, organization_id: workspaceId, title: task.title, description: task.description, status: task.status, priority: task.priority,
     starts_at: task.startsAt, due_at: task.dueAt, completed_at: task.completedAt, assignee_id: task.assigneeId, assignee_name: task.assigneeName,
-    team_id: task.teamId, recurrence: task.recurrence, tags: task.tags, updated_at: timestamp,
+    team_id: task.teamId, recurrence: task.recurrence, tags: task.tags,
+    reminder_enabled: task.reminderEnabled, reminder_on_assignment: task.reminderOnAssignment,
+    reminder_channels: task.reminderChannels, reminder_offsets_minutes: task.reminderOffsetsMinutes,
+    reminder_custom_minutes: task.reminderCustomMinutes, updated_at: timestamp,
     ...(input.id ? {} : { created_by: createdBy }),
   }
   const result = await client.from('work_tasks').upsert(payload).select('*').single()

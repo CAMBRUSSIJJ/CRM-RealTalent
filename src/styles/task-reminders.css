@@ -1,0 +1,27 @@
+/* RealTalent — task reminders, native to the existing collaborative task editor. */
+.task-reminders { --reminder-blue: #2c63d7; }
+.task-reminders__toggle { display:flex; align-items:flex-start; gap:12px; background:var(--surface-secondary, rgba(36,90,179,.055)); border:1px solid var(--border, rgba(44,99,215,.16)); border-radius:12px; padding:12px 14px; cursor:pointer; }
+.task-reminders input[type=checkbox] { flex-shrink:0; accent-color:var(--primary, #356ae6); width:16px; height:16px; margin-top:2px; }
+.task-reminders__toggle strong { display:block; font-size:14px; }
+.task-reminders__toggle small { display:block; font-size:12px; line-height:1.5; opacity:.72; margin-top:2px; }
+.task-reminders__body { padding:14px 0 0; }
+.task-reminders__columns { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:20px; }
+.task-reminders__label { display:block; margin:0 0 9px; font-size:13px; }
+.task-reminders__choices { display:flex; flex-direction:column; gap:8px; }
+.task-reminders__choice { min-height:27px; display:flex; align-items:center; gap:10px; font-size:13px; cursor:pointer; }
+.task-reminders__custom { display:grid; gap:6px; margin-top:12px; font-size:12px; }
+.task-reminders__custom input { width:100%; max-width:160px; border:1px solid var(--border, #d7dce5); border-radius:7px; padding:9px 11px; background:var(--surface, #fff); color:inherit; }
+.task-reminders__notice { font-size:12px; line-height:1.55; padding:10px 12px; background:rgba(46,96,182,.06); border-left:3px solid var(--primary, #356ae6); border-radius:6px; margin:10px 0; }
+.task-reminders__history { margin-top:18px; padding-top:14px; border-top:1px solid var(--border, #e4e8ee); }
+.task-reminders__history-heading { display:flex; justify-content:space-between; align-items:center; gap:10px; margin-bottom:11px; font-size:13px; }
+.task-reminders__muted { font-size:12px; color:var(--text-secondary, #637080); line-height:1.5; }
+.task-reminders__timeline { padding:0; margin:0 0 10px; list-style:none; max-height:200px; overflow:auto; }
+.task-reminders__timeline li { display:flex; gap:11px; padding:8px 0; border-bottom:1px solid var(--border, rgba(0,0,0,.05)); font-size:12px; }
+.task-reminders__timeline strong { font-size:12px; font-weight:600; }
+.task-reminders__timeline small { margin-top:3px; display:flex; align-items:center; gap:5px; color:var(--text-secondary,#637080); }
+.task-reminders__dot { display:block; width:9px; height:9px; flex:0 0 9px; border-radius:100%; background:#8a9ab0; margin-top:4px; }
+.task-reminders__dot.is-sent { background:#1a9b74; }
+.task-reminders__dot.is-failed, .task-reminders__dot.is-blocked { background:#d34b4b; }
+.task-reminders__dot.is-pending { background:#356ae6; }
+.task-reminders__dot.is-cancelled, .task-reminders__dot.is-skipped { background:#adb5bf; }
+@media (max-width:680px) { .task-reminders__columns { grid-template-columns:1fr; gap:15px; } .task-reminders__toggle { padding:10px; } }

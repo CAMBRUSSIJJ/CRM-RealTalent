@@ -1,0 +1,44 @@
+name: Task Integrated Reminders QA
+on:
+  push:
+    branches:
+      - feat/task-integrated-reminders-ux-20261102
+  pull_request:
+    paths:
+      - 'src/features/tasks/**'
+      - 'src/features/settings/task-reminder-*'
+      - 'src/services/work-management.ts'
+      - 'src/services/task-reminder-*'
+      - 'src/domain/types.ts'
+      - 'supabase/migrations/*task_reminder*'
+      - 'supabase/functions/task-reminder-*'
+      - 'src/styles/task-reminders.css'
+      - 'scripts/task-reminder-ui-contract.test.mjs'
+permissions:
+  contents: read
+jobs:
+  task-reminders:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: '22'
+          cache: npm
+      - name: Install
+        run: npm ci --include=dev
+      - name: UI and RLS contract
+        run: node --test scripts/task-reminder-ui-contract.test.mjs
+      - name: Existing reminder security contracts
+        run: node --test scripts/task-reminder-contract.test.mjs
+      - name: CSS governance
+        run: npm run css:governance
+      - name: Application regression
+        run: npx vitest run src --reporter=dot
+      - name: TypeScript
+        run: npm run typecheck
+      - name: Build
+        run: npm run build

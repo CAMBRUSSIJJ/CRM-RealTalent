@@ -237,3 +237,11 @@
   .rtmeet-call-header button.rtmeet-invite-button svg{flex-shrink:0}
   .rtmeet-controls button,.rtmeet-controls button.rtmeet-end{width:36px;min-width:36px}
 }
+
+/* Commercial follow-up in the contextual sidebar */
+.rtmeet-followup label{display:block;font-size:12px;font-weight:560;color:#c9d7ed;margin:10px 0 6px}
+.rtmeet-followup input{box-sizing:border-box;width:100%;min-height:39px;border:1px solid #4a607e;
+  border-radius:9px;background:#10203a;color:#f5f8ff;padding:9px 11px;font-size:13px;font-family:inherit}
+.rtmeet-followup input:focus-visible{outline:2px solid #8fbdff;outline-offset:2px}
+.rtmeet-followup input::-webkit-calendar-picker-indicator{filter:invert(1)}
+.rtmeet-followup .rtmeet-followup-success{display:flex;align-items:center;gap:7px;color:#b0ebd0;font-size:12px}

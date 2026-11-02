@@ -73,6 +73,25 @@ describe('Teste WhatsApp de tarefa pelo CRM', () => {
     expect(source).toContain("session.accountId = account.id")
   })
 
+  it('não reinicia uma sessão QR ativa nem descarta um QR aguardando leitura', () => {
+    const bridge = readFileSync(new URL('../../scripts/whatsapp-browser-qr-bridge.mjs', import.meta.url), 'utf8')
+    expect(bridge).toContain("if (prior?.client && ['connected', 'starting', 'qr'].includes(prior.state))")
+    expect(bridge).toContain('return status(workspaceId)')
+    expect(bridge).toContain('const pendingStarts = new Map()')
+    expect(bridge.indexOf("if (prior?.client && ['connected', 'starting', 'qr'].includes(prior.state))"))
+      .toBeLessThan(bridge.indexOf('if (prior?.client) await destroySession(prior)'))
+  })
+
+  it('informa que uma sessão restaurada não precisa exibir novo QR', () => {
+    const settings = readFileSync(new URL('../features/settings/whatsapp-integration-panel.tsx', import.meta.url), 'utf8')
+    const communication = readFileSync(new URL('../features/communications/whatsapp-connection-center.tsx', import.meta.url), 'utf8')
+    expect(settings).toContain('A sessão foi restaurada automaticamente')
+    expect(settings).toContain('WhatsApp já conectado')
+    expect(communication).toContain("qrStatus?.state === 'connected'")
+    expect(communication).toContain('Conectado — QR não necessário')
+    expect(communication).not.toContain('qrStatus?.state === \'connected\' || qrAccount?.status === \'connected\'')
+  })
+
   it('herda a identidade da sessão QR conectada sem depender da lista de contas', async () => {
     gateway.loadGatewayWhatsAppQrStatus.mockResolvedValue({ state: 'connected', phone: '5551999999999', accountId: 'qr-account-1' })
     gateway.loadGatewayAccounts.mockRejectedValue(new Error('Lista temporariamente indisponível'))

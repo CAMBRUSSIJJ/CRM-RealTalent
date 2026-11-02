@@ -1013,12 +1013,15 @@ async function main() {
   if (mode !== 'dev' && mode !== 'garimpo') verifyDistLineage()
   log('2/4 — Runtime e lineage validados.')
 
+  // Reclaim only an old RealTalent Vite UI before launching sidecars. If
+  // the port belongs to another app, leave all services and processes alone.
+  // Also avoid old-launcher cleanup tearing down a newly started WhatsApp
+  // gateway after its old Vite child is terminated.
+  // The Garimpo launcher already checks port 4197 separately.
+  if (mode !== 'garimpo') await recoverPreviewPort()
   await startServices(token, { preserveProspecting: mode === 'garimpo' })
   startControlServer(token)
   startCommunicationsWatchdog(token)
-  // The Garimpo launcher already checks port 4197, and must not stop any
-  // unrelated Vite server on a race or when another installation is active.
-  if (mode !== 'garimpo') await recoverPreviewPort()
   log('4/4 — Iniciando interface...')
   const url = `http://127.0.0.1:${CRM_PORT}/?rt_release=101.11.3-h2-runtime-service-recovery&rt_ui=101.11.3-h19-13-whatsapp-work-management&rt_cohesion=101.11.3-h20-7-global-ui-final-pass&rt_hotfix=101.11.3-h20-7-h1-appearance-sidebar-truth&rt_hotfix2=101.11.3-h20-7-h2-whatsapp-conversation-inbox&rt_garimpo=101.11.3-h21-1-coverage-runtime-truth&rt_launcher_fix=101.11.3-h21-1-h1-communication-lineage-guard&rt_access=101.11.3-h22-1-team-profiles-access-control&rt_access2=101.11.3-h22-2-cross-module-access-control&rt_governance=101.11.3-h22-3-field-approvals-audit&rt_closure=101.11.3-h22-3-h1-stability-security-closure&rt_cr1=101.11.3-cr1-build-dependency-closure&rt_cr2=101.11.3-cr2-supabase-auth-rls-validation&rt_cr3=101.11.3-cr3-e2e-commercial-workflow&rt_cr4=101.11.3-cr4-commercial-ux-failure-recovery&rt_cr5=101.11.3-cr5-performance-observability&rt_cr6=101.11.3-cr6-performance-payload-reduction&rt_cr7=101.11.3-cr7-production-operational-readiness&rt_cr8=101.11.3-cr8-commercial-launch-gate&rt_cr9=101.11.3-cr9-launch-hard-stop-closure&rt_readiness=101.11.3-cr10-supabase-staging-bootstrap&rt_cr10_h1=101.11.3-cr10-h1-css-cascade-governance`
   log(`CRM: ${url}`)

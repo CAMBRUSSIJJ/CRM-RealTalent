@@ -136,6 +136,31 @@ async function failedWhatsAppEvent(snapshot,input,account,error){
   pushEvent(snapshot,event);saveStore(snapshot);return event
 }
 function retryableWhatsAppError(error) { return /(fetch|network|timeout|ECONN|EAI_AGAIN|indispon|desconect|connected|ready|sessão|autentic|429|502|503|504)/i.test(String(error?.message||error||'')) }
+function isManualTaskWhatsAppTest(input) { return input.channel === 'whatsapp' && /^task-whatsapp-manual-test:/.test(String(input.idempotencyKey || '')) }
+function recordManualTaskWhatsAppFailure(snapshot, input, account, error) {
+  // A user-requested *single* test must never enter the 2-second retry outbox:
+  // a timeout can be ambiguous and blindly resending might duplicate delivery.
+  const existing = idempotencyEvent(snapshot, input)
+  if (existing) return existing
+  const details = String(error?.message || error || 'Falha desconhecida no envio pelo WhatsApp Web.').slice(0, 500)
+  const event = makeEvent({
+    workspaceId: input.workspaceId, leadId: input.leadId || null,
+    contactId: input.contactId || null, accountId: account.id,
+    channel: 'whatsapp', direction: 'outbound', status: 'failed',
+    senderAddress: String(account.metadata?.displayPhoneNumber || account.displayName || ''),
+    recipientAddresses: input.recipient ? [String(input.recipient)] : [],
+    bodyText: String(input.body || ''),
+    metadata: {
+      provider: account.provider, transport: account.metadata?.transport || null,
+      idempotencyKey: input.idempotencyKey || null,
+      manualTest: true, outbox: false, lastSendError: details,
+      peerAddress: String(input.recipient || '').replace(/\D/g, ''),
+    },
+  })
+  pushEvent(snapshot, event)
+  saveStore(snapshot)
+  return event
+}
 async function executeCommunicationSend(snapshot, input, account) {
   const attachmentRef = input.channel==='whatsapp' ? await ensureAttachmentRef(input) : null
   const cred = account.metadata?.transport === 'qr' ? null : await credential(snapshot, account)
@@ -276,6 +301,7 @@ async function route(req,res){
   if(req.method==='POST'&&u.pathname==='/api/communications/retry'){const b=await body(req);const event=(s.events||[]).find(item=>item.id===String(b.eventId||'')&&item.workspaceId===String(b.workspaceId||'')&&item.channel==='whatsapp'&&item.direction==='outbound');if(!event)return json(res,404,{error:'Mensagem não encontrada.'});event.status='queued';event.metadata={...(event.metadata||{}),outbox:true,nextRetryAt:now(),lastSendError:null};saveStore(s);void drainWhatsAppOutbox();return json(res,200,{event})}
   if(req.method==='POST'&&u.pathname==='/api/communications/send'){
     const b=await body(req); const a=accountById(s,b.workspaceId,b.accountId)
+    const manualTaskTest = isManualTaskWhatsAppTest(b)
     if(b.channel==='whatsapp'&&looksLikeEncodedMediaText(b.body)){b.body=''}
     if(!a)return json(res,400,{error:'Conta não encontrada ou revogada.'})
     if((!b.body&&!b.attachment?.dataBase64)||(!b.recipient&&!b.threadId))return json(res,400,{error:'Destino e mensagem/arquivo são obrigatórios.'})
@@ -284,12 +310,24 @@ async function route(req,res){
     try{
       if(lockKey&&sendLocks.has(lockKey))return json(res,200,{event:await sendLocks.get(lockKey),idempotent:true})
       const operation=(async()=>{
-        if(b.channel==='whatsapp'&&a.status!=='connected'){const ref=await ensureAttachmentRef(b);return queueWhatsAppEvent(s,b,a,ref,new Error('WhatsApp desconectado. A mensagem ficará na fila.'))}
-        try{return await executeCommunicationSend(s,b,a)}catch(error){if(b.channel==='whatsapp'&&isWhatsAppMediaIdRegression(error))return await failedWhatsAppEvent(s,b,a,error);if(b.channel==='whatsapp'&&retryableWhatsAppError(error)){const ref=await ensureAttachmentRef(b);return queueWhatsAppEvent(s,b,a,ref,error)}throw error}
+        if(b.channel==='whatsapp'&&a.status!=='connected'){
+          if(manualTaskTest) return recordManualTaskWhatsAppFailure(s,b,a,new Error('A conta WhatsApp está desconectada no momento do teste. Nenhum reenvio foi agendado.'))
+          const ref=await ensureAttachmentRef(b)
+          return queueWhatsAppEvent(s,b,a,ref,new Error('WhatsApp desconectado. A mensagem ficará na fila.'))
+        }
+        try{return await executeCommunicationSend(s,b,a)}catch(error){
+          if(manualTaskTest) return recordManualTaskWhatsAppFailure(s,b,a,error)
+          if(b.channel==='whatsapp'&&isWhatsAppMediaIdRegression(error))return await failedWhatsAppEvent(s,b,a,error)
+          if(b.channel==='whatsapp'&&retryableWhatsAppError(error)){const ref=await ensureAttachmentRef(b);return queueWhatsAppEvent(s,b,a,ref,error)}
+          throw error
+        }
       })()
       if(lockKey)sendLocks.set(lockKey,operation)
       const event=await operation;return json(res,200,{event})
-    }catch(e){a.lastError=e instanceof Error?e.message:String(e);a.updatedAt=now();saveStore(s);return json(res,502,{error:a.lastError})}
+    }catch(e){
+      if(manualTaskTest) return json(res,200,{event:recordManualTaskWhatsAppFailure(s,b,a,e)})
+      a.lastError=e instanceof Error?e.message:String(e);a.updatedAt=now();saveStore(s);return json(res,502,{error:a.lastError})
+    }
     finally{if(lockKey)sendLocks.delete(lockKey)}
   }
   if(req.method==='POST'&&u.pathname==='/api/communications/sync'){const b=await body(req);const list=s.accounts.filter(a=>a.workspaceId===b.workspaceId&&(a.status==='connected'||(a.provider==='whatsapp_cloud'&&a.metadata?.transport==='qr'&&a.status==='attention'))&&(!b.accountId||a.id===b.accountId));let imported=0;const triggered=[];const failures=[];for(const a of list){try{const n=await syncAccount(s,a);imported+=n;triggered.push(a.id);a.lastError=null;a.status='connected'}catch(e){a.lastError=e instanceof Error?e.message:String(e);a.updatedAt=now();const live=a.metadata?.transport==='qr'?whatsappQr.status(a.workspaceId):null;failures.push({accountId:a.id,provider:a.provider,transport:a.metadata?.transport||null,displayName:a.displayName||'',liveState:live?.state||null,message:a.lastError})}}saveStore(s);return json(res,200,{queued:[],triggered,accounts:list.length,imported,failures})}

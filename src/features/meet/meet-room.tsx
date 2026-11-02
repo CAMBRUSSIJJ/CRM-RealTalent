@@ -35,14 +35,15 @@ function VideoTile({ stream, label, muted = false, screen = false }: { stream: M
   </div>
 }
 type SessionProps = {room:PublicMeetRoom; displayName:string; isHost?:boolean; onLeave():void; onEnd?():Promise<void>;
-  commercialContext?:MeetCommercialContext; onSaveNote?:(text:string)=>Promise<void>}
+  commercialContext?:MeetCommercialContext; onSaveNote?:(text:string)=>Promise<void>;
+  onCreateFollowup?:(title:string,dueAt:string|null)=>Promise<void>}
 export function MeetRoomSession(props:SessionProps){
   const [preparation,setPreparation]=useState<MeetPreparation|null>(null)
   if(!preparation)return <MeetPrejoin room={props.room} displayName={props.displayName}
     onJoin={setPreparation} onBack={props.onLeave}/>
   return <ConnectedRoom {...props} preparation={preparation}/>
 }
-function ConnectedRoom({ room, displayName, isHost, onLeave, onEnd, preparation, commercialContext, onSaveNote }: SessionProps & {preparation:MeetPreparation}) {
+function ConnectedRoom({ room, displayName, isHost, onLeave, onEnd, preparation, commercialContext, onSaveNote, onCreateFollowup }: SessionProps & {preparation:MeetPreparation}) {
   const [selfId] = useState(() => crypto.randomUUID())
   const [stream, setStream] = useState<MediaStream | null>(preparation.stream)
   const localRef = useRef<MediaStream | null>(preparation.stream)
@@ -379,7 +380,7 @@ function ConnectedRoom({ room, displayName, isHost, onLeave, onEnd, preparation,
       </div>
       {panel==='chat' && room.settings.chat && <aside className="rtmeet-chat"><header><strong>Chat da reunião</strong><button type="button" aria-label="Fechar chat" onClick={()=>setPanel(null)}>×</button></header><div className="rtmeet-chat-items">{chat.length===0&&<p className="rtmeet-chat-empty">As mensagens desta reunião aparecerão aqui.</p>}{chat.map(c=><p key={c.id}><strong>{c.name}</strong><span>{c.text}</span></p>)}</div><form onSubmit={e=>{e.preventDefault();send()}}><input aria-label="Mensagem" value={message} onChange={e=>setMessage(e.target.value)} placeholder="Escrever mensagem..." maxLength={2000}/><button type="submit" disabled={!message.trim()} aria-label="Enviar"><Send size={16}/></button></form></aside>}
       {panel==='people' && <aside className="rtmeet-chat rtmeet-people"><header><strong>Participantes ({peers.length+1})</strong><button type="button" aria-label="Fechar participantes" onClick={()=>setPanel(null)}>×</button></header><div className="rtmeet-people-list"><div><Users size={16}/><span>{displayName} (você)</span></div>{peers.map(p=><div key={p.id}><Users size={16}/><span>{p.name}</span></div>)}</div><div className="rtmeet-people-invite"><p>Compartilhe o convite para adicionar participantes à sala.</p><button type="button" onClick={()=>void copyInvite()}><Copy size={15}/> Copiar link</button></div></aside>}
-      {panel==='context' && isHost && <aside className="rtmeet-chat rtmeet-context-panel"><header><strong>Contexto da reunião</strong><button type="button" aria-label="Fechar contexto" onClick={()=>setPanel(null)}>×</button></header><MeetContextPanel room={room} context={commercialContext} onSaveNote={onSaveNote}/></aside>}
+      {panel==='context' && isHost && <aside className="rtmeet-chat rtmeet-context-panel"><header><strong>Contexto da reunião</strong><button type="button" aria-label="Fechar contexto" onClick={()=>setPanel(null)}>×</button></header><MeetContextPanel room={room} context={commercialContext} onSaveNote={onSaveNote} onCreateFollowup={onCreateFollowup}/></aside>}
     </div>
     <footer className="rtmeet-controls" aria-label="Controles da reunião">
       <div className="rtmeet-controls-main">

@@ -245,3 +245,20 @@
 .rtmeet-followup input:focus-visible{outline:2px solid #8fbdff;outline-offset:2px}
 .rtmeet-followup input::-webkit-calendar-picker-indicator{filter:invert(1)}
 .rtmeet-followup .rtmeet-followup-success{display:flex;align-items:center;gap:7px;color:#b0ebd0;font-size:12px}
+
+/* Meet reliability M5: network quality, presence and message confirmation */
+.rtmeet-call .rtmeet-network{display:inline-flex;align-items:center;gap:5px;border-radius:999px;padding:5px 8px;
+  color:#c7d9fa;background:#1c3354;border:1px solid #3c5779;font-size:11px;white-space:nowrap}
+.rtmeet-call .rtmeet-network--available{color:#a9edcf;border-color:#306550;background:#173d36}
+.rtmeet-call .rtmeet-network--degraded{color:#ffe0a0;border-color:#88632f;background:#493820}
+.rtmeet-call .rtmeet-network--checking{color:#bbcce7}
+.rtmeet-chat-status{display:flex;gap:7px;align-items:center;font-size:11px;line-height:1.5;color:#9aacc5;margin-top:4px}
+.rtmeet-chat-status--delivered{color:#a9e3be}
+.rtmeet-chat-status--failed{color:#ffb4ba}
+.rtmeet-chat-status button{background:transparent!important;border:0!important;padding:0!important;
+  color:#ffd5db!important;text-decoration:underline;font-size:11px}
+.rtmeet-people-list>div{min-width:0}
+.rtmeet-people-list span{min-width:0;overflow:hidden;text-overflow:ellipsis}
+@media(max-width:600px){.rtmeet-call .rtmeet-network{font-size:0;padding:5px;width:10px;height:10px;justify-content:center}
+ .rtmeet-call .rtmeet-network::before{content:'';display:block;width:8px;height:8px;border-radius:50%;background:currentColor}
+ .rtmeet-call-header .rtmeet-brand{font-size:12px}}

@@ -6,6 +6,7 @@ import crypto from 'node:crypto'
 import { fileURLToPath } from 'node:url'
 import { spawn, spawnSync } from 'node:child_process'
 import { inspectPort, listCommunicationsProcesses, stopStaleCommunicationsProcesses, tailFile } from './runtime-communications-recovery.mjs'
+import { isTrustedRealTalentViteProcess } from './runtime-preview-process-trust.mjs'
 import { listConnectProcesses, stopStaleConnectProcesses, connectDiagnostics } from './runtime-connect-recovery.mjs'
 import { communicationsRuntimeDependenciesPresent } from './communications-runtime-deps.mjs'
 
@@ -345,13 +346,7 @@ function previewProcessInfo(pid) {
   try {
     const cwd = fs.readlinkSync(`/proc/${pid}/cwd`)
     const cmdline = fs.readFileSync(`/proc/${pid}/cmdline`, 'utf8').replace(/\0/g, ' ').trim()
-    // Previous releases were installed in RealTalent-CRM-V* folders, while
-    // this task/WhatsApp preview may use RealTalent-Teste-WhatsApp. Verify the
-    // actual checkout root, not merely a legacy directory naming convention.
-    const sameCheckout = fs.realpathSync(cwd) === fs.realpathSync(ROOT)
-    const knownLegacyCheckout = /^RealTalent-CRM-V/i.test(path.basename(cwd))
-    const viteProcess = /(?:^|[\s/])vite(?:\.js)?\s+(?:preview|--host)|node_modules\/vite\/bin\/vite\.js/.test(cmdline)
-    const trusted = (sameCheckout || knownLegacyCheckout) && viteProcess
+    const trusted = isTrustedRealTalentViteProcess({ cwd, appRoot: ROOT, cmdline })
     return { pid:Number(pid), cwd, cmdline, trusted }
   } catch { return null }
 }

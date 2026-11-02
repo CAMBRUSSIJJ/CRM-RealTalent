@@ -3,6 +3,7 @@ import type { CommunicationEvent } from '../domain/types'
 import type { ConnectedAccount, DiagnosticStatus, OAuthProvider } from './integration-framework'
 import {describeLocalServiceError} from '../lib/integration-availability-s34'
 import { isCloudRuntimeProxy, runtimeFetch } from './realtalent-runtime-transport'
+import { gatewayAuthFailure, gatewayPollRetryDelayMs } from './communications-retry-policy'
 
 export interface CommunicationsGatewayHealth {
   ok: boolean
@@ -51,9 +52,9 @@ export function subscribeGatewayCommunicationsRealtime(
         if (!response.ok) {
           // 401 do proxy exige nova sessão; 502 runtime_upstream_auth_rejected
           // exige corrigir as credenciais entre serviços, não repetir a cada 5 s.
-          const authFailure = response.status === 401 || payload.error === 'runtime_upstream_auth_rejected'
+          const authFailure = gatewayAuthFailure(response.status, payload.error)
           failureCount += 1
-          nextAttemptAt = Date.now() + (authFailure ? 120_000 : Math.min(60_000, 5000 * 2 ** Math.min(failureCount, 4)))
+          nextAttemptAt = Date.now() + gatewayPollRetryDelayMs(response.status, payload.error, failureCount)
           if (!closed) handlers.onState?.(authFailure ? 'offline' : 'connecting')
           return
         }
@@ -66,7 +67,7 @@ export function subscribeGatewayCommunicationsRealtime(
         if (!closed) handlers.onState?.('live')
       } catch {
         failureCount += 1
-        nextAttemptAt = Date.now() + Math.min(60_000, 5000 * 2 ** Math.min(failureCount, 4))
+        nextAttemptAt = Date.now() + gatewayPollRetryDelayMs(0, undefined, failureCount)
         if (!closed) handlers.onState?.('connecting')
       } finally { inFlight = false }
     }

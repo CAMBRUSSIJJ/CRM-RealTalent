@@ -62,10 +62,10 @@ create index if not exists task_notification_outbox_task on public.task_notifica
 alter table public.task_notification_outbox enable row level security;
 revoke all on public.task_notification_outbox from public, anon, authenticated;
 
-create schema if not exists private;
-revoke all on schema private from public, anon, authenticated;
+create schema if not exists rt_task_reminders;
+revoke all on schema rt_task_reminders from public, anon, authenticated;
 
-create or replace function private.queue_work_task_notifications() returns trigger
+create or replace function rt_task_reminders.queue_work_task_notifications() returns trigger
 language plpgsql security definer set search_path = '' as $$
 declare
   changed_assignment boolean;
@@ -110,10 +110,10 @@ begin
   end loop;
   return new;
 end $$;
-revoke all on function private.queue_work_task_notifications() from public, anon, authenticated;
+revoke all on function rt_task_reminders.queue_work_task_notifications() from public, anon, authenticated;
 drop trigger if exists work_task_queue_notifications on public.work_tasks;
 create trigger work_task_queue_notifications
 after insert or update of assignee_id,due_at,status on public.work_tasks
-for each row execute function private.queue_work_task_notifications();
+for each row execute function rt_task_reminders.queue_work_task_notifications();
 
 comment on table public.task_notification_outbox is 'Server-only reminder queue; no worker or external sends enabled merely by applying this migration.';

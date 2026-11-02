@@ -39,13 +39,22 @@ jobs:
         run: node --test api/runtime/_proxy.test.mjs
       - name: Communication polling regression
         run: npx vitest run src/services/communications-retry-policy.test.ts src/services/local-communications-gateway.test.ts src/services/realtalent-agent-v56-health.test.ts
-      - name: Full unit test regression
-        run: npm test -- --reporter=dot
+      - name: Full application source regression
+        run: npx vitest run src --reporter=dot
+      - name: Node runtime contract regressions
+        if: ${{ always() }}
+        run: |
+          node --test scripts/garimpo-runtime-isolation.test.mjs
+          node --test runtime-host/RealTalent-Agent-Runtime-V3.1.2/crm-prospect-investigation-g1.test.mjs
       - name: Commercial workflow regression
+        if: ${{ always() }}
         run: npm run test:integration
       - name: UI consistency checks
+        if: ${{ always() }}
         run: npm run qa:ui-stability
       - name: TypeScript
+        if: ${{ always() }}
         run: npm run typecheck
       - name: Build
+        if: ${{ always() }}
         run: npm run build

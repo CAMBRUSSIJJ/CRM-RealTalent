@@ -1,10 +1,10 @@
-import { CheckCircle2, Cloud, LoaderCircle, QrCode, RefreshCw, ShieldCheck, Unplug, Wifi } from 'lucide-react'
+import { CheckCircle2, Cloud, LoaderCircle, QrCode, RefreshCw, ShieldCheck, Wifi } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 import { Button } from '../../components/ui/button'
 import { Modal } from '../../components/ui/modal'
 import { StatusPill } from '../../components/ui/status-pill'
 import { effectiveDataMode } from '../../lib/env'
-import { disconnectGatewayWhatsAppQr, loadGatewayWhatsAppQrStatus, startGatewayWhatsAppQr, type WhatsAppQrStatus } from '../../services/local-communications-gateway'
+import { loadGatewayWhatsAppQrStatus, startGatewayWhatsAppQr, type WhatsAppQrStatus } from '../../services/local-communications-gateway'
 import { loadCommunicationChannelState } from '../../services/communication-workspace'
 import type { ConnectedAccount } from '../../services/integration-framework'
 
@@ -58,15 +58,6 @@ export function WhatsAppConnectionCenter({ open, workspaceId, onClose, onChanged
       if (next.state === 'connected') { await refresh(); onChanged() }
       else if (next.lastError) onError(next.lastError)
     } catch (error) { onError(error instanceof Error ? error.message : 'Não foi possível iniciar o WhatsApp QR.') }
-    finally { setBusy('') }
-  }
-
-  const disconnectQr = async () => {
-    setBusy('disconnect')
-    try {
-      await disconnectGatewayWhatsAppQr(workspaceId)
-      await refresh(); onChanged()
-    } catch (error) { onError(error instanceof Error ? error.message : 'Não foi possível remover a sessão do WhatsApp.') }
     finally { setBusy('') }
   }
 

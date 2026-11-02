@@ -35,7 +35,7 @@ export function NotificationCenter({ open, onClose }: { open: boolean; onClose()
       id: `task-assignee:${row.id}`, category: 'upcoming_activity' as const,
       title: row.title, detail: row.body, date: row.created_at,
       tone: row.severity === 'warning' ? 'warning' as const : 'info' as const,
-      route: 'tasks' as const,
+      route: 'tasks' as const, context: undefined,
     }))
     return [...delegated, ...regular].slice(0, 40)
   }, [assignedTaskAlerts, crmPreferences.commercial.staleLeadDays, notificationRevision, preferences.notifications, snapshot])

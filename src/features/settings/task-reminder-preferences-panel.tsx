@@ -25,7 +25,12 @@ export function TaskReminderPreferencesPanel({ workspaceId, userId, enabled }: P
     let live = true
     setLoading(true)
     const client = getSupabaseClient()
-    void (client as any)?.from('task_notification_preferences').select('email_enabled,whatsapp_enabled,whatsapp_phone_e164,whatsapp_consented_at')
+    if (!client) {
+      setMessage('Não foi possível acessar o Supabase para carregar os lembretes.')
+      setLoading(false)
+      return
+    }
+    void (client as any).from('task_notification_preferences').select('email_enabled,whatsapp_enabled,whatsapp_phone_e164,whatsapp_consented_at')
       .eq('organization_id', workspaceId).eq('user_id', userId).maybeSingle()
       .then(({ data, error }: { data: any; error: any }) => {
         if (!live) return

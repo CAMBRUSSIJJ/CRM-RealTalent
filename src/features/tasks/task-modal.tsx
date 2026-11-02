@@ -167,17 +167,32 @@ export function TaskModal({ open, task, relation, checklist, teams, memberships,
         </div>
         {(selectedTeam || selectedMember) ? <div className="work-assignment-summary"><span className="work-assignment-summary__team"><UsersRound size={15}/>{selectedTeam?.name ?? 'Sem equipe'}</span><span className="work-assignment-summary__person"><UserRound size={15}/>{selectedMember?.displayName ?? 'Sem responsável'}</span></div> : null}
       </section>
+      {repositoryMode === 'local' && selectedMember ? (
+        task && task.assigneeId === assigneeId && task.status === status
+          ? <LocalTeamTaskWhatsAppAction workspaceId={workspaceId} task={task} member={selectedMember} />
+          : <section className="work-form-section local-team-wa-action local-team-wa-action--save-first" aria-label="WhatsApp do responsável">
+              <header><UserRound size={18}/><div><strong>WhatsApp de {selectedMember.displayName}</strong>
+                <small>{selectedMember.whatsappPhone
+                  ? `Número cadastrado: ${selectedMember.whatsappPhone}`
+                  : 'Sem telefone cadastrado em Configurações → Equipe e permissões.'}</small>
+              </div></header>
+              <p className="local-team-wa-action__hint" role="status">Salve esta tarefa e abra novamente para verificar a conexão e enviar um único aviso manual pelo WhatsApp do responsável. O envio não é automático.</p>
+            </section>
+      ) : null}
 
       <section className="work-form-section"><header><CalendarClock size={18}/><div><strong>Prazo</strong><small>Datas vencidas entram automaticamente na visão Atrasadas.</small></div></header>
         <div className="form-grid"><label className="form-field"><span>Prazo</span><input type="datetime-local" value={dueAt} onChange={(event) => setDueAt(event.target.value)} /></label><label className="form-field"><span>Tags</span><input value={tags} onChange={(event) => setTags(event.target.value)} placeholder="proposta, retorno, urgente" /></label></div>
       </section>
 
       {reminderError ? <p role="alert" className="task-reminders__notice">{reminderError}</p> : null}
-      <TaskReminderEditor value={reminders} onChange={setReminders} taskId={task?.id ?? null}
-        workspaceId={workspaceId} repositoryMode={repositoryMode} assigneeId={assigneeId} assigneeName={selectedMember?.displayName ?? null} dueAt={dueAt}
-        status={status} open={open} />
-      {repositoryMode === 'local' && task && task.assigneeId === assigneeId && task.status === status
-        ? <LocalTeamTaskWhatsAppAction workspaceId={workspaceId} task={task} member={selectedMember} /> : null}
+      <details className="work-task-reminder-disclosure" key={repositoryMode} open={repositoryMode === 'supabase' ? true : undefined}>
+        <summary>{repositoryMode === 'local'
+          ? 'Lembretes automáticos — indisponíveis no modo local (ver opções)'
+          : 'Notificações e lembretes'}</summary>
+        <TaskReminderEditor value={reminders} onChange={setReminders} taskId={task?.id ?? null}
+          workspaceId={workspaceId} repositoryMode={repositoryMode} assigneeId={assigneeId} assigneeName={selectedMember?.displayName ?? null} dueAt={dueAt}
+          status={status} open={open} />
+      </details>
 
       <section className="work-form-section"><header><Link2 size={18}/><div><strong>Relacionar ao CRM</strong><small>Conecte a tarefa a um contato, empresa, oportunidade, pipeline, playbook ou reunião.</small></div></header>
         <div className="form-grid"><label className="form-field"><span>Tipo</span><NativeSelectionSelect value={relationType} onChange={(event) => { setRelationType(event.target.value as TaskRelationEntity); setRelationId('') }}><option value="contact">Contato</option><option value="company">Empresa</option><option value="opportunity">Oportunidade</option><option value="lead">Registro comercial</option><option value="pipeline">Etapa do Pipeline</option><option value="playbook">Playbook</option><option value="meeting">Reunião</option></NativeSelectionSelect></label>

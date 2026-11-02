@@ -7,7 +7,10 @@ const isE164 = (value: string) => /^\+[1-9][0-9]{7,14}$/.test(value)
 const overdueTask = (task: any) => !task || !['todo', 'in_progress', 'blocked'].includes(task.status)
 const retryAfter = (attempt: number) => new Date(Date.now() + Math.min(60, 2 ** Math.min(attempt + 1, 5)) * 60_000).toISOString()
 const parseEmail = (value: unknown) => typeof value === 'string' && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value) ? value : null
-const urlToTasks = () => new URL('/#/tasks', env('TASK_REMINDER_APP_URL') || 'https://crm-real-talent.vercel.app').toString().replace('/#/tasks', '/#/tasks')
+const appUrl = () => {
+  const configured = env('TASK_REMINDER_APP_URL')
+  try { const url = new URL(configured); return url.protocol === 'https:' ? url.origin : null } catch { return null }
+}
 const dueLabel = (date: string | null) => date
   ? new Intl.DateTimeFormat('pt-BR', { timeZone: 'America/Sao_Paulo', dateStyle: 'short', timeStyle: 'short' }).format(new Date(date))
   : 'Sem prazo'
@@ -17,6 +20,11 @@ Deno.serve(async (req: Request) => {
   const cronSecret = env('TASK_REMINDER_CRON_SECRET')
   const supplied = req.headers.get('x-task-reminder-secret') || ''
   if (cronSecret.length < 32 || !env('SUPABASE_SERVICE_ROLE_KEY')) return reply({ error: 'worker_not_configured' }, 503)
+  // Explicit kill switch: deployment and scheduling alone must not trigger
+  // real e-mails or WhatsApp messages until external delivery is homologated.
+  if (env('TASK_REMINDER_DELIVERY_ENABLED') !== 'true') return reply({ ok: true, deliveryEnabled: false, processed: 0 })
+  const link = appUrl()
+  if (!link) return reply({ error: 'verified_crm_url_required' }, 503)
   if (supplied !== cronSecret) return reply({ error: 'unauthorized' }, 401)
 
   const db = createClient(env('SUPABASE_URL'), env('SUPABASE_SERVICE_ROLE_KEY'), { auth: { persistSession: false, autoRefreshToken: false } })
@@ -41,6 +49,11 @@ Deno.serve(async (req: Request) => {
     }
     try {
       const { data: task } = await db.from('work_tasks').select('id,organization_id,assignee_id,title,priority,due_at,status').eq('id', job.task_id).eq('organization_id', job.organization_id).maybeSingle()
+      // Discard stale notification snapshots after downtime instead of spamming.
+      if (Date.now() - Date.parse(job.scheduled_at) > (job.event_type === 'assigned' ? 60 : 180) * 60_000) {
+        await finish('skipped', { last_error: 'stale_reminder_expired' })
+        continue
+      }
       if (overdueTask(task) || task.assignee_id !== job.assignee_id || (job.event_type === 'due_soon' && task.due_at !== job.task_due_at)) {
         await finish('skipped')
         continue
@@ -51,7 +64,12 @@ Deno.serve(async (req: Request) => {
       const { data: prefs } = await db.from('task_notification_preferences').select('*').eq('organization_id', job.organization_id).eq('user_id', job.assignee_id).maybeSingle()
       const subject = job.event_type === 'assigned' ? 'Nova tarefa atribuída no RealTalent' : 'Sua tarefa está próxima do prazo'
       const safeTitle = String(task.title || 'Tarefa').slice(0, 120)
-      const message = `${subject}\n\nTarefa: ${safeTitle}\nPrazo: ${dueLabel(task.due_at)}\nPrioridade: ${String(task.priority)}\nAcesse: ${urlToTasks()}`
+      const message = `${subject}
+
+Tarefa: ${safeTitle}
+Prazo: ${dueLabel(task.due_at)}
+Prioridade: ${String(task.priority)}
+Acesse: ${link}`
 
       if (job.channel === 'in_app') {
         const { data: existing } = await db.from('seller_notifications').select('id').eq('organization_id', job.organization_id).eq('source_type', 'task-reminder').eq('source_id', job.id).maybeSingle()
@@ -105,7 +123,7 @@ Deno.serve(async (req: Request) => {
             { type: 'body', parameters: [
               { type: 'text', text: safeTitle },
               { type: 'text', text: dueLabel(task.due_at) },
-              { type: 'text', text: urlToTasks() },
+              { type: 'text', text: link },
             ] },
           ] },
         }

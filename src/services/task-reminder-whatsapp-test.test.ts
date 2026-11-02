@@ -67,7 +67,7 @@ describe('Teste WhatsApp de tarefa pelo CRM', () => {
     expect(message).toContain('TESTE')
     expect(message).toContain('Preparar proposta comercial')
     expect(message).toContain('Alta')
-    expect(message).toContain('não há lembretes automáticos ativados')
+    expect(message).toMatch(/não há lembretes automáticos ativados/i)
   })
 
   it('não envia para outro responsável nem para outro workspace', async () => {

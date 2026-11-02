@@ -81,6 +81,18 @@ export async function proxyRuntime(req, res, service) {
       return sendJson(res, 502, { ok:false, service, error:'runtime_preview_protection_blocked',
         message:'A proteção do deployment Preview impede a comunicação com o Garimpo. Configure a autenticação de serviço no ambiente Preview.' })
     }
+    // A requisição do usuário já foi validada pelo Supabase neste proxy.
+    // HTTP 401 daqui vem do serviço upstream ou da credencial de máquina.
+    // Não apresentar isto como sessão expirada do usuário nem revelar tokens.
+    if (upstreamResponse.status === 401) {
+      console.error('[runtime-auth] Credencial de serviço rejeitada pelo upstream', {
+        service, environment: process.env.VERCEL_ENV || 'unknown', upstreamStatus: 401,
+      })
+      return sendJson(res, 502, {
+        ok:false, service, error:'runtime_upstream_auth_rejected',
+        message:'Integração temporariamente indisponível: o gateway rejeitou a autenticação entre serviços. Verifique os tokens do runtime no Vercel e no Railway.',
+      })
+    }
     res.statusCode = upstreamResponse.status
     for (const name of ['content-type','cache-control','etag','last-modified']) {
       const value = upstreamResponse.headers.get(name); if (value) res.setHeader(name, value)

@@ -3,6 +3,7 @@ import path from 'node:path'
 import { cleanNumber, isDirectPhoneAddress, isLidAddress, isPhoneCandidate, isWhatsAppTechnicalMessage, mapWhatsAppAckStatus, whatsappMessageBody } from './whatsapp-sync-utils.mjs'
 import { applyWhatsAppWebMediaHotfix } from './whatsapp-web-media-hotfix.mjs'
 import { importCommunicationsPackage } from './communications-runtime-deps.mjs'
+import { resolveWhatsAppSendAddress } from './whatsapp-lid-addressing.mjs'
 // Historical H8 media markers preserved after parser extraction: '[Imagem]' '[Áudio]' '[Documento]'
 
 
@@ -593,6 +594,7 @@ export function createWhatsAppBrowserQrBridge({ root, now, uuid, store, saveStor
       reconnectTimer: null,
       reconnectAttempts: Number(prior?.reconnectAttempts || 0),
       liveMessageIds: new Map(),
+      resolvedSendIds: new Map(),
       contactNames: new Map(),
       contactsCachedAt: null,
       MessageMedia,
@@ -787,6 +789,14 @@ export function createWhatsAppBrowserQrBridge({ root, now, uuid, store, saveStor
       if (!number) throw new Error('Número de WhatsApp inválido.')
       chatId = `${number}@c.us`
     }
+    // The QR connection can be healthy while WhatsApp rejects a phone WID
+    // whose account has migrated to a privacy identifier (@lid).
+    // Resolve from the WhatsApp server BEFORE the first send; no blind retry.
+    const requestedChatId = chatId
+    const resolved = await resolveWhatsAppSendAddress(session.client, chatId, {
+      cache: session.resolvedSendIds,
+    })
+    chatId = resolved.chatId
     const sendOptions = {}
     if (options.replyToExternalMessageId) sendOptions.quotedMessageId = String(options.replyToExternalMessageId)
     const context = registerOutboundSendContext(session, {
@@ -828,6 +838,19 @@ export function createWhatsAppBrowserQrBridge({ root, now, uuid, store, saveStor
     } catch (error) {
       context.failed = true
       session.outboundSendContexts = (session.outboundSendContexts || []).filter(item => item !== context)
+      const detail = String(error?.message || error || '')
+      if (/No LID for user/i.test(detail) && requestedChatId.endsWith('@c.us')) {
+        // The cached identity may be stale. Clear it for a *future* explicit
+        // attempt, but never retry here: the first send can be ambiguous.
+        session.resolvedSendIds?.delete(requestedChatId)
+        const human = new Error(
+          'WhatsApp Web não encontrou o identificador LID deste destinatário. ' +
+          'O RealTalent consultou o endereço antes de enviar, mas a sessão não confirmou a operação. ' +
+          'Confira a conversa no celular antes de tentar novamente; o teste não será reenviado automaticamente.'
+        )
+        human.code = 'WHATSAPP_LID_UNRESOLVED'
+        throw human
+      }
       throw friendlyMediaSendError(error)
     }
   }

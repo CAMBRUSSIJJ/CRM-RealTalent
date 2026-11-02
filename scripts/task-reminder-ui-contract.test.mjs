@@ -61,3 +61,17 @@ test('external channels remain opt-in, and local mode never pretends to send aut
   assert.ok(worker.includes('task_notification_verified_phones'))
   assert.ok(worker.includes('whatsapp_consented_at'))
 })
+
+test('manual WhatsApp for a selected local member appears before long reminders', () => {
+  const responsibility = modal.indexOf('work-responsibility-section')
+  const contactAction = modal.indexOf('<LocalTeamTaskWhatsAppAction')
+  const deadline = modal.indexOf('<CalendarClock')
+  const reminders = modal.indexOf('<TaskReminderEditor')
+  assert.ok(responsibility >= 0)
+  assert.ok(contactAction > responsibility)
+  assert.ok(contactAction < deadline)
+  assert.ok(deadline < reminders)
+  assert.ok(modal.includes('Salve esta tarefa e abra novamente'))
+  assert.ok(modal.includes('work-task-reminder-disclosure'))
+  assert.ok(modal.includes('Lembretes automáticos — indisponíveis no modo local'))
+})

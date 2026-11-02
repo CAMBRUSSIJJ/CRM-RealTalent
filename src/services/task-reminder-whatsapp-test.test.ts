@@ -84,6 +84,14 @@ describe('Teste WhatsApp de tarefa pelo CRM', () => {
       .toBeLessThan(bridge.indexOf('if (prior?.client) await destroySession(prior)'))
   })
 
+  it('não inventa confirmação de mensagem quando o WhatsApp Web não devolveu ID', () => {
+    const bridge = readFileSync(new URL('../../scripts/whatsapp-browser-qr-bridge.mjs', import.meta.url), 'utf8')
+    expect(bridge).toContain('if (!externalMessageId)')
+    expect(bridge).toContain('WhatsApp Web não confirmou o envio com um ID de mensagem')
+    expect(bridge).toContain('return { id: externalMessageId, threadId: chatId }')
+    expect(bridge).not.toContain('return { id: externalMessageId || uuid(), threadId: chatId }')
+  })
+
   it('não entra em ciclo infinito de Chromium nem apaga a autenticação após falha de QR', () => {
     const bridge = readFileSync(new URL('../../scripts/whatsapp-browser-qr-bridge.mjs', import.meta.url), 'utf8')
     expect(bridge).toContain('session.reconnectAttempts > 5')

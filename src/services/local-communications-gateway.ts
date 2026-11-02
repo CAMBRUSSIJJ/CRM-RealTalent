@@ -39,18 +39,36 @@ export function subscribeGatewayCommunicationsRealtime(
   if (isCloudRuntimeProxy(base())) {
     let closed = false
     let lastFingerprint = ''
+    let nextAttemptAt = 0
+    let failureCount = 0
+    let inFlight = false
     const poll = async () => {
-      if (closed) return
+      if (closed || inFlight || Date.now() < nextAttemptAt) return
+      inFlight = true
       try {
         const response = await runtimeFetch(`${base()}/api/communications/events?workspaceId=${encodeURIComponent(workspaceId)}&limit=1`, { headers: { accept: 'application/json' } })
-        const payload = await response.json().catch(() => ({})) as { events?: Array<{ id?: string; createdAt?: string; updatedAt?: string }> }
-        if (!response.ok) throw new Error('poll_failed')
+        const payload = await response.json().catch(() => ({})) as { events?: Array<{ id?: string; createdAt?: string; updatedAt?: string }>; error?: string }
+        if (!response.ok) {
+          // 401 do proxy exige nova sessão; 502 runtime_upstream_auth_rejected
+          // exige corrigir as credenciais entre serviços, não repetir a cada 5 s.
+          const authFailure = response.status === 401 || payload.error === 'runtime_upstream_auth_rejected'
+          failureCount += 1
+          nextAttemptAt = Date.now() + (authFailure ? 120_000 : Math.min(60_000, 5000 * 2 ** Math.min(failureCount, 4)))
+          if (!closed) handlers.onState?.(authFailure ? 'offline' : 'connecting')
+          return
+        }
         const event = payload.events?.[0]
         const fingerprint = event ? `${event.id ?? ''}:${event.updatedAt ?? event.createdAt ?? ''}` : 'empty'
-        if (lastFingerprint && fingerprint !== lastFingerprint) handlers.onSignal({ type: 'communications.changed', workspaceId, at: new Date().toISOString() })
+        if (lastFingerprint && fingerprint !== lastFingerprint && !closed) handlers.onSignal({ type: 'communications.changed', workspaceId, at: new Date().toISOString() })
         lastFingerprint = fingerprint
-        handlers.onState?.('live')
-      } catch { handlers.onState?.('connecting') }
+        failureCount = 0
+        nextAttemptAt = 0
+        if (!closed) handlers.onState?.('live')
+      } catch {
+        failureCount += 1
+        nextAttemptAt = Date.now() + Math.min(60_000, 5000 * 2 ** Math.min(failureCount, 4))
+        if (!closed) handlers.onState?.('connecting')
+      } finally { inFlight = false }
     }
     void poll()
     const timer = window.setInterval(() => void poll(), 5000)

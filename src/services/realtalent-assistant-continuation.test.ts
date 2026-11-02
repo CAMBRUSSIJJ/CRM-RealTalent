@@ -34,7 +34,7 @@ describe('Assistant recommendation continuation', () => {
     const prompt = resolveAssistantRecommendationContinuation('faça isso', previous)
     expect(prompt).toBeTruthy()
     const result = await realTalentAiGateway.answer(prompt!, snapshot, { previousLeadIds: [lead.id], currentUserId: lead.ownerId, now: new Date('2026-10-16T13:00:00.000Z') })
-    expect(result.answer.pendingCapability?.capabilityId).toBe('proposals.create')
+    expect(result.answer.pendingCapability?.capabilityId, `provider=${result.trace.providerId} intent=${result.answer.intent} title=${result.answer.title} text=${result.answer.text.slice(0,130)}`).toBe('proposals.create')
     expect(result.answer.pendingCapability?.missingSlots).toContain('product')
     expect(result.answer.plan).toBeUndefined()
     expect(result.answer.text).toMatch(/produto|serviço/i)

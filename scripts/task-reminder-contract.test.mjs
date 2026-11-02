@@ -35,3 +35,17 @@ test('no cron call is accepted without nonempty server-only secret', () => {
   assert.match(worker,/supplied !== cronSecret/)
   assert.doesNotMatch(worker,/access-control-allow-origin/i)
 })
+
+test('internal reminders can be enabled without enabling WhatsApp or email', () => {
+  assert.match(worker, /TASK_REMINDER_INTERNAL_ENABLED/)
+  assert.match(worker, /TASK_REMINDER_DELIVERY_ENABLED/)
+  assert.match(worker, /if \(!externalEnabled\) pending = pending\.eq\('channel', 'in_app'\)/)
+  assert.ok(worker.indexOf("if (supplied !== cronSecret)") < worker.indexOf("const internalEnabled"), 'auth must precede readiness')
+  assert.match(worker, /stale_reminder_expired/)
+})
+test('CRM notification center actually reads assignee reminders from the server', () => {
+  const center = readFileSync('src/features/experience/notification-center.tsx', 'utf8')
+  assert.match(center, /from\('seller_notifications'\)/)
+  assert.match(center, /eq\('source_type', 'task-reminder'\)/)
+  assert.match(center, /eq\('user_id', user\.id\)/)
+})

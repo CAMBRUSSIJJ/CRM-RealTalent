@@ -84,6 +84,9 @@ export function createWhatsAppBrowserQrBridge({ root, now, uuid, store, saveStor
     const s = get(workspaceId)
     return s ? {
       state: s.state,
+      // Source of truth shared by Comunicações and Tarefas: this ID belongs
+      // to the current, live QR session, not to an unrelated Cloud account.
+      accountId: s.state === 'connected' ? (s.accountId || null) : null,
       qrDataUrl: s.qrDataUrl || null,
       phone: s.phone || '',
       displayName: s.displayName || 'WhatsApp QR Local',
@@ -95,7 +98,7 @@ export function createWhatsAppBrowserQrBridge({ root, now, uuid, store, saveStor
       syncingHistory: Boolean(s.syncPromise),
       mediaHotfix: s.mediaHotfix || null,
     } : {
-      state: 'idle', qrDataUrl: null, phone: '', displayName: 'WhatsApp QR Local', lastError: null,
+      state: 'idle', accountId: null, qrDataUrl: null, phone: '', displayName: 'WhatsApp QR Local', lastError: null,
       updatedAt: now(), engine: 'whatsapp-web-js', lastHistorySyncAt: null, lastHistoryImportCount: 0, syncingHistory: false, mediaHotfix: null,
     }
   }

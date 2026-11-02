@@ -22,6 +22,7 @@ const UI_COHESION_NAME = 'Global UI & Product Cohesion'
 const UI_HOTFIX = 'H20.7-H1'
 const UI_HOTFIX_NAME = 'Appearance & Sidebar Truth'
 const COMM_EXPECTED_VERSION = '101.8.4-h13'
+const COMM_EXPECTED_SEND_REVISION = 'msgkey-dollar1-20261102'
 const CRM_PORT = Number(process.env.PORT || 4188)
 const CONNECT_PORT = Number(process.env.REALTALENT_CONNECT_PORT || 3001)
 const COMM_PORT = Number(process.env.REALTALENT_COMMUNICATIONS_PORT || 3002)
@@ -566,9 +567,15 @@ function printCommunicationsDiagnostics(result = {}) {
 async function prepareCommunicationsRuntime(token) {
   const url = `http://127.0.0.1:${COMM_PORT}/api/communications/health`
   const existing = await probe(url, { token, expectedVersion: COMM_EXPECTED_VERSION })
-  if (existing.ok) {
-    log(`✓ Communications Gateway já está ativo: ${existing.data.version}`)
+  if (existing.ok && existing.data?.whatsappSendReturnRevision === COMM_EXPECTED_SEND_REVISION) {
+    log(`✓ Communications Gateway já está ativo: ${existing.data.version} · retorno WhatsApp atualizado`)
     return { reuse: true, blocked: false, existing }
+  }
+  if (existing.ok) {
+    // Same protocol version does not imply same on-disk WhatsApp Web bugfix.
+    // Only retire processes validated as belonging to this checkout, never
+    // another user's listener or a different RealTalent installation.
+    log('↻ Communications Gateway antigo detectado: reiniciando serviço desta instalação para ativar a correção de envio.')
   }
 
   const discovered = await probe(url)

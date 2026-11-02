@@ -165,6 +165,15 @@ describe('Teste WhatsApp de tarefa pelo CRM', () => {
     expect(message).toMatch(/não há lembretes automáticos ativados/i)
   })
 
+  it('bloqueia teste para o próprio número da sessão QR sem tentar enviar', async () => {
+    const readiness = await checkTaskWhatsAppTestConnection('workspace-1')
+    await expect(sendOwnTaskWhatsAppTest({
+      workspaceId: 'workspace-1', userId: 'user-1', task,
+      phone: '+5551999999999', explicitConsent: true, readiness,
+    })).rejects.toThrow(/mesmo número conectado ao CRM/)
+    expect(gateway.sendGatewayCommunication).not.toHaveBeenCalled()
+  })
+
   it('não envia para outro responsável nem para outro workspace', async () => {
     const readiness = await checkTaskWhatsAppTestConnection('workspace-1')
     await expect(sendOwnTaskWhatsAppTest({ workspaceId: 'workspace-1', userId: 'user-2', task, phone: '+5551988887777', explicitConsent: true, readiness })).rejects.toThrow(/atribuída a você/)

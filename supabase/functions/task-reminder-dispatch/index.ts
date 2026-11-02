@@ -20,17 +20,21 @@ Deno.serve(async (req: Request) => {
   const cronSecret = env('TASK_REMINDER_CRON_SECRET')
   const supplied = req.headers.get('x-task-reminder-secret') || ''
   if (cronSecret.length < 32 || !env('SUPABASE_SERVICE_ROLE_KEY')) return reply({ error: 'worker_not_configured' }, 503)
-  // Explicit kill switch: deployment and scheduling alone must not trigger
-  // real e-mails or WhatsApp messages until external delivery is homologated.
-  if (env('TASK_REMINDER_DELIVERY_ENABLED') !== 'true') return reply({ ok: true, deliveryEnabled: false, processed: 0 })
+  if (supplied !== cronSecret) return reply({ error: 'unauthorized' }, 401)
+  // Independent kill switches: allow internal notifications to be tested
+  // before any outbound e-mail or WhatsApp messages are enabled.
+  const internalEnabled = env('TASK_REMINDER_INTERNAL_ENABLED') === 'true'
+  const externalEnabled = env('TASK_REMINDER_DELIVERY_ENABLED') === 'true'
+  if (!internalEnabled && !externalEnabled) return reply({ ok: true, internalEnabled, externalEnabled, processed: 0 })
   const link = appUrl()
   if (!link) return reply({ error: 'verified_crm_url_required' }, 503)
-  if (supplied !== cronSecret) return reply({ error: 'unauthorized' }, 401)
 
   const db = createClient(env('SUPABASE_URL'), env('SUPABASE_SERVICE_ROLE_KEY'), { auth: { persistSession: false, autoRefreshToken: false } })
-  const { data: candidates, error } = await db.from('task_notification_outbox')
+  let pending = db.from('task_notification_outbox')
     .select('id').eq('status', 'pending').lte('scheduled_at', new Date().toISOString())
-    .order('scheduled_at', { ascending: true }).limit(25)
+  if (!internalEnabled) pending = pending.neq('channel', 'in_app')
+  if (!externalEnabled) pending = pending.eq('channel', 'in_app')
+  const { data: candidates, error } = await pending.order('scheduled_at', { ascending: true }).limit(25)
   if (error) return reply({ error: 'queue_unavailable' }, 503)
 
   const summary = { claimed: 0, sent: 0, skipped: 0, blocked: 0, failed: 0, retried: 0 }

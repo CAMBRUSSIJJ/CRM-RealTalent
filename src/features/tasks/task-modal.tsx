@@ -5,6 +5,7 @@ import { Button } from '../../components/ui/button'
 import { Modal } from '../../components/ui/modal'
 import type { TaskChecklistItem, TaskRelation, TaskRelationEntity, TaskStatus, TaskPriority, Team, TeamMembership, WorkTask, WorkspaceMember, WorkspaceSnapshot } from '../../domain/types'
 import type { TaskInput } from '../../services/work-management'
+import { TaskReminderEditor, draftTaskReminders, defaultTaskReminders, type TaskReminderDraft } from './task-reminder-editor'
 
 interface Props {
   open: boolean
@@ -15,6 +16,8 @@ interface Props {
   memberships: TeamMembership[]
   members: WorkspaceMember[]
   snapshot: WorkspaceSnapshot | null
+  workspaceId: string
+  repositoryMode: 'local' | 'supabase'
   loading?: boolean
   onClose(): void
   onSubmit(input: TaskInput): Promise<void>
@@ -22,15 +25,23 @@ interface Props {
 
 type ChecklistDraftItem = { id?: string; title: string; completed: boolean }
 
-const toLocalInput = (value: string | null | undefined) => value ? new Date(value).toISOString().slice(0, 16) : ''
+const toLocalInput = (value: string | null | undefined) => {
+  if (!value) return ''
+  const date = new Date(value)
+  if (!Number.isFinite(date.getTime())) return ''
+  const local = new Date(date.getTime() - date.getTimezoneOffset() * 60_000)
+  return local.toISOString().slice(0, 16)
+}
 const toIso = (value: string) => value ? new Date(value).toISOString() : null
 
-export function TaskModal({ open, task, relation, checklist, teams, memberships, members, snapshot, loading = false, onClose, onSubmit }: Props) {
+export function TaskModal({ open, task, relation, checklist, teams, memberships, members, snapshot, workspaceId, repositoryMode, loading = false, onClose, onSubmit }: Props) {
   const [title, setTitle] = useState('')
   const [description, setDescription] = useState('')
   const [status, setStatus] = useState<TaskStatus>('todo')
   const [priority, setPriority] = useState<TaskPriority>('normal')
   const [dueAt, setDueAt] = useState('')
+  const [reminders, setReminders] = useState<TaskReminderDraft>(defaultTaskReminders)
+  const [reminderError, setReminderError] = useState('')
   const [assigneeId, setAssigneeId] = useState('')
   const [teamId, setTeamId] = useState('')
   const [relationType, setRelationType] = useState<TaskRelationEntity>('contact')
@@ -48,6 +59,8 @@ export function TaskModal({ open, task, relation, checklist, teams, memberships,
     setStatus(task?.status ?? 'todo')
     setPriority(task?.priority ?? 'normal')
     setDueAt(toLocalInput(task?.dueAt))
+    setReminders(draftTaskReminders(task))
+    setReminderError('')
     setAssigneeId(task?.assigneeId ?? '')
     setTeamId(task?.teamId ?? '')
     setRelationType(relation?.entityType ?? 'contact')
@@ -116,10 +129,17 @@ export function TaskModal({ open, task, relation, checklist, teams, memberships,
   const checklistProgress = checklistDraft.length ? Math.round((checklistCompleted / checklistDraft.length) * 100) : 0
 
   const submit = async () => {
+    if (reminders.customMinutes !== null && (!Number.isInteger(reminders.customMinutes) || reminders.customMinutes < 5 || reminders.customMinutes > 10080)) {
+      setReminderError('Use uma antecedência personalizada entre 5 e 10.080 minutos.'); return
+    }
+    setReminderError('')
     const member = members.find((item) => item.userId === assigneeId)
     const relationOption = relationOptions.find((item) => item.id === relationId)
     await onSubmit({
       id: task?.id, title, description, status, priority, dueAt: toIso(dueAt), completedAt: task?.completedAt ?? null, assigneeId: assigneeId || null,
+      reminderEnabled: reminders.enabled, reminderOnAssignment: reminders.onAssignment,
+      reminderChannels: reminders.channels, reminderOffsetsMinutes: reminders.offsets,
+      reminderCustomMinutes: reminders.customMinutes,
       assigneeName: member?.displayName ?? '', teamId: teamId || null, tags: tags.split(',').map((item) => item.trim()).filter(Boolean),
       relation: relationId && relationOption ? { entityType: relationType, entityId: relationId, entityLabel: relationOption.label } : null,
       checklist: checklistDraft.filter((item) => item.title.trim()).map((item) => ({ id: item.id, title: item.title.trim(), completed: item.completed })),
@@ -149,6 +169,11 @@ export function TaskModal({ open, task, relation, checklist, teams, memberships,
       <section className="work-form-section"><header><CalendarClock size={18}/><div><strong>Prazo</strong><small>Datas vencidas entram automaticamente na visão Atrasadas.</small></div></header>
         <div className="form-grid"><label className="form-field"><span>Prazo</span><input type="datetime-local" value={dueAt} onChange={(event) => setDueAt(event.target.value)} /></label><label className="form-field"><span>Tags</span><input value={tags} onChange={(event) => setTags(event.target.value)} placeholder="proposta, retorno, urgente" /></label></div>
       </section>
+
+      {reminderError ? <p role="alert" className="task-reminders__notice">{reminderError}</p> : null}
+      <TaskReminderEditor value={reminders} onChange={setReminders} taskId={task?.id ?? null}
+        workspaceId={workspaceId} repositoryMode={repositoryMode} assigneeId={assigneeId} dueAt={dueAt}
+        status={status} open={open} />
 
       <section className="work-form-section"><header><Link2 size={18}/><div><strong>Relacionar ao CRM</strong><small>Conecte a tarefa a um contato, empresa, oportunidade, pipeline, playbook ou reunião.</small></div></header>
         <div className="form-grid"><label className="form-field"><span>Tipo</span><NativeSelectionSelect value={relationType} onChange={(event) => { setRelationType(event.target.value as TaskRelationEntity); setRelationId('') }}><option value="contact">Contato</option><option value="company">Empresa</option><option value="opportunity">Oportunidade</option><option value="lead">Registro comercial</option><option value="pipeline">Etapa do Pipeline</option><option value="playbook">Playbook</option><option value="meeting">Reunião</option></NativeSelectionSelect></label>

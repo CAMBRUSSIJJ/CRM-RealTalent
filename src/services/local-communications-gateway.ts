@@ -196,6 +196,8 @@ export const loadGatewayWhatsAppGroupInfo = (workspaceId: string, groupId: strin
 
 export interface WhatsAppQrStatus {
   state: 'idle' | 'starting' | 'qr' | 'connected' | 'disconnected' | 'logged_out'
+  /** Account ID bound to the current live QR session (no authorization token). */
+  accountId?: string | null
   qrDataUrl: string | null
   phone: string
   displayName: string

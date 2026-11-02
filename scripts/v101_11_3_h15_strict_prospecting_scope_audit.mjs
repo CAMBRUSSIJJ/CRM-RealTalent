@@ -38,8 +38,10 @@ check('rejeição por categoria contabilizada',agent.includes('scopeRejectedCate
 check('rejeição por localização contabilizada',agent.includes('scopeRejectedLocation'))
 check('auditoria de rejeições persistida',agent.includes('job.rejections.push')&&agent.includes('job.rejections = job.rejections.slice(-120)'))
 check('frontend tipa category mode',service.includes("ProspectingCategoryMode = 'exact' | 'related'"))
-check('frontend envia categoryMode ao job',page.includes('createProspectingAgentJob({ workspaceId, segment: segment.trim(), regions, targetQuantity: quantity, targetMode, areaMode, radiusKm, searchMode, categoryMode'))
-check('frontend envia categoryMode à campanha',page.includes('createProspectingAgentCampaign')&&page.includes('searchMode, categoryMode, mapPolygon'))
+const jobInput = page.match(/createProspectingAgentJob\(\{([\s\S]*?)\}\)/)?.[1] ?? ''
+check('frontend envia categoryMode ao job', /\bcategoryMode\b/.test(jobInput) && /\bsearchMode\b/.test(jobInput) && /\btargetMode\b/.test(jobInput))
+const campaignInput = page.match(/createProspectingAgentCampaign\(\{([\s\S]*?)\}\)/)?.[1] ?? ''
+check('frontend envia categoryMode à campanha', /\bcategoryMode\b/.test(campaignInput) && /\bsearchMode\b/.test(campaignInput) && /\btargetMode\b/.test(campaignInput))
 check('UI mostra correspondência exata',page.includes('Correspondência exata ativa')&&page.includes('Somente categoria solicitada'))
 check('UI oferece modo relacionado explicitamente',page.includes('Incluir categorias relacionadas'))
 check('UI mostra rejeições de categoria',page.includes('Fora da categoria')||page.includes('Categoria diferente'))

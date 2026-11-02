@@ -3,7 +3,7 @@ import type {
   AuditLog, Goal, Lead, OpportunityRecord, PipelineStage, Playbook, ProductRecord, ProposalRecord, ProposalStatus, RevenueEntry, RepositoryHealth, SocialProfile, Workspace, WorkspaceInvite, WorkspaceMember, WorkspaceRole, WorkspaceSnapshot,
 } from '../domain/types'
 
-export interface NewWorkspaceMemberInput { displayName: string; email?: string; role?: Exclude<WorkspaceRole, 'owner'> }
+export interface NewWorkspaceMemberInput { displayName: string; email?: string; role?: Exclude<WorkspaceRole, 'owner'>; whatsappPhone?: string }
 export type NewLeadInput = Omit<Lead, 'id' | 'createdAt' | 'updatedAt'>
 export type NewCompanyInput = Omit<CompanyRecord, 'id' | 'createdAt' | 'updatedAt'>
 export type UpdateCompanyInput = Partial<Omit<CompanyRecord, 'id' | 'workspaceId' | 'createdAt' | 'updatedAt'>>

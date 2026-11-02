@@ -6,6 +6,8 @@ import { Modal } from '../../components/ui/modal'
 import type { TaskChecklistItem, TaskRelation, TaskRelationEntity, TaskStatus, TaskPriority, Team, TeamMembership, WorkTask, WorkspaceMember, WorkspaceSnapshot } from '../../domain/types'
 import type { TaskInput } from '../../services/work-management'
 import { TaskReminderEditor, draftTaskReminders, defaultTaskReminders, type TaskReminderDraft } from './task-reminder-editor'
+import { LocalTeamTaskWhatsAppAction } from './local-team-task-whatsapp-action'
+import '../../styles/local-team-whatsapp-action.css'
 
 interface Props {
   open: boolean
@@ -174,6 +176,8 @@ export function TaskModal({ open, task, relation, checklist, teams, memberships,
       <TaskReminderEditor value={reminders} onChange={setReminders} taskId={task?.id ?? null}
         workspaceId={workspaceId} repositoryMode={repositoryMode} assigneeId={assigneeId} assigneeName={selectedMember?.displayName ?? null} dueAt={dueAt}
         status={status} open={open} />
+      {repositoryMode === 'local' && task && task.assigneeId === assigneeId && task.status === status
+        ? <LocalTeamTaskWhatsAppAction workspaceId={workspaceId} task={task} member={selectedMember} /> : null}
 
       <section className="work-form-section"><header><Link2 size={18}/><div><strong>Relacionar ao CRM</strong><small>Conecte a tarefa a um contato, empresa, oportunidade, pipeline, playbook ou reunião.</small></div></header>
         <div className="form-grid"><label className="form-field"><span>Tipo</span><NativeSelectionSelect value={relationType} onChange={(event) => { setRelationType(event.target.value as TaskRelationEntity); setRelationId('') }}><option value="contact">Contato</option><option value="company">Empresa</option><option value="opportunity">Oportunidade</option><option value="lead">Registro comercial</option><option value="pipeline">Etapa do Pipeline</option><option value="playbook">Playbook</option><option value="meeting">Reunião</option></NativeSelectionSelect></label>

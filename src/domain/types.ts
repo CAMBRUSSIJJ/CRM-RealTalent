@@ -137,6 +137,10 @@ export interface WorkspaceMember {
   avatarUrl?: string | null
   role: WorkspaceRole
   joinedAt: string
+  /** Local CRM directory: this contact does not imply phone verification. */
+  whatsappPhone?: string | null
+  /** Manager attestation that the employee opted in; not provider-verified ownership. */
+  whatsappConsentRecordedAt?: string | null
 }
 
 export interface WorkspaceInvite {

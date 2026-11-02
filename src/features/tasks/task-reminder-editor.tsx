@@ -30,6 +30,7 @@ type Props = {
   value: TaskReminderDraft
   onChange(value: TaskReminderDraft): void
   assigneeId: string
+  assigneeName: string | null
   dueAt: string
   status: TaskStatus
   taskId: string | null
@@ -42,7 +43,7 @@ const dateLabel = (iso: string) => new Date(iso).toLocaleString('pt-BR', {
   day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit',
 })
 
-export function TaskReminderEditor({ value, onChange, assigneeId, dueAt, status, taskId, workspaceId, repositoryMode, open }: Props) {
+export function TaskReminderEditor({ value, onChange, assigneeId, assigneeName, dueAt, status, taskId, workspaceId, repositoryMode, open }: Props) {
   const [history, setHistory] = useState<TaskReminderHistory[]>([])
   const [loadingHistory, setLoadingHistory] = useState(false)
   const [historyError, setHistoryError] = useState('')
@@ -84,6 +85,9 @@ export function TaskReminderEditor({ value, onChange, assigneeId, dueAt, status,
     </label>
     {value.enabled ? <div className="task-reminders__body">
       {noDestination ? <p className="task-reminders__notice">Escolha um responsável e mantenha a tarefa aberta para programar lembretes.</p> : null}
+      {canSchedule ? <p className="task-reminders__notice" role="status">
+        Destinatário automático: <strong>{assigneeName || 'Integrante selecionado'}</strong>. O CRM utiliza a identidade do responsável para consultar seus contatos e preferências cadastrados, sem solicitar um número nesta tarefa. A programação não confirma envio; consulte o histórico e o estado da integração.
+      </p> : null}
       <div className="task-reminders__columns">
         <div>
           <strong className="task-reminders__label">Onde notificar</strong>

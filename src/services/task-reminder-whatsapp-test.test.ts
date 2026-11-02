@@ -37,9 +37,12 @@ beforeEach(() => {
 describe('Teste WhatsApp de tarefa pelo CRM', () => {
   it('aceita somente telefone explícito em formato internacional', () => {
     expect(normalizeTaskTestPhone('+5551988887777')).toBe('5551988887777')
-    expect(normalizeTaskTestPhone('51988887777')).toBeNull()
-    expect(normalizeTaskTestPhone('+55 51 98888 7777')).toBeNull()
+    expect(normalizeTaskTestPhone('51988887777')).toBe('5551988887777')
+    expect(normalizeTaskTestPhone('+55 51 98888 7777')).toBe('5551988887777')
+    expect(normalizeTaskTestPhone('55 51 98888-7777')).toBe('5551988887777')
+    expect(normalizeTaskTestPhone('51 3888-7777')).toBe('555138887777')
     expect(normalizeTaskTestPhone('+0551988887777')).toBeNull()
+    expect(normalizeTaskTestPhone('+12025550123')).toBeNull()
     expect(normalizeTaskTestPhone('')).toBeNull()
   })
 
@@ -51,7 +54,8 @@ describe('Teste WhatsApp de tarefa pelo CRM', () => {
 
   it('não confunde conta Meta Cloud com sessão QR', () => {
     expect(qrAccountForTaskTest([{ ...qrAccount, metadata: { transport: 'cloud' } }] as never)).toBeNull()
-    expect(qrAccountForTaskTest([{ ...qrAccount, status: 'attention' }] as never)).toBeNull()
+    expect(qrAccountForTaskTest([{ ...qrAccount, status: 'revoked' }] as never)).toBeNull()
+    expect(qrAccountForTaskTest([{ ...qrAccount, status: 'attention' }] as never)?.id).toBe('qr-account-1')
     expect(qrAccountForTaskTest([qrAccount] as never)?.id).toBe('qr-account-1')
   })
 
@@ -60,6 +64,51 @@ describe('Teste WhatsApp de tarefa pelo CRM', () => {
     const readiness = await checkTaskWhatsAppTestConnection('workspace-1')
     expect(readiness.available).toBe(false)
     expect(readiness.accountId).toBeNull()
+  })
+
+  it('herda a identidade da sessão QR conectada sem depender da lista de contas', async () => {
+    gateway.loadGatewayWhatsAppQrStatus.mockResolvedValue({ state: 'connected', phone: '5551999999999', accountId: 'qr-account-1' })
+    gateway.loadGatewayAccounts.mockRejectedValue(new Error('Lista temporariamente indisponível'))
+    const readiness = await checkTaskWhatsAppTestConnection('workspace-1')
+    expect(readiness).toMatchObject({ available: true, accountId: 'qr-account-1' })
+    expect(gateway.loadGatewayAccounts).not.toHaveBeenCalled()
+  })
+
+  it('aceita conta QR temporariamente marcada atenção se o status de sessão estiver conectado', async () => {
+    gateway.loadGatewayAccounts.mockResolvedValue([{ ...qrAccount, status: 'attention' }])
+    const readiness = await checkTaskWhatsAppTestConnection('workspace-1')
+    expect(readiness).toMatchObject({ available: true, accountId: 'qr-account-1' })
+  })
+
+  it('não usa número memorizado quando a sessão não está de fato conectada', async () => {
+    gateway.loadGatewayWhatsAppQrStatus.mockResolvedValue({ state: 'starting', phone: '5551999999999', accountId: null })
+    const readiness = await checkTaskWhatsAppTestConnection('workspace-1')
+    expect(readiness.available).toBe(false)
+    expect(readiness.senderPhone).toBe('')
+    expect(readiness.message).toMatch(/reconectando/)
+  })
+
+  it('não inventa conta de envio se a sessão estiver conectada mas não tiver identificação', async () => {
+    gateway.loadGatewayAccounts.mockResolvedValue([{ ...qrAccount, metadata: { transport: 'cloud' } }])
+    const readiness = await checkTaskWhatsAppTestConnection('workspace-1')
+    expect(readiness.available).toBe(false)
+    expect(readiness.accountId).toBeNull()
+    expect(readiness.message).toMatch(/conta de envio/)
+  })
+
+  it('ignora resposta de contas se a identidade autenticada vem da sessão QR', async () => {
+    gateway.loadGatewayWhatsAppQrStatus.mockResolvedValue({ state: 'connected', phone: '5551999999999', accountId: 'qr-account-1' })
+    gateway.loadGatewayAccounts.mockResolvedValue([{ ...qrAccount, id: 'unrelated-cloud', metadata: { transport: 'cloud' } }])
+    const result = await checkTaskWhatsAppTestConnection('workspace-1')
+    expect(result.accountId).toBe('qr-account-1')
+    expect(gateway.loadGatewayAccounts).not.toHaveBeenCalled()
+  })
+
+  it('permite teste com DDD sem código do país e envia no formato normalizado', async () => {
+    const readiness = await checkTaskWhatsAppTestConnection('workspace-1')
+    const result = await sendOwnTaskWhatsAppTest({ workspaceId: 'workspace-1', userId: 'user-1', task, phone: '(51) 98888-7777', explicitConsent: true, readiness })
+    expect(result.recipientPhone).toBe('5551988887777')
+    expect(gateway.sendGatewayCommunication).toHaveBeenCalledWith(expect.objectContaining({ recipient: '5551988887777' }))
   })
 
   it('gera texto de teste com prazo e sem simular envio agendado', () => {
@@ -80,7 +129,7 @@ describe('Teste WhatsApp de tarefa pelo CRM', () => {
   it('recusa envio sem consentimento ou telefone válido', async () => {
     const readiness = await checkTaskWhatsAppTestConnection('workspace-1')
     await expect(sendOwnTaskWhatsAppTest({ workspaceId: 'workspace-1', userId: 'user-1', task, phone: '+5551988887777', explicitConsent: false, readiness })).rejects.toThrow(/autoriza/)
-    await expect(sendOwnTaskWhatsAppTest({ workspaceId: 'workspace-1', userId: 'user-1', task, phone: '51988887777', explicitConsent: true, readiness })).rejects.toThrow(/formato internacional/)
+    await expect(sendOwnTaskWhatsAppTest({ workspaceId: 'workspace-1', userId: 'user-1', task, phone: '123', explicitConsent: true, readiness })).rejects.toThrow(/número brasileiro/)
     expect(gateway.sendGatewayCommunication).not.toHaveBeenCalled()
   })
 

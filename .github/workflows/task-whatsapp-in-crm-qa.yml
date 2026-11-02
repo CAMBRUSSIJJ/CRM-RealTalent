@@ -49,6 +49,8 @@ jobs:
           done
       - name: QR bridge JavaScript syntax
         run: node --check scripts/whatsapp-browser-qr-bridge.mjs
+      - name: Safe port 4188 recovery for current checkout
+        run: node --test scripts/runtime-preview-process-trust.test.mjs
       - name: WhatsApp LID addressing (no external sends)
         run: node --test scripts/whatsapp-lid-addressing.test.mjs
       - name: WhatsApp Web return compatibility (no external sends)

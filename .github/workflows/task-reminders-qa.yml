@@ -1,0 +1,41 @@
+name: Task Assignee Reminders QA
+
+on:
+  push:
+    branches: [feat/task-assignee-reminders-20261102]
+  pull_request:
+    paths:
+      - 'src/features/settings/task-reminder-preferences-panel.tsx'
+      - 'src/features/settings/settings-page.tsx'
+      - 'supabase/functions/task-reminder-dispatch/**'
+      - 'supabase/migrations/*task_assignee_notification_outbox.sql'
+      - 'scripts/task-reminder-contract.test.mjs'
+      - '.github/workflows/task-reminders-qa.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  reminders-qa:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+      - name: Node 22
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: '22'
+          cache: npm
+      - name: Install
+        run: npm ci --include=dev
+      - name: Reminder safety contracts
+        run: node --test scripts/task-reminder-contract.test.mjs
+      - name: Application regression
+        run: npx vitest run src --reporter=dot
+      - name: Typecheck
+        run: npm run typecheck
+      - name: Build
+        run: npm run build

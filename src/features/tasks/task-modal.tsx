@@ -172,7 +172,7 @@ export function TaskModal({ open, task, relation, checklist, teams, memberships,
 
       {reminderError ? <p role="alert" className="task-reminders__notice">{reminderError}</p> : null}
       <TaskReminderEditor value={reminders} onChange={setReminders} taskId={task?.id ?? null}
-        workspaceId={workspaceId} repositoryMode={repositoryMode} assigneeId={assigneeId} dueAt={dueAt}
+        workspaceId={workspaceId} repositoryMode={repositoryMode} assigneeId={assigneeId} assigneeName={selectedMember?.displayName ?? null} dueAt={dueAt}
         status={status} open={open} />
 
       <section className="work-form-section"><header><Link2 size={18}/><div><strong>Relacionar ao CRM</strong><small>Conecte a tarefa a um contato, empresa, oportunidade, pipeline, playbook ou reunião.</small></div></header>

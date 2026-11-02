@@ -117,8 +117,16 @@ export function createWhatsAppBrowserQrBridge({ root, now, uuid, store, saveStor
     if (!session || session.manualDisconnect || session.reconnectTimer) return
     session.state = 'starting'
     session.reconnectAttempts = Number(session.reconnectAttempts || 0) + 1
+    const previousError = String(session.lastError || '').trim()
+    if (session.reconnectAttempts > 5) {
+      session.state = 'disconnected'
+      session.lastError = `${previousError || 'O WhatsApp Web falhou ao inicializar.'} Após cinco tentativas, a reconexão automática foi suspensa para proteger a memória. Confira o diagnóstico do Chromium e clique em Conectar por QR para tentar novamente.`
+      session.updatedAt = now()
+      try { updateQrAccount(session.workspaceId, { status: 'attention', lastError: session.lastError, metadata: { liveState: 'disconnected' } }) } catch {}
+      return
+    }
     const delay = Math.min(12_000, 1_500 * session.reconnectAttempts)
-    session.lastError = `WhatsApp Web reconectando após ${reason}. Tentativa ${session.reconnectAttempts}.`
+    session.lastError = `${previousError && !previousError.startsWith('WhatsApp Web reconectando') ? previousError + ' ' : ''}WhatsApp Web reconectando após ${reason}. Tentativa ${session.reconnectAttempts}/5.`
     session.updatedAt = now()
     try { updateQrAccount(session.workspaceId, { status: 'attention', lastError: session.lastError, metadata: { liveState: 'starting' } }) } catch {}
     session.reconnectTimer = setTimeout(() => {
@@ -583,7 +591,7 @@ export function createWhatsAppBrowserQrBridge({ root, now, uuid, store, saveStor
       syncPromise: null,
       manualDisconnect: false,
       reconnectTimer: null,
-      reconnectAttempts: 0,
+      reconnectAttempts: Number(prior?.reconnectAttempts || 0),
       liveMessageIds: new Map(),
       contactNames: new Map(),
       contactsCachedAt: null,
@@ -761,6 +769,7 @@ export function createWhatsAppBrowserQrBridge({ root, now, uuid, store, saveStor
     void client.initialize().catch(error => {
       session.state = 'disconnected'
       session.lastError = `Não foi possível abrir o WhatsApp Web: ${error instanceof Error ? error.message : String(error)}`
+      console.warn(`[WhatsApp QR] ${session.lastError}`)
       session.updatedAt = now()
       updateQrAccount(workspaceId, { status: 'attention', lastError: session.lastError, metadata: { liveState: 'disconnected' } })
       if (!session.manualDisconnect) scheduleReconnect(session, 'falha ao inicializar')

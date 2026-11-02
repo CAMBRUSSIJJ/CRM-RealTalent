@@ -104,6 +104,19 @@ export function TaskReminderPreferencesPanel({ workspaceId, userId, enabled }: P
     if (!client) { setMessage('Conecte o CRM ao Supabase para salvar preferências.'); return }
     setSaving(true)
     setMessage('')
+    // Persist the employee's number in the shared Teams directory first.
+    // This is contact data only; it must never create a verified phone or permission to send.
+    if (wantsWhatsapp && phone) {
+      const { error: directoryError } = await (client as any).from('team_member_notification_contacts').upsert({
+        organization_id: workspaceId, user_id: userId,
+        phone_e164: phone, updated_at: new Date().toISOString(),
+      }, { onConflict: 'organization_id,user_id' })
+      if (directoryError) {
+        setMessage('Não foi possível sincronizar o número com Equipes. Verifique sua sessão e as permissões.')
+        setSaving(false)
+        return
+      }
+    }
     const { error } = await (client as any).from('task_notification_preferences').upsert({
       organization_id: workspaceId, user_id: userId,
       email_enabled: preferences.email_enabled,

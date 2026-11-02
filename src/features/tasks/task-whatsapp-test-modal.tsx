@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react'
 import { CheckCircle2, RefreshCw, Send, ShieldCheck } from 'lucide-react'
 import { Button } from '../../components/ui/button'
+import { loadCommunicationsGatewayHealth, loadGatewayWhatsAppQrStatus } from '../../services/local-communications-gateway'
 import { Modal } from '../../components/ui/modal'
 import type { WorkTask } from '../../domain/types'
 import {
@@ -100,14 +101,29 @@ export function TaskWhatsAppTestModal({ open, workspaceId, userId, tasks, onClos
       const response = await sendOwnTaskWhatsAppTest({ workspaceId, userId, task, phone, readiness, explicitConsent: consent })
       setResult(response)
     } catch (error) {
-      setSendError(error instanceof Error ? error.message : 'Não foi possível confirmar o envio. Confira a conversa antes de reenviar.')
+      const description = error instanceof Error ? error.message : 'Não foi possível confirmar o envio.'
+      // Read-only diagnosis after an ambiguous failure. Never reissue POST
+      // automatically; a message may have been sent before the connection failed.
+      const [health, qr] = await Promise.allSettled([
+        loadCommunicationsGatewayHealth(),
+        loadGatewayWhatsAppQrStatus(workspaceId),
+      ])
+      const gatewayOnline = health.status === 'fulfilled' && health.value.ok
+      const qrState = qr.status === 'fulfilled' ? qr.value.state : null
+      const statusNote = gatewayOnline
+        ? qrState === 'connected'
+          ? 'O gateway continua online e a sessão QR permanece conectada.'
+          : `O gateway está online, mas a sessão QR está em estado ${qrState || 'desconhecido'}.`
+        : 'O gateway de Comunicações não respondeu à verificação após a falha.'
+      setSendError(`${description} ${statusNote} Verifique a conversa antes de permitir outra tentativa.`)
     } finally {
       sendLockRef.current = false
       setSending(false)
     }
   }
 
-  const valid = Boolean(task && normalizeTaskTestPhone(phone) && consent && readiness?.available && !checking && !sending)
+  // Recheck is the explicit acknowledgement before attempting a second send.
+  const valid = Boolean(task && normalizeTaskTestPhone(phone) && consent && readiness?.available && !checking && !sending && !sendError && !result)
   return <Modal
     open={open}
     size="lg"
@@ -166,7 +182,7 @@ export function TaskWhatsAppTestModal({ open, workspaceId, userId, tasks, onClos
           </label>
           <p className="settings-copy">Envio único pela sessão de Comunicações. Isso não ativa lembretes automáticos nem envia mensagens para outros integrantes da equipe. A conexão QR é não oficial e pode ficar temporariamente indisponível.</p>
         </section>
-        {sendError ? <p role="alert" className="settings-copy"><strong>Envio não confirmado:</strong> {sendError} Confira a conversa no CRM antes de tentar outra vez para evitar duplicações.</p> : null}
+        {sendError ? <p role="alert" className="settings-copy"><strong>Envio não confirmado:</strong> {sendError} O botão de envio ficará bloqueado até você verificar a conversa e clicar em “Verificar novamente”.</p> : null}
         {result ? <div role="status" aria-live="polite" className="work-assignment-summary">
           <div><strong>{result.status === 'queued' ? 'Mensagem colocada na fila' : 'Mensagem aceita pelo gateway'}</strong>
             <p>{result.status === 'queued'

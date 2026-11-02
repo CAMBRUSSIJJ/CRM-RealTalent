@@ -28,7 +28,7 @@ export function SettingsLiveDiagnostics({onNavigate}:{
     const probes:Array<Promise<Reading>>=[
       getAgentRuntimeHealth().then(x=>({
         id:'ai',state:x.connected&&x.modelInstalled?'ready':x.connected?'attention':'offline',
-        description:x.connected?x.modelInstalled?'Modelo '+x.model+' confirmado.':'Gateway disponível, mas modelo não confirmado.':'Ollama não respondeu ao healthcheck.',at
+        description:x.connected?x.modelInstalled?'Modelo '+x.model+' confirmado.':'Gateway disponível, mas modelo não confirmado.':x.issue||'O Agent não respondeu ao healthcheck.',at
       } as Reading)).catch(()=>({id:'ai',state:'offline',description:'Ollama indisponível.',at} as Reading)),
       getProspectingAgentHealth().then(x=>({
         id:'garimpo',state:x?.ok?'ready':'offline',

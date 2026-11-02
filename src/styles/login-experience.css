@@ -455,6 +455,16 @@
   backdrop-filter: blur(14px) saturate(1.08);
   animation: rt-auth-card-in 680ms 180ms cubic-bezier(.16,.9,.22,1) both;
 }
+/* Small, static identity in the form header. The animated hero remains in the showcase. */
+.auth-card__intro { display: flex; align-items: flex-start; gap: 12px; min-width: 0; }
+.auth-card__intro > .rt-brand-mark { flex: 0 0 42px; }
+.auth-card__intro .rt-brand-mark__halo,
+.auth-card__intro .rt-brand-mark__orbit,
+.auth-card__intro .rt-brand-mark__pulse,
+.auth-card__intro .rt-brand-mark__scan,
+.auth-card__intro .rt-brand-mark__shine { display: none; }
+.auth-card__intro-copy { flex: 1 1 auto; min-width: 0; }
+.auth-card__intro-copy h2 { margin-top: 4px; }
 .auth-card .eyebrow { color: #55d6b2; }
 .auth-card h2 { color: #fff; letter-spacing: -.04em; }
 .auth-card p { color: rgba(225,240,250,.62); }

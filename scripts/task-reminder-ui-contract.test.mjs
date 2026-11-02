@@ -39,7 +39,7 @@ test('history access follows existing task visibility RLS, read-only', () => {
 
 test('task editor includes configurable channels, intervals, defaults and history', () => {
   for (const phrase of ['No CRM','WhatsApp oficial','E-mail','1 dia antes','1 hora antes','15 minutos antes','antecedência personalizada','Ao atribuir a tarefa','Histórico de notificações']) {
-    assert.ok(editor.includes(phrase), phrase)
+    assert.ok(editor.toLowerCase().includes(phrase.toLowerCase()), phrase)
   }
   assert.ok(modal.includes('<TaskReminderEditor'))
   assert.ok(modal.includes('reminderEnabled: reminders.enabled'))

@@ -13,8 +13,13 @@ export type WhatsAppTaskTestResult = {
 
 export const normalizeTaskTestPhone = (value: string): string | null => {
   const raw = value.trim()
-  if (!/^\+[1-9][0-9]{7,14}$/.test(raw)) return null
-  return raw.slice(1)
+  // Accept +55 53 99999-9999, 55DDD..., or DDD + subscriber.
+  // This control is explicitly for Brazilian numbers in the user's CRM.
+  if (!raw || /[^\d+\s().-]/.test(raw) || (raw.match(/\+/g) || []).length > 1 || (raw.includes('+') && !raw.startsWith('+'))) return null
+  const digits = raw.replace(/\D/g, '')
+  if (/^55[1-9][0-9]{9,10}$/.test(digits)) return digits
+  if (/^[1-9][0-9]{9,10}$/.test(digits) && !raw.startsWith('+')) return `55${digits}`
+  return null
 }
 
 export const eligibleTaskForOwnTest = (task: WorkTask, userId: string | null | undefined): boolean =>
@@ -38,12 +43,13 @@ export const composeTaskWhatsAppTestMessage = (task: Pick<WorkTask, 'title' | 'd
 }
 
 export function qrAccountForTaskTest(accounts: ConnectedAccount[]): ConnectedAccount | null {
+  // The live QR state is authoritative. An account may temporarily be
+  // "attention" while the gateway rehydrates its connection list.
   return accounts.find(account =>
     account.provider === 'whatsapp_cloud'
-    && account.metadata?.transport === 'qr'
-    && account.status === 'connected'
-    && account.connectionMode === 'live'
-    && account.capabilities?.messages === true
+    && String(account.metadata?.transport || '').toLowerCase() === 'qr'
+    && !['revoked', 'paused'].includes(account.status)
+    && account.connectionMode !== 'demo'
   ) ?? null
 }
 
@@ -55,22 +61,50 @@ export type TaskWhatsAppTestReadiness = {
 }
 
 export async function checkTaskWhatsAppTestConnection(workspaceId: string): Promise<TaskWhatsAppTestReadiness> {
-  const [status, accounts] = await Promise.all([
-    loadGatewayWhatsAppQrStatus(workspaceId),
-    loadGatewayAccounts(workspaceId),
-  ])
-  const account = qrAccountForTaskTest(accounts)
-  if (status.state !== 'connected' || !account) return {
+  // Communicações and Tarefas now share the same QR status endpoint.
+  // A remembered phone number alone is NOT proof of a live session.
+  const status = await loadGatewayWhatsAppQrStatus(workspaceId)
+  if (status.state !== 'connected') {
+    const states: Record<string, string> = {
+      starting: 'O WhatsApp está reconectando. Aguarde a conexão ficar ativa e clique em Verificar novamente.',
+      qr: 'O WhatsApp está aguardando a leitura do QR Code em Comunicações → WhatsApp.',
+      disconnected: 'A sessão do WhatsApp está desconectada. Confira o status em Comunicações → WhatsApp.',
+      logged_out: 'O WhatsApp encerrou a sessão. Conecte novamente em Comunicações → WhatsApp.',
+      idle: 'Não há uma sessão QR ativa neste workspace. Verifique Comunicações → WhatsApp.',
+    }
+    return { available: false, message: states[status.state] || 'WhatsApp não está pronto para o envio.', senderPhone: '', accountId: null }
+  }
+
+  // On the new gateway the account ID is supplied directly by the *live*
+  // QR session. No separate, potentially stale integrations cache is needed.
+  let accountId = typeof status.accountId === 'string' && status.accountId.trim() ? status.accountId : null
+  if (!accountId) {
+    // Backward-compatible fallback for an older gateway already running:
+    // use its QR account, never a Cloud API account.
+    let accounts: ConnectedAccount[]
+    try { accounts = await loadGatewayAccounts(workspaceId) }
+    catch {
+      return {
+        available: false,
+        message: 'A sessão WhatsApp está ativa, mas não foi possível consultar a conta de envio. Reinicie apenas o gateway local do CRM e verifique novamente.',
+        senderPhone: status.phone || '',
+        accountId: null,
+      }
+    }
+    accountId = qrAccountForTaskTest(accounts)?.id || null
+  }
+  if (!accountId) return {
     available: false,
-    message: 'WhatsApp por QR Code não está conectado neste workspace. Abra Configurações → WhatsApp para verificar a conexão.',
+    message: 'O WhatsApp está conectado, mas a conta de envio ainda não foi registrada pelo gateway. Aguarde a sincronização e clique em Verificar novamente.',
     senderPhone: status.phone || '',
     accountId: null,
   }
+
   return {
     available: true,
-    message: 'Conexão QR ativa. O envio será realizado pelo mesmo número do chat do CRM.',
+    message: 'WhatsApp conectado em Comunicações. Tarefas utilizará essa mesma sessão QR para o teste.',
     senderPhone: status.phone || '',
-    accountId: account.id,
+    accountId,
   }
 }
 
@@ -87,7 +121,7 @@ export async function sendOwnTaskWhatsAppTest(input: {
   }
   if (!input.explicitConsent) throw new Error('Confirme que o WhatsApp de destino é seu e que você autoriza este envio único.')
   const recipient = normalizeTaskTestPhone(input.phone)
-  if (!recipient) throw new Error('Informe seu WhatsApp em formato internacional, por exemplo +5551999999999.')
+  if (!recipient) throw new Error('Informe seu número brasileiro com DDD, por exemplo 53999999999 ou +5553999999999.')
   if (!input.readiness.available || !input.readiness.accountId) {
     throw new Error('O WhatsApp QR não está conectado. Atualize o diagnóstico antes de enviar.')
   }

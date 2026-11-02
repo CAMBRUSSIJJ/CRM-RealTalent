@@ -125,6 +125,9 @@ export function MeetPage(){
       commercialContext={{customer:lead?.name||'',company:lead?.company||'',opportunity:opportunity?.title||'',stage:''}}
       onSaveNote={async(text)=>{await createActivity({leadId:active.leadId,contactId:active.contactId,
         type:'note',title:'Anotações · '+active.title,description:text,dueAt:null,completedAt:null,assignedTo:user.id})}}
+      onCreateFollowup={async(title,dueAt)=>{await createActivity({leadId:active.leadId,contactId:active.contactId,
+        type:'followup',title,description:'Acompanhamento criado durante '+active.title,
+        dueAt,completedAt:null,assignedTo:user.id})}}
       onLeave={()=>{setActive(null);void refresh()}}
       onEnd={async()=>{try{await statusUpdate(active,'completed');setWrapRoom(active)}catch(e){setError(e instanceof Error?e.message:'Falha ao concluir a reunião.');throw e}}}/>
   }

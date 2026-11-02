@@ -39,6 +39,7 @@ Deno.serve(async (request: Request) => {
     .eq('organization_id', body.organizationId).eq('user_id', user.id).limit(1)
   const databaseReady = !table.error
   const deliveryEnabled = (Deno.env.get('TASK_REMINDER_DELIVERY_ENABLED') || '') === 'true'
+  const internalEnabled = (Deno.env.get('TASK_REMINDER_INTERNAL_ENABLED') || '') === 'true'
   const schedulerAuthenticated = present('TASK_REMINDER_CRON_SECRET') &&
     (Deno.env.get('TASK_REMINDER_CRON_SECRET') || '').length >= 32
   let appUrlConfigured = false
@@ -49,6 +50,7 @@ Deno.serve(async (request: Request) => {
     ok: true,
     databaseReady,
     deliveryEnabled,
+    internalEnabled,
     appUrlConfigured,
     schedulerAuthenticated,
     emailCredentialsPresent: present('RESEND_API_KEY') && present('TASK_REMINDER_FROM_EMAIL'),

@@ -548,7 +548,12 @@ export function createWhatsAppBrowserQrBridge({ root, now, uuid, store, saveStor
   async function startSession(workspaceId, displayName = 'WhatsApp QR Local') {
     workspaceId = String(workspaceId || 'default')
     const prior = get(workspaceId)
-    if (prior?.client && ['connected', 'starting', 'qr'].includes(prior.state)) {
+    // Preserve a live pairing (or the first Chromium startup), but let
+    // the scheduled reconnect create a new client after a genuine failure.
+    // scheduleReconnect marks "starting" BEFORE its timer fires.
+    const startupInProgress = prior?.state === 'starting'
+      && (Number(prior.reconnectAttempts || 0) === 0 || Boolean(prior.reconnectTimer))
+    if (prior?.client && (prior.state === 'connected' || prior.state === 'qr' || startupInProgress)) {
       return status(workspaceId)
     }
     if (prior?.client) await destroySession(prior)

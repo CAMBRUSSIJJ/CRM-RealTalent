@@ -25,9 +25,9 @@ export function TaskReminderPreferencesPanel({ workspaceId, userId, enabled }: P
     let live = true
     setLoading(true)
     const client = getSupabaseClient()
-    void client?.from('task_notification_preferences').select('email_enabled,whatsapp_enabled,whatsapp_phone_e164,whatsapp_consented_at')
+    void (client as any)?.from('task_notification_preferences').select('email_enabled,whatsapp_enabled,whatsapp_phone_e164,whatsapp_consented_at')
       .eq('organization_id', workspaceId).eq('user_id', userId).maybeSingle()
-      .then(({ data, error }) => {
+      .then(({ data, error }: { data: any; error: any }) => {
         if (!live) return
         if (error) { setMessage('Preferências de lembretes indisponíveis até aplicar a migração do módulo.'); return }
         const next: Preferences = {
@@ -57,7 +57,7 @@ export function TaskReminderPreferencesPanel({ workspaceId, userId, enabled }: P
     if (!client) { setMessage('Conecte o CRM ao Supabase para salvar preferências.'); return }
     setSaving(true)
     setMessage('')
-    const { error } = await client.from('task_notification_preferences').upsert({
+    const { error } = await (client as any).from('task_notification_preferences').upsert({
       organization_id: workspaceId, user_id: userId,
       email_enabled: preferences.email_enabled,
       whatsapp_enabled: wantsWhatsapp,

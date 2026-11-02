@@ -1,6 +1,7 @@
 import { useEffect, useState, type FormEvent } from 'react'
 import { getSupabaseClient } from '../../lib/supabase'
 import { Button } from '../../components/ui/button'
+import { TaskReminderTestLauncher } from './task-reminder-test-launcher'
 
 interface Props { workspaceId: string | null; userId: string | null; enabled: boolean }
 interface ReminderReadiness {
@@ -104,7 +105,7 @@ export function TaskReminderPreferencesPanel({ workspaceId, userId, enabled }: P
     setSaving(false)
   }
 
-  if (!enabled) return <article className="panel"><div className="panel__heading"><div><h3>Lembretes de tarefas para responsáveis</h3><p>Disponíveis no CRM conectado à nuvem. O modo local não envia mensagens externas.</p></div></div></article>
+  if (!enabled) return <article className="panel"><div className="panel__heading"><div><h3>Lembretes de tarefas</h3><p>Modo local: regras salvas neste dispositivo, sem agendamento externo.</p></div></div><TaskReminderTestLauncher workspaceId={workspaceId} userId={userId} /></article>
 
   return <article className="panel" aria-label="Lembretes externos de tarefas">
     <div className="panel__heading"><div>
@@ -148,5 +149,6 @@ export function TaskReminderPreferencesPanel({ workspaceId, userId, enabled }: P
       <div className="settings-actions"><Button type="submit" disabled={!workspaceId || !userId || loading || saving} loading={saving}>Salvar preferências de tarefas</Button></div>
       {message ? <p role="status" className="settings-copy">{message}</p> : null}
     </form>
+    <TaskReminderTestLauncher workspaceId={workspaceId} userId={userId} />
   </article>
 }

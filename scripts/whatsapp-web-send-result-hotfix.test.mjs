@@ -63,3 +63,14 @@ test('gateway applies the send-result fix before importing WhatsApp Web', async 
   assert.ok(code.includes("throw new Error('WhatsApp Web não confirmou o envio com um ID de mensagem."))
   assert.ok(!code.includes('return { id: externalMessageId || uuid(), threadId: chatId }'))
 })
+
+test('Linux launcher must not silently reuse a stale gateway from before the send fix', async () => {
+  const { readFileSync } = await import('node:fs')
+  const start = readFileSync(new URL('./start.mjs', import.meta.url), 'utf8')
+  const gateway = readFileSync(new URL('./realtalent-communications-gateway.mjs', import.meta.url), 'utf8')
+  assert.ok(start.includes("const COMM_EXPECTED_SEND_REVISION = 'msgkey-dollar1-20261102'"))
+  assert.ok(gateway.includes("const WHATSAPP_SEND_RETURN_REVISION = 'msgkey-dollar1-20261102'"))
+  assert.ok(gateway.includes('whatsappSendReturnRevision:WHATSAPP_SEND_RETURN_REVISION'))
+  assert.ok(start.includes('existing.data?.whatsappSendReturnRevision === COMM_EXPECTED_SEND_REVISION'))
+  assert.ok(start.includes('stopStaleCommunicationsProcesses({'))
+})

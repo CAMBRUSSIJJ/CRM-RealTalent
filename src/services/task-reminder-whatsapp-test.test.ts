@@ -183,6 +183,28 @@ describe('Teste WhatsApp de tarefa pelo CRM', () => {
     }))
   })
 
+  it('expõe erro concreto do WhatsApp Web e não pede reenvio automático', async () => {
+    gateway.sendGatewayCommunication.mockResolvedValue({
+      id: 'failed-test', status: 'failed',
+      metadata: { manualTest: true, outbox: false, lastSendError: 'Evaluation failed: User not found' },
+    })
+    const readiness = await checkTaskWhatsAppTestConnection('workspace-1')
+    await expect(sendOwnTaskWhatsAppTest({
+      workspaceId: 'workspace-1', userId: 'user-1', task,
+      phone: '+5551988887777', explicitConsent: true, readiness,
+    })).rejects.toThrow(/User not found/)
+    expect(gateway.sendGatewayCommunication).toHaveBeenCalledTimes(1)
+  })
+
+  it('não agenda reenvio para falha ambígua de um teste manual', () => {
+    const backend = readFileSync(new URL('../../scripts/realtalent-communications-gateway.mjs', import.meta.url), 'utf8')
+    expect(backend).toContain('function isManualTaskWhatsAppTest(input)')
+    expect(backend).toContain("status: 'failed'")
+    expect(backend).toContain('manualTest: true, outbox: false')
+    expect(backend).toContain('if(manualTaskTest) return recordManualTaskWhatsAppFailure(s,b,a,error)')
+    expect(backend).toContain('if(manualTaskTest) return recordManualTaskWhatsAppFailure(s,b,a,new Error(')
+  })
+
   it('nunca informa entrega quando o gateway apenas enfileirou a mensagem', async () => {
     gateway.sendGatewayCommunication.mockResolvedValue({ id: 'event-2', status: 'queued' })
     const readiness = await checkTaskWhatsAppTestConnection('workspace-1')

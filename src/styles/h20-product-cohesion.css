@@ -832,3 +832,49 @@ button.rt-workspace-summary-metric:hover{background:var(--rt-color-surface-soft)
 .prospecting-coverage-truth-h21>div{display:grid;gap:2px}
 .prospecting-coverage-truth-h21 strong{font-size:12px;color:var(--rt-color-text,#182230)}
 .prospecting-coverage-truth-h21 span{font-size:11px;line-height:1.45}
+
+/* ===== consolidated runtime source: prospecting-territory-interaction-hotfix.css ===== */
+/* Garimpo — drawn territory interaction reliability.
+ * The map iframe stays visual while the SVG overlay owns pointer input.
+ */
+.prospecting-territory-selector-v101103-h1__canvas {
+  position: relative;
+  isolation: isolate;
+  touch-action: none;
+}
+
+.prospecting-territory-selector-v101103-h1__canvas > iframe {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  border: 0;
+  z-index: 0;
+  pointer-events: none !important;
+  user-select: none;
+}
+
+.prospecting-territory-selector-v101103-h1__canvas > svg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 2;
+  pointer-events: auto !important;
+  touch-action: none;
+  cursor: crosshair;
+}
+
+.prospecting-territory-selector-v101103-h1__canvas > svg circle {
+  pointer-events: auto;
+  cursor: grab;
+}
+
+.prospecting-territory-selector-v101103-h1__canvas > svg circle:active {
+  cursor: grabbing;
+}
+
+.prospecting-territory-selector-v101103-h1__canvas .prospecting-territory-selector-v101103-h1__hint {
+  z-index: 3;
+  pointer-events: none;
+}

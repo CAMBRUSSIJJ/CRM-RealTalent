@@ -61,6 +61,21 @@ export function TaskWhatsAppTestModal({ open, workspaceId, userId, tasks, onClos
     return () => { active = false }
   }, [open, workspaceId])
 
+  // If the user reconnects from Comunicações while this modal is open,
+  // update its readiness automatically; no second QR pairing is needed.
+  useEffect(() => {
+    if (!open || !workspaceId || readiness?.available || sending) return
+    let active = true
+    const timer = window.setInterval(() => {
+      void checkTaskWhatsAppTestConnection(workspaceId).then(next => {
+        if (active) { setReadiness(next); setConnectionError('') }
+      }).catch(error => {
+        if (active) setConnectionError(error instanceof Error ? error.message : 'Não foi possível consultar o WhatsApp.')
+      })
+    }, 8000)
+    return () => { active = false; window.clearInterval(timer) }
+  }, [open, workspaceId, readiness?.available, sending])
+
   const recheck = async () => {
     setChecking(true)
     setConnectionError('')

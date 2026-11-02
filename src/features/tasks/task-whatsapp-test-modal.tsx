@@ -122,8 +122,10 @@ export function TaskWhatsAppTestModal({ open, workspaceId, userId, tasks, onClos
     }
   }
 
+  const selfRecipient = Boolean(readiness?.senderPhone && normalizeTaskTestPhone(phone)
+    && normalizeTaskTestPhone(phone) === normalizeTaskTestPhone(readiness.senderPhone))
   // Recheck is the explicit acknowledgement before attempting a second send.
-  const valid = Boolean(task && normalizeTaskTestPhone(phone) && consent && readiness?.available && !checking && !sending && !sendError && !result)
+  const valid = Boolean(task && normalizeTaskTestPhone(phone) && consent && readiness?.available && !checking && !sending && !sendError && !result && !selfRecipient)
   return <Modal
     open={open}
     size="lg"
@@ -170,7 +172,8 @@ export function TaskWhatsAppTestModal({ open, workspaceId, userId, tasks, onClos
                 disabled={sending}
                 onChange={event => { setPhone(event.target.value); setResult(null); setSendError('') }}
                 onBlur={() => { const normalized = normalizeTaskTestPhone(phone); if (normalized) setPhone(`+${normalized}`) }} />
-              {phone.trim() && !normalizeTaskTestPhone(phone)
+              {selfRecipient ? <small role="alert">Você informou o mesmo número conectado ao CRM. Para comprovar a entrega, utilize outro WhatsApp autorizado; não é necessário reconectar o QR.</small> : null}
+          {phone.trim() && !normalizeTaskTestPhone(phone)
                 ? <small role="alert">Confira o DDD e o número. Exemplo: (53) 99999-9999. O CRM adiciona +55 automaticamente.</small>
                 : <small>Digite DDD + número, com ou sem +55. O teste não salva o telefone.</small>}
             </label>

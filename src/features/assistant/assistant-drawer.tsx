@@ -3,9 +3,7 @@ import { env } from '../../lib/env'
 /* V1.10 Identity & Team Governance regression marker */
 /* V0.9 Autonomous Programs compatibility marker */
 import '../../styles/realtalent-assistant-v10067.css'
-import '../../styles/realtalent-agent-v41-tools.css'
-import '../../styles/realtalent-agent-v53.css'
-import '../../styles/realtalent-agent-v54-chat.css'
+import '../../styles/realtalent-agent.css'
 import { AlertTriangle, ArrowRight, Bot, BrainCircuit, CheckCircle2, Clipboard, Clock3, Database, ExternalLink, LoaderCircle, Maximize2, MessageSquareText, Minimize2, MonitorCheck, Play, ShieldCheck, Sparkles, Target, Wrench, X } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useAppActions, useAppNavigation, useAppUi, useAppWorkspace } from '../../app/app-context'

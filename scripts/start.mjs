@@ -6,6 +6,7 @@ import crypto from 'node:crypto'
 import { fileURLToPath } from 'node:url'
 import { spawn, spawnSync } from 'node:child_process'
 import { inspectPort, listCommunicationsProcesses, stopStaleCommunicationsProcesses, tailFile } from './runtime-communications-recovery.mjs'
+import { isTrustedRealTalentViteProcess } from './runtime-preview-process-trust.mjs'
 import { listConnectProcesses, stopStaleConnectProcesses, connectDiagnostics } from './runtime-connect-recovery.mjs'
 import { communicationsRuntimeDependenciesPresent } from './communications-runtime-deps.mjs'
 
@@ -22,6 +23,7 @@ const UI_COHESION_NAME = 'Global UI & Product Cohesion'
 const UI_HOTFIX = 'H20.7-H1'
 const UI_HOTFIX_NAME = 'Appearance & Sidebar Truth'
 const COMM_EXPECTED_VERSION = '101.8.4-h13'
+const COMM_EXPECTED_SEND_REVISION = 'msgkey-dollar1-20261102'
 const CRM_PORT = Number(process.env.PORT || 4188)
 const CONNECT_PORT = Number(process.env.REALTALENT_CONNECT_PORT || 3001)
 const COMM_PORT = Number(process.env.REALTALENT_COMMUNICATIONS_PORT || 3002)
@@ -344,7 +346,7 @@ function previewProcessInfo(pid) {
   try {
     const cwd = fs.readlinkSync(`/proc/${pid}/cwd`)
     const cmdline = fs.readFileSync(`/proc/${pid}/cmdline`, 'utf8').replace(/\0/g, ' ').trim()
-    const trusted = /^RealTalent-CRM-V/i.test(path.basename(cwd)) && /vite(?:\.js)?\s+(preview|--host)|vite\/bin\/vite\.js/.test(cmdline)
+    const trusted = isTrustedRealTalentViteProcess({ cwd, appRoot: ROOT, cmdline })
     return { pid:Number(pid), cwd, cmdline, trusted }
   } catch { return null }
 }
@@ -354,7 +356,9 @@ async function recoverPreviewPort() {
   if (!owner.busy) return
   const infos = owner.pids.map(previewProcessInfo).filter(Boolean)
   const trusted = infos.filter(item => item.trusted)
-  if (!trusted.length) {
+  // Refuse to kill *any* process if the port has an unidentified co-owner.
+  // This also guards against a PID disappearing/reappearing during inspection.
+  if (!owner.pids.length || trusted.length !== owner.pids.length) {
     const detail = owner.lines.slice(0,3).map(line => line.trim()).join(' | ')
     fail(`porta ${CRM_PORT} ocupada por processo não reconhecido; nada foi encerrado. ${detail}`)
   }
@@ -566,9 +570,15 @@ function printCommunicationsDiagnostics(result = {}) {
 async function prepareCommunicationsRuntime(token) {
   const url = `http://127.0.0.1:${COMM_PORT}/api/communications/health`
   const existing = await probe(url, { token, expectedVersion: COMM_EXPECTED_VERSION })
-  if (existing.ok) {
-    log(`✓ Communications Gateway já está ativo: ${existing.data.version}`)
+  if (existing.ok && existing.data?.whatsappSendReturnRevision === COMM_EXPECTED_SEND_REVISION) {
+    log(`✓ Communications Gateway já está ativo: ${existing.data.version} · retorno WhatsApp atualizado`)
     return { reuse: true, blocked: false, existing }
+  }
+  if (existing.ok) {
+    // Same protocol version does not imply same on-disk WhatsApp Web bugfix.
+    // Only retire processes validated as belonging to this checkout, never
+    // another user's listener or a different RealTalent installation.
+    log('↻ Communications Gateway antigo detectado: reiniciando serviço desta instalação para ativar a correção de envio.')
   }
 
   const discovered = await probe(url)
@@ -1003,12 +1013,15 @@ async function main() {
   if (mode !== 'dev' && mode !== 'garimpo') verifyDistLineage()
   log('2/4 — Runtime e lineage validados.')
 
+  // Reclaim only an old RealTalent Vite UI before launching sidecars. If
+  // the port belongs to another app, leave all services and processes alone.
+  // Also avoid old-launcher cleanup tearing down a newly started WhatsApp
+  // gateway after its old Vite child is terminated.
+  // The Garimpo launcher already checks port 4197 separately.
+  if (mode !== 'garimpo') await recoverPreviewPort()
   await startServices(token, { preserveProspecting: mode === 'garimpo' })
   startControlServer(token)
   startCommunicationsWatchdog(token)
-  // The Garimpo launcher already checks port 4197, and must not stop any
-  // unrelated Vite server on a race or when another installation is active.
-  if (mode !== 'garimpo') await recoverPreviewPort()
   log('4/4 — Iniciando interface...')
   const url = `http://127.0.0.1:${CRM_PORT}/?rt_release=101.11.3-h2-runtime-service-recovery&rt_ui=101.11.3-h19-13-whatsapp-work-management&rt_cohesion=101.11.3-h20-7-global-ui-final-pass&rt_hotfix=101.11.3-h20-7-h1-appearance-sidebar-truth&rt_hotfix2=101.11.3-h20-7-h2-whatsapp-conversation-inbox&rt_garimpo=101.11.3-h21-1-coverage-runtime-truth&rt_launcher_fix=101.11.3-h21-1-h1-communication-lineage-guard&rt_access=101.11.3-h22-1-team-profiles-access-control&rt_access2=101.11.3-h22-2-cross-module-access-control&rt_governance=101.11.3-h22-3-field-approvals-audit&rt_closure=101.11.3-h22-3-h1-stability-security-closure&rt_cr1=101.11.3-cr1-build-dependency-closure&rt_cr2=101.11.3-cr2-supabase-auth-rls-validation&rt_cr3=101.11.3-cr3-e2e-commercial-workflow&rt_cr4=101.11.3-cr4-commercial-ux-failure-recovery&rt_cr5=101.11.3-cr5-performance-observability&rt_cr6=101.11.3-cr6-performance-payload-reduction&rt_cr7=101.11.3-cr7-production-operational-readiness&rt_cr8=101.11.3-cr8-commercial-launch-gate&rt_cr9=101.11.3-cr9-launch-hard-stop-closure&rt_readiness=101.11.3-cr10-supabase-staging-bootstrap&rt_cr10_h1=101.11.3-cr10-h1-css-cascade-governance`
   log(`CRM: ${url}`)

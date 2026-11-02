@@ -75,7 +75,10 @@ export function AuthPage() {
       </section>
       <section className="auth-form-area">
         <form className="auth-card" onSubmit={auth.mode === 'local' ? (event) => { event.preventDefault(); void enterLocal() } : submit}>
-          <div><span className="eyebrow">{auth.mode === 'local' ? 'Seu workspace' : 'RealTalent CRM'}</span><h2>{title}</h2><p>{auth.mode === 'local' ? 'Entre para continuar no workspace deste dispositivo.' : mode === 'confirmation' ? 'Abra o link recebido e depois volte para entrar.' : mode === 'forgot' ? 'Informe o e-mail usado no CRM.' : mode === 'recovery' ? 'Escolha uma senha nova e segura.' : 'Entre com seu e-mail e senha.'}</p></div>
+          <div className="auth-card__intro">
+            <RealTalentBrandMark size="sm" animated={false} />
+            <div className="auth-card__intro-copy"><span className="eyebrow">{auth.mode === 'local' ? 'Seu workspace' : 'RealTalent CRM'}</span><h2>{title}</h2><p>{auth.mode === 'local' ? 'Entre para continuar no workspace deste dispositivo.' : mode === 'confirmation' ? 'Abra o link recebido e depois volte para entrar.' : mode === 'forgot' ? 'Informe o e-mail usado no CRM.' : mode === 'recovery' ? 'Escolha uma senha nova e segura.' : 'Entre com seu e-mail e senha.'}</p></div>
+          </div>
           {auth.mode === 'local' ? <>
             <div className="auth-local-profile" aria-label="Perfil local deste dispositivo">
               <span className="auth-local-profile__avatar">{(localProfile?.displayName || 'RT').split(/\s+/).slice(0,2).map((part) => part[0]).join('').toUpperCase()}</span>

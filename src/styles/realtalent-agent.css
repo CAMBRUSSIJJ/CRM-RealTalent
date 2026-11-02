@@ -1,3 +1,43 @@
+/* Canonical RealTalent Agent styles. Historical layers preserved in import order. */
+
+/* ===== source: realtalent-agent-v41-tools.css ===== */
+/* RealTalent Agent V4.1 — tools result surfaces, scoped to the embedded Agent. */
+.assistant-tool-card{border:1px solid var(--rt-border,#dbe4ef);border-radius:14px;padding:16px;display:grid;gap:12px;background:var(--rt-surface,#fff);min-width:0}
+.assistant-tool-card__meta{display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;font-size:12px;color:var(--rt-text-muted,#667085)}
+.assistant-tool-card__meta span:first-child{font-weight:700;color:var(--rt-color-brand,#215cb7)}
+.assistant-tool-card__value{font-size:clamp(1.5rem,3vw,2.3rem);line-height:1.1;overflow-wrap:anywhere}
+.assistant-tool-card__formula{border-radius:9px;background:var(--rt-color-brand-soft,#eef4ff);padding:12px;min-width:0}
+.assistant-tool-card__formula small{display:block;margin-bottom:5px;font-weight:700}
+.assistant-tool-card__formula p{margin:0;font-size:14px;overflow-wrap:anywhere}
+.assistant-tool-card__notes p{font-size:13px;line-height:1.5;margin:0 0 7px}
+.assistant-tool-card__script{font:inherit;font-size:13px;line-height:1.62;margin:0;white-space:pre-wrap;overflow-wrap:anywhere;max-height:min(48vh,460px);overflow:auto;padding:14px;border-radius:9px;background:var(--rt-surface-subtle,#f5f7fc);border:1px solid var(--rt-border,#dbe4ef)}
+.assistant-tool-card__actions{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.assistant-tool-card__disclaimer{font-size:12px;line-height:1.4;color:var(--rt-text-muted,#667085)}
+@media(max-width:520px){.assistant-tool-card{padding:12px}.assistant-tool-card__actions .button{max-width:100%}}
+
+.assistant-strategy-brief{display:grid;gap:9px;border:1px solid var(--rt-border,#dbe4ef);border-radius:10px;padding:12px;min-width:0}
+.assistant-strategy-brief strong{font-size:14px;line-height:1.4}
+.assistant-strategy-brief p{font-size:13px;line-height:1.55;margin:0}
+.assistant-strategy-brief__meta{display:flex;flex-wrap:wrap;gap:7px;color:var(--rt-text-muted,#667085);font-size:12px}
+.assistant-strategy-brief__meta span{border-radius:7px;padding:4px 7px;background:var(--rt-surface-subtle,#f4f6fb)}
+.assistant-strategy-brief details{font-size:13px;line-height:1.5}
+.assistant-strategy-brief summary{cursor:pointer;font-weight:600}
+.assistant-strategy-brief ul{margin:7px 0 0;padding-left:18px}
+.assistant-strategy-brief li{margin-bottom:5px;overflow-wrap:anywhere}
+.assistant-strategy-brief a{color:var(--rt-color-brand,#245bb5);overflow-wrap:anywhere}
+
+
+/* ===== source: realtalent-agent-v53.css ===== */
+/* RealTalent Agent V5.3 — compact active-document state */
+.assistant-work-state{display:grid;gap:8px;border:1px solid var(--rt-border,#d7e3f0);border-radius:10px;padding:11px 12px;background:var(--rt-color-brand-soft,#eef4ff);color:var(--rt-text,#283548);font-size:12px}
+.assistant-work-state__actions{display:flex;flex-wrap:wrap;align-items:center;gap:6px}
+.assistant-work-state__actions button{border:1px solid var(--rt-border,#bbcbe2);border-radius:7px;padding:6px 9px;font:inherit;font-weight:600;background:var(--rt-surface,#fff);cursor:pointer;min-height:31px}
+.assistant-work-state__actions button:focus-visible{outline:2px solid var(--rt-color-brand,#1a5ccc);outline-offset:2px}
+.assistant-work-state__quality{font-size:12px;line-height:1.5;color:var(--rt-text-muted,#5d6780)}
+@media(max-width:520px){.assistant-work-state__actions button{flex:1 1 100%}}
+
+
+/* ===== source: realtalent-agent-v54-chat.css ===== */
 /* V5.4 conversational history: user/assistant pairs remain visible in the drawer. */
 .assistant-history-turn{display:grid;gap:7px;margin:12px 0 17px;min-width:0}
 .assistant-history-turn .assistant-user-message{margin:0}

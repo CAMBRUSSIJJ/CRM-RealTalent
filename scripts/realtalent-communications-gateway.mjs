@@ -26,6 +26,8 @@ const EXTRA_ALLOWED_HOSTS = String(process.env.REALTALENT_COMMUNICATIONS_ALLOWED
 const INTERNAL_ALLOWED_ORIGINS = new Set([`http://127.0.0.1:${CRM_PORT}`, `http://localhost:${CRM_PORT}`, 'http://127.0.0.1:4173', 'http://localhost:4173', 'http://127.0.0.1:4174', 'http://localhost:4174'])
 // historical marker: const VERSION = '101.8.4-h10'
 const VERSION = '101.8.4-h13'
+// Allows the Linux launcher to detect a healthy but stale Communications process.
+const WHATSAPP_SEND_RETURN_REVISION = 'msgkey-dollar1-20261102'
 let shuttingDown = false
 let fatalScheduled = false
 function fatal(label, error) {
@@ -136,6 +138,31 @@ async function failedWhatsAppEvent(snapshot,input,account,error){
   pushEvent(snapshot,event);saveStore(snapshot);return event
 }
 function retryableWhatsAppError(error) { return /(fetch|network|timeout|ECONN|EAI_AGAIN|indispon|desconect|connected|ready|sessão|autentic|429|502|503|504)/i.test(String(error?.message||error||'')) }
+function isManualTaskWhatsAppTest(input) { return input.channel === 'whatsapp' && /^task-whatsapp-manual-test:/.test(String(input.idempotencyKey || '')) }
+function recordManualTaskWhatsAppFailure(snapshot, input, account, error) {
+  // A user-requested *single* test must never enter the 2-second retry outbox:
+  // a timeout can be ambiguous and blindly resending might duplicate delivery.
+  const existing = idempotencyEvent(snapshot, input)
+  if (existing) return existing
+  const details = String(error?.message || error || 'Falha desconhecida no envio pelo WhatsApp Web.').slice(0, 500)
+  const event = makeEvent({
+    workspaceId: input.workspaceId, leadId: input.leadId || null,
+    contactId: input.contactId || null, accountId: account.id,
+    channel: 'whatsapp', direction: 'outbound', status: 'failed',
+    senderAddress: String(account.metadata?.displayPhoneNumber || account.displayName || ''),
+    recipientAddresses: input.recipient ? [String(input.recipient)] : [],
+    bodyText: String(input.body || ''),
+    metadata: {
+      provider: account.provider, transport: account.metadata?.transport || null,
+      idempotencyKey: input.idempotencyKey || null,
+      manualTest: true, outbox: false, lastSendError: details,
+      peerAddress: String(input.recipient || '').replace(/\D/g, ''),
+    },
+  })
+  pushEvent(snapshot, event)
+  saveStore(snapshot)
+  return event
+}
 async function executeCommunicationSend(snapshot, input, account) {
   const attachmentRef = input.channel==='whatsapp' ? await ensureAttachmentRef(input) : null
   const cred = account.metadata?.transport === 'qr' ? null : await credential(snapshot, account)
@@ -233,7 +260,7 @@ async function route(req,res){
   if(internalApi&&!originAllowed(req))return json(res,403,{error:'Origem não autorizada para o Communications Gateway.'})
   if(internalApi&&!internalAuthorized(req))return json(res,401,{error:'Autenticação local do Communications Gateway ausente ou inválida.'})
   const s=store();
-  if(req.method==='GET'&&u.pathname==='/api/communications/health'){const google=providerConfig('google');const microsoft=providerConfig('microsoft');return json(res,200,{ok:true,mode:'local-gateway',version:VERSION,security:{runtimeAuth:Boolean(RUNTIME_TOKEN),hostValidation:true,originValidation:true,webhooksFailClosed:true},providers:{google:Boolean(google.clientId),microsoft:Boolean(microsoft.clientId),whatsapp:true,whatsappQr:true},syncIntervalMs:SYNC_INTERVAL_MS,realtime:{transport:'sse',...realtimeBus.stats()}})}
+  if(req.method==='GET'&&u.pathname==='/api/communications/health'){const google=providerConfig('google');const microsoft=providerConfig('microsoft');return json(res,200,{ok:true,mode:'local-gateway',version:VERSION,whatsappSendReturnRevision:WHATSAPP_SEND_RETURN_REVISION,security:{runtimeAuth:Boolean(RUNTIME_TOKEN),hostValidation:true,originValidation:true,webhooksFailClosed:true},providers:{google:Boolean(google.clientId),microsoft:Boolean(microsoft.clientId),whatsapp:true,whatsappQr:true},syncIntervalMs:SYNC_INTERVAL_MS,realtime:{transport:'sse',...realtimeBus.stats()}})}
   if(req.method==='GET'&&u.pathname==='/api/integrations/accounts'){const workspaceId=u.searchParams.get('workspaceId')||'';const accounts=s.accounts.filter(a=>a.workspaceId===workspaceId&&a.status!=='revoked').map(a=>{const view=safeAccount(a);if(a.provider==='whatsapp_cloud'&&a.metadata?.transport==='qr'){const live=whatsappQr.status(a.workspaceId);view.metadata={...(view.metadata||{}),liveState:live.state,qrEngine:live.engine||a.metadata?.qrEngine};if(live.state==='connected'){view.status='connected';view.lastError=null}else if(['starting','disconnected','idle'].includes(live.state)){view.status='attention';view.lastError=live.lastError||a.lastError||'WhatsApp QR reconectando.'}else if(live.state==='qr'){view.status='attention';view.lastError='WhatsApp QR aguardando leitura do código.'}}return view});return json(res,200,{accounts})}
   if(req.method==='POST'&&u.pathname==='/api/integrations/oauth/start'){const b=await body(req); if(!['google','microsoft'].includes(b.provider))return json(res,400,{error:b.provider==='whatsapp_cloud'?'No modo Linux local, conecte o WhatsApp Business pela tela WhatsApp informando o token permanente e o Phone Number ID.':'Este provedor ainda exige o backend hospedado.'}); try{return json(res,200,{mode:'oauth',url:authUrl(b.provider,b.workspaceId,b.returnUrl),message:'OAuth real iniciado pelo gateway local.'})}catch(e){return json(res,400,{error:e.message})}}
   if(req.method==='GET'&&(u.pathname==='/oauth/google/callback'||u.pathname==='/oauth/microsoft/callback')){const provider=u.pathname.includes('google')?'google':'microsoft';const stateId=u.searchParams.get('state')||'';const code=u.searchParams.get('code')||'';const error=u.searchParams.get('error_description')||u.searchParams.get('error');const st=oauthStates.get(stateId);oauthStates.delete(stateId);if(error)return html(res,400,`<h2>Conexão cancelada</h2><p>${escapeHtml(error)}</p>`);if(!st||st.provider!==provider||Date.now()-st.createdAt>10*60_000)return html(res,400,'<h2>Estado OAuth inválido ou expirado.</h2>');try{const token=await tokenExchange(provider,code,st.verifier);token.expires_at=Date.now()+Number(token.expires_in||3600)*1000;const who=await identity(provider,token.access_token);const date=now();const existing=s.accounts.find(a=>a.workspaceId===st.workspaceId&&a.provider===provider&&a.externalAccountId===who.id);const account={id:existing?.id||uuid(),workspaceId:st.workspaceId,provider,externalAccountId:who.id,displayName:who.email||who.name,status:'connected',scopes:scopes(provider),credential:encrypt(token),tokenExpiresAt:new Date(token.expires_at).toISOString(),lastSyncAt:existing?.lastSyncAt||null,lastError:null,capabilities:cap(provider),metadata:{email:who.email},createdAt:existing?.createdAt||date,updatedAt:date};upsertAccount(s,account);saveStore(s);const ret=new URL(st.returnUrl);ret.searchParams.set('integration','connected');ret.searchParams.set('provider',provider);res.writeHead(302,{location:ret.toString(),'cache-control':'no-store'});return res.end()}catch(e){return html(res,500,`<h2>Falha ao conectar ${escapeHtml(provider)}</h2><p>${escapeHtml(e instanceof Error?e.message:e)}</p>`)} }
@@ -276,6 +303,7 @@ async function route(req,res){
   if(req.method==='POST'&&u.pathname==='/api/communications/retry'){const b=await body(req);const event=(s.events||[]).find(item=>item.id===String(b.eventId||'')&&item.workspaceId===String(b.workspaceId||'')&&item.channel==='whatsapp'&&item.direction==='outbound');if(!event)return json(res,404,{error:'Mensagem não encontrada.'});event.status='queued';event.metadata={...(event.metadata||{}),outbox:true,nextRetryAt:now(),lastSendError:null};saveStore(s);void drainWhatsAppOutbox();return json(res,200,{event})}
   if(req.method==='POST'&&u.pathname==='/api/communications/send'){
     const b=await body(req); const a=accountById(s,b.workspaceId,b.accountId)
+    const manualTaskTest = isManualTaskWhatsAppTest(b)
     if(b.channel==='whatsapp'&&looksLikeEncodedMediaText(b.body)){b.body=''}
     if(!a)return json(res,400,{error:'Conta não encontrada ou revogada.'})
     if((!b.body&&!b.attachment?.dataBase64)||(!b.recipient&&!b.threadId))return json(res,400,{error:'Destino e mensagem/arquivo são obrigatórios.'})
@@ -284,12 +312,24 @@ async function route(req,res){
     try{
       if(lockKey&&sendLocks.has(lockKey))return json(res,200,{event:await sendLocks.get(lockKey),idempotent:true})
       const operation=(async()=>{
-        if(b.channel==='whatsapp'&&a.status!=='connected'){const ref=await ensureAttachmentRef(b);return queueWhatsAppEvent(s,b,a,ref,new Error('WhatsApp desconectado. A mensagem ficará na fila.'))}
-        try{return await executeCommunicationSend(s,b,a)}catch(error){if(b.channel==='whatsapp'&&isWhatsAppMediaIdRegression(error))return await failedWhatsAppEvent(s,b,a,error);if(b.channel==='whatsapp'&&retryableWhatsAppError(error)){const ref=await ensureAttachmentRef(b);return queueWhatsAppEvent(s,b,a,ref,error)}throw error}
+        if(b.channel==='whatsapp'&&a.status!=='connected'){
+          if(manualTaskTest) return recordManualTaskWhatsAppFailure(s,b,a,new Error('A conta WhatsApp está desconectada no momento do teste. Nenhum reenvio foi agendado.'))
+          const ref=await ensureAttachmentRef(b)
+          return queueWhatsAppEvent(s,b,a,ref,new Error('WhatsApp desconectado. A mensagem ficará na fila.'))
+        }
+        try{return await executeCommunicationSend(s,b,a)}catch(error){
+          if(manualTaskTest) return recordManualTaskWhatsAppFailure(s,b,a,error)
+          if(b.channel==='whatsapp'&&isWhatsAppMediaIdRegression(error))return await failedWhatsAppEvent(s,b,a,error)
+          if(b.channel==='whatsapp'&&retryableWhatsAppError(error)){const ref=await ensureAttachmentRef(b);return queueWhatsAppEvent(s,b,a,ref,error)}
+          throw error
+        }
       })()
       if(lockKey)sendLocks.set(lockKey,operation)
       const event=await operation;return json(res,200,{event})
-    }catch(e){a.lastError=e instanceof Error?e.message:String(e);a.updatedAt=now();saveStore(s);return json(res,502,{error:a.lastError})}
+    }catch(e){
+      if(manualTaskTest) return json(res,200,{event:recordManualTaskWhatsAppFailure(s,b,a,e)})
+      a.lastError=e instanceof Error?e.message:String(e);a.updatedAt=now();saveStore(s);return json(res,502,{error:a.lastError})
+    }
     finally{if(lockKey)sendLocks.delete(lockKey)}
   }
   if(req.method==='POST'&&u.pathname==='/api/communications/sync'){const b=await body(req);const list=s.accounts.filter(a=>a.workspaceId===b.workspaceId&&(a.status==='connected'||(a.provider==='whatsapp_cloud'&&a.metadata?.transport==='qr'&&a.status==='attention'))&&(!b.accountId||a.id===b.accountId));let imported=0;const triggered=[];const failures=[];for(const a of list){try{const n=await syncAccount(s,a);imported+=n;triggered.push(a.id);a.lastError=null;a.status='connected'}catch(e){a.lastError=e instanceof Error?e.message:String(e);a.updatedAt=now();const live=a.metadata?.transport==='qr'?whatsappQr.status(a.workspaceId):null;failures.push({accountId:a.id,provider:a.provider,transport:a.metadata?.transport||null,displayName:a.displayName||'',liveState:live?.state||null,message:a.lastError})}}saveStore(s);return json(res,200,{queued:[],triggered,accounts:list.length,imported,failures})}

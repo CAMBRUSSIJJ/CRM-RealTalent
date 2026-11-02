@@ -162,6 +162,9 @@ const supersededRuntimeCss = new Set([
   'prospecting-review-v101103-h7.css', 'prospecting-search-ontology-v101103-h8.css',
   'prospecting-territory-engine-v101103-h9.css', 'prospecting-local-discovery-v101104.css',
   'prospecting-ux-consolidation-v101106.css', 'prospecting-search-processing-v101103.css',
+  // Consolidated into h20-product-cohesion.css. Standalone build must not double-apply them.
+  'prospecting-territory-interaction-hotfix.css', 'ui-stability.css',
+  'communications-s37.css', 'contact-workspace-responsive-hotfix.css',
 ])
 const availableCss = fs.readdirSync(stylesRoot)
   .filter((name) => name.endsWith('.css'))

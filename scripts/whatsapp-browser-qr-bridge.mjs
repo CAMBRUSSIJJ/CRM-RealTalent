@@ -532,9 +532,25 @@ export function createWhatsAppBrowserQrBridge({ root, now, uuid, store, saveStor
     return { id, name:String(chat?.name || chat?.formattedTitle || 'Grupo do WhatsApp'), description:String(chat?.description || ''), participantCount:participants.length, participants }
   }
 
+  // One start request per workspace at a time. Starting QR again must not
+  // destroy an already connected session or reset an in-flight QR pairing.
+  const pendingStarts = new Map()
   async function start(workspaceId, displayName = 'WhatsApp QR Local') {
     workspaceId = String(workspaceId || 'default')
+    const running = pendingStarts.get(workspaceId)
+    if (running) return running
+    const request = Promise.resolve().then(() => startSession(workspaceId, displayName))
+    pendingStarts.set(workspaceId, request)
+    try { return await request }
+    finally { if (pendingStarts.get(workspaceId) === request) pendingStarts.delete(workspaceId) }
+  }
+
+  async function startSession(workspaceId, displayName = 'WhatsApp QR Local') {
+    workspaceId = String(workspaceId || 'default')
     const prior = get(workspaceId)
+    if (prior?.client && ['connected', 'starting', 'qr'].includes(prior.state)) {
+      return status(workspaceId)
+    }
     if (prior?.client) await destroySession(prior)
 
     const { Client, LocalAuth, MessageMedia, mediaHotfix } = await loadWebJs()
@@ -586,11 +602,19 @@ export function createWhatsAppBrowserQrBridge({ root, now, uuid, store, saveStor
     session.client = client
 
     client.on('qr', async qr => {
+      if (get(workspaceId) !== session) return
       session.state = 'qr'
+      session.qrDataUrl = null
       session.updatedAt = now()
       session.lastError = null
-      try { const QRCode = await loadQRCode(); session.qrDataUrl = await QRCode.toDataURL(qr, { margin: 1, width: 320 }) }
-      catch (error) { session.lastError = `Falha ao renderizar QR: ${error instanceof Error ? error.message : String(error)}` }
+      try {
+        const QRCode = await loadQRCode()
+        const dataUrl = await QRCode.toDataURL(qr, { margin: 1, width: 320 })
+        if (get(workspaceId) === session && session.state === 'qr') session.qrDataUrl = dataUrl
+      } catch (error) {
+        if (get(workspaceId) === session && session.state === 'qr')
+          session.lastError = `Falha ao renderizar QR: ${error instanceof Error ? error.message : String(error)}`
+      }
     })
     client.on('authenticated', () => {
       session.state = 'starting'

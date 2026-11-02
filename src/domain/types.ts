@@ -250,6 +250,12 @@ export interface WorkTask {
   assigneeName: string
   teamId: string | null
   recurrence: TaskRecurrence
+  /** Optional to preserve compatibility with tasks saved by older local builds. */
+  reminderEnabled?: boolean
+  reminderOnAssignment?: boolean
+  reminderChannels?: Array<'in_app' | 'email' | 'whatsapp'>
+  reminderOffsetsMinutes?: number[]
+  reminderCustomMinutes?: number | null
   tags: string[]
   createdBy: string | null
   createdAt: string

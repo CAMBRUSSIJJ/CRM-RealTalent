@@ -27,9 +27,10 @@ function VideoTile({ stream, label, muted = false, screen = false }: { stream: M
       track?.removeEventListener('ended', update)
     }
   }, [stream])
+  const visible=hasVideo && Boolean(stream?.getVideoTracks()[0]?.enabled)
   return <div className={'rtmeet-tile' + (screen ? ' rtmeet-tile--screen' : '')}>
     <video ref={el} autoPlay playsInline muted={muted} aria-label={label} />
-    {!hasVideo && <div className="rtmeet-tile-placeholder"><CameraOff size={30}/><span>Vídeo desligado</span></div>}
+    {!visible && <div className="rtmeet-tile-placeholder"><CameraOff size={30}/><span>Vídeo desligado</span></div>}
     <span className="rtmeet-tile-label">{label}</span>
   </div>
 }
@@ -48,6 +49,7 @@ function ConnectedRoom({ room, displayName, isHost, onLeave, onEnd, preparation,
   const [peers, setPeers] = useState<PeerStream[]>([])
   const pcs = useRef(new Map<string,RTCPeerConnection>())
   const peerNames = useRef(new Map<string,string>())
+  const remoteStreams = useRef(new Map<string,MediaStream>())
   const pending = useRef(new Map<string,RTCIceCandidateInit[]>())
   const iceConfigRef = useRef<RTCConfiguration>(iceServers)
   const channel = useRef<any>(null)
@@ -87,6 +89,7 @@ function ConnectedRoom({ room, displayName, isHost, onLeave, onEnd, preparation,
     pcs.current.delete(id)
     pending.current.delete(id)
     peerNames.current.delete(id)
+    remoteStreams.current.delete(id)
     setPeers(p=>p.filter(x=>x.id!==id))
   },[])
   const createPeer = useCallback((id: string, name: string) => {
@@ -97,20 +100,30 @@ function ConnectedRoom({ room, displayName, isHost, onLeave, onEnd, preparation,
     peerNames.current.set(id,name)
     const activeScreen=screenRef.current?.getVideoTracks()[0]
     let hasVideoSender=false
+    let hasAudioSender=false
     for(const track of localRef.current?.getTracks()||[]){
       const outgoing=track.kind==='video' && activeScreen ? activeScreen : track
       const source=outgoing===activeScreen ? screenRef.current! : localRef.current!
       pc.addTrack(outgoing,source)
       if(outgoing.kind==='video')hasVideoSender=true
+      if(outgoing.kind==='audio')hasAudioSender=true
     }
+    if(!hasAudioSender)pc.addTransceiver('audio',{direction:'sendrecv'})
     if(!hasVideoSender){
       if(activeScreen)pc.addTrack(activeScreen,screenRef.current!)
       else pc.addTransceiver('video',{direction:'sendrecv'})
     }
     pc.onicecandidate = (ev) => { if(ev.candidate) void broadcast({type:'ice',to:id,candidate:ev.candidate.toJSON()}) }
     pc.ontrack = (ev) => {
-      const next = ev.streams[0] || new MediaStream([ev.track])
-      setPeers(items => [...items.filter(x=>x.id!==id),{id,name:peerNames.current.get(id)||name,stream:next}])
+      // Audio and video can arrive as separate ontrack events, especially
+      // when a participant enters without a camera or microphone.
+      const previous=remoteStreams.current.get(id)?.getTracks()||[]
+      const arriving=ev.streams[0]?.getTracks()||[ev.track]
+      const tracks=[...previous]
+      for(const track of arriving)if(!tracks.some(t=>t.id===track.id))tracks.push(track)
+      const next=new MediaStream(tracks)
+      remoteStreams.current.set(id,next)
+      setPeers(items=>[...items.filter(x=>x.id!==id),{id,name:peerNames.current.get(id)||name,stream:next}])
     }
     pc.onconnectionstatechange = () => {
       if(pc?.connectionState==='disconnected'){
@@ -233,17 +246,53 @@ function ConnectedRoom({ room, displayName, isHost, onLeave, onEnd, preparation,
     },10000)
     return()=>window.clearInterval(timer)
   },[isHost,onLeave,room.publicToken])
-  const toggleAudio=()=>{
-    if(!localRef.current?.getAudioTracks().length){setNotice('Microfone indisponível. Saia e selecione um dispositivo na preparação.');return}
-    const next=!micOn
-    localRef.current?.getAudioTracks().forEach(t=>{t.enabled=next})
-    setMicOn(next)
+  const toggleAudio=async()=>{
+    const existing=localRef.current?.getAudioTracks()[0]
+    if(existing){
+      const next=!micOn
+      existing.enabled=next
+      setMicOn(next)
+      return
+    }
+    try{
+      const captured=await navigator.mediaDevices.getUserMedia({audio:true})
+      const track=captured.getAudioTracks()[0]
+      if(!track)throw new Error('Nenhum microfone encontrado.')
+      const local=localRef.current||new MediaStream()
+      local.addTrack(track)
+      localRef.current=local
+      setStream(new MediaStream(local.getTracks()))
+      await Promise.all([...pcs.current.values()].map(async pc=>{
+        const sender=pc.getTransceivers().find(t=>t.receiver.track.kind==='audio')?.sender
+        if(sender)await sender.replaceTrack(track)
+      }))
+      setMicOn(true)
+    }catch{setNotice('Não foi possível ativar o microfone. Verifique a permissão no navegador.')}
   }
-  const toggleVideo=()=>{
-    if(!localRef.current?.getVideoTracks().length){setNotice('Câmera indisponível. Saia e selecione um dispositivo na preparação.');return}
-    const next=!cameraOn
-    localRef.current?.getVideoTracks().forEach(t=>{t.enabled=next})
-    setCameraOn(next)
+  const toggleVideo=async()=>{
+    const existing=localRef.current?.getVideoTracks()[0]
+    if(existing){
+      const next=!cameraOn
+      existing.enabled=next
+      setCameraOn(next)
+      return
+    }
+    try{
+      const captured=await navigator.mediaDevices.getUserMedia({video:true})
+      const track=captured.getVideoTracks()[0]
+      if(!track)throw new Error('Nenhuma câmera encontrada.')
+      const local=localRef.current||new MediaStream()
+      local.addTrack(track)
+      localRef.current=local
+      setStream(new MediaStream(local.getTracks()))
+      if(!screenRef.current){
+        await Promise.all([...pcs.current.values()].map(async pc=>{
+          const sender=pc.getTransceivers().find(t=>t.receiver.track.kind==='video')?.sender
+          if(sender)await sender.replaceTrack(track)
+        }))
+      }
+      setCameraOn(true)
+    }catch{setNotice('Não foi possível ativar a câmera. Verifique a permissão no navegador.')}
   }
   const replaceVideo=async(track:MediaStreamTrack|null)=>{
     await Promise.all([...pcs.current.values()].map(async pc=>{
@@ -334,8 +383,8 @@ function ConnectedRoom({ room, displayName, isHost, onLeave, onEnd, preparation,
     </div>
     <footer className="rtmeet-controls" aria-label="Controles da reunião">
       <div className="rtmeet-controls-main">
-        <button type="button" className={!micOn?'is-off':''} onClick={toggleAudio} aria-label={micOn?'Desativar microfone':'Ativar microfone'} aria-pressed={micOn} title={micOn?'Desativar microfone':'Ativar microfone'}>{micOn?<Mic/>:<MicOff/>}<span>Microfone</span></button>
-        <button type="button" className={!cameraOn?'is-off':''} onClick={toggleVideo} aria-label={cameraOn?'Desativar câmera':'Ativar câmera'} aria-pressed={cameraOn} title={cameraOn?'Desativar câmera':'Ativar câmera'}>{cameraOn?<Camera/>:<CameraOff/>}<span>Câmera</span></button>
+        <button type="button" className={!micOn?'is-off':''} onClick={()=>void toggleAudio()} aria-label={micOn?'Desativar microfone':'Ativar microfone'} aria-pressed={micOn} title={micOn?'Desativar microfone':'Ativar microfone'}>{micOn?<Mic/>:<MicOff/>}<span>Microfone</span></button>
+        <button type="button" className={!cameraOn?'is-off':''} onClick={()=>void toggleVideo()} aria-label={cameraOn?'Desativar câmera':'Ativar câmera'} aria-pressed={cameraOn} title={cameraOn?'Desativar câmera':'Ativar câmera'}>{cameraOn?<Camera/>:<CameraOff/>}<span>Câmera</span></button>
         {room.settings.screenShare && <button type="button" onClick={()=>void shareScreen()} disabled={sharingBusy} aria-pressed={screenOn} aria-label={screenOn?'Parar compartilhamento':'Compartilhar tela'} className={screenOn?'is-active':''} title={screenOn?'Parar compartilhamento':'Compartilhar tela'}><MonitorUp/><span>{screenOn?'Parar tela':'Tela'}</span></button>}
         {room.settings.chat && <button type="button" className={panel==='chat'?'is-active':''} aria-pressed={panel==='chat'} onClick={()=>setPanel(v=>v==='chat'?null:'chat')}><MessageSquare/><span>Chat</span></button>}
         {isHost && <button type="button" className={panel==='context'?'is-active':''} aria-pressed={panel==='context'} onClick={()=>setPanel(v=>v==='context'?null:'context')}><ClipboardList/><span>Contexto</span></button>}

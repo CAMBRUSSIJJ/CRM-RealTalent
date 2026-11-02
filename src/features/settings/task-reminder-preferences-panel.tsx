@@ -144,10 +144,10 @@ export function TaskReminderPreferencesPanel({ workspaceId, userId, enabled }: P
       <strong>Estado do envio:</strong>{' '}
       {readiness ? [
         readiness.databaseReady ? 'Banco preparado' : 'Banco não migrado',
-        readiness.schedulerAuthenticated ? 'Segredo de agendamento presente' : 'Agendador não configurado',
+        readiness.schedulerAuthenticated ? 'Autenticação do agendador HTTP presente' : 'Agendador HTTP externo não configurado',
         readiness.emailCredentialsPresent ? 'Credenciais de e-mail presentes (entrega não verificada)' : 'E-mail não configurado',
         readiness.whatsappCredentialsPresent ? 'Credenciais de WhatsApp presentes (modelo não verificado)' : 'WhatsApp oficial não configurado',
-        readiness.internalEnabled ? 'Avisos internos habilitados no servidor' : 'Avisos internos aguardam ativação',
+        readiness.internalEnabled ? 'Worker de avisos internos habilitado' : 'Worker de avisos internos pela Edge desativado (o CRM usa agendamento próprio no banco)',
         readiness.deliveryEnabled ? 'Envios externos liberados pelo servidor' : 'Envios externos desativados',
       ].join(' · ') : readinessError
         ? 'Diagnóstico indisponível. Os lembretes externos ainda não estão confirmados.'

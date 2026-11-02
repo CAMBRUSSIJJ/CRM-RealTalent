@@ -3,6 +3,7 @@ import type { CommunicationEvent } from '../domain/types'
 import type { ConnectedAccount, DiagnosticStatus, OAuthProvider } from './integration-framework'
 import {describeLocalServiceError} from '../lib/integration-availability-s34'
 import { isCloudRuntimeProxy, runtimeFetch } from './realtalent-runtime-transport'
+import { gatewayAuthFailure, gatewayPollRetryDelayMs } from './communications-retry-policy'
 
 export interface CommunicationsGatewayHealth {
   ok: boolean
@@ -39,18 +40,36 @@ export function subscribeGatewayCommunicationsRealtime(
   if (isCloudRuntimeProxy(base())) {
     let closed = false
     let lastFingerprint = ''
+    let nextAttemptAt = 0
+    let failureCount = 0
+    let inFlight = false
     const poll = async () => {
-      if (closed) return
+      if (closed || inFlight || Date.now() < nextAttemptAt) return
+      inFlight = true
       try {
         const response = await runtimeFetch(`${base()}/api/communications/events?workspaceId=${encodeURIComponent(workspaceId)}&limit=1`, { headers: { accept: 'application/json' } })
-        const payload = await response.json().catch(() => ({})) as { events?: Array<{ id?: string; createdAt?: string; updatedAt?: string }> }
-        if (!response.ok) throw new Error('poll_failed')
+        const payload = await response.json().catch(() => ({})) as { events?: Array<{ id?: string; createdAt?: string; updatedAt?: string }>; error?: string }
+        if (!response.ok) {
+          // 401 do proxy exige nova sessão; 502 runtime_upstream_auth_rejected
+          // exige corrigir as credenciais entre serviços, não repetir a cada 5 s.
+          const authFailure = gatewayAuthFailure(response.status, payload.error)
+          failureCount += 1
+          nextAttemptAt = Date.now() + gatewayPollRetryDelayMs(response.status, payload.error, failureCount)
+          if (!closed) handlers.onState?.(authFailure ? 'offline' : 'connecting')
+          return
+        }
         const event = payload.events?.[0]
         const fingerprint = event ? `${event.id ?? ''}:${event.updatedAt ?? event.createdAt ?? ''}` : 'empty'
-        if (lastFingerprint && fingerprint !== lastFingerprint) handlers.onSignal({ type: 'communications.changed', workspaceId, at: new Date().toISOString() })
+        if (lastFingerprint && fingerprint !== lastFingerprint && !closed) handlers.onSignal({ type: 'communications.changed', workspaceId, at: new Date().toISOString() })
         lastFingerprint = fingerprint
-        handlers.onState?.('live')
-      } catch { handlers.onState?.('connecting') }
+        failureCount = 0
+        nextAttemptAt = 0
+        if (!closed) handlers.onState?.('live')
+      } catch {
+        failureCount += 1
+        nextAttemptAt = Date.now() + gatewayPollRetryDelayMs(0, undefined, failureCount)
+        if (!closed) handlers.onState?.('connecting')
+      } finally { inFlight = false }
     }
     void poll()
     const timer = window.setInterval(() => void poll(), 5000)
@@ -104,7 +123,10 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
     throw new Error('Serviço local do WhatsApp indisponível. Use “Reiniciar serviço” em Configurações > WhatsApp > Diagnóstico ou tente novamente em alguns segundos.')
   }
   const payload = await response.json().catch(() => ({})) as Record<string, unknown>
-  if (!response.ok) throw new Error(response.status===502||response.status===503?describeLocalServiceError(response.status,'gateway'):String(payload.error || payload.message || `Falha HTTP ${response.status}`))
+  if (!response.ok) {
+    if (payload.error === 'runtime_upstream_auth_rejected') throw new Error('Autenticação Vercel ↔ Railway rejeitada para o gateway de comunicação. Verifique as credenciais internas nos dois ambientes.')
+    throw new Error(response.status===502||response.status===503?describeLocalServiceError(response.status,'gateway'):String(payload.error || payload.message || `Falha HTTP ${response.status}`))
+  }
   return payload as T
 }
 

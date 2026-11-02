@@ -14,5 +14,8 @@ export function resolveAssistantRecommendationContinuation(reply: string, answer
   const suggestion = answer?.executionSuggestion
   if (!suggestion?.seed?.trim() || !suggestion.capabilityId?.trim()) return null
   if (!GENERIC_EXECUTION_REPLY.test(normalize(reply))) return null
-  return `${suggestion.seed.trim()} Confirmação do usuário: ${reply.trim()}. Prepare a ação ${suggestion.capabilityId} usando o contexto atual e peça somente os dados obrigatórios que ainda faltarem.`
+  // Do not append a second imperative ("prepare ... e peça ..."): the CRM
+  // compound-action guard would incorrectly treat a single confirmation as
+  // multiple write requests and skip its safe slot-filling fallback.
+  return `${suggestion.seed.trim()} Confirmação do usuário: ${reply.trim()}. Capacidade: ${suggestion.capabilityId}. Se faltar dado obrigatório, pergunte apenas pelo dado necessário.`
 }

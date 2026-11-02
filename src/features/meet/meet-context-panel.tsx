@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { BookOpenText, Check, ClipboardList, Save, UserRound } from 'lucide-react'
+import { BookOpenText, CalendarDays, Check, ClipboardList, Save, UserRound } from 'lucide-react'
 import type { PublicMeetRoom } from '../../services/realtalent-meet'
 
 export interface MeetCommercialContext {
@@ -8,14 +8,20 @@ export interface MeetCommercialContext {
   opportunity: string
   stage: string
 }
-export function MeetContextPanel({ room,context,onSaveNote }:{
+export function MeetContextPanel({ room,context,onSaveNote,onCreateFollowup }:{
   room:PublicMeetRoom; context?:MeetCommercialContext; onSaveNote?:(text:string)=>Promise<void>
+  onCreateFollowup?:(title:string,dueAt:string|null)=>Promise<void>
 }){
   const key='realtalent:meet:draft:'+room.id
   const [draft,setDraft]=useState(()=>{try{return localStorage.getItem(key)||''}catch{return ''}})
   const [saved,setSaved]=useState(false)
   const [busy,setBusy]=useState(false)
   const [error,setError]=useState('')
+  const [followup,setFollowup]=useState('')
+  const [followupDue,setFollowupDue]=useState('')
+  const [followupBusy,setFollowupBusy]=useState(false)
+  const [followupSaved,setFollowupSaved]=useState(false)
+  const [followupError,setFollowupError]=useState('')
   useEffect(()=>{try{localStorage.setItem(key,draft)}catch{/* local draft optional */}},[key,draft])
   const save=async()=>{
     if(!onSaveNote||!draft.trim())return
@@ -23,6 +29,18 @@ export function MeetContextPanel({ room,context,onSaveNote }:{
     try{await onSaveNote(draft.trim());setDraft('');setSaved(true);window.setTimeout(()=>setSaved(false),2500)}
     catch(e){setError(e instanceof Error?e.message:'Falha ao registrar nota.')}
     finally{setBusy(false)}
+  }
+  const createFollowup=async()=>{
+    if(!onCreateFollowup||!followup.trim())return
+    setFollowupBusy(true);setFollowupError('')
+    try{
+      const due=followupDue?new Date(followupDue):null
+      if(due&&Number.isNaN(due.getTime()))throw new Error('Informe uma data válida.')
+      await onCreateFollowup(followup.trim(),due?.toISOString()||null)
+      setFollowup('');setFollowupDue('');setFollowupSaved(true)
+      window.setTimeout(()=>setFollowupSaved(false),3000)
+    }catch(e){setFollowupError(e instanceof Error?e.message:'Não foi possível criar o acompanhamento.')}
+    finally{setFollowupBusy(false)}
   }
   return <div className="rtmeet-context-body">
     <section className="rtmeet-context-section">
@@ -44,5 +62,18 @@ export function MeetContextPanel({ room,context,onSaveNote }:{
         {saved?<Check size={15}/>:<Save size={15}/>} {saved?'Registrado no CRM':busy?'Salvando...':'Salvar no histórico do CRM'}
       </button>}
     </section>
+    {onCreateFollowup&&<section className="rtmeet-context-section rtmeet-followup">
+      <h4><CalendarDays size={16}/> Próxima ação</h4>
+      <label htmlFor="rtmeet-followup-title">Acompanhamento comercial</label>
+      <input id="rtmeet-followup-title" value={followup} maxLength={180}
+        onChange={e=>setFollowup(e.target.value)} placeholder="Ex.: Enviar proposta ao cliente"/>
+      <label htmlFor="rtmeet-followup-date">Prazo (opcional)</label>
+      <input id="rtmeet-followup-date" type="datetime-local" value={followupDue}
+        onChange={e=>setFollowupDue(e.target.value)}/>
+      {followupError&&<p className="rtmeet-context-error" role="alert">{followupError}</p>}
+      {followupSaved&&<p className="rtmeet-followup-success" role="status"><Check size={14}/> Acompanhamento registrado no CRM.</p>}
+      <button type="button" className="rtmeet-context-save" onClick={()=>void createFollowup()}
+        disabled={!followup.trim()||followupBusy}><Save size={15}/> {followupBusy?'Registrando...':'Criar acompanhamento'}</button>
+    </section>}
   </div>
 }

@@ -2,6 +2,7 @@ import type { WorkspaceSnapshot } from '../domain/types'
 import { appendRealTalentAiAudit } from './realtalent-ai-audit'
 import { buildRealTalentAiContext, type RealTalentAiContextEnvelope } from './realtalent-ai-context'
 import { hybridRealTalentAssistantProvider } from './realtalent-assistant-provider'
+import { buildLiveSalesCoachAssistantAnswer } from './realtalent-live-sales-coach'
 import { answerConversationalPrompt } from './realtalent-agent-v54-chat'
 import { answerExternalResearch } from './realtalent-agent-v56-research'
 import { answerResearchSelectedByModel } from './realtalent-agent-v60-router'
@@ -381,6 +382,26 @@ export const realTalentAiGateway = {
           generatedAt: new Date().toISOString(),
         })
         return { answer, context, trace: { providerId: 'sales-learning:portfolio-v1', mode: 'local-orchestration', sendsDataExternally: false, durationMs, writeAuthority: false } }
+      }
+
+      // Grounded in-call advice is a local CRM read, not a free-form Ollama reply.
+      // Honor this before conversational routing so live call notes and
+      // explicit post-call outcomes are never overwritten by generic chat.
+      const liveCallAnswer = buildLiveSalesCoachAssistantAnswer(prompt, snapshot, effectiveContext)
+      if (liveCallAnswer) {
+        const durationMs = Math.max(0, Date.now() - started)
+        appendRealTalentAiAudit({
+          id: `ai:${Date.now()}:live-coach`, workspaceId,
+          providerId: 'sales-coaching:live-grounded-v1',
+          intent: liveCallAnswer.intent, focusLeadId: context.focusLeadId,
+          route: context.route, toolIds: ['sales.live_call_coach'],
+          outcome: 'success', durationMs, generatedAt: new Date().toISOString(),
+        })
+        return { answer: liveCallAnswer, context, trace: {
+          providerId: 'sales-coaching:live-grounded-v1',
+          mode: 'local-orchestration', sendsDataExternally: false,
+          durationMs, writeAuthority: false,
+        }}
       }
 
       // V6.3: orchestration is only invoked for explicit analysis of the

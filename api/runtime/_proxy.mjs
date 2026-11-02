@@ -1,7 +1,9 @@
 import { Readable } from 'node:stream'
 import {cloudflareAgentAccessHeaders} from './_cloudflare-access.mjs'
 
+// URLs may have a trailing slash. Machine credentials must be forwarded byte-for-byte.
 const clean = (value) => String(value || '').trim().replace(/\/$/, '')
+const machineCredential = (value) => typeof value === 'string' ? value : ''
 const serviceConfig = {
   agent: { upstream: 'REALTALENT_AGENT_UPSTREAM_URL', token: 'REALTALENT_AGENT_RUNTIME_TOKEN', header: 'x-realtalent-agent-token' },
   communications: { upstream: 'REALTALENT_COMMUNICATIONS_UPSTREAM_URL', token: 'REALTALENT_RUNTIME_TOKEN', header: 'x-realtalent-runtime-token' },
@@ -43,7 +45,7 @@ export async function proxyRuntime(req, res, service) {
   if (!user) return sendJson(res, 401, { ok:false, error:'authentication_required' })
 
   const upstream = clean(process.env[config.upstream])
-  const token = clean(process.env[config.token])
+  const token = machineCredential(process.env[config.token])
   if (!upstream || !token) return sendJson(res, 503, { ok:false, error:'runtime_upstream_not_configured', service })
   let parsed
   try { parsed = new URL(upstream) } catch { return sendJson(res, 503, { ok:false, error:'runtime_upstream_invalid', service }) }
@@ -80,6 +82,18 @@ export async function proxyRuntime(req, res, service) {
       && (upstreamType.includes('text/html') || /(?:vercel\.com\/login|_vercel_sso_nonce|_vercel_share)/i.test(upstreamLocation))) {
       return sendJson(res, 502, { ok:false, service, error:'runtime_preview_protection_blocked',
         message:'A proteção do deployment Preview impede a comunicação com o Garimpo. Configure a autenticação de serviço no ambiente Preview.' })
+    }
+    // A requisição do usuário já foi validada pelo Supabase neste proxy.
+    // HTTP 401 daqui vem do serviço upstream ou da credencial de máquina.
+    // Não apresentar isto como sessão expirada do usuário nem revelar tokens.
+    if (upstreamResponse.status === 401) {
+      console.error('[runtime-auth] Credencial de serviço rejeitada pelo upstream', {
+        service, environment: process.env.VERCEL_ENV || 'unknown', upstreamStatus: 401,
+      })
+      return sendJson(res, 502, {
+        ok:false, service, error:'runtime_upstream_auth_rejected',
+        message:'Integração temporariamente indisponível: o gateway rejeitou a autenticação entre serviços. Verifique os tokens do runtime no Vercel e no Railway.',
+      })
     }
     res.statusCode = upstreamResponse.status
     for (const name of ['content-type','cache-control','etag','last-modified']) {

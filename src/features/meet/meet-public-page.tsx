@@ -24,7 +24,13 @@ export function MeetPublicPage({token}:{token:string}){
   },[token])
   if(loading)return <div className="rtmeet-public-state"><LoaderCircle className="spin"/><h2>Abrindo RealTalent Meet...</h2></div>
   if(error || !room)return <div className="rtmeet-public-state" role="alert"><AlertTriangle size={28}/><h1>Não foi possível abrir esta reunião</h1><p>{error||'Sala indisponível.'}</p></div>
-  if(joined)return <MeetRoomSession room={room} displayName={displayName} onLeave={()=>setJoined(false)}/>
+  if(joined)return <MeetRoomSession room={room} displayName={displayName} onLeave={()=>{
+    setJoined(false)
+    void getPublicMeetRoom(token).then(latest=>{
+      if(!latest||latest.status==='completed'||latest.status==='cancelled')setError('A reunião foi encerrada.')
+      else setRoom(latest)
+    }).catch(()=>setError('Não foi possível verificar o estado da reunião.'))
+  }}/>
   return <main className="rtmeet-guest-page"><section className="rtmeet-guest-card">
     <div className="rtmeet-guest-brand"><Video size={24}/><strong>RealTalent Meet</strong></div>
     <span className="eyebrow">Convite de videoconferência</span>

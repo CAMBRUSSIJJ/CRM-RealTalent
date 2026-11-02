@@ -31,7 +31,11 @@ export function MeetPrejoin({room,displayName,onJoin,onBack}:{
         setLoading(false);return
       }
       setLoading(true);setError('')
-      streamRef.current?.getTracks().forEach(t=>t.stop())
+      // Never transfer a stale, already-ended track to the active meeting.
+      const old = streamRef.current
+      streamRef.current = null
+      setStream(null)
+      old?.getTracks().forEach(t=>t.stop())
       try{
         const media=await navigator.mediaDevices.getUserMedia({
           audio:mic?audioInput?{deviceId:{ideal:audioInput}}:true:false,
@@ -42,8 +46,13 @@ export function MeetPrejoin({room,displayName,onJoin,onBack}:{
         await refreshDevices()
       }catch(e){
         if(!alive)return
+        streamRef.current = null
         setStream(null)
-        setError(e instanceof Error&&e.name==='NotAllowedError'?'Permissão negada. Habilite câmera e microfone no navegador ou entre sem mídia.':'Dispositivo indisponível. Você pode entrar sem mídia e usar o chat.')
+        const reason=e instanceof Error?e.name:''
+        setError(reason==='NotAllowedError'||reason==='SecurityError'
+          ? 'Acesso bloqueado. Verifique a permissão do navegador ou entre sem câmera e microfone.'
+          : reason==='NotFoundError'?'Dispositivo não encontrado. Escolha outro dispositivo ou entre sem mídia.'
+          : 'Não foi possível abrir os dispositivos. Você pode entrar e ativá-los durante a reunião.')
       }finally{if(alive)setLoading(false)}
     }
     if(!mic&&!camera){
@@ -52,10 +61,20 @@ export function MeetPrejoin({room,displayName,onJoin,onBack}:{
     }else void setup()
     return()=>{alive=false}
   },[mic,camera,audioInput,videoInput])
+  useEffect(()=>{
+    if(!navigator.mediaDevices?.addEventListener)return
+    const handler=()=>{void refreshDevices()}
+    navigator.mediaDevices.addEventListener('devicechange',handler)
+    return()=>navigator.mediaDevices.removeEventListener('devicechange',handler)
+  },[])
   useEffect(()=>()=>{if(!handedOff.current)streamRef.current?.getTracks().forEach(t=>t.stop())},[])
   const enter=()=>{
+    const tracks=streamRef.current?.getTracks().filter(t=>t.readyState==='live')||[]
+    const available=tracks.length?new MediaStream(tracks):null
     handedOff.current=true
-    onJoin({stream:streamRef.current,micOn:mic,cameraOn:camera})
+    onJoin({stream:available,
+      micOn:mic && tracks.some(t=>t.kind==='audio'),
+      cameraOn:camera && tracks.some(t=>t.kind==='video')})
   }
   return <div className="rtmeet-prejoin">
     <div className="rtmeet-prejoin-top"><button type="button" onClick={onBack}><ArrowLeft size={18}/> Voltar</button><span><Video size={19}/> RealTalent Meet</span></div>
@@ -71,7 +90,7 @@ export function MeetPrejoin({room,displayName,onJoin,onBack}:{
         <span className="eyebrow">PREPARAR REUNIÃO</span><h1>{room.title}</h1><p>Confira seus dispositivos antes de entrar.</p>
         <div className="rtmeet-prejoin-device"><label><Headphones size={16}/> Microfone</label><select value={audioInput} onChange={e=>setAudioInput(e.target.value)} disabled={!mic}><option value="">Padrão do sistema</option>{devices.filter(d=>d.kind==='audioinput').map(d=><option key={d.deviceId} value={d.deviceId}>{d.label||'Microfone'}</option>)}</select></div>
         <div className="rtmeet-prejoin-device"><label><Camera size={16}/> Câmera</label><select value={videoInput} onChange={e=>setVideoInput(e.target.value)} disabled={!camera}><option value="">Padrão do sistema</option>{devices.filter(d=>d.kind==='videoinput').map(d=><option key={d.deviceId} value={d.deviceId}>{d.label||'Câmera'}</option>)}</select></div>
-        <div className="rtmeet-prejoin-status"><Wifi size={15}/>{loading?'Verificando dispositivos...':error||'Dispositivos preparados. Mídia não será gravada pelo CRM.'}</div>
+        <div className="rtmeet-prejoin-status"><Wifi size={15}/>{loading?'Verificando dispositivos...':error||(!stream?'Entre sem mídia ou ative os dispositivos.':'Dispositivos preparados. O CRM não grava o áudio ou vídeo.')}</div>
         <button type="button" className="rtmeet-join-button" onClick={enter} disabled={loading}>Entrar na reunião</button>
         <small>Você entrará como {displayName}. É possível mudar câmera e microfone durante a chamada.</small>
       </section>

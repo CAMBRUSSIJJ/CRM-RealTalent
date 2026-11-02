@@ -3,6 +3,14 @@ import { getSupabaseClient } from '../../lib/supabase'
 import { Button } from '../../components/ui/button'
 
 interface Props { workspaceId: string | null; userId: string | null; enabled: boolean }
+interface ReminderReadiness {
+  databaseReady: boolean
+  deliveryEnabled: boolean
+  appUrlConfigured: boolean
+  schedulerAuthenticated: boolean
+  emailCredentialsPresent: boolean
+  whatsappCredentialsPresent: boolean
+}
 interface Preferences {
   email_enabled: boolean
   whatsapp_enabled: boolean
@@ -19,6 +27,8 @@ export function TaskReminderPreferencesPanel({ workspaceId, userId, enabled }: P
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [message, setMessage] = useState('')
+  const [readiness, setReadiness] = useState<ReminderReadiness | null>(null)
+  const [readinessError, setReadinessError] = useState(false)
 
   useEffect(() => {
     if (!enabled || !workspaceId || !userId) { setLoading(false); return }
@@ -47,6 +57,22 @@ export function TaskReminderPreferencesPanel({ workspaceId, userId, enabled }: P
       })
       .finally(() => { if (live) setLoading(false) })
     return () => { live = false }
+  }, [enabled, workspaceId, userId])
+
+  useEffect(() => {
+    if (!enabled || !workspaceId || !userId) return
+    let mounted = true
+    const client = getSupabaseClient()
+    if (!client) return
+    void client.functions.invoke('task-reminder-readiness', {
+      body: { organizationId: workspaceId },
+    }).then(({ data, error }) => {
+      if (!mounted) return
+      if (error || !data?.ok) { setReadinessError(true); return }
+      setReadiness(data as ReminderReadiness)
+      setReadinessError(false)
+    }).catch(() => { if (mounted) setReadinessError(true) })
+    return () => { mounted = false }
   }, [enabled, workspaceId, userId])
 
   const save = async (event: FormEvent) => {
@@ -85,6 +111,18 @@ export function TaskReminderPreferencesPanel({ workspaceId, userId, enabled }: P
       <h3>Receber lembretes quando me atribuírem tarefas</h3>
       <p>As tarefas atribuídas a você geram avisos no CRM. Escolha se deseja receber avisos externos adicionais.</p>
     </div></div>
+    <div className="settings-copy" role="status">
+      <strong>Estado do envio:</strong>{' '}
+      {readiness ? [
+        readiness.databaseReady ? 'Banco preparado' : 'Banco não migrado',
+        readiness.schedulerAuthenticated ? 'Segredo de agendamento presente' : 'Agendador não configurado',
+        readiness.emailCredentialsPresent ? 'Credenciais de e-mail presentes (entrega não verificada)' : 'E-mail não configurado',
+        readiness.whatsappCredentialsPresent ? 'Credenciais de WhatsApp presentes (modelo não verificado)' : 'WhatsApp oficial não configurado',
+        readiness.deliveryEnabled ? 'Envio liberado pelo servidor' : 'Envios externos desativados',
+      ].join(' · ') : readinessError
+        ? 'Diagnóstico indisponível. Os lembretes externos ainda não estão confirmados.'
+        : 'Consultando configurações do serviço…'}
+    </div>
     <form onSubmit={(event) => void save(event)} className="settings-form-grid">
       <label className="settings-toggle"><input type="checkbox" disabled={loading || saving}
         checked={preferences.email_enabled} onChange={(event) => setPreferences((p) => ({ ...p, email_enabled: event.target.checked }))} />

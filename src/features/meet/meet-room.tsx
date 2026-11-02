@@ -6,8 +6,8 @@ import { MeetPrejoin, type MeetPreparation } from './meet-prejoin'
 import { MeetContextPanel, type MeetCommercialContext } from './meet-context-panel'
 import '../../styles/realtalent-meet.css'
 
-type Signal = { type: 'join' | 'hello' | 'offer' | 'answer' | 'ice' | 'leave' | 'chat' | 'end'; from: string; to?: string; name?: string; text?: string; sdp?: RTCSessionDescriptionInit; candidate?: RTCIceCandidateInit }
-type ChatItem = { id: string; name: string; text: string }
+type Signal = { type: 'join' | 'hello' | 'offer' | 'answer' | 'ice' | 'leave' | 'chat' | 'chat-ack' | 'end'; from: string; to?: string; name?: string; text?: string; messageId?: string; sdp?: RTCSessionDescriptionInit; candidate?: RTCIceCandidateInit }
+type ChatItem = { id: string; name: string; text: string; status?: 'sending' | 'sent' | 'delivered' | 'failed' }
 type PeerStream = { id: string; name: string; stream: MediaStream }
 const iceServers: RTCConfiguration = { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }, { urls: 'stun:stun1.l.google.com:19302' }] }
 function VideoTile({ stream, label, muted = false, screen = false }: { stream: MediaStream | null; label: string; muted?: boolean; screen?: boolean }) {
@@ -34,7 +34,7 @@ function VideoTile({ stream, label, muted = false, screen = false }: { stream: M
     <span className="rtmeet-tile-label">{label}</span>
   </div>
 }
-type SessionProps = {room:PublicMeetRoom; displayName:string; isHost?:boolean; onLeave():void; onEnd?():Promise<void>;
+type SessionProps = {room:PublicMeetRoom; displayName:string; isHost?:boolean; onLeave():void; onEnd?():Promise<void>; onReady?():Promise<void>; onEnded?():void;
   commercialContext?:MeetCommercialContext; onSaveNote?:(text:string)=>Promise<void>;
   onCreateFollowup?:(title:string,dueAt:string|null)=>Promise<void>}
 export function MeetRoomSession(props:SessionProps){
@@ -43,7 +43,7 @@ export function MeetRoomSession(props:SessionProps){
     onJoin={setPreparation} onBack={props.onLeave}/>
   return <ConnectedRoom {...props} preparation={preparation}/>
 }
-function ConnectedRoom({ room, displayName, isHost, onLeave, onEnd, preparation, commercialContext, onSaveNote, onCreateFollowup }: SessionProps & {preparation:MeetPreparation}) {
+function ConnectedRoom({ room, displayName, isHost, onLeave, onEnd, onReady, onEnded, preparation, commercialContext, onSaveNote, onCreateFollowup }: SessionProps & {preparation:MeetPreparation}) {
   const [selfId] = useState(() => crypto.randomUUID())
   const [stream, setStream] = useState<MediaStream | null>(preparation.stream)
   const localRef = useRef<MediaStream | null>(preparation.stream)
@@ -54,6 +54,8 @@ function ConnectedRoom({ room, displayName, isHost, onLeave, onEnd, preparation,
   const pending = useRef(new Map<string,RTCIceCandidateInit[]>())
   const iceConfigRef = useRef<RTCConfiguration>(iceServers)
   const channel = useRef<any>(null)
+  const seenMessages = useRef(new Set<string>())
+  const readyOnce = useRef(false)
   const [micOn, setMicOn] = useState(Boolean(preparation.micOn && preparation.stream?.getAudioTracks().length))
   const [cameraOn, setCameraOn] = useState(Boolean(preparation.cameraOn && preparation.stream?.getVideoTracks().length))
   const [screenOn, setScreenOn] = useState(false)
@@ -64,6 +66,9 @@ function ConnectedRoom({ room, displayName, isHost, onLeave, onEnd, preparation,
   const [sharingBusy, setSharingBusy] = useState(false)
   const [screenStream, setScreenStream] = useState<MediaStream | null>(null)
   const [connecting, setConnecting] = useState(true)
+  const [relayState,setRelayState] = useState<'checking'|'available'|'degraded'>('checking')
+  const [mediaStatus,setMediaStatus] = useState<'waiting'|'connecting'|'connected'|'failed'>('waiting')
+  const [participants,setParticipants] = useState<Array<{id:string;name:string}>>([])
   const screenRef = useRef<MediaStream | null>(null)
   const [startedAt] = useState(Date.now)
   const [seconds,setSeconds] = useState(0)
@@ -80,10 +85,12 @@ function ConnectedRoom({ room, displayName, isHost, onLeave, onEnd, preparation,
     catch{setNotice('Não foi possível copiar automaticamente. Link: '+url)}
   }
 
-  const broadcast = useCallback(async (signal: Omit<Signal,'from'>) => {
-    if(!channel.current) return
-    try { await channel.current.send({type:'broadcast',event:'signal',payload:{...signal,from:selfId,name:displayName}}) }
-    catch { setNotice('Falha de comunicação com a sala. Verifique sua conexão.') }
+  const broadcast = useCallback(async (signal: Omit<Signal,'from'>): Promise<boolean> => {
+    if(!channel.current) return false
+    try {
+      const status=await channel.current.send({type:'broadcast',event:'signal',payload:{...signal,from:selfId,name:displayName}})
+      return status==='ok'
+    }catch{return false}
   },[displayName,selfId])
   const disconnectPeer = useCallback((id: string) => {
     pcs.current.get(id)?.close()
@@ -92,6 +99,7 @@ function ConnectedRoom({ room, displayName, isHost, onLeave, onEnd, preparation,
     peerNames.current.delete(id)
     remoteStreams.current.delete(id)
     setPeers(p=>p.filter(x=>x.id!==id))
+    setMediaStatus(pcs.current.size?'connecting':'waiting')
   },[])
   const createPeer = useCallback((id: string, name: string) => {
     let pc = pcs.current.get(id)
@@ -127,6 +135,8 @@ function ConnectedRoom({ room, displayName, isHost, onLeave, onEnd, preparation,
       setPeers(items=>[...items.filter(x=>x.id!==id),{id,name:peerNames.current.get(id)||name,stream:next}])
     }
     pc.onconnectionstatechange = () => {
+      if(pc?.connectionState==='connected')setMediaStatus('connected')
+      if(pc?.connectionState==='connecting')setMediaStatus('connecting')
       if(pc?.connectionState==='disconnected'){
         window.setTimeout(()=>{
           if(pc?.connectionState!=='disconnected')return
@@ -137,7 +147,10 @@ function ConnectedRoom({ room, displayName, isHost, onLeave, onEnd, preparation,
           }
         },3500)
       }
-      if(pc?.connectionState==='failed') setNotice('A rede bloqueou a chamada. Configure um servidor TURN para permitir conexões restritas.')
+      if(pc?.connectionState==='failed') {
+        setMediaStatus('failed')
+        setNotice('Conexão de mídia interrompida. Tente reconectar ou utilize outra rede.')
+      }
       if(pc?.connectionState==='closed') disconnectPeer(id)
     }
     return pc
@@ -153,7 +166,19 @@ function ConnectedRoom({ room, displayName, isHost, onLeave, onEnd, preparation,
     }
     const handle = async (signal:Signal) => {
       if(!active || !signal || signal.from===selfId || (signal.to && signal.to!==selfId))return
-      if(signal.type==='chat') {setChat(x=>[...x,{id:crypto.randomUUID(),name:signal.name||'Convidado',text:signal.text||''}]);return}
+      if(signal.type==='chat-ack' && signal.messageId){
+        setChat(list=>list.map(item=>item.id===signal.messageId?{...item,status:'delivered'}:item))
+        return
+      }
+      if(signal.type==='chat'){
+        const id=signal.messageId || crypto.randomUUID()
+        if(!seenMessages.current.has(id)){
+          seenMessages.current.add(id)
+          setChat(x=>[...x,{id,name:signal.name||'Convidado',text:signal.text||''}])
+        }
+        await broadcast({type:'chat-ack',to:signal.from,messageId:id})
+        return
+      }
       if(signal.type==='end'){
         // A client broadcast alone never proves host authority.
         const latest=await getPublicMeetRoom(room.publicToken).catch(()=>undefined)
@@ -209,21 +234,43 @@ function ConnectedRoom({ room, displayName, isHost, onLeave, onEnd, preparation,
             const valid=data.iceServers.filter((s:unknown)=>s&&typeof s==='object'&&
               typeof (s as RTCIceServer).username==='string'&&typeof (s as RTCIceServer).credential==='string'&&
               Array.isArray((s as RTCIceServer).urls)&&((s as RTCIceServer).urls as string[]).every(u=>/^turns?:/i.test(u)))
-            if(valid.length)iceConfigRef.current={iceServers:[...(iceServers.iceServers||[]),...valid]}
-          }
-        }catch{/* STUN-only fallback until coturn is configured */}
+            if(valid.length){
+              iceConfigRef.current={iceServers:[...(iceServers.iceServers||[]),...valid]}
+              setRelayState('available')
+            }else setRelayState('degraded')
+          }else setRelayState('degraded')
+        }catch{setRelayState('degraded')}
         if(!active)return
-        const ch=client.channel('realtalent-meet:'+room.publicToken)
+        const ch=client.channel('realtalent-meet:'+room.publicToken,{
+          config:{presence:{key:selfId}}
+        })
         channel.current=ch
         ch.on('broadcast',{event:'signal'},({payload}:any)=>{void handle(payload as Signal).catch(()=>setNotice('Falha na negociação de mídia. Tente sair e entrar novamente.'))})
+        ch.on('presence',{event:'sync'},()=>{
+          const state=ch.presenceState() as Record<string,Array<{name?:string}>>
+          setParticipants(Object.entries(state).flatMap(([id,entries])=>entries.length?[{id,name:entries[0]?.name||'Convidado'}]:[]))
+        })
         ch.subscribe((status:string)=>{
           if(!active)return
-          if(status==='SUBSCRIBED'){setConnecting(false);void broadcast({type:'join'})}
-          if(status==='CHANNEL_ERROR'||status==='TIMED_OUT'){setConnecting(false);setNotice('Não foi possível abrir o canal em tempo real do Supabase.')}
+          if(status==='SUBSCRIBED'){
+            setConnecting(false)
+            void ch.track({name:displayName}).catch(()=>{/* room still works via join signaling */})
+            void broadcast({type:'join'}).then(ok=>{if(!ok)setNotice('Sinalização instável. Verifique sua conexão.')})
+            if(isHost && !readyOnce.current){
+              readyOnce.current=true
+              void onReady?.().catch(()=>setNotice('Não foi possível atualizar o estado da sala no CRM.'))
+            }
+          }
+          if(status==='CHANNEL_ERROR'||status==='TIMED_OUT'){
+            setConnecting(false);setMediaStatus('failed')
+            setNotice('Não foi possível abrir o canal em tempo real do Supabase.')
+          }
         })
       }else{
         setConnecting(false)
-        setNotice('Modo local: reuniões compartilhadas precisam do Supabase conectado.')
+        setRelayState('degraded')
+        setMediaStatus('failed')
+        setNotice('Reuniões com convidados precisam de uma conexão Supabase ativa.')
       }
     }
     void start()
@@ -345,20 +392,33 @@ function ConnectedRoom({ room, displayName, isHost, onLeave, onEnd, preparation,
       }
     }finally{setSharingBusy(false)}
   }
-  const send=()=>{
+  const send=async()=>{
     const value=message.trim()
     if(!value || !room.settings.chat)return
-    setChat(x=>[...x,{id:crypto.randomUUID(),name:displayName,text:value}])
+    const id=crypto.randomUUID()
+    setChat(x=>[...x,{id,name:displayName,text:value,status:'sending'}])
     setMessage('')
-    void broadcast({type:'chat',text:value})
+    const ok=await broadcast({type:'chat',text:value,messageId:id})
+    setChat(x=>x.map(item=>item.id===id && item.status!=='delivered'
+      ?{...item,status:ok?'sent':'failed'}:item))
+    if(!ok)setNotice('A mensagem não foi transmitida. Verifique a conexão da sala.')
+  }
+  const retryMessage=async(id:string)=>{
+    const item=chat.find(x=>x.id===id)
+    if(!item || item.status!=='failed')return
+    setChat(x=>x.map(c=>c.id===id?{...c,status:'sending'}:c))
+    const ok=await broadcast({type:'chat',text:item.text,messageId:id})
+    setChat(x=>x.map(c=>c.id===id && c.status!=='delivered'
+      ?{...c,status:ok?'sent':'failed'}:c))
   }
   const leave=()=>{onLeave()}
   const end=async()=>{
     if(!onEnd || !window.confirm('Encerrar a reunião para todos os participantes?'))return
     try{
-      await onEnd() // Host must persist an authorized status change first.
+      await onEnd() // Persist the authorized status first.
       await broadcast({type:'end'})
-      onLeave()
+      if(onEnded)onEnded()
+      else onLeave()
     }catch{setNotice('Não foi possível encerrar a sala no servidor. Tente novamente.')}
   }
   return <div className="rtmeet-call">
@@ -366,7 +426,8 @@ function ConnectedRoom({ room, displayName, isHost, onLeave, onEnd, preparation,
       <div className="rtmeet-brand"><Video size={19}/><span>RealTalent Meet</span><small title={room.title}>{room.title}</small></div>
       <div className="rtmeet-header-actions">
         <span className="rtmeet-badge" aria-label={'Duração '+clock}>{clock}</span>
-        <button className={'rtmeet-participant-trigger'+(panel==='people'?' is-active':'')} type="button" onClick={()=>setPanel(v=>v==='people'?null:'people')} aria-label="Mostrar participantes" aria-pressed={panel==='people'}><Users size={15}/> {peers.length+1}</button>
+        <span className={'rtmeet-network rtmeet-network--'+relayState} title={relayState==='available'?'Servidor TURN disponível':relayState==='degraded'?'Modo conexão direta: TURN não disponível':'Verificando servidor TURN'}>{relayState==='available'?'Rede pronta':relayState==='degraded'?'Rede limitada':'Verificando rede'}</span>
+        <button className={'rtmeet-participant-trigger'+(panel==='people'?' is-active':'')} type="button" onClick={()=>setPanel(v=>v==='people'?null:'people')} aria-label="Mostrar participantes" aria-pressed={panel==='people'}><Users size={15}/> {Math.max(1+peers.length,participants.length)}</button>
         <button type="button" className="rtmeet-invite-button" onClick={()=>void copyInvite()}><Copy size={15}/> Convidar</button>
       </div>
     </header>
@@ -376,10 +437,11 @@ function ConnectedRoom({ room, displayName, isHost, onLeave, onEnd, preparation,
         <VideoTile stream={screenStream||stream} label={screenOn?'Sua tela (compartilhando)':displayName+' (você)'} muted screen={screenOn}/>
         {peers.map(p=><VideoTile key={p.id} stream={p.stream} label={p.name}/>)}
         {connecting ? <div className="rtmeet-status-overlay" role="status">Conectando à sala...</div>:
+          mediaStatus==='failed' ? <div className="rtmeet-status-overlay" role="alert">Conexão instável. Tente outra rede ou entre novamente.</div> :
           peers.length===0 && <div className="rtmeet-status-overlay rtmeet-status-overlay--alone"><Users size={16}/><span>Você está na sala. Convide alguém para começar.</span><button type="button" onClick={()=>void copyInvite()}>Copiar convite</button></div>}
       </div>
-      {panel==='chat' && room.settings.chat && <aside className="rtmeet-chat"><header><strong>Chat da reunião</strong><button type="button" aria-label="Fechar chat" onClick={()=>setPanel(null)}>×</button></header><div className="rtmeet-chat-items">{chat.length===0&&<p className="rtmeet-chat-empty">As mensagens desta reunião aparecerão aqui.</p>}{chat.map(c=><p key={c.id}><strong>{c.name}</strong><span>{c.text}</span></p>)}</div><form onSubmit={e=>{e.preventDefault();send()}}><input aria-label="Mensagem" value={message} onChange={e=>setMessage(e.target.value)} placeholder="Escrever mensagem..." maxLength={2000}/><button type="submit" disabled={!message.trim()} aria-label="Enviar"><Send size={16}/></button></form></aside>}
-      {panel==='people' && <aside className="rtmeet-chat rtmeet-people"><header><strong>Participantes ({peers.length+1})</strong><button type="button" aria-label="Fechar participantes" onClick={()=>setPanel(null)}>×</button></header><div className="rtmeet-people-list"><div><Users size={16}/><span>{displayName} (você)</span></div>{peers.map(p=><div key={p.id}><Users size={16}/><span>{p.name}</span></div>)}</div><div className="rtmeet-people-invite"><p>Compartilhe o convite para adicionar participantes à sala.</p><button type="button" onClick={()=>void copyInvite()}><Copy size={15}/> Copiar link</button></div></aside>}
+      {panel==='chat' && room.settings.chat && <aside className="rtmeet-chat"><header><strong>Chat da reunião</strong><button type="button" aria-label="Fechar chat" onClick={()=>setPanel(null)}>×</button></header><div className="rtmeet-chat-items">{chat.length===0&&<p className="rtmeet-chat-empty">As mensagens desta reunião aparecerão aqui.</p>}{chat.map(c=><p key={c.id}><strong>{c.name}</strong><span>{c.text}</span>{c.status&&<small className={'rtmeet-chat-status rtmeet-chat-status--'+c.status}>{c.status==='sending'?'Enviando…':c.status==='sent'?'Enviada · aguardando confirmação':c.status==='delivered'?'Recebida':'Falha no envio'}{c.status==='failed'&&<button type="button" onClick={()=>void retryMessage(c.id)}>Tentar novamente</button>}</small>}</p>)}</div><form onSubmit={e=>{e.preventDefault();void send()}}><input aria-label="Mensagem" value={message} onChange={e=>setMessage(e.target.value)} placeholder="Escrever mensagem..." maxLength={2000}/><button type="submit" disabled={!message.trim()} aria-label="Enviar"><Send size={16}/></button></form></aside>}
+      {panel==='people' && <aside className="rtmeet-chat rtmeet-people"><header><strong>Participantes ({Math.max(1+peers.length,participants.length)})</strong><button type="button" aria-label="Fechar participantes" onClick={()=>setPanel(null)}>×</button></header><div className="rtmeet-people-list"><div><Users size={16}/><span>{displayName} (você)</span></div>{(participants.length?participants.filter(p=>p.id!==selfId):peers).map(p=><div key={p.id}><Users size={16}/><span>{p.name}</span></div>)}</div><div className="rtmeet-people-invite"><p>Compartilhe o convite para adicionar participantes à sala.</p><button type="button" onClick={()=>void copyInvite()}><Copy size={15}/> Copiar link</button></div></aside>}
       {panel==='context' && isHost && <aside className="rtmeet-chat rtmeet-context-panel"><header><strong>Contexto da reunião</strong><button type="button" aria-label="Fechar contexto" onClick={()=>setPanel(null)}>×</button></header><MeetContextPanel room={room} context={commercialContext} onSaveNote={onSaveNote} onCreateFollowup={onCreateFollowup}/></aside>}
     </div>
     <footer className="rtmeet-controls" aria-label="Controles da reunião">

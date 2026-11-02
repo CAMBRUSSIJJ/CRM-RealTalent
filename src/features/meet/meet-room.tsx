@@ -10,10 +10,28 @@ type Signal = { type: 'join' | 'hello' | 'offer' | 'answer' | 'ice' | 'leave' | 
 type ChatItem = { id: string; name: string; text: string }
 type PeerStream = { id: string; name: string; stream: MediaStream }
 const iceServers: RTCConfiguration = { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }, { urls: 'stun:stun1.l.google.com:19302' }] }
-function VideoTile({ stream, label, muted = false }: { stream: MediaStream | null; label: string; muted?: boolean }) {
+function VideoTile({ stream, label, muted = false, screen = false }: { stream: MediaStream | null; label: string; muted?: boolean; screen?: boolean }) {
   const el = useRef<HTMLVideoElement>(null)
-  useEffect(() => { if(el.current) el.current.srcObject = stream }, [stream])
-  return <div className="rtmeet-tile"><video ref={el} autoPlay playsInline muted={muted}/><span>{label}</span></div>
+  const [hasVideo, setHasVideo] = useState(false)
+  useEffect(() => {
+    if(el.current) el.current.srcObject = stream
+    const track = stream?.getVideoTracks()[0]
+    const update = () => setHasVideo(Boolean(track && track.readyState === 'live' && track.enabled && !track.muted))
+    update()
+    track?.addEventListener('mute', update)
+    track?.addEventListener('unmute', update)
+    track?.addEventListener('ended', update)
+    return () => {
+      track?.removeEventListener('mute', update)
+      track?.removeEventListener('unmute', update)
+      track?.removeEventListener('ended', update)
+    }
+  }, [stream])
+  return <div className={'rtmeet-tile' + (screen ? ' rtmeet-tile--screen' : '')}>
+    <video ref={el} autoPlay playsInline muted={muted} aria-label={label} />
+    {!hasVideo && <div className="rtmeet-tile-placeholder"><CameraOff size={30}/><span>Vídeo desligado</span></div>}
+    <span className="rtmeet-tile-label">{label}</span>
+  </div>
 }
 type SessionProps = {room:PublicMeetRoom; displayName:string; isHost?:boolean; onLeave():void; onEnd?():Promise<void>;
   commercialContext?:MeetCommercialContext; onSaveNote?:(text:string)=>Promise<void>}
@@ -38,14 +56,26 @@ function ConnectedRoom({ room, displayName, isHost, onLeave, onEnd, preparation,
   const [screenOn, setScreenOn] = useState(false)
   const [message, setMessage] = useState('')
   const [chat, setChat] = useState<ChatItem[]>([])
-  const [panel, setPanel] = useState<'chat'|'context'|null>(null)
+  const [panel, setPanel] = useState<'chat'|'context'|'people'|null>(null)
   const [notice, setNotice] = useState('')
+  const [sharingBusy, setSharingBusy] = useState(false)
+  const [screenStream, setScreenStream] = useState<MediaStream | null>(null)
   const [connecting, setConnecting] = useState(true)
   const screenRef = useRef<MediaStream | null>(null)
   const [startedAt] = useState(Date.now)
   const [seconds,setSeconds] = useState(0)
   useEffect(()=>{const timer=window.setInterval(()=>setSeconds(Math.floor((Date.now()-startedAt)/1000)),1000);return()=>window.clearInterval(timer)},[startedAt])
   const clock=`${String(Math.floor(seconds/60)).padStart(2,'0')}:${String(seconds%60).padStart(2,'0')}`
+  useEffect(() => {
+    if(!notice)return
+    const timer=window.setTimeout(()=>setNotice(''),6500)
+    return()=>window.clearTimeout(timer)
+  },[notice])
+  const copyInvite=async()=>{
+    const url=meetUrl(room.publicToken)
+    try{await navigator.clipboard.writeText(url);setNotice('Link do convite copiado.')}
+    catch{setNotice('Não foi possível copiar automaticamente. Link: '+url)}
+  }
 
   const broadcast = useCallback(async (signal: Omit<Signal,'from'>) => {
     if(!channel.current) return
@@ -65,7 +95,18 @@ function ConnectedRoom({ room, displayName, isHost, onLeave, onEnd, preparation,
     pc = new RTCPeerConnection(iceConfigRef.current)
     pcs.current.set(id,pc)
     peerNames.current.set(id,name)
-    for(const track of localRef.current?.getTracks()||[]) pc.addTrack(track,localRef.current!)
+    const activeScreen=screenRef.current?.getVideoTracks()[0]
+    let hasVideoSender=false
+    for(const track of localRef.current?.getTracks()||[]){
+      const outgoing=track.kind==='video' && activeScreen ? activeScreen : track
+      const source=outgoing===activeScreen ? screenRef.current! : localRef.current!
+      pc.addTrack(outgoing,source)
+      if(outgoing.kind==='video')hasVideoSender=true
+    }
+    if(!hasVideoSender){
+      if(activeScreen)pc.addTrack(activeScreen,screenRef.current!)
+      else pc.addTransceiver('video',{direction:'sendrecv'})
+    }
     pc.onicecandidate = (ev) => { if(ev.candidate) void broadcast({type:'ice',to:id,candidate:ev.candidate.toJSON()}) }
     pc.ontrack = (ev) => {
       const next = ev.streams[0] || new MediaStream([ev.track])
@@ -116,7 +157,7 @@ function ConnectedRoom({ room, displayName, isHost, onLeave, onEnd, preparation,
         if(signal.type==='join')await broadcast({type:'hello',to:signal.from})
         // Deterministic offerer prevents simultaneous-offer glare.
         if(selfId>signal.from)return
-        if(pcs.current.size>=room.settings.maxPeers && !pcs.current.has(signal.from)){
+        if(pcs.current.size>=room.settings.maxPeers-1 && !pcs.current.has(signal.from)){
           setNotice('A sala atingiu a capacidade definida.');return
         }
         const pc=createPeer(signal.from,signal.name||'Convidado')
@@ -204,25 +245,55 @@ function ConnectedRoom({ room, displayName, isHost, onLeave, onEnd, preparation,
     localRef.current?.getVideoTracks().forEach(t=>{t.enabled=next})
     setCameraOn(next)
   }
+  const replaceVideo=async(track:MediaStreamTrack|null)=>{
+    await Promise.all([...pcs.current.values()].map(async pc=>{
+      if(pc.signalingState==='closed')return
+      const sender=pc.getTransceivers().find(transceiver=>transceiver.receiver.track.kind==='video')?.sender
+      if(sender)await sender.replaceTrack(track)
+    }))
+  }
   const shareScreen=async()=>{
-    if(screenOn){
-      screenRef.current?.getTracks().forEach(t=>t.stop())
-      const camera=localRef.current?.getVideoTracks()[0]||null
-      for(const pc of pcs.current.values())for(const sender of pc.getSenders())if(sender.track?.kind==='video')await sender.replaceTrack(camera)
-      setScreenOn(false)
-      return
-    }
+    if(sharingBusy)return
+    setSharingBusy(true)
     try{
-      const capture=await navigator.mediaDevices.getDisplayMedia({video:true})
-      screenRef.current=capture
-      const video=capture.getVideoTracks()[0]
-      const replace=async(track:MediaStreamTrack|null)=>{
-        for(const pc of pcs.current.values())for(const sender of pc.getSenders())if(sender.track?.kind==='video')await sender.replaceTrack(track)
+      if(screenOn){
+        const previous=screenRef.current
+        screenRef.current=null
+        setScreenOn(false)
+        setScreenStream(null)
+        await replaceVideo(localRef.current?.getVideoTracks()[0]||null)
+        previous?.getTracks().forEach(t=>t.stop())
+        return
       }
-      await replace(video)
+      if(!navigator.mediaDevices?.getDisplayMedia){
+        setNotice('Este navegador não oferece compartilhamento de tela neste contexto.')
+        return
+      }
+      const capture=await navigator.mediaDevices.getDisplayMedia({video:true,audio:false})
+      const video=capture.getVideoTracks()[0]
+      if(!video){capture.getTracks().forEach(t=>t.stop());setNotice('Nenhuma tela foi selecionada.');return}
+      try{await replaceVideo(video)}
+      catch(e){capture.getTracks().forEach(t=>t.stop());throw e}
+      screenRef.current=capture
+      setScreenStream(capture)
       setScreenOn(true)
-      video.onended=()=>{void replace(localRef.current?.getVideoTracks()[0]||null);setScreenOn(false)}
-    }catch{setNotice('Compartilhamento de tela cancelado ou bloqueado.')}
+      video.onended=()=>{
+        if(screenRef.current!==capture)return
+        screenRef.current=null
+        setScreenStream(null)
+        setScreenOn(false)
+        void replaceVideo(localRef.current?.getVideoTracks()[0]||null)
+          .catch(()=>setNotice('Falha ao restaurar a câmera após compartilhar.'))
+      }
+    }catch(e){
+      const name=e instanceof Error?e.name:''
+      if(name==='AbortError')return
+      if(name==='NotAllowedError'||name==='SecurityError'){
+        setNotice('Compartilhamento não iniciado. Verifique as permissões do Firefox ou selecione outra janela.')
+      }else{
+        setNotice('Não foi possível compartilhar a tela. Tente novamente ou escolha outra janela.')
+      }
+    }finally{setSharingBusy(false)}
   }
   const send=()=>{
     const value=message.trim()
@@ -233,7 +304,7 @@ function ConnectedRoom({ room, displayName, isHost, onLeave, onEnd, preparation,
   }
   const leave=()=>{onLeave()}
   const end=async()=>{
-    if(!onEnd)return
+    if(!onEnd || !window.confirm('Encerrar a reunião para todos os participantes?'))return
     try{
       await onEnd() // Host must persist an authorized status change first.
       await broadcast({type:'end'})
@@ -241,25 +312,36 @@ function ConnectedRoom({ room, displayName, isHost, onLeave, onEnd, preparation,
     }catch{setNotice('Não foi possível encerrar a sala no servidor. Tente novamente.')}
   }
   return <div className="rtmeet-call">
-    <header className="rtmeet-call-header"><div className="rtmeet-brand"><Video size={19}/><span>RealTalent Meet</span><small>{room.title}</small></div><div><span className="rtmeet-badge">⏱ {clock}</span><span className="rtmeet-badge"><Users size={14}/> {peers.length+1}</span><button onClick={()=>{void navigator.clipboard.writeText(meetUrl(room.publicToken)).then(()=>setNotice('Link copiado.')).catch(()=>setNotice('Copie o link da barra de endereço.'))}}><Copy size={15}/> Convidar</button></div></header>
-    {notice && <div className="rtmeet-notice" role="status">{notice}<button aria-label="Dispensar aviso" onClick={()=>setNotice('')}>×</button></div>}
-    <div className="rtmeet-call-body"><div className="rtmeet-video-grid">
-      <VideoTile stream={stream} label={displayName+' (você)'} muted />
-      {peers.map(p=><VideoTile key={p.id} stream={p.stream} label={p.name}/>)}
-      {connecting && <div className="rtmeet-connecting">Conectando à sala...</div>}
-      {peers.length===0 && !connecting && <p className="rtmeet-alone">Sala aberta. Envie o convite para receber participantes.</p>}
+    <header className="rtmeet-call-header">
+      <div className="rtmeet-brand"><Video size={19}/><span>RealTalent Meet</span><small title={room.title}>{room.title}</small></div>
+      <div className="rtmeet-header-actions">
+        <span className="rtmeet-badge" aria-label={'Duração '+clock}>{clock}</span>
+        <button className={'rtmeet-participant-trigger'+(panel==='people'?' is-active':'')} type="button" onClick={()=>setPanel(v=>v==='people'?null:'people')} aria-label="Mostrar participantes" aria-pressed={panel==='people'}><Users size={15}/> {peers.length+1}</button>
+        <button type="button" className="rtmeet-invite-button" onClick={()=>void copyInvite()}><Copy size={15}/> Convidar</button>
+      </div>
+    </header>
+    {notice && <div className="rtmeet-notice" role="status">{notice}<button type="button" aria-label="Dispensar aviso" onClick={()=>setNotice('')}>×</button></div>}
+    <div className="rtmeet-call-body">
+      <div className={'rtmeet-video-grid '+(peers.length===0?'rtmeet-video-grid--solo':peers.length===1?'rtmeet-video-grid--duo':'')}>
+        <VideoTile stream={screenStream||stream} label={screenOn?'Sua tela (compartilhando)':displayName+' (você)'} muted screen={screenOn}/>
+        {peers.map(p=><VideoTile key={p.id} stream={p.stream} label={p.name}/>)}
+        {connecting ? <div className="rtmeet-status-overlay" role="status">Conectando à sala...</div>:
+          peers.length===0 && <div className="rtmeet-status-overlay rtmeet-status-overlay--alone"><Users size={16}/><span>Você está na sala. Convide alguém para começar.</span><button type="button" onClick={()=>void copyInvite()}>Copiar convite</button></div>}
+      </div>
+      {panel==='chat' && room.settings.chat && <aside className="rtmeet-chat"><header><strong>Chat da reunião</strong><button type="button" aria-label="Fechar chat" onClick={()=>setPanel(null)}>×</button></header><div className="rtmeet-chat-items">{chat.length===0&&<p className="rtmeet-chat-empty">As mensagens desta reunião aparecerão aqui.</p>}{chat.map(c=><p key={c.id}><strong>{c.name}</strong><span>{c.text}</span></p>)}</div><form onSubmit={e=>{e.preventDefault();send()}}><input aria-label="Mensagem" value={message} onChange={e=>setMessage(e.target.value)} placeholder="Escrever mensagem..." maxLength={2000}/><button type="submit" disabled={!message.trim()} aria-label="Enviar"><Send size={16}/></button></form></aside>}
+      {panel==='people' && <aside className="rtmeet-chat rtmeet-people"><header><strong>Participantes ({peers.length+1})</strong><button type="button" aria-label="Fechar participantes" onClick={()=>setPanel(null)}>×</button></header><div className="rtmeet-people-list"><div><Users size={16}/><span>{displayName} (você)</span></div>{peers.map(p=><div key={p.id}><Users size={16}/><span>{p.name}</span></div>)}</div><div className="rtmeet-people-invite"><p>Compartilhe o convite para adicionar participantes à sala.</p><button type="button" onClick={()=>void copyInvite()}><Copy size={15}/> Copiar link</button></div></aside>}
+      {panel==='context' && isHost && <aside className="rtmeet-chat rtmeet-context-panel"><header><strong>Contexto da reunião</strong><button type="button" aria-label="Fechar contexto" onClick={()=>setPanel(null)}>×</button></header><MeetContextPanel room={room} context={commercialContext} onSaveNote={onSaveNote}/></aside>}
     </div>
-    {panel==='chat' && room.settings.chat && <aside className="rtmeet-chat"><header><strong>Chat da reunião</strong><button aria-label="Fechar chat" onClick={()=>setPanel(null)}>×</button></header><div className="rtmeet-chat-items">{chat.map(c=><p key={c.id}><strong>{c.name}</strong><span>{c.text}</span></p>)}</div><form onSubmit={e=>{e.preventDefault();send()}}><input aria-label="Mensagem" value={message} onChange={e=>setMessage(e.target.value)} placeholder="Escrever mensagem..." maxLength={2000}/><button type="submit" disabled={!message.trim()} aria-label="Enviar"><Send size={16}/></button></form></aside>}
-    {panel==='context' && isHost && <aside className="rtmeet-chat rtmeet-context-panel"><header><strong>Contexto da reunião</strong><button aria-label="Fechar contexto" onClick={()=>setPanel(null)}>×</button></header><MeetContextPanel room={room} context={commercialContext} onSaveNote={onSaveNote}/></aside>}
-    </div>
-    <footer className="rtmeet-controls">
-      <button onClick={toggleAudio} aria-label={micOn?'Desativar microfone':'Ativar microfone'}>{micOn?<Mic/>:<MicOff/>}<span>Microfone</span></button>
-      <button onClick={toggleVideo} aria-label={cameraOn?'Desativar câmera':'Ativar câmera'}>{cameraOn?<Camera/>:<CameraOff/>}<span>Câmera</span></button>
-      {room.settings.screenShare && <button onClick={()=>void shareScreen()} className={screenOn?'is-active':''}><MonitorUp/><span>{screenOn?'Parar tela':'Compartilhar'}</span></button>}
-      {room.settings.chat && <button className={panel==='chat'?'is-active':''} onClick={()=>setPanel(v=>v==='chat'?null:'chat')}><MessageSquare/><span>Chat</span></button>}
-      {isHost && <button className={panel==='context'?'is-active':''} onClick={()=>setPanel(v=>v==='context'?null:'context')}><ClipboardList/><span>Contexto</span></button>}
-      <button className="rtmeet-leave" onClick={leave}><LogOut/><span>Sair</span></button>
-      {isHost && <button className="rtmeet-end" onClick={()=>void end()}><LogOut/><span>Encerrar</span></button>}
+    <footer className="rtmeet-controls" aria-label="Controles da reunião">
+      <div className="rtmeet-controls-main">
+        <button type="button" className={!micOn?'is-off':''} onClick={toggleAudio} aria-label={micOn?'Desativar microfone':'Ativar microfone'} aria-pressed={micOn} title={micOn?'Desativar microfone':'Ativar microfone'}>{micOn?<Mic/>:<MicOff/>}<span>Microfone</span></button>
+        <button type="button" className={!cameraOn?'is-off':''} onClick={toggleVideo} aria-label={cameraOn?'Desativar câmera':'Ativar câmera'} aria-pressed={cameraOn} title={cameraOn?'Desativar câmera':'Ativar câmera'}>{cameraOn?<Camera/>:<CameraOff/>}<span>Câmera</span></button>
+        {room.settings.screenShare && <button type="button" onClick={()=>void shareScreen()} disabled={sharingBusy} aria-pressed={screenOn} aria-label={screenOn?'Parar compartilhamento':'Compartilhar tela'} className={screenOn?'is-active':''} title={screenOn?'Parar compartilhamento':'Compartilhar tela'}><MonitorUp/><span>{screenOn?'Parar tela':'Tela'}</span></button>}
+        {room.settings.chat && <button type="button" className={panel==='chat'?'is-active':''} aria-pressed={panel==='chat'} onClick={()=>setPanel(v=>v==='chat'?null:'chat')}><MessageSquare/><span>Chat</span></button>}
+        {isHost && <button type="button" className={panel==='context'?'is-active':''} aria-pressed={panel==='context'} onClick={()=>setPanel(v=>v==='context'?null:'context')}><ClipboardList/><span>Contexto</span></button>}
+      </div>
+      <div className="rtmeet-controls-exit"><button type="button" className="rtmeet-leave" onClick={leave} title="Sair sem encerrar para os demais"><LogOut/><span>Sair</span></button>
+      {isHost && <button type="button" className="rtmeet-end" onClick={()=>void end()} title="Encerrar para todos os participantes"><LogOut/><span>Encerrar todos</span></button>}</div>
     </footer>
   </div>
 }

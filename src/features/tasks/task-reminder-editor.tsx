@@ -113,7 +113,7 @@ export function TaskReminderEditor({ value, onChange, assigneeId, dueAt, status,
                 <span>{item.label}</span>
               </label>)}
           </div>
-          <label className="task-reminders__custom"><span>Ou antecedência personalizada (minutos)</span>
+          <label className="task-reminders__custom"><span>Antecedência personalizada adicional (minutos)</span>
             <input type="number" inputMode="numeric" min={5} max={10080} step={1}
               disabled={!dueAt} value={value.customMinutes ?? ''}
               onChange={e => onChange({ ...value, customMinutes: e.target.value === '' ? null : Number(e.target.value) })} placeholder="Ex.: 120" />
@@ -122,7 +122,9 @@ export function TaskReminderEditor({ value, onChange, assigneeId, dueAt, status,
       </div>
       {!dueAt ? <p className="task-reminders__notice">Sem prazo, o sistema só poderá avisar quando a tarefa for atribuída.</p> : null}
       {!value.channels.length ? <p className="task-reminders__notice">Nenhum canal selecionado. Não haverá envios.</p> : null}
-      {repositoryMode === 'local' ? <p className="task-reminders__notice">Modo local: as preferências serão salvas, mas o envio automático exige Supabase e agendador configurado.</p> : null}
+      {repositoryMode === 'local'
+        ? <p className="task-reminders__notice">Modo local: as preferências serão salvas, mas o envio automático exige Supabase e agendador configurado.</p>
+        : <p className="task-reminders__notice">A regra é gravada no Supabase. O envio depende de um agendador ativo e, para e-mail ou WhatsApp, de autorização e integração oficial. Confira Configurações → Notificações antes de confiar no lembrete.</p>}
     </div> : null}
     {taskId ? <div className="task-reminders__history">
       <div className="task-reminders__history-heading"><strong>Histórico de notificações</strong>

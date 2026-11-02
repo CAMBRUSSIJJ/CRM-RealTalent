@@ -1,7 +1,9 @@
 import { Readable } from 'node:stream'
 import {cloudflareAgentAccessHeaders} from './_cloudflare-access.mjs'
 
+// URLs may have a trailing slash. Machine credentials must be forwarded byte-for-byte.
 const clean = (value) => String(value || '').trim().replace(/\/$/, '')
+const machineCredential = (value) => typeof value === 'string' ? value : ''
 const serviceConfig = {
   agent: { upstream: 'REALTALENT_AGENT_UPSTREAM_URL', token: 'REALTALENT_AGENT_RUNTIME_TOKEN', header: 'x-realtalent-agent-token' },
   communications: { upstream: 'REALTALENT_COMMUNICATIONS_UPSTREAM_URL', token: 'REALTALENT_RUNTIME_TOKEN', header: 'x-realtalent-runtime-token' },
@@ -43,7 +45,7 @@ export async function proxyRuntime(req, res, service) {
   if (!user) return sendJson(res, 401, { ok:false, error:'authentication_required' })
 
   const upstream = clean(process.env[config.upstream])
-  const token = clean(process.env[config.token])
+  const token = machineCredential(process.env[config.token])
   if (!upstream || !token) return sendJson(res, 503, { ok:false, error:'runtime_upstream_not_configured', service })
   let parsed
   try { parsed = new URL(upstream) } catch { return sendJson(res, 503, { ok:false, error:'runtime_upstream_invalid', service }) }

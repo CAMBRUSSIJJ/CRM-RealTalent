@@ -262,3 +262,11 @@
 @media(max-width:600px){.rtmeet-call .rtmeet-network{font-size:0;padding:5px;width:10px;height:10px;justify-content:center}
  .rtmeet-call .rtmeet-network::before{content:'';display:block;width:8px;height:8px;border-radius:50%;background:currentColor}
  .rtmeet-call-header .rtmeet-brand{font-size:12px}}
+
+.rtmeet-network-panel .rtmeet-network-details{padding:16px;overflow-y:auto}
+.rtmeet-network-details dl{display:grid;grid-template-columns:100px 1fr;gap:12px;margin:0 0 20px;font-size:12px}
+.rtmeet-network-details dt{color:#99aecb}
+.rtmeet-network-details dd{margin:0;color:#e8f0fc}
+.rtmeet-network-details p{color:#ddcda2;font-size:12px;line-height:1.6}
+.rtmeet-network-details>button{width:100%}
+@media(max-width:800px){.rtmeet-network-panel{height:250px}}

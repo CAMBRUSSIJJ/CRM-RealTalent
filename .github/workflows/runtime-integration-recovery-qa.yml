@@ -1,0 +1,44 @@
+name: RealTalent Runtime Integration Recovery QA
+
+on:
+  push:
+    branches:
+      - fix/runtime-auth-integrations-audit-20261102
+  pull_request:
+    branches:
+      - feat/realtalent-meet-restore-s37-20261030
+    paths:
+      - 'api/runtime/**'
+      - 'src/services/local-communications-gateway.ts'
+      - 'src/services/communications-retry-policy*'
+      - 'src/services/realtalent-agent-v56-health.ts'
+      - 'src/features/settings/settings-live-diagnostics.tsx'
+      - '.github/workflows/runtime-integration-recovery-qa.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  runtime-qa:
+    runs-on: ubuntu-latest
+    timeout-minutes: 18
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+      - name: Node 22
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: '22'
+          cache: npm
+      - name: Dependencies
+        run: npm ci --include=dev
+      - name: Runtime proxy authentication tests
+        run: node --test api/runtime/_proxy.test.mjs
+      - name: Communication polling regression
+        run: npx vitest run src/services/communications-retry-policy.test.ts src/services/local-communications-gateway.test.ts src/services/realtalent-agent-v56-health.test.ts
+      - name: TypeScript
+        run: npm run typecheck
+      - name: Build
+        run: npm run build

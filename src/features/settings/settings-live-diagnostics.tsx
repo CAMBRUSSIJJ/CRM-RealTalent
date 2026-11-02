@@ -28,7 +28,7 @@ export function SettingsLiveDiagnostics({onNavigate}:{
     const probes:Array<Promise<Reading>>=[
       getAgentRuntimeHealth().then(x=>({
         id:'ai',state:x.connected&&x.modelInstalled?'ready':x.connected?'attention':'offline',
-        description:x.connected?x.modelInstalled?'Modelo '+x.model+' confirmado.':'Gateway disponível, mas modelo não confirmado.':'Ollama não respondeu ao healthcheck.',at
+        description:x.connected?x.modelInstalled?'Modelo '+x.model+' confirmado.':'Gateway disponível, mas modelo não confirmado.':x.issue||'O Agent não respondeu ao healthcheck.',at
       } as Reading)).catch(()=>({id:'ai',state:'offline',description:'Ollama indisponível.',at} as Reading)),
       getProspectingAgentHealth().then(x=>({
         id:'garimpo',state:x?.ok?'ready':'offline',
@@ -37,7 +37,9 @@ export function SettingsLiveDiagnostics({onNavigate}:{
       loadCommunicationsGatewayHealth().then(x=>({
         id:'whatsapp',state:x.ok?'ready':'attention',
         description:x.ok?'Gateway de comunicação '+x.version+' respondendo. QR/Cloud exigem verificação da conta.':'Gateway respondeu com atenção.',at
-      } as Reading)).catch(()=>({id:'whatsapp',state:'offline',description:'Gateway de comunicação indisponível.',at} as Reading)),
+      } as Reading)).catch((error:unknown)=>({id:'whatsapp',state:'offline',
+        description:error instanceof Error && error.message.includes('Vercel ↔ Railway')?error.message:'Gateway de comunicação indisponível.',
+        at} as Reading)),
       fetch('/api/maps/diagnostics',{cache:'no-store',signal:AbortSignal.timeout(6000)}).then(async response=>{
         if(!response.ok)throw Error('gateway unavailable')
         const data=await response.json() as {configured?:boolean;renderer?:string}

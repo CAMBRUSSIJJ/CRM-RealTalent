@@ -2,6 +2,7 @@ import fs from 'node:fs'
 import path from 'node:path'
 import { cleanNumber, isDirectPhoneAddress, isLidAddress, isPhoneCandidate, isWhatsAppTechnicalMessage, mapWhatsAppAckStatus, whatsappMessageBody } from './whatsapp-sync-utils.mjs'
 import { applyWhatsAppWebMediaHotfix } from './whatsapp-web-media-hotfix.mjs'
+import { applyWhatsAppWebSendResultHotfix } from './whatsapp-web-send-result-hotfix.mjs'
 import { importCommunicationsPackage } from './communications-runtime-deps.mjs'
 import { resolveWhatsAppSendAddress } from './whatsapp-lid-addressing.mjs'
 // Historical H8 media markers preserved after parser extraction: '[Imagem]' '[Áudio]' '[Documento]'
@@ -42,6 +43,14 @@ function findBrowserExecutable() {
 async function loadWebJs() {
   let mediaHotfix = { ok: false, state: 'not-checked', target: '' }
   try { mediaHotfix = applyWhatsAppWebMediaHotfix() } catch (error) { console.warn(`[WhatsApp QR] Hotfix de mídia não aplicado: ${error instanceof Error ? error.message : String(error)}`) }
+  // Apply BEFORE import() and before Chromium injects Utils.js. A missing
+  // vendor return patch is a known source of silent undefined send results.
+  try {
+    const sendResultHotfix = applyWhatsAppWebSendResultHotfix()
+    console.log(`[WhatsApp QR] Compatibilidade de retorno MsgKey: ${sendResultHotfix.state}`)
+  } catch (error) {
+    throw new Error(`Falha ao preparar whatsapp-web.js MsgKey: ${error instanceof Error ? error.message : String(error)}`)
+  }
   try {
     const mod = await importCommunicationsPackage('whatsapp-web.js')
     const source = mod.default && typeof mod.default === 'object' ? mod.default : mod

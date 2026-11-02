@@ -122,6 +122,13 @@ export async function sendOwnTaskWhatsAppTest(input: {
   if (!input.explicitConsent) throw new Error('Confirme que o WhatsApp de destino é seu e que você autoriza este envio único.')
   const recipient = normalizeTaskTestPhone(input.phone)
   if (!recipient) throw new Error('Informe seu número brasileiro com DDD, por exemplo 53999999999 ou +5553999999999.')
+  // The local QR gateway cannot reliably confirm a message sent to its own
+  // registered number. Require a second, authorized WhatsApp for end-to-end
+  // delivery testing; self-chat is not evidence of notification delivery.
+  const senderPhone = normalizeTaskTestPhone(input.readiness.senderPhone)
+  if (senderPhone && senderPhone === recipient) {
+    throw new Error('O WhatsApp destinatário é o mesmo número conectado ao CRM. O envio para si próprio não é confiável como teste. Utilize um segundo número de WhatsApp que você controle ou cujo titular autorizou o teste.')
+  }
   if (!input.readiness.available || !input.readiness.accountId) {
     throw new Error('O WhatsApp QR não está conectado. Atualize o diagnóstico antes de enviar.')
   }

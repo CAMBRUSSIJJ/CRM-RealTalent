@@ -68,7 +68,7 @@ test('a user-confirmed one-time request is scheduled once and never blindly retr
   }finally{x.close()}
 })
 
-test('one-time request never bypasses absent opt-in or WhatsApp channel',()=>{
+test('one-time request requires employee opt-in and stays idempotent with default CRM task channel',()=>{
   const x=fixture()
   try {
     x.engine.updateMember({...x.member,autoEnabledAt:null})
@@ -77,7 +77,8 @@ test('one-time request never bypasses absent opt-in or WhatsApp channel',()=>{
     x.engine.updateMember(x.member)
     x.task.reminderChannels=['in_app']
     x.schedule(false)
-    assert.equal(x.engine.diagnose({workspaceId:'workspace',taskId:'task'}).code,'channel_off')
+    assert.equal(x.engine.diagnose({workspaceId:'workspace',taskId:'task'}).code,'assignment_already_happened')
+    assert.equal(x.engine.requestOneOff({workspaceId:'workspace',taskId:'task'}).scheduled,1)
     assert.throws(()=>x.engine.requestOneOff({workspaceId:'workspace',taskId:'task'}),/not_eligible/)
   }finally{x.close()}
 })

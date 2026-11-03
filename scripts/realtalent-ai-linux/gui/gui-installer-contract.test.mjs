@@ -25,3 +25,29 @@ test('GUI handles button activation without requiring elevated privileges',()=>{
   assert.match(s,/127\.0\.0\.1:11434\/api\/generate/)
   assert.doesNotMatch(s,/os\.system\(/)
 })
+
+test('embedded CRM desktop is syntactically valid and bundles local AI controls',()=>{
+  const desktop='scripts/realtalent-ai-linux/gui/realtalent_desktop.py'
+  execFileSync('python3',['-m','py_compile',desktop])
+  const code=read(desktop)
+  for(const label of ['CRM + IA local','Ativar IA no CRM','Conectar IA ao CRM',
+     'Abrir no Firefox','Testar uma resposta','Atualizar aplicativo','Instalar / Reparar IA']){
+    assert.ok(code.includes(label),'missing: '+label)
+  }
+  assert.match(code,/QWebEngineView/)
+  assert.match(code,/ForcePersistentCookies/)
+  assert.match(code,/setPersistentStoragePath/)
+  assert.match(code,/127\.0\.0\.1:8798\/browser\/ping/)
+  assert.match(code,/127\.0\.0\.1:11434\/api\/generate/)
+  assert.match(code,/service_installed\('realtalent-ollama\.service'\)/)
+  assert.doesNotMatch(code,/subprocess\.Popen\([^)]*shell\s*=\s*True/)
+})
+test('new installer launches Qt desktop when installed, preserves fallback and creates desktop icon',()=>{
+  const shell=read('scripts/realtalent-ai-linux/gui/instalar-app-grafico.sh')
+  assert.match(shell,/python3-pyqt5\.qtwebengine/)
+  assert.match(shell,/realtalent_desktop\.py/)
+  assert.match(shell,/realtalent_gui\.py/)
+  assert.match(shell,/RealTalent-IA-Local\.desktop/)
+  assert.match(shell,/QtWebEngineWidgets/)
+  assert.match(shell,/exec \/usr\/bin\/python3/)
+})

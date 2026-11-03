@@ -127,26 +127,53 @@ export function TasksPage() {
       // For existing locally scheduled tasks, acknowledge cancellation in
       // the gateway before changing assignee, deadline or opt-in settings.
       // Otherwise an old reminder could fire during an offline edit.
-      if (repositoryMode === 'local' && editing?.reminderEnabled && editing.reminderChannels?.includes('whatsapp')) {
+      const assignmentChanged=Boolean(input.assigneeId && (!editing || editing.assigneeId!==input.assigneeId))
+      const existingMember=members.find(item=>item.userId===editing?.assigneeId)
+      const changingNotificationScope=Boolean(editing && (
+        editing.assigneeId !== (input.assigneeId ?? null) ||
+        editing.status !== input.status ||
+        editing.dueAt !== (input.dueAt ?? null) ||
+        editing.reminderEnabled !== input.reminderEnabled ||
+        editing.reminderOnAssignment !== input.reminderOnAssignment ||
+        JSON.stringify(editing.reminderChannels??[]) !== JSON.stringify(input.reminderChannels??[]) ||
+        JSON.stringify(editing.reminderOffsetsMinutes??[]) !== JSON.stringify(input.reminderOffsetsMinutes??[]) ||
+        editing.reminderCustomMinutes !== (input.reminderCustomMinutes??null)
+      ))
+      if (repositoryMode === 'local' && editing?.reminderEnabled &&
+          (editing.reminderChannels?.includes('whatsapp') ||
+            (editing.reminderOnAssignment && existingMember?.whatsappAutoEnabledAt)) &&
+          changingNotificationScope) {
         try { await cancelTaskNotification(workspaceId,editing.id) }
-        catch { throw new Error('Não foi possível cancelar avisos antigos. Verifique o Communications Gateway antes de editar esta tarefa.') }
+        catch { throw new Error('Não foi possível cancelar avisos antigos. Verifique o Communications Gateway antes de alterar esta atribuição.') }
       }
       const task = await saveTask(repositoryMode, workspaceId, input, user?.id ?? null, teamAccess)
-      let schedulingError = false
+      let schedulingError = ''
+      let assignmentScheduled = false
+      const member=members.find(item=>item.userId===task.assigneeId)
+      const requestedAutoAssignment=Boolean(
+        assignmentChanged && member?.whatsappAutoEnabledAt &&
+        task.reminderEnabled && task.reminderOnAssignment
+      )
       if (repositoryMode === 'local') {
-        const member=members.find(item=>item.userId===task.assigneeId)
         try {
           const response = await publishTaskNotificationEvent({
-            type:task.assigneeId && (!editing||editing.assigneeId!==task.assigneeId) ? 'task.assigned':'task.updated',
+            type:assignmentChanged?'task.assigned':'task.updated',
             workspaceId,entityId:task.id,recipientId:task.assigneeId||'',
           },task,members)
-          if (member?.whatsappAutoEnabledAt && task.reminderEnabled && task.reminderChannels?.includes('whatsapp') && !response.automaticEnabled)
-            schedulingError = true
-        } catch { schedulingError = Boolean(member?.whatsappAutoEnabledAt) }
+          assignmentScheduled=Boolean(response.assignmentScheduled)
+          if(requestedAutoAssignment && !assignmentScheduled)
+            schedulingError='O responsável aceita avisos automáticos, mas o gateway não confirmou a programação ('+response.reason+').'
+        } catch(error) {
+          if(requestedAutoAssignment)
+            schedulingError='Tarefa salva, porém o WhatsApp automático não foi programado: '+
+              (error instanceof Error?error.message:'gateway indisponível')
+        }
       }
       await reload(); setModalOpen(false); setEditing(null)
-      if(schedulingError) notify('warning','Tarefa salva, mas o WhatsApp automático não foi programado. Verifique o Communications Gateway.')
-      else notify('success', input.id ? 'Tarefa atualizada.' : 'Tarefa criada.')
+      if(schedulingError) notify('warning',schedulingError)
+      else if(assignmentScheduled) notify('success',
+        'Tarefa atribuída a '+(member?.displayName||'responsável')+'. Aviso automático de WhatsApp programado.')
+      else notify('success',input.id ? 'Tarefa atualizada.' : 'Tarefa criada.')
     } catch (error) { notify('error', error instanceof Error ? error.message : 'Não foi possível salvar a tarefa.') }
     finally { setSaving(false) }
   }

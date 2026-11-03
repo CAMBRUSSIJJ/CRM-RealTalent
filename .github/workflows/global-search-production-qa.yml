@@ -6,7 +6,7 @@ on:
     paths:
       - 'src/components/layout/topbar.tsx'
       - 'src/components/layout/global-search-popover.tsx'
-      - 'src/styles/global-search-popover.css'
+      - 'src/styles/h20-product-cohesion.css'
       - 'src/main.tsx'
       - 'scripts/global-search-production-qa.test.mjs'
       - '.github/workflows/global-search-production-qa.yml'

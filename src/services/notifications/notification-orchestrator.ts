@@ -40,11 +40,9 @@ export const cancelTaskNotification=(workspaceId:string,taskId:string)=>
   cancelGatewayLocalTaskAuto(workspaceId,taskId)
 
 export async function publishTaskNotificationEvent(
-  event:NotificationDomainEvent,task:WorkTask|null,members:WorkspaceMember[],
+  event:Extract<NotificationDomainEvent,{type:'task.assigned'|'task.updated'}>,
+  task:WorkTask|null,members:WorkspaceMember[],
 ){
-  if(event.type==='task.completed'||event.type==='task.deleted') {
-    return cancelTaskNotification(event.workspaceId,event.entityId)
-  }
   if(!task||event.entityId!==task.id||task.assigneeId!==event.recipientId)
     throw new Error('notification_task_identity_mismatch')
   const member=members.find(item=>item.userId===task.assigneeId)

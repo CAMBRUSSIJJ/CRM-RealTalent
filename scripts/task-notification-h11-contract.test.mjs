@@ -46,6 +46,12 @@ test('outbox status remains visible while gateway is offline',()=>{
   assert.match(queue,/assignment_replayed_after_15min/)
 })
 
+test('reopening a completed task explicitly rearms due reminders',()=>{
+  assert.match(work,/\['completed','cancelled'\]\.includes\(target\.status\)/)
+  assert.match(work,/\['completed','cancelled'\]\.includes\(localPrevious\.status\)/)
+  assert.match(work,/recordNotificationIntent\(snapshot,taskId,target\.assigneeId/)
+})
+
 test('corrupt storage fails closed rather than pretending all tasks were removed',()=>{
   assert.match(work,/throw new Error\('O armazenamento de tarefas está corrompido/)
   assert.match(queue,/unverifiedEmpty:true/)

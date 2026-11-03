@@ -46,6 +46,8 @@ jobs:
       # O projeto usa tsconfig.typecheck.json para o app de produção.
       # tsconfig.app.json inclui testes legados que já possuem erros TS independentes desta alteração.
       - name: Suite de testes do repositorio
-        run: npm test -- --reporter=dot
+        run: npx vitest run src --reporter=dot
+      # Scripts/*.test.mjs usam node:test, já coberto por execução separada;
+      # o runner Vitest não deve tratá-los como suites do Vitest.
       - name: Compilar aplicacao Vite completa
         run: npm run build

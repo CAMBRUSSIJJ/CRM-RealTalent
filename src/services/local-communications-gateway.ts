@@ -253,11 +253,13 @@ export const scheduleGatewayLocalTaskAuto = (input: {
   task: import('../domain/types').WorkTask
   member: LocalTaskAutoMember | null
   assignmentChanged:boolean
+  assignmentAt?:string
+  rearmCancelled?:boolean
 }) => request<{ ok:boolean; scheduled:number; automaticEnabled:boolean; assignmentScheduled:boolean; dueChannelEnabled:boolean; reason:string }>('/api/task-reminders/schedule',{
   method:'POST',body:JSON.stringify(input),
 })
 export const cancelGatewayLocalTaskAuto = (workspaceId:string,taskId:string) =>
-  request<{ ok:boolean }>('/api/task-reminders/cancel',{ method:'POST',body:JSON.stringify({workspaceId,taskId}) })
+  request<{ ok:boolean;cancelled:boolean;pendingCancelled:number;inFlight:boolean }>('/api/task-reminders/cancel',{ method:'POST',body:JSON.stringify({workspaceId,taskId}) })
 export interface LocalTaskAutoDiagnostic {
   taskId:string
   code:string

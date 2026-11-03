@@ -111,7 +111,9 @@ test('full workspace reconciliation cancels orphaned schedules',async()=>{
       reminderOffsetsMinutes:[60],dueAt:new Date(now+7200000).toISOString(),
     }})
     assert.equal(queue.status({workspaceId:'workspace'}).counts.pending,1)
-    assert.equal(queue.reconcileWorkspace({workspaceId:'workspace',taskIds:[]}).cancelled,1)
+    assert.equal(queue.reconcileWorkspace({workspaceId:'workspace',taskIds:[]}).cancelled,0)
+    assert.equal(queue.status({workspaceId:'workspace'}).counts.pending,1)
+    assert.equal(queue.reconcileWorkspace({workspaceId:'workspace',taskIds:[],verifiedEmpty:true}).cancelled,1)
     assert.equal(queue.status({workspaceId:'workspace'}).counts.pending,0)
   }finally{fs.rmSync(folder,{recursive:true,force:true})}
 })
@@ -188,5 +190,146 @@ test('due-date WhatsApp remains explicitly opt-in per task even with automatic a
     assert.equal(queue.schedule({workspaceId,task,assignmentChanged:true}).scheduled,1)
     assert.equal(queue.schedule({workspaceId,task,assignmentChanged:false}).scheduled,1)
     assert.equal(queue.schedule({workspaceId,task:{...task,reminderChannels:['in_app','whatsapp']},assignmentChanged:false}).scheduled,2)
+  }finally{fs.rmSync(folder,{recursive:true,force:true})}
+})
+
+test('an explicitly re-enabled due-date reminder is rearmed once, but never re-sends a completed delivery',async()=>{
+  const folder=fs.mkdtempSync(path.join(os.tmpdir(),'rt-h11-rearm-'))
+  try {
+    let now=Date.parse('2026-11-03T15:00:00Z'),sent=0
+    const engine=createLocalTaskWhatsAppScheduler({
+      file:path.join(folder,'queue.json'),clock:()=>now,accountFor:async()=>({id:'qr'}),
+      send:async()=>{sent++;return {id:'sent-'+sent,status:'sent'}},
+    })
+    const workspaceId='ws',userId='marcelo'
+    engine.updateMember({workspaceId,userId,phone:'+5553999999999',
+      consentAt:new Date(now).toISOString(),autoEnabledAt:new Date(now).toISOString()})
+    const task={id:'task-1',assigneeId:userId,title:'Enviar proposta',status:'todo',
+      reminderEnabled:true,reminderOnAssignment:false,reminderChannels:['whatsapp'],
+      dueAt:new Date(now+7200000).toISOString(),reminderOffsetsMinutes:[60]}
+    assert.equal(engine.schedule({workspaceId,task,assignmentChanged:false}).scheduled,1)
+    engine.schedule({workspaceId,task:{...task,reminderEnabled:false},assignmentChanged:false})
+    assert.equal(engine.status({workspaceId}).counts.pending,0)
+    assert.equal(engine.schedule({workspaceId,task,assignmentChanged:false}).scheduled,0)
+    assert.equal(engine.schedule({workspaceId,task,assignmentChanged:false,rearmCancelled:true}).scheduled,1)
+    assert.equal(engine.schedule({workspaceId,task,assignmentChanged:false,rearmCancelled:true}).scheduled,1)
+    now+=3600000+9000
+    await engine.tick()
+    assert.equal(sent,1)
+    engine.schedule({workspaceId,task:{...task,reminderEnabled:false},assignmentChanged:false})
+    engine.schedule({workspaceId,task,assignmentChanged:false,rearmCancelled:true})
+    assert.equal(engine.status({workspaceId}).counts.pending,0)
+    assert.equal(sent,1)
+  }finally{fs.rmSync(folder,{recursive:true,force:true})}
+})
+
+test('cancellation while account lookup is awaiting never reaches the provider',async()=>{
+  const folder=fs.mkdtempSync(path.join(os.tmpdir(),'rt-h11-race-'))
+  try {
+    let now=Date.parse('2026-11-03T15:00:00Z'),sent=0
+    let releaseAccount
+    let resolveLookupStarted
+    const lookupStarted=new Promise(resolve=>{resolveLookupStarted=resolve})
+    const engine=createLocalTaskWhatsAppScheduler({
+      file:path.join(folder,'queue.json'),clock:()=>now,
+      accountFor:async()=>{resolveLookupStarted();return new Promise(resolve=>{releaseAccount=resolve})},
+      send:async()=>{sent++;return {id:'sent',status:'sent'}},
+    })
+    const workspaceId='ws',userId='member'
+    engine.updateMember({workspaceId,userId,phone:'+5553999999999',
+      consentAt:new Date(now).toISOString(),autoEnabledAt:new Date(now).toISOString()})
+    engine.schedule({workspaceId,task:{id:'task',title:'teste',status:'todo',assigneeId:userId,
+      updatedAt:new Date(now).toISOString(),reminderEnabled:true,reminderOnAssignment:true,
+      reminderChannels:['in_app']},assignmentChanged:true})
+    now+=9500
+    const inProgress=engine.tick()
+    await lookupStarted
+    engine.cancel({workspaceId,taskId:'task'})
+    releaseAccount({id:'qr'})
+    await inProgress
+    assert.equal(sent,0)
+    assert.equal(engine.status({workspaceId}).counts.sent,0)
+    assert.equal(engine.status({workspaceId}).counts.cancelled,1)
+  }finally{fs.rmSync(folder,{recursive:true,force:true})}
+})
+
+test('revocation while checking connection also prevents an outbound attempt',async()=>{
+  const folder=fs.mkdtempSync(path.join(os.tmpdir(),'rt-h11-optout-'))
+  try {
+    let now=Date.parse('2026-11-03T15:00:00Z'),sent=0
+    let finish,ready
+    const started=new Promise(resolve=>{ready=resolve})
+    const engine=createLocalTaskWhatsAppScheduler({
+      file:path.join(folder,'queue.json'),clock:()=>now,
+      accountFor:async()=>{ready();return new Promise(resolve=>{finish=resolve})},
+      send:async()=>{sent++;return {id:'msg',status:'sent'}},
+    })
+    const member={workspaceId:'ws',userId:'member',phone:'+5553999999999',
+      consentAt:new Date(now).toISOString(),autoEnabledAt:new Date(now).toISOString()}
+    engine.updateMember(member)
+    engine.schedule({workspaceId:'ws',task:{id:'task',title:'aviso',status:'todo',assigneeId:'member',
+      updatedAt:new Date(now).toISOString(),reminderEnabled:true,reminderOnAssignment:true,
+      reminderChannels:['in_app']},assignmentChanged:true})
+    now+=9500
+    const tick=engine.tick()
+    await started
+    engine.updateMember({...member,consentAt:null,autoEnabledAt:null})
+    finish({id:'qr'})
+    await tick
+    assert.equal(sent,0)
+  }finally{fs.rmSync(folder,{recursive:true,force:true})}
+})
+
+test('replayed assignment expires after 15 minutes rather than sending stale notifications',async()=>{
+  const folder=fs.mkdtempSync(path.join(os.tmpdir(),'rt-h11-expiry-'))
+  try {
+    let now=Date.parse('2026-11-03T15:00:00Z'),sent=0
+    const queue=createLocalTaskWhatsAppScheduler({
+      file:path.join(folder,'queue.json'),clock:()=>now,accountFor:async()=>({id:'qr'}),
+      send:async()=>{sent++;return {id:'sent'}},
+    })
+    const member={workspaceId:'ws',userId:'member',phone:'+5553999999999',
+      consentAt:new Date(now).toISOString(),autoEnabledAt:new Date(now).toISOString()}
+    queue.updateMember(member)
+    const task={id:'task',assigneeId:'member',title:'teste',status:'todo',
+      updatedAt:new Date(now+20*60_000).toISOString(),reminderEnabled:true,reminderOnAssignment:true,
+      reminderChannels:['in_app']}
+    now+=20*60_000
+    const outcome=queue.schedule({workspaceId:'ws',task,assignmentChanged:true,
+      assignmentAt:new Date(now-20*60_000).toISOString()})
+    assert.equal(outcome.assignmentScheduled,false)
+    assert.equal(outcome.reason,'assignment_expired')
+    await queue.tick()
+    assert.equal(sent,0)
+  }finally{fs.rmSync(folder,{recursive:true,force:true})}
+})
+
+test('history pruning retains recent records without losing permanent idempotency keys',()=>{
+  const folder=fs.mkdtempSync(path.join(os.tmpdir(),'rt-h11-history-'))
+  try {
+    const now=Date.parse('2026-11-03T15:00:00Z')
+    const file=path.join(folder,'queue.json')
+    const historical=Array.from({length:2003},(_,i)=>({
+      id:'old-id-'+i,workspaceId:'ws',taskId:'task'+i,userId:'member',eventType:'due_soon',
+      at:new Date(now+i*1000).toISOString(),createdAt:new Date(now+i*1000).toISOString(),
+      status:'sent',processedAt:new Date(now+i*1000).toISOString(),
+    }))
+    fs.writeFileSync(file,JSON.stringify({version:1,members:{},tasks:{},jobs:historical}))
+    const queue=createLocalTaskWhatsAppScheduler({file,
+      accountFor:async()=>null,send:async()=>({id:'never'}),clock:()=>now})
+    queue.updateMember({workspaceId:'ws',userId:'member',phone:'+5553999999999',
+      consentAt:new Date(now).toISOString(),autoEnabledAt:new Date(now).toISOString()})
+    queue.schedule({workspaceId:'ws',assignmentChanged:false,task:{
+      id:'live',assigneeId:'member',title:'Lembrete futuro',status:'todo',
+      reminderEnabled:true,reminderOnAssignment:false,reminderChannels:['whatsapp'],
+      dueAt:new Date(now+3*60*60_000).toISOString(),reminderOffsetsMinutes:[60],
+    }})
+    const snapshot=JSON.parse(fs.readFileSync(file,'utf8'))
+    assert.equal(snapshot.jobs.length,2001) // one pending + 2000 newest historical
+    assert.equal(snapshot.jobs.some(job=>job.id==='old-id-0'),false)
+    assert.equal(snapshot.jobs.some(job=>job.id==='old-id-2002'),true)
+    assert.equal(Boolean(snapshot.deliveryLedger['old-id-0']),true)
+    assert.equal(Boolean(snapshot.deliveryLedger['old-id-2002']),true)
+    assert.equal(queue.status({workspaceId:'ws'}).jobs[0].id,'old-id-2002')
   }finally{fs.rmSync(folder,{recursive:true,force:true})}
 })

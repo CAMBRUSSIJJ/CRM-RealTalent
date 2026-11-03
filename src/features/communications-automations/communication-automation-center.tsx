@@ -3,6 +3,7 @@ import { AlertTriangle, BellRing, Clock3, RefreshCw, Send, ShieldCheck } from 'l
 import { Button } from '../../components/ui/button'
 import { useAppUi } from '../../app/app-context'
 import type { WorkTask } from '../../domain/types'
+import { pendingTaskNotificationIntents } from '../../services/work-management'
 import {
   loadGatewayLocalTaskAutoHistory, requestGatewayLocalTaskNotice,
   type LocalTaskAutoDiagnostic, type LocalTaskAutoHistory, type LocalTaskAutoJob,
@@ -43,17 +44,22 @@ export function CommunicationAutomationCenter({ workspaceId,tasks,onOpenTask }:P
   const [error,setError]=useState('')
   const [revision,setRevision]=useState(0)
   const [requesting,setRequesting]=useState<string|null>(null)
+  const [pendingLocal,setPendingLocal]=useState(0)
 
   useEffect(()=>{
     let active=true
     setLoading(true);setError('')
+    try {
+      const visible=new Set(tasks.map(task=>task.id))
+      setPendingLocal(pendingTaskNotificationIntents(workspaceId).filter(intent=>visible.has(intent.taskId)).length)
+    }catch {setPendingLocal(0)}
     void loadGatewayLocalTaskAutoHistory(workspaceId).then(next=>{
       if(active)setData(next)
     }).catch(()=>{
       if(active){setData(null);setError('Não foi possível consultar o Communications Gateway. Os estados das notificações não estão confirmados.')}
     }).finally(()=>{if(active)setLoading(false)})
     return ()=>{active=false}
-  },[workspaceId,revision])
+  },[workspaceId,revision,tasks])
 
   const taskById=useMemo(()=>new Map(tasks.map(t=>[t.id,t])),[tasks])
   const rows=useMemo(()=>(data?.jobs??[]).filter(job=>taskById.has(job.taskId)&&flags(job,filter))
@@ -105,6 +111,10 @@ export function CommunicationAutomationCenter({ workspaceId,tasks,onOpenTask }:P
         onClick={()=>setFilter(key)}>{title}<span>{total}</span></button>)}
     </div>
 
+    {pendingLocal>0?<p className="communication-automation-console__alert" role="status">
+      <AlertTriangle size={16}/> {pendingLocal} alteração(ões) de tarefa aguardando sincronização.
+      O CRM tentará novamente quando o gateway estiver disponível. Avisos antigos expiram em vez de serem disparados fora de hora.
+    </p>:null}
     {error?<p className="communication-automation-console__alert" role="alert"><AlertTriangle size={16}/>{error}</p>:null}
     {loading&&!data?<p className="communication-automation-console__hint">Consultando o Communications Gateway…</p>:null}
     {filter==='pending'&&!rows.length&&!error&&!loading&&diagnostics.length>0

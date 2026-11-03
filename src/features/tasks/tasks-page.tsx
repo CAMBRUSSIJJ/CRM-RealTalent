@@ -13,7 +13,7 @@ import { CommunicationAutomationCenter } from '../communications-automations/com
 import { TaskCommunicationState } from '../communications-automations/task-communication-state'
 import { Modal } from '../../components/ui/modal'
 import { loadGatewayLocalTaskAutoHistory, type LocalTaskAutoDiagnostic } from '../../services/local-communications-gateway'
-import { cancelTaskNotification, publishTaskNotificationEvent, reconcileTaskNotificationWorkspace } from '../../services/notifications/notification-orchestrator'
+import { flushTaskNotificationIntents, reconcileTaskNotificationWorkspace } from '../../services/notifications/notification-orchestrator'
 import { WorkspaceCommandBar, WorkspaceCommandGroup, WorkspacePageHeader, WorkspaceSummaryMetric, WorkspaceSummaryStrip, WorkspaceViewStrip } from '../../components/workspace/workspace-shell'
 
 type ViewMode = 'list' | 'board' | 'today' | 'overdue' | 'completed'
@@ -70,6 +70,20 @@ export function TasksPage() {
   }, [listWorkspaceMembers, workspaceId, repositoryMode])
 
   useEffect(() => {
+    if(repositoryMode!=='local'||!workspaceId||!members.length)return
+    let busy=false
+    const timer=window.setInterval(()=>{
+      if(busy)return
+      busy=true
+      void flushTaskNotificationIntents(workspaceId,members)
+        .catch(()=>{ /* persisted intents stay pending until reconnect */ })
+        .finally(()=>{busy=false})
+    },20_000)
+    return ()=>window.clearInterval(timer)
+  },[repositoryMode,workspaceId,members])
+
+
+  useEffect(() => {
     if(repositoryMode !== 'local' || !workspaceId) {
       setNotificationDiagnostics({}); setNotificationsReachable(false)
       return
@@ -124,98 +138,80 @@ export function TasksPage() {
     if (!workspaceId) return
     setSaving(true)
     try {
-      // For existing locally scheduled tasks, acknowledge cancellation in
-      // the gateway before changing assignee, deadline or opt-in settings.
-      // Otherwise an old reminder could fire during an offline edit.
-      const assignmentChanged=Boolean(input.assigneeId && (!editing || editing.assigneeId!==input.assigneeId))
-      const existingMember=members.find(item=>item.userId===editing?.assigneeId)
-      const changingNotificationScope=Boolean(editing && (
-        editing.assigneeId !== (input.assigneeId ?? null) ||
-        editing.status !== input.status ||
-        editing.dueAt !== (input.dueAt ?? null) ||
-        editing.reminderEnabled !== input.reminderEnabled ||
-        editing.reminderOnAssignment !== input.reminderOnAssignment ||
-        JSON.stringify(editing.reminderChannels??[]) !== JSON.stringify(input.reminderChannels??[]) ||
-        JSON.stringify(editing.reminderOffsetsMinutes??[]) !== JSON.stringify(input.reminderOffsetsMinutes??[]) ||
-        editing.reminderCustomMinutes !== (input.reminderCustomMinutes??null)
-      ))
-      if (repositoryMode === 'local' && editing?.reminderEnabled &&
-          (editing.reminderChannels?.includes('whatsapp') ||
-            (editing.reminderOnAssignment && existingMember?.whatsappAutoEnabledAt)) &&
-          changingNotificationScope) {
-        try { await cancelTaskNotification(workspaceId,editing.id) }
-        catch { throw new Error('Não foi possível cancelar avisos antigos. Verifique o Communications Gateway antes de alterar esta atribuição.') }
-      }
-      const task = await saveTask(repositoryMode, workspaceId, input, user?.id ?? null, teamAccess)
-      let schedulingError = ''
-      let assignmentScheduled = false
-      const member=members.find(item=>item.userId===task.assigneeId)
-      const requestedAutoAssignment=Boolean(
-        assignmentChanged && member?.whatsappAutoEnabledAt &&
-        task.reminderEnabled && task.reminderOnAssignment
-      )
-      if (repositoryMode === 'local') {
-        try {
-          const response = await publishTaskNotificationEvent({
-            type:assignmentChanged?'task.assigned':'task.updated',
-            workspaceId,entityId:task.id,recipientId:task.assigneeId||'',
-          },task,members)
-          assignmentScheduled=Boolean(response.assignmentScheduled)
-          if(requestedAutoAssignment && !assignmentScheduled)
-            schedulingError='O responsável aceita avisos automáticos, mas o gateway não confirmou a programação ('+response.reason+').'
-        } catch(error) {
-          if(requestedAutoAssignment)
-            schedulingError='Tarefa salva, porém o WhatsApp automático não foi programado: '+
-              (error instanceof Error?error.message:'gateway indisponível')
+      const previousAssignee=editing?.assigneeId||null
+      const assignmentChanged=Boolean(input.assigneeId && previousAssignee!==input.assigneeId)
+      const task=await saveTask(repositoryMode,workspaceId,input,user?.id??null,teamAccess)
+      let outbox=null
+      if(repositoryMode==='local') {
+        try {outbox=await flushTaskNotificationIntents(workspaceId,members)}
+        catch(error) {
+          // The task was committed. A communication failure must not turn
+          // its save into a false failure or demand a duplicate creation.
+          outbox={pending:1,processed:0,scheduledTaskIds:[],expiredTaskIds:[],
+            inFlightCancellations:[],error:error instanceof Error?error.message:'Gateway indisponível'}
         }
       }
-      await reload(); setModalOpen(false); setEditing(null)
-      if(schedulingError) notify('warning',schedulingError)
-      else if(assignmentScheduled) notify('success',
-        'Tarefa atribuída a '+(member?.displayName||'responsável')+'. Aviso automático de WhatsApp programado.')
-      else notify('success',input.id ? 'Tarefa atualizada.' : 'Tarefa criada.')
-    } catch (error) { notify('error', error instanceof Error ? error.message : 'Não foi possível salvar a tarefa.') }
-    finally { setSaving(false) }
+      await reload();setModalOpen(false);setEditing(null)
+      if(outbox?.pending)notify('warning',
+        'Tarefa salva. Notificações aguardando sincronização; nenhum envio foi confirmado. '+
+        'A reconciliação será tentada novamente quando o gateway voltar.')
+      else if(outbox?.inFlightCancellations.length) notify('warning',
+        'Tarefa salva. Um aviso anterior já estava sendo processado e pode chegar ao responsável.')
+      else if(outbox?.expiredTaskIds.includes(task.id)) notify('warning',
+        'Tarefa salva, mas a notificação de atribuição expirou antes da reconexão. Não haverá envio atrasado.')
+      else if(assignmentChanged && outbox?.scheduledTaskIds.includes(task.id))
+        notify('success','Tarefa atribuída. Aviso automático de WhatsApp programado no gateway.')
+      else notify('success',input.id?'Tarefa atualizada.':'Tarefa criada.')
+    } catch(error) {
+      notify('error',error instanceof Error?error.message:'Não foi possível salvar a tarefa.')
+    } finally {setSaving(false)}
   }
 
   const changeStatus = async (task: WorkTask, status: TaskStatus) => {
     if (!workspaceId) return
     try {
-      // Cancel first: a completion must never leave a pending WhatsApp
-      // notification in the gateway when browser and server are out of sync.
-      if(repositoryMode==='local' && (status==='completed'||status==='cancelled')) {
-        try { await cancelTaskNotification(workspaceId,task.id) }
-        catch { throw new Error('Não foi possível cancelar o lembrete automático. Mantenha a tarefa aberta e verifique o Gateway.') }
-      }
-      await updateTaskStatus(repositoryMode, workspaceId, task.id, status, teamAccess)
+      // Task state and cancel intent are committed together; WhatsApp
+      // downtime never blocks completion or reclassification.
+      await updateTaskStatus(repositoryMode,workspaceId,task.id,status,teamAccess)
+      let pending=0
+      let inFlight=false
       if(repositoryMode==='local') {
         try {
-          if(status!=='completed'&&status!=='cancelled') {
-            const fresh=(await loadWorkManagement('local',workspaceId)).tasks.find(item=>item.id===task.id)
-            if(fresh) {
-              await publishTaskNotificationEvent({
-                type:'task.updated',workspaceId,entityId:fresh.id,recipientId:fresh.assigneeId||'',
-              },fresh,members)
-            }
-          }
-        } catch { notify('warning','Status alterado, mas não foi possível sincronizar os lembretes do WhatsApp.') }
+          const outcome=await flushTaskNotificationIntents(workspaceId,members)
+          pending=outcome.pending
+          inFlight=outcome.inFlightCancellations.includes(task.id)
+        } catch {pending=1}
       }
-      await reload(); notify('success', status === 'completed' ? 'Tarefa concluída.' : 'Status atualizado.')
-    }
-    catch (error) { notify('error', error instanceof Error ? error.message : 'Falha ao atualizar a tarefa.') }
+      await reload()
+      notify('success',status==='completed'?'Tarefa concluída.':'Status atualizado.')
+      if(pending)notify('warning',
+        'Atualização registrada. O cancelamento de notificações ainda aguarda sincronização com o gateway.')
+      else if(inFlight)notify('warning',
+        'A tarefa foi atualizada, mas o aviso já estava em processamento e pode ser entregue.')
+    }catch(error){notify('error',error instanceof Error?error.message:'Falha ao atualizar a tarefa.')}
   }
 
   const remove = async (task: WorkTask) => {
-    if (!workspaceId || !await confirmAction({ title: 'Excluir tarefa?', description: `A tarefa “${task.title}” será removida.`, confirmLabel: 'Excluir', tone: 'danger' })) return
+    if (!workspaceId || !await confirmAction({title:'Excluir tarefa?',
+      description:`A tarefa “${task.title}” será removida.`,confirmLabel:'Excluir',tone:'danger'}))return
     try {
+      await deleteTask(repositoryMode,workspaceId,task.id,teamAccess)
+      let pending=0
+      let inFlight=false
       if(repositoryMode==='local') {
-        try { await cancelTaskNotification(workspaceId,task.id) }
-        catch { throw new Error('Gateway indisponível. A exclusão foi interrompida para impedir um lembrete órfão.') }
+        try {
+          const outcome=await flushTaskNotificationIntents(workspaceId,members)
+          pending=outcome.pending
+          inFlight=outcome.inFlightCancellations.includes(task.id)
+        } catch {pending=1}
       }
-      await deleteTask(repositoryMode, workspaceId, task.id, teamAccess)
-      await reload(); notify('success', 'Tarefa excluída.')
-    }
-    catch (error) { notify('error', error instanceof Error ? error.message : 'Falha ao excluir a tarefa.') }
+      await reload()
+      notify('success','Tarefa excluída.')
+      if(pending)notify('warning',
+        'Exclusão registrada. A solicitação de cancelamento do aviso ficou pendente de sincronização.')
+      else if(inFlight)notify('warning',
+        'A tarefa foi excluída, mas uma mensagem já iniciada pode chegar ao destinatário.')
+    }catch(error){notify('error',error instanceof Error?error.message:'Falha ao excluir a tarefa.')}
   }
 
   const openEdit = (task: WorkTask) => { setEditing(task); setModalOpen(true) }

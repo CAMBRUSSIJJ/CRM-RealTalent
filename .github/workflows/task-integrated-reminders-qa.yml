@@ -16,6 +16,7 @@ on:
       - 'scripts/local-task-whatsapp-scheduler.mjs'
       - 'scripts/realtalent-communications-gateway.mjs'
       - 'scripts/local-task-whatsapp-scheduler.test.mjs'
+      - 'scripts/task-notification-h11-contract.test.mjs'
       - 'src/features/teams/**'
       - 'src/repositories/local-workspace-member-repository.ts'
       - 'src/features/settings/local-member-whatsapp-editor.tsx'
@@ -59,6 +60,8 @@ jobs:
         run: node --test scripts/local-team-whatsapp-contract.test.mjs
       - name: Automatic local queue safety contracts
         run: node --test scripts/local-task-whatsapp-scheduler.test.mjs
+      - name: H1.1 task persistence and notification outbox contracts
+        run: node --test scripts/task-notification-h11-contract.test.mjs
       - name: Provider-neutral events and notification diagnostic contracts
         run: node --test scripts/notification-diagnostics.test.mjs
       - name: Existing reminder security contracts

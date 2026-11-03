@@ -57,7 +57,7 @@ test('automatic QR requires an explicit independent member switch',()=>{
 
 test('automatic WhatsApp QR uses the same transport as manual self-chat test',()=>{
   const gateway = read('scripts/realtalent-communications-gateway.mjs')
-  assert.ok(gateway.includes("const VERSION = '101.8.4-h17'"))
+  assert.ok(gateway.includes("const VERSION = '101.8.4-h18'"))
   assert.match(gateway,/recipient:recipientDigits/)
   assert.ok(!gateway.includes("throw new Error('sender_is_recipient')"))
   assert.ok(gateway.includes('localTaskAuto.tick()'))

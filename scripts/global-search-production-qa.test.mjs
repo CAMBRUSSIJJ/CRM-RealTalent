@@ -5,7 +5,7 @@ import {readFileSync} from 'node:fs'
 const read = filename => readFileSync(filename,'utf8')
 const topbar = read('src/components/layout/topbar.tsx')
 const portal = read('src/components/layout/global-search-popover.tsx')
-const css = read('src/styles/global-search-popover.css')
+const css = read('src/styles/h20-product-cohesion.css')
 const main = read('src/main.tsx')
 
 test('search results rendered outside fixed/sidebar shell, in an isolated body portal',()=>{
@@ -41,5 +41,6 @@ test('layout has bounded height, legible text, resilient width and loads after l
   assert.match(css,/@media \(max-width: 600px\)/)
   assert.match(css,/html\[data-theme="dark"\]/)
   const imports=[...main.matchAll(/import ['"]\.\/styles\/([^'"]+\.css)['"]/g)].map(x=>x[1])
-  assert.equal(imports.at(-1),'global-search-popover.css')
+  assert.equal(imports.at(-1),'h20-product-cohesion.css')
+  assert.match(css,/consolidated runtime source: global-search-popover\.css/)
 })

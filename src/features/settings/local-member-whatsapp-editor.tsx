@@ -64,7 +64,7 @@ export function LocalMemberWhatsAppEditor({ member, workspaceId, onSaved }: Prop
         onClick={() => void save()}><Save size={14}/> Salvar WhatsApp</Button> : null}
     </div>
     {consent && normalized ? <small className="local-member-wa__helper"><Check size={13}/>
-      A autorização declarada não verifica o telefone nem ativa envios automáticos. O canal externo precisa estar configurado no servidor.
+      A autorização declarada não verifica o telefone. Para avisos automáticos, ative a opção experimental acima e mantenha o Communications Gateway conectado. Para o canal oficial é necessária a integração da Meta.
     </small> : null}
     {error ? <small className="local-member-wa__error" role="alert">{error}</small> : null}
   </div>

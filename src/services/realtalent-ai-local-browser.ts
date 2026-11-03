@@ -85,7 +85,9 @@ const agentSuffix=(input:string)=>{
   const base=env.agentGatewayUrl.replace(/\/$/,'')
   if(!input.startsWith(base+'/'))return null
   const suffix=input.slice(base.length)
-  return suffix.startsWith('/tools/')?suffix:null
+  // Recognize every Agent route so local-only mode cannot accidentally
+  // route unsupported capabilities to a cloud model.
+  return suffix.startsWith('/')?suffix:null
 }
 
 /** Called transparently from runtimeFetch; never sends the cloud auth bearer to localhost. */

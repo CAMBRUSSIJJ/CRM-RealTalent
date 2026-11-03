@@ -40,6 +40,10 @@ type Props = {
   open: boolean
 }
 
+const localJobStatusLabel: Record<LocalTaskAutoJob['status'],string> = {
+  pending:'Programado', processing:'Processando', sent:'Aceito pelo gateway', failed:'Falhou',
+  unknown:'Resultado incerto — conferir conversa', cancelled:'Cancelado', blocked:'Bloqueado', expired:'Expirado',
+}
 const dateLabel = (iso: string) => new Date(iso).toLocaleString('pt-BR', {
   day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit',
 })
@@ -146,7 +150,7 @@ export function TaskReminderEditor({ value, onChange, assigneeId, assigneeName, 
     </div> : null}
     {taskId ? <div className="task-reminders__history">
       <div className="task-reminders__history-heading"><strong>Histórico de notificações</strong>
-        {<Button variant="secondary" size="sm" onClick={() => setHistoryRefresh(x => x+1)} disabled={loadingHistory}><RefreshCw size={14}/> Atualizar</Button> : null}
+        <Button variant="secondary" size="sm" onClick={() => setHistoryRefresh(x => x+1)} disabled={loadingHistory}><RefreshCw size={14}/> Atualizar</Button>
       </div>
       {historyError ? <p className="task-reminders__notice" role="status">{historyError}</p> : null}
       {repositoryMode === 'local' ? (!localJobs.length
@@ -154,10 +158,7 @@ export function TaskReminderEditor({ value, onChange, assigneeId, assigneeName, 
           : <ol className="task-reminders__timeline">{[...localJobs].reverse().map(job => <li key={job.id}>
               <span className={`task-reminders__dot is-${job.status}`} aria-hidden="true" />
               <div><strong>WhatsApp QR · {job.eventType === 'assigned' ? 'Atribuição' : 'Antes do prazo'}</strong>
-                <small><Clock3 size={12}/>{dateLabel(job.at)} · {{
-                  pending:'Programado',processing:'Processando',sent:'Aceito pelo gateway',failed:'Falhou',
-                  unknown:'Resultado incerto — conferir conversa',cancelled:'Cancelado',blocked:'Bloqueado',expired:'Expirado',
-                }[job.status]}</small>
+                <small><Clock3 size={12}/>{dateLabel(job.at)} · {localJobStatusLabel[job.status]}</small>
               </div>
             </li>)}</ol>)
         : loadingHistory ? <p className="task-reminders__muted">Consultando histórico…</p>

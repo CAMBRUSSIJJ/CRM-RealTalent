@@ -13,6 +13,7 @@ export interface TaskNotificationIntent {
   recipientId: string | null
   type: 'assignment' | 'cancel' | 'sync'
   occurredAt: string
+  rearmCancelled?: boolean
 }
 /** Local task data and communication intents are committed together. */
 export interface WorkManagementSnapshot {
@@ -85,8 +86,8 @@ const readLocal = (workspaceId: string): WorkManagementSnapshot => {
 const writeLocal = (workspaceId: string, snapshot: WorkManagementSnapshot) => safeStorage.setItem(storageKey(workspaceId), JSON.stringify(snapshot))
 
 const recordNotificationIntent = (snapshot: WorkManagementSnapshot, taskId: string,
-  recipientId: string | null, type: TaskNotificationIntent['type'], at: string) => {
-  snapshot.notificationIntents.push({ id: createId('notice'),taskId,recipientId,type,occurredAt:at })
+  recipientId: string | null, type: TaskNotificationIntent['type'], at: string, rearmCancelled = false) => {
+  snapshot.notificationIntents.push({ id: createId('notice'),taskId,recipientId,type,occurredAt:at,rearmCancelled })
 }
 
 export const pendingTaskNotificationIntents = (workspaceId: string): TaskNotificationIntent[] =>
@@ -170,7 +171,15 @@ export async function saveTeam(mode: 'local' | 'supabase', workspaceId: string, 
         ['todo','in_progress','blocked'].includes(next.status)) {
       recordNotificationIntent(snapshot,id,next.assigneeId,'assignment',timestamp)
     } else {
-      recordNotificationIntent(snapshot,id,next.assigneeId,'sync',timestamp)
+      const changedNotificationSettings=Boolean(localPrevious && (
+        localPrevious.reminderEnabled!==next.reminderEnabled ||
+        localPrevious.reminderOnAssignment!==next.reminderOnAssignment ||
+        localPrevious.dueAt!==next.dueAt ||
+        JSON.stringify(localPrevious.reminderChannels||[])!==JSON.stringify(next.reminderChannels||[]) ||
+        JSON.stringify(localPrevious.reminderOffsetsMinutes||[])!==JSON.stringify(next.reminderOffsetsMinutes||[]) ||
+        localPrevious.reminderCustomMinutes!==next.reminderCustomMinutes
+      ))
+      recordNotificationIntent(snapshot,id,next.assigneeId,'sync',timestamp,changedNotificationSettings)
     }
     writeLocal(workspaceId, snapshot)
     return next

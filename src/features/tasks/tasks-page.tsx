@@ -9,6 +9,7 @@ import { NativeSelectionSelect } from '../../components/selection'
 import type { TaskRelation, TaskStatus, Team, WorkTask, WorkspaceMember } from '../../domain/types'
 import { deleteTask, loadWorkManagement, saveTask, taskPriorityLabel, taskStatusLabel, updateTaskStatus, type WorkManagementSnapshot } from '../../services/work-management'
 import { TaskModal } from './task-modal'
+import { cancelGatewayLocalTaskAuto, scheduleGatewayLocalTaskAuto, syncGatewayLocalTaskAutoMember, type LocalTaskAutoMember } from '../../services/local-communications-gateway'
 import { WorkspaceCommandBar, WorkspaceCommandGroup, WorkspacePageHeader, WorkspaceSummaryMetric, WorkspaceSummaryStrip, WorkspaceViewStrip } from '../../components/workspace/workspace-shell'
 
 type ViewMode = 'list' | 'board' | 'today' | 'overdue' | 'completed'
@@ -18,6 +19,12 @@ const priorityTone = (priority: WorkTask['priority']) => priority === 'urgent' ?
 const todayKey = () => { const date = new Date(); return `${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,'0')}-${String(date.getDate()).padStart(2,'0')}` }
 const dueKey = (value: string | null) => value ? new Date(value).toLocaleDateString('en-CA') : ''
 const dueLabel = (value: string | null) => value ? new Date(value).toLocaleString('pt-BR', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' }) : 'Sem prazo'
+
+const asLocalTaskAutoMember = (workspaceId: string, member: WorkspaceMember): LocalTaskAutoMember => ({
+  workspaceId, userId: member.userId, phone: member.whatsappPhone || '',
+  consentAt: member.whatsappConsentRecordedAt || null,
+  autoEnabledAt: member.whatsappAutoEnabledAt || null,
+})
 
 export function TasksPage() {
   const { currentWorkspace, repositoryMode, snapshot, teamAccess, canTeamAccess, canTeamAccessRecord } = useAppWorkspace()
@@ -48,9 +55,22 @@ export function TasksPage() {
   useEffect(() => { void reload() }, [repositoryMode, workspaceId, canTeamAccess, canTeamAccessRecord])
   useEffect(() => {
     let active = true
-    void listWorkspaceMembers().then((items) => { if (active) setMembers(items) }).catch(() => { if (active) setMembers([]) })
+    void listWorkspaceMembers().then(async items => {
+      if (!active) return
+      setMembers(items)
+      if (repositoryMode !== 'local' || !workspaceId) return
+      // On startup reconcile consent/revocations BEFORE resuming persisted jobs.
+      try {
+        for (const member of items) await syncGatewayLocalTaskAutoMember(asLocalTaskAutoMember(workspaceId,member))
+        const currentTasks=(await loadWorkManagement('local',workspaceId)).tasks
+        for (const task of currentTasks) {
+          const member=items.find(item=>item.userId===task.assigneeId)
+          await scheduleGatewayLocalTaskAuto({workspaceId,task,member:member?asLocalTaskAutoMember(workspaceId,member):null,assignmentChanged:false})
+        }
+      } catch { /* Gateway may not be running; manual task edits report scheduling failures. */ }
+    }).catch(() => { if (active) setMembers([]) })
     return () => { active = false }
-  }, [listWorkspaceMembers, workspaceId])
+  }, [listWorkspaceMembers, workspaceId, repositoryMode])
 
   const relationByTask = useMemo(() => new Map(data.relations.map((item) => [item.taskId, item])), [data.relations])
   const teamById = useMemo(() => new Map(data.teams.map((item) => [item.id, item])), [data.teams])
@@ -87,21 +107,55 @@ export function TasksPage() {
     if (!workspaceId) return
     setSaving(true)
     try {
-      await saveTask(repositoryMode, workspaceId, input, user?.id ?? null, teamAccess)
-      await reload(); setModalOpen(false); setEditing(null); notify('success', input.id ? 'Tarefa atualizada.' : 'Tarefa criada.')
+      const task = await saveTask(repositoryMode, workspaceId, input, user?.id ?? null, teamAccess)
+      let schedulingError = false
+      if (repositoryMode === 'local') {
+        const member=members.find(item=>item.userId===task.assigneeId)
+        try {
+          const response = await scheduleGatewayLocalTaskAuto({
+            workspaceId,task,member:member?asLocalTaskAutoMember(workspaceId,member):null,
+            assignmentChanged:Boolean(task.assigneeId && (!editing || editing.assigneeId!==task.assigneeId)),
+          })
+          if (member?.whatsappAutoEnabledAt && task.reminderEnabled && task.reminderChannels.includes('whatsapp') && !response.automaticEnabled)
+            schedulingError = true
+        } catch { schedulingError = Boolean(member?.whatsappAutoEnabledAt) }
+      }
+      await reload(); setModalOpen(false); setEditing(null)
+      if(schedulingError) notify('warning','Tarefa salva, mas o WhatsApp automático não foi programado. Verifique o Communications Gateway.')
+      else notify('success', input.id ? 'Tarefa atualizada.' : 'Tarefa criada.')
     } catch (error) { notify('error', error instanceof Error ? error.message : 'Não foi possível salvar a tarefa.') }
     finally { setSaving(false) }
   }
 
   const changeStatus = async (task: WorkTask, status: TaskStatus) => {
     if (!workspaceId) return
-    try { await updateTaskStatus(repositoryMode, workspaceId, task.id, status, teamAccess); await reload(); notify('success', status === 'completed' ? 'Tarefa concluída.' : 'Status atualizado.') }
+    try {
+      await updateTaskStatus(repositoryMode, workspaceId, task.id, status, teamAccess)
+      if(repositoryMode==='local') {
+        try {
+          if(status==='completed'||status==='cancelled') await cancelGatewayLocalTaskAuto(workspaceId,task.id)
+          else {
+            const fresh=(await loadWorkManagement('local',workspaceId)).tasks.find(item=>item.id===task.id)
+            if(fresh) {
+              const member=members.find(item=>item.userId===fresh.assigneeId)
+              await scheduleGatewayLocalTaskAuto({workspaceId,task:fresh,member:member?asLocalTaskAutoMember(workspaceId,member):null,assignmentChanged:false})
+            }
+          }
+        } catch { notify('warning','Status alterado, mas não foi possível sincronizar os lembretes do WhatsApp.') }
+      }
+      await reload(); notify('success', status === 'completed' ? 'Tarefa concluída.' : 'Status atualizado.')
+    }
     catch (error) { notify('error', error instanceof Error ? error.message : 'Falha ao atualizar a tarefa.') }
   }
 
   const remove = async (task: WorkTask) => {
     if (!workspaceId || !await confirmAction({ title: 'Excluir tarefa?', description: `A tarefa “${task.title}” será removida.`, confirmLabel: 'Excluir', tone: 'danger' })) return
-    try { await deleteTask(repositoryMode, workspaceId, task.id, teamAccess); await reload(); notify('success', 'Tarefa excluída.') }
+    try {
+      await deleteTask(repositoryMode, workspaceId, task.id, teamAccess)
+      if(repositoryMode==='local')try { await cancelGatewayLocalTaskAuto(workspaceId,task.id) }
+        catch { notify('warning','Tarefa excluída, mas o agendador local não confirmou o cancelamento.') }
+      await reload(); notify('success', 'Tarefa excluída.')
+    }
     catch (error) { notify('error', error instanceof Error ? error.message : 'Falha ao excluir a tarefa.') }
   }
 

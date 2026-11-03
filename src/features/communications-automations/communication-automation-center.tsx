@@ -56,12 +56,15 @@ export function CommunicationAutomationCenter({ workspaceId,tasks,onOpenTask }:P
   },[workspaceId,revision])
 
   const taskById=useMemo(()=>new Map(tasks.map(t=>[t.id,t])),[tasks])
-  const rows=useMemo(()=>(data?.jobs??[]).filter(job=>flags(job,filter))
-    .sort((a,b)=>Date.parse(b.at)-Date.parse(a.at)),[data,filter])
+  const rows=useMemo(()=>(data?.jobs??[]).filter(job=>taskById.has(job.taskId)&&flags(job,filter))
+    .sort((a,b)=>Date.parse(b.at)-Date.parse(a.at)),[data,filter,taskById])
   const diagnostics=useMemo(()=>((data?.diagnostics??[]) as LocalTaskAutoDiagnostic[])
     .filter(d=>taskById.has(d.taskId)&&d.state!=='inactive'&&d.code!=='scheduled'&&d.code!=='accepted')
     .sort((a,b)=>Number(b.canRequest)-Number(a.canRequest)),[data,taskById])
-  const count=(statuses:LocalTaskAutoJob['status'][])=>statuses.reduce((total,status)=>total+(data?.counts?.[status]??0),0)
+  // Never display notification metadata for tasks the current CRM view
+  // has not authorized the user to inspect.
+  const count=(statuses:LocalTaskAutoJob['status'][])=> (data?.jobs??[])
+    .filter(job=>taskById.has(job.taskId)&&statuses.includes(job.status)).length
 
   const requestNotice=async(diagnostic:LocalTaskAutoDiagnostic)=>{
     const task=taskById.get(diagnostic.taskId)

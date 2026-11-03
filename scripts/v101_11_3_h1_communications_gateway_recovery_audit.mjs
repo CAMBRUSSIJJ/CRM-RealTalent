@@ -13,7 +13,7 @@ ok('changelog contains H1 recovery',changelog.includes('# V101.11.3-H1 — Commu
 ok('runtime preserves H1 communications recovery implementation',start.includes('prepareCommunicationsRuntime(token)')&&start.includes('printCommunicationsDiagnostics'))
 ok('dist reuse preserves H1 marker',start.includes("includes('V101.11.3-H1 — Communications Gateway Recovery')"))
 ok('dist lineage requires H1 marker',start.includes("'V101.11.3-H1 — Communications Gateway Recovery'"))
-ok('communications expected version centralized',start.includes("const COMM_EXPECTED_VERSION = '101.8.4-h17'"))
+ok('communications expected version centralized',start.includes("const COMM_EXPECTED_VERSION = '101.8.4-h18'"))
 ok('preflight probes existing gateway before spawning',start.includes('async function prepareCommunicationsRuntime(token)')&&start.includes('const existing = await probe(url, { token, expectedVersion: COMM_EXPECTED_VERSION })'))
 ok('healthy existing gateway can be reused',start.includes('return { reuse: true, blocked: false, existing }'))
 const staleRecoveryBeforeSpawn = start.includes('stopStaleCommunicationsProcesses') && (start.indexOf('prepareCommunicationsRuntime(token)') < start.indexOf("spawnService('communications'") || (isRuntimeRecoveryH198H1 && start.includes('recoverCommunicationsRuntime') && start.indexOf('stopStaleCommunicationsProcesses') < start.indexOf('spawnCommunicationsSupervisor(token')))

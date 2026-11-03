@@ -145,7 +145,8 @@ export function createLocalTaskWhatsAppScheduler({ file, send, accountFor, clock
         const when=job.processedAt||job.claimedAt||job.createdAt
         return when && (!latest||when>latest) ? when : latest
       },null) : null,
-      jobs:records.slice(-100).map(j=>({
+      jobs:[...records].sort((a,b)=>Date.parse(b.createdAt||b.at)-Date.parse(a.createdAt||a.at))
+        .slice(0,100).map(j=>({
         id:j.id,taskId:j.taskId,eventType:j.eventType,at:j.at,status:j.status,
         error:j.error||null,processedAt:j.processedAt||null,
       })),

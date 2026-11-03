@@ -173,10 +173,16 @@ export function TaskModal({ open, task, relation, checklist, teams, memberships,
           : <section className="work-form-section local-team-wa-action local-team-wa-action--save-first" aria-label="WhatsApp do responsável">
               <header><UserRound size={18}/><div><strong>WhatsApp de {selectedMember.displayName}</strong>
                 <small>{selectedMember.whatsappPhone
-                  ? `Número cadastrado: ${selectedMember.whatsappPhone}`
+                  ? `Número cadastrado em Equipes: •••• ${selectedMember.whatsappPhone.slice(-4)}`
                   : 'Sem telefone cadastrado em Configurações → Equipe e permissões.'}</small>
               </div></header>
-              <p className="local-team-wa-action__hint" role="status">Salve esta tarefa e abra novamente para verificar a conexão e enviar um único aviso manual pelo WhatsApp do responsável. O envio não é automático.</p>
+              <p className="local-team-wa-action__hint" role="status">
+                {selectedMember.whatsappAutoEnabledAt && reminders.enabled && reminders.onAssignment
+                  ? 'Ao salvar, o RealTalent programa automaticamente um aviso de atribuição para este colaborador. Não é preciso escolher o WhatsApp em Lembretes e canais. O gateway precisa estar ativo para executar o envio.'
+                  : selectedMember.whatsappAutoEnabledAt
+                    ? 'A automação do colaborador está habilitada, mas o aviso de atribuição foi desligado nesta tarefa. Ative os lembretes e a opção “Ao atribuir a tarefa”.'
+                    : 'O WhatsApp automático está desligado para este colaborador. Cadastre a autorização e ative uma única vez em Configurações → Equipe e permissões.'}
+              </p>
             </section>
       ) : null}
 

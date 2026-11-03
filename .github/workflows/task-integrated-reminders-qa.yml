@@ -6,6 +6,11 @@ on:
   pull_request:
     paths:
       - 'src/features/tasks/**'
+      - 'src/features/communications-automations/**'
+      - 'src/services/notifications/**'
+      - 'scripts/notifications/**'
+      - 'scripts/notification-diagnostics.test.mjs'
+      - 'src/styles/communication-*.css'
       - 'src/services/local-communications-gateway.ts'
       - 'src/styles/task-notification-center.css'
       - 'scripts/local-task-whatsapp-scheduler.mjs'
@@ -54,6 +59,8 @@ jobs:
         run: node --test scripts/local-team-whatsapp-contract.test.mjs
       - name: Automatic local queue safety contracts
         run: node --test scripts/local-task-whatsapp-scheduler.test.mjs
+      - name: Provider-neutral events and notification diagnostic contracts
+        run: node --test scripts/notification-diagnostics.test.mjs
       - name: Existing reminder security contracts
         run: node --test scripts/task-reminder-contract.test.mjs
       - name: CSS governance

@@ -188,6 +188,8 @@ export function createLocalTaskWhatsAppScheduler({ file, send, accountFor, clock
     if(latest&&['unknown','failed','blocked'].includes(latest.status))return respond('review_required','attention',
       'Já houve uma tentativa sem confirmação. Confira a conversa antes de solicitar outra.',false)
     if(latest?.status==='sent')return respond('accepted','history','A mensagem foi aceita pelo gateway; a entrega não foi confirmada.',false)
+    if(jobs.some(job=>job.eventType==='requested')) return respond('already_requested','history',
+      'Já houve uma solicitação de aviso único. Verifique o histórico antes de criar outra tarefa.')
     if(latest?.status==='expired')return respond('expired','attention','O aviso anterior expirou enquanto a conexão estava indisponível.',true)
     const hasDeadline=Boolean(task.dueAt&&Date.parse(task.dueAt)>current)
     return respond(hasDeadline?'no_future_reminder':'assignment_already_happened','none',

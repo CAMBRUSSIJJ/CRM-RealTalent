@@ -90,8 +90,12 @@ export function createLocalTaskWhatsAppScheduler({ file, send, accountFor, clock
     }
     state.tasks[key]=data
     const member=state.members[identity(workspaceId,userId)]
+    // A teammate's explicit opt-in in Equipes is the default for new
+    // assignments. The task's onAssignment toggle can still disable it.
+    // Due-date reminders continue to require an explicit WhatsApp channel.
     const eligible=Boolean(member?.autoEnabledAt && member?.consentAt && member?.phone && active(data.status)
-      && data.reminderEnabled && data.reminderChannels.includes('whatsapp'))
+      && data.reminderEnabled)
+    const dueChannelEnabled=data.reminderChannels.includes('whatsapp')
     const now=clock(), desired=new Map()
     const add=(eventType,at,uniqueSuffix) => {
       if(!Number.isFinite(at)||at<now||at>now+90*24*60*60*1000)return
@@ -110,7 +114,7 @@ export function createLocalTaskWhatsAppScheduler({ file, send, accountFor, clock
       const revision=String(task.updatedAt||'')
       if(assignmentNew && data.reminderOnAssignment && now-Date.parse(revision)<2*60_000 && now>=Date.parse(revision)-5_000)
         add('assigned',now+8_000,'assigned:'+revision)
-      if(data.dueAt && Number.isFinite(Date.parse(data.dueAt)) && Date.parse(data.dueAt)>now){
+      if(dueChannelEnabled && data.dueAt && Number.isFinite(Date.parse(data.dueAt)) && Date.parse(data.dueAt)>now){
         const offsets=new Set((Array.isArray(task.reminderOffsetsMinutes)?task.reminderOffsetsMinutes:[]).filter(n=>Number.isInteger(n)&&n>=5&&n<=10080))
         if (Number.isInteger(task.reminderCustomMinutes) && task.reminderCustomMinutes>=5 && task.reminderCustomMinutes<=10080) offsets.add(task.reminderCustomMinutes)
         for(const minutes of offsets) add('due_soon',Date.parse(data.dueAt)-minutes*60_000,'due:'+data.dueAt+':'+minutes)
@@ -127,7 +131,17 @@ export function createLocalTaskWhatsAppScheduler({ file, send, accountFor, clock
     const pending=state.jobs.filter(j=>j.status==='pending')
     state.jobs=[...pending,...history.slice(0,2000)]
     save()
-    return { scheduled:pendingFor(workspaceId,taskId).length,automaticEnabled:eligible }
+    const pendingJobs=pendingFor(workspaceId,taskId)
+    const assignmentScheduled=pendingJobs.some(j=>j.eventType==='assigned' && j.userId===userId)
+    return { scheduled:pendingJobs.length,automaticEnabled:eligible,
+      assignmentScheduled, dueChannelEnabled,
+      reason: !member?.autoEnabledAt ? 'member_automatic_off' :
+        !member?.consentAt || !member?.phone ? 'recipient_not_authorized' :
+        !data.reminderEnabled ? 'task_reminders_disabled' :
+        !active(data.status) ? 'task_not_open' :
+        !data.reminderOnAssignment ? 'assignment_reminder_disabled' :
+        !input.assignmentChanged ? 'assignment_not_changed' :
+        !assignmentScheduled ? 'assignment_not_eligible_for_schedule' : 'assignment_scheduled' }
   }
 
   const cancel = ({workspaceId,taskId}) => {
@@ -183,7 +197,8 @@ export function createLocalTaskWhatsAppScheduler({ file, send, accountFor, clock
     if(!member.consentAt)return respond('consent_missing','attention','A autorização do colaborador ainda não foi registrada.')
     if(!member.autoEnabledAt)return respond('automatic_off','attention','Ative a automação deste colaborador em Equipe e permissões.')
     if(!task.reminderEnabled)return respond('task_reminders_off','attention','Ative os lembretes desta tarefa.')
-    if(!task.reminderChannels.includes('whatsapp'))return respond('channel_off','attention','Selecione o canal WhatsApp QR nos lembretes da tarefa.')
+    if(!task.reminderOnAssignment&&!task.reminderChannels.includes('whatsapp'))
+      return respond('channel_off','attention','Ative o aviso ao atribuir a tarefa ou selecione o canal WhatsApp QR para lembretes de prazo.')
     if(pending.length)return respond('scheduled','scheduled','O WhatsApp possui aviso programado para esta tarefa.')
     if(latest&&['unknown','failed','blocked'].includes(latest.status))return respond('review_required','attention',
       'Já houve uma tentativa sem confirmação. Confira a conversa antes de solicitar outra.',false)
@@ -262,7 +277,9 @@ export function createLocalTaskWhatsAppScheduler({ file, send, accountFor, clock
         const task=state.tasks[taskKey(job.workspaceId,job.taskId)]
         if(!member?.autoEnabledAt||!member.consentAt||!phoneValid(member.phone)||
           member.phone!==job.phone||member.consentAt!==job.consentAt||
-          !task||task.userId!==job.userId||!active(task.status)||!task.reminderEnabled||!task.reminderChannels.includes('whatsapp')){
+          !task||task.userId!==job.userId||!active(task.status)||!task.reminderEnabled||
+          (job.eventType==='assigned' && !task.reminderOnAssignment)||
+          (job.eventType==='due_soon' && !task.reminderChannels.includes('whatsapp'))){
           job.status='cancelled';save();continue
         }
         if (current-Date.parse(job.at)>20*60_000){job.status='expired';save();continue}

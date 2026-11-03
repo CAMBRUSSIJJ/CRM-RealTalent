@@ -141,6 +141,16 @@ export function createLocalTaskWhatsAppScheduler({ file, send, accountFor, clock
       if(assignmentNew && data.reminderOnAssignment && Number.isFinite(assignmentAge) &&
           assignmentAge>=-5_000 && assignmentAge<=15*60_000)
         add('assigned',now+8_000,'assigned:'+revision)
+      else if(assignmentNew && data.reminderOnAssignment && input.assignmentAt &&
+              Number.isFinite(assignmentAge) && assignmentAge>15*60_000) {
+        // Record a terminal receipt so the UI does not misdiagnose an old
+        // outbox event as a message that simply never existed.
+        const id=hash('expired-assignment|'+workspaceId+'|'+taskId+'|'+userId+'|'+input.assignmentAt)
+        if(!state.deliveryLedger[id] && !state.jobs.some(j=>j.id===id))
+          state.jobs.push({id,workspaceId,taskId,userId,eventType:'assigned',
+            at:new Date(now).toISOString(),status:'expired',
+            error:'assignment_replayed_after_15min',createdAt:new Date(now).toISOString()})
+      }
       if(dueChannelEnabled && data.dueAt && Number.isFinite(Date.parse(data.dueAt)) && Date.parse(data.dueAt)>now){
         const offsets=new Set((Array.isArray(task.reminderOffsetsMinutes)?task.reminderOffsetsMinutes:[]).filter(n=>Number.isInteger(n)&&n>=5&&n<=10080))
         if (Number.isInteger(task.reminderCustomMinutes) && task.reminderCustomMinutes>=5 && task.reminderCustomMinutes<=10080) offsets.add(task.reminderCustomMinutes)
@@ -258,7 +268,8 @@ export function createLocalTaskWhatsAppScheduler({ file, send, accountFor, clock
     // One human-requested message per task/recipient. Prevents repeated
     // clicking, browser retries and gateway restarts from sending duplicates.
     const id=hash('requested-once|'+workspaceId+'|'+taskId+'|'+task.userId)
-    if(state.jobs.some(j=>j.id===id))throw Object.assign(new Error('notification_already_requested'),{statusCode:409})
+    if(state.deliveryLedger[id] || state.jobs.some(j=>j.id===id))
+      throw Object.assign(new Error('notification_already_requested'),{statusCode:409})
     taskNotificationEvent({ id:task.taskId,assigneeId:task.userId,title:task.title,dueAt:task.dueAt },
       workspaceId,'task.reminder_requested',new Date(now).toISOString())
     state.jobs.push({

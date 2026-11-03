@@ -44,6 +44,7 @@ import { EditLeadModal } from '../leads/edit-lead-modal'
 import { useAuth } from '../auth/auth-context'
 import { useExperience } from '../experience/experience-context'
 import { SalesMessageModal } from '../pipeline/sales-message-modal'
+import './dashboard-layout-v2.css'
 
 const startOfDay = (date = new Date()) => new Date(date.getFullYear(), date.getMonth(), date.getDate())
 const dayDiff = (newer: Date, older: Date) => Math.floor((newer.getTime() - older.getTime()) / 86_400_000)
@@ -215,7 +216,7 @@ export function DashboardPage() {
   }
 
   return (
-    <div className="page-stack dashboard-v10051">
+    <div className="page-stack dashboard-v10051 dashboard-layout-v2">
       <section className={`myday-v1016 ${glanceOpen ? 'is-glance-open-v10173' : 'is-glance-collapsed-v10173'}`}>
         <div className="myday-v1016__main">
           <header className="myday-v1016__hero">
@@ -229,18 +230,24 @@ export function DashboardPage() {
             <button type="button" disabled={!dashboard.workday.items.length} onClick={() => dashboard.workday.items[0] && runWorkdayItem(dashboard.workday.items[0])}><span><Zap size={18}/></span><div><strong>Executar a prioridade mais importante</strong><small>{dashboard.workday.items[0]?.title ?? 'Nenhuma prioridade crítica agora.'}</small></div><ArrowRight size={16}/></button>
           </div>
 
-          <div className="myday-v1016__cards">
-            <button type="button" onClick={() => setRoute('agenda')}><CalendarCheck2 size={18}/><strong>Preparação para reunião</strong><span>{dashboard.meetingsToday ? `${dashboard.meetingsToday} reunião(ões) hoje` : 'Nenhuma reunião hoje'}</span></button>
-            <button type="button" onClick={() => setRoute('followups')}><ListTodo size={18}/><strong>Follow-ups e tarefas</strong><span>{dashboard.activitiesToday} atividade(s) previstas</span></button>
-            <button type="button" onClick={() => setRoute('calls')}><PhoneCall size={18}/><strong>Contatos do dia</strong><span>{dashboard.contactsToday} interação(ões) concluída(s)</span></button>
+          <div className="myday-layout-v2__heading myday-layout-v2__heading--metrics">
+            <h3>Visão geral</h3><span>Indicadores do seu escopo</span>
           </div>
-
           <section className="health-strip" aria-label="Resumo do dia">
             <button type="button" className="health-item" onClick={() => setRoute('followups')}><span className="health-item__icon"><ListTodo size={19}/></span><span><small>Prioridades</small><strong>{dashboard.workday.items.length}</strong><em>{dashboard.workday.dueToday} vencem hoje</em></span><ChevronRight size={16}/></button>
             <button type="button" className={`health-item ${dashboard.workday.breached ? 'health-item--danger' : ''}`} onClick={() => setRoute('followups')}><span className="health-item__icon"><Clock3 size={19}/></span><span><small>Em atraso</small><strong>{dashboard.workday.breached}</strong><em>{dashboard.workday.breached ? 'Resolver primeiro' : 'Nenhum SLA vencido'}</em></span><ChevronRight size={16}/></button>
             <button type="button" className="health-item" onClick={() => setRoute('pipeline')}><span className="health-item__icon"><CircleDollarSign size={19}/></span><span><small>Pipeline</small><strong>{formatCurrency(dashboard.pipelineValue)}</strong><em>{formatCurrency(dashboard.riskValue)} em risco</em></span><ChevronRight size={16}/></button>
             <button type="button" className="health-item" onClick={() => setRoute('goals')}><span className="health-item__icon"><Target size={19}/></span><span><small>Meta atual</small><strong>{dashboard.currentGoalProgress?.percentage ?? 0}%</strong><em>{dashboard.currentGoal ? `${dashboard.daysRemaining} dias restantes` : 'Configure uma meta'}</em></span><ChevronRight size={16}/></button>
           </section>
+
+          <div className="myday-layout-v2__heading myday-layout-v2__heading--activities">
+            <div><h3>Atividades de hoje</h3><p>Reuniões, tarefas e contatos do dia.</p></div>
+          </div>
+          <div className="myday-v1016__cards">
+            <button type="button" onClick={() => setRoute('agenda')}><CalendarCheck2 size={18}/><strong>Preparação para reunião</strong><span>{dashboard.meetingsToday ? `${dashboard.meetingsToday} reunião(ões) hoje` : 'Nenhuma reunião hoje'}</span></button>
+            <button type="button" onClick={() => setRoute('followups')}><ListTodo size={18}/><strong>Follow-ups e tarefas</strong><span>{dashboard.activitiesToday} atividade(s) previstas</span></button>
+            <button type="button" onClick={() => setRoute('calls')}><PhoneCall size={18}/><strong>Contatos do dia</strong><span>{dashboard.contactsToday} interação(ões) concluída(s)</span></button>
+          </div>
         </div>
 
         {glanceOpen ? <aside className="myday-v1016__glance">

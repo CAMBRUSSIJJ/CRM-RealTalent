@@ -279,8 +279,7 @@ export function createLocalTaskWhatsAppScheduler({ file, send, accountFor, clock
           member.phone!==job.phone||member.consentAt!==job.consentAt||
           !task||task.userId!==job.userId||!active(task.status)||!task.reminderEnabled||
           (job.eventType==='assigned' && !task.reminderOnAssignment)||
-          (job.eventType==='due_soon' && !task.reminderChannels.includes('whatsapp'))||
-          (job.eventType==='requested' && !task.reminderChannels.includes('whatsapp'))){
+          (job.eventType==='due_soon' && !task.reminderChannels.includes('whatsapp'))){
           job.status='cancelled';save();continue
         }
         if (current-Date.parse(job.at)>20*60_000){job.status='expired';save();continue}

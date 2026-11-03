@@ -31,13 +31,26 @@ if [[ ! -e "$ROOT/repo/.git" ]];then
   git clone --depth 1 --single-branch --branch "$REPO_BRANCH" "$REPO_URL" "$ROOT/repo"
 else
   if [[ -n "$(git -C "$ROOT/repo" status --porcelain)" ]];then
-    echo 'ERRO: alterações locais detectadas na instalação anterior. Não sobrescreverei arquivos.'
-    echo "Verifique: git -C $ROOT/repo status --short"
-    exit 2
+    # The Agent can generate files in its own checkout. Never use reset --hard
+    # or clean -fd: keep the entire previous installation, including any
+    # manual edits and untracked files, available for recovery.
+    BACKUP="$ROOT/repo-backup-$(date -u +%Y%m%dT%H%M%SZ)-$"
+    echo 'Alterações locais encontradas; preservando a instalação anterior inteira.'
+    mv -- "$ROOT/repo" "$BACKUP"
+    if ! git clone --depth 1 --single-branch --branch "$REPO_BRANCH" "$REPO_URL" "$ROOT/repo";then
+      echo 'Falha no download do repositório. Restaurando a instalação anterior.' >&2
+      if [[ -e "$ROOT/repo" ]];then
+        mv -- "$ROOT/repo" "$ROOT/repo-download-incompleto-$(date -u +%Y%m%dT%H%M%SZ)-$"
+      fi
+      mv -- "$BACKUP" "$ROOT/repo"
+      exit 2
+    fi
+    echo "Backup preservado em: $BACKUP"
+  else
+    echo 'Atualizando o conector para a branch atual do RealTalent...'
+    git -C "$ROOT/repo" fetch origin "$REPO_BRANCH"
+    git -C "$ROOT/repo" switch -C "$REPO_BRANCH" FETCH_HEAD
   fi
-  echo 'Atualizando o conector para a branch atual do RealTalent...'
-  git -C "$ROOT/repo" fetch origin "$REPO_BRANCH"
-  git -C "$ROOT/repo" switch -C "$REPO_BRANCH" FETCH_HEAD
 fi
 if [[ ! -f "$ROOT/repo/runtime-host/RealTalent-Agent-Runtime-V3.1.2/gateway-ollama.mjs" ]];then
   echo 'ERRO: Agent Runtime não encontrado no repositório.' >&2;exit 2

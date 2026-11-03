@@ -210,8 +210,9 @@
   flex: 0 0 288px;
   width: 288px;
   min-width: 288px;
-  min-height: min(590px, calc(100vh - 140px));
-  max-height: max(430px, calc(100vh - 245px));
+  min-height: clamp(390px, calc(100vh - 310px), 550px);
+  height: clamp(420px, calc(100vh - 270px), 620px);
+  max-height: none;
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -371,7 +372,7 @@
   outline: 2px solid var(--rt-pv2-blue);
   outline-offset: 2px;
 }
-.pipeline-layout-v2 .pipeline-page--compact .pipeline-column-v1008 { width: 270px; min-width: 270px; flex-basis: 270px; }
+.pipeline-layout-v2.pipeline-page--compact .pipeline-board-v1008 .pipeline-column-v1008:not(.is-collapsed) { width: 270px; min-width: 270px; flex-basis: 270px; }
 @media (max-width: 1350px) {
   .pipeline-layout-v2 .pipeline-command-bar-h20 > .workspace-view-strip-v10169 { flex-basis: 100%; }
   .pipeline-layout-v2 .pipeline-command-search-v101113 { flex: 1 1 250px; max-width: none; }

@@ -269,6 +269,7 @@ export async function saveTask(mode: 'local' | 'supabase', workspaceId: string, 
       recordNotificationIntent(snapshot,id,next.assigneeId,'assignment',timestamp)
     } else {
       const changedNotificationSettings=Boolean(localPrevious && (
+        (['completed','cancelled'].includes(localPrevious.status) && ['todo','in_progress','blocked'].includes(next.status)) ||
         localPrevious.reminderEnabled!==next.reminderEnabled ||
         localPrevious.reminderOnAssignment!==next.reminderOnAssignment ||
         localPrevious.dueAt!==next.dueAt ||
@@ -318,7 +319,8 @@ export async function updateTaskStatus(mode: 'local' | 'supabase', workspaceId: 
     assertAccess(access, 'edit', 'tasks', target.assigneeId, target.teamId)
     snapshot.tasks = snapshot.tasks.map((task) => task.id === taskId ? { ...task, status, completedAt: status === 'completed' ? (task.completedAt ?? now()) : null, updatedAt: now() } : task)
     recordNotificationIntent(snapshot,taskId,target.assigneeId,
-      status === 'completed' || status === 'cancelled' ? 'cancel' : 'sync',now())
+      status === 'completed' || status === 'cancelled' ? 'cancel' : 'sync',now(),
+      ['completed','cancelled'].includes(target.status) && ['todo','in_progress','blocked'].includes(status))
     writeLocal(workspaceId, snapshot)
     return
   }

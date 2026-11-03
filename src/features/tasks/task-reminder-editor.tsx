@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Bell, Clock3, RefreshCw } from 'lucide-react'
 import { Button } from '../../components/ui/button'
+import { loadGatewayLocalTaskAutoHistory, type LocalTaskAutoJob } from '../../services/local-communications-gateway'
 import type { TaskStatus, WorkTask } from '../../domain/types'
 import {
   loadTaskReminderHistory, reminderChannelLabel, reminderHistoryStatusLabel,
@@ -45,6 +46,7 @@ const dateLabel = (iso: string) => new Date(iso).toLocaleString('pt-BR', {
 
 export function TaskReminderEditor({ value, onChange, assigneeId, assigneeName, dueAt, status, taskId, workspaceId, repositoryMode, open }: Props) {
   const [history, setHistory] = useState<TaskReminderHistory[]>([])
+  const [localJobs, setLocalJobs] = useState<LocalTaskAutoJob[]>([])
   const [loadingHistory, setLoadingHistory] = useState(false)
   const [historyError, setHistoryError] = useState('')
   const [historyRefresh, setHistoryRefresh] = useState(0)
@@ -64,6 +66,17 @@ export function TaskReminderEditor({ value, onChange, assigneeId, assigneeName, 
       if (active) setHistoryError(err instanceof Error ? err.message : 'Histórico indisponível.')
     }).finally(() => { if (active) setLoadingHistory(false) })
     return () => { active = false }
+  }, [open, taskId, workspaceId, repositoryMode, historyRefresh])
+
+  useEffect(() => {
+    if (!open || repositoryMode !== 'local' || !taskId || !workspaceId) { setLocalJobs([]); return }
+    let live = true
+    void loadGatewayLocalTaskAutoHistory(workspaceId, taskId).then(response => {
+      if (live) { setLocalJobs(response.jobs || []); setHistoryError('') }
+    }).catch(() => {
+      if (live) { setLocalJobs([]); setHistoryError('Não foi possível consultar a fila local de WhatsApp.') }
+    })
+    return () => { live = false }
   }, [open, taskId, workspaceId, repositoryMode, historyRefresh])
 
   const toggleChannel = (channel: TaskReminderDraft['channels'][number]) => {
@@ -93,15 +106,16 @@ export function TaskReminderEditor({ value, onChange, assigneeId, assigneeName, 
           <strong className="task-reminders__label">Onde notificar</strong>
           <div className="task-reminders__choices">
             {([
-              ['in_app','No CRM'],['email','E-mail'],['whatsapp','WhatsApp oficial'],
+              ['in_app','No CRM'],['email','E-mail'],['whatsapp',repositoryMode === 'local' ? 'WhatsApp QR experimental' : 'WhatsApp oficial'],
             ] as const).map(([channel,label]) => <label key={channel} className="task-reminders__choice">
               <input type="checkbox" checked={value.channels.includes(channel)} onChange={() => toggleChannel(channel)} />
               <span>{label}</span>
             </label>)}
           </div>
           {value.channels.some(c => c !== 'in_app') ? <p className="task-reminders__notice">
-            E-mail e WhatsApp ficam apenas programados até que o funcionário autorize o canal e o servidor esteja homologado.
-            A conexão por QR de Comunicações não ativa mensagens automáticas.
+            {repositoryMode === 'local'
+              ? 'O WhatsApp QR pode enviar automaticamente se o integrante autorizou e ativou a automação em Equipe e permissões. A conexão por QR precisa estar ativa no gateway local; não é a API oficial. E-mail automático não está disponível no modo local.'
+              : 'E-mail e WhatsApp oficial ficam programados até que o funcionário autorize o canal e o servidor esteja homologado. A conexão por QR de Comunicações não ativa mensagens automáticas na nuvem.'}
           </p> : null}
         </div>
         <div>
@@ -127,15 +141,25 @@ export function TaskReminderEditor({ value, onChange, assigneeId, assigneeName, 
       {!dueAt ? <p className="task-reminders__notice">Sem prazo, o sistema só poderá avisar quando a tarefa for atribuída.</p> : null}
       {!value.channels.length ? <p className="task-reminders__notice">Nenhum canal selecionado. Não haverá envios.</p> : null}
       {repositoryMode === 'local'
-        ? <p className="task-reminders__notice">Modo local: as preferências serão salvas, mas o envio automático exige Supabase e agendador configurado.</p>
+        ? <p className="task-reminders__notice">Modo local: WhatsApp QR automático experimental exige integrante autorizado, automação ativada na Equipe, e Communications Gateway h14 rodando. Os avisos persistem no serviço enquanto ele permanecer ligado; para notificações oficiais em nuvem, o envio automático exige Supabase e integração da Meta.</p>
         : <p className="task-reminders__notice">A regra é gravada no Supabase. O envio depende de um agendador ativo e, para e-mail ou WhatsApp, de autorização e integração oficial. Confira Configurações → Notificações antes de confiar no lembrete.</p>}
     </div> : null}
     {taskId ? <div className="task-reminders__history">
       <div className="task-reminders__history-heading"><strong>Histórico de notificações</strong>
-        {repositoryMode === 'supabase' ? <Button variant="secondary" size="sm" onClick={() => setHistoryRefresh(x => x+1)} disabled={loadingHistory}><RefreshCw size={14}/> Atualizar</Button> : null}
+        {<Button variant="secondary" size="sm" onClick={() => setHistoryRefresh(x => x+1)} disabled={loadingHistory}><RefreshCw size={14}/> Atualizar</Button> : null}
       </div>
       {historyError ? <p className="task-reminders__notice" role="status">{historyError}</p> : null}
-      {repositoryMode !== 'supabase' ? <p className="task-reminders__muted">Histórico de entrega disponível somente no workspace conectado.</p>
+      {repositoryMode === 'local' ? (!localJobs.length
+          ? <p className="task-reminders__muted">Ainda não há agendamentos automáticos registrados neste gateway para esta tarefa.</p>
+          : <ol className="task-reminders__timeline">{[...localJobs].reverse().map(job => <li key={job.id}>
+              <span className={`task-reminders__dot is-${job.status}`} aria-hidden="true" />
+              <div><strong>WhatsApp QR · {job.eventType === 'assigned' ? 'Atribuição' : 'Antes do prazo'}</strong>
+                <small><Clock3 size={12}/>{dateLabel(job.at)} · {{
+                  pending:'Programado',processing:'Processando',sent:'Aceito pelo gateway',failed:'Falhou',
+                  unknown:'Resultado incerto — conferir conversa',cancelled:'Cancelado',blocked:'Bloqueado',expired:'Expirado',
+                }[job.status]}</small>
+              </div>
+            </li>)}</ol>)
         : loadingHistory ? <p className="task-reminders__muted">Consultando histórico…</p>
         : !history.length ? <p className="task-reminders__muted">Sem eventos registrados para esta tarefa.</p>
         : <ol className="task-reminders__timeline">{history.map(item => <li key={item.id}>

@@ -17,7 +17,7 @@ export interface TaskNotificationIntent {
 }
 /** Local task data and communication intents are committed together. */
 export interface WorkManagementSnapshot {
-  notificationIntents: TaskNotificationIntent[]
+  notificationIntents?: TaskNotificationIntent[]
   teams: Team[]
   memberships: TeamMembership[]
   tasks: WorkTask[]
@@ -87,15 +87,16 @@ const writeLocal = (workspaceId: string, snapshot: WorkManagementSnapshot) => sa
 
 const recordNotificationIntent = (snapshot: WorkManagementSnapshot, taskId: string,
   recipientId: string | null, type: TaskNotificationIntent['type'], at: string, rearmCancelled = false) => {
+  snapshot.notificationIntents ??= []
   snapshot.notificationIntents.push({ id: createId('notice'),taskId,recipientId,type,occurredAt:at,rearmCancelled })
 }
 
 export const pendingTaskNotificationIntents = (workspaceId: string): TaskNotificationIntent[] =>
-  [...readLocal(workspaceId).notificationIntents]
+  [...(readLocal(workspaceId).notificationIntents??[])]
 
 export const acknowledgeTaskNotificationIntent = (workspaceId: string, intentId: string): void => {
   const snapshot=readLocal(workspaceId)
-  snapshot.notificationIntents=snapshot.notificationIntents.filter(intent=>intent.id!==intentId)
+  snapshot.notificationIntents=(snapshot.notificationIntents??[]).filter(intent=>intent.id!==intentId)
   writeLocal(workspaceId,snapshot)
 }
 

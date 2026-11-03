@@ -6,6 +6,7 @@ on:
   pull_request:
     paths:
       - 'scripts/css_governance_audit.mjs'
+      - 'src/styles/h20-product-cohesion.css'
       - 'src/features/tasks/**'
       - 'src/features/communications-automations/**'
       - 'src/services/notifications/**'

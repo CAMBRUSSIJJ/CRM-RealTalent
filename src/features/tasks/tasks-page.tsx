@@ -9,6 +9,7 @@ import { NativeSelectionSelect } from '../../components/selection'
 import type { TaskRelation, TaskStatus, Team, WorkTask, WorkspaceMember } from '../../domain/types'
 import { deleteTask, loadWorkManagement, saveTask, taskPriorityLabel, taskStatusLabel, updateTaskStatus, type WorkManagementSnapshot } from '../../services/work-management'
 import { TaskModal } from './task-modal'
+import { TaskNotificationCenter } from './task-notification-center'
 import { cancelGatewayLocalTaskAuto, reconcileGatewayLocalTaskWorkspace, scheduleGatewayLocalTaskAuto, syncGatewayLocalTaskAutoMember, type LocalTaskAutoMember } from '../../services/local-communications-gateway'
 import { WorkspaceCommandBar, WorkspaceCommandGroup, WorkspacePageHeader, WorkspaceSummaryMetric, WorkspaceSummaryStrip, WorkspaceViewStrip } from '../../components/workspace/workspace-shell'
 
@@ -41,6 +42,7 @@ export function TasksPage() {
   const [modalOpen, setModalOpen] = useState(false)
   const [editing, setEditing] = useState<WorkTask | null>(null)
   const [saving, setSaving] = useState(false)
+  const [showNotifications, setShowNotifications] = useState(false)
 
   const workspaceId = currentWorkspace?.id ?? ''
   const canTaskCreate = canTeamAccess('create','tasks')
@@ -185,8 +187,14 @@ export function TasksPage() {
 
   return <div className="workspace-page tasks-page-v101112">
     <WorkspacePageHeader className="tasks-page-header-h223h1" eyebrow="Execução comercial" icon={ListChecks} title="Tarefas" description="Centralize o que precisa ser feito, por quem e em qual contexto do CRM." actions={<>
+      {repositoryMode === 'local' ? <Button variant="secondary" onClick={() => setShowNotifications(value => !value)}>
+        <Bell size={16}/>{showNotifications ? 'Fechar notificações' : 'Notificações'}
+      </Button> : null}
       {canTaskCreate ? <Button onClick={() => { setEditing(null); setModalOpen(true) }}><Plus size={17}/> Nova tarefa</Button> : null}
     </>} />
+    {repositoryMode === 'local' && showNotifications && workspaceId
+      ? <TaskNotificationCenter workspaceId={workspaceId} tasks={data.tasks} onOpenTask={task => {setEditing(task);setModalOpen(true)}} />
+      : null}
 
     <WorkspaceSummaryStrip className="tasks-summary-strip-h223h1">
       <WorkspaceSummaryMetric icon={CircleDot} label="Abertas" value={metrics.open} meta="Em execução" tone="brand" onClick={() => setView('list')} />

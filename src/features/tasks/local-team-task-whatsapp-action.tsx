@@ -90,7 +90,7 @@ export function LocalTeamTaskWhatsAppAction({ workspaceId, task, member }: Props
     <p className="local-team-wa-action__hint" role="status">
       {!member?.whatsappAutoEnabledAt
         ? 'Aviso automático desligado para este integrante. Ative em Configurações → Equipe e permissões depois de obter autorização.'
-        : !task.reminderEnabled || !task.reminderChannels.includes('whatsapp')
+        : !task.reminderEnabled || !task.reminderChannels?.includes('whatsapp')
           ? 'Automação habilitada no cadastro, mas esta tarefa precisa ter Lembretes ativados e o canal WhatsApp QR experimental marcado em Lembretes e canais.'
           : 'Automação solicitada para este colaborador e esta tarefa. O envio programado depende do Communications Gateway local conectado; confira o histórico do agendador.'}
     </p>

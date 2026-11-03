@@ -152,6 +152,14 @@ export function createLocalTaskWhatsAppScheduler({ file, send, accountFor, clock
     }
   }
 
+  const memberStatus = ({workspaceId,userId}) => {
+    if(!isId(workspaceId)||!isId(userId))throw new Error('invalid_member_identity')
+    const member=state.members[identity(workspaceId,userId)]
+    return { present:Boolean(member),active:Boolean(member?.autoEnabledAt),
+      consentRecorded:Boolean(member?.consentAt),phoneConfigured:Boolean(member?.phone),
+      updatedAt:member?.updatedAt||null }
+  }
+
   const reconcileWorkspace = ({workspaceId,taskIds}) => {
     if(!isId(workspaceId)||!Array.isArray(taskIds) || taskIds.length>10000 ||
       taskIds.some(id=>!isId(id))) throw new Error('invalid_workspace_snapshot')
@@ -212,5 +220,5 @@ export function createLocalTaskWhatsAppScheduler({ file, send, accountFor, clock
       }
     } finally { running=false }
   }
-  return { updateMember,schedule,cancel,status,reconcileWorkspace,tick }
+  return { updateMember,schedule,cancel,status,memberStatus,reconcileWorkspace,tick }
 }

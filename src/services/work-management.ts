@@ -145,6 +145,7 @@ export async function loadWorkManagement(mode: 'local' | 'supabase', workspaceId
   return {
     teams: (teams.data ?? []).map(mapTeam), memberships: (memberships.data ?? []).map(mapMembership), tasks: (tasks.data ?? []).map(mapTask),
     relations: (relations.data ?? []).map(mapRelation), checklistItems: (checklist.data ?? []).map(mapChecklist), comments: (comments.data ?? []).map(mapComment),
+    notificationIntents: [],
   }
 }
 

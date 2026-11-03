@@ -228,3 +228,33 @@ export interface WhatsAppQrStatus {
 export const startGatewayWhatsAppQr = (workspaceId: string, displayName = 'WhatsApp QR Local') => request<WhatsAppQrStatus>('/api/integrations/whatsapp/qr/start', { method: 'POST', body: JSON.stringify({ workspaceId, displayName }) })
 export const loadGatewayWhatsAppQrStatus = (workspaceId: string) => request<WhatsAppQrStatus>(`/api/integrations/whatsapp/qr/status?workspaceId=${encodeURIComponent(workspaceId)}`)
 export const disconnectGatewayWhatsAppQr = (workspaceId: string) => request<{ ok: boolean }>('/api/integrations/whatsapp/qr/disconnect', { method: 'POST', body: JSON.stringify({ workspaceId }) })
+
+export interface LocalTaskAutoMember {
+  workspaceId: string
+  userId: string
+  phone: string
+  consentAt: string | null
+  autoEnabledAt: string | null
+}
+export interface LocalTaskAutoJob {
+  id: string
+  taskId: string
+  eventType: 'assigned' | 'due_soon'
+  at: string
+  status: 'pending' | 'processing' | 'sent' | 'failed' | 'unknown' | 'cancelled' | 'blocked' | 'expired'
+  error: string | null
+}
+export const syncGatewayLocalTaskAutoMember = (member: LocalTaskAutoMember) =>
+  request<{ ok:boolean; active:boolean }>('/api/task-reminders/member',{ method:'POST',body:JSON.stringify(member) })
+export const scheduleGatewayLocalTaskAuto = (input: {
+  workspaceId:string
+  task: import('../domain/types').WorkTask
+  member: LocalTaskAutoMember | null
+  assignmentChanged:boolean
+}) => request<{ ok:boolean; scheduled:number; automaticEnabled:boolean }>('/api/task-reminders/schedule',{
+  method:'POST',body:JSON.stringify(input),
+})
+export const cancelGatewayLocalTaskAuto = (workspaceId:string,taskId:string) =>
+  request<{ ok:boolean }>('/api/task-reminders/cancel',{ method:'POST',body:JSON.stringify({workspaceId,taskId}) })
+export const loadGatewayLocalTaskAutoHistory = (workspaceId:string,taskId:string) =>
+  request<{ok:boolean;jobs:LocalTaskAutoJob[]}>('/api/task-reminders/status?workspaceId='+encodeURIComponent(workspaceId)+'&taskId='+encodeURIComponent(taskId))

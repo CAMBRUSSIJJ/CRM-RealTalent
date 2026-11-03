@@ -26,6 +26,8 @@ jobs:
       - run: npm ci --include=dev
       - name: CLI and local-only contracts
         run: node --test scripts/realtalent-ai-linux/ai-local-one-command.test.mjs
+      - name: Dirty checkout backup and recovery
+        run: node --test scripts/realtalent-ai-linux/ai-install-backup.test.mjs
       - name: Local bridge security and pairing
         run: |
           node --test scripts/realtalent-ai-linux/browser-connector.test.mjs

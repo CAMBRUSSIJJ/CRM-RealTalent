@@ -43,7 +43,20 @@ export interface NotificationOutboxResult {
  * network/server error. Each successful acknowledgement removes exactly its
  * own ID, without deleting newer intents created while awaiting the gateway.
  */
+const flushing=new Map<string,Promise<NotificationOutboxResult>>()
+
 export async function flushTaskNotificationIntents(
+  workspaceId:string,members:WorkspaceMember[],
+):Promise<NotificationOutboxResult> {
+  const existing=flushing.get(workspaceId)
+  if(existing)return existing
+  const operation=flushTaskNotificationIntentsOnce(workspaceId,members)
+  flushing.set(workspaceId,operation)
+  try {return await operation}
+  finally {if(flushing.get(workspaceId)===operation)flushing.delete(workspaceId)}
+}
+
+async function flushTaskNotificationIntentsOnce(
   workspaceId:string,members:WorkspaceMember[],
 ):Promise<NotificationOutboxResult> {
   const result:NotificationOutboxResult={
@@ -96,7 +109,7 @@ export async function flushTaskNotificationIntents(
 }
 
 export async function reconcileTaskNotificationWorkspace(
-  workspaceId:string,members:WorkspaceMember[],tasks:WorkTask[],
+  workspaceId:string,members:WorkspaceMember[],_tasks:WorkTask[],
 ) {
   for(const member of members) {
     await syncGatewayLocalTaskAutoMember({...recipientFor(workspaceId,member),reconcileOnly:true})
@@ -105,8 +118,14 @@ export async function reconcileTaskNotificationWorkspace(
   // mutations exist. That could resurrect a canceled job or delete a new one.
   const outbox=await flushTaskNotificationIntents(workspaceId,members)
   if(outbox.pending>0)return outbox
-  await reconcileGatewayLocalTaskWorkspace(workspaceId,tasks.map(task=>task.id))
-  for(const task of tasks){
+  // Always fetch the latest browser snapshot AFTER replay. The original
+  // snapshot may be stale if a task was edited during an awaited API call.
+  const fresh=await loadWorkManagement('local',workspaceId)
+  if(pendingTaskNotificationIntents(workspaceId).length>0)return {
+    ...outbox,pending:pendingTaskNotificationIntents(workspaceId).length,
+  }
+  await reconcileGatewayLocalTaskWorkspace(workspaceId,fresh.tasks.map(task=>task.id))
+  for(const task of fresh.tasks){
     const member=members.find(item=>item.userId===task.assigneeId)
     await scheduleGatewayLocalTaskAuto({
       workspaceId,task,member:member?recipientFor(workspaceId,member):null,

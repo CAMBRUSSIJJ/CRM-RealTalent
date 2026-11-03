@@ -241,7 +241,7 @@ export interface LocalTaskAutoMember {
 export interface LocalTaskAutoJob {
   id: string
   taskId: string
-  eventType: 'assigned' | 'due_soon'
+  eventType: 'assigned' | 'due_soon' | 'requested'
   at: string
   status: 'pending' | 'processing' | 'sent' | 'failed' | 'unknown' | 'cancelled' | 'blocked' | 'expired'
   error: string | null

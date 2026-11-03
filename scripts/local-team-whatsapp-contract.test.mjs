@@ -33,7 +33,7 @@ test('existing local CRM team members are updated, not recreated', () => {
 
 test('consent is revocable and not treated as verified ownership', () => {
   assert.match(editor, /setConsent\(false\)/)
-  assert.match(editor, /número não verificado|autorização registrada/)
+  assert.match(editor, /não verifica o telefone/)
   assert.match(members, /consentDeclared/)
   assert.match(taskAction, /member\?\.whatsappConsentRecordedAt/)
   assert.match(taskAction, /!confirmed \|\| attempted/)

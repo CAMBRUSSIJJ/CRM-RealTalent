@@ -68,7 +68,9 @@ const readLocal = (workspaceId: string): WorkManagementSnapshot => {
   if (!raw) return emptySnapshot()
   try {
     const parsed = JSON.parse(raw) as Partial<WorkManagementSnapshot>
-    if (!parsed || !Array.isArray(parsed.tasks)) throw new Error('invalid_tasks_snapshot')
+    if (!parsed || !Array.isArray(parsed.tasks) ||
+        (parsed.notificationIntents !== undefined && !Array.isArray(parsed.notificationIntents)))
+      throw new Error('invalid_tasks_snapshot')
     return {
       teams: Array.isArray(parsed.teams) ? parsed.teams : [],
       memberships: Array.isArray(parsed.memberships) ? parsed.memberships : [],
@@ -88,7 +90,21 @@ const writeLocal = (workspaceId: string, snapshot: WorkManagementSnapshot) => sa
 const recordNotificationIntent = (snapshot: WorkManagementSnapshot, taskId: string,
   recipientId: string | null, type: TaskNotificationIntent['type'], at: string, rearmCancelled = false) => {
   snapshot.notificationIntents ??= []
-  snapshot.notificationIntents.push({ id: createId('notice'),taskId,recipientId,type,occurredAt:at,rearmCancelled })
+  if(type==='sync'){
+    // Rapid edits may generate dozens of equivalent sync intents while
+    // offline. Replace only the last sync for this task, using a NEW ID
+    // so an in-flight acknowledgment cannot erase a newer mutation.
+    for(let i=snapshot.notificationIntents.length-1;i>=0;i--){
+      const prior=snapshot.notificationIntents[i]
+      if(prior.taskId!==taskId)continue
+      if(prior.type==='sync'){
+        snapshot.notificationIntents.splice(i,1)
+        rearmCancelled=Boolean(prior.rearmCancelled||rearmCancelled)
+      }
+      break
+    }
+  }
+  snapshot.notificationIntents.push({ id:createId('notice'),taskId,recipientId,type,occurredAt:at,rearmCancelled })
 }
 
 export const pendingTaskNotificationIntents = (workspaceId: string): TaskNotificationIntent[] =>

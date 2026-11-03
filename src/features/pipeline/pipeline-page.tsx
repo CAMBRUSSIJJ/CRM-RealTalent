@@ -36,6 +36,7 @@ import { buildDealPortfolio, type DealIntelligence } from '../../services/deal-i
 import { calculateRevenueIntelligence } from '../../services/revenue-intelligence'
 import { DealPortfolioPanel } from '../deal-intelligence/deal-portfolio-panel'
 import { DealInspectorModal } from '../deal-intelligence/deal-inspector-modal'
+import './pipeline-layout-v2.css'
 
 const INITIAL_CARDS = 30
 const DEFAULT_FILTERS: PipelineFiltersState = { query: '', stage: 'all', temperature: 'all', priority: 'all', source: 'all', due: 'all', owner: 'all', health: 'all' }
@@ -641,34 +642,10 @@ export function PipelinePage() {
     })}</div></section>
   }
 
-  return <div className={`page-stack pipeline-page pipeline-page-v1008 pipeline-page-h20 ${compact ? 'pipeline-page--compact' : ''}`}>
+  return <div className={`page-stack pipeline-page pipeline-page-v1008 pipeline-page-h20 pipeline-layout-v2 ${compact ? 'pipeline-page--compact' : ''}`}>
     <WorkspacePageHeader className="pipeline-page-header-h20" eyebrow="Execução comercial" title="Pipeline" description="Oportunidades, risco, forecast e próximas ações em um único fluxo de trabalho." icon={TrendingUp} actions={canPipelineCreate ? <Button className="pipeline-new-opportunity-v101113" onClick={() => setCreateStageId(snapshot?.stages[0]?.id ?? '')}><Plus size={17} /> Nova oportunidade</Button> : null} />
 
-    <WorkspaceSummaryStrip className="pipeline-summary-strip-h20">
-      <WorkspaceSummaryMetric label="Oportunidades" value={kpiTotals.count} meta={scope === 'mine' ? 'Minhas oportunidades ativas' : 'Negócios ativos'} icon={UsersRound} tone="brand" active={viewMode === 'board' && quickSlice === 'all' && activeSavedViewId === null} onClick={() => activateQuickSlice('all')} />
-      <WorkspaceSummaryMetric label="Valor do Pipeline" value={formatCurrency(kpiTotals.value)} meta={revenueIntelligence?.goalTarget ? `Meta ${formatCurrency(revenueIntelligence.goalTarget)}` : 'Total aberto'} icon={BarChart3} tone="brand" progress={revenueIntelligence?.goalTarget ? kpiTotals.value / revenueIntelligence.goalTarget * 100 : null} progressLabel={revenueIntelligence?.goalTarget ? `${Math.round(kpiTotals.value / revenueIntelligence.goalTarget * 100)}% da meta` : undefined} onClick={() => activateQuickSlice('all')} />
-      <WorkspaceSummaryMetric label="Forecast RealTalent" value={formatCurrency(revenueIntelligence?.realTalentForecast ?? dealPortfolio?.predictedValue ?? kpiTotals.weighted)} meta={revenueIntelligence?.goalTarget ? `Meta ${formatCurrency(revenueIntelligence.goalTarget)}` : dealPortfolio ? `Saúde média ${dealPortfolio.averageHealth}/100` : 'Previsão ponderada'} icon={TrendingUp} tone="brand" progress={revenueIntelligence?.expectedAttainment ?? null} progressLabel={revenueIntelligence?.expectedAttainment !== null && revenueIntelligence?.expectedAttainment !== undefined ? `${Math.round(revenueIntelligence.expectedAttainment)}% da meta` : undefined} active={viewMode === 'forecast'} onClick={() => { setQuickSlice('all'); setActiveSavedViewId(null); selectViewMode('forecast') }} />
-      <WorkspaceSummaryMetric label="Em risco" value={kpiTotals.risk} meta="Fila que pede atenção" icon={AlertTriangle} tone={kpiTotals.risk ? 'danger' : 'success'} active={quickSlice === 'risk'} onClick={() => activateQuickSlice('risk')} />
-      <WorkspaceSummaryMetric label="Sem próxima ação" value={kpiTotals.noAction} meta="Precisam de planejamento" icon={Clock3} tone={kpiTotals.noAction ? 'warning' : 'success'} active={quickSlice === 'no_action'} onClick={() => activateQuickSlice('no_action')} />
-    </WorkspaceSummaryStrip>
-
-    {dealPortfolio ? <section className={`pipeline-intelligence-shell ${preferences.intelligenceCollapsed ? 'is-collapsed' : ''}`} aria-label="Pipeline Intelligence">
-      <header className="pipeline-intelligence-shell__header">
-        <div className="pipeline-intelligence-shell__title"><span><Sparkles size={15} /> Pipeline Intelligence</span><strong>{preferences.intelligenceCollapsed ? 'Resumo inteligente do funil' : 'Saúde, risco e próximas melhores ações'}</strong></div>
-        <div className="pipeline-intelligence-shell__summary">
-          <span><small>Saúde</small><b>{dealPortfolio.averageHealth}/100</b></span>
-          <span><small>Em risco</small><b>{formatCurrency(dealPortfolio.atRiskValue)}</b></span>
-          <span><small>Forecast</small><b>{formatCurrency(dealPortfolio.predictedValue)}</b></span>
-          <span><small>Prioridades</small><b>{dealPortfolio.priorities.length}</b></span>
-        </div>
-        <button type="button" className="pipeline-intelligence-shell__toggle" aria-expanded={!preferences.intelligenceCollapsed} onClick={() => persistPreferences((current) => ({ ...current, intelligenceCollapsed: !current.intelligenceCollapsed }))}>
-          {preferences.intelligenceCollapsed ? <ChevronDown size={18} /> : <ChevronUp size={18} />}
-          {preferences.intelligenceCollapsed ? 'Expandir' : 'Recolher'}
-        </button>
-      </header>
-      {!preferences.intelligenceCollapsed ? <div className="pipeline-intelligence-shell__content"><DealPortfolioPanel portfolio={dealPortfolio} title="Prioridades comerciais" maxItems={4} onOpen={(deal) => setInspectingLeadId(deal.lead.id)} onExecute={runDealAction} />{totals.noAction || totals.proposalStale || totals.critical || totals.attention ? <section className="pipeline-action-center pipeline-action-center--inside-intelligence" aria-label="Prioridades comerciais"><div><AlertTriangle size={18} /><span><strong>Recortes que pedem ação</strong><small>Use um recorte para transformar o diagnóstico em fila de trabalho.</small></span></div><div>{totals.noAction ? <button type="button" onClick={() => setFilters((current) => ({ ...current, health: 'no_action' }))}>{totals.noAction} sem próxima ação</button> : null}{totals.proposalStale ? <button type="button" onClick={() => setFilters((current) => ({ ...current, health: 'proposal_stale' }))}>{totals.proposalStale} proposta(s) sem retorno</button> : null}{totals.critical ? <button type="button" onClick={() => setFilters((current) => ({ ...current, health: 'critical' }))}>{totals.critical} em risco crítico</button> : null}{totals.attention ? <button type="button" onClick={() => setFilters((current) => ({ ...current, health: 'attention' }))}>{totals.attention} pedem atenção</button> : null}</div></section> : null}</div> : null}
-    </section> : null}
-
+    <div className="pipeline-toolbar-cluster-v2">
     <WorkspaceCommandBar className="pipeline-single-action-bar-v101113 pipeline-command-bar-h20" aria-label="Centro de comando do Pipeline">
       <FilterWorkspaceViewStrip
         items={[
@@ -697,6 +674,32 @@ export function PipelinePage() {
         <details className="rt-overflow-menu"><summary aria-label="Mais ações do Pipeline" title="Mais ações"><MoreHorizontal size={18} /></summary><div className="rt-overflow-menu__panel">{canManageStages && canPipelineEdit ? <button type="button" onClick={() => setStageEditing('new')}><Plus size={17} /><span><strong>Nova etapa</strong><small>Editar estrutura do funil comercial</small></span></button> : null}</div></details>
       </div>
     </WorkspaceCommandBar>
+
+    <WorkspaceSummaryStrip className="pipeline-summary-strip-h20">
+      <WorkspaceSummaryMetric label="Oportunidades" value={kpiTotals.count} meta={scope === 'mine' ? 'Minhas oportunidades ativas' : 'Negócios ativos'} icon={UsersRound} tone="brand" active={viewMode === 'board' && quickSlice === 'all' && activeSavedViewId === null} onClick={() => activateQuickSlice('all')} />
+      <WorkspaceSummaryMetric label="Valor do Pipeline" value={formatCurrency(kpiTotals.value)} meta={revenueIntelligence?.goalTarget ? `Meta ${formatCurrency(revenueIntelligence.goalTarget)}` : 'Total aberto'} icon={BarChart3} tone="brand" progress={revenueIntelligence?.goalTarget ? kpiTotals.value / revenueIntelligence.goalTarget * 100 : null} progressLabel={revenueIntelligence?.goalTarget ? `${Math.round(kpiTotals.value / revenueIntelligence.goalTarget * 100)}% da meta` : undefined} onClick={() => activateQuickSlice('all')} />
+      <WorkspaceSummaryMetric label="Forecast RealTalent" value={formatCurrency(revenueIntelligence?.realTalentForecast ?? dealPortfolio?.predictedValue ?? kpiTotals.weighted)} meta={revenueIntelligence?.goalTarget ? `Meta ${formatCurrency(revenueIntelligence.goalTarget)}` : dealPortfolio ? `Saúde média ${dealPortfolio.averageHealth}/100` : 'Previsão ponderada'} icon={TrendingUp} tone="brand" progress={revenueIntelligence?.expectedAttainment ?? null} progressLabel={revenueIntelligence?.expectedAttainment !== null && revenueIntelligence?.expectedAttainment !== undefined ? `${Math.round(revenueIntelligence.expectedAttainment)}% da meta` : undefined} active={viewMode === 'forecast'} onClick={() => { setQuickSlice('all'); setActiveSavedViewId(null); selectViewMode('forecast') }} />
+      <WorkspaceSummaryMetric label="Em risco" value={kpiTotals.risk} meta="Fila que pede atenção" icon={AlertTriangle} tone={kpiTotals.risk ? 'danger' : 'success'} active={quickSlice === 'risk'} onClick={() => activateQuickSlice('risk')} />
+      <WorkspaceSummaryMetric label="Sem próxima ação" value={kpiTotals.noAction} meta="Precisam de planejamento" icon={Clock3} tone={kpiTotals.noAction ? 'warning' : 'success'} active={quickSlice === 'no_action'} onClick={() => activateQuickSlice('no_action')} />
+    </WorkspaceSummaryStrip>
+    </div>
+
+    {dealPortfolio ? <section className={`pipeline-intelligence-shell ${preferences.intelligenceCollapsed ? 'is-collapsed' : ''}`} aria-label="Pipeline Intelligence">
+      <header className="pipeline-intelligence-shell__header">
+        <div className="pipeline-intelligence-shell__title"><span><Sparkles size={15} /> Pipeline Intelligence</span><strong>{preferences.intelligenceCollapsed ? 'Resumo da carteira' : 'Saúde, risco e próximas melhores ações'}</strong></div>
+        <div className="pipeline-intelligence-shell__summary">
+          <span><small>Saúde</small><b>{dealPortfolio.averageHealth}/100</b></span>
+          <span><small>Em risco</small><b>{formatCurrency(dealPortfolio.atRiskValue)}</b></span>
+          <span><small>Forecast</small><b>{formatCurrency(dealPortfolio.predictedValue)}</b></span>
+          <span><small>Prioridades</small><b>{dealPortfolio.priorities.length}</b></span>
+        </div>
+        <button type="button" className="pipeline-intelligence-shell__toggle" aria-expanded={!preferences.intelligenceCollapsed} onClick={() => persistPreferences((current) => ({ ...current, intelligenceCollapsed: !current.intelligenceCollapsed }))}>
+          {preferences.intelligenceCollapsed ? <ChevronDown size={18} /> : <ChevronUp size={18} />}
+          {preferences.intelligenceCollapsed ? 'Expandir' : 'Recolher'}
+        </button>
+      </header>
+      {!preferences.intelligenceCollapsed ? <div className="pipeline-intelligence-shell__content"><DealPortfolioPanel portfolio={dealPortfolio} title="Prioridades comerciais" maxItems={4} onOpen={(deal) => setInspectingLeadId(deal.lead.id)} onExecute={runDealAction} />{totals.noAction || totals.proposalStale || totals.critical || totals.attention ? <section className="pipeline-action-center pipeline-action-center--inside-intelligence" aria-label="Prioridades comerciais"><div><AlertTriangle size={18} /><span><strong>Recortes que pedem ação</strong><small>Use um recorte para transformar o diagnóstico em fila de trabalho.</small></span></div><div>{totals.noAction ? <button type="button" onClick={() => setFilters((current) => ({ ...current, health: 'no_action' }))}>{totals.noAction} sem próxima ação</button> : null}{totals.proposalStale ? <button type="button" onClick={() => setFilters((current) => ({ ...current, health: 'proposal_stale' }))}>{totals.proposalStale} proposta(s) sem retorno</button> : null}{totals.critical ? <button type="button" onClick={() => setFilters((current) => ({ ...current, health: 'critical' }))}>{totals.critical} em risco crítico</button> : null}{totals.attention ? <button type="button" onClick={() => setFilters((current) => ({ ...current, health: 'attention' }))}>{totals.attention} pedem atenção</button> : null}</div></section> : null}</div> : null}
+    </section> : null}
 
 
     {pipelineFilterChips.length ? <div className="workspace-filter-chips-v10167 pipeline-filter-chips-v10168">{pipelineFilterChips.map((chip) => <button type="button" key={chip.key} onClick={() => clearPipelineFilter(chip.key)}>{chip.label} ×</button>)}<button className="is-clear" type="button" onClick={resetFilters}>Limpar filtros</button></div> : null}

@@ -22,9 +22,9 @@ export function createLocalTaskWhatsAppScheduler({ file, send, accountFor, clock
   state.tasks ||= {}
   state.jobs ||= []
   for (const job of state.jobs) if (job.status === 'processing') { job.status = 'unknown'; job.error = 'interrupted_after_transport_claim' }
-  // After a gateway restart, do not send using a possibly stale localStorage opt-in.
-  // The CRM must re-confirm current contact/consent in this process first.
-  const reconciledMembers = new Set()
+  // The durable gateway record is the authority for automatic sending.
+  // Browser reconciliation can discover members but cannot grant an opt-in
+  // or override a revoked/changed phone. Explicit edits are gateway-first.
   const save = () => {
     fs.mkdirSync(path.dirname(file), { recursive:true, mode:0o700 })
     const tmp = file + '.tmp'
@@ -44,9 +44,16 @@ export function createLocalTaskWhatsAppScheduler({ file, send, accountFor, clock
     const autoEnabledAt = consentAt && phone && input?.autoEnabledAt && Number.isFinite(Date.parse(input.autoEnabledAt)) ? String(input.autoEnabledAt) : null
     const key=identity(workspaceId,userId)
     const existing=state.members[key]
-    const member={workspaceId,userId,phone,consentAt,autoEnabledAt}
+    if (input?.reconcileOnly === true && existing) {
+      return { active:Boolean(existing.autoEnabledAt),phoneConfigured:Boolean(existing.phone),
+        consentRecorded:Boolean(existing.consentAt),needsExplicitSave: Boolean(autoEnabledAt && !existing.autoEnabledAt) }
+    }
+    // An old browser opt-in may not be mirrored in the durable gateway yet:
+    // never enable it during background reconciliation.
+    const member={workspaceId,userId,phone,consentAt,
+      autoEnabledAt:input?.reconcileOnly === true ? null : autoEnabledAt,
+      updatedAt:new Date(clock()).toISOString()}
     state.members[key]=member
-    reconciledMembers.add(key)
     if (!existing || existing.phone !== phone || existing.consentAt !== consentAt || existing.autoEnabledAt !== autoEnabledAt) {
       for (const job of state.jobs) {
         if (job.workspaceId === workspaceId && job.userId === userId && job.status === 'pending') {
@@ -55,7 +62,8 @@ export function createLocalTaskWhatsAppScheduler({ file, send, accountFor, clock
       }
     }
     save()
-    return { active:Boolean(autoEnabledAt),phoneConfigured:Boolean(phone),consentRecorded:Boolean(consentAt) }
+    return { active:Boolean(member.autoEnabledAt),phoneConfigured:Boolean(phone),consentRecorded:Boolean(consentAt),
+      needsExplicitSave:Boolean(input?.reconcileOnly===true && autoEnabledAt) }
   }
 
   const schedule = (input) => {
@@ -65,7 +73,8 @@ export function createLocalTaskWhatsAppScheduler({ file, send, accountFor, clock
     const userId=String(task.assigneeId||'')
     if (!isId(workspaceId)||!isId(taskId)) throw new Error('invalid_task_identity')
     if (userId && !isId(userId)) throw new Error('invalid_assignee_identity')
-    if (input.member) updateMember({ ...input.member,workspaceId })
+    // Scheduling never changes the recipient's consent/phone. Only /member
+    // with explicit confirmation can update that sensitive server-side record.
     const key=taskKey(workspaceId,taskId)
     const old=state.tasks[key]
     const data={
@@ -125,10 +134,43 @@ export function createLocalTaskWhatsAppScheduler({ file, send, accountFor, clock
     return { cancelled:true }
   }
 
-  const status = ({workspaceId,taskId}) => ({
-    jobs:state.jobs.filter(j=>j.workspaceId===workspaceId&&(!taskId||j.taskId===taskId))
-      .slice(-50).map(j=>({id:j.id,taskId:j.taskId,eventType:j.eventType,at:j.at,status:j.status,error:j.error||null})),
-  })
+  const status = ({workspaceId,taskId}) => {
+    if(!isId(workspaceId)) throw new Error('invalid_workspace_identity')
+    const records = state.jobs.filter(j=>j.workspaceId===workspaceId&&(!taskId||j.taskId===taskId))
+    const counts={pending:0,sent:0,failed:0,unknown:0,cancelled:0,expired:0,blocked:0,processing:0}
+    for(const job of records) if(Object.hasOwn(counts,job.status))counts[job.status]++
+    return {
+      counts,total:records.length,
+      lastActivityAt:records.length ? records.reduce((latest,job)=> {
+        const when=job.processedAt||job.claimedAt||job.createdAt
+        return when && (!latest||when>latest) ? when : latest
+      },null) : null,
+      jobs:records.slice(-100).map(j=>({
+        id:j.id,taskId:j.taskId,eventType:j.eventType,at:j.at,status:j.status,
+        error:j.error||null,processedAt:j.processedAt||null,
+      })),
+    }
+  }
+
+  const reconcileWorkspace = ({workspaceId,taskIds}) => {
+    if(!isId(workspaceId)||!Array.isArray(taskIds) || taskIds.length>10000 ||
+      taskIds.some(id=>!isId(id))) throw new Error('invalid_workspace_snapshot')
+    const known=new Set(taskIds)
+    let cancelled=0
+    for(const job of state.jobs) {
+      if(job.workspaceId===workspaceId&&job.status==='pending'&&!known.has(job.taskId)) {
+        job.status='cancelled'
+        job.error='removed_from_workspace_snapshot'
+        cancelled++
+      }
+    }
+    for(const key of Object.keys(state.tasks)) {
+      const task=state.tasks[key]
+      if(task.workspaceId===workspaceId&&!known.has(task.taskId))delete state.tasks[key]
+    }
+    if(cancelled)save()
+    return {cancelled,tracked:known.size}
+  }
 
   let running=false
   const tick = async () => {
@@ -147,7 +189,8 @@ export function createLocalTaskWhatsAppScheduler({ file, send, accountFor, clock
           job.status='cancelled';save();continue
         }
         if (current-Date.parse(job.at)>20*60_000){job.status='expired';save();continue}
-        if(!reconciledMembers.has(memberKey)) continue // Fail closed after restart until CRM reconciles consent.
+        // Durable opt-in already accepted by gateway; safe across restart
+        // even with the browser closed. Changes require acknowledged edits.
         // Rate-limit before any outbound call, including after a restart.
         const sentDay=state.jobs.filter(j=>j.workspaceId===job.workspaceId&&j.userId===job.userId&&j.status==='sent'&&Date.parse(j.processedAt||0)>current-24*60*60*1000).length
         if(sentDay>=20){job.status='blocked';job.error='member_daily_limit';save();continue}
@@ -169,5 +212,5 @@ export function createLocalTaskWhatsAppScheduler({ file, send, accountFor, clock
       }
     } finally { running=false }
   }
-  return { updateMember,schedule,cancel,status,tick }
+  return { updateMember,schedule,cancel,status,reconcileWorkspace,tick }
 }

@@ -1,0 +1,12 @@
+.team-notification-directory__subtitle{margin:.4rem 0 0;color:var(--text-muted,#667085);font-size:.88rem}
+.team-notification-directory__person{align-items:start;min-width:0}
+.team-notification-directory__body{display:flex;flex-direction:column;gap:.35rem;min-width:0;flex:1}
+.team-notification-directory__body>small{overflow-wrap:anywhere}
+.team-notification-directory__field{display:flex;flex-direction:column;gap:.3rem;margin-top:.45rem;min-width:0}
+.team-notification-directory__field span{font-size:.77rem;font-weight:600;color:var(--text-muted,#667085)}
+.team-notification-directory__field input{box-sizing:border-box;width:100%;max-width:350px;min-height:38px;border-radius:9px;border:1px solid var(--border,#dce2ee);background:var(--surface,#fff);color:inherit;padding:.55rem .7rem}
+.team-notification-directory__body>button{align-self:flex-start}
+.team-notification-directory__state{display:flex;align-items:center;gap:.35rem;margin-top:.4rem}
+.team-notification-directory__feedback{margin:.75rem 0 0;font-size:.85rem}
+.team-notification-directory__role{white-space:nowrap}
+@media(max-width:720px){.team-notification-directory__person{flex-wrap:wrap}.team-notification-directory__role{margin-left:auto}}

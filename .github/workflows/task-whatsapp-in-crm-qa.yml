@@ -6,6 +6,8 @@ on:
       - feat/task-reminder-whatsapp-test-inside-crm-20261102
   pull_request:
     paths:
+      - 'scripts/css_governance_audit.mjs'
+      - 'src/styles/h20-product-cohesion.css'
       - 'src/features/tasks/**'
       - 'src/services/task-reminder-whatsapp-test*'
       - '.github/workflows/task-whatsapp-in-crm-qa.yml'

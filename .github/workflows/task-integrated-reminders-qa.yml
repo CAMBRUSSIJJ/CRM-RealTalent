@@ -5,15 +5,39 @@ on:
       - feat/task-integrated-reminders-ux-20261102
   pull_request:
     paths:
+      - 'scripts/css_governance_audit.mjs'
+      - 'src/styles/h20-product-cohesion.css'
       - 'src/features/tasks/**'
+      - 'src/features/communications-automations/**'
+      - 'src/services/notifications/**'
+      - 'scripts/notifications/**'
+      - 'scripts/notification-diagnostics.test.mjs'
+      - 'src/styles/communication-*.css'
+      - 'src/services/local-communications-gateway.ts'
+      - 'src/styles/task-notification-center.css'
+      - 'scripts/local-task-whatsapp-scheduler.mjs'
+      - 'scripts/realtalent-communications-gateway.mjs'
+      - 'scripts/local-task-whatsapp-scheduler.test.mjs'
+      - 'scripts/task-notification-h11-contract.test.mjs'
+      - 'src/features/teams/**'
+      - 'src/repositories/local-workspace-member-repository.ts'
+      - 'src/features/settings/local-member-whatsapp-editor.tsx'
+      - 'src/services/team-whatsapp-directory.ts'
+      - 'scripts/local-team-whatsapp-contract.test.mjs'
+      - 'scripts/local-task-whatsapp-scheduler.mjs'
+      - 'scripts/local-task-whatsapp-scheduler.test.mjs'
+      - 'scripts/realtalent-communications-gateway.mjs'
+      - 'src/services/local-communications-gateway.ts'
       - 'src/features/settings/task-reminder-*'
       - 'src/services/work-management.ts'
       - 'src/services/task-reminder-*'
       - 'src/domain/types.ts'
       - 'supabase/migrations/*task_reminder*'
+      - 'supabase/migrations/*team_member_notification_contacts*'
       - 'supabase/functions/task-reminder-*'
       - 'src/styles/task-reminders.css'
       - 'scripts/task-reminder-ui-contract.test.mjs'
+      - 'scripts/team-notification-routing-contract.test.mjs'
 permissions:
   contents: read
 jobs:
@@ -32,6 +56,16 @@ jobs:
         run: npm ci --include=dev
       - name: UI and RLS contract
         run: node --test scripts/task-reminder-ui-contract.test.mjs
+      - name: Team contact and reminder routing contracts
+        run: node --test scripts/team-notification-routing-contract.test.mjs
+      - name: Local team phone and consent contracts
+        run: node --test scripts/local-team-whatsapp-contract.test.mjs
+      - name: Automatic local queue safety contracts
+        run: node --test scripts/local-task-whatsapp-scheduler.test.mjs
+      - name: H1.1 task persistence and notification outbox contracts
+        run: node --test scripts/task-notification-h11-contract.test.mjs
+      - name: Provider-neutral events and notification diagnostic contracts
+        run: node --test scripts/notification-diagnostics.test.mjs
       - name: Existing reminder security contracts
         run: node --test scripts/task-reminder-contract.test.mjs
       - name: CSS governance

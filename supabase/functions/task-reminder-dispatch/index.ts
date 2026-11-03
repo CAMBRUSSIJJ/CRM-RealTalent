@@ -113,14 +113,24 @@ Acesse: ${link}`
       }
 
       if (job.channel === 'whatsapp') {
-        if (!prefs?.whatsapp_enabled || !prefs.whatsapp_consented_at || !isE164(prefs.whatsapp_phone_e164 || '')) { await finish('skipped'); continue }
+        if (!prefs?.whatsapp_enabled || !prefs.whatsapp_consented_at) { await finish('skipped'); continue }
+        const { data: directory, error: directoryError } = await db.from('team_member_notification_contacts')
+          .select('phone_e164').eq('organization_id', job.organization_id).eq('user_id', job.assignee_id).maybeSingle()
+        if (directoryError) { await finish('blocked', { last_error: 'team_contact_directory_unavailable' }); continue }
+        const recipientPhone = directory?.phone_e164 || prefs.whatsapp_phone_e164 || ''
+        if (!isE164(recipientPhone)) { await finish('blocked', { last_error: 'recipient_phone_missing' }); continue }
+        // Consent is tied to the exact phone authorized by the employee.
+        // Updating a member's directory number must NOT silently authorize an unverified recipient.
+        if (recipientPhone !== prefs.whatsapp_phone_e164) {
+          await finish('blocked', { last_error: 'directory_phone_change_requires_employee_reconsent' }); continue
+        }
         const { data: verified } = await db.from('task_notification_verified_phones').select('phone_e164,verified_at')
           .eq('organization_id', job.organization_id).eq('user_id', job.assignee_id).maybeSingle()
-        if (!verified?.verified_at || verified.phone_e164 !== prefs.whatsapp_phone_e164) { await finish('blocked', { last_error: 'phone_verification_required' }); continue }
+        if (!verified?.verified_at || verified.phone_e164 !== recipientPhone) { await finish('blocked', { last_error: 'phone_verification_required' }); continue }
         const token = env('TASK_REMINDER_META_TOKEN'), phoneId = env('TASK_REMINDER_META_PHONE_ID')
         const template = env('TASK_REMINDER_META_TEMPLATE_NAME'), graphVersion = env('TASK_REMINDER_META_GRAPH_VERSION')
         if (!token || !/^\d+$/.test(phoneId) || !template || !/^v\d+\.\d+$/.test(graphVersion)) { await finish('blocked', { last_error: 'approved_whatsapp_template_or_credentials_missing' }); continue }
-        const to = verified.phone_e164.replace('+', '')
+        const to = recipientPhone.replace('+', '')
         const body = {
           messaging_product: 'whatsapp', to, type: 'template',
           template: { name: template, language: { code: 'pt_BR' }, components: [

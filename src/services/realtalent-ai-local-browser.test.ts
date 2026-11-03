@@ -2,7 +2,8 @@ import {beforeEach,describe,expect,it,vi} from 'vitest'
 
 vi.mock('../lib/env',()=>({env:{agentGatewayUrl:'/api/runtime/agent'}}))
 
-import {forgetLocalAiPairing,localAiPairingPresent,pairLocalAi,tryLocalAiBrowserRequest,getLocalAiBrowserState} from './realtalent-ai-local-browser'
+import {forgetLocalAiPairing,localAiPairingPresent,pairLocalAi,tryLocalAiBrowserRequest,getLocalAiBrowserState,
+  localAiOnlyEnabled,setLocalAiOnlyEnabled} from './realtalent-ai-local-browser'
 
 const token='a'.repeat(64)
 let memory:Map<string,string>
@@ -21,6 +22,7 @@ describe('RealTalent local browser connector',()=>{
     vi.stubGlobal('fetch',fetcher)
     expect((await pairLocalAi('654321')).ok).toBe(true)
     expect(localAiPairingPresent()).toBe(true)
+    expect(localAiOnlyEnabled()).toBe(true)
     expect(fetcher.mock.calls[0][0]).toBe('http://127.0.0.1:8798/browser/pair')
     const call=fetcher.mock.calls[0][1] as RequestInit
     expect(call.body).toBe('{"code":"654321"}')
@@ -53,4 +55,35 @@ describe('RealTalent local browser connector',()=>{
     expect(await getLocalAiBrowserState()).toBe('not_paired')
     expect(localAiPairingPresent()).toBe(false)
   })
+  it('never falls back to a paid cloud model when local-only is enabled and Linux is offline',async()=>{
+    memory.set('realtalent:ai:browser-pairing:v1',token)
+    setLocalAiOnlyEnabled(true)
+    const fetcher=vi.fn(async()=>{throw new Error('linux_offline')})
+    vi.stubGlobal('fetch',fetcher)
+    const response=await tryLocalAiBrowserRequest('/api/runtime/agent/tools/chat',{method:'POST',body:'{}'})
+    expect(response?.status).toBe(503)
+    expect((await response?.json())?.error).toBe('local_ai_offline')
+    expect(fetcher).toHaveBeenCalledTimes(1)
+    const denied=await tryLocalAiBrowserRequest('/api/runtime/agent/capabilities/execute',{method:'POST'})
+    expect(denied?.status).toBe(503)
+    expect(fetcher).toHaveBeenCalledTimes(1)
+  })
+  it('stays offline after a stale token is revoked, without quietly billing a cloud API',async()=>{
+    memory.set('realtalent:ai:browser-pairing:v1',token)
+    setLocalAiOnlyEnabled(true)
+    vi.stubGlobal('fetch',vi.fn(async()=>new Response('{}',{status:401})))
+    const first=await tryLocalAiBrowserRequest('/api/runtime/agent/tools/health')
+    expect(first?.status).toBe(503)
+    expect(localAiPairingPresent()).toBe(false)
+    expect(localAiOnlyEnabled()).toBe(true)
+    const later=await tryLocalAiBrowserRequest('/api/runtime/agent/tools/chat',{method:'POST',body:'{}'})
+    expect(later?.status).toBe(503)
+  })
+  it('can explicitly restore the prior cloud fallback when a user opts out of local-only',async()=>{
+    memory.set('realtalent:ai:browser-pairing:v1',token)
+    setLocalAiOnlyEnabled(false)
+    vi.stubGlobal('fetch',vi.fn(async()=>{throw new Error('offline')}))
+    expect(await tryLocalAiBrowserRequest('/api/runtime/agent/tools/chat',{method:'POST',body:'{}'})).toBeNull()
+  })
+
 })

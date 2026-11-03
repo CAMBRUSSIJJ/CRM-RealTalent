@@ -5,7 +5,7 @@ ROOT="$HOME/.local/share/realtalent-ai"
 CONF="$HOME/.config/realtalent-ai"
 UNITS="$HOME/.config/systemd/user"
 REPO_URL="https://github.com/CAMBRUSSIJJ/CRM-RealTalent.git"
-REPO_BRANCH="feat/realtalent-ai-persistent-cloudflare-20261031"
+REPO_BRANCH="feat/tasks-team-recipient-routing-20261102"
 
 if [[ "$(uname -s)" != Linux ]];then echo 'Este instalador é apenas para Linux.' >&2;exit 2;fi
 for bin in git curl node npm ollama systemctl;do
@@ -31,12 +31,26 @@ if [[ ! -e "$ROOT/repo/.git" ]];then
   git clone --depth 1 --single-branch --branch "$REPO_BRANCH" "$REPO_URL" "$ROOT/repo"
 else
   if [[ -n "$(git -C "$ROOT/repo" status --porcelain)" ]];then
-    echo 'ERRO: alterações locais detectadas na instalação anterior. Não sobrescreverei arquivos.'
-    echo "Verifique: git -C $ROOT/repo status --short"
-    exit 2
+    # The Agent can generate files in its own checkout. Never use reset --hard
+    # or clean -fd: keep the entire previous installation, including any
+    # manual edits and untracked files, available for recovery.
+    BACKUP="$ROOT/repo-backup-$(date -u +%Y%m%dT%H%M%SZ)-$"
+    echo 'Alterações locais encontradas; preservando a instalação anterior inteira.'
+    mv -- "$ROOT/repo" "$BACKUP"
+    if ! git clone --depth 1 --single-branch --branch "$REPO_BRANCH" "$REPO_URL" "$ROOT/repo";then
+      echo 'Falha no download do repositório. Restaurando a instalação anterior.' >&2
+      if [[ -e "$ROOT/repo" ]];then
+        mv -- "$ROOT/repo" "$ROOT/repo-download-incompleto-$(date -u +%Y%m%dT%H%M%SZ)-$"
+      fi
+      mv -- "$BACKUP" "$ROOT/repo"
+      exit 2
+    fi
+    echo "Backup preservado em: $BACKUP"
+  else
+    echo 'Atualizando o conector para a branch atual do RealTalent...'
+    git -C "$ROOT/repo" fetch origin "$REPO_BRANCH"
+    git -C "$ROOT/repo" switch -C "$REPO_BRANCH" FETCH_HEAD
   fi
-  echo 'Atualizando código do conector local RealTalent sem sobrescrever alterações...'
-  git -C "$ROOT/repo" pull --ff-only origin "$REPO_BRANCH"
 fi
 if [[ ! -f "$ROOT/repo/runtime-host/RealTalent-Agent-Runtime-V3.1.2/gateway-ollama.mjs" ]];then
   echo 'ERRO: Agent Runtime não encontrado no repositório.' >&2;exit 2
@@ -50,6 +64,9 @@ BRIDGE_SRC="$ROOT/repo/scripts/realtalent-ai-linux/secure-bridge.mjs"
 install -m 600 "$BRIDGE_SRC" "$ROOT/secure-bridge.mjs"
 install -m 600 "$ROOT/repo/scripts/realtalent-ai-linux/browser-connector.mjs" "$ROOT/browser-connector.mjs"
 install -m 600 "$ROOT/repo/scripts/realtalent-ai-linux/pair-local.mjs" "$ROOT/pair-local.mjs"
+install -m 700 "$ROOT/repo/scripts/realtalent-ai-linux/ativar-ia-no-crm.sh" "$ROOT/ativar-ia-no-crm.sh"
+mkdir -p "$HOME/.local/bin"
+ln -sfn "$ROOT/ativar-ia-no-crm.sh" "$HOME/.local/bin/realtalent-ia"
 
 ENV="$CONF/agent.env"
 if [[ ! -s "$ENV" ]];then
@@ -180,8 +197,10 @@ fi
 systemctl --user enable --now realtalent-ai-agent.service realtalent-ai-bridge.service realtalent-ai-watchdog.timer
 # Existing active units must restart to load the updated browser connector.
 systemctl --user restart realtalent-ai-agent.service realtalent-ai-bridge.service
-if [[ -s "$CONF/tunnel.token" ]] && command -v cloudflared >/dev/null 2>&1;then
-  systemctl --user enable --now realtalent-ai-tunnel.service
+# No new network exposure in local-only setup. The optional Cloudflare
+# tunnel remains off unless it was already explicitly configured by the user.
+if [[ -s "$CONF/tunnel.token" ]] && systemctl --user is-active --quiet realtalent-ai-tunnel.service;then
+  echo 'Aviso: existe um túnel Cloudflare anterior ativo. O conector local não precisa dele.'
 fi
 if command -v loginctl >/dev/null 2>&1 && ! loginctl show-user "$USER" -p Linger 2>/dev/null | grep -q 'Linger=yes';then
   echo 'Serviços iniciam ao entrar no Linux. Para iniciar também antes de fazer login, execute:'
@@ -204,5 +223,8 @@ echo
 echo 'Pronto. Agent e bridge funcionam sem manter o terminal aberto.'
 echo 'Para parear o Firefox/CRM local (válido por 5 min):'
 echo "  node $ROOT/pair-local.mjs"
-echo 'Cloudflare Access, domínio e variáveis Vercel ainda precisam ser configurados.'
+echo 'O CRM na Vercel pode usar o conector local neste mesmo computador, sem Cloudflare Tunnel.'
+echo 'Ollama permanece restrito a 127.0.0.1; nenhuma API paga foi ativada.'
+echo 'Para os próximos dias, basta executar:'
+echo '  ~/.local/bin/realtalent-ia'
 echo 'Logs: journalctl --user -u realtalent-ai-agent -u realtalent-ai-bridge -n 40 --no-pager'

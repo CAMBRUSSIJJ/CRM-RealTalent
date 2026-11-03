@@ -15,6 +15,7 @@ import { useExperience } from '../../features/experience/experience-context'
 import { buildNotificationAlerts } from '../../services/notification-engine'
 import { NOTIFICATION_STATE_EVENT } from '../../services/notification-state'
 import { globalSearchKindLabel, searchWorkspace, type GlobalSearchResult } from '../../services/global-search'
+import { GlobalSearchPopover } from './global-search-popover'
 
 const AssistantDrawer = lazy(() => import('../../features/assistant/assistant-drawer').then((module) => ({ default: module.AssistantDrawer })))
 
@@ -28,6 +29,8 @@ export function Topbar() {
   const [search, setSearch] = useState('')
   const [searchFocused, setSearchFocused] = useState(false)
   const searchInputRef = useRef<HTMLInputElement>(null)
+  const searchWrapRef = useRef<HTMLDivElement>(null)
+  const [highlightedResult, setHighlightedResult] = useState(0)
   const [helpOpen, setHelpOpen] = useState(false)
   const [customizationOpen, setCustomizationOpen] = useState(false)
   const [notificationsOpen, setNotificationsOpen] = useState(false)
@@ -92,6 +95,7 @@ export function Topbar() {
     }
     return groups
   }, [searchResults])
+  const flatSearchResults = groupedSearchResults.flatMap((group) => group.items)
   const openSearchResult = (result: GlobalSearchResult) => {
     if (result.kind === 'lead') {
       const lead = snapshot?.leads.find((item) => `lead:${item.id}` === result.id)
@@ -107,23 +111,44 @@ export function Topbar() {
       <header className="topbar global-appbar-v10162">
         <div className="global-appbar-v10162__inner">
           <div className="global-appbar-v10162__left">
-            <div className="global-search-wrap">
+            <div className="global-search-wrap" ref={searchWrapRef}>
               <label className={`global-search ${searchFocused ? 'is-focused' : ''}`}>
                 <Search size={17} />
-                <Input ref={searchInputRef} value={search} onFocus={() => setSearchFocused(true)} onBlur={() => window.setTimeout(() => setSearchFocused(false), 150)} onChange={(event) => setSearch(event.target.value)} onKeyDown={(event) => { if (event.key === 'Enter' && searchResults[0]) { event.preventDefault(); openSearchResult(searchResults[0]) } }} placeholder="Encontrar no RealTalent · Ctrl/⌘ K" aria-label="Busca global no CRM" aria-expanded={searchFocused && Boolean(search.trim())} aria-controls="global-search-results" />
+                <Input ref={searchInputRef} value={search} role="combobox" aria-autocomplete="list" aria-haspopup="listbox"
+                  onFocus={() => setSearchFocused(true)}
+                  onBlur={() => window.setTimeout(() => setSearchFocused(false), 150)}
+                  onChange={(event) => { setSearch(event.target.value); setHighlightedResult(0) }}
+                  onKeyDown={(event) => {
+                    if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+                      if (!flatSearchResults.length) return
+                      event.preventDefault()
+                      setHighlightedResult((index) => (index + (event.key === 'ArrowDown' ? 1 : -1) + flatSearchResults.length) % flatSearchResults.length)
+                    } else if (event.key === 'Enter' && flatSearchResults.length) {
+                      event.preventDefault()
+                      openSearchResult(flatSearchResults[Math.min(highlightedResult, flatSearchResults.length - 1)])
+                    } else if (event.key === 'Escape') {
+                      event.preventDefault()
+                      setSearchFocused(false)
+                      searchInputRef.current?.blur()
+                    }
+                  }}
+                  placeholder="Encontrar no RealTalent · Ctrl/⌘ K"
+                  aria-label="Busca global no CRM"
+                  aria-expanded={searchFocused && Boolean(search.trim())}
+                  aria-controls="global-search-results"
+                  aria-activedescendant={searchFocused && flatSearchResults.length ? 'rt-global-find-result-' + Math.min(highlightedResult, flatSearchResults.length - 1) : undefined} />
                 {search ? <span>{searchResults.length}</span> : null}
               </label>
-              {searchFocused && search.trim() ? <div className="global-search-results global-search-results--v10173" id="global-search-results" role="listbox" aria-label="Resultados da busca global">
-                <div className="global-search-results__heading"><div><strong>Busca global</strong><small>Contatos, oportunidades, propostas e módulos</small></div><span>{searchResults.length ? `${searchResults.length} resultado${searchResults.length === 1 ? '' : 's'}` : 'Nenhum resultado'}</span></div>
-                {groupedSearchResults.length ? groupedSearchResults.map((group) => <section className="global-search-results__group" key={group.key} aria-label={group.label}>
-                  <div className="global-search-results__group-label"><span>{group.label}</span><b>{group.items.length}</b></div>
-                  {group.items.map((result) => <button type="button" role="option" aria-selected="false" key={result.id} onMouseDown={(event) => event.preventDefault()} onClick={() => openSearchResult(result)}>
-                    <span className="global-search-results__kind">{globalSearchKindLabel[result.kind]}</span>
-                    <span><strong>{result.title}</strong><small>{result.subtitle}</small></span>
-                  </button>)}
-                </section>) : <div className="global-search-results__empty"><Search size={20}/><strong>Nenhum resultado para “{search.trim()}”</strong><span>Tente nome, empresa, telefone, proposta ou o nome de um módulo.</span></div>}
-                <div className="global-search-results__footer"><span><kbd>Enter</kbd> abre o primeiro resultado</span><button className="global-search-results__all" type="button" onMouseDown={(event) => event.preventDefault()} onClick={() => { setRoute('leads'); setSearchFocused(false); setSearch('') }}>Abrir contatos</button></div>
-              </div> : null}
+              {searchFocused && search.trim() ? <GlobalSearchPopover
+                anchorRef={searchWrapRef}
+                query={search}
+                groups={groupedSearchResults}
+                total={searchResults.length}
+                activeIndex={highlightedResult}
+                onOpen={openSearchResult}
+                onClose={() => setSearchFocused(false)}
+                onAllContacts={() => { setRoute('leads'); setSearchFocused(false); setSearch('') }}
+              /> : null}
             </div>
             <button className="global-appbar-v10162__assistant" type="button" onClick={openAssistant} title="RealTalent Assistant · Ctrl/⌘ + J"><Sparkles size={16} /><span>RealTalent Assistant</span></button>
           </div>

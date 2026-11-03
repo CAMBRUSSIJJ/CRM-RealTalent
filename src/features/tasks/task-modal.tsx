@@ -6,6 +6,8 @@ import { Modal } from '../../components/ui/modal'
 import type { TaskChecklistItem, TaskRelation, TaskRelationEntity, TaskStatus, TaskPriority, Team, TeamMembership, WorkTask, WorkspaceMember, WorkspaceSnapshot } from '../../domain/types'
 import type { TaskInput } from '../../services/work-management'
 import { TaskReminderEditor, draftTaskReminders, defaultTaskReminders, type TaskReminderDraft } from './task-reminder-editor'
+import { LocalTeamTaskWhatsAppAction } from './local-team-task-whatsapp-action'
+import '../../styles/local-team-whatsapp-action.css'
 
 interface Props {
   open: boolean
@@ -165,15 +167,38 @@ export function TaskModal({ open, task, relation, checklist, teams, memberships,
         </div>
         {(selectedTeam || selectedMember) ? <div className="work-assignment-summary"><span className="work-assignment-summary__team"><UsersRound size={15}/>{selectedTeam?.name ?? 'Sem equipe'}</span><span className="work-assignment-summary__person"><UserRound size={15}/>{selectedMember?.displayName ?? 'Sem responsável'}</span></div> : null}
       </section>
+      {repositoryMode === 'local' && selectedMember ? (
+        task && task.assigneeId === assigneeId && task.status === status
+          ? <LocalTeamTaskWhatsAppAction workspaceId={workspaceId} task={task} member={selectedMember} />
+          : <section className="work-form-section local-team-wa-action local-team-wa-action--save-first" aria-label="WhatsApp do responsável">
+              <header><UserRound size={18}/><div><strong>WhatsApp de {selectedMember.displayName}</strong>
+                <small>{selectedMember.whatsappPhone
+                  ? `Número cadastrado em Equipes: •••• ${selectedMember.whatsappPhone.slice(-4)}`
+                  : 'Sem telefone cadastrado em Configurações → Equipe e permissões.'}</small>
+              </div></header>
+              <p className="local-team-wa-action__hint" role="status">
+                {selectedMember.whatsappAutoEnabledAt && reminders.enabled && reminders.onAssignment
+                  ? 'Ao salvar, o RealTalent programa automaticamente um aviso de atribuição para este colaborador. Não é preciso escolher o WhatsApp em Lembretes e canais. O gateway precisa estar ativo para executar o envio.'
+                  : selectedMember.whatsappAutoEnabledAt
+                    ? 'A automação do colaborador está habilitada, mas o aviso de atribuição foi desligado nesta tarefa. Ative os lembretes e a opção “Ao atribuir a tarefa”.'
+                    : 'O WhatsApp automático está desligado para este colaborador. Cadastre a autorização e ative uma única vez em Configurações → Equipe e permissões.'}
+              </p>
+            </section>
+      ) : null}
 
       <section className="work-form-section"><header><CalendarClock size={18}/><div><strong>Prazo</strong><small>Datas vencidas entram automaticamente na visão Atrasadas.</small></div></header>
         <div className="form-grid"><label className="form-field"><span>Prazo</span><input type="datetime-local" value={dueAt} onChange={(event) => setDueAt(event.target.value)} /></label><label className="form-field"><span>Tags</span><input value={tags} onChange={(event) => setTags(event.target.value)} placeholder="proposta, retorno, urgente" /></label></div>
       </section>
 
       {reminderError ? <p role="alert" className="task-reminders__notice">{reminderError}</p> : null}
-      <TaskReminderEditor value={reminders} onChange={setReminders} taskId={task?.id ?? null}
-        workspaceId={workspaceId} repositoryMode={repositoryMode} assigneeId={assigneeId} dueAt={dueAt}
-        status={status} open={open} />
+      <details className="work-task-reminder-disclosure" key={repositoryMode} open={repositoryMode === 'supabase' ? true : undefined}>
+        <summary>{repositoryMode === 'local'
+          ? 'Lembretes e canais · WhatsApp QR experimental (configurar)'
+          : 'Notificações e lembretes'}</summary>
+        <TaskReminderEditor value={reminders} onChange={setReminders} taskId={task?.id ?? null}
+          workspaceId={workspaceId} repositoryMode={repositoryMode} assigneeId={assigneeId} assigneeName={selectedMember?.displayName ?? null} dueAt={dueAt}
+          status={status} open={open} />
+      </details>
 
       <section className="work-form-section"><header><Link2 size={18}/><div><strong>Relacionar ao CRM</strong><small>Conecte a tarefa a um contato, empresa, oportunidade, pipeline, playbook ou reunião.</small></div></header>
         <div className="form-grid"><label className="form-field"><span>Tipo</span><NativeSelectionSelect value={relationType} onChange={(event) => { setRelationType(event.target.value as TaskRelationEntity); setRelationId('') }}><option value="contact">Contato</option><option value="company">Empresa</option><option value="opportunity">Oportunidade</option><option value="lead">Registro comercial</option><option value="pipeline">Etapa do Pipeline</option><option value="playbook">Playbook</option><option value="meeting">Reunião</option></NativeSelectionSelect></label>

@@ -7,7 +7,8 @@ import {listRealTalentAiAudit,clearRealTalentAiAudit} from '../../services/realt
 import {buildRealTalentAiContext} from '../../services/realtalent-ai-context'
 import {REALTALENT_AI_TOOLS} from '../../services/realtalent-ai-tools'
 import {getAgentRuntimeHealth,type AgentRuntimeHealth} from '../../services/realtalent-agent-v56-health'
-import {pairLocalAi,localAiPairingPresent,forgetLocalAiPairing,getLocalAiBrowserState,type LocalAiBrowserState} from '../../services/realtalent-ai-local-browser'
+import {pairLocalAi,localAiPairingPresent,forgetLocalAiPairing,getLocalAiBrowserState,
+  localAiOnlyEnabled,setLocalAiOnlyEnabled,type LocalAiBrowserState} from '../../services/realtalent-ai-local-browser'
 
 export function RealTalentAiPanel(){
   const {snapshot,currentWorkspace}=useAppWorkspace()
@@ -21,6 +22,7 @@ export function RealTalentAiPanel(){
   const [pairMessage,setPairMessage]=useState('')
   const [pairedLocal,setPairedLocal]=useState(()=>localAiPairingPresent())
   const [localConnectivity,setLocalConnectivity]=useState<LocalAiBrowserState>('not_paired')
+  const [localOnly,setLocalOnly]=useState(()=>localAiOnlyEnabled())
   const connectLocal=async()=>{
     setPairBusy(true)
     try{
@@ -28,6 +30,7 @@ export function RealTalentAiPanel(){
       setPairMessage(result.message)
       setPairedLocal(localAiPairingPresent())
       if(result.ok){
+        setLocalOnly(localAiOnlyEnabled())
         setPairCode('')
         setLocalConnectivity(await getLocalAiBrowserState())
         await checkRuntime()
@@ -120,6 +123,21 @@ export function RealTalentAiPanel(){
           <Button variant="secondary" onClick={disconnectLocal}>Desconectar deste navegador</Button>}
         {pairMessage?<small role="status">{pairMessage}</small>:null}
       </div>
+      <label style={{display:'flex',alignItems:'flex-start',gap:10,marginTop:12,lineHeight:1.5}}>
+        <input type="checkbox" checked={localOnly} onChange={event=>{
+          const enabled=event.target.checked
+          setLocalAiOnlyEnabled(enabled)
+          setLocalOnly(enabled)
+        }} aria-label="Usar somente IA local sem fallback pago"/>
+        <span><strong>Usar somente IA local (sem consumo de API paga)</strong><br/>
+          <small>Recomendado durante os testes. Se o Linux estiver desligado, o chat informará a indisponibilidade
+          em vez de enviar solicitações a uma IA em nuvem.</small>
+        </span>
+      </label>
+      <p style={{fontSize:12,marginTop:10}}>
+        Para iniciar no Linux: <code>~/.local/bin/realtalent-ia</code>. O código de pareamento
+        é necessário apenas neste navegador ou quando a sessão expirar.
+      </p>
     </section>
 
     <section className="panel rt-ai-s3__section">

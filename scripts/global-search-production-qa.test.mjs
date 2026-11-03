@@ -1,0 +1,46 @@
+import test from 'node:test'
+import assert from 'node:assert/strict'
+import {readFileSync} from 'node:fs'
+
+const read = filename => readFileSync(filename,'utf8')
+const topbar = read('src/components/layout/topbar.tsx')
+const portal = read('src/components/layout/global-search-popover.tsx')
+const css = read('src/styles/h20-product-cohesion.css')
+const main = read('src/main.tsx')
+
+test('search results rendered outside fixed/sidebar shell, in an isolated body portal',()=>{
+  assert.match(portal,/createPortal\(/)
+  assert.match(portal,/document\.body/)
+  assert.match(portal,/getBoundingClientRect\(\)/)
+  assert.match(portal,/window\.addEventListener\('resize'/)
+  assert.match(portal,/window\.addEventListener\('scroll'/)
+  assert.match(portal,/document\.addEventListener\('pointerdown'/)
+  assert.match(portal,/role="listbox"/)
+  assert.match(portal,/role="option"/)
+  assert.doesNotMatch(topbar,/global-search-results--v10173/)
+  assert.match(topbar,/GlobalSearchPopover/)
+})
+test('global find handles keyboard, focus and direct navigation',()=>{
+  assert.match(topbar,/role="combobox"/)
+  assert.match(topbar,/aria-expanded=/)
+  assert.match(topbar,/aria-activedescendant=/)
+  assert.match(topbar,/event\.key === 'ArrowDown'/)
+  assert.match(topbar,/event\.key === 'ArrowUp'/)
+  assert.match(topbar,/event\.key === 'Enter'/)
+  assert.match(topbar,/event\.key === 'Escape'/)
+  assert.match(portal,/onMouseDown=\{event => event\.preventDefault\(\)\}/)
+  assert.match(portal,/onClick=\{\(\) => onOpen\(result\)\}/)
+})
+test('layout has bounded height, legible text, resilient width and loads after legacy CSS',()=>{
+  assert.match(css,/position: fixed/)
+  assert.match(css,/z-index: 9200/)
+  assert.match(css,/max-height: min\(440px/)
+  assert.match(css,/overflow: auto/)
+  assert.match(css,/grid-template-columns: minmax/)
+  assert.match(css,/text-overflow: ellipsis/)
+  assert.match(css,/@media \(max-width: 600px\)/)
+  assert.match(css,/html\[data-theme="dark"\]/)
+  const imports=[...main.matchAll(/import ['"]\.\/styles\/([^'"]+\.css)['"]/g)].map(x=>x[1])
+  assert.equal(imports.at(-1),'h20-product-cohesion.css')
+  assert.match(css,/consolidated runtime source: global-search-popover\.css/)
+})

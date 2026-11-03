@@ -20,7 +20,9 @@ test('queue and verified phone records are inaccessible to browser roles', () =>
 test('recipient opts in before WhatsApp can be delivered', () => {
   assert.match(worker,/whatsapp_consented_at/)
   assert.match(worker,/task_notification_verified_phones/)
-  assert.match(worker,/verified\.phone_e164 !== prefs\.whatsapp_phone_e164/)
+  assert.match(worker,/verified\.phone_e164 !== recipientPhone/)
+  assert.match(worker,/recipientPhone !== prefs\.whatsapp_phone_e164/)
+  assert.match(worker,/directory_phone_change_requires_employee_reconsent/)
   assert.match(worker,/type: 'template'/)
   assert.match(ui,/Autorizo o RealTalent/)
   assert.doesNotMatch(ui,/META_TOKEN|SERVICE_ROLE_KEY/)

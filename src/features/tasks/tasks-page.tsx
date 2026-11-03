@@ -166,7 +166,6 @@ export function TasksPage() {
           if(status!=='completed'&&status!=='cancelled') {
             const fresh=(await loadWorkManagement('local',workspaceId)).tasks.find(item=>item.id===task.id)
             if(fresh) {
-              const member=members.find(item=>item.userId===fresh.assigneeId)
               await publishTaskNotificationEvent({
                 type:'task.updated',workspaceId,entityId:fresh.id,recipientId:fresh.assigneeId||'',
               },fresh,members)

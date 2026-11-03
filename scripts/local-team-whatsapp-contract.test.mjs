@@ -31,28 +31,26 @@ test('existing local CRM team members are updated, not recreated', () => {
   assert.match(settings, /whatsappPhone: localMemberPhone/)
 })
 
-test('consent is revocable and not treated as verified ownership', () => {
-  assert.match(editor, /setConsent\(false\)/)
+test('consent revocation remains controlled by the team editor', () => {
+  assert.match(editor, /setConsent\\(false\\)/)
   assert.match(editor, /não verifica o telefone/)
   assert.match(members, /consentDeclared/)
-  assert.match(taskAction, /member\?\.whatsappConsentRecordedAt/)
-  assert.match(taskAction, /!confirmed \|\| attempted/)
-  assert.match(taskAction, /normalizeTaskTestPhone\(current\.senderPhone\) === to/)
+  assert.match(taskAction, /diagnoseGatewayLocalTaskNotification/)
+  assert.match(taskAction, /requestGatewayLocalTaskNotice/)
+  assert.match(taskAction, /confirmAction/)
 })
 
-test('task editor uses assigned local team member and requires a real manual send', () => {
+test('task editor publishes through the shared queue instead of a second QR sender', () => {
   assert.match(taskModal, /<LocalTeamTaskWhatsAppAction/)
-  assert.match(taskAction, /member\.userId === task\.assigneeId/)
-  assert.match(taskAction, /task\.workspaceId === workspaceId/)
-  assert.match(taskAction, /checkTaskWhatsAppTestConnection\(workspaceId\)/)
-  assert.match(taskAction, /safeStorage\.setItem\(key/)
-  assert.match(taskAction, /idempotencyKey:/)
-  assert.match(taskAction, /Não ativa lembretes automáticos/)
+  assert.match(taskAction, /workspaceId,task.id/)
+  assert.match(taskAction, /confirmAction/)
+  assert.doesNotMatch(taskAction, /sendGatewayCommunication/)
+  assert.match(taskAction, /teste manual de conexão continua disponível/i)
 })
 
 test('automatic QR requires an explicit independent member switch',()=>{
   assert.match(editor,/setAutomatic\(/)
   assert.match(editor,/syncGatewayLocalTaskAutoMember/)
   assert.match(members,/member\.whatsappAutoEnabledAt =/)
-  assert.match(taskAction,/member\?\.whatsappAutoEnabledAt/)
+  assert.match(taskAction,/diagnostic\\?\\.canRequest/)
 })

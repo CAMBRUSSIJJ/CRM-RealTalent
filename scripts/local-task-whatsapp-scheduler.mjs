@@ -209,7 +209,8 @@ export function createLocalTaskWhatsAppScheduler({ file, send, accountFor, clock
     // clicking, browser retries and gateway restarts from sending duplicates.
     const id=hash('requested-once|'+workspaceId+'|'+taskId+'|'+task.userId)
     if(state.jobs.some(j=>j.id===id))throw Object.assign(new Error('notification_already_requested'),{statusCode:409})
-    taskNotificationEvent(task,workspaceId,'task.reminder_requested',new Date(now).toISOString())
+    taskNotificationEvent({ id:task.taskId,assigneeId:task.userId,title:task.title,dueAt:task.dueAt },
+      workspaceId,'task.reminder_requested',new Date(now).toISOString())
     state.jobs.push({
       id,workspaceId,taskId,userId:task.userId,eventType:'requested',
       at:new Date(now+8_000).toISOString(),dueAt:task.dueAt,title:task.title,

@@ -38,7 +38,7 @@ const PUBLIC_APP_URL = String(process.env.REALTALENT_PUBLIC_APP_URL || '').trim(
 const EXTRA_ALLOWED_HOSTS = String(process.env.REALTALENT_COMMUNICATIONS_ALLOWED_HOSTS || '').split(',').map((value) => value.trim().toLowerCase()).filter(Boolean)
 const INTERNAL_ALLOWED_ORIGINS = new Set([`http://127.0.0.1:${CRM_PORT}`, `http://localhost:${CRM_PORT}`, 'http://127.0.0.1:4173', 'http://localhost:4173', 'http://127.0.0.1:4174', 'http://localhost:4174'])
 // historical marker: const VERSION = '101.8.4-h10'
-const VERSION = '101.8.4-h16'
+const VERSION = '101.8.4-h17'
 // Allows the Linux launcher to detect a healthy but stale Communications process.
 const WHATSAPP_SEND_RETURN_REVISION = 'msgkey-dollar1-20261102'
 let shuttingDown = false
@@ -277,10 +277,11 @@ const localTaskAuto = createLocalTaskWhatsAppScheduler({
       throw new Error('qr_disconnected')
     const s=store(),account=accountById(s,job.workspaceId,liveAccount.id)
     if(!account || account.metadata?.transport!=='qr')throw new Error('qr_account_not_found')
-    const qr = whatsappQr.status(job.workspaceId)
-    const senderDigits = String(qr.phone||'').replace(/\D/g,'')
+    // WhatsApp QR supports the same self-chat transport used by the
+    // explicit Configurações test; do not block a teammate whose saved
+    // destination is the connected WhatsApp itself. Consent and explicit
+    // employee opt-in are still enforced by the durable scheduler.
     const recipientDigits = String(job.phone).replace(/\D/g,'')
-    if(senderDigits && senderDigits===recipientDigits) throw new Error('sender_is_recipient')
     const input={
       workspaceId:job.workspaceId,accountId:account.id,channel:'whatsapp',
       recipient:recipientDigits,body:[

@@ -55,6 +55,7 @@ export const updateLocalWorkspaceMemberWhatsApp = (
   userId: string,
   rawPhone: string,
   consentDeclared: boolean,
+  automaticRequested = false,
 ): WorkspaceMember => {
   const db = readDatabase()
   const member = db.members.find(item => item.workspaceId === workspaceId && item.userId === userId)
@@ -68,6 +69,9 @@ export const updateLocalWorkspaceMemberWhatsApp = (
   // explicitly record *new* consent, but this is never OTP verification.
   member.whatsappConsentRecordedAt = phone && consentDeclared
     ? (priorPhone === phone && member.whatsappConsentRecordedAt ? member.whatsappConsentRecordedAt : new Date().toISOString())
+    : null
+  member.whatsappAutoEnabledAt = member.whatsappConsentRecordedAt && automaticRequested
+    ? (priorPhone === phone && member.whatsappAutoEnabledAt ? member.whatsappAutoEnabledAt : new Date().toISOString())
     : null
   writeDatabase(db)
   return clone(member)

@@ -187,7 +187,7 @@ export function TaskModal({ open, task, relation, checklist, teams, memberships,
       {reminderError ? <p role="alert" className="task-reminders__notice">{reminderError}</p> : null}
       <details className="work-task-reminder-disclosure" key={repositoryMode} open={repositoryMode === 'supabase' ? true : undefined}>
         <summary>{repositoryMode === 'local'
-          ? 'Lembretes automáticos — indisponíveis no modo local (ver opções)'
+          ? 'Lembretes e canais · WhatsApp QR experimental (configurar)'
           : 'Notificações e lembretes'}</summary>
         <TaskReminderEditor value={reminders} onChange={setReminders} taskId={task?.id ?? null}
           workspaceId={workspaceId} repositoryMode={repositoryMode} assigneeId={assigneeId} assigneeName={selectedMember?.displayName ?? null} dueAt={dueAt}

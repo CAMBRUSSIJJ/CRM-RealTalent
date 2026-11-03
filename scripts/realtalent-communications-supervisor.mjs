@@ -16,7 +16,7 @@ let healthTimer = null
 const gatewayPort = Number(process.env.REALTALENT_COMMUNICATIONS_PORT || 3002)
 const gatewayHost = process.env.REALTALENT_COMMUNICATIONS_HOST || '127.0.0.1'
 const runtimeToken = String(process.env.REALTALENT_RUNTIME_TOKEN || '').trim()
-const expectedVersion = String(process.env.REALTALENT_COMMUNICATIONS_EXPECTED_VERSION || '101.8.4-h13')
+const expectedVersion = String(process.env.REALTALENT_COMMUNICATIONS_EXPECTED_VERSION || '101.8.4-h14')
 
 function log(message) {
   process.stdout.write(`[communications-supervisor] ${new Date().toISOString()} ${message}\n`)

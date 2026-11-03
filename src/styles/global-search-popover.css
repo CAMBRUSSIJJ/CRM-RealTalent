@@ -1,0 +1,154 @@
+/* RealTalent Global Search — H1 compact overlay, isolated from shell geometry.
+   This renders at document.body via React portal so no transformed panel or
+   inherited layout can clip its text below the fixed sidebar. */
+body .rt-global-find {
+  position: fixed;
+  z-index: 9200;
+  box-sizing: border-box;
+  max-width: calc(100vw - 24px);
+  max-height: min(440px, calc(100dvh - 92px));
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  padding: 6px;
+  overflow: hidden;
+  color: #183152;
+  background: #fff;
+  border: 1px solid #dbe5f0;
+  border-radius: 14px;
+  box-shadow: 0 16px 48px rgba(15, 35, 72, .18), 0 3px 12px rgba(15,35,72,.07);
+  font: 400 13px/1.4 inherit;
+  text-align: left;
+  isolation: isolate;
+}
+.rt-global-find *, .rt-global-find *::before, .rt-global-find *::after {
+  box-sizing: border-box;
+}
+.rt-global-find__heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+  flex: 0 0 auto;
+  padding: 10px 11px 11px;
+  border-bottom: 1px solid #e7edf4;
+}
+.rt-global-find__heading > div { min-width: 0; display: grid; gap: 1px; }
+.rt-global-find__heading strong { font-size: 13px; font-weight: 750; color: #193456; }
+.rt-global-find__heading small { color: #65758c; font-size: 11px; }
+.rt-global-find__heading > span { color: #526981; font-size: 11px; white-space: nowrap; }
+.rt-global-find__content { min-height: 0; overflow: auto; overscroll-behavior: contain; }
+.rt-global-find__group { display: block; padding: 5px 0; border-bottom: 1px solid #e7edf4; }
+.rt-global-find__group:last-of-type { border-bottom: 0; }
+.rt-global-find__group-heading {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 10px; min-height: 26px; padding: 4px 11px;
+  color: #65758c; font-size: 10px; font-weight: 750; letter-spacing: .025em;
+}
+.rt-global-find__group-heading b {
+  min-width: 20px; display: grid; place-items: center; border-radius: 999px;
+  padding: 2px 6px; font-size: 10px; background: #eff4fb; color: #456382;
+}
+body .rt-global-find__option {
+  width: 100%;
+  min-width: 0;
+  min-height: 48px;
+  margin: 0;
+  padding: 7px 10px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: #183152;
+  display: grid;
+  grid-template-columns: minmax(62px, 88px) minmax(0, 1fr);
+  align-items: center;
+  gap: 12px;
+  text-align: left;
+  line-height: 1.3;
+  cursor: pointer;
+  box-shadow: none;
+  transform: none;
+  position: relative;
+  left: auto;
+  right: auto;
+  text-indent: 0;
+  white-space: normal;
+}
+body .rt-global-find__option:hover,
+body .rt-global-find__option.is-active,
+body .rt-global-find__option:focus-visible {
+  background: #edf4ff;
+  color: #15365d;
+  outline: none;
+}
+.rt-global-find__kind {
+  min-width: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 5px 7px;
+  background: #e8f0ff;
+  border-radius: 6px;
+  color: #2053a4;
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: none;
+}
+.rt-global-find__copy { min-width: 0; display: grid; gap: 3px; overflow: hidden; }
+.rt-global-find__copy strong {
+  display: block;
+  color: #16365c;
+  font-size: 12px;
+  font-weight: 700;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.rt-global-find__copy small {
+  display: block;
+  color: #718097;
+  font-size: 11px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.rt-global-find__empty {
+  padding: 23px 13px 25px; display: grid;
+  justify-items: center; gap: 7px; text-align: center; color: #60738a;
+}
+.rt-global-find__empty strong { font-size: 12px; color: #193456; }
+.rt-global-find__empty span { font-size: 11px; }
+.rt-global-find__footer {
+  display: flex; flex: 0 0 auto; align-items: center;
+  justify-content: space-between; gap: 10px;
+  padding: 9px 9px 6px; border-top: 1px solid #e7edf4;
+}
+.rt-global-find__footer > span { color: #6f8197; font-size: 10px; }
+.rt-global-find__footer kbd {
+  display: inline-block; min-width: 20px; text-align: center;
+  padding: 1px 3px; border-radius: 4px; color: #546985;
+  background: #f3f6fa; border: 1px solid #e1e7f0; font: inherit;
+}
+body .rt-global-find__footer > button {
+  margin: 0; border: 0; border-radius: 7px; padding: 7px 10px;
+  background: #eaf1ff; color: #1b51a3; font-size: 11px; font-weight: 700;
+  white-space: nowrap; cursor: pointer;
+}
+body .rt-global-find__footer > button:hover,
+body .rt-global-find__footer > button:focus-visible { background: #d9e8ff; outline: none; }
+@media (max-width: 600px) {
+  body .rt-global-find { max-height: min(420px, calc(100dvh - 80px)); }
+  .rt-global-find__footer > span { display: none; }
+  .rt-global-find__footer { justify-content: flex-end; }
+  body .rt-global-find__option { grid-template-columns: minmax(57px, 75px) minmax(0, 1fr); gap: 8px; }
+}
+html[data-theme="dark"] body .rt-global-find { background: #19263b; border-color: #334765; color: #e7effd; }
+html[data-theme="dark"] .rt-global-find__heading,
+html[data-theme="dark"] .rt-global-find__footer,
+html[data-theme="dark"] .rt-global-find__group { border-color: #334765; }
+html[data-theme="dark"] .rt-global-find__heading strong,
+html[data-theme="dark"] .rt-global-find__copy strong,
+html[data-theme="dark"] .rt-global-find__empty strong { color: #e6f0ff; }
+html[data-theme="dark"] body .rt-global-find__option { color: #e6f0ff; }
+html[data-theme="dark"] body .rt-global-find__option:hover,
+html[data-theme="dark"] body .rt-global-find__option.is-active { background: #2b4368; }

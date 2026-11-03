@@ -13,7 +13,7 @@ import { CommunicationAutomationCenter } from '../communications-automations/com
 import { TaskCommunicationState } from '../communications-automations/task-communication-state'
 import { Modal } from '../../components/ui/modal'
 import { loadGatewayLocalTaskAutoHistory, type LocalTaskAutoDiagnostic } from '../../services/local-communications-gateway'
-import { cancelGatewayLocalTaskAuto, reconcileGatewayLocalTaskWorkspace, scheduleGatewayLocalTaskAuto, syncGatewayLocalTaskAutoMember, type LocalTaskAutoMember } from '../../services/local-communications-gateway'
+import { cancelTaskNotification, publishTaskNotificationEvent, reconcileTaskNotificationWorkspace } from '../../services/notifications/notification-orchestrator'
 import { WorkspaceCommandBar, WorkspaceCommandGroup, WorkspacePageHeader, WorkspaceSummaryMetric, WorkspaceSummaryStrip, WorkspaceViewStrip } from '../../components/workspace/workspace-shell'
 
 type ViewMode = 'list' | 'board' | 'today' | 'overdue' | 'completed'
@@ -23,12 +23,6 @@ const priorityTone = (priority: WorkTask['priority']) => priority === 'urgent' ?
 const todayKey = () => { const date = new Date(); return `${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,'0')}-${String(date.getDate()).padStart(2,'0')}` }
 const dueKey = (value: string | null) => value ? new Date(value).toLocaleDateString('en-CA') : ''
 const dueLabel = (value: string | null) => value ? new Date(value).toLocaleString('pt-BR', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' }) : 'Sem prazo'
-
-const asLocalTaskAutoMember = (workspaceId: string, member: WorkspaceMember): LocalTaskAutoMember => ({
-  workspaceId, userId: member.userId, phone: member.whatsappPhone || '',
-  consentAt: member.whatsappConsentRecordedAt || null,
-  autoEnabledAt: member.whatsappAutoEnabledAt || null,
-})
 
 export function TasksPage() {
   const { currentWorkspace, repositoryMode, snapshot, teamAccess, canTeamAccess, canTeamAccessRecord } = useAppWorkspace()
@@ -68,18 +62,8 @@ export function TasksPage() {
       if (repositoryMode !== 'local' || !workspaceId) return
       // On startup reconcile consent/revocations BEFORE resuming persisted jobs.
       try {
-        for (const member of items) {
-          await syncGatewayLocalTaskAutoMember({ ...asLocalTaskAutoMember(workspaceId,member),reconcileOnly:true })
-        }
         const currentTasks=(await loadWorkManagement('local',workspaceId)).tasks
-        // The browser is still the source for *task existence*. Removing
-        // orphaned jobs from the persistent gateway is required after offline
-        // edits, deletions or data resets in the local workspace.
-        await reconcileGatewayLocalTaskWorkspace(workspaceId,currentTasks.map(task=>task.id))
-        for (const task of currentTasks) {
-          const member=items.find(item=>item.userId===task.assigneeId)
-          await scheduleGatewayLocalTaskAuto({workspaceId,task,member:member?asLocalTaskAutoMember(workspaceId,member):null,assignmentChanged:false})
-        }
+        await reconcileTaskNotificationWorkspace(workspaceId,items,currentTasks)
       } catch { /* Gateway may not be running; manual task edits report scheduling failures. */ }
     }).catch(() => { if (active) setMembers([]) })
     return () => { active = false }
@@ -144,7 +128,7 @@ export function TasksPage() {
       // the gateway before changing assignee, deadline or opt-in settings.
       // Otherwise an old reminder could fire during an offline edit.
       if (repositoryMode === 'local' && editing?.reminderEnabled && editing.reminderChannels?.includes('whatsapp')) {
-        try { await cancelGatewayLocalTaskAuto(workspaceId,editing.id) }
+        try { await cancelTaskNotification(workspaceId,editing.id) }
         catch { throw new Error('Não foi possível cancelar avisos antigos. Verifique o Communications Gateway antes de editar esta tarefa.') }
       }
       const task = await saveTask(repositoryMode, workspaceId, input, user?.id ?? null, teamAccess)
@@ -152,10 +136,10 @@ export function TasksPage() {
       if (repositoryMode === 'local') {
         const member=members.find(item=>item.userId===task.assigneeId)
         try {
-          const response = await scheduleGatewayLocalTaskAuto({
-            workspaceId,task,member:member?asLocalTaskAutoMember(workspaceId,member):null,
-            assignmentChanged:Boolean(task.assigneeId && (!editing || editing.assigneeId!==task.assigneeId)),
-          })
+          const response = await publishTaskNotificationEvent({
+            type:task.assigneeId && (!editing||editing.assigneeId!==task.assigneeId) ? 'task.assigned':'task.updated',
+            workspaceId,entityId:task.id,recipientId:task.assigneeId||'',
+          },task,members)
           if (member?.whatsappAutoEnabledAt && task.reminderEnabled && task.reminderChannels?.includes('whatsapp') && !response.automaticEnabled)
             schedulingError = true
         } catch { schedulingError = Boolean(member?.whatsappAutoEnabledAt) }
@@ -173,7 +157,7 @@ export function TasksPage() {
       // Cancel first: a completion must never leave a pending WhatsApp
       // notification in the gateway when browser and server are out of sync.
       if(repositoryMode==='local' && (status==='completed'||status==='cancelled')) {
-        try { await cancelGatewayLocalTaskAuto(workspaceId,task.id) }
+        try { await cancelTaskNotification(workspaceId,task.id) }
         catch { throw new Error('Não foi possível cancelar o lembrete automático. Mantenha a tarefa aberta e verifique o Gateway.') }
       }
       await updateTaskStatus(repositoryMode, workspaceId, task.id, status, teamAccess)
@@ -183,7 +167,9 @@ export function TasksPage() {
             const fresh=(await loadWorkManagement('local',workspaceId)).tasks.find(item=>item.id===task.id)
             if(fresh) {
               const member=members.find(item=>item.userId===fresh.assigneeId)
-              await scheduleGatewayLocalTaskAuto({workspaceId,task:fresh,member:member?asLocalTaskAutoMember(workspaceId,member):null,assignmentChanged:false})
+              await publishTaskNotificationEvent({
+                type:'task.updated',workspaceId,entityId:fresh.id,recipientId:fresh.assigneeId||'',
+              },fresh,members)
             }
           }
         } catch { notify('warning','Status alterado, mas não foi possível sincronizar os lembretes do WhatsApp.') }
@@ -197,7 +183,7 @@ export function TasksPage() {
     if (!workspaceId || !await confirmAction({ title: 'Excluir tarefa?', description: `A tarefa “${task.title}” será removida.`, confirmLabel: 'Excluir', tone: 'danger' })) return
     try {
       if(repositoryMode==='local') {
-        try { await cancelGatewayLocalTaskAuto(workspaceId,task.id) }
+        try { await cancelTaskNotification(workspaceId,task.id) }
         catch { throw new Error('Gateway indisponível. A exclusão foi interrompida para impedir um lembrete órfão.') }
       }
       await deleteTask(repositoryMode, workspaceId, task.id, teamAccess)

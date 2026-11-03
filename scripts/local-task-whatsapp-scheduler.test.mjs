@@ -115,3 +115,78 @@ test('full workspace reconciliation cancels orphaned schedules',async()=>{
     assert.equal(queue.status({workspaceId:'workspace'}).counts.pending,0)
   }finally{fs.rmSync(folder,{recursive:true,force:true})}
 })
+
+test('assigning to opted-in member schedules WhatsApp even when task only has the default CRM channel',async()=>{
+  const folder=fs.mkdtempSync(path.join(os.tmpdir(),'rt-auto-assignment-default-'))
+  try {
+    let now=Date.parse('2026-11-03T15:00:00Z'),attempts=0
+    const queue=createLocalTaskWhatsAppScheduler({
+      file:path.join(folder,'queue.json'),clock:()=>now,accountFor:async()=>({id:'connected-qr'}),
+      send:async()=>{attempts++;return {id:'message-'+attempts,status:'sent'}},
+    })
+    const workspaceId='workspace',userId='marcelo',taskId='task-new'
+    queue.updateMember({workspaceId,userId,phone:'+5553999999999',
+      consentAt:new Date(now-30000).toISOString(),autoEnabledAt:new Date(now-30000).toISOString()})
+    const task={id:taskId,assigneeId:userId,title:'Enviar proposta',status:'todo',
+      updatedAt:new Date(now).toISOString(),reminderEnabled:true,reminderOnAssignment:true,
+      reminderChannels:['in_app'],reminderOffsetsMinutes:[60],dueAt:null}
+    const result=queue.schedule({workspaceId,task,assignmentChanged:true})
+    assert.equal(result.automaticEnabled,true)
+    assert.equal(result.assignmentScheduled,true)
+    assert.equal(result.scheduled,1)
+    assert.equal(result.reason,'assignment_scheduled')
+    queue.schedule({workspaceId,task,assignmentChanged:false})
+    assert.equal(queue.status({workspaceId}).counts.pending,1)
+    now+=9500
+    await queue.tick()
+    assert.equal(attempts,1)
+    await queue.tick()
+    assert.equal(attempts,1)
+    assert.equal(queue.status({workspaceId}).counts.sent,1)
+  }finally{fs.rmSync(folder,{recursive:true,force:true})}
+})
+
+test('assignment without member opt-in or task opt-out never sends, even on default channel',async()=>{
+  const folder=fs.mkdtempSync(path.join(os.tmpdir(),'rt-auto-assignment-disabled-'))
+  try{
+    let now=Date.parse('2026-11-03T15:00:00Z'),attempts=0
+    const queue=createLocalTaskWhatsAppScheduler({
+      file:path.join(folder,'queue.json'),clock:()=>now,accountFor:async()=>({id:'connected-qr'}),
+      send:async()=>{attempts++;return {id:'sent',status:'sent'}},
+    })
+    const workspaceId='workspace',userId='member',contact={
+      workspaceId,userId,phone:'+5553999999999',
+      consentAt:new Date(now-10000).toISOString(),autoEnabledAt:null,
+    }
+    const task={id:'test',assigneeId:userId,title:'Teste',status:'todo',
+      updatedAt:new Date(now).toISOString(),reminderEnabled:true,reminderOnAssignment:true,
+      reminderChannels:['in_app'],dueAt:null}
+    queue.updateMember(contact)
+    assert.equal(queue.schedule({workspaceId,task,assignmentChanged:true}).scheduled,0)
+    queue.updateMember({...contact,autoEnabledAt:new Date(now-5000).toISOString()})
+    assert.equal(queue.schedule({workspaceId,task:{...task,reminderOnAssignment:false},assignmentChanged:true}).scheduled,0)
+    assert.equal(queue.schedule({workspaceId,task:{...task,reminderEnabled:false},assignmentChanged:true}).scheduled,0)
+    now+=15000
+    await queue.tick()
+    assert.equal(attempts,0)
+  }finally{fs.rmSync(folder,{recursive:true,force:true})}
+})
+
+test('due-date WhatsApp remains explicitly opt-in per task even with automatic assignment enabled',async()=>{
+  const folder=fs.mkdtempSync(path.join(os.tmpdir(),'rt-auto-due-optin-'))
+  try{
+    const now=Date.parse('2026-11-03T15:00:00Z')
+    const queue=createLocalTaskWhatsAppScheduler({
+      file:path.join(folder,'queue.json'),clock:()=>now,accountFor:async()=>null,send:async()=>({id:'never'}),
+    })
+    const workspaceId='workspace',userId='member'
+    queue.updateMember({workspaceId,userId,phone:'+5553999999999',
+      consentAt:new Date(now).toISOString(),autoEnabledAt:new Date(now).toISOString()})
+    const task={id:'task',assigneeId:userId,title:'Prazo',status:'todo',
+      updatedAt:new Date(now).toISOString(),reminderEnabled:true,reminderOnAssignment:true,
+      reminderChannels:['in_app'],reminderOffsetsMinutes:[60],dueAt:new Date(now+7200000).toISOString()}
+    assert.equal(queue.schedule({workspaceId,task,assignmentChanged:true}).scheduled,1)
+    assert.equal(queue.schedule({workspaceId,task,assignmentChanged:false}).scheduled,1)
+    assert.equal(queue.schedule({workspaceId,task:{...task,reminderChannels:['in_app','whatsapp']},assignmentChanged:false}).scheduled,2)
+  }finally{fs.rmSync(folder,{recursive:true,force:true})}
+})

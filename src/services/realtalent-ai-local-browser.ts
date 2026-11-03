@@ -3,6 +3,24 @@ import {env} from '../lib/env'
 // This token is scoped to the browser origin + this one Linux machine, and
 // allows read-only Agent requests only. It is NOT the server runtime secret.
 const KEY='realtalent:ai:browser-pairing:v1'
+const MODE_KEY='realtalent:ai:prefer-local-only:v1'
+/** When local-only is enabled, agent requests must never fall back to a
+ * cloud provider after the laptop is off, Wi-Fi fails, or a pairing expires.
+ * Existing non-agent CRM endpoints are not affected.
+ */
+export const localAiOnlyEnabled=()=>{
+  if(typeof window==='undefined')return false
+  try{return window.localStorage.getItem(MODE_KEY)==='local'}catch{return false}
+}
+export const setLocalAiOnlyEnabled=(enabled:boolean)=>{
+  if(typeof window==='undefined')return
+  try{window.localStorage.setItem(MODE_KEY,enabled?'local':'cloud')}catch{/* storage disabled */}
+}
+const offlineLocalAiResponse=()=>new Response(JSON.stringify({
+  ok:false,error:'local_ai_offline',
+  message:'IA local indisponível. Ligue o Linux e execute ~/.local/bin/realtalent-ia. Nenhuma API em nuvem foi acionada.',
+}),{status:503,headers:{'content-type':'application/json; charset=utf-8','cache-control':'no-store'}})
+
 export const LOCAL_AI_BROWSER_URL='http://127.0.0.1:8798/browser'
 const allowedGet=new Set(['/tools/health'])
 const allowedPost=new Set(['/tools/chat','/tools/chat-stream','/tools/research','/tools/route-intent',
@@ -35,7 +53,8 @@ export async function pairLocalAi(code:string):Promise<{ok:boolean;message:strin
     const data=await response.json() as {ok?:boolean;token?:unknown;error?:string}
     if(response.ok&&data.ok===true&&typeof data.token==='string'&&/^[a-f0-9]{64}$/i.test(data.token)){
       window.localStorage.setItem(KEY,data.token)
-      return {ok:true,message:'IA local conectada. A autorização será reutilizada neste navegador.'}
+      setLocalAiOnlyEnabled(true)
+      return {ok:true,message:'IA local conectada. Modo sem API paga ativado; a autorização será reutilizada neste navegador.'}
     }
     if(data.error==='pair_code_expired')return {ok:false,message:'Código expirou. Gere outro no terminal Linux.'}
     return {ok:false,message:'Código inválido ou não autorizado. Confira os seis dígitos.'}
@@ -71,10 +90,11 @@ const agentSuffix=(input:string)=>{
 
 /** Called transparently from runtimeFetch; never sends the cloud auth bearer to localhost. */
 export async function tryLocalAiBrowserRequest(input:string,init:RequestInit={}):Promise<Response|null>{
-  const token=currentToken()
-  if(!/^[a-f0-9]{64}$/i.test(token))return null
   const suffix=agentSuffix(input)
   if(!suffix)return null
+  const localOnly=localAiOnlyEnabled()
+  const token=currentToken()
+  if(!/^[a-f0-9]{64}$/i.test(token))return localOnly?offlineLocalAiResponse():null
   const path=suffix.split('?')[0],method=(init.method||'GET').toUpperCase()
   if(!((method==='GET'&&allowedGet.has(path))||(method==='POST'&&allowedPost.has(path))))return null
   try{
@@ -83,9 +103,9 @@ export async function tryLocalAiBrowserRequest(input:string,init:RequestInit={})
       headers:{...(init.headers||{}),'x-realtalent-browser-token':token},
     })
     if(response.status===401){
-      forgetLocalAiPairing() // re-pair after revoked/expired credentials; do not leak old token.
-      return null
+      forgetLocalAiPairing() // Re-pair but preserve local-only choice.
+      return localOnly?offlineLocalAiResponse():null
     }
     return response
-  }catch{return null} // disconnected PC or browser restriction: keep cloud fallback working.
+  }catch{return localOnly?offlineLocalAiResponse():null} // Fail closed: never charge a cloud provider in local-only mode.
 }

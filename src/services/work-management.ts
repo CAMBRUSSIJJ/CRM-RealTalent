@@ -7,7 +7,16 @@ import { safeStorage } from '../lib/storage'
 import { getSupabaseClient } from '../lib/supabase'
 import { assertAccess, type EffectiveMemberAccess } from './team-access-control'
 
+export interface TaskNotificationIntent {
+  id: string
+  taskId: string
+  recipientId: string | null
+  type: 'assignment' | 'cancel' | 'sync'
+  occurredAt: string
+}
+/** Local task data and communication intents are committed together. */
 export interface WorkManagementSnapshot {
+  notificationIntents: TaskNotificationIntent[]
   teams: Team[]
   memberships: TeamMembership[]
   tasks: WorkTask[]
@@ -49,7 +58,7 @@ export interface TaskInput {
   checklist?: Array<{ id?: string; title: string; completed?: boolean }>
 }
 
-const emptySnapshot = (): WorkManagementSnapshot => ({ teams: [], memberships: [], tasks: [], relations: [], checklistItems: [], comments: [] })
+const emptySnapshot = (): WorkManagementSnapshot => ({ teams: [], memberships: [], tasks: [], relations: [], checklistItems: [], comments: [], notificationIntents: [] })
 const storageKey = (workspaceId: string) => `realtalent:${workspaceId}:work-management:v1`
 const now = () => new Date().toISOString()
 
@@ -58,6 +67,7 @@ const readLocal = (workspaceId: string): WorkManagementSnapshot => {
   if (!raw) return emptySnapshot()
   try {
     const parsed = JSON.parse(raw) as Partial<WorkManagementSnapshot>
+    if (!parsed || !Array.isArray(parsed.tasks)) throw new Error('invalid_tasks_snapshot')
     return {
       teams: Array.isArray(parsed.teams) ? parsed.teams : [],
       memberships: Array.isArray(parsed.memberships) ? parsed.memberships : [],
@@ -65,13 +75,29 @@ const readLocal = (workspaceId: string): WorkManagementSnapshot => {
       relations: Array.isArray(parsed.relations) ? parsed.relations : [],
       checklistItems: Array.isArray(parsed.checklistItems) ? parsed.checklistItems : [],
       comments: Array.isArray(parsed.comments) ? parsed.comments : [],
+      notificationIntents: Array.isArray(parsed.notificationIntents) ? parsed.notificationIntents : [],
     }
   } catch {
-    return emptySnapshot()
+    throw new Error('O armazenamento de tarefas está corrompido ou incompleto. A reconciliação foi interrompida para proteger os agendamentos. Restaure o backup antes de prosseguir.')
   }
 }
 
 const writeLocal = (workspaceId: string, snapshot: WorkManagementSnapshot) => safeStorage.setItem(storageKey(workspaceId), JSON.stringify(snapshot))
+
+const recordNotificationIntent = (snapshot: WorkManagementSnapshot, taskId: string,
+  recipientId: string | null, type: TaskNotificationIntent['type'], at: string) => {
+  snapshot.notificationIntents.push({ id: createId('notice'),taskId,recipientId,type,occurredAt:at })
+}
+
+export const pendingTaskNotificationIntents = (workspaceId: string): TaskNotificationIntent[] =>
+  [...readLocal(workspaceId).notificationIntents]
+
+export const acknowledgeTaskNotificationIntent = (workspaceId: string, intentId: string): void => {
+  const snapshot=readLocal(workspaceId)
+  snapshot.notificationIntents=snapshot.notificationIntents.filter(intent=>intent.id!==intentId)
+  writeLocal(workspaceId,snapshot)
+}
+
 
 const mapTeam = (row: any): Team => ({
   id: row.id, workspaceId: row.organization_id, name: row.name, description: row.description ?? '', leaderId: row.leader_id ?? null,
@@ -136,6 +162,16 @@ export async function saveTeam(mode: 'local' | 'supabase', workspaceId: string, 
     snapshot.memberships = snapshot.memberships.filter((item) => item.teamId !== id)
     for (const userId of members) snapshot.memberships.push({ id: createId('tm'), workspaceId, teamId: id, userId, role: userId === next.leaderId ? 'leader' : 'member', allocationPercent: 100, createdAt: timestamp })
     if (next.leaderId && !members.includes(next.leaderId)) snapshot.memberships.push({ id: createId('tm'), workspaceId, teamId: id, userId: next.leaderId, role: 'leader', allocationPercent: 100, createdAt: timestamp })
+    // Commit the task and the intent in the same browser-storage write.
+    const previouslyAssigned=localPrevious?.assigneeId ?? null
+    const changedAssignee=previouslyAssigned!==(next.assigneeId??null)
+    if (changedAssignee && localPrevious) recordNotificationIntent(snapshot,id,previouslyAssigned,'cancel',timestamp)
+    if (next.assigneeId && changedAssignee && next.reminderEnabled && next.reminderOnAssignment &&
+        ['todo','in_progress','blocked'].includes(next.status)) {
+      recordNotificationIntent(snapshot,id,next.assigneeId,'assignment',timestamp)
+    } else {
+      recordNotificationIntent(snapshot,id,next.assigneeId,'sync',timestamp)
+    }
     writeLocal(workspaceId, snapshot)
     return next
   }
@@ -204,7 +240,7 @@ export async function saveTask(mode: 'local' | 'supabase', workspaceId: string, 
     reminderOffsetsMinutes: input.reminderOffsetsMinutes ?? previous?.reminderOffsetsMinutes ?? [60],
     reminderCustomMinutes: input.reminderCustomMinutes !== undefined ? input.reminderCustomMinutes : previous?.reminderCustomMinutes ?? null,
     tags: Array.from(new Set(input.tags ?? [])),
-    createdBy, createdAt: timestamp, updatedAt: timestamp,
+    createdBy: previous?.createdBy ?? createdBy, createdAt: previous?.createdAt ?? timestamp, updatedAt: timestamp,
   }
   if (!client) {
     const snapshot = readLocal(workspaceId)
@@ -254,6 +290,8 @@ export async function updateTaskStatus(mode: 'local' | 'supabase', workspaceId: 
     if (!target) throw new Error('Tarefa não encontrada.')
     assertAccess(access, 'edit', 'tasks', target.assigneeId, target.teamId)
     snapshot.tasks = snapshot.tasks.map((task) => task.id === taskId ? { ...task, status, completedAt: status === 'completed' ? (task.completedAt ?? now()) : null, updatedAt: now() } : task)
+    recordNotificationIntent(snapshot,taskId,target.assigneeId,
+      status === 'completed' || status === 'cancelled' ? 'cancel' : 'sync',now())
     writeLocal(workspaceId, snapshot)
     return
   }
@@ -275,6 +313,7 @@ export async function deleteTask(mode: 'local' | 'supabase', workspaceId: string
     snapshot.relations = snapshot.relations.filter((item) => item.taskId !== taskId)
     snapshot.checklistItems = snapshot.checklistItems.filter((item) => item.taskId !== taskId)
     snapshot.comments = snapshot.comments.filter((item) => item.taskId !== taskId)
+    recordNotificationIntent(snapshot,taskId,target.assigneeId,'cancel',now())
     writeLocal(workspaceId, snapshot)
     return
   }

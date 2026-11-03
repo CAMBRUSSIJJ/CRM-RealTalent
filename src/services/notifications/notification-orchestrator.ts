@@ -43,7 +43,7 @@ export async function publishTaskNotificationEvent(
   event:Extract<NotificationDomainEvent,{type:'task.assigned'|'task.updated'}>,
   task:WorkTask|null,members:WorkspaceMember[],
 ){
-  if(!task||event.entityId!==task.id||task.assigneeId!==event.recipientId)
+  if(!task||event.entityId!==task.id||(task.assigneeId||'')!==event.recipientId)
     throw new Error('notification_task_identity_mismatch')
   const member=members.find(item=>item.userId===task.assigneeId)
   return scheduleGatewayLocalTaskAuto({

@@ -1,4 +1,4 @@
-name: RealTalent Dashboard/Contatos V2 + Pipeline V3 QA
+name: RealTalent Dashboard V2 + Contatos/Pipeline V3 QA
 
 on:
   push:
@@ -7,7 +7,7 @@ on:
   pull_request:
     paths:
       - 'src/features/dashboard/dashboard*'
-      - 'src/features/leads/contacts-layout-v2.css'
+      - 'src/features/leads/contacts-v3.css'
       - 'src/features/leads/leads-page.tsx'
       - 'src/features/pipeline/sales-pipeline-v3.css'
       - 'src/features/pipeline/pipeline-page.tsx'

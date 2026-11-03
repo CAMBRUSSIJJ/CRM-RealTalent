@@ -1,4 +1,4 @@
-name: RealTalent Dashboard, Contatos e Pipeline V2 QA
+name: RealTalent Dashboard/Contatos V2 + Pipeline V3 QA
 
 on:
   push:
@@ -9,7 +9,7 @@ on:
       - 'src/features/dashboard/dashboard*'
       - 'src/features/leads/contacts-layout-v2.css'
       - 'src/features/leads/leads-page.tsx'
-      - 'src/features/pipeline/pipeline-layout-v2.css'
+      - 'src/features/pipeline/sales-pipeline-v3.css'
       - 'src/features/pipeline/pipeline-page.tsx'
       - 'scripts/ux-v2-sales-workspaces.test.mjs'
       - '.github/workflows/dashboard-contacts-pipeline-v2-qa.yml'

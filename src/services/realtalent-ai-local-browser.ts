@@ -96,7 +96,8 @@ export async function tryLocalAiBrowserRequest(input:string,init:RequestInit={})
   const token=currentToken()
   if(!/^[a-f0-9]{64}$/i.test(token))return localOnly?offlineLocalAiResponse():null
   const path=suffix.split('?')[0],method=(init.method||'GET').toUpperCase()
-  if(!((method==='GET'&&allowedGet.has(path))||(method==='POST'&&allowedPost.has(path))))return null
+  if(!((method==='GET'&&allowedGet.has(path))||(method==='POST'&&allowedPost.has(path))))
+    return localOnly?offlineLocalAiResponse():null
   try{
     const response=await fetch(LOCAL_AI_BROWSER_URL+suffix,{
       ...init,mode:'cors',credentials:'omit',redirect:'error',cache:'no-store',referrerPolicy:'no-referrer',

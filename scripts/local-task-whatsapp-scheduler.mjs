@@ -9,7 +9,7 @@ const active = status => ['todo','in_progress','blocked'].includes(status)
 const identity = (workspaceId,userId) => workspaceId + '|' + userId
 const taskKey = (workspaceId,taskId) => workspaceId + '|' + taskId
 const hash = text => crypto.createHash('sha256').update(text).digest('hex')
-const initial = () => ({ version:1, members:{}, tasks:{}, jobs:[] })
+const initial = () => ({ version:1, members:{}, tasks:{}, jobs:[], deliveryLedger:{} })
 
 /** Persistent local-only reminder queue. Never reads browser localStorage.
  * A server-side worker can run with the browser closed, while the local gateway is running.
@@ -22,11 +22,28 @@ export function createLocalTaskWhatsAppScheduler({ file, send, accountFor, clock
   state.members ||= {}
   state.tasks ||= {}
   state.jobs ||= []
+  state.deliveryLedger ||= {}
+  // Migrate historical jobs into the ledger once; the ledger is never
+  // pruned when the visible history is compacted.
+  for(const job of [...state.jobs].sort((a,b)=>Date.parse(a.createdAt||a.at)-Date.parse(b.createdAt||b.at))) {
+    const key=job.dedupeKey||job.id
+    state.deliveryLedger[key]={ jobId:job.id,generation:job.generation||0,status:job.status }
+  }
   for (const job of state.jobs) if (job.status === 'processing') { job.status = 'unknown'; job.error = 'interrupted_after_transport_claim' }
   // The durable gateway record is the authority for automatic sending.
   // Browser reconciliation can discover members but cannot grant an opt-in
   // or override a revoked/changed phone. Explicit edits are gateway-first.
   const save = () => {
+    // Refresh the permanent deduplication ledger from current jobs. Old keys
+    // survive retention trimming; a completed/unknown send must not recur.
+    for (const job of state.jobs) {
+      const key=job.dedupeKey||job.id
+      const prior=state.deliveryLedger[key]
+      if(!prior || prior.jobId===job.id ||
+          (job.generation||0)>(prior.generation||0)) {
+        state.deliveryLedger[key]={jobId:job.id,generation:job.generation||0,status:job.status}
+      }
+    }
     fs.mkdirSync(path.dirname(file), { recursive:true, mode:0o700 })
     const tmp = file + '.tmp'
     fs.writeFileSync(tmp, JSON.stringify(state), { mode:0o600 })
@@ -102,17 +119,27 @@ export function createLocalTaskWhatsAppScheduler({ file, send, accountFor, clock
       // Generate one provider-neutral domain event; execution remains in
       // the gateway adapter and never executes in the browser.
       taskNotificationEvent(task,workspaceId,eventType==='assigned'?'task.assigned':'task.due_soon',new Date(at).toISOString())
-      const id=hash(workspaceId+'|'+taskId+'|'+userId+'|'+eventType+'|'+uniqueSuffix)
+      const dedupeKey=hash(workspaceId+'|'+taskId+'|'+userId+'|'+eventType+'|'+uniqueSuffix)
+      const prior=state.deliveryLedger[dedupeKey]
+      const live=prior && state.jobs.find(job=>job.id===prior.jobId && job.status==='pending')
+      if(live){desired.set(live.id,live);return}
+      // Re-arm only explicitly canceled, never attempted, work following
+      // an actual edit. Background reconciliation cannot resurrect it.
+      if(prior && !(prior.status==='cancelled' && input.rearmCancelled===true))return
+      const generation=prior ? (prior.generation||0)+1 : 0
+      const id=generation?hash(dedupeKey+'|generation:'+generation):dedupeKey
       desired.set(id,{
-        id,workspaceId,taskId,userId,eventType,at:new Date(at).toISOString(),
+        id,dedupeKey,generation,workspaceId,taskId,userId,eventType,at:new Date(at).toISOString(),
         dueAt:data.dueAt,title:data.title,priority:data.priority,
         phone:member.phone,consentAt:member.consentAt,status:'pending',error:null,createdAt:new Date(now).toISOString(),
       })
     }
     if (eligible) {
       const assignmentNew = Boolean(input.assignmentChanged && userId && (!old || old.userId !== userId || input.assignmentChanged))
-      const revision=String(task.updatedAt||'')
-      if(assignmentNew && data.reminderOnAssignment && now-Date.parse(revision)<2*60_000 && now>=Date.parse(revision)-5_000)
+      const revision=String(input.assignmentAt||task.updatedAt||'')
+      const assignmentAge=now-Date.parse(revision)
+      if(assignmentNew && data.reminderOnAssignment && Number.isFinite(assignmentAge) &&
+          assignmentAge>=-5_000 && assignmentAge<=15*60_000)
         add('assigned',now+8_000,'assigned:'+revision)
       if(dueChannelEnabled && data.dueAt && Number.isFinite(Date.parse(data.dueAt)) && Date.parse(data.dueAt)>now){
         const offsets=new Set((Array.isArray(task.reminderOffsetsMinutes)?task.reminderOffsetsMinutes:[]).filter(n=>Number.isInteger(n)&&n>=5&&n<=10080))
@@ -127,7 +154,10 @@ export function createLocalTaskWhatsAppScheduler({ file, send, accountFor, clock
     for(const job of pendingFor(workspaceId,taskId)) if (!desired.has(job.id)) job.status='cancelled'
     for(const [id,job] of desired) if (!state.jobs.some(j=>j.id===id)) state.jobs.push(job)
     // Retain all pending work and recent terminal history, cap old history only.
-    const history=state.jobs.filter(j=>j.status!=='pending').sort((a,b)=>Date.parse(b.createdAt)-Date.parse(a.createdAt))
+    // Newest terminal records first. Ledger separately retains every
+    // idempotency key, even for jobs no longer shown in the UI.
+    const history=state.jobs.filter(j=>j.status!=='pending')
+      .sort((a,b)=>Date.parse(b.createdAt||b.at)-Date.parse(a.createdAt||a.at))
     const pending=state.jobs.filter(j=>j.status==='pending')
     state.jobs=[...pending,...history.slice(0,2000)]
     save()
@@ -141,15 +171,20 @@ export function createLocalTaskWhatsAppScheduler({ file, send, accountFor, clock
         !active(data.status) ? 'task_not_open' :
         !data.reminderOnAssignment ? 'assignment_reminder_disabled' :
         !input.assignmentChanged ? 'assignment_not_changed' :
+        !assignmentScheduled && input.assignmentChanged && input.assignmentAt &&
+          now-Date.parse(input.assignmentAt)>15*60_000 ? 'assignment_expired' :
         !assignmentScheduled ? 'assignment_not_eligible_for_schedule' : 'assignment_scheduled' }
   }
 
   const cancel = ({workspaceId,taskId}) => {
     if(!isId(workspaceId)||!isId(taskId)) throw new Error('invalid_task_identity')
     delete state.tasks[taskKey(workspaceId,taskId)]
-    for(const job of pendingFor(workspaceId,taskId)) job.status='cancelled'
+    const affected=pendingFor(workspaceId,taskId)
+    for(const job of affected) {job.status='cancelled';job.error='cancelled_by_task_update'}
+    // Claimed/processing sends cannot be canceled at the transport boundary.
+    const inFlight=state.jobs.some(job=>job.workspaceId===workspaceId&&job.taskId===taskId&&job.status==='processing')
     save()
-    return { cancelled:true }
+    return { cancelled:true,pendingCancelled:affected.length,inFlight }
   }
 
   const status = ({workspaceId,taskId}) => {
@@ -244,10 +279,15 @@ export function createLocalTaskWhatsAppScheduler({ file, send, accountFor, clock
       updatedAt:member?.updatedAt||null }
   }
 
-  const reconcileWorkspace = ({workspaceId,taskIds}) => {
+  const reconcileWorkspace = (input) => {
+    const {workspaceId,taskIds}=input||{}
     if(!isId(workspaceId)||!Array.isArray(taskIds) || taskIds.length>10000 ||
       taskIds.some(id=>!isId(id))) throw new Error('invalid_workspace_snapshot')
     const known=new Set(taskIds)
+    // An empty browser snapshot can mean a storage error or a different
+    // browser profile, not an instruction to erase all gateway jobs.
+    if(known.size===0 && input?.verifiedEmpty!==true)
+      return {cancelled:0,tracked:0,unverifiedEmpty:true}
     let cancelled=0
     for(const job of state.jobs) {
       if(job.workspaceId===workspaceId&&job.status==='pending'&&!known.has(job.taskId)) {
@@ -290,6 +330,19 @@ export function createLocalTaskWhatsAppScheduler({ file, send, accountFor, clock
         if(sentDay>=20){job.status='blocked';job.error='member_daily_limit';save();continue}
         const account=await accountFor(job.workspaceId)
         if (!account) continue // Stay pending until QR reconnects, then expire.
+        // accountFor() is asynchronous: cancellation or consent revocation
+        // may have happened while it was awaiting the QR connection.
+        const currentMember=state.members[identity(job.workspaceId,job.userId)]
+        const currentTask=state.tasks[taskKey(job.workspaceId,job.taskId)]
+        if(job.status!=='pending') continue
+        if(!currentMember?.autoEnabledAt || currentMember.phone!==job.phone ||
+          currentMember.consentAt!==job.consentAt || !currentTask ||
+          currentTask.userId!==job.userId || !active(currentTask.status) ||
+          !currentTask.reminderEnabled ||
+          (job.eventType==='assigned' && !currentTask.reminderOnAssignment) ||
+          (job.eventType==='due_soon' && !currentTask.reminderChannels.includes('whatsapp'))){
+          job.status='cancelled';job.error='changed_during_connection_check';save();continue
+        }
         job.status='processing';job.claimedAt=new Date(clock()).toISOString()
         save() // A crash here must NOT cause another send attempt.
         try{

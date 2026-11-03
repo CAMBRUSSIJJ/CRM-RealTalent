@@ -148,6 +148,11 @@ export function TaskReminderEditor({ value, onChange, assigneeId, assigneeName, 
         ? <p className="task-reminders__notice">Modo local: WhatsApp QR automático experimental exige integrante autorizado, automação ativada na Equipe, e Communications Gateway h16 rodando. Os avisos persistem no serviço enquanto ele permanecer ligado; para notificações oficiais em nuvem, o envio automático exige Supabase e integração da Meta.</p>
         : <p className="task-reminders__notice">A regra é gravada no Supabase. O envio depende de um agendador ativo e, para e-mail ou WhatsApp, de autorização e integração oficial. Confira Configurações → Notificações antes de confiar no lembrete.</p>}
     </div> : null}
+    {repositoryMode === 'local' && value.enabled && value.onAssignment
+      ? <p className="task-reminders__notice">
+          Avisos de atribuição no WhatsApp seguem a autorização e a automação cadastradas em Equipe e permissões,
+          sem precisar marcar o canal WhatsApp nesta tarefa. Para avisos antes do prazo, selecione o canal WhatsApp QR.
+        </p> : null}
     {taskId ? <div className="task-reminders__history">
       <div className="task-reminders__history-heading"><strong>Histórico de notificações</strong>
         <Button variant="secondary" size="sm" onClick={() => setHistoryRefresh(x => x+1)} disabled={loadingHistory}><RefreshCw size={14}/> Atualizar</Button>

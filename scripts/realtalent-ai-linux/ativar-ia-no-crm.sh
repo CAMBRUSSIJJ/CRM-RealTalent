@@ -80,7 +80,7 @@ else
 fi
 if [[ "$ACTION" == test ]];then
   echo "Executando inferência real com $model, sem API externa..."
-  request="$(node -e 'process.stdout.write(JSON.stringify({model:process.argv[1],prompt:"Responda somente OK.",stream:false,options:{num_predict:12}}))' "$model")"
+  request="$(node -e 'process.stdout.write(JSON.stringify({model:process.argv[1],prompt:"Responda somente OK.",stream:false,think:false,options:{num_predict:32}}))' "$model")"
   response="$(curl --fail --silent --show-error --max-time 180 -H 'Content-Type: application/json' \
     -d "$request" http://127.0.0.1:11434/api/generate)" || exit 1
   printf '%s' "$response" | node -e '

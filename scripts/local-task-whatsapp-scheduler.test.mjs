@@ -319,8 +319,15 @@ test('history pruning retains recent records without losing permanent idempotenc
       accountFor:async()=>null,send:async()=>({id:'never'}),clock:()=>now})
     queue.updateMember({workspaceId:'ws',userId:'member',phone:'+5553999999999',
       consentAt:new Date(now).toISOString(),autoEnabledAt:new Date(now).toISOString()})
+    queue.schedule({workspaceId:'ws',assignmentChanged:false,task:{
+      id:'live',assigneeId:'member',title:'Lembrete futuro',status:'todo',
+      reminderEnabled:true,reminderOnAssignment:false,reminderChannels:['whatsapp'],
+      dueAt:new Date(now+3*60*60_000).toISOString(),reminderOffsetsMinutes:[60],
+    }})
     const snapshot=JSON.parse(fs.readFileSync(file,'utf8'))
-    assert.equal(snapshot.jobs.length,2003) // migration has not compacted yet
+    assert.equal(snapshot.jobs.length,2001) // one pending + 2000 newest historical
+    assert.equal(snapshot.jobs.some(job=>job.id==='old-id-0'),false)
+    assert.equal(snapshot.jobs.some(job=>job.id==='old-id-2002'),true)
     assert.equal(Boolean(snapshot.deliveryLedger['old-id-0']),true)
     assert.equal(Boolean(snapshot.deliveryLedger['old-id-2002']),true)
     assert.equal(queue.status({workspaceId:'ws'}).jobs[0].id,'old-id-2002')

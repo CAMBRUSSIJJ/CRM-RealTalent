@@ -38,7 +38,7 @@ const PUBLIC_APP_URL = String(process.env.REALTALENT_PUBLIC_APP_URL || '').trim(
 const EXTRA_ALLOWED_HOSTS = String(process.env.REALTALENT_COMMUNICATIONS_ALLOWED_HOSTS || '').split(',').map((value) => value.trim().toLowerCase()).filter(Boolean)
 const INTERNAL_ALLOWED_ORIGINS = new Set([`http://127.0.0.1:${CRM_PORT}`, `http://localhost:${CRM_PORT}`, 'http://127.0.0.1:4173', 'http://localhost:4173', 'http://127.0.0.1:4174', 'http://localhost:4174'])
 // historical marker: const VERSION = '101.8.4-h10'
-const VERSION = '101.8.4-h17'
+const VERSION = '101.8.4-h18'
 // Allows the Linux launcher to detect a healthy but stale Communications process.
 const WHATSAPP_SEND_RETURN_REVISION = 'msgkey-dollar1-20261102'
 let shuttingDown = false

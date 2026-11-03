@@ -73,5 +73,5 @@ test('manual WhatsApp for a selected local member appears before long reminders'
   assert.ok(deadline < reminders)
   assert.ok(modal.includes('Salve esta tarefa e abra novamente'))
   assert.ok(modal.includes('work-task-reminder-disclosure'))
-  assert.ok(modal.includes('Lembretes automáticos — indisponíveis no modo local'))
+  assert.ok(modal.includes('Lembretes e canais · WhatsApp QR experimental'))
 })

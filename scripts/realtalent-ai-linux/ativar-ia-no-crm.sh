@@ -5,7 +5,7 @@ umask 077
 ROOT="$HOME/.local/share/realtalent-ai"
 CONF="$HOME/.config/realtalent-ai"
 SCRIPT_DIR="$(cd -- "$(dirname -- "$0")" && pwd)"
-ACTION="\${1:-start}"
+ACTION="${1:-start}"
 
 case "$ACTION" in
   start|status|pair|test|stop|install|help|--help) ;;
@@ -58,7 +58,7 @@ if [[ -f "$CONF/agent.env" ]];then
   set -a
   source "$CONF/agent.env"
   set +a
-  model="\${REALTALENT_OLLAMA_MODEL:-qwen3:8b}"
+  model="${REALTALENT_OLLAMA_MODEL:-qwen3:8b}"
 fi
 if curl -fsS --max-time 4 http://127.0.0.1:11434/api/tags >/dev/null 2>&1;then
   echo '  OK  Ollama em 127.0.0.1:11434'

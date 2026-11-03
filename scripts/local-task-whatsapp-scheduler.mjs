@@ -22,6 +22,9 @@ export function createLocalTaskWhatsAppScheduler({ file, send, accountFor, clock
   state.tasks ||= {}
   state.jobs ||= []
   for (const job of state.jobs) if (job.status === 'processing') { job.status = 'unknown'; job.error = 'interrupted_after_transport_claim' }
+  // After a gateway restart, do not send using a possibly stale localStorage opt-in.
+  // The CRM must re-confirm current contact/consent in this process first.
+  const reconciledMembers = new Set()
   const save = () => {
     fs.mkdirSync(path.dirname(file), { recursive:true, mode:0o700 })
     const tmp = file + '.tmp'
@@ -43,6 +46,7 @@ export function createLocalTaskWhatsAppScheduler({ file, send, accountFor, clock
     const existing=state.members[key]
     const member={workspaceId,userId,phone,consentAt,autoEnabledAt}
     state.members[key]=member
+    reconciledMembers.add(key)
     if (!existing || existing.phone !== phone || existing.consentAt !== consentAt || existing.autoEnabledAt !== autoEnabledAt) {
       for (const job of state.jobs) {
         if (job.workspaceId === workspaceId && job.userId === userId && job.status === 'pending') {
@@ -134,7 +138,8 @@ export function createLocalTaskWhatsAppScheduler({ file, send, accountFor, clock
       const current=clock()
       const jobs=state.jobs.filter(j=>j.status==='pending'&&Date.parse(j.at)<=current).sort((a,b)=>a.at.localeCompare(b.at)).slice(0,12)
       for(const job of jobs){
-        const member=state.members[identity(job.workspaceId,job.userId)]
+        const memberKey=identity(job.workspaceId,job.userId)
+        const member=state.members[memberKey]
         const task=state.tasks[taskKey(job.workspaceId,job.taskId)]
         if(!member?.autoEnabledAt||!member.consentAt||!phoneValid(member.phone)||
           member.phone!==job.phone||member.consentAt!==job.consentAt||
@@ -142,6 +147,7 @@ export function createLocalTaskWhatsAppScheduler({ file, send, accountFor, clock
           job.status='cancelled';save();continue
         }
         if (current-Date.parse(job.at)>20*60_000){job.status='expired';save();continue}
+        if(!reconciledMembers.has(memberKey)) continue // Fail closed after restart until CRM reconciles consent.
         // Rate-limit before any outbound call, including after a restart.
         const sentDay=state.jobs.filter(j=>j.workspaceId===job.workspaceId&&j.userId===job.userId&&j.status==='sent'&&Date.parse(j.processedAt||0)>current-24*60*60*1000).length
         if(sentDay>=20){job.status='blocked';job.error='member_daily_limit';save();continue}

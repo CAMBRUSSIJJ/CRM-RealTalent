@@ -32,7 +32,7 @@ test('existing local CRM team members are updated, not recreated', () => {
 })
 
 test('consent revocation remains controlled by the team editor', () => {
-  assert.match(editor, /setConsent\\(false\\)/)
+  assert.ok(editor.includes('setConsent(false)'))
   assert.match(editor, /não verifica o telefone/)
   assert.match(members, /consentDeclared/)
   assert.match(taskAction, /diagnoseGatewayLocalTaskNotification/)

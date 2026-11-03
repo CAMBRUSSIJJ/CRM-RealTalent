@@ -2,6 +2,7 @@
 import http from 'node:http'
 import fs from 'node:fs'
 import path from 'node:path'
+import os from 'node:os'
 import crypto from 'node:crypto'
 import { URL } from 'node:url'
 import { createWhatsAppBrowserQrBridge } from './whatsapp-browser-qr-bridge.mjs'
@@ -17,6 +18,17 @@ const STORE_FILE = process.env.REALTALENT_COMMUNICATIONS_STORE || path.join(ROOT
 const KEY_FILE = process.env.REALTALENT_COMMUNICATIONS_KEY_FILE || path.join(ROOT, '.realtalent-communications.key')
 const CONFIG_FILE = process.env.REALTALENT_COMMUNICATIONS_CONFIG || path.join(ROOT, '.realtalent-communications-config.json')
 const MEDIA_ROOT = process.env.REALTALENT_COMMUNICATIONS_MEDIA_DIR || path.join(ROOT, '.realtalent-communications-media')
+const TASK_AUTO_DEFAULT_STORE = path.join(process.env.XDG_STATE_HOME || path.join(os.homedir(), '.local', 'state'),
+  'realtalent-crm', 'task-whatsapp-queue.json')
+const TASK_AUTO_STORE_FILE = process.env.REALTALENT_TASK_AUTO_STORE || TASK_AUTO_DEFAULT_STORE
+const TASK_AUTO_LEGACY_STORE = path.join(ROOT, '.realtalent-task-auto-whatsapp.json')
+// Persist outside the downloaded release folder so updating the CRM does not
+// discard pending reminders. The old release-local file is migrated once.
+if (!fs.existsSync(TASK_AUTO_STORE_FILE) && fs.existsSync(TASK_AUTO_LEGACY_STORE)) {
+  fs.mkdirSync(path.dirname(TASK_AUTO_STORE_FILE), { recursive: true, mode: 0o700 })
+  fs.copyFileSync(TASK_AUTO_LEGACY_STORE, TASK_AUTO_STORE_FILE, fs.constants.COPYFILE_EXCL)
+  fs.chmodSync(TASK_AUTO_STORE_FILE,0o600)
+}
 fs.mkdirSync(MEDIA_ROOT, { recursive: true, mode: 0o700 })
 const CRM_PORT = Number(process.env.REALTALENT_CRM_PORT || 4188)
 const SYNC_INTERVAL_MS = Math.max(30_000, Number(process.env.REALTALENT_COMMUNICATIONS_SYNC_INTERVAL_MS || 60_000))
@@ -253,7 +265,7 @@ async function materializeCloudInboundMedia(s,account,mediaNode,type='document')
 async function parseWhatsAppWebhook(s,payload){ let imported=0; for(const entry of payload.entry||[]){for(const change of entry.changes||[]){const value=change.value||{};const phoneId=String(value.metadata?.phone_number_id||'');const account=(s.accounts||[]).find(a=>a.provider==='whatsapp_cloud'&&(a.externalAccountId===phoneId||a.metadata?.phoneNumberId===phoneId)); if(!account)continue; for(const m of value.messages||[]){ const mediaNode=m.image||m.video||m.audio||m.document||null; const attachment=mediaNode?await materializeCloudInboundMedia(s,account,mediaNode,m.type||'document'):null; const text=m.text?.body||m.image?.caption||m.video?.caption||m.document?.caption||m.button?.text||m.interactive?.button_reply?.title||(mediaNode?'[Mídia WhatsApp]':'[Mensagem WhatsApp]'); const peerAddress=String(m.from||'').replace(/\D/g,''); const event=makeEvent({workspaceId:account.workspaceId,accountId:account.id,channel:'whatsapp',direction:'inbound',status:'received',externalMessageId:String(m.id||uuid()),threadId:peerAddress||null,senderAddress:String(m.from||''),recipientAddresses:[String(value.metadata?.display_phone_number||'')],bodyText:String(text),replyToExternalMessageId:String(m.context?.id||'')||null,hasAttachments:Boolean(mediaNode),metadata:{provider:'whatsapp_cloud',type:m.type||'unknown',peerAddress,...(attachment?{attachment}:{})}}); if(m.timestamp)event.occurredAt=new Date(Number(m.timestamp)*1000).toISOString();if(pushEvent(s,event))imported++ } for(const st of value.statuses||[]){ const event=s.events.find(e=>e.externalMessageId===st.id&&e.workspaceId===account.workspaceId&&e.accountId===account.id); if(event){event.status=st.status==='delivered'?'delivered':st.status==='read'?'read':st.status==='sent'?'sent':st.status==='failed'?'failed':event.status;event.metadata={...(event.metadata||{}),whatsappStatus:st.status,errors:st.errors||[]}} }} } return imported }
 
 const localTaskAuto = createLocalTaskWhatsAppScheduler({
-  file: process.env.REALTALENT_TASK_AUTO_STORE || path.join(ROOT,'.realtalent-task-auto-whatsapp.json'),
+  file: TASK_AUTO_STORE_FILE,
   accountFor: async workspaceId => {
     const live = whatsappQr.status(workspaceId)
     if(live.state !== 'connected') return null

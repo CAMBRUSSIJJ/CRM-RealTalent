@@ -184,8 +184,10 @@ fi
 systemctl --user enable --now realtalent-ai-agent.service realtalent-ai-bridge.service realtalent-ai-watchdog.timer
 # Existing active units must restart to load the updated browser connector.
 systemctl --user restart realtalent-ai-agent.service realtalent-ai-bridge.service
-if [[ -s "$CONF/tunnel.token" ]] && command -v cloudflared >/dev/null 2>&1;then
-  systemctl --user enable --now realtalent-ai-tunnel.service
+# No new network exposure in local-only setup. The optional Cloudflare
+# tunnel remains off unless it was already explicitly configured by the user.
+if [[ -s "$CONF/tunnel.token" ]] && systemctl --user is-active --quiet realtalent-ai-tunnel.service;then
+  echo 'Aviso: existe um túnel Cloudflare anterior ativo. O conector local não precisa dele.'
 fi
 if command -v loginctl >/dev/null 2>&1 && ! loginctl show-user "$USER" -p Linger 2>/dev/null | grep -q 'Linger=yes';then
   echo 'Serviços iniciam ao entrar no Linux. Para iniciar também antes de fazer login, execute:'

@@ -5,6 +5,7 @@ on:
       - feat/task-integrated-reminders-ux-20261102
   pull_request:
     paths:
+      - 'scripts/css_governance_audit.mjs'
       - 'src/features/tasks/**'
       - 'src/features/communications-automations/**'
       - 'src/services/notifications/**'

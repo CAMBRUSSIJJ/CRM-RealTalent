@@ -9,7 +9,8 @@ import { NativeSelectionSelect } from '../../components/selection'
 import type { TaskRelation, TaskStatus, Team, WorkTask, WorkspaceMember } from '../../domain/types'
 import { deleteTask, loadWorkManagement, saveTask, taskPriorityLabel, taskStatusLabel, updateTaskStatus, type WorkManagementSnapshot } from '../../services/work-management'
 import { TaskModal } from './task-modal'
-import { cancelGatewayLocalTaskAuto, scheduleGatewayLocalTaskAuto, syncGatewayLocalTaskAutoMember, type LocalTaskAutoMember } from '../../services/local-communications-gateway'
+import { TaskNotificationCenter } from './task-notification-center'
+import { cancelGatewayLocalTaskAuto, reconcileGatewayLocalTaskWorkspace, scheduleGatewayLocalTaskAuto, syncGatewayLocalTaskAutoMember, type LocalTaskAutoMember } from '../../services/local-communications-gateway'
 import { WorkspaceCommandBar, WorkspaceCommandGroup, WorkspacePageHeader, WorkspaceSummaryMetric, WorkspaceSummaryStrip, WorkspaceViewStrip } from '../../components/workspace/workspace-shell'
 
 type ViewMode = 'list' | 'board' | 'today' | 'overdue' | 'completed'
@@ -41,6 +42,7 @@ export function TasksPage() {
   const [modalOpen, setModalOpen] = useState(false)
   const [editing, setEditing] = useState<WorkTask | null>(null)
   const [saving, setSaving] = useState(false)
+  const [showNotifications, setShowNotifications] = useState(false)
 
   const workspaceId = currentWorkspace?.id ?? ''
   const canTaskCreate = canTeamAccess('create','tasks')
@@ -61,8 +63,14 @@ export function TasksPage() {
       if (repositoryMode !== 'local' || !workspaceId) return
       // On startup reconcile consent/revocations BEFORE resuming persisted jobs.
       try {
-        for (const member of items) await syncGatewayLocalTaskAutoMember(asLocalTaskAutoMember(workspaceId,member))
+        for (const member of items) {
+          await syncGatewayLocalTaskAutoMember({ ...asLocalTaskAutoMember(workspaceId,member),reconcileOnly:true })
+        }
         const currentTasks=(await loadWorkManagement('local',workspaceId)).tasks
+        // The browser is still the source for *task existence*. Removing
+        // orphaned jobs from the persistent gateway is required after offline
+        // edits, deletions or data resets in the local workspace.
+        await reconcileGatewayLocalTaskWorkspace(workspaceId,currentTasks.map(task=>task.id))
         for (const task of currentTasks) {
           const member=items.find(item=>item.userId===task.assigneeId)
           await scheduleGatewayLocalTaskAuto({workspaceId,task,member:member?asLocalTaskAutoMember(workspaceId,member):null,assignmentChanged:false})
@@ -107,6 +115,13 @@ export function TasksPage() {
     if (!workspaceId) return
     setSaving(true)
     try {
+      // For existing locally scheduled tasks, acknowledge cancellation in
+      // the gateway before changing assignee, deadline or opt-in settings.
+      // Otherwise an old reminder could fire during an offline edit.
+      if (repositoryMode === 'local' && editing?.reminderEnabled && editing.reminderChannels?.includes('whatsapp')) {
+        try { await cancelGatewayLocalTaskAuto(workspaceId,editing.id) }
+        catch { throw new Error('Não foi possível cancelar avisos antigos. Verifique o Communications Gateway antes de editar esta tarefa.') }
+      }
       const task = await saveTask(repositoryMode, workspaceId, input, user?.id ?? null, teamAccess)
       let schedulingError = false
       if (repositoryMode === 'local') {
@@ -130,11 +145,16 @@ export function TasksPage() {
   const changeStatus = async (task: WorkTask, status: TaskStatus) => {
     if (!workspaceId) return
     try {
+      // Cancel first: a completion must never leave a pending WhatsApp
+      // notification in the gateway when browser and server are out of sync.
+      if(repositoryMode==='local' && (status==='completed'||status==='cancelled')) {
+        try { await cancelGatewayLocalTaskAuto(workspaceId,task.id) }
+        catch { throw new Error('Não foi possível cancelar o lembrete automático. Mantenha a tarefa aberta e verifique o Gateway.') }
+      }
       await updateTaskStatus(repositoryMode, workspaceId, task.id, status, teamAccess)
       if(repositoryMode==='local') {
         try {
-          if(status==='completed'||status==='cancelled') await cancelGatewayLocalTaskAuto(workspaceId,task.id)
-          else {
+          if(status!=='completed'&&status!=='cancelled') {
             const fresh=(await loadWorkManagement('local',workspaceId)).tasks.find(item=>item.id===task.id)
             if(fresh) {
               const member=members.find(item=>item.userId===fresh.assigneeId)
@@ -151,9 +171,11 @@ export function TasksPage() {
   const remove = async (task: WorkTask) => {
     if (!workspaceId || !await confirmAction({ title: 'Excluir tarefa?', description: `A tarefa “${task.title}” será removida.`, confirmLabel: 'Excluir', tone: 'danger' })) return
     try {
+      if(repositoryMode==='local') {
+        try { await cancelGatewayLocalTaskAuto(workspaceId,task.id) }
+        catch { throw new Error('Gateway indisponível. A exclusão foi interrompida para impedir um lembrete órfão.') }
+      }
       await deleteTask(repositoryMode, workspaceId, task.id, teamAccess)
-      if(repositoryMode==='local')try { await cancelGatewayLocalTaskAuto(workspaceId,task.id) }
-        catch { notify('warning','Tarefa excluída, mas o agendador local não confirmou o cancelamento.') }
       await reload(); notify('success', 'Tarefa excluída.')
     }
     catch (error) { notify('error', error instanceof Error ? error.message : 'Falha ao excluir a tarefa.') }
@@ -165,8 +187,14 @@ export function TasksPage() {
 
   return <div className="workspace-page tasks-page-v101112">
     <WorkspacePageHeader className="tasks-page-header-h223h1" eyebrow="Execução comercial" icon={ListChecks} title="Tarefas" description="Centralize o que precisa ser feito, por quem e em qual contexto do CRM." actions={<>
+      {repositoryMode === 'local' ? <Button variant="secondary" onClick={() => setShowNotifications(value => !value)}>
+        <Bell size={16}/>{showNotifications ? 'Fechar notificações' : 'Notificações'}
+      </Button> : null}
       {canTaskCreate ? <Button onClick={() => { setEditing(null); setModalOpen(true) }}><Plus size={17}/> Nova tarefa</Button> : null}
     </>} />
+    {repositoryMode === 'local' && showNotifications && workspaceId
+      ? <TaskNotificationCenter workspaceId={workspaceId} tasks={data.tasks} onOpenTask={task => {setEditing(task);setModalOpen(true)}} />
+      : null}
 
     <WorkspaceSummaryStrip className="tasks-summary-strip-h223h1">
       <WorkspaceSummaryMetric icon={CircleDot} label="Abertas" value={metrics.open} meta="Em execução" tone="brand" onClick={() => setView('list')} />

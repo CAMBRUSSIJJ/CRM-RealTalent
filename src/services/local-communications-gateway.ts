@@ -235,6 +235,8 @@ export interface LocalTaskAutoMember {
   phone: string
   consentAt: string | null
   autoEnabledAt: string | null
+  /** Background reconciliation may not turn automation on or undo revocation. */
+  reconcileOnly?: boolean
 }
 export interface LocalTaskAutoJob {
   id: string
@@ -245,7 +247,7 @@ export interface LocalTaskAutoJob {
   error: string | null
 }
 export const syncGatewayLocalTaskAutoMember = (member: LocalTaskAutoMember) =>
-  request<{ ok:boolean; active:boolean }>('/api/task-reminders/member',{ method:'POST',body:JSON.stringify(member) })
+  request<{ ok:boolean; active:boolean; needsExplicitSave?:boolean }>('/api/task-reminders/member',{ method:'POST',body:JSON.stringify(member) })
 export const scheduleGatewayLocalTaskAuto = (input: {
   workspaceId:string
   task: import('../domain/types').WorkTask
@@ -256,5 +258,20 @@ export const scheduleGatewayLocalTaskAuto = (input: {
 })
 export const cancelGatewayLocalTaskAuto = (workspaceId:string,taskId:string) =>
   request<{ ok:boolean }>('/api/task-reminders/cancel',{ method:'POST',body:JSON.stringify({workspaceId,taskId}) })
-export const loadGatewayLocalTaskAutoHistory = (workspaceId:string,taskId:string) =>
-  request<{ok:boolean;jobs:LocalTaskAutoJob[]}>('/api/task-reminders/status?workspaceId='+encodeURIComponent(workspaceId)+'&taskId='+encodeURIComponent(taskId))
+export interface LocalTaskAutoHistory {
+  ok:boolean
+  jobs:LocalTaskAutoJob[]
+  counts: Record<LocalTaskAutoJob['status'],number>
+  total:number
+  lastActivityAt:string | null
+}
+export const loadGatewayLocalTaskAutoHistory = (workspaceId:string,taskId = '') =>
+  request<LocalTaskAutoHistory>('/api/task-reminders/status?workspaceId='+encodeURIComponent(workspaceId)+'&taskId='+encodeURIComponent(taskId))
+export const loadGatewayLocalTaskMemberStatus = (workspaceId:string,userId:string) =>
+  request<{ok:boolean;present:boolean;active:boolean;consentRecorded:boolean;phoneConfigured:boolean;updatedAt:string|null}>(
+    '/api/task-reminders/member-status?workspaceId='+encodeURIComponent(workspaceId)+'&userId='+encodeURIComponent(userId),
+  )
+export const reconcileGatewayLocalTaskWorkspace = (workspaceId:string,taskIds:string[]) =>
+  request<{ok:boolean;cancelled:number;tracked:number}>('/api/task-reminders/reconcile',{
+    method:'POST',body:JSON.stringify({workspaceId,taskIds}),
+  })

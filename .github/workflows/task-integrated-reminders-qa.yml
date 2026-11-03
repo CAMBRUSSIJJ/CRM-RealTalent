@@ -6,6 +6,11 @@ on:
   pull_request:
     paths:
       - 'src/features/tasks/**'
+      - 'src/services/local-communications-gateway.ts'
+      - 'src/styles/task-notification-center.css'
+      - 'scripts/local-task-whatsapp-scheduler.mjs'
+      - 'scripts/realtalent-communications-gateway.mjs'
+      - 'scripts/local-task-whatsapp-scheduler.test.mjs'
       - 'src/features/teams/**'
       - 'src/repositories/local-workspace-member-repository.ts'
       - 'src/features/settings/local-member-whatsapp-editor.tsx'

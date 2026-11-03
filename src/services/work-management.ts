@@ -163,24 +163,6 @@ export async function saveTeam(mode: 'local' | 'supabase', workspaceId: string, 
     snapshot.memberships = snapshot.memberships.filter((item) => item.teamId !== id)
     for (const userId of members) snapshot.memberships.push({ id: createId('tm'), workspaceId, teamId: id, userId, role: userId === next.leaderId ? 'leader' : 'member', allocationPercent: 100, createdAt: timestamp })
     if (next.leaderId && !members.includes(next.leaderId)) snapshot.memberships.push({ id: createId('tm'), workspaceId, teamId: id, userId: next.leaderId, role: 'leader', allocationPercent: 100, createdAt: timestamp })
-    // Commit the task and the intent in the same browser-storage write.
-    const previouslyAssigned=localPrevious?.assigneeId ?? null
-    const changedAssignee=previouslyAssigned!==(next.assigneeId??null)
-    if (changedAssignee && localPrevious) recordNotificationIntent(snapshot,id,previouslyAssigned,'cancel',timestamp)
-    if (next.assigneeId && changedAssignee && next.reminderEnabled && next.reminderOnAssignment &&
-        ['todo','in_progress','blocked'].includes(next.status)) {
-      recordNotificationIntent(snapshot,id,next.assigneeId,'assignment',timestamp)
-    } else {
-      const changedNotificationSettings=Boolean(localPrevious && (
-        localPrevious.reminderEnabled!==next.reminderEnabled ||
-        localPrevious.reminderOnAssignment!==next.reminderOnAssignment ||
-        localPrevious.dueAt!==next.dueAt ||
-        JSON.stringify(localPrevious.reminderChannels||[])!==JSON.stringify(next.reminderChannels||[]) ||
-        JSON.stringify(localPrevious.reminderOffsetsMinutes||[])!==JSON.stringify(next.reminderOffsetsMinutes||[]) ||
-        localPrevious.reminderCustomMinutes!==next.reminderCustomMinutes
-      ))
-      recordNotificationIntent(snapshot,id,next.assigneeId,'sync',timestamp,changedNotificationSettings)
-    }
     writeLocal(workspaceId, snapshot)
     return next
   }
@@ -260,6 +242,24 @@ export async function saveTask(mode: 'local' | 'supabase', workspaceId: string, 
     if (input.relation?.entityId) snapshot.relations.push({ id: createId('rel'), workspaceId, taskId: id, entityType: input.relation.entityType, entityId: input.relation.entityId, entityLabel: input.relation.entityLabel, createdAt: timestamp })
     snapshot.checklistItems = snapshot.checklistItems.filter((item) => item.taskId !== id)
     for (const [position, item] of (input.checklist ?? []).filter((item) => item.title.trim()).entries()) snapshot.checklistItems.push({ id: item.id ?? createId('check'), workspaceId, taskId: id, title: item.title.trim(), completed: Boolean(item.completed), position, createdAt: timestamp, updatedAt: timestamp })
+    // Commit the task and the intent in the same browser-storage write.
+    const previouslyAssigned=localPrevious?.assigneeId ?? null
+    const changedAssignee=previouslyAssigned!==(next.assigneeId??null)
+    if (changedAssignee && localPrevious) recordNotificationIntent(snapshot,id,previouslyAssigned,'cancel',timestamp)
+    if (next.assigneeId && changedAssignee && next.reminderEnabled && next.reminderOnAssignment &&
+        ['todo','in_progress','blocked'].includes(next.status)) {
+      recordNotificationIntent(snapshot,id,next.assigneeId,'assignment',timestamp)
+    } else {
+      const changedNotificationSettings=Boolean(localPrevious && (
+        localPrevious.reminderEnabled!==next.reminderEnabled ||
+        localPrevious.reminderOnAssignment!==next.reminderOnAssignment ||
+        localPrevious.dueAt!==next.dueAt ||
+        JSON.stringify(localPrevious.reminderChannels||[])!==JSON.stringify(next.reminderChannels||[]) ||
+        JSON.stringify(localPrevious.reminderOffsetsMinutes||[])!==JSON.stringify(next.reminderOffsetsMinutes||[]) ||
+        localPrevious.reminderCustomMinutes!==next.reminderCustomMinutes
+      ))
+      recordNotificationIntent(snapshot,id,next.assigneeId,'sync',timestamp,changedNotificationSettings)
+    }
     writeLocal(workspaceId, snapshot)
     return next
   }

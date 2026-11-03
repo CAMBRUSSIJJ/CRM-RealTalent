@@ -1,1 +1,13 @@
 .local-team-wa-action{display:grid;gap:.75rem}.local-team-wa-action__recipient{margin:0;font-size:13px;line-height:1.5;overflow-wrap:anywhere}.local-team-wa-action__hint{font-size:12px;line-height:1.5;color:var(--text-secondary,#667085);margin:0}.local-team-wa-action__confirm{display:flex;align-items:flex-start;gap:9px;font-size:12px;line-height:1.5;max-width:640px}.local-team-wa-action__confirm input{flex:none;margin-top:3px}.local-team-wa-action>button{justify-self:start}
+/* Keep the real send action near the assignee, never hidden below reminder settings. */
+.work-task-modal .local-team-wa-action{border:1px solid var(--border,#dbe3ef);border-left:3px solid var(--brand-primary,#3467d5);border-radius:12px;padding:14px;background:var(--surface,#fff);gap:.65rem}
+.work-task-modal .local-team-wa-action header{margin-bottom:0}
+.work-task-modal .local-team-wa-action__recipient{font-size:12px}
+.work-task-modal .local-team-wa-action button{width:max-content;max-width:100%;min-height:36px}
+.work-task-reminder-disclosure{border:1px solid var(--border,#dbe3ef);border-radius:12px;background:var(--surface,#fff);overflow:hidden}
+.work-task-reminder-disclosure>summary{cursor:pointer;list-style:none;padding:14px 16px;font-size:13px;font-weight:650;line-height:1.5;color:inherit}
+.work-task-reminder-disclosure>summary::-webkit-details-marker{display:none}
+.work-task-reminder-disclosure>summary::after{content:'▾';float:right;color:var(--text-secondary,#667085);margin-left:10px}
+.work-task-reminder-disclosure[open]>summary::after{content:'▴'}
+.work-task-reminder-disclosure>.task-reminders{border:0!important;margin:0!important;box-shadow:none!important}
+.work-task-reminder-disclosure:focus-within{outline:2px solid transparent}

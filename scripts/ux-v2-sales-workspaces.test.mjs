@@ -1,4 +1,4 @@
-// RealTalent sales workspaces V2 — source regression contracts.
+// RealTalent workspaces — contract tests for Dashboard V2, Contatos V2 and Pipeline V3.
 // Validates that the UX-only patch preserves the original interactive JSX
 // and the native data paths from the V101.11.3 release branch.
 import assert from 'node:assert/strict'
@@ -13,7 +13,7 @@ const base = 'a4a3d0561cbba22dbcb2ec304c75976d2bce2d5f'
 const pages = [
   { name: 'Dashboard', file: 'src/features/dashboard/dashboard-page.tsx', css: 'src/features/dashboard/dashboard-layout-v2.css', rootClass: 'dashboard-layout-v2', contracts: ['buildWorkdayQueue(', 'buildLeadScoreBoard(', 'goalProgress(', '<FilterSelection', '<LazyCallWorkspaceModal', '<SalesMessageModal', 'runWorkdayItem(', 'useAppWorkspace()'] },
   { name: 'Contatos', file: 'src/features/leads/leads-page.tsx', css: 'src/features/leads/contacts-layout-v2.css', rootClass: 'contacts-layout-v2', contracts: ['<WorkspaceSummaryMetric', '<WorkspaceFilterMenu', '<WorkspaceSortMenu', '<DataGrid', 'scoreByLead', 'downloadCsv', 'importFile', 'setSelected(', '<SelectionToolbar', 'createSavedView(', 'onDrop='] },
-  { name: 'Pipeline', file: 'src/features/pipeline/pipeline-page.tsx', css: 'src/features/pipeline/pipeline-layout-v2.css', rootClass: 'pipeline-layout-v2', contracts: ['<WorkspaceSummaryMetric', '<WorkspaceFilterMenu', '<WorkspaceSortMenu', '<WorkspaceDisplayMenu', 'renderBoard(', 'onDragStart=', 'onDragOver=', 'onDrop=', 'drop(event, stage.id)', 'setViewing(', '<CreateLeadModal', '<SalesMessageModal'] },
+  { name: 'Pipeline', file: 'src/features/pipeline/pipeline-page.tsx', css: 'src/features/pipeline/sales-pipeline-v3.css', rootClass: 'sales-pipeline-v3', contracts: ['sales-pipeline-v3__metrics', '<WorkspaceFilterMenu', '<WorkspaceSortMenu', '<WorkspaceDisplayMenu', 'renderBoard(', 'onDragStart=', 'onDragOver=', 'onDrop=', 'drop(event, stage.id)', 'setViewing(', '<CreateLeadModal', '<SalesMessageModal'] },
 ]
 const userHandlers = new Set([
   'onClick', 'onChange', 'onValueChange', 'onDragStart', 'onDragEnd',
@@ -43,10 +43,22 @@ const jsxHandlerInventory = (text, file) => {
 const sorted = (map) => [...map.entries()].sort(([a],[b]) => a.localeCompare(b))
 
 for (const page of pages) {
-  test(`${page.name} — mantém os mesmos manipuladores JSX da base V101.11.3`, () => {
+  test(`${page.name} — preserva manipuladores essenciais`, () => {
     const before = jsxHandlerInventory(oldSource(page.file), page.file)
     const after = jsxHandlerInventory(read(page.file), page.file)
-    assert.deepEqual(sorted(after), sorted(before), `Ações perdidas ou adicionadas fora do escopo em ${page.file}`)
+    if (page.name === 'Pipeline') {
+      // A substituição completa da interface remove controles JSX obsoletos.
+      // Contratos de dados, movimentação e ações devem sobreviver à migração.
+      for (const handler of ['article:onDragStart', 'article:onDragEnd', 'article:onDragEnter', 'article:onDragLeave', 'article:onDragOver', 'article:onDrop']) {
+        assert.ok((after.get(handler) ?? 0) >= (before.get(handler) ?? 0), `Perda de DnD: ${handler}`)
+      }
+      const s = read(page.file)
+      for (const behavior of ['void drop(event, stage.id)', 'toggleSelected(lead.id)', 'setViewing(lead)', 'setCreateStageId(stage.id)', 'setStageEditing(stage)', 'completeNextPipelineActivity(lead)', 'onChange={(event) => { setActiveSavedViewId(null)', 'selectViewMode(', 'runBulk(', 'onOpen={(deal) => setInspectingLeadId(deal.lead.id)}']) {
+        assert.ok(s.includes(behavior), `Fluxo funcional perdido: ${behavior}`)
+      }
+    } else {
+      assert.deepEqual(sorted(after), sorted(before), `Ações perdidas em ${page.file}`)
+    }
   })
   test(`${page.name} — mantém integrações e dados reais`, () => {
     const contents = read(page.file)
@@ -71,10 +83,17 @@ test('Contatos — visualizações e comandos estão agrupados sem apagar pesqui
   assert.ok(s.indexOf('contacts-toolbar-cluster-v2') < s.indexOf('<WorkspaceCommandBar'))
   assert.ok(s.indexOf('<section className="lead-view-tabs') < s.indexOf('<WorkspaceCommandBar'))
 })
-test('Pipeline — visões e filtros são exibidos antes dos KPIs, com etapas dinâmicas', () => {
+test('Pipeline — tela e Kanban V3 substituem o markup antigo de ponta a ponta', () => {
   const s = read(pages[2].file)
-  assert.ok(s.indexOf('<WorkspaceCommandBar') < s.indexOf('<WorkspaceSummaryStrip'))
+  assert.ok(s.indexOf('sales-pipeline-v3__toolbar-main') < s.indexOf('sales-pipeline-v3__metrics'))
   assert.ok(s.includes('snapshot?.stages.map((stage)'))
+  for (const stale of ['pipeline-layout-v2', 'pipeline-page-v1008', 'pipeline-page-h20', 'pipeline-board-v1008', 'pipeline-column-v1008', 'pipeline-card-v1008', 'pipeline-intelligence-shell', 'pipeline-view-switcher-v10170-hidden', 'pipeline-stage-instruction', 'pipeline-column__empty', 'pipeline-column__add']) {
+    assert.ok(!s.includes(stale), `Markup legado no Pipeline: ${stale}`)
+  }
+  assert.ok(!fs.existsSync(path.join(root, 'src/features/pipeline/pipeline-layout-v2.css')), 'CSS V2 obsoleto ainda presente')
+  for (const feature of ['sales-pipeline-v3__tabs', 'sales-pipeline-v3__search', 'sales-pipeline-v3__more-actions', 'sales-pipeline-v3__column-body', 'sales-pipeline-v3__card-footer', 'sales-pipeline-v3__add', 'sales-pipeline-v3__analysis']) {
+    assert.ok(s.includes(feature), `Componente V3 ausente: ${feature}`)
+  }
 })
 test('Dashboard — KPIs vêm antes das atividades sem mudar os modais', () => {
   const s = read(pages[0].file)

@@ -116,7 +116,7 @@ export function TasksPage() {
             workspaceId,task,member:member?asLocalTaskAutoMember(workspaceId,member):null,
             assignmentChanged:Boolean(task.assigneeId && (!editing || editing.assigneeId!==task.assigneeId)),
           })
-          if (member?.whatsappAutoEnabledAt && task.reminderEnabled && task.reminderChannels.includes('whatsapp') && !response.automaticEnabled)
+          if (member?.whatsappAutoEnabledAt && task.reminderEnabled && task.reminderChannels?.includes('whatsapp') && !response.automaticEnabled)
             schedulingError = true
         } catch { schedulingError = Boolean(member?.whatsappAutoEnabledAt) }
       }

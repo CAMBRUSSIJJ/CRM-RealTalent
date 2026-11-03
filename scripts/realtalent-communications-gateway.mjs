@@ -8,6 +8,7 @@ import { createWhatsAppBrowserQrBridge } from './whatsapp-browser-qr-bridge.mjs'
 import { eventIdentityKey, mergeCommunicationEvent, mergeStoreSnapshots } from './communications-store-utils.mjs'
 import { createRealtimeBus } from './communications-realtime-bus.mjs'
 import { looksLikeEncodedMediaText } from './whatsapp-sync-utils.mjs'
+import { createLocalTaskWhatsAppScheduler } from './local-task-whatsapp-scheduler.mjs'
 
 const ROOT = path.resolve(path.dirname(new URL(import.meta.url).pathname), '..')
 const PORT = Number(process.env.REALTALENT_COMMUNICATIONS_PORT || 3002)
@@ -25,7 +26,7 @@ const PUBLIC_APP_URL = String(process.env.REALTALENT_PUBLIC_APP_URL || '').trim(
 const EXTRA_ALLOWED_HOSTS = String(process.env.REALTALENT_COMMUNICATIONS_ALLOWED_HOSTS || '').split(',').map((value) => value.trim().toLowerCase()).filter(Boolean)
 const INTERNAL_ALLOWED_ORIGINS = new Set([`http://127.0.0.1:${CRM_PORT}`, `http://localhost:${CRM_PORT}`, 'http://127.0.0.1:4173', 'http://localhost:4173', 'http://127.0.0.1:4174', 'http://localhost:4174'])
 // historical marker: const VERSION = '101.8.4-h10'
-const VERSION = '101.8.4-h13'
+const VERSION = '101.8.4-h14'
 // Allows the Linux launcher to detect a healthy but stale Communications process.
 const WHATSAPP_SEND_RETURN_REVISION = 'msgkey-dollar1-20261102'
 let shuttingDown = false
@@ -251,6 +252,40 @@ async function materializeCloudInboundMedia(s,account,mediaNode,type='document')
 }
 async function parseWhatsAppWebhook(s,payload){ let imported=0; for(const entry of payload.entry||[]){for(const change of entry.changes||[]){const value=change.value||{};const phoneId=String(value.metadata?.phone_number_id||'');const account=(s.accounts||[]).find(a=>a.provider==='whatsapp_cloud'&&(a.externalAccountId===phoneId||a.metadata?.phoneNumberId===phoneId)); if(!account)continue; for(const m of value.messages||[]){ const mediaNode=m.image||m.video||m.audio||m.document||null; const attachment=mediaNode?await materializeCloudInboundMedia(s,account,mediaNode,m.type||'document'):null; const text=m.text?.body||m.image?.caption||m.video?.caption||m.document?.caption||m.button?.text||m.interactive?.button_reply?.title||(mediaNode?'[Mídia WhatsApp]':'[Mensagem WhatsApp]'); const peerAddress=String(m.from||'').replace(/\D/g,''); const event=makeEvent({workspaceId:account.workspaceId,accountId:account.id,channel:'whatsapp',direction:'inbound',status:'received',externalMessageId:String(m.id||uuid()),threadId:peerAddress||null,senderAddress:String(m.from||''),recipientAddresses:[String(value.metadata?.display_phone_number||'')],bodyText:String(text),replyToExternalMessageId:String(m.context?.id||'')||null,hasAttachments:Boolean(mediaNode),metadata:{provider:'whatsapp_cloud',type:m.type||'unknown',peerAddress,...(attachment?{attachment}:{})}}); if(m.timestamp)event.occurredAt=new Date(Number(m.timestamp)*1000).toISOString();if(pushEvent(s,event))imported++ } for(const st of value.statuses||[]){ const event=s.events.find(e=>e.externalMessageId===st.id&&e.workspaceId===account.workspaceId&&e.accountId===account.id); if(event){event.status=st.status==='delivered'?'delivered':st.status==='read'?'read':st.status==='sent'?'sent':st.status==='failed'?'failed':event.status;event.metadata={...(event.metadata||{}),whatsappStatus:st.status,errors:st.errors||[]}} }} } return imported }
 
+const localTaskAuto = createLocalTaskWhatsAppScheduler({
+  file: process.env.REALTALENT_TASK_AUTO_STORE || path.join(ROOT,'.realtalent-task-auto-whatsapp.json'),
+  accountFor: async workspaceId => {
+    const live = whatsappQr.status(workspaceId)
+    if(live.state !== 'connected') return null
+    return (store().accounts||[]).find(a=>a.workspaceId===workspaceId && a.provider==='whatsapp_cloud' &&
+      a.metadata?.transport==='qr' && a.status!=='revoked') || null
+  },
+  send: async (job,liveAccount) => {
+    if (whatsappQr.status(job.workspaceId).state!=='connected')
+      throw new Error('qr_disconnected')
+    const s=store(),account=accountById(s,job.workspaceId,liveAccount.id)
+    if(!account || account.metadata?.transport!=='qr')throw new Error('qr_account_not_found')
+    const qr = whatsappQr.status(job.workspaceId)
+    const senderDigits = String(qr.phone||'').replace(/\D/g,'')
+    const recipientDigits = String(job.phone).replace(/\D/g,'')
+    if(senderDigits && senderDigits===recipientDigits) throw new Error('sender_is_recipient')
+    const input={
+      workspaceId:job.workspaceId,accountId:account.id,channel:'whatsapp',
+      recipient:recipientDigits,body:[
+        'RealTalent | Lembrete automático de tarefa',
+        '',
+        'Tarefa: '+job.title,
+        'Prazo: '+(job.dueAt?new Date(job.dueAt).toLocaleString('pt-BR',{timeZone:'America/Sao_Paulo'}):'Sem prazo'),
+        job.eventType==='assigned'?'Nova tarefa atribuída.':'O prazo está próximo.',
+        '',
+        'Consulte o RealTalent para mais detalhes.',
+      ].join('\n'),
+      idempotencyKey:'task-auto-local:'+job.id,
+    }
+    return idempotencyEvent(s,input) || executeCommunicationSend(s,input,account)
+  },
+})
+
 async function route(req,res){
   if(!validHost(req))return json(res,421,{error:'Host não autorizado para o Communications Gateway.'})
   applyCors(req,res)
@@ -260,6 +295,13 @@ async function route(req,res){
   if(internalApi&&!originAllowed(req))return json(res,403,{error:'Origem não autorizada para o Communications Gateway.'})
   if(internalApi&&!internalAuthorized(req))return json(res,401,{error:'Autenticação local do Communications Gateway ausente ou inválida.'})
   const s=store();
+  if(req.method==='POST'&&u.pathname==='/api/task-reminders/member'){const b=await body(req);return json(res,200,{ok:true,...localTaskAuto.updateMember(b)})}
+  if(req.method==='POST'&&u.pathname==='/api/task-reminders/schedule'){const b=await body(req);return json(res,200,{ok:true,...localTaskAuto.schedule(b)})}
+  if(req.method==='POST'&&u.pathname==='/api/task-reminders/cancel'){const b=await body(req);return json(res,200,{ok:true,...localTaskAuto.cancel(b)})}
+  if(req.method==='GET'&&u.pathname==='/api/task-reminders/status'){return json(res,200,{ok:true,...localTaskAuto.status({
+    workspaceId:String(u.searchParams.get('workspaceId')||''),
+    taskId:String(u.searchParams.get('taskId')||''),
+  })})}
   if(req.method==='GET'&&u.pathname==='/api/communications/health'){const google=providerConfig('google');const microsoft=providerConfig('microsoft');return json(res,200,{ok:true,mode:'local-gateway',version:VERSION,whatsappSendReturnRevision:WHATSAPP_SEND_RETURN_REVISION,security:{runtimeAuth:Boolean(RUNTIME_TOKEN),hostValidation:true,originValidation:true,webhooksFailClosed:true},providers:{google:Boolean(google.clientId),microsoft:Boolean(microsoft.clientId),whatsapp:true,whatsappQr:true},syncIntervalMs:SYNC_INTERVAL_MS,realtime:{transport:'sse',...realtimeBus.stats()}})}
   if(req.method==='GET'&&u.pathname==='/api/integrations/accounts'){const workspaceId=u.searchParams.get('workspaceId')||'';const accounts=s.accounts.filter(a=>a.workspaceId===workspaceId&&a.status!=='revoked').map(a=>{const view=safeAccount(a);if(a.provider==='whatsapp_cloud'&&a.metadata?.transport==='qr'){const live=whatsappQr.status(a.workspaceId);view.metadata={...(view.metadata||{}),liveState:live.state,qrEngine:live.engine||a.metadata?.qrEngine};if(live.state==='connected'){view.status='connected';view.lastError=null}else if(['starting','disconnected','idle'].includes(live.state)){view.status='attention';view.lastError=live.lastError||a.lastError||'WhatsApp QR reconectando.'}else if(live.state==='qr'){view.status='attention';view.lastError='WhatsApp QR aguardando leitura do código.'}}return view});return json(res,200,{accounts})}
   if(req.method==='POST'&&u.pathname==='/api/integrations/oauth/start'){const b=await body(req); if(!['google','microsoft'].includes(b.provider))return json(res,400,{error:b.provider==='whatsapp_cloud'?'No modo Linux local, conecte o WhatsApp Business pela tela WhatsApp informando o token permanente e o Phone Number ID.':'Este provedor ainda exige o backend hospedado.'}); try{return json(res,200,{mode:'oauth',url:authUrl(b.provider,b.workspaceId,b.returnUrl),message:'OAuth real iniciado pelo gateway local.'})}catch(e){return json(res,400,{error:e.message})}}
@@ -358,6 +400,8 @@ async function runBackgroundSync(){
 }
 const backgroundTimer=setInterval(()=>{void runBackgroundSync().catch(error=>console.warn('[Communications Gateway] sincronização em segundo plano falhou:', error instanceof Error ? error.message : String(error)))},SYNC_INTERVAL_MS)
 backgroundTimer.unref()
+const localTaskTimer=setInterval(()=>{void localTaskAuto.tick().catch(error=>console.warn('[Communications Gateway] fila automática de tarefas falhou:',error instanceof Error?error.message:String(error)))},5_000)
+localTaskTimer.unref()
 const outboxTimer=setInterval(()=>{void drainWhatsAppOutbox().catch(error=>console.warn('[Communications Gateway] fila WhatsApp falhou:',error instanceof Error?error.message:String(error)))},2_000)
 outboxTimer.unref()
 const realtimeHeartbeatTimer=setInterval(()=>realtimeBus.heartbeat(),15_000)
@@ -368,6 +412,7 @@ async function shutdown(signal){
   shuttingDown=true
   clearInterval(backgroundTimer)
   clearInterval(outboxTimer)
+  clearInterval(localTaskTimer)
   clearInterval(realtimeHeartbeatTimer)
   realtimeBus.closeAll()
   console.log(`[Communications Gateway] encerrando por ${signal}`)

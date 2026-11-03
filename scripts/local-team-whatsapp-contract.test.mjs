@@ -52,5 +52,5 @@ test('automatic QR requires an explicit independent member switch',()=>{
   assert.match(editor,/setAutomatic\(/)
   assert.match(editor,/syncGatewayLocalTaskAutoMember/)
   assert.match(members,/member\.whatsappAutoEnabledAt =/)
-  assert.match(taskAction,/diagnostic\\?\\.canRequest/)
+  assert.ok(taskAction.includes('diagnostic?.canRequest'))
 })

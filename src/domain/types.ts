@@ -141,6 +141,8 @@ export interface WorkspaceMember {
   whatsappPhone?: string | null
   /** Manager attestation that the employee opted in; not provider-verified ownership. */
   whatsappConsentRecordedAt?: string | null
+  /** Explicitly enabled QR reminder automation; disabled by default. */
+  whatsappAutoEnabledAt?: string | null
 }
 
 export interface WorkspaceInvite {

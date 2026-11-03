@@ -11,6 +11,10 @@ on:
       - 'src/features/settings/local-member-whatsapp-editor.tsx'
       - 'src/services/team-whatsapp-directory.ts'
       - 'scripts/local-team-whatsapp-contract.test.mjs'
+      - 'scripts/local-task-whatsapp-scheduler.mjs'
+      - 'scripts/local-task-whatsapp-scheduler.test.mjs'
+      - 'scripts/realtalent-communications-gateway.mjs'
+      - 'src/services/local-communications-gateway.ts'
       - 'src/features/settings/task-reminder-*'
       - 'src/services/work-management.ts'
       - 'src/services/task-reminder-*'
@@ -43,6 +47,8 @@ jobs:
         run: node --test scripts/team-notification-routing-contract.test.mjs
       - name: Local team phone and consent contracts
         run: node --test scripts/local-team-whatsapp-contract.test.mjs
+      - name: Automatic local queue safety contracts
+        run: node --test scripts/local-task-whatsapp-scheduler.test.mjs
       - name: Existing reminder security contracts
         run: node --test scripts/task-reminder-contract.test.mjs
       - name: CSS governance

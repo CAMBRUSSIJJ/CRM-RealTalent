@@ -337,8 +337,12 @@ export function createLocalTaskWhatsAppScheduler({ file, send, accountFor, clock
         // Durable opt-in already accepted by gateway; safe across restart
         // even with the browser closed. Changes require acknowledged edits.
         // Rate-limit before any outbound call, including after a restart.
-        const sentDay=state.jobs.filter(j=>j.workspaceId===job.workspaceId&&j.userId===job.userId&&j.status==='sent'&&Date.parse(j.processedAt||0)>current-24*60*60*1000).length
-        if(sentDay>=20){job.status='blocked';job.error='member_daily_limit';save();continue}
+        // Count attempts, not only acknowledged sends. Ambiguous outcomes
+        // must not bypass daily rate limits on repeated task assignments.
+        const attemptsDay=state.jobs.filter(j=>j.workspaceId===job.workspaceId&&j.userId===job.userId&&
+          ['sent','failed','unknown','processing'].includes(j.status)&&
+          Date.parse(j.processedAt||j.claimedAt||0)>current-24*60*60*1000).length
+        if(attemptsDay>=20){job.status='blocked';job.error='member_daily_limit';save();continue}
         const account=await accountFor(job.workspaceId)
         if (!account) continue // Stay pending until QR reconnects, then expire.
         // accountFor() is asynchronous: cancellation or consent revocation

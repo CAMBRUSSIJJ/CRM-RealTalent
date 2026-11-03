@@ -26,7 +26,7 @@ const PUBLIC_APP_URL = String(process.env.REALTALENT_PUBLIC_APP_URL || '').trim(
 const EXTRA_ALLOWED_HOSTS = String(process.env.REALTALENT_COMMUNICATIONS_ALLOWED_HOSTS || '').split(',').map((value) => value.trim().toLowerCase()).filter(Boolean)
 const INTERNAL_ALLOWED_ORIGINS = new Set([`http://127.0.0.1:${CRM_PORT}`, `http://localhost:${CRM_PORT}`, 'http://127.0.0.1:4173', 'http://localhost:4173', 'http://127.0.0.1:4174', 'http://localhost:4174'])
 // historical marker: const VERSION = '101.8.4-h10'
-const VERSION = '101.8.4-h14'
+const VERSION = '101.8.4-h15'
 // Allows the Linux launcher to detect a healthy but stale Communications process.
 const WHATSAPP_SEND_RETURN_REVISION = 'msgkey-dollar1-20261102'
 let shuttingDown = false
@@ -298,6 +298,11 @@ async function route(req,res){
   if(req.method==='POST'&&u.pathname==='/api/task-reminders/member'){const b=await body(req);return json(res,200,{ok:true,...localTaskAuto.updateMember(b)})}
   if(req.method==='POST'&&u.pathname==='/api/task-reminders/schedule'){const b=await body(req);return json(res,200,{ok:true,...localTaskAuto.schedule(b)})}
   if(req.method==='POST'&&u.pathname==='/api/task-reminders/cancel'){const b=await body(req);return json(res,200,{ok:true,...localTaskAuto.cancel(b)})}
+  if(req.method==='POST'&&u.pathname==='/api/task-reminders/reconcile'){const b=await body(req);return json(res,200,{ok:true,...localTaskAuto.reconcileWorkspace(b)})}
+  if(req.method==='GET'&&u.pathname==='/api/task-reminders/member-status'){return json(res,200,{ok:true,...localTaskAuto.memberStatus({
+    workspaceId:String(u.searchParams.get('workspaceId')||''),
+    userId:String(u.searchParams.get('userId')||''),
+  })})}
   if(req.method==='GET'&&u.pathname==='/api/task-reminders/status'){return json(res,200,{ok:true,...localTaskAuto.status({
     workspaceId:String(u.searchParams.get('workspaceId')||''),
     taskId:String(u.searchParams.get('taskId')||''),

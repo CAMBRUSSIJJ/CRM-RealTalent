@@ -253,7 +253,7 @@ export const scheduleGatewayLocalTaskAuto = (input: {
   task: import('../domain/types').WorkTask
   member: LocalTaskAutoMember | null
   assignmentChanged:boolean
-}) => request<{ ok:boolean; scheduled:number; automaticEnabled:boolean }>('/api/task-reminders/schedule',{
+}) => request<{ ok:boolean; scheduled:number; automaticEnabled:boolean; assignmentScheduled:boolean; dueChannelEnabled:boolean; reason:string }>('/api/task-reminders/schedule',{
   method:'POST',body:JSON.stringify(input),
 })
 export const cancelGatewayLocalTaskAuto = (workspaceId:string,taskId:string) =>

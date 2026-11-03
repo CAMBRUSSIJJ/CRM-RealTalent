@@ -1,5 +1,6 @@
 import '../../styles/account-360.css'
 import '../../styles/lead-experience-v10060.css'
+import './contacts-layout-v2.css'
 import {
   AlertCircle, Archive, CalendarClock, CheckSquare, Columns3, Download, Filter, Flame, Gauge, LayoutGrid, List, MoreHorizontal,
   ArrowUpDown, Briefcase, MessageCircle, PhoneCall, Plus, RefreshCw, Search, Settings2, SlidersHorizontal, Star, Tag, Target, Trash2, Upload, UsersRound, X,
@@ -701,7 +702,7 @@ export function LeadsPage() {
   if (recordLead) return <ContactRecordPage lead={recordLead} onBack={() => clearRouteContext(['leadId', 'action'])} />
 
   return (
-    <div className={`page-stack leads-v107 contacts-page-h20 leads-v107--${density} ${viewSettingsOpen ? 'contact-view-settings-open-v10164' : ''}`}>
+    <div className={`page-stack leads-v107 contacts-page-h20 contacts-layout-v2 leads-v107--${density} ${viewSettingsOpen ? 'contact-view-settings-open-v10164' : ''}`}>
       <WorkspacePageHeader className="contacts-page-header-h20" eyebrow="Base comercial" title="Contatos" description="Pessoas, empresas, prioridade comercial e próximas ações em uma única base operacional." icon={UsersRound} actions={canContactCreate ? <Button onClick={() => setCreateOpen(true)}><Plus size={17} /> Novo contato</Button> : null} />
 
       <WorkspaceSummaryStrip className="contacts-summary-strip-h20">
@@ -711,6 +712,7 @@ export function LeadsPage() {
         <WorkspaceSummaryMetric label="Novos em 7 dias" value={stats.newLeads} meta="Entradas recentes" icon={Plus} tone="success" active={filters.quality === 'new' && activeView === 'custom'} onClick={() => { setFilters({ ...defaultFilters, quality: 'new', sort: 'created-desc' }); setActiveView('custom') }} />
       </WorkspaceSummaryStrip>
 
+      <div className="contacts-toolbar-cluster-v2">
       <section className="lead-view-tabs contact-view-tabs-v1016 contact-view-tabs-v10163" aria-label="Visualizações de contatos">
         <div className="lead-view-tabs__scroll contact-view-tabs-v10163__scroll">
           {savedViews.map((view) => {
@@ -786,7 +788,7 @@ export function LeadsPage() {
           </div>
         </WorkspaceCommandGroup>
       </WorkspaceCommandBar>
-
+      </div>
 
       {activeFilterChips.length ? <section className="lead-filter-chips"><span><SlidersHorizontal size={15} /> Filtros aplicados</span>{activeFilterChips.map((chip) => <button key={chip.key} type="button" onClick={chip.clear}>{chip.label}<X size={13} /></button>)}</section> : null}
 

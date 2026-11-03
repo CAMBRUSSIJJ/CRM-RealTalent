@@ -155,6 +155,8 @@ export function TasksPage() {
       if(outbox?.pending)notify('warning',
         'Tarefa salva. Notificações aguardando sincronização; nenhum envio foi confirmado. '+
         'A reconciliação será tentada novamente quando o gateway voltar.')
+      else if(outbox?.inFlightCancellations.length) notify('warning',
+        'Tarefa salva. Um aviso anterior já estava sendo processado e pode chegar ao responsável.')
       else if(outbox?.expiredTaskIds.includes(task.id)) notify('warning',
         'Tarefa salva, mas a notificação de atribuição expirou antes da reconexão. Não haverá envio atrasado.')
       else if(assignmentChanged && outbox?.scheduledTaskIds.includes(task.id))
@@ -172,14 +174,20 @@ export function TasksPage() {
       // downtime never blocks completion or reclassification.
       await updateTaskStatus(repositoryMode,workspaceId,task.id,status,teamAccess)
       let pending=0
+      let inFlight=false
       if(repositoryMode==='local') {
-        try {pending=(await flushTaskNotificationIntents(workspaceId,members)).pending}
-        catch {pending=1}
+        try {
+          const outcome=await flushTaskNotificationIntents(workspaceId,members)
+          pending=outcome.pending
+          inFlight=outcome.inFlightCancellations.includes(task.id)
+        } catch {pending=1}
       }
       await reload()
       notify('success',status==='completed'?'Tarefa concluída.':'Status atualizado.')
       if(pending)notify('warning',
         'Atualização registrada. O cancelamento de notificações ainda aguarda sincronização com o gateway.')
+      else if(inFlight)notify('warning',
+        'A tarefa foi atualizada, mas o aviso já estava em processamento e pode ser entregue.')
     }catch(error){notify('error',error instanceof Error?error.message:'Falha ao atualizar a tarefa.')}
   }
 
@@ -189,14 +197,20 @@ export function TasksPage() {
     try {
       await deleteTask(repositoryMode,workspaceId,task.id,teamAccess)
       let pending=0
+      let inFlight=false
       if(repositoryMode==='local') {
-        try {pending=(await flushTaskNotificationIntents(workspaceId,members)).pending}
-        catch {pending=1}
+        try {
+          const outcome=await flushTaskNotificationIntents(workspaceId,members)
+          pending=outcome.pending
+          inFlight=outcome.inFlightCancellations.includes(task.id)
+        } catch {pending=1}
       }
       await reload()
       notify('success','Tarefa excluída.')
       if(pending)notify('warning',
         'Exclusão registrada. A solicitação de cancelamento do aviso ficou pendente de sincronização.')
+      else if(inFlight)notify('warning',
+        'A tarefa foi excluída, mas uma mensagem já iniciada pode chegar ao destinatário.')
     }catch(error){notify('error',error instanceof Error?error.message:'Falha ao excluir a tarefa.')}
   }
 

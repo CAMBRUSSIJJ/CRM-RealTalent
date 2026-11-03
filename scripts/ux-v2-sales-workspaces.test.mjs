@@ -12,7 +12,7 @@ const root = process.cwd()
 const base = 'a4a3d0561cbba22dbcb2ec304c75976d2bce2d5f'
 const pages = [
   { name: 'Dashboard', file: 'src/features/dashboard/dashboard-page.tsx', css: 'src/features/dashboard/dashboard-layout-v2.css', rootClass: 'dashboard-layout-v2', contracts: ['buildWorkdayQueue(', 'buildLeadScoreBoard(', 'goalProgress(', '<FilterSelection', '<LazyCallWorkspaceModal', '<SalesMessageModal', 'runWorkdayItem(', 'useAppWorkspace()'] },
-  { name: 'Contatos', file: 'src/features/leads/leads-page.tsx', css: 'src/features/leads/contacts-layout-v2.css', rootClass: 'contacts-layout-v2', contracts: ['<WorkspaceSummaryMetric', '<WorkspaceFilterMenu', '<WorkspaceSortMenu', '<DataGrid', 'scoreByLead', 'downloadCsv', 'importFile', 'setSelected(', '<SelectionToolbar', 'createSavedView(', 'onDrop='] },
+  { name: 'Contatos', file: 'src/features/leads/leads-page.tsx', css: 'src/features/leads/contacts-v3.css', rootClass: 'contacts-v3', contracts: ['contacts-v3__kpis', '<WorkspaceFilterMenu', '<WorkspaceSortMenu', '<DataGrid', 'scoreByLead', 'downloadCsv', 'importFile', 'setSelected(', '<SelectionToolbar', 'createSavedView(', 'onDrop='] },
   { name: 'Pipeline', file: 'src/features/pipeline/pipeline-page.tsx', css: 'src/features/pipeline/sales-pipeline-v3.css', rootClass: 'sales-pipeline-v3', contracts: ['sales-pipeline-v3__metrics', '<WorkspaceFilterMenu', '<WorkspaceSortMenu', '<WorkspaceDisplayMenu', 'renderBoard(', 'onDragStart=', 'onDragOver=', 'onDrop=', 'drop(event, stage.id)', 'setViewing(', '<CreateLeadModal', '<SalesMessageModal'] },
 ]
 const userHandlers = new Set([
@@ -46,7 +46,27 @@ for (const page of pages) {
   test(`${page.name} — preserva manipuladores essenciais`, () => {
     const before = jsxHandlerInventory(oldSource(page.file), page.file)
     const after = jsxHandlerInventory(read(page.file), page.file)
-    if (page.name === 'Pipeline') {
+    if (page.name === 'Contatos') {
+      // V3 substitui a camada de layout e move os controladores reais.
+      const source = read(page.file)
+      for (const behavior of [
+        "onClick={() => applyStarterView('all')}",
+        "onClick={() => applyStarterView('hot')}",
+        "onClick={() => applyStarterView('due')}",
+        "onClick={() => openViewSettings('overview')}",
+        "onClick={downloadCsv}",
+        "fileRef.current?.click()",
+        "onDrop={() => void dropSavedView(view)}",
+        "onClick={() => setCreateOpen(true)}",
+        "onClick={() => navigate('leads', { leadId: lead.id, action: 'contact-record' })}",
+        "onClick={() => openWhatsApp(lead)}",
+        "onClick={() => openCall(lead)}",
+        "onClick={() => openActivity(lead)}",
+      ]) {
+        assert.ok(source.includes(behavior), `Ação funcional de contatos ausente: ${behavior}`)
+      }
+      assert.ok((after.get('tr:onClick') ?? 0) >= (before.get('tr:onClick') ?? 0))
+    } else if (page.name === 'Pipeline') {
       // A substituição completa da interface remove controles JSX obsoletos.
       // Contratos de dados, movimentação e ações devem sobreviver à migração.
       for (const handler of ['article:onDragStart', 'article:onDragEnd', 'article:onDragEnter', 'article:onDragLeave', 'article:onDragOver', 'article:onDrop']) {
@@ -78,10 +98,23 @@ for (const page of pages) {
     assert.equal(braces, 0, 'Chaves CSS desbalanceadas')
   })
 }
-test('Contatos — visualizações e comandos estão agrupados sem apagar pesquisa', () => {
+test('Contatos V3 — o shell visual antigo não é mais renderizado', () => {
   const s = read(pages[1].file)
-  assert.ok(s.indexOf('contacts-toolbar-cluster-v2') < s.indexOf('<WorkspaceCommandBar'))
-  assert.ok(s.indexOf('<section className="lead-view-tabs') < s.indexOf('<WorkspaceCommandBar'))
+  assert.ok(s.indexOf('contacts-v3__kpis') < s.indexOf('contacts-v3__toolbar'))
+  assert.ok(s.indexOf('contacts-v3__quick-views') < s.indexOf('contacts-v3__search'))
+  assert.ok(s.indexOf('contacts-v3__search') < s.indexOf('contacts-v3__data'))
+  for (const token of [
+    'contacts-layout-v2', 'contacts-toolbar-cluster-v2',
+    'contacts-page-h20', 'contacts-summary-strip-h20',
+    'contacts-command-bar-h20', 'contact-view-tabs-v10163',
+    'leads-v107', 'leads-toolbar', 'leads-data-panel', 'leads-table-scroll',
+    'className="leads-table"',
+  ]) assert.ok(!s.includes(token), `Layout anterior persistente: ${token}`)
+  assert.ok(!fs.existsSync(path.join(root, 'src/features/leads/contacts-layout-v2.css')))
+  for (const token of [
+    'contacts-v3__views-panel', 'contacts-v3__data-header', 'contacts-v3__table',
+    'contacts-v3__more-panel', 'contacts-v3__quick-views'
+  ]) assert.ok(s.includes(token), `Elemento estrutural ausente: ${token}`)
 })
 test('Pipeline — tela e Kanban V3 substituem o markup antigo de ponta a ponta', () => {
   const s = read(pages[2].file)

@@ -1,6 +1,7 @@
 import fs from 'node:fs'
 import path from 'node:path'
 import crypto from 'node:crypto'
+import { taskNotificationEvent } from './notifications/notification-event-contract.mjs'
 
 const isId = value => typeof value === 'string' && value.length > 0 && value.length <= 170 && /^[a-zA-Z0-9:_-]+$/.test(value)
 const phoneValid = value => typeof value === 'string' && /^\+55[1-9][0-9]{9,10}$/.test(value)
@@ -94,6 +95,9 @@ export function createLocalTaskWhatsAppScheduler({ file, send, accountFor, clock
     const now=clock(), desired=new Map()
     const add=(eventType,at,uniqueSuffix) => {
       if(!Number.isFinite(at)||at<now||at>now+90*24*60*60*1000)return
+      // Generate one provider-neutral domain event; execution remains in
+      // the gateway adapter and never executes in the browser.
+      taskNotificationEvent(task,workspaceId,eventType==='assigned'?'task.assigned':'task.due_soon',new Date(at).toISOString())
       const id=hash(workspaceId+'|'+taskId+'|'+userId+'|'+eventType+'|'+uniqueSuffix)
       desired.set(id,{
         id,workspaceId,taskId,userId,eventType,at:new Date(at).toISOString(),
@@ -145,12 +149,76 @@ export function createLocalTaskWhatsAppScheduler({ file, send, accountFor, clock
         const when=job.processedAt||job.claimedAt||job.createdAt
         return when && (!latest||when>latest) ? when : latest
       },null) : null,
+      diagnostics: taskId ? [diagnose({workspaceId,taskId})]
+        : Object.values(state.tasks).filter(task=>task.workspaceId===workspaceId)
+          .map(task=>diagnose({workspaceId,taskId:task.taskId})),
       jobs:[...records].sort((a,b)=>Date.parse(b.createdAt||b.at)-Date.parse(a.createdAt||a.at))
         .slice(0,100).map(j=>({
         id:j.id,taskId:j.taskId,eventType:j.eventType,at:j.at,status:j.status,
         error:j.error||null,processedAt:j.processedAt||null,
       })),
     }
+  }
+
+  const diagnose = ({workspaceId,taskId}) => {
+    if(!isId(workspaceId)||!isId(taskId))throw new Error('invalid_task_identity')
+    const task=state.tasks[taskKey(workspaceId,taskId)]
+    if(!task) return { code:'task_not_synced',state:'attention',canRequest:false,
+      taskId,reason:'Esta tarefa ainda não está sincronizada com o agendador local.' }
+    const jobs=state.jobs.filter(j=>j.workspaceId===workspaceId&&j.taskId===taskId)
+    const pending=jobs.filter(j=>j.status==='pending'||j.status==='processing')
+    const latest=jobs.sort((a,b)=>Date.parse(b.createdAt||b.at)-Date.parse(a.createdAt||a.at))[0]
+    const current=clock()
+    const member=state.members[identity(workspaceId,task.userId)]
+    const respond=(code,state,reason,canRequest=false)=>({
+      code,state,reason,taskId,canRequest,
+      scheduled:pending.length,
+      latestStatus:latest?.status||null,
+      nextAt:pending.length ? [...pending].sort((a,b)=>a.at.localeCompare(b.at))[0].at : null,
+    })
+    if(!active(task.status))return respond('task_closed','inactive','A tarefa está concluída ou cancelada.')
+    if(!task.userId)return respond('assignee_missing','attention','Selecione um responsável pela tarefa.')
+    if(!member)return respond('member_not_confirmed','attention','O responsável ainda não confirmou seus contatos no Communications Gateway.')
+    if(!member.phone)return respond('phone_missing','attention','Cadastre o WhatsApp do responsável em Equipe e permissões.')
+    if(!member.consentAt)return respond('consent_missing','attention','A autorização do colaborador ainda não foi registrada.')
+    if(!member.autoEnabledAt)return respond('automatic_off','attention','Ative a automação deste colaborador em Equipe e permissões.')
+    if(!task.reminderEnabled)return respond('task_reminders_off','attention','Ative os lembretes desta tarefa.')
+    if(!task.reminderChannels.includes('whatsapp'))return respond('channel_off','attention','Selecione o canal WhatsApp QR nos lembretes da tarefa.')
+    if(pending.length)return respond('scheduled','scheduled','O WhatsApp possui aviso programado para esta tarefa.')
+    if(latest&&['unknown','failed','blocked'].includes(latest.status))return respond('review_required','attention',
+      'Já houve uma tentativa sem confirmação. Confira a conversa antes de solicitar outra.',false)
+    if(latest?.status==='sent')return respond('accepted','history','A mensagem foi aceita pelo gateway; a entrega não foi confirmada.',false)
+    if(jobs.some(job=>job.eventType==='requested')) return respond('already_requested','history',
+      'Já houve uma solicitação de aviso único. Verifique o histórico antes de criar outra tarefa.')
+    if(latest?.status==='expired')return respond('expired','attention','O aviso anterior expirou enquanto a conexão estava indisponível.',true)
+    const hasDeadline=Boolean(task.dueAt&&Date.parse(task.dueAt)>current)
+    return respond(hasDeadline?'no_future_reminder':'assignment_already_happened','none',
+      hasDeadline
+        ? 'Nenhum aviso futuro foi programado. Revise os intervalos de lembrete desta tarefa.'
+        : 'A atribuição já aconteceu e esta tarefa não tem um aviso futuro. Você pode solicitar um aviso agora.',
+      true)
+  }
+
+  const requestOneOff = ({workspaceId,taskId}) => {
+    const diagnostic=diagnose({workspaceId,taskId})
+    if(!diagnostic.canRequest)throw Object.assign(new Error('notification_not_eligible:'+diagnostic.code),{statusCode:409})
+    const task=state.tasks[taskKey(workspaceId,taskId)]
+    const member=state.members[identity(workspaceId,task.userId)]
+    const now=clock()
+    // One human-requested message per task/recipient. Prevents repeated
+    // clicking, browser retries and gateway restarts from sending duplicates.
+    const id=hash('requested-once|'+workspaceId+'|'+taskId+'|'+task.userId)
+    if(state.jobs.some(j=>j.id===id))throw Object.assign(new Error('notification_already_requested'),{statusCode:409})
+    taskNotificationEvent({ id:task.taskId,assigneeId:task.userId,title:task.title,dueAt:task.dueAt },
+      workspaceId,'task.reminder_requested',new Date(now).toISOString())
+    state.jobs.push({
+      id,workspaceId,taskId,userId:task.userId,eventType:'requested',
+      at:new Date(now+8_000).toISOString(),dueAt:task.dueAt,title:task.title,
+      priority:task.priority,phone:member.phone,consentAt:member.consentAt,
+      status:'pending',error:null,createdAt:new Date(now).toISOString(),
+    })
+    save()
+    return {scheduled:1,jobId:id}
   }
 
   const memberStatus = ({workspaceId,userId}) => {
@@ -221,5 +289,5 @@ export function createLocalTaskWhatsAppScheduler({ file, send, accountFor, clock
       }
     } finally { running=false }
   }
-  return { updateMember,schedule,cancel,status,memberStatus,reconcileWorkspace,tick }
+  return { updateMember,schedule,cancel,status,diagnose,requestOneOff,memberStatus,reconcileWorkspace,tick }
 }

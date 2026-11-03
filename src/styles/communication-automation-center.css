@@ -1,0 +1,23 @@
+.communication-automation-console{display:grid;gap:14px;color:inherit}
+.communication-automation-console__intro{display:flex;gap:15px;align-items:flex-start;justify-content:space-between}
+.communication-automation-console__intro strong{display:flex;align-items:center;gap:8px;font-size:15px}
+.communication-automation-console__intro p{margin:6px 0 0;line-height:1.5;font-size:12px;color:var(--text-secondary,#667085)}
+.communication-automation-console__tabs{display:flex;flex-wrap:wrap;gap:6px;border-bottom:1px solid var(--border,#e4e8f0);padding-bottom:13px}
+.communication-automation-console__tabs button{border:1px solid transparent;border-radius:8px;padding:9px 12px;cursor:pointer;background:transparent;color:inherit;font:inherit;font-size:12px;display:flex;gap:9px;align-items:center}
+.communication-automation-console__tabs button span{font-weight:700}
+.communication-automation-console__tabs button[aria-pressed=true]{background:var(--surface-muted,#f5f7fc);border-color:var(--border,#d5deee)}
+.communication-automation-console__records{max-height:55vh;overflow:auto;min-height:75px}
+.communication-automation-console__record{display:flex;align-items:center;gap:12px;padding:14px 5px;border-bottom:1px solid var(--border,#edf0f4)}
+.communication-automation-console__mark{flex:none;color:var(--text-secondary,#667085)}
+.communication-automation-console__body{flex:1;min-width:0;display:grid;gap:4px}
+.communication-automation-console__body strong{font-size:13px;overflow-wrap:anywhere}
+.communication-automation-console__body small{font-size:12px;line-height:1.4;color:var(--text-secondary,#667085)}
+.communication-automation-console__actions{display:flex;gap:8px;flex-wrap:wrap}
+.communication-automation-console__why{padding:16px;border-radius:10px;background:var(--surface-muted,#f5f7fc);display:grid;gap:8px}
+.communication-automation-console__why strong{font-size:13px}
+.communication-automation-console__why p{font-size:12px;margin:0;line-height:1.45}
+.communication-automation-console__why button{justify-self:start}
+.communication-automation-console__alert{font-size:12px;color:var(--text-danger,#b42318);display:flex;align-items:center;gap:8px}
+.communication-automation-console__hint{font-size:12px;line-height:1.5;color:var(--text-secondary,#667085)}
+.communication-automation-console__footer{border-top:1px solid var(--border,#e4e8f0);padding-top:12px;display:flex;align-items:flex-start;gap:8px;font-size:11px;line-height:1.5;color:var(--text-secondary,#667085)}
+@media(max-width:760px){.communication-automation-console__record{flex-wrap:wrap;align-items:flex-start}.communication-automation-console__actions{width:100%;padding-left:26px}.communication-automation-console__intro{flex-wrap:wrap}}

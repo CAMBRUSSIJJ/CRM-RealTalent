@@ -241,7 +241,7 @@ export interface LocalTaskAutoMember {
 export interface LocalTaskAutoJob {
   id: string
   taskId: string
-  eventType: 'assigned' | 'due_soon'
+  eventType: 'assigned' | 'due_soon' | 'requested'
   at: string
   status: 'pending' | 'processing' | 'sent' | 'failed' | 'unknown' | 'cancelled' | 'blocked' | 'expired'
   error: string | null
@@ -258,9 +258,20 @@ export const scheduleGatewayLocalTaskAuto = (input: {
 })
 export const cancelGatewayLocalTaskAuto = (workspaceId:string,taskId:string) =>
   request<{ ok:boolean }>('/api/task-reminders/cancel',{ method:'POST',body:JSON.stringify({workspaceId,taskId}) })
+export interface LocalTaskAutoDiagnostic {
+  taskId:string
+  code:string
+  state:'attention'|'inactive'|'scheduled'|'history'|'none'
+  reason:string
+  canRequest:boolean
+  scheduled?:number
+  latestStatus?:LocalTaskAutoJob['status'] | null
+  nextAt?:string | null
+}
 export interface LocalTaskAutoHistory {
   ok:boolean
   jobs:LocalTaskAutoJob[]
+  diagnostics:LocalTaskAutoDiagnostic[]
   counts: Record<LocalTaskAutoJob['status'],number>
   total:number
   lastActivityAt:string | null
@@ -274,4 +285,15 @@ export const loadGatewayLocalTaskMemberStatus = (workspaceId:string,userId:strin
 export const reconcileGatewayLocalTaskWorkspace = (workspaceId:string,taskIds:string[]) =>
   request<{ok:boolean;cancelled:number;tracked:number}>('/api/task-reminders/reconcile',{
     method:'POST',body:JSON.stringify({workspaceId,taskIds}),
+  })
+
+/** The gateway is the source of truth for notification eligibility and state. */
+export const diagnoseGatewayLocalTaskNotification = (workspaceId:string,taskId:string) =>
+  request<LocalTaskAutoDiagnostic & { ok:boolean }>(
+    '/api/task-reminders/diagnose?workspaceId='+encodeURIComponent(workspaceId)+'&taskId='+encodeURIComponent(taskId),
+  )
+/** Explicit one-time operator action. No automatic retry after uncertain delivery. */
+export const requestGatewayLocalTaskNotice = (workspaceId:string,taskId:string) =>
+  request<{ok:boolean;scheduled:number;jobId:string}>('/api/task-reminders/request',{
+    method:'POST',body:JSON.stringify({workspaceId,taskId}),
   })

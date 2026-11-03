@@ -9,8 +9,11 @@ import { NativeSelectionSelect } from '../../components/selection'
 import type { TaskRelation, TaskStatus, Team, WorkTask, WorkspaceMember } from '../../domain/types'
 import { deleteTask, loadWorkManagement, saveTask, taskPriorityLabel, taskStatusLabel, updateTaskStatus, type WorkManagementSnapshot } from '../../services/work-management'
 import { TaskModal } from './task-modal'
-import { TaskNotificationCenter } from './task-notification-center'
-import { cancelGatewayLocalTaskAuto, reconcileGatewayLocalTaskWorkspace, scheduleGatewayLocalTaskAuto, syncGatewayLocalTaskAutoMember, type LocalTaskAutoMember } from '../../services/local-communications-gateway'
+import { CommunicationAutomationCenter } from '../communications-automations/communication-automation-center'
+import { TaskCommunicationState } from '../communications-automations/task-communication-state'
+import { Modal } from '../../components/ui/modal'
+import { loadGatewayLocalTaskAutoHistory, type LocalTaskAutoDiagnostic } from '../../services/local-communications-gateway'
+import { cancelTaskNotification, publishTaskNotificationEvent, reconcileTaskNotificationWorkspace } from '../../services/notifications/notification-orchestrator'
 import { WorkspaceCommandBar, WorkspaceCommandGroup, WorkspacePageHeader, WorkspaceSummaryMetric, WorkspaceSummaryStrip, WorkspaceViewStrip } from '../../components/workspace/workspace-shell'
 
 type ViewMode = 'list' | 'board' | 'today' | 'overdue' | 'completed'
@@ -20,12 +23,6 @@ const priorityTone = (priority: WorkTask['priority']) => priority === 'urgent' ?
 const todayKey = () => { const date = new Date(); return `${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,'0')}-${String(date.getDate()).padStart(2,'0')}` }
 const dueKey = (value: string | null) => value ? new Date(value).toLocaleDateString('en-CA') : ''
 const dueLabel = (value: string | null) => value ? new Date(value).toLocaleString('pt-BR', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' }) : 'Sem prazo'
-
-const asLocalTaskAutoMember = (workspaceId: string, member: WorkspaceMember): LocalTaskAutoMember => ({
-  workspaceId, userId: member.userId, phone: member.whatsappPhone || '',
-  consentAt: member.whatsappConsentRecordedAt || null,
-  autoEnabledAt: member.whatsappAutoEnabledAt || null,
-})
 
 export function TasksPage() {
   const { currentWorkspace, repositoryMode, snapshot, teamAccess, canTeamAccess, canTeamAccessRecord } = useAppWorkspace()
@@ -43,6 +40,8 @@ export function TasksPage() {
   const [editing, setEditing] = useState<WorkTask | null>(null)
   const [saving, setSaving] = useState(false)
   const [showNotifications, setShowNotifications] = useState(false)
+  const [notificationDiagnostics, setNotificationDiagnostics] = useState<Record<string,LocalTaskAutoDiagnostic>>({})
+  const [notificationsReachable, setNotificationsReachable] = useState(false)
 
   const workspaceId = currentWorkspace?.id ?? ''
   const canTaskCreate = canTeamAccess('create','tasks')
@@ -63,22 +62,32 @@ export function TasksPage() {
       if (repositoryMode !== 'local' || !workspaceId) return
       // On startup reconcile consent/revocations BEFORE resuming persisted jobs.
       try {
-        for (const member of items) {
-          await syncGatewayLocalTaskAutoMember({ ...asLocalTaskAutoMember(workspaceId,member),reconcileOnly:true })
-        }
         const currentTasks=(await loadWorkManagement('local',workspaceId)).tasks
-        // The browser is still the source for *task existence*. Removing
-        // orphaned jobs from the persistent gateway is required after offline
-        // edits, deletions or data resets in the local workspace.
-        await reconcileGatewayLocalTaskWorkspace(workspaceId,currentTasks.map(task=>task.id))
-        for (const task of currentTasks) {
-          const member=items.find(item=>item.userId===task.assigneeId)
-          await scheduleGatewayLocalTaskAuto({workspaceId,task,member:member?asLocalTaskAutoMember(workspaceId,member):null,assignmentChanged:false})
-        }
+        await reconcileTaskNotificationWorkspace(workspaceId,items,currentTasks)
       } catch { /* Gateway may not be running; manual task edits report scheduling failures. */ }
     }).catch(() => { if (active) setMembers([]) })
     return () => { active = false }
   }, [listWorkspaceMembers, workspaceId, repositoryMode])
+
+  useEffect(() => {
+    if(repositoryMode !== 'local' || !workspaceId) {
+      setNotificationDiagnostics({}); setNotificationsReachable(false)
+      return
+    }
+    let active=true
+    const refresh=()=>{
+      void loadGatewayLocalTaskAutoHistory(workspaceId).then(data=>{
+        if(!active)return
+        setNotificationsReachable(true)
+        setNotificationDiagnostics(Object.fromEntries((data.diagnostics||[]).map(d=>[d.taskId,d])))
+      }).catch(()=>{
+        if(active){setNotificationsReachable(false);setNotificationDiagnostics({})}
+      })
+    }
+    refresh()
+    const interval=window.setInterval(refresh,15_000)
+    return ()=>{active=false;window.clearInterval(interval)}
+  },[repositoryMode,workspaceId,showNotifications,data.tasks.length])
 
   const relationByTask = useMemo(() => new Map(data.relations.map((item) => [item.taskId, item])), [data.relations])
   const teamById = useMemo(() => new Map(data.teams.map((item) => [item.id, item])), [data.teams])
@@ -119,7 +128,7 @@ export function TasksPage() {
       // the gateway before changing assignee, deadline or opt-in settings.
       // Otherwise an old reminder could fire during an offline edit.
       if (repositoryMode === 'local' && editing?.reminderEnabled && editing.reminderChannels?.includes('whatsapp')) {
-        try { await cancelGatewayLocalTaskAuto(workspaceId,editing.id) }
+        try { await cancelTaskNotification(workspaceId,editing.id) }
         catch { throw new Error('Não foi possível cancelar avisos antigos. Verifique o Communications Gateway antes de editar esta tarefa.') }
       }
       const task = await saveTask(repositoryMode, workspaceId, input, user?.id ?? null, teamAccess)
@@ -127,10 +136,10 @@ export function TasksPage() {
       if (repositoryMode === 'local') {
         const member=members.find(item=>item.userId===task.assigneeId)
         try {
-          const response = await scheduleGatewayLocalTaskAuto({
-            workspaceId,task,member:member?asLocalTaskAutoMember(workspaceId,member):null,
-            assignmentChanged:Boolean(task.assigneeId && (!editing || editing.assigneeId!==task.assigneeId)),
-          })
+          const response = await publishTaskNotificationEvent({
+            type:task.assigneeId && (!editing||editing.assigneeId!==task.assigneeId) ? 'task.assigned':'task.updated',
+            workspaceId,entityId:task.id,recipientId:task.assigneeId||'',
+          },task,members)
           if (member?.whatsappAutoEnabledAt && task.reminderEnabled && task.reminderChannels?.includes('whatsapp') && !response.automaticEnabled)
             schedulingError = true
         } catch { schedulingError = Boolean(member?.whatsappAutoEnabledAt) }
@@ -148,7 +157,7 @@ export function TasksPage() {
       // Cancel first: a completion must never leave a pending WhatsApp
       // notification in the gateway when browser and server are out of sync.
       if(repositoryMode==='local' && (status==='completed'||status==='cancelled')) {
-        try { await cancelGatewayLocalTaskAuto(workspaceId,task.id) }
+        try { await cancelTaskNotification(workspaceId,task.id) }
         catch { throw new Error('Não foi possível cancelar o lembrete automático. Mantenha a tarefa aberta e verifique o Gateway.') }
       }
       await updateTaskStatus(repositoryMode, workspaceId, task.id, status, teamAccess)
@@ -157,8 +166,9 @@ export function TasksPage() {
           if(status!=='completed'&&status!=='cancelled') {
             const fresh=(await loadWorkManagement('local',workspaceId)).tasks.find(item=>item.id===task.id)
             if(fresh) {
-              const member=members.find(item=>item.userId===fresh.assigneeId)
-              await scheduleGatewayLocalTaskAuto({workspaceId,task:fresh,member:member?asLocalTaskAutoMember(workspaceId,member):null,assignmentChanged:false})
+              await publishTaskNotificationEvent({
+                type:'task.updated',workspaceId,entityId:fresh.id,recipientId:fresh.assigneeId||'',
+              },fresh,members)
             }
           }
         } catch { notify('warning','Status alterado, mas não foi possível sincronizar os lembretes do WhatsApp.') }
@@ -172,7 +182,7 @@ export function TasksPage() {
     if (!workspaceId || !await confirmAction({ title: 'Excluir tarefa?', description: `A tarefa “${task.title}” será removida.`, confirmLabel: 'Excluir', tone: 'danger' })) return
     try {
       if(repositoryMode==='local') {
-        try { await cancelGatewayLocalTaskAuto(workspaceId,task.id) }
+        try { await cancelTaskNotification(workspaceId,task.id) }
         catch { throw new Error('Gateway indisponível. A exclusão foi interrompida para impedir um lembrete órfão.') }
       }
       await deleteTask(repositoryMode, workspaceId, task.id, teamAccess)
@@ -187,14 +197,16 @@ export function TasksPage() {
 
   return <div className="workspace-page tasks-page-v101112">
     <WorkspacePageHeader className="tasks-page-header-h223h1" eyebrow="Execução comercial" icon={ListChecks} title="Tarefas" description="Centralize o que precisa ser feito, por quem e em qual contexto do CRM." actions={<>
-      {repositoryMode === 'local' ? <Button variant="secondary" onClick={() => setShowNotifications(value => !value)}>
-        <Bell size={16}/>{showNotifications ? 'Fechar notificações' : 'Notificações'}
+      {repositoryMode === 'local' ? <Button variant="secondary" onClick={() => setShowNotifications(true)}>
+        <Bell size={16}/> Comunicação e automações
       </Button> : null}
       {canTaskCreate ? <Button onClick={() => { setEditing(null); setModalOpen(true) }}><Plus size={17}/> Nova tarefa</Button> : null}
     </>} />
-    {repositoryMode === 'local' && showNotifications && workspaceId
-      ? <TaskNotificationCenter workspaceId={workspaceId} tasks={data.tasks} onOpenTask={task => {setEditing(task);setModalOpen(true)}} />
-      : null}
+    {repositoryMode === 'local' && workspaceId ? <Modal open={showNotifications} onClose={() => setShowNotifications(false)}
+      size="xl" title="Comunicação e automações" subtitle="Acompanhe notificações e entenda por que um aviso não foi programado.">
+      <CommunicationAutomationCenter workspaceId={workspaceId} tasks={data.tasks}
+        onOpenTask={task => {setShowNotifications(false);setEditing(task);setModalOpen(true)}} />
+    </Modal> : null}
 
     <WorkspaceSummaryStrip className="tasks-summary-strip-h223h1">
       <WorkspaceSummaryMetric icon={CircleDot} label="Abertas" value={metrics.open} meta="Em execução" tone="brand" onClick={() => setView('list')} />
@@ -216,23 +228,39 @@ export function TasksPage() {
       </WorkspaceCommandGroup>
     </WorkspaceCommandBar>
 
-    {view === 'board' ? <TaskBoard tasks={filtered} teamById={teamById} relationByTask={relationByTask} checklistItems={data.checklistItems} readOnly={!canTaskEdit} onEdit={openEdit} onStatus={changeStatus} /> : filtered.length ? <section className="work-task-list">{filtered.map((task) => <TaskRow key={task.id} task={task} team={task.teamId ? teamById.get(task.teamId) ?? null : null} relation={relationByTask.get(task.id) ?? null} checklist={data.checklistItems.filter((item)=>item.taskId===task.id)} readOnly={!canTaskEdit} onEdit={()=>openEdit(task)} onStatus={(status)=>void changeStatus(task,status)} onDelete={()=>{ if(canTaskDelete) void remove(task); else notify('info','Seu perfil não permite excluir tarefas.') }} />)}</section> : <EmptyState icon={ListChecks} title="Nenhuma tarefa neste filtro" description="Crie uma tarefa ou ajuste os filtros para acompanhar a execução da equipe." />}
+    {view === 'board' ? <TaskBoard tasks={filtered} teamById={teamById} relationByTask={relationByTask} checklistItems={data.checklistItems}
+        diagnostics={notificationDiagnostics} notificationsReachable={notificationsReachable} repositoryMode={repositoryMode} readOnly={!canTaskEdit} onEdit={openEdit} onStatus={changeStatus} /> : filtered.length ? <section className="work-task-list">{filtered.map((task) => <TaskRow key={task.id} task={task} diagnostic={notificationDiagnostics[task.id]??null}
+          notificationsReachable={notificationsReachable} repositoryMode={repositoryMode} team={task.teamId ? teamById.get(task.teamId) ?? null : null} relation={relationByTask.get(task.id) ?? null} checklist={data.checklistItems.filter((item)=>item.taskId===task.id)} readOnly={!canTaskEdit} onEdit={()=>openEdit(task)} onStatus={(status)=>void changeStatus(task,status)} onDelete={()=>{ if(canTaskDelete) void remove(task); else notify('info','Seu perfil não permite excluir tarefas.') }} />)}</section> : <EmptyState icon={ListChecks} title="Nenhuma tarefa neste filtro" description="Crie uma tarefa ou ajuste os filtros para acompanhar a execução da equipe." />}
 
     <TaskModal open={canTaskCreate || canTaskEdit ? modalOpen : false} task={editing} relation={relationForEditing} checklist={checklistForEditing} teams={data.teams} memberships={data.memberships} members={members} snapshot={snapshot} workspaceId={workspaceId} repositoryMode={repositoryMode} loading={saving} onClose={()=>{setModalOpen(false);setEditing(null)}} onSubmit={save}/>
   </div>
 }
 
-function TaskRow({ task, team, relation, checklist, readOnly, onEdit, onStatus, onDelete }: { task: WorkTask; team: Team | null; relation: TaskRelation | null; checklist: WorkManagementSnapshot['checklistItems']; readOnly: boolean; onEdit(): void; onStatus(status: TaskStatus): void; onDelete(): void }) {
+function TaskRow({ task, team, relation, checklist, diagnostic, notificationsReachable, repositoryMode, readOnly, onEdit, onStatus, onDelete }: {
+  task: WorkTask; team: Team | null; relation: TaskRelation | null
+  checklist: WorkManagementSnapshot['checklistItems']; diagnostic:LocalTaskAutoDiagnostic|null
+  notificationsReachable:boolean; repositoryMode:'local'|'supabase'
+  readOnly: boolean; onEdit(): void; onStatus(status: TaskStatus): void; onDelete(): void
+}) {
   const done = checklist.filter((item)=>item.completed).length
   const overdue = OPEN_STATUSES.includes(task.status) && task.dueAt && new Date(task.dueAt).getTime() < Date.now()
   return <article className={`work-task-row ${overdue?'is-overdue':''}`}>
     <button type="button" className={`work-task-check ${task.status==='completed'?'is-done':''}`} disabled={readOnly} onClick={()=>onStatus(task.status==='completed'?'todo':'completed')} aria-label={task.status==='completed'?'Reabrir tarefa':'Concluir tarefa'}><CheckCircle2 size={20}/></button>
-    <div className="work-task-main" onDoubleClick={readOnly?undefined:onEdit}><div className="work-task-title"><strong>{task.title}</strong><StatusPill tone={priorityTone(task.priority)}>{taskPriorityLabel[task.priority]}</StatusPill><StatusPill tone={statusTone(task.status)}>{taskStatusLabel[task.status]}</StatusPill></div><p>{task.description || 'Sem descrição.'}</p><div className="work-task-meta">{task.assigneeName?<span><UserRound size={14}/>{task.assigneeName}</span>:<span>Sem responsável</span>}{team?<span><UsersRound size={14}/>{team.name}</span>:null}<span className={overdue?'is-danger':''}><CalendarDays size={14}/>{dueLabel(task.dueAt)}</span>{relation?<span>↗ {relation.entityLabel}</span>:null}{task.reminderEnabled !== false && task.assigneeId && (task.reminderChannels ?? ['in_app']).length > 0 && (task.reminderOnAssignment !== false || Boolean(task.dueAt && ((task.reminderOffsetsMinutes ?? [60]).length || task.reminderCustomMinutes))) ? <span title="Regras de lembretes configuradas; envio depende do serviço ativo"><Bell size={14}/> Lembretes</span> : null}{checklist.length?<span>☑ {done}/{checklist.length}</span>:null}</div></div>
+    <div className="work-task-main" onDoubleClick={readOnly?undefined:onEdit}><div className="work-task-title"><strong>{task.title}</strong><StatusPill tone={priorityTone(task.priority)}>{taskPriorityLabel[task.priority]}</StatusPill><StatusPill tone={statusTone(task.status)}>{taskStatusLabel[task.status]}</StatusPill></div><p>{task.description || 'Sem descrição.'}</p><div className="work-task-meta">{task.assigneeName?<span><UserRound size={14}/>{task.assigneeName}</span>:<span>Sem responsável</span>}{team?<span><UsersRound size={14}/>{team.name}</span>:null}<span className={overdue?'is-danger':''}><CalendarDays size={14}/>{dueLabel(task.dueAt)}</span>{relation?<span>↗ {relation.entityLabel}</span>:null}{repositoryMode === 'local'
+  ? <TaskCommunicationState configured={Boolean(task.assigneeId)} available={notificationsReachable} status={diagnostic}/>
+  : task.reminderEnabled!==false && task.assigneeId && (task.reminderChannels??[]).length
+    ? <span title="Regra de lembrete configurada; entrega não confirmada"><Bell size={14}/> Regra configurada</span>:null}{checklist.length?<span>☑ {done}/{checklist.length}</span>:null}</div></div>
     {!readOnly ? <div className="work-task-actions"><NativeSelectionSelect value={task.status} onChange={(event)=>onStatus(event.target.value as TaskStatus)}><option value="todo">A fazer</option><option value="in_progress">Em andamento</option><option value="blocked">Bloqueada</option><option value="completed">Concluída</option><option value="cancelled">Cancelada</option></NativeSelectionSelect><button type="button" onClick={onEdit} aria-label="Editar"><Pencil size={16}/></button><button type="button" className="is-danger" onClick={onDelete} aria-label="Excluir"><Trash2 size={16}/></button></div>:null}
   </article>
 }
 
-function TaskBoard({ tasks, teamById, relationByTask, checklistItems, readOnly, onEdit, onStatus }: { tasks: WorkTask[]; teamById: Map<string,Team>; relationByTask: Map<string,TaskRelation>; checklistItems: WorkManagementSnapshot['checklistItems']; readOnly: boolean; onEdit(task: WorkTask): void; onStatus(task: WorkTask,status:TaskStatus):void }) {
+function TaskBoard({ tasks, teamById, relationByTask, checklistItems,diagnostics,notificationsReachable,repositoryMode, readOnly, onEdit, onStatus }: {
+  tasks: WorkTask[]; teamById: Map<string,Team>; relationByTask: Map<string,TaskRelation>
+  checklistItems: WorkManagementSnapshot['checklistItems']
+  diagnostics: Record<string,LocalTaskAutoDiagnostic>;notificationsReachable:boolean
+  repositoryMode:'local'|'supabase';readOnly: boolean; onEdit(task: WorkTask): void
+  onStatus(task: WorkTask,status:TaskStatus):void
+}) {
   const columns: Array<{status:TaskStatus;label:string}> = [{status:'todo',label:'A fazer'},{status:'in_progress',label:'Em andamento'},{status:'blocked',label:'Bloqueadas'},{status:'completed',label:'Concluídas'}]
   const [dropTarget, setDropTarget] = useState<TaskStatus | null>(null)
   const moveTask = (event: DragEvent<HTMLDivElement>, target: TaskStatus) => {
@@ -243,5 +271,8 @@ function TaskBoard({ tasks, teamById, relationByTask, checklistItems, readOnly, 
     const task = tasks.find((item) => item.id === id)
     if (task && task.status !== target) onStatus(task, target)
   }
-  return <section className="work-task-board" aria-label="Quadro de tarefas">{columns.map((column)=><div className={`work-board-column ${dropTarget === column.status ? 'is-drag-over' : ''}`.trim()} key={column.status} onDragOver={(event)=>{ if (!readOnly) { event.preventDefault(); event.dataTransfer.dropEffect = 'move'; setDropTarget(column.status) } }} onDragLeave={(event)=>{ if (!event.currentTarget.contains(event.relatedTarget as Node | null)) setDropTarget(null) }} onDrop={(event)=>moveTask(event,column.status)}><header><strong>{column.label}</strong><span>{tasks.filter((task)=>task.status===column.status).length}</span></header><div>{tasks.filter((task)=>task.status===column.status).map((task)=><article key={task.id} draggable={!readOnly} onDragStart={(event)=>{ if (readOnly) return; event.dataTransfer.setData('application/x-realtalent-task-id', task.id); event.dataTransfer.effectAllowed='move' }} onDragEnd={()=>setDropTarget(null)} onDoubleClick={readOnly?undefined:()=>onEdit(task)}><div><StatusPill tone={priorityTone(task.priority)}>{taskPriorityLabel[task.priority]}</StatusPill><small>{dueLabel(task.dueAt)}</small></div><h3>{task.title}</h3><p>{task.description || 'Sem descrição.'}</p><footer><span>{task.assigneeName || 'Sem responsável'}</span>{task.teamId?<span>{teamById.get(task.teamId)?.name}</span>:null}{relationByTask.get(task.id)?<span>↗ {relationByTask.get(task.id)?.entityLabel}</span>:null}{task.reminderEnabled !== false && task.assigneeId && (task.reminderChannels ?? ['in_app']).length > 0 ? <span title="Lembretes configurados"><Bell size={12}/> Lembretes</span> : null}{checklistItems.some((item)=>item.taskId===task.id)?<span>☑ {checklistItems.filter((item)=>item.taskId===task.id&&item.completed).length}/{checklistItems.filter((item)=>item.taskId===task.id).length}</span>:null}</footer>{!readOnly?<NativeSelectionSelect value={task.status} onChange={(event)=>onStatus(task,event.target.value as TaskStatus)}><option value="todo">A fazer</option><option value="in_progress">Em andamento</option><option value="blocked">Bloqueada</option><option value="completed">Concluída</option><option value="cancelled">Cancelada</option></NativeSelectionSelect>:null}</article>)}</div></div>)}</section>
+  return <section className="work-task-board" aria-label="Quadro de tarefas">{columns.map((column)=><div className={`work-board-column ${dropTarget === column.status ? 'is-drag-over' : ''}`.trim()} key={column.status} onDragOver={(event)=>{ if (!readOnly) { event.preventDefault(); event.dataTransfer.dropEffect = 'move'; setDropTarget(column.status) } }} onDragLeave={(event)=>{ if (!event.currentTarget.contains(event.relatedTarget as Node | null)) setDropTarget(null) }} onDrop={(event)=>moveTask(event,column.status)}><header><strong>{column.label}</strong><span>{tasks.filter((task)=>task.status===column.status).length}</span></header><div>{tasks.filter((task)=>task.status===column.status).map((task)=><article key={task.id} draggable={!readOnly} onDragStart={(event)=>{ if (readOnly) return; event.dataTransfer.setData('application/x-realtalent-task-id', task.id); event.dataTransfer.effectAllowed='move' }} onDragEnd={()=>setDropTarget(null)} onDoubleClick={readOnly?undefined:()=>onEdit(task)}><div><StatusPill tone={priorityTone(task.priority)}>{taskPriorityLabel[task.priority]}</StatusPill><small>{dueLabel(task.dueAt)}</small></div><h3>{task.title}</h3><p>{task.description || 'Sem descrição.'}</p><footer><span>{task.assigneeName || 'Sem responsável'}</span>{task.teamId?<span>{teamById.get(task.teamId)?.name}</span>:null}{relationByTask.get(task.id)?<span>↗ {relationByTask.get(task.id)?.entityLabel}</span>:null}{repositoryMode === 'local'
+  ? <TaskCommunicationState configured={Boolean(task.assigneeId)} status={diagnostics[task.id]??null} available={notificationsReachable}/>
+  : task.reminderEnabled!==false&&task.assigneeId
+    ? <span title="Regra de lembrete configurada; entrega não confirmada"><Bell size={12}/> Regra configurada</span>:null}{checklistItems.some((item)=>item.taskId===task.id)?<span>☑ {checklistItems.filter((item)=>item.taskId===task.id&&item.completed).length}/{checklistItems.filter((item)=>item.taskId===task.id).length}</span>:null}</footer>{!readOnly?<NativeSelectionSelect value={task.status} onChange={(event)=>onStatus(task,event.target.value as TaskStatus)}><option value="todo">A fazer</option><option value="in_progress">Em andamento</option><option value="blocked">Bloqueada</option><option value="completed">Concluída</option><option value="cancelled">Cancelada</option></NativeSelectionSelect>:null}</article>)}</div></div>)}</section>
 }

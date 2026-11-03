@@ -1,121 +1,77 @@
-import { useEffect, useMemo, useState } from 'react'
-import { MessageCircle, RefreshCw, Send } from 'lucide-react'
+import { useEffect, useState } from 'react'
+import { BellRing, MessageCircle, RefreshCw } from 'lucide-react'
+import { useAppUi } from '../../app/app-context'
 import type { WorkTask, WorkspaceMember } from '../../domain/types'
 import { Button } from '../../components/ui/button'
-import { safeStorage } from '../../lib/storage'
-import { sendGatewayCommunication } from '../../services/local-communications-gateway'
-import { checkTaskWhatsAppTestConnection, normalizeTaskTestPhone, type TaskWhatsAppTestReadiness } from '../../services/task-reminder-whatsapp-test'
+import {
+  diagnoseGatewayLocalTaskNotification, requestGatewayLocalTaskNotice,
+  type LocalTaskAutoDiagnostic,
+} from '../../services/local-communications-gateway'
 
 type Props = { workspaceId: string; task: WorkTask; member: WorkspaceMember | null }
-const validState = (task: WorkTask) => ['todo','in_progress','blocked'].includes(task.status)
-const attemptKey = (task: WorkTask, member: WorkspaceMember) =>
-  `realtalent:task-team-whatsapp:v1:${task.workspaceId}:${task.id}:${member.userId}:${task.updatedAt}`
 
-/** Manual single-send for a non-login teammate.
- * Automatic QR dispatch is deliberately not enabled: a browser cannot
- * reliably schedule outbound messages when closed and QR is not an official API.
+/** Task notifications are always handled by the central queue.
+ * The independent QR transport test remains in Settings → Notifications.
+ * This avoids duplicate send mechanisms for the same task.
  */
-export function LocalTeamTaskWhatsAppAction({ workspaceId, task, member }: Props) {
-  const [readiness, setReadiness] = useState<TaskWhatsAppTestReadiness | null>(null)
-  const [checking, setChecking] = useState(false)
-  const [sending, setSending] = useState(false)
-  const [confirmed, setConfirmed] = useState(false)
-  const [message, setMessage] = useState('')
-  const [attempted, setAttempted] = useState(false)
-  const key = useMemo(() => member ? attemptKey(task, member) : '', [member, task])
+export function LocalTeamTaskWhatsAppAction({workspaceId,task,member}:Props){
+  const {notify,confirmAction}=useAppUi()
+  const [diagnostic,setDiagnostic]=useState<LocalTaskAutoDiagnostic|null>(null)
+  const [error,setError]=useState('')
+  const [loading,setLoading]=useState(false)
+  const [requesting,setRequesting]=useState(false)
+  const [revision,setRevision]=useState(0)
+  useEffect(()=>{
+    if(!workspaceId||!task.id)return
+    let active=true
+    setLoading(true);setError('')
+    void diagnoseGatewayLocalTaskNotification(workspaceId,task.id).then(result=>{
+      if(active)setDiagnostic(result)
+    }).catch(()=>{
+      if(active){setDiagnostic(null);setError('Não foi possível confirmar o agendamento com o Communications Gateway.')}
+    }).finally(()=>{if(active)setLoading(false)})
+    return ()=>{active=false}
+  },[workspaceId,task.id,task.updatedAt,member?.whatsappAutoEnabledAt,revision])
 
-  useEffect(() => { setAttempted(Boolean(key && safeStorage.getItem(key))); setConfirmed(false); setMessage(''); setReadiness(null) }, [key])
-
-  const recipient = member?.whatsappPhone || ''
-  const consent = Boolean(member?.whatsappConsentRecordedAt)
-  const eligible = Boolean(member && member.userId === task.assigneeId && task.workspaceId === workspaceId && validState(task) &&
-    normalizeTaskTestPhone(recipient) && consent)
-
-  const checkConnection = async () => {
-    setChecking(true)
-    try {
-      const next = await checkTaskWhatsAppTestConnection(workspaceId)
-      setReadiness(next)
-      setMessage(next.available ? 'WhatsApp conectado. Confira o número e confirme o envio manual.' : next.message)
-    } catch { setReadiness(null); setMessage('Não foi possível consultar o WhatsApp conectado em Comunicações.') }
-    finally { setChecking(false) }
+  const request=async()=>{
+    if(!diagnostic?.canRequest||requesting)return
+    const approved=await confirmAction({
+      title:'Programar um aviso único?',
+      description:`O RealTalent programará um aviso para ${member?.displayName||'o responsável'} referente à tarefa “${task.title}”. O WhatsApp QR e o gateway precisam estar conectados; não haverá reenvio automático.`,
+      confirmLabel:'Programar aviso',
+    })
+    if(!approved)return
+    setRequesting(true);setError('')
+    try{
+      await requestGatewayLocalTaskNotice(workspaceId,task.id)
+      notify('success','Aviso único programado. O histórico mostrará o resultado.')
+      setRevision(n=>n+1)
+    }catch(failure){
+      setError(failure instanceof Error?failure.message:'Não foi possível programar este aviso.')
+    }finally{setRequesting(false)}
   }
 
-  const send = async () => {
-    if (!member || !eligible || !confirmed || attempted || !readiness?.available || !readiness.accountId || sending) return
-    setSending(true)
-    try {
-      const current = await checkTaskWhatsAppTestConnection(workspaceId)
-      if (!current.available || current.accountId !== readiness.accountId)
-        throw new Error('A sessão do WhatsApp mudou. Verifique a conexão novamente.')
-      const to = normalizeTaskTestPhone(recipient)
-      if (!to) throw new Error('Número inválido. Corrija em Configurações → Equipe e permissões.')
-      if (normalizeTaskTestPhone(current.senderPhone) === to)
-        throw new Error('O WhatsApp do colaborador não pode ser igual ao número que envia. Use um destinatário distinto.')
-      // Block a second click before hitting the gateway: a timeout may mean
-      // that the first request was accepted despite the missing response.
-      safeStorage.setItem(key, new Date().toISOString())
-      setAttempted(true)
-      const due = task.dueAt ? new Date(task.dueAt).toLocaleString('pt-BR') : 'Sem prazo'
-      const body = [
-        'RealTalent — aviso de tarefa (envio manual)',
-        '',
-        `Olá, ${member.displayName}!`,
-        `Tarefa: ${task.title.slice(0,140)}`,
-        `Prazo: ${due}`,
-        '',
-        'Consulte o responsável pelo CRM para mais informações.',
-      ].join('\n')
-      const event = await sendGatewayCommunication({
-        workspaceId,
-        accountId: current.accountId!,
-        channel: 'whatsapp',
-        recipient: to,
-        body,
-        idempotencyKey: `manual-local-task:${task.id}:${member.userId}:${task.updatedAt}`,
-      })
-      if (event.status === 'failed') setMessage('O gateway retornou falha. Confira a conversa antes de tentar qualquer novo envio; este teste não será repetido automaticamente.')
-      else setMessage(event.status === 'queued'
-        ? 'Mensagem colocada na fila. Confira a conversa antes de considerar a notificação enviada.'
-        : 'Solicitação aceita pelo gateway. Confira o recebimento no WhatsApp; isso ainda não comprova entrega.')
-    } catch (error) {
-      setMessage(error instanceof Error ? error.message : 'Resultado do envio desconhecido. Confira a conversa antes de tentar novamente.')
-    } finally { setSending(false); setConfirmed(false) }
-  }
-
-  return <section className="work-form-section local-team-wa-action">
-    <header><MessageCircle size={18}/><div><strong>WhatsApp do responsável</strong>
-      <small>Utiliza o contato cadastrado em Configurações → Equipe e permissões, sem pedir o número novamente.</small>
+  const masked=member?.whatsappPhone? `•••• ${member.whatsappPhone.slice(-4)}`:'WhatsApp não cadastrado'
+  return <section className="work-form-section local-team-wa-action" aria-label="Comunicação automática do responsável">
+    <header><MessageCircle size={18}/><div><strong>Comunicação do responsável</strong>
+      <small>{member?.displayName||'Sem responsável'} · {masked}</small>
     </div></header>
     <p className="local-team-wa-action__hint" role="status">
-      {!member?.whatsappAutoEnabledAt
-        ? 'Aviso automático desligado para este integrante. Ative em Configurações → Equipe e permissões depois de obter autorização.'
-        : !task.reminderEnabled || !task.reminderChannels?.includes('whatsapp')
-          ? 'Automação habilitada no cadastro, mas esta tarefa precisa ter Lembretes ativados e o canal WhatsApp QR experimental marcado em Lembretes e canais.'
-          : 'Automação solicitada para este colaborador e esta tarefa. O envio programado depende do Communications Gateway local conectado; confira o histórico do agendador.'}
+      {loading?'Consultando situação do aviso…':error||diagnostic?.reason||
+        'Aguardando sincronização com o Communications Gateway.'}
     </p>
-    <p className="local-team-wa-action__recipient">Destinatário: <strong>{member?.displayName || 'Não encontrado'}</strong>
-      {' · '}{recipient || 'Sem WhatsApp cadastrado'}
-      {' · '}{consent ? 'Autorização registrada' : 'Autorização pendente'}</p>
-    {!eligible ? <p className="local-team-wa-action__hint">
-      {member && task.assigneeId === member.userId
-        ? 'Para avisar este colaborador, cadastre um número válido e registre a autorização recebida em Configurações → Equipe e permissões.'
-        : 'Atribua a tarefa a um integrante existente da equipe local para identificar seu WhatsApp.'}
-    </p> : <>
-      <p className="local-team-wa-action__hint">O teste envia uma mensagem real pela sessão QR conectada, apenas após confirmação manual. Não ativa lembretes automáticos.</p>
-      {attempted ? <p role="status" className="local-team-wa-action__hint">Já houve uma tentativa para esta versão da tarefa. Confira a conversa antes de criar outro aviso para evitar duplicidade.</p> : <>
-        <Button type="button" variant="secondary" size="sm" disabled={checking || sending} onClick={() => void checkConnection()}>
-          <RefreshCw size={14}/>{checking ? 'Verificando…' : 'Verificar WhatsApp conectado'}
-        </Button>
-        {readiness?.available ? <label className="local-team-wa-action__confirm">
-          <input type="checkbox" checked={confirmed} disabled={sending} onChange={event => setConfirmed(event.target.checked)}/>
-          <span>Confirmo que este colaborador autorizou o aviso e quero enviar uma única mensagem real para {recipient}.</span>
-        </label> : null}
-        {readiness?.available ? <Button type="button" size="sm" onClick={() => void send()} loading={sending} disabled={!confirmed || sending}>
-          <Send size={14}/> Enviar aviso agora
-        </Button> : null}
-      </>}
-    </>}
-    {message ? <p role="status" className="local-team-wa-action__hint">{message}</p> : null}
+    {diagnostic?.nextAt ? <p className="local-team-wa-action__hint"><BellRing size={13}/>
+      Próximo aviso: {new Date(diagnostic.nextAt).toLocaleString('pt-BR')}
+    </p>:null}
+    <div className="local-team-wa-action__buttons">
+      {diagnostic?.canRequest ? <Button size="sm" type="button" disabled={requesting||loading}
+        onClick={()=>void request()}><BellRing size={14}/>{requesting?'Programando…':'Programar aviso único'}</Button>:null}
+      <Button variant="secondary" size="sm" type="button" disabled={loading||requesting}
+        onClick={()=>setRevision(n=>n+1)}><RefreshCw size={14}/> Atualizar situação</Button>
+    </div>
+    <small className="local-team-wa-action__hint">
+      O envio usa o motor central, não faz disparos duplicados e exige autorização no cadastro de Equipes.
+      O teste manual de conexão continua disponível em Configurações → Notificações.
+    </small>
   </section>
 }

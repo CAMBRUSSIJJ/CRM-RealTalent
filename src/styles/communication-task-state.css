@@ -1,0 +1,5 @@
+.communication-task-state{display:inline-flex;align-items:center;gap:5px;font-size:11px;white-space:nowrap;max-width:100%;border-radius:8px;padding:2px 5px;color:var(--text-secondary,#667085)}
+.communication-task-state.is-scheduled{color:var(--color-success,#087f52);background:var(--surface-success,#e8f6ef)}
+.communication-task-state.is-accepted{color:var(--color-info,#3567c9);background:var(--surface-info,#edf3ff)}
+.communication-task-state.is-attention{color:var(--color-warning,#a15a13);background:var(--surface-warning,#fff6e6)}
+.communication-task-state.is-unavailable{color:var(--text-secondary,#667085)}

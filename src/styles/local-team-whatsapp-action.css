@@ -11,3 +11,6 @@
 .work-task-reminder-disclosure[open]>summary::after{content:'▴'}
 .work-task-reminder-disclosure>.task-reminders{border:0!important;margin:0!important;box-shadow:none!important}
 .work-task-reminder-disclosure:focus-within{outline:2px solid transparent}
+
+.local-team-wa-action__buttons{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.local-team-wa-action__hint svg{vertical-align:middle;margin-right:5px}

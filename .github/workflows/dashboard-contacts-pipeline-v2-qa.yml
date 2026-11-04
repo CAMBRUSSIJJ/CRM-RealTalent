@@ -27,6 +27,11 @@ on:
       - 'src/services/communication-workspace-core.test.ts'
       - 'src/services/whatsapp-workspace-core.ts'
       - 'src/services/whatsapp-workspace-core.test.ts'
+      - 'scripts/communications-live-revision.mjs'
+      - 'scripts/communications-live-revision.test.mjs'
+      - 'scripts/communications-qr-live-contract.test.mjs'
+      - 'scripts/realtalent-communications-gateway.mjs'
+      - 'scripts/communications-store-utils.mjs'
       - 'src/features/communications/whatsapp-chat-panel.tsx'
       - 'src/services/local-communications-gateway.ts'
       - 'api/runtime/_proxy.mjs'
@@ -82,6 +87,12 @@ jobs:
         run: npx vitest run src/services/communication-workspace-core.test.ts --reporter=dot
       - name: Testar envio WhatsApp QR no Vercel sem interferir na Cloud API
         run: npx vitest run src/services/whatsapp-workspace-core.test.ts --reporter=dot
+      - name: Verificar WhatsApp QR envio assíncrono e atualização em tempo real
+        run: |
+          node --check scripts/realtalent-communications-gateway.mjs
+          node --test scripts/communications-live-revision.test.mjs
+          node --test scripts/communications-qr-live-contract.test.mjs
+          node --test scripts/v101_8_4_h9_communications_reliability_smoke.mjs
       - name: Testar Central de Comunicacao V3
         run: node --test scripts/communications-central-v3.test.mjs
       - name: Testar Dashboard de Metricas V3

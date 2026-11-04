@@ -761,7 +761,20 @@ export function PipelinePage() {
     {viewMode === 'funnel' ? renderFunnel() : null}
 
     <DealInspectorModal open={Boolean(inspectingDeal)} insight={inspectingDeal} snapshot={snapshot} readOnly={!canPipelineEdit} onClose={() => setInspectingLeadId(null)} onExecute={runDealAction} onOpenAccount={(deal) => { setInspectingLeadId(null); navigate('leads', { leadId: deal.lead.id, action: 'account360' }) }} onOpenLead={(deal) => { setInspectingLeadId(null); setViewing(deal.lead) }} />
-    <CreateLeadModal mode="opportunity" open={canPipelineCreate && createStageId !== null} initialStageId={createStageId ?? undefined} onClose={() => setCreateStageId(null)} />
+    <CreateLeadModal
+      mode="opportunity"
+      open={canPipelineCreate && createStageId !== null}
+      initialStageId={createStageId ?? undefined}
+      onClose={() => setCreateStageId(null)}
+      onCreated={(lead, action) => {
+        if (action === 'open') setViewing(lead)
+        if (action === 'call') {
+          if (!canCommunicate) { notify('info', 'Este perfil não tem acesso às ligações.'); setViewing(lead); return }
+          openPipelineCall(lead)
+        }
+        if (action === 'followup') openActivity(lead, 'followup')
+      }}
+    />
     <LeadDetailsDrawer readOnly={!canPipelineEdit} lead={viewing} duplicateMatches={[]} onClose={() => setViewing(null)} onEdit={(lead) => { setViewing(null); setEditing(lead) }} onActivity={(lead, type = 'followup') => { setViewing(null); setActivityLead(lead); setActivityType(type) }} onEvent={(lead) => { setViewing(null); setActivityLead(lead); setActivityType('meeting') }} onCall={(lead) => { setViewing(null); setCallLead(lead) }} onOpenDuplicate={() => undefined} />
     <EditLeadModal lead={editing} open={canPipelineEdit && Boolean(editing)} onClose={() => setEditing(null)} />
     <ActivityModal open={canPipelineEdit && Boolean(activityLead)} initialLeadId={activityLead?.id} initialType={activityType} initialTitle={activityType === 'meeting' ? 'Reunião comercial' : 'Follow-up comercial'} onClose={() => setActivityLead(null)} />

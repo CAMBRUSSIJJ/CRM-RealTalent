@@ -1,9 +1,8 @@
 import { useEffect, useMemo, useState, type DragEvent } from 'react'
-import { AlertTriangle, Bell, CalendarDays, CheckCircle2, CircleDot, Clock3, Kanban, ListChecks, Pencil, Plus, Search, Trash2, UserRound, UsersRound } from 'lucide-react'
+import { AlertTriangle, Bell, CalendarDays, CheckCircle2, Clock3, Filter, Kanban, ListChecks, Pencil, Plus, Search, Trash2, UserRound, UsersRound, X } from 'lucide-react'
 import { useAppActions, useAppUi, useAppWorkspace } from '../../app/app-context'
 import { useAuth } from '../auth/auth-context'
 import { Button } from '../../components/ui/button'
-import { EmptyState } from '../../components/ui/empty-state'
 import { StatusPill } from '../../components/ui/status-pill'
 import { NativeSelectionSelect } from '../../components/selection'
 import type { TaskRelation, TaskStatus, Team, WorkTask, WorkspaceMember } from '../../domain/types'
@@ -14,9 +13,10 @@ import { TaskCommunicationState } from '../communications-automations/task-commu
 import { Modal } from '../../components/ui/modal'
 import { loadGatewayLocalTaskAutoHistory, type LocalTaskAutoDiagnostic } from '../../services/local-communications-gateway'
 import { flushTaskNotificationIntents, reconcileTaskNotificationWorkspace } from '../../services/notifications/notification-orchestrator'
-import { WorkspaceCommandBar, WorkspaceCommandGroup, WorkspacePageHeader, WorkspaceSummaryMetric, WorkspaceSummaryStrip, WorkspaceViewStrip } from '../../components/workspace/workspace-shell'
+import './tasks-page-v4.css'
 
-type ViewMode = 'list' | 'board' | 'today' | 'overdue' | 'completed'
+type ViewMode = 'list' | 'board' | 'today' | 'overdue' | 'blocked' | 'completed'
+type TaskLayout = 'list' | 'board'
 const OPEN_STATUSES: TaskStatus[] = ['todo', 'in_progress', 'blocked']
 const statusTone = (status: TaskStatus) => status === 'completed' ? 'success' : status === 'blocked' ? 'danger' : status === 'in_progress' ? 'info' : status === 'cancelled' ? 'neutral' : 'warning'
 const priorityTone = (priority: WorkTask['priority']) => priority === 'urgent' ? 'danger' : priority === 'high' ? 'warning' : priority === 'normal' ? 'info' : 'neutral'
@@ -31,7 +31,8 @@ export function TasksPage() {
   const { user } = useAuth()
   const [data, setData] = useState<WorkManagementSnapshot>({ teams: [], memberships: [], tasks: [], relations: [], checklistItems: [], comments: [] })
   const [members, setMembers] = useState<WorkspaceMember[]>([])
-  const [view, setView] = useState<ViewMode>('list')
+  const [view, setView] = useState<ViewMode>('board')
+  const [layout, setLayout] = useState<TaskLayout>('board')
   const [query, setQuery] = useState('')
   const [owner, setOwner] = useState('all')
   const [teamId, setTeamId] = useState('all')
@@ -126,6 +127,7 @@ export function TasksPage() {
       if (view === 'today' && dueKey(task.dueAt) !== today) return false
       if (view === 'overdue' && !(OPEN_STATUSES.includes(task.status) && task.dueAt && new Date(task.dueAt).getTime() < nowMs)) return false
       if (view === 'completed' && task.status !== 'completed') return false
+      if (view === 'blocked' && task.status !== 'blocked') return false
       if ((view === 'list' || view === 'board') && task.status === 'cancelled') return false
       return true
     }).sort((a, b) => {
@@ -218,42 +220,70 @@ export function TasksPage() {
   const relationForEditing = editing ? relationByTask.get(editing.id) ?? null : null
   const checklistForEditing = editing ? data.checklistItems.filter((item) => item.taskId === editing.id) : []
 
-  return <div className="workspace-page tasks-page-v101112">
-    <WorkspacePageHeader className="tasks-page-header-h223h1" eyebrow="Execução comercial" icon={ListChecks} title="Tarefas" description="Centralize o que precisa ser feito, por quem e em qual contexto do CRM." actions={<>
-      {repositoryMode === 'local' ? <Button variant="secondary" onClick={() => setShowNotifications(true)}>
-        <Bell size={16}/> Comunicação e automações
-      </Button> : null}
-      {canTaskCreate ? <Button onClick={() => { setEditing(null); setModalOpen(true) }}><Plus size={17}/> Nova tarefa</Button> : null}
-    </>} />
+  const showTaskCreate = () => { setEditing(null); setModalOpen(true) }
+  const switchLayout = (next: TaskLayout) => { setLayout(next); setView(next) }
+  const toggleTaskFilter = (filter: ViewMode) => setView((current) => current === filter ? layout : filter)
+  const filterActive = view !== 'board' && view !== 'list'
+  const totalFiltered = filtered.length
+  const taskViewLabel = view === 'today' ? 'para hoje' : view === 'overdue' ? 'atrasadas' : view === 'blocked' ? 'bloqueadas' : view === 'completed' ? 'concluídas' : ''
+
+  return <div className="workspace-page tasks-page-v4">
+    <div className="tasks-page-v4__header">
+      <div className="tasks-page-v4__heading">
+        <ListChecks size={18} aria-hidden="true" />
+        <div><h1>Tarefas da Equipe</h1><span>Organize, acompanhe e distribua o trabalho.</span></div>
+      </div>
+      <div className="tasks-page-v4__top-actions">
+        {repositoryMode === 'local' && workspaceId ? <button type="button" className="tasks-page-v4__automation" onClick={() => setShowNotifications(true)} title="Comunicação e automações" aria-label="Comunicação e automações"><Bell size={16} /></button> : null}
+        {canTaskCreate ? <Button className="tasks-page-v4__new" onClick={showTaskCreate}><Plus size={16}/> Nova tarefa</Button> : null}
+      </div>
+    </div>
+
     {repositoryMode === 'local' && workspaceId ? <Modal open={showNotifications} onClose={() => setShowNotifications(false)}
       size="xl" title="Comunicação e automações" subtitle="Acompanhe notificações e entenda por que um aviso não foi programado.">
       <CommunicationAutomationCenter workspaceId={workspaceId} tasks={data.tasks}
         onOpenTask={task => {setShowNotifications(false);setEditing(task);setModalOpen(true)}} />
     </Modal> : null}
 
-    <WorkspaceSummaryStrip className="tasks-summary-strip-h223h1">
-      <WorkspaceSummaryMetric icon={CircleDot} label="Abertas" value={metrics.open} meta="Em execução" tone="brand" onClick={() => setView('list')} />
-      <WorkspaceSummaryMetric icon={CalendarDays} label="Para hoje" value={metrics.today} meta="Prazo no dia" onClick={() => setView('today')} />
-      <WorkspaceSummaryMetric icon={Clock3} label="Atrasadas" value={metrics.overdue} meta="Precisam de atenção" tone={metrics.overdue ? 'danger' : 'neutral'} onClick={() => setView('overdue')} />
-      <WorkspaceSummaryMetric icon={AlertTriangle} label="Bloqueadas" value={metrics.blocked} meta="Dependência ou impedimento" tone={metrics.blocked ? 'warning' : 'neutral'} />
-    </WorkspaceSummaryStrip>
+    <section className="tasks-page-v4__toolbar" aria-label="Ferramentas de tarefas">
+      <div className="tasks-page-v4__layout-switch" role="group" aria-label="Modo de visualização">
+        <button type="button" className={layout === 'list' ? 'is-active' : ''} onClick={() => switchLayout('list')} aria-pressed={layout === 'list'} aria-label="Visualizar em lista" title="Lista"><ListChecks size={17}/></button>
+        <button type="button" className={layout === 'board' ? 'is-active' : ''} onClick={() => switchLayout('board')} aria-pressed={layout === 'board'} aria-label="Visualizar em quadro" title="Quadro"><Kanban size={17}/></button>
+      </div>
+      <span className="tasks-page-v4__divider" aria-hidden="true"/>
+      <label className="tasks-page-v4__search"><Search size={16}/><input value={query} onChange={(event)=>setQuery(event.target.value)} aria-label="Buscar tarefas" placeholder="Buscar tarefas..." /></label>
+      <div className="tasks-page-v4__quick-filters" role="group" aria-label="Filtros rápidos">
+        <button type="button" className={view === 'today' ? 'is-active' : ''} onClick={()=>toggleTaskFilter('today')} aria-pressed={view === 'today'}><CalendarDays size={13} /><span>Hoje</span><b>{metrics.today}</b></button>
+        <button type="button" className={view === 'overdue' ? 'is-active is-overdue' : 'is-overdue'} onClick={()=>toggleTaskFilter('overdue')} aria-pressed={view === 'overdue'}><Clock3 size={13}/><span>Atrasadas</span><b>{metrics.overdue}</b></button>
+        <button type="button" className={view === 'blocked' ? 'is-active is-blocked' : 'is-blocked'} onClick={()=>toggleTaskFilter('blocked')} aria-pressed={view === 'blocked'}><AlertTriangle size={13}/><span>Bloqueadas</span><b>{metrics.blocked}</b></button>
+      </div>
+      <span className="tasks-page-v4__divider" aria-hidden="true"/>
+      <details className="tasks-page-v4__filters">
+        <summary><Filter size={15}/> Filtros{(owner !== 'all' || teamId !== 'all' || priority !== 'all' || view === 'completed') ? <span className="tasks-page-v4__filter-indicator"/> : null}</summary>
+        <div className="tasks-page-v4__filter-panel">
+          <div className="tasks-page-v4__filter-title">Filtrar tarefas</div>
+          <label><span>Responsável</span><NativeSelectionSelect value={owner} onChange={(event)=>setOwner(event.target.value)}><option value="all">Todos os responsáveis</option><option value="mine">Minhas tarefas</option>{members.map((member)=><option key={member.userId} value={member.userId}>{member.displayName}</option>)}</NativeSelectionSelect></label>
+          <label><span>Equipe</span><NativeSelectionSelect value={teamId} onChange={(event)=>setTeamId(event.target.value)}><option value="all">Todas as equipes</option>{data.teams.map((team)=><option key={team.id} value={team.id}>{team.name}</option>)}</NativeSelectionSelect></label>
+          <label><span>Prioridade</span><NativeSelectionSelect value={priority} onChange={(event)=>setPriority(event.target.value)}><option value="all">Todas as prioridades</option><option value="urgent">Urgente</option><option value="high">Alta</option><option value="normal">Normal</option><option value="low">Baixa</option></NativeSelectionSelect></label>
+          <button type="button" className={view === 'completed' ? 'tasks-page-v4__completed is-active' : 'tasks-page-v4__completed'} aria-pressed={view === 'completed'} onClick={()=>toggleTaskFilter('completed')}><CheckCircle2 size={15}/> {view === 'completed' ? 'Exibindo concluídas' : 'Mostrar concluídas'}</button>
+          <button type="button" className="tasks-page-v4__reset" onClick={()=>{setOwner('all');setTeamId('all');setPriority('all');setView(layout);setQuery('')}}><X size={14}/> Limpar filtros</button>
+        </div>
+      </details>
+    </section>
 
-    <WorkspaceViewStrip className="tasks-view-strip-h223h1" value={view} onChange={setView} ariaLabel="Visualização das tarefas" items={[
-      { id: 'list', label: 'Lista', icon: ListChecks }, { id: 'board', label: 'Quadro', icon: Kanban }, { id: 'today', label: 'Hoje', icon: CalendarDays, badge: metrics.today || undefined },
-      { id: 'overdue', label: 'Atrasadas', icon: Clock3, badge: metrics.overdue || undefined }, { id: 'completed', label: 'Concluídas', icon: CheckCircle2 },
-    ] as const} />
+    {filterActive ? <div className="tasks-page-v4__filter-status"><span>{totalFiltered} tarefa(s) {taskViewLabel}</span><button type="button" onClick={()=>setView(layout)}><X size={13}/> Mostrar todas</button></div> : null}
 
-    <WorkspaceCommandBar className="work-toolbar work-toolbar--h20">
-      <WorkspaceCommandGroup className="work-filters"><label className="work-search"><Search size={16}/><input value={query} onChange={(event)=>setQuery(event.target.value)} placeholder="Buscar tarefas..."/></label>
-        <NativeSelectionSelect value={owner} onChange={(event)=>setOwner(event.target.value)}><option value="all">Todos responsáveis</option><option value="mine">Minhas tarefas</option>{members.map((member)=><option key={member.userId} value={member.userId}>{member.displayName}</option>)}</NativeSelectionSelect>
-        <NativeSelectionSelect value={teamId} onChange={(event)=>setTeamId(event.target.value)}><option value="all">Todas as equipes</option>{data.teams.map((team)=><option key={team.id} value={team.id}>{team.name}</option>)}</NativeSelectionSelect>
-        <NativeSelectionSelect value={priority} onChange={(event)=>setPriority(event.target.value)}><option value="all">Todas prioridades</option><option value="urgent">Urgente</option><option value="high">Alta</option><option value="normal">Normal</option><option value="low">Baixa</option></NativeSelectionSelect>
-      </WorkspaceCommandGroup>
-    </WorkspaceCommandBar>
-
-    {view === 'board' ? <TaskBoard tasks={filtered} teamById={teamById} relationByTask={relationByTask} checklistItems={data.checklistItems}
-        diagnostics={notificationDiagnostics} notificationsReachable={notificationsReachable} repositoryMode={repositoryMode} readOnly={!canTaskEdit} onEdit={openEdit} onStatus={changeStatus} /> : filtered.length ? <section className="work-task-list">{filtered.map((task) => <TaskRow key={task.id} task={task} diagnostic={notificationDiagnostics[task.id]??null}
-          notificationsReachable={notificationsReachable} repositoryMode={repositoryMode} team={task.teamId ? teamById.get(task.teamId) ?? null : null} relation={relationByTask.get(task.id) ?? null} checklist={data.checklistItems.filter((item)=>item.taskId===task.id)} readOnly={!canTaskEdit} onEdit={()=>openEdit(task)} onStatus={(status)=>void changeStatus(task,status)} onDelete={()=>{ if(canTaskDelete) void remove(task); else notify('info','Seu perfil não permite excluir tarefas.') }} />)}</section> : <EmptyState icon={ListChecks} title="Nenhuma tarefa neste filtro" description="Crie uma tarefa ou ajuste os filtros para acompanhar a execução da equipe." />}
+    {layout === 'board' ? <TaskBoard tasks={filtered} teamById={teamById} relationByTask={relationByTask} checklistItems={data.checklistItems}
+      diagnostics={notificationDiagnostics} notificationsReachable={notificationsReachable} repositoryMode={repositoryMode}
+      readOnly={!canTaskEdit} canCreate={canTaskCreate} onCreate={showTaskCreate} onEdit={openEdit} onStatus={changeStatus} />
+      : <section className="tasks-page-v4__list" aria-label="Lista de tarefas">{filtered.length
+        ? filtered.map((task) => <TaskRow key={task.id} task={task} diagnostic={notificationDiagnostics[task.id]??null}
+          notificationsReachable={notificationsReachable} repositoryMode={repositoryMode} team={task.teamId ? teamById.get(task.teamId) ?? null : null}
+          relation={relationByTask.get(task.id) ?? null} checklist={data.checklistItems.filter((item)=>item.taskId===task.id)} readOnly={!canTaskEdit}
+          onEdit={()=>openEdit(task)} onStatus={(status)=>void changeStatus(task,status)}
+          onDelete={()=>{ if(canTaskDelete) void remove(task); else notify('info','Seu perfil não permite excluir tarefas.') }} />)
+        : <div className="tasks-page-v4__empty-list"><ListChecks size={25}/><strong>Nenhuma tarefa encontrada</strong><span>Altere os filtros ou crie uma tarefa.</span>{canTaskCreate ? <button type="button" onClick={showTaskCreate}><Plus size={14}/> Criar tarefa</button> : null}</div>}
+      </section>}
 
     <TaskModal open={canTaskCreate || canTaskEdit ? modalOpen : false} task={editing} relation={relationForEditing} checklist={checklistForEditing} teams={data.teams} memberships={data.memberships} members={members} snapshot={snapshot} workspaceId={workspaceId} repositoryMode={repositoryMode} loading={saving} onClose={()=>{setModalOpen(false);setEditing(null)}} onSubmit={save}/>
   </div>
@@ -267,24 +297,36 @@ function TaskRow({ task, team, relation, checklist, diagnostic, notificationsRea
 }) {
   const done = checklist.filter((item)=>item.completed).length
   const overdue = OPEN_STATUSES.includes(task.status) && task.dueAt && new Date(task.dueAt).getTime() < Date.now()
-  return <article className={`work-task-row ${overdue?'is-overdue':''}`}>
-    <button type="button" className={`work-task-check ${task.status==='completed'?'is-done':''}`} disabled={readOnly} onClick={()=>onStatus(task.status==='completed'?'todo':'completed')} aria-label={task.status==='completed'?'Reabrir tarefa':'Concluir tarefa'}><CheckCircle2 size={20}/></button>
-    <div className="work-task-main" onDoubleClick={readOnly?undefined:onEdit}><div className="work-task-title"><strong>{task.title}</strong><StatusPill tone={priorityTone(task.priority)}>{taskPriorityLabel[task.priority]}</StatusPill><StatusPill tone={statusTone(task.status)}>{taskStatusLabel[task.status]}</StatusPill></div><p>{task.description || 'Sem descrição.'}</p><div className="work-task-meta">{task.assigneeName?<span><UserRound size={14}/>{task.assigneeName}</span>:<span>Sem responsável</span>}{team?<span><UsersRound size={14}/>{team.name}</span>:null}<span className={overdue?'is-danger':''}><CalendarDays size={14}/>{dueLabel(task.dueAt)}</span>{relation?<span>↗ {relation.entityLabel}</span>:null}{repositoryMode === 'local'
+  return <article className={`tasks-page-v4__row ${overdue?'is-overdue':''}`}>
+    <button type="button" className={`tasks-page-v4__row-check ${task.status==='completed'?'is-done':''}`} disabled={readOnly} onClick={()=>onStatus(task.status==='completed'?'todo':'completed')} aria-label={task.status==='completed'?'Reabrir tarefa':'Concluir tarefa'}><CheckCircle2 size={20}/></button>
+    <div className="tasks-page-v4__row-main" onDoubleClick={readOnly?undefined:onEdit}><div className="tasks-page-v4__row-title"><strong>{task.title}</strong><StatusPill tone={priorityTone(task.priority)}>{taskPriorityLabel[task.priority]}</StatusPill><StatusPill tone={statusTone(task.status)}>{taskStatusLabel[task.status]}</StatusPill></div><p>{task.description || 'Sem descrição.'}</p><div className="tasks-page-v4__row-meta">{task.assigneeName?<span><UserRound size={14}/>{task.assigneeName}</span>:<span>Sem responsável</span>}{team?<span><UsersRound size={14}/>{team.name}</span>:null}<span className={overdue?'is-danger':''}><CalendarDays size={14}/>{dueLabel(task.dueAt)}</span>{relation?<span>↗ {relation.entityLabel}</span>:null}{repositoryMode === 'local'
   ? <TaskCommunicationState configured={Boolean(task.assigneeId)} available={notificationsReachable} status={diagnostic}/>
   : task.reminderEnabled!==false && task.assigneeId && (task.reminderChannels??[]).length
     ? <span title="Regra de lembrete configurada; entrega não confirmada"><Bell size={14}/> Regra configurada</span>:null}{checklist.length?<span>☑ {done}/{checklist.length}</span>:null}</div></div>
-    {!readOnly ? <div className="work-task-actions"><NativeSelectionSelect value={task.status} onChange={(event)=>onStatus(event.target.value as TaskStatus)}><option value="todo">A fazer</option><option value="in_progress">Em andamento</option><option value="blocked">Bloqueada</option><option value="completed">Concluída</option><option value="cancelled">Cancelada</option></NativeSelectionSelect><button type="button" onClick={onEdit} aria-label="Editar"><Pencil size={16}/></button><button type="button" className="is-danger" onClick={onDelete} aria-label="Excluir"><Trash2 size={16}/></button></div>:null}
+    {!readOnly ? <div className="tasks-page-v4__row-actions"><NativeSelectionSelect value={task.status} onChange={(event)=>onStatus(event.target.value as TaskStatus)}><option value="todo">A fazer</option><option value="in_progress">Em andamento</option><option value="blocked">Bloqueada</option><option value="completed">Concluída</option><option value="cancelled">Cancelada</option></NativeSelectionSelect><button type="button" onClick={onEdit} aria-label="Editar"><Pencil size={16}/></button><button type="button" className="is-danger" onClick={onDelete} aria-label="Excluir"><Trash2 size={16}/></button></div>:null}
   </article>
 }
 
-function TaskBoard({ tasks, teamById, relationByTask, checklistItems,diagnostics,notificationsReachable,repositoryMode, readOnly, onEdit, onStatus }: {
-  tasks: WorkTask[]; teamById: Map<string,Team>; relationByTask: Map<string,TaskRelation>
+function TaskBoard({ tasks, teamById, relationByTask, checklistItems, diagnostics, notificationsReachable, repositoryMode, readOnly, canCreate, onCreate, onEdit, onStatus }: {
+  tasks: WorkTask[]
+  teamById: Map<string, Team>
+  relationByTask: Map<string, TaskRelation>
   checklistItems: WorkManagementSnapshot['checklistItems']
-  diagnostics: Record<string,LocalTaskAutoDiagnostic>;notificationsReachable:boolean
-  repositoryMode:'local'|'supabase';readOnly: boolean; onEdit(task: WorkTask): void
-  onStatus(task: WorkTask,status:TaskStatus):void
+  diagnostics: Record<string, LocalTaskAutoDiagnostic>
+  notificationsReachable: boolean
+  repositoryMode: 'local' | 'supabase'
+  readOnly: boolean
+  canCreate: boolean
+  onCreate(): void
+  onEdit(task: WorkTask): void
+  onStatus(task: WorkTask, status: TaskStatus): void
 }) {
-  const columns: Array<{status:TaskStatus;label:string}> = [{status:'todo',label:'A fazer'},{status:'in_progress',label:'Em andamento'},{status:'blocked',label:'Bloqueadas'},{status:'completed',label:'Concluídas'}]
+  const columns: Array<{status:TaskStatus; label:string}> = [
+    {status:'todo',label:'A fazer'},
+    {status:'in_progress',label:'Em andamento'},
+    {status:'blocked',label:'Bloqueadas'},
+    {status:'completed',label:'Concluídas'},
+  ]
   const [dropTarget, setDropTarget] = useState<TaskStatus | null>(null)
   const moveTask = (event: DragEvent<HTMLDivElement>, target: TaskStatus) => {
     event.preventDefault()
@@ -294,8 +336,55 @@ function TaskBoard({ tasks, teamById, relationByTask, checklistItems,diagnostics
     const task = tasks.find((item) => item.id === id)
     if (task && task.status !== target) onStatus(task, target)
   }
-  return <section className="work-task-board" aria-label="Quadro de tarefas">{columns.map((column)=><div className={`work-board-column ${dropTarget === column.status ? 'is-drag-over' : ''}`.trim()} key={column.status} onDragOver={(event)=>{ if (!readOnly) { event.preventDefault(); event.dataTransfer.dropEffect = 'move'; setDropTarget(column.status) } }} onDragLeave={(event)=>{ if (!event.currentTarget.contains(event.relatedTarget as Node | null)) setDropTarget(null) }} onDrop={(event)=>moveTask(event,column.status)}><header><strong>{column.label}</strong><span>{tasks.filter((task)=>task.status===column.status).length}</span></header><div>{tasks.filter((task)=>task.status===column.status).map((task)=><article key={task.id} draggable={!readOnly} onDragStart={(event)=>{ if (readOnly) return; event.dataTransfer.setData('application/x-realtalent-task-id', task.id); event.dataTransfer.effectAllowed='move' }} onDragEnd={()=>setDropTarget(null)} onDoubleClick={readOnly?undefined:()=>onEdit(task)}><div><StatusPill tone={priorityTone(task.priority)}>{taskPriorityLabel[task.priority]}</StatusPill><small>{dueLabel(task.dueAt)}</small></div><h3>{task.title}</h3><p>{task.description || 'Sem descrição.'}</p><footer><span>{task.assigneeName || 'Sem responsável'}</span>{task.teamId?<span>{teamById.get(task.teamId)?.name}</span>:null}{relationByTask.get(task.id)?<span>↗ {relationByTask.get(task.id)?.entityLabel}</span>:null}{repositoryMode === 'local'
-  ? <TaskCommunicationState configured={Boolean(task.assigneeId)} status={diagnostics[task.id]??null} available={notificationsReachable}/>
-  : task.reminderEnabled!==false&&task.assigneeId
-    ? <span title="Regra de lembrete configurada; entrega não confirmada"><Bell size={12}/> Regra configurada</span>:null}{checklistItems.some((item)=>item.taskId===task.id)?<span>☑ {checklistItems.filter((item)=>item.taskId===task.id&&item.completed).length}/{checklistItems.filter((item)=>item.taskId===task.id).length}</span>:null}</footer>{!readOnly?<NativeSelectionSelect value={task.status} onChange={(event)=>onStatus(task,event.target.value as TaskStatus)}><option value="todo">A fazer</option><option value="in_progress">Em andamento</option><option value="blocked">Bloqueada</option><option value="completed">Concluída</option><option value="cancelled">Cancelada</option></NativeSelectionSelect>:null}</article>)}</div></div>)}</section>
+  return <section className="tasks-page-v4__board" aria-label="Quadro de tarefas">
+    {columns.map((column) => {
+      const entries = tasks.filter((task)=>task.status===column.status)
+      return <section key={column.status} className={`tasks-page-v4__column is-${column.status} ${dropTarget===column.status ? 'is-drag-over' : ''}`}
+        onDragOver={(event)=>{ if(!readOnly){event.preventDefault(); event.dataTransfer.dropEffect='move';setDropTarget(column.status)} }}
+        onDragLeave={(event)=>{ if(!event.currentTarget.contains(event.relatedTarget as Node|null))setDropTarget(null) }}
+        onDrop={(event)=>moveTask(event,column.status)}>
+        <header className="tasks-page-v4__column-heading">
+          <strong>{column.label}</strong>
+          <span>{entries.length}</span>
+        </header>
+        <div className="tasks-page-v4__column-body">
+          {entries.length ? entries.map((task)=>{
+            const isOverdue=Boolean(task.dueAt && OPEN_STATUSES.includes(task.status) && new Date(task.dueAt).getTime()<Date.now())
+            const taskChecklist=checklistItems.filter((item)=>item.taskId===task.id)
+            const done=taskChecklist.filter((item)=>item.completed).length
+            return <article key={task.id} className={`tasks-page-v4__card ${isOverdue?'is-overdue':''}`} draggable={!readOnly}
+              onDragStart={(event)=>{if(readOnly)return;event.dataTransfer.setData('application/x-realtalent-task-id',task.id);event.dataTransfer.effectAllowed='move'}}
+              onDragEnd={()=>setDropTarget(null)}>
+              <div className="tasks-page-v4__card-head">
+                <StatusPill tone={priorityTone(task.priority)}>{taskPriorityLabel[task.priority]}</StatusPill>
+                <span className={isOverdue ? 'is-overdue' : ''}><Clock3 size={12}/>{dueLabel(task.dueAt)}</span>
+              </div>
+              <button className="tasks-page-v4__card-title" type="button" onClick={()=>onEdit(task)}>{task.title}</button>
+              {task.description ? <p>{task.description}</p> : null}
+              <div className="tasks-page-v4__card-meta">
+                <span><UserRound size={13}/>{task.assigneeName || 'Sem responsável'}</span>
+                {task.teamId ? <span><UsersRound size={13}/>{teamById.get(task.teamId)?.name ?? 'Equipe'}</span> : null}
+                {relationByTask.get(task.id) ? <span title="Vínculo com o CRM">↗ {relationByTask.get(task.id)?.entityLabel}</span> : null}
+                {taskChecklist.length ? <span><CheckCircle2 size={13}/>{done}/{taskChecklist.length}</span> : null}
+                {repositoryMode==='local'
+                  ? <TaskCommunicationState configured={Boolean(task.assigneeId)} available={notificationsReachable} status={diagnostics[task.id]??null} />
+                  : task.reminderEnabled!==false && task.assigneeId && (task.reminderChannels??[]).length
+                    ? <span title="Regra configurada; entrega não confirmada"><Bell size={13}/> Lembrete</span> : null}
+              </div>
+              {!readOnly ? <div className="tasks-page-v4__card-actions">
+                <NativeSelectionSelect value={task.status} aria-label={`Alterar status de ${task.title}`} onChange={(event)=>onStatus(task,event.target.value as TaskStatus)}>
+                  <option value="todo">A fazer</option><option value="in_progress">Em andamento</option><option value="blocked">Bloqueada</option><option value="completed">Concluída</option><option value="cancelled">Cancelada</option>
+                </NativeSelectionSelect>
+                <button type="button" onClick={()=>onEdit(task)} aria-label={`Editar ${task.title}`}><Pencil size={14}/></button>
+              </div> : null}
+            </article>
+          }) : <div className="tasks-page-v4__empty-column">
+            <ListChecks size={19}/>
+            <span>{column.status==='todo' ? 'Nenhuma tarefa pendente' : 'Nenhuma tarefa nesta etapa'}</span>
+            {column.status==='todo' && canCreate ? <button type="button" onClick={onCreate}><Plus size={13}/> Criar tarefa rápida</button> : null}
+          </div>}
+        </div>
+      </section>
+    })}
+  </section>
 }

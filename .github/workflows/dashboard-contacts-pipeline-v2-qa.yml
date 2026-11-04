@@ -1,4 +1,4 @@
-name: RealTalent Dashboard V2 + Contatos/Pipeline/Oportunidade V3 QA
+name: RealTalent RealTalent Dashboard/Contatos/Pipeline/Tasks V3 QA
 
 on:
   push:
@@ -13,6 +13,9 @@ on:
       - 'src/features/leads/create-lead-modal.tsx'
       - 'src/features/leads/opportunity-create-v3.css'
       - 'scripts/opportunity-modal-v3.test.mjs'
+      - 'src/features/tasks/task-modal.tsx'
+      - 'src/features/tasks/task-board-v3.css'
+      - 'scripts/tasks-unified-board-v3.test.mjs'
       - 'src/features/pipeline/sales-pipeline-v3.css'
       - 'src/features/pipeline/pipeline-page.tsx'
       - 'scripts/ux-v2-sales-workspaces.test.mjs'
@@ -47,6 +50,8 @@ jobs:
         run: node --test scripts/ux-v2-sales-workspaces.test.mjs
       - name: Verificar nova oportunidade V3
         run: node --test scripts/opportunity-modal-v3.test.mjs
+      - name: Testar quadro unico de tarefas V3
+        run: node --test scripts/tasks-unified-board-v3.test.mjs
       - name: Validar sintaxe e imports do CRM
         run: npm run typecheck
       # O projeto usa tsconfig.typecheck.json para o app de produção.

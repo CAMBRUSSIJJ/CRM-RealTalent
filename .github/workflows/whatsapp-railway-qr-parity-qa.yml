@@ -36,6 +36,11 @@ jobs:
           node --check runtime-host/RealTalent-CRM-V101.11.3-CR10-H1-Agent-V3.1.2-Linux-Launcher/scripts/whatsapp-browser-qr-bridge.mjs
           node --check runtime-host/RealTalent-CRM-V101.11.3-CR10-H1-Agent-V3.1.2-Linux-Launcher/scripts/whatsapp-lid-addressing.mjs
           node --check runtime-host/RealTalent-CRM-V101.11.3-CR10-H1-Agent-V3.1.2-Linux-Launcher/scripts/whatsapp-web-send-result-hotfix.mjs
+      - name: Validate isolated QA supervisor syntax
+        run: node --check deploy/whatsapp-qr-qa/qa-supervisor.mjs
+      - name: Verify QA service never permits outbound messages
+        run: |
+          node --input-type=module -e "import fs from 'node:fs'; import assert from 'node:assert/strict'; const s=fs.readFileSync('deploy/whatsapp-qr-qa/qa-supervisor.mjs','utf8'); assert.ok(s.includes('qa_read_only_route')); assert.ok(!s.includes(\"'POST /api/communications/send'\")); assert.ok(s.includes('REALTALENT_QA_WORKSPACE_ID'));"
       - name: Validate Railway hosted QR parity without sending WhatsApp messages
         run: node --test scripts/railway-qr-bundle-parity.test.mjs
       - name: Validate LID addressing and WhatsApp Web return compatibility

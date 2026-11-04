@@ -2,7 +2,9 @@ import fs from 'node:fs'
 import path from 'node:path'
 import { cleanNumber, isDirectPhoneAddress, isLidAddress, isPhoneCandidate, isWhatsAppTechnicalMessage, mapWhatsAppAckStatus, whatsappMessageBody } from './whatsapp-sync-utils.mjs'
 import { applyWhatsAppWebMediaHotfix } from './whatsapp-web-media-hotfix.mjs'
+import { applyWhatsAppWebSendResultHotfix } from './whatsapp-web-send-result-hotfix.mjs'
 import { importCommunicationsPackage } from './communications-runtime-deps.mjs'
+import { resolveWhatsAppSendAddress } from './whatsapp-lid-addressing.mjs'
 // Historical H8 media markers preserved after parser extraction: '[Imagem]' '[Áudio]' '[Documento]'
 
 
@@ -41,6 +43,14 @@ function findBrowserExecutable() {
 async function loadWebJs() {
   let mediaHotfix = { ok: false, state: 'not-checked', target: '' }
   try { mediaHotfix = applyWhatsAppWebMediaHotfix() } catch (error) { console.warn(`[WhatsApp QR] Hotfix de mídia não aplicado: ${error instanceof Error ? error.message : String(error)}`) }
+  // Apply BEFORE import() and before Chromium injects Utils.js. A missing
+  // vendor return patch is a known source of silent undefined send results.
+  try {
+    const sendResultHotfix = applyWhatsAppWebSendResultHotfix()
+    console.log(`[WhatsApp QR] Compatibilidade de retorno MsgKey: ${sendResultHotfix.state}`)
+  } catch (error) {
+    throw new Error(`Falha ao preparar whatsapp-web.js MsgKey: ${error instanceof Error ? error.message : String(error)}`)
+  }
   try {
     const mod = await importCommunicationsPackage('whatsapp-web.js')
     const source = mod.default && typeof mod.default === 'object' ? mod.default : mod
@@ -84,6 +94,9 @@ export function createWhatsAppBrowserQrBridge({ root, now, uuid, store, saveStor
     const s = get(workspaceId)
     return s ? {
       state: s.state,
+      // Source of truth shared by Comunicações and Tarefas: this ID belongs
+      // to the current, live QR session, not to an unrelated Cloud account.
+      accountId: s.state === 'connected' ? (s.accountId || null) : null,
       qrDataUrl: s.qrDataUrl || null,
       phone: s.phone || '',
       displayName: s.displayName || 'WhatsApp QR Local',
@@ -95,7 +108,7 @@ export function createWhatsAppBrowserQrBridge({ root, now, uuid, store, saveStor
       syncingHistory: Boolean(s.syncPromise),
       mediaHotfix: s.mediaHotfix || null,
     } : {
-      state: 'idle', qrDataUrl: null, phone: '', displayName: 'WhatsApp QR Local', lastError: null,
+      state: 'idle', accountId: null, qrDataUrl: null, phone: '', displayName: 'WhatsApp QR Local', lastError: null,
       updatedAt: now(), engine: 'whatsapp-web-js', lastHistorySyncAt: null, lastHistoryImportCount: 0, syncingHistory: false, mediaHotfix: null,
     }
   }
@@ -114,8 +127,16 @@ export function createWhatsAppBrowserQrBridge({ root, now, uuid, store, saveStor
     if (!session || session.manualDisconnect || session.reconnectTimer) return
     session.state = 'starting'
     session.reconnectAttempts = Number(session.reconnectAttempts || 0) + 1
+    const previousError = String(session.lastError || '').trim()
+    if (session.reconnectAttempts > 5) {
+      session.state = 'disconnected'
+      session.lastError = `${previousError || 'O WhatsApp Web falhou ao inicializar.'} Após cinco tentativas, a reconexão automática foi suspensa para proteger a memória. Confira o diagnóstico do Chromium e clique em Conectar por QR para tentar novamente.`
+      session.updatedAt = now()
+      try { updateQrAccount(session.workspaceId, { status: 'attention', lastError: session.lastError, metadata: { liveState: 'disconnected' } }) } catch {}
+      return
+    }
     const delay = Math.min(12_000, 1_500 * session.reconnectAttempts)
-    session.lastError = `WhatsApp Web reconectando após ${reason}. Tentativa ${session.reconnectAttempts}.`
+    session.lastError = `${previousError && !previousError.startsWith('WhatsApp Web reconectando') ? previousError + ' ' : ''}WhatsApp Web reconectando após ${reason}. Tentativa ${session.reconnectAttempts}/5.`
     session.updatedAt = now()
     try { updateQrAccount(session.workspaceId, { status: 'attention', lastError: session.lastError, metadata: { liveState: 'starting' } }) } catch {}
     session.reconnectTimer = setTimeout(() => {
@@ -529,9 +550,30 @@ export function createWhatsAppBrowserQrBridge({ root, now, uuid, store, saveStor
     return { id, name:String(chat?.name || chat?.formattedTitle || 'Grupo do WhatsApp'), description:String(chat?.description || ''), participantCount:participants.length, participants }
   }
 
+  // One start request per workspace at a time. Starting QR again must not
+  // destroy an already connected session or reset an in-flight QR pairing.
+  const pendingStarts = new Map()
   async function start(workspaceId, displayName = 'WhatsApp QR Local') {
     workspaceId = String(workspaceId || 'default')
+    const running = pendingStarts.get(workspaceId)
+    if (running) return running
+    const request = Promise.resolve().then(() => startSession(workspaceId, displayName))
+    pendingStarts.set(workspaceId, request)
+    try { return await request }
+    finally { if (pendingStarts.get(workspaceId) === request) pendingStarts.delete(workspaceId) }
+  }
+
+  async function startSession(workspaceId, displayName = 'WhatsApp QR Local') {
+    workspaceId = String(workspaceId || 'default')
     const prior = get(workspaceId)
+    // Preserve a live pairing (or the first Chromium startup), but let
+    // the scheduled reconnect create a new client after a genuine failure.
+    // scheduleReconnect marks "starting" BEFORE its timer fires.
+    const startupInProgress = prior?.state === 'starting'
+      && (Number(prior.reconnectAttempts || 0) === 0 || Boolean(prior.reconnectTimer))
+    if (prior?.client && (prior.state === 'connected' || prior.state === 'qr' || startupInProgress)) {
+      return status(workspaceId)
+    }
     if (prior?.client) await destroySession(prior)
 
     const { Client, LocalAuth, MessageMedia, mediaHotfix } = await loadWebJs()
@@ -559,8 +601,9 @@ export function createWhatsAppBrowserQrBridge({ root, now, uuid, store, saveStor
       syncPromise: null,
       manualDisconnect: false,
       reconnectTimer: null,
-      reconnectAttempts: 0,
+      reconnectAttempts: Number(prior?.reconnectAttempts || 0),
       liveMessageIds: new Map(),
+      resolvedSendIds: new Map(),
       contactNames: new Map(),
       contactsCachedAt: null,
       MessageMedia,
@@ -583,11 +626,19 @@ export function createWhatsAppBrowserQrBridge({ root, now, uuid, store, saveStor
     session.client = client
 
     client.on('qr', async qr => {
+      if (get(workspaceId) !== session) return
       session.state = 'qr'
+      session.qrDataUrl = null
       session.updatedAt = now()
       session.lastError = null
-      try { const QRCode = await loadQRCode(); session.qrDataUrl = await QRCode.toDataURL(qr, { margin: 1, width: 320 }) }
-      catch (error) { session.lastError = `Falha ao renderizar QR: ${error instanceof Error ? error.message : String(error)}` }
+      try {
+        const QRCode = await loadQRCode()
+        const dataUrl = await QRCode.toDataURL(qr, { margin: 1, width: 320 })
+        if (get(workspaceId) === session && session.state === 'qr') session.qrDataUrl = dataUrl
+      } catch (error) {
+        if (get(workspaceId) === session && session.state === 'qr')
+          session.lastError = `Falha ao renderizar QR: ${error instanceof Error ? error.message : String(error)}`
+      }
     })
     client.on('authenticated', () => {
       session.state = 'starting'
@@ -729,6 +780,7 @@ export function createWhatsAppBrowserQrBridge({ root, now, uuid, store, saveStor
     void client.initialize().catch(error => {
       session.state = 'disconnected'
       session.lastError = `Não foi possível abrir o WhatsApp Web: ${error instanceof Error ? error.message : String(error)}`
+      console.warn(`[WhatsApp QR] ${session.lastError}`)
       session.updatedAt = now()
       updateQrAccount(workspaceId, { status: 'attention', lastError: session.lastError, metadata: { liveState: 'disconnected' } })
       if (!session.manualDisconnect) scheduleReconnect(session, 'falha ao inicializar')
@@ -746,6 +798,14 @@ export function createWhatsAppBrowserQrBridge({ root, now, uuid, store, saveStor
       if (!number) throw new Error('Número de WhatsApp inválido.')
       chatId = `${number}@c.us`
     }
+    // The QR connection can be healthy while WhatsApp rejects a phone WID
+    // whose account has migrated to a privacy identifier (@lid).
+    // Resolve from the WhatsApp server BEFORE the first send; no blind retry.
+    const requestedChatId = chatId
+    const resolved = await resolveWhatsAppSendAddress(session.client, chatId, {
+      cache: session.resolvedSendIds,
+    })
+    chatId = resolved.chatId
     const sendOptions = {}
     if (options.replyToExternalMessageId) sendOptions.quotedMessageId = String(options.replyToExternalMessageId)
     const context = registerOutboundSendContext(session, {
@@ -772,14 +832,34 @@ export function createWhatsAppBrowserQrBridge({ root, now, uuid, store, saveStor
         sent = await session.client.sendMessage(chatId, String(body), sendOptions)
       }
       const externalMessageId = serializedId(sent?.id)
-      if (externalMessageId) context.externalMessageId = externalMessageId
+      // WhatsApp Web sometimes returns undefined on a failed/ambiguous send.
+      // A fabricated UUID was previously being treated as proof of delivery.
+      // Keep the operation indeterminate so the manual test is never retried
+      // automatically and the operator can inspect the conversation.
+      if (!externalMessageId) {
+        throw new Error('WhatsApp Web não confirmou o envio com um ID de mensagem. Verifique a conversa antes de tentar novamente: a operação pode ter sido aceita sem confirmação.')
+      }
+      context.externalMessageId = externalMessageId
       setTimeout(() => {
         session.outboundSendContexts = (session.outboundSendContexts || []).filter(item => item !== context)
       }, 15_000).unref?.()
-      return { id: externalMessageId || uuid(), threadId: chatId }
+      return { id: externalMessageId, threadId: chatId }
     } catch (error) {
       context.failed = true
       session.outboundSendContexts = (session.outboundSendContexts || []).filter(item => item !== context)
+      const detail = String(error?.message || error || '')
+      if (/No LID for user/i.test(detail) && requestedChatId.endsWith('@c.us')) {
+        // The cached identity may be stale. Clear it for a *future* explicit
+        // attempt, but never retry here: the first send can be ambiguous.
+        session.resolvedSendIds?.delete(requestedChatId)
+        const human = new Error(
+          'WhatsApp Web não encontrou o identificador LID deste destinatário. ' +
+          'O RealTalent consultou o endereço antes de enviar, mas a sessão não confirmou a operação. ' +
+          'Confira a conversa no celular antes de tentar novamente; o teste não será reenviado automaticamente.'
+        )
+        human.code = 'WHATSAPP_LID_UNRESOLVED'
+        throw human
+      }
       throw friendlyMediaSendError(error)
     }
   }

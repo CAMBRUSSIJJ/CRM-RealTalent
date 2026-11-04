@@ -34,10 +34,45 @@ test('Métricas V3 — cinco KPIs são calculados a partir do CRM, nunca de dado
   assert.ok(!page.includes('Segunda-feira</p>'))
   assert.ok(!page.includes('19:00</p>'))
   assert.ok(service.includes('calculateCommercialMetrics'))
+  assert.equal((page.match(/<article><span><Layers3 size={17}\/> Propostas<\/span>/g)||[]).length,0,'Propostas duplicadas no painel complementar')
+  assert.ok(page.includes('Ligações, reuniões e taxa de ganho'))
 })
 test('Métricas V3 — não remove análises, comparações, exportação e integrações existentes', () => {
   for(const token of ['calculateCommercialMetrics(','calculateForecast(','calculateFunnelIntelligence(','calculateLossAnalysis(','calculateActivityIntelligence(','calculateOwnerPerformance(','calculateSourcePerformance(','generateMetricsAlerts(','calculateTrend(','compareMetric(','<VisualFunnel','<StageModal','onOpenLead={(leadId) => navigate(\'pipeline\'','onClick={downloadReport}','onClick={() => window.print()}','<WorkspaceFilterMenu','<WorkspaceAdvancedFilterDrawer','<WorkspaceFilterChips','<NativeSelectionSelect','activeGoals.map(','outcomes.map(','losses.map(','sources.slice(','owners.slice(','trend.map(']){
     assert.ok(page.includes(token),'Função ou relatório perdido: '+token)
+  }
+})
+test('Métricas V3.1 — nenhuma aba reutiliza cartões e grades visuais legadas', () => {
+  const oldLayout = [
+    'metrics-overview-grid','metrics-executive-grid','metrics-kpi-strip',
+    'metric-card','metrics-forecast-hero','metrics-forecast-grid',
+    'metrics-funnel-kpi-row-v10171','metrics-page-v10167',
+  ]
+  for(const cssClass of oldLayout) {
+    assert.ok(!page.includes(cssClass),'Wrapper antigo persistente no JSX: '+cssClass)
+  }
+  for(const part of [
+    'metrics-v3__section-kpis','metrics-v3__stat',
+    'metrics-v3__content-grid','metrics-v3__content-grid--trend',
+    'metrics-v3__funnel-summary','metrics-v3__forecast-hero','metrics-v3__forecast-grid'
+  ]) {
+    assert.ok(page.includes(part),'Nova estrutura ausente: '+part)
+    assert.ok(style.includes('.'+part),'Novo estilo ausente: '+part)
+  }
+  assert.equal((page.match(/metrics-v3__section-kpis/g)||[]).length,2,'Perdas e Atividades devem usar novos indicadores')
+  assert.ok(page.includes('<VisualFunnel'),'Funil real permanece disponível')
+  assert.ok(page.includes('activeGoals.map('),'Metas reais permanecem')
+})
+test('Métricas V3.1 — layout prevê telas estreitas e não deixa CSS antigo vencer pelas classes removidas', () => {
+  for(const breakpoint of ['@media(max-width:1180px)','@media(max-width:740px)','@media(max-width:460px)']) {
+    assert.ok(style.includes(breakpoint),'Ausente: '+breakpoint)
+  }
+  for(const stale of [
+    '.metrics-v3__body .metrics-overview-grid',
+    '.metrics-v3__body .metric-grid.metrics-executive-grid',
+    '.metrics-v3__body > .metrics-funnel-kpi-row-v10171',
+  ]) {
+    assert.ok(!style.includes(stale),'Selector obsoleto no CSS V3: '+stale)
   }
 })
 test('Métricas V3 — UI do CRM é responsiva e CSS não vaza para outras abas', () => {

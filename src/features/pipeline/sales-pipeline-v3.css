@@ -764,3 +764,46 @@ html[data-theme="dark"] .sales-pipeline-v3__quick-actions .pipeline-quick-action
 @media (prefers-reduced-motion: reduce) {
   .sales-pipeline-v3__card, .sales-pipeline-v3__quick-actions { transition: none; }
 }
+
+/* Forecast goal restored after Pipeline V3 refactor, scoped to the forecast view. */
+.sales-pipeline-v3__forecast-goal {
+  display: grid;
+  grid-template-columns: repeat(3,minmax(0,1fr));
+  gap: 12px;
+  padding: 13px 16px 16px;
+  border: 1px solid var(--sp-border);
+  border-radius: 11px;
+  background: var(--sp-panel);
+}
+.sales-pipeline-v3__forecast-goal > div {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  min-width: 0;
+}
+.sales-pipeline-v3__forecast-goal > div > span {
+  color: var(--sp-muted);
+  font-size: 10px;
+  font-weight: 740;
+}
+.sales-pipeline-v3__forecast-goal > div > strong {
+  color: var(--sp-text);
+  font-size: 17px;
+  font-weight: 790;
+  overflow-wrap: anywhere;
+}
+.sales-pipeline-v3__forecast-goal > progress {
+  grid-column: 1 / -1;
+  width: 100%;
+  height: 7px;
+  border: 0;
+  border-radius: 8px;
+  overflow: hidden;
+  accent-color: #2563eb;
+}
+.sales-pipeline-v3__forecast-goal > progress::-webkit-progress-bar { background: #e5ecf5; }
+.sales-pipeline-v3__forecast-goal > progress::-webkit-progress-value { background: #2563eb; border-radius: 9px; }
+.sales-pipeline-v3__forecast-goal > progress::-moz-progress-bar { background: #2563eb; border-radius: 9px; }
+@media (max-width: 650px) {
+  .sales-pipeline-v3__forecast-goal { grid-template-columns: minmax(0,1fr); }
+}

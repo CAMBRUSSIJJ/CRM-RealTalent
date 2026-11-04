@@ -303,6 +303,12 @@ async function route(req,res){
     return json(res,200,{ok:true,...workspaceCommunicationsRevision(s.events,workspaceId)})
   }
   if(req.method==='GET'&&u.pathname==='/api/communications/events'){const workspaceId=u.searchParams.get('workspaceId')||'';const limit=Math.min(5000,Math.max(1,Number(u.searchParams.get('limit')||3000)));const events=s.events.filter(e=>e.workspaceId===workspaceId).sort((a,b)=>Date.parse(b.occurredAt)-Date.parse(a.occurredAt)).slice(0,limit);return json(res,200,{events})}
+  if(req.method==='POST'&&u.pathname==='/api/communications/media/resolve'){
+    const b=await body(req)
+    if(!b.workspaceId||!b.eventId)return json(res,400,{ok:false,error:'Workspace e mensagem são obrigatórios.'})
+    const result=await whatsappQr.hydrateMedia(String(b.workspaceId),String(b.eventId))
+    return json(res,200,result)
+  }
   if(req.method==='GET'&&u.pathname.startsWith('/api/communications/media/')){const parts=u.pathname.split('/').filter(Boolean);const id=String(parts[3]||'').replace(/[^a-zA-Z0-9-]/g,'');const file=id?mediaDiskPath({id}):'';if(!file||!fs.existsSync(file))return json(res,404,{error:'Mídia não encontrada.'});const stat=fs.statSync(file);res.writeHead(200,{'content-type':contentTypeFor(file),'content-length':stat.size,'cache-control':'private, max-age=3600','x-content-type-options':'nosniff'});return fs.createReadStream(file).pipe(res)}
   if(req.method==='POST'&&u.pathname==='/api/communications/retry'){const b=await body(req);const event=(s.events||[]).find(item=>item.id===String(b.eventId||'')&&item.workspaceId===String(b.workspaceId||'')&&item.channel==='whatsapp'&&item.direction==='outbound');if(!event)return json(res,404,{error:'Mensagem não encontrada.'});event.status='queued';event.metadata={...(event.metadata||{}),outbox:true,manualRetryRequested:true,nextRetryAt:now(),lastSendError:null};saveStore(s);void drainWhatsAppOutbox();return json(res,200,{event})}
 // A QR send can outlive Vercel's 55s upstream timeout. Acknowledge the

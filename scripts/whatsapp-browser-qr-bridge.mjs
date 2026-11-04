@@ -1,3 +1,5 @@
+import { isQrExpiredDisconnect, QR_EXPIRED_MESSAGE } from './whatsapp-qr-recovery-policy.mjs'
+import { isRecoverableWhatsAppMediaEvent, whatsappMediaKind, whatsappMediaFilename } from './whatsapp-media-recovery.mjs'
 import fs from 'node:fs'
 import path from 'node:path'
 import { cleanNumber, isDirectPhoneAddress, isLidAddress, isPhoneCandidate, isWhatsAppTechnicalMessage, mapWhatsAppAckStatus, whatsappMessageBody } from './whatsapp-sync-utils.mjs'
@@ -65,6 +67,7 @@ async function loadWebJs() {
 }
 
 export function createWhatsAppBrowserQrBridge({ root, now, uuid, store, saveStore, upsertAccount, pushEvent, makeEvent, persistMedia }) {
+  const mediaRecoveryRequests = new Map()
   const authRoot = path.join(root, '.realtalent-whatsapp-browser')
   fs.mkdirSync(authRoot, { recursive: true, mode: 0o700 })
 
@@ -115,7 +118,7 @@ export function createWhatsAppBrowserQrBridge({ root, now, uuid, store, saveStor
 
   async function destroySession(session, { logout = false } = {}) {
     if (!session?.client) return
-    session.manualDisconnect = Boolean(logout)
+    session.manualDisconnect = true // Suppress disconnect/reconnect events on any intentional teardown.
     if (session.reconnectTimer) { clearTimeout(session.reconnectTimer); session.reconnectTimer = null }
     if (logout) {
       try { await session.client.logout() } catch {}
@@ -141,7 +144,7 @@ export function createWhatsAppBrowserQrBridge({ root, now, uuid, store, saveStor
     try { updateQrAccount(session.workspaceId, { status: 'attention', lastError: session.lastError, metadata: { liveState: 'starting' } }) } catch {}
     session.reconnectTimer = setTimeout(() => {
       session.reconnectTimer = null
-      start(session.workspaceId, session.displayName).catch(error => rememberAsyncError(session, 'Falha ao reconectar WhatsApp Web', error))
+      start(session.workspaceId, session.displayName, { autoReconnect: true }).catch(error => rememberAsyncError(session, 'Falha ao reconectar WhatsApp Web', error))
     }, delay)
   }
 
@@ -482,7 +485,9 @@ export function createWhatsAppBrowserQrBridge({ root, now, uuid, store, saveStor
     const candidates = [...(session.outboundSendContexts || [])].reverse()
     return candidates.find(context => {
       if (context.failed || context.matched) return false
-      if (String(context.chatId || '') !== messageThread) return false
+      // WhatsApp may emit the original @c.us thread while the send was
+      // addressed using a resolved @lid. Both represent the same send.
+      if (String(context.chatId || '') !== messageThread && String(context.requestedChatId || '') !== messageThread) return false
       if (Boolean(context.hasMedia) !== hasMedia) return false
       if (!hasMedia && context.body && messageBody && String(context.body) !== messageBody) return false
       return true
@@ -553,17 +558,17 @@ export function createWhatsAppBrowserQrBridge({ root, now, uuid, store, saveStor
   // One start request per workspace at a time. Starting QR again must not
   // destroy an already connected session or reset an in-flight QR pairing.
   const pendingStarts = new Map()
-  async function start(workspaceId, displayName = 'WhatsApp QR Local') {
+  async function start(workspaceId, displayName = 'WhatsApp QR Local', options = {}) {
     workspaceId = String(workspaceId || 'default')
     const running = pendingStarts.get(workspaceId)
     if (running) return running
-    const request = Promise.resolve().then(() => startSession(workspaceId, displayName))
+    const request = Promise.resolve().then(() => startSession(workspaceId, displayName, options))
     pendingStarts.set(workspaceId, request)
     try { return await request }
     finally { if (pendingStarts.get(workspaceId) === request) pendingStarts.delete(workspaceId) }
   }
 
-  async function startSession(workspaceId, displayName = 'WhatsApp QR Local') {
+  async function startSession(workspaceId, displayName = 'WhatsApp QR Local', options = {}) {
     workspaceId = String(workspaceId || 'default')
     const prior = get(workspaceId)
     // Preserve a live pairing (or the first Chromium startup), but let
@@ -601,7 +606,7 @@ export function createWhatsAppBrowserQrBridge({ root, now, uuid, store, saveStor
       syncPromise: null,
       manualDisconnect: false,
       reconnectTimer: null,
-      reconnectAttempts: Number(prior?.reconnectAttempts || 0),
+      reconnectAttempts: options.autoReconnect === true ? Number(prior?.reconnectAttempts || 0) : 0,
       liveMessageIds: new Map(),
       resolvedSendIds: new Map(),
       contactNames: new Map(),
@@ -641,18 +646,21 @@ export function createWhatsAppBrowserQrBridge({ root, now, uuid, store, saveStor
       }
     })
     client.on('authenticated', () => {
+      if (get(workspaceId) !== session) return
       session.state = 'starting'
       session.qrDataUrl = null
       session.lastError = null
       session.updatedAt = now()
     })
     client.on('auth_failure', message => {
+      if (get(workspaceId) !== session) return
       session.state = 'disconnected'
       session.lastError = `O WhatsApp recusou a autenticação: ${String(message || 'falha de autenticação')}. Remova a sessão QR e gere um código novo.`
       session.updatedAt = now()
       updateQrAccount(workspaceId, { status: 'error', lastError: session.lastError })
     })
     client.on('ready', () => {
+      if (get(workspaceId) !== session) return
       try {
         session.state = 'connected'
         session.qrDataUrl = null
@@ -686,11 +694,19 @@ export function createWhatsAppBrowserQrBridge({ root, now, uuid, store, saveStor
       }
     })
     client.on('disconnected', reason => {
+      if (get(workspaceId) !== session || session.manualDisconnect) return
+      const detail = String(reason || 'desconexão')
+      const qrExpired = isQrExpiredDisconnect(detail)
       session.state = 'disconnected'
-      session.lastError = `Sessão WhatsApp Web encerrada${reason ? `: ${String(reason)}` : ''}. Tentando reconectar automaticamente.`
+      session.qrDataUrl = null
+      // QR expiry is normal when a code is not scanned; it must not create
+      // an endless Chromium restart loop or log out a different session.
+      session.lastError = qrExpired
+        ? QR_EXPIRED_MESSAGE
+        : `Sessão WhatsApp Web encerrada: ${detail}. Tentando reconectar automaticamente.`
       session.updatedAt = now()
       updateQrAccount(workspaceId, { status: 'attention', lastError: session.lastError, metadata: { liveState: 'disconnected' } })
-      if (!session.manualDisconnect) scheduleReconnect(session, String(reason || 'desconexão'))
+      if (!qrExpired) scheduleReconnect(session, detail)
     })
 
     const recordLiveMessage = async (message, source = 'live') => {
@@ -730,28 +746,56 @@ export function createWhatsAppBrowserQrBridge({ root, now, uuid, store, saveStor
         try { chat = typeof message.getChat === 'function' ? await message.getChat() : null } catch {}
         try { identity = await resolveChatIdentity(chat, message, session) } catch {}
       }
-      let mediaRef = null
-      if (!message.fromMe && message.hasMedia && typeof message.downloadMedia === 'function' && typeof persistMedia === 'function') {
-        try {
-          const media = await message.downloadMedia()
-          if (media?.data && media?.mimetype) {
-            const messageType = String(message.type || '').toLowerCase()
-            const kind = messageType === 'ptt' ? 'voice' : messageType === 'sticker' ? 'sticker' : ['image','video','audio','document'].includes(messageType) ? messageType : undefined
-            mediaRef = persistMedia({ dataBase64: media.data, mimeType: media.mimetype, fileName: media.filename || `whatsapp-${liveId || Date.now()}`, kind })
-          }
-        } catch (error) { rememberAsyncError(session, 'Falha ao baixar mídia recebida', error) }
-      }
-      let replyToExternalMessageId = ''
-      let replyPreview = ''
-      if (message.hasQuotedMsg && typeof message.getQuotedMessage === 'function') {
-        try { const quoted = await message.getQuotedMessage(); replyToExternalMessageId = serializedId(quoted?.id); replyPreview = whatsappMessageBody(quoted).slice(0, 240) } catch {}
-      }
       const outboundContext = message.fromMe ? matchOutboundSendContext(session, message, identity?.threadId || rawPeerAddress) : null
       if (outboundContext) {
         outboundContext.matched = true
         outboundContext.externalMessageId = liveId || serializedId(message.id)
       }
-      if (ingestMessage(s, account, session, message, chat, source, identity, { mediaRef, replyToExternalMessageId, replyPreview, idempotencyKey: outboundContext?.idempotencyKey || null })) saveStore(s)
+      // Persist the message before downloading media or quoted content.
+      // A slow WhatsApp media download must not delay text, ACK or the inbox.
+      // pushEvent() returns false when updating an existing queued row, but
+      // that MERGE still needs saveStore() to wake the realtime subscribers.
+      ingestMessage(s, account, session, message, chat, source, identity, {
+        idempotencyKey: outboundContext?.idempotencyKey || null,
+      })
+      saveStore(s)
+
+      if (message.hasMedia && typeof message.downloadMedia === 'function' && typeof persistMedia === 'function') {
+        try {
+          const media = await message.downloadMedia()
+          if (get(workspaceId) !== session || !media?.data || !media?.mimetype) return
+          const mediaRef = persistMedia({
+            dataBase64: media.data, mimeType: media.mimetype,
+            fileName: whatsappMediaFilename(media, liveId),
+            kind: whatsappMediaKind(message.type, media.mimetype),
+          })
+          if (mediaRef) {
+            const current = store()
+            const event = (current.events || []).find(item => item.workspaceId === workspaceId && item.accountId === session.accountId &&
+              (item.externalMessageId === liveId || (outboundContext?.idempotencyKey && item.metadata?.idempotencyKey === outboundContext.idempotencyKey)))
+            if (event) {
+              event.hasAttachments = true
+              event.metadata = { ...(event.metadata || {}), attachment: mediaRef }
+              saveStore(current)
+            }
+          }
+        } catch (error) { rememberAsyncError(session, 'Falha ao baixar mídia do WhatsApp Web', error) }
+      }
+      if (message.hasQuotedMsg && typeof message.getQuotedMessage === 'function') {
+        try {
+          const quoted = await message.getQuotedMessage()
+          const replyToExternalMessageId = serializedId(quoted?.id)
+          if (replyToExternalMessageId) {
+            const current = store()
+            const event = (current.events || []).find(item => item.workspaceId === workspaceId && item.accountId === session.accountId && item.externalMessageId === liveId)
+            if (event) {
+              event.replyToExternalMessageId = replyToExternalMessageId
+              event.metadata = { ...(event.metadata || {}), replyPreview: whatsappMessageBody(quoted).slice(0, 240) }
+              saveStore(current)
+            }
+          }
+        } catch {}
+      }
     }
     client.on('message', message => {
       if (message?.fromMe) return
@@ -767,10 +811,20 @@ export function createWhatsAppBrowserQrBridge({ root, now, uuid, store, saveStor
         const externalMessageId = serializedId(message.id)
         if (!externalMessageId) return
         const s = store()
-        const event = (s.events || []).find(item => item.externalMessageId === externalMessageId && item.workspaceId === workspaceId && item.accountId === session.accountId)
+        const context = (session.outboundSendContexts || []).find(item => item.externalMessageId === externalMessageId)
+        const event = (s.events || []).find(item => item.workspaceId === workspaceId && item.accountId === session.accountId &&
+          (item.externalMessageId === externalMessageId || (context?.idempotencyKey && item.metadata?.idempotencyKey === context.idempotencyKey)))
         if (!event) return
-        event.status = mapWhatsAppAckStatus(ack)
-        event.metadata = { ...(event.metadata || {}), ack: Number(ack) }
+        const previous = Number(event.metadata?.ack)
+        const nextAck = Number(ack)
+        if (!Number.isFinite(nextAck)) return
+        const strongestAck = Number.isFinite(previous) && Number.isFinite(nextAck) ? Math.max(previous, nextAck) : nextAck
+        event.externalMessageId = event.externalMessageId || externalMessageId
+        event.status = mapWhatsAppAckStatus(strongestAck)
+        event.metadata = {
+          ...(event.metadata || {}), ack: strongestAck,
+          ...(strongestAck >= 1 ? { sendAttemptInProgress: false, sendUncertain: false, outbox: false } : {}),
+        }
         saveStore(s)
       } catch (error) {
         rememberAsyncError(session, 'Falha ao atualizar confirmação da mensagem', error)
@@ -778,12 +832,18 @@ export function createWhatsAppBrowserQrBridge({ root, now, uuid, store, saveStor
     })
 
     void client.initialize().catch(error => {
+      if (get(workspaceId) !== session || session.manualDisconnect) return
+      const reason = error instanceof Error ? error.message : String(error)
+      const qrExpired = isQrExpiredDisconnect(reason)
       session.state = 'disconnected'
-      session.lastError = `Não foi possível abrir o WhatsApp Web: ${error instanceof Error ? error.message : String(error)}`
+      session.qrDataUrl = null
+      session.lastError = qrExpired
+        ? QR_EXPIRED_MESSAGE
+        : `Não foi possível abrir o WhatsApp Web: ${reason}`
       console.warn(`[WhatsApp QR] ${session.lastError}`)
       session.updatedAt = now()
       updateQrAccount(workspaceId, { status: 'attention', lastError: session.lastError, metadata: { liveState: 'disconnected' } })
-      if (!session.manualDisconnect) scheduleReconnect(session, 'falha ao inicializar')
+      if (!qrExpired) scheduleReconnect(session, 'falha ao inicializar')
     })
     return status(workspaceId)
   }
@@ -811,6 +871,7 @@ export function createWhatsAppBrowserQrBridge({ root, now, uuid, store, saveStor
     const context = registerOutboundSendContext(session, {
       idempotencyKey: String(options.idempotencyKey || ''),
       chatId,
+      requestedChatId,
       body: String(body || ''),
       hasMedia: Boolean(options.attachment?.dataBase64 && options.attachment?.mimeType),
       createdAt: Date.now(),
@@ -878,6 +939,58 @@ export function createWhatsAppBrowserQrBridge({ root, now, uuid, store, saveStor
     return { groupId, title: String(result.title || cleanTitle), participants: result.participants || {} }
   }
 
+  async function hydrateMedia(workspaceId, eventId) {
+    workspaceId = String(workspaceId || '')
+    eventId = String(eventId || '')
+    if (!workspaceId || !eventId) return { ok: false, state: 'invalid_request' }
+    const key = `${workspaceId}:${eventId}`
+    if (mediaRecoveryRequests.has(key)) return mediaRecoveryRequests.get(key)
+    const promise = (async () => {
+      const snapshot = store()
+      const event = (snapshot.events || []).find(item => item.id === eventId && item.workspaceId === workspaceId)
+      if (!event || event.channel !== 'whatsapp' || event.metadata?.transport !== 'qr') return { ok: false, state: 'not_found' }
+      if (event.metadata?.attachment?.url) return { ok: true, state: 'ready', attachment: event.metadata.attachment }
+      if (!isRecoverableWhatsAppMediaEvent(event, workspaceId)) return { ok: false, state: 'not_available' }
+      const session = await ensureConnected(workspaceId)
+      if (typeof session.client?.getMessageById !== 'function') return { ok: false, state: 'unsupported' }
+      // Only recover one user-visible message; never trigger a full history sync.
+      // Do not await Chromium indefinitely if the WhatsApp cache lacks the file.
+      const withTimeout = async (request, limitMs) => {
+        let timer
+        try {
+          return await Promise.race([
+            request,
+            new Promise((_, reject) => { timer = setTimeout(() => reject(new Error('O WhatsApp Web demorou para responder.')), limitMs) }),
+          ])
+        } finally { clearTimeout(timer) }
+      }
+      try {
+        const message = await withTimeout(session.client.getMessageById(event.externalMessageId), 12_000)
+        if (!message?.hasMedia || typeof message.downloadMedia !== 'function') return { ok: false, state: 'not_available' }
+        const media = await withTimeout(message.downloadMedia(), 15_000)
+        if (!media?.data || !media?.mimetype) return { ok: false, state: 'not_available' }
+        const ref = persistMedia({
+          dataBase64: media.data, mimeType: media.mimetype,
+          fileName: whatsappMediaFilename(media, event.externalMessageId),
+          kind: whatsappMediaKind(message.type || event.metadata?.messageType, media.mimetype),
+        })
+        if (!ref) return { ok: false, state: 'not_available' }
+        const latest = store()
+        const stored = (latest.events || []).find(item => item.id === eventId && item.workspaceId === workspaceId)
+        if (!stored) return { ok: false, state: 'not_found' }
+        // Never touch message status or resend; this is a read-only recovery.
+        stored.hasAttachments = true
+        stored.metadata = { ...(stored.metadata || {}), attachment: ref }
+        saveStore(latest)
+        return { ok: true, state: 'ready', attachment: ref }
+      } catch (error) {
+        return { ok: false, state: 'download_failed', message: String(error?.message || error).slice(0, 180) }
+      }
+    })()
+    mediaRecoveryRequests.set(key, promise)
+    try { return await promise } finally { mediaRecoveryRequests.delete(key) }
+  }
+
   async function diagnostics(workspaceId) {
     workspaceId = String(workspaceId || 'default')
     const session = get(workspaceId)
@@ -941,5 +1054,5 @@ export function createWhatsAppBrowserQrBridge({ root, now, uuid, store, saveStor
     return { ok: true, closed: active.length }
   }
 
-  return { start, status, send, createGroup, listContacts, groupInfo, disconnect, syncHistory, diagnostics, shutdown }
+  return { start, status, send, createGroup, listContacts, groupInfo, disconnect, syncHistory, hydrateMedia, diagnostics, shutdown }
 }

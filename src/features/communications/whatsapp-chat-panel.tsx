@@ -9,7 +9,7 @@ import { connectedAccountLabel, loadCommunicationChannelState, type Conversation
 import type { ConnectedAccount } from '../../services/integration-framework'
 import type { RealtimeTransportState } from '../../platform/events/realtime-status'
 import { normalizeWhatsAppPhone, sendOfficialWhatsApp } from '../../services/whatsapp-workspace'
-import { loadGatewayWhatsAppGroupInfo, retryGatewayCommunication, type GatewayWhatsAppAttachmentInput, type GatewayWhatsAppGroupInfo } from '../../services/local-communications-gateway'
+import { loadGatewayWhatsAppGroupInfo, recoverGatewayWhatsAppMedia, retryGatewayCommunication, type GatewayWhatsAppAttachmentInput, type GatewayWhatsAppGroupInfo } from '../../services/local-communications-gateway'
 import { WhatsAppConnectionCenter } from './whatsapp-connection-center'
 import { acknowledgedInTimeline, statusAfterGatewayAck, type PendingSendState } from './whatsapp-send-feedback'
 import { formatVoiceTime, safeAudioSeconds } from './whatsapp-voice-time'
@@ -90,6 +90,8 @@ export function WhatsAppChatPanel({ lead, externalIdentity, workspaceId, events,
   const [body, setBody] = useState('')
   const [sending, setSending] = useState(false)
   const [pendingMessages, setPendingMessages] = useState<PendingMessage[]>([])
+  const [mediaLoading, setMediaLoading] = useState<Record<string, 'loading' | 'unavailable' | 'ready'>>({})
+  const mediaAttemptsRef = useRef(new Set<string>())
   const [attachment, setAttachment] = useState<ComposerAttachment | null>(null)
   const [replyingTo, setReplyingTo] = useState<UnifiedCommunicationItem | null>(null)
   const [recording, setRecording] = useState(false)
@@ -122,6 +124,45 @@ export function WhatsAppChatPanel({ lead, externalIdentity, workspaceId, events,
   const canSend = Boolean(!readOnly && account && (recipient || groupThreadId) && hasPayload && !blocked && !sending && !recording && groupTransportReady)
   const optimisticItems = useMemo<UnifiedCommunicationItem[]>(() => pendingMessages.filter(item => !acknowledgedInTimeline(item, messages)).map(item => ({ id: `optimistic:${item.id}`, source: 'official' as const, leadId: lead?.id ?? null, contactId: lead?.primaryContactId ?? null, channel: 'whatsapp' as const, direction: 'outbound' as const, status: item.status, title: identityName, body: item.body || (`[${item.attachment?.kind === 'voice' ? 'Áudio' : item.attachment?.kind === 'image' ? 'Imagem' : 'Arquivo'}]`), subject: '', occurredAt: item.occurredAt, official: false, metadata: { idempotencyKey: item.idempotencyKey, optimistic: true, attachment: item.attachment ? { ...item.attachment, url: item.attachment.previewUrl } : null, replyToExternalMessageId: item.replyToExternalMessageId || null, replyPreview: item.replyPreview || null } })), [identityName, lead?.id, lead?.primaryContactId, messages, pendingMessages])
   const displayMessages = useMemo(() => [...messages, ...optimisticItems].sort((a, b) => Date.parse(a.occurredAt) - Date.parse(b.occurredAt)), [messages, optimisticItems])
+  const recoverableMedia = useMemo(() => messages.filter(item => item.metadata?.transport === 'qr' &&
+    item.metadata?.hasAttachments === true && item.metadata?.attachment == null &&
+    typeof item.metadata?.externalMessageId === 'string' && Boolean(item.metadata.externalMessageId) &&
+    typeof item.metadata?.eventId === 'string' && Boolean(item.metadata.eventId))
+    .slice(-12).map(item => String(item.metadata.eventId)), [messages])
+  const recoverableMediaKey = recoverableMedia.join('|')
+
+  const recoverMedia = async (eventId: string, automatic = false) => {
+    if (!eventId || !workspaceId) return
+    const key = `${workspaceId}:${eventId}`
+    if (automatic && mediaAttemptsRef.current.has(key)) return
+    mediaAttemptsRef.current.add(key)
+    setMediaLoading(current => ({ ...current, [eventId]: 'loading' }))
+    try {
+      const result = await recoverGatewayWhatsAppMedia(workspaceId, eventId)
+      setMediaLoading(current => ({ ...current, [eventId]: result.ok ? 'ready' : 'unavailable' }))
+      if (result.ok) onSent('refresh')
+      else if (!automatic) onError(result.message || 'O arquivo não está mais disponível no WhatsApp Web. Tente novamente após sincronizar a conversa.')
+    } catch (error) {
+      setMediaLoading(current => ({ ...current, [eventId]: 'unavailable' }))
+      if (!automatic) onError(error instanceof Error ? error.message : 'Não foi possível recuperar o anexo.')
+    }
+  }
+
+  useEffect(() => {
+    // Hydrate only recent visible missing media. Do not resync 60 chats,
+    // resend any message, or stall the composer while downloading attachments.
+    const recent = recoverableMedia.filter(id => !mediaAttemptsRef.current.has(`${workspaceId}:${id}`)).slice(-8)
+    if (!recent.length) return
+    let cancelled = false
+    const run = async () => {
+      for (const id of recent) {
+        if (cancelled) break
+        await recoverMedia(id, true)
+      }
+    }
+    void run()
+    return () => { cancelled = true }
+  }, [workspaceId, recoverableMediaKey])
   const externalIndex = useMemo(() => {
     const index = new Map<string, UnifiedCommunicationItem>()
     for (const item of displayMessages) {
@@ -283,6 +324,10 @@ export function WhatsAppChatPanel({ lead, externalIdentity, workspaceId, events,
         const media = attachmentFromMetadata(item)
         const mediaKind = String(media?.kind || '')
         const mediaUrl = String(media?.url || '')
+        const mediaMissing = item.metadata?.hasAttachments === true && item.metadata?.transport === 'qr' && !mediaUrl
+        const mediaEventId = String(item.metadata?.eventId || '')
+        const mediaLoadState = mediaLoading[mediaEventId]
+        const placeholderOnly = /^\\[(Imagem|Áudio|Documento|Mídia|Sticker|Vídeo)\\]$/.test(text)
         const replyId = String(item.metadata?.replyToExternalMessageId || '')
         const quoted = replyId ? externalIndex.get(replyId) : null
         const quoteText = safeMessageText(quoted?.body || item.metadata?.replyPreview || '')
@@ -297,7 +342,12 @@ export function WhatsAppChatPanel({ lead, externalIdentity, workspaceId, events,
               {!['image', 'sticker', 'video', 'audio', 'voice'].includes(mediaKind) && mediaUrl ? <a href={mediaUrl} target="_blank" rel="noreferrer"><FileText size={18}/><span>{String(media.fileName || 'Documento')}</span><small>{media.mimeType ? String(media.mimeType) : 'Arquivo'}</small></a> : null}
               {!mediaUrl ? <span><FileText size={18}/>{String(media.fileName || '[Mídia]')}</span> : null}
             </div> : null}
-            {text && !(/^\[(Imagem|Áudio|Documento|Mídia|Sticker|Vídeo)\]/.test(text) && media) ? <p>{text}</p> : null}
+            {mediaMissing ? <div className="whatsapp-chat__attachment is-unavailable" role="status">
+              {String(item.metadata?.messageType || '').toLowerCase() === 'image' ? <ImageIcon size={18}/> : ['ptt', 'audio'].includes(String(item.metadata?.messageType || '').toLowerCase()) ? <Mic size={18}/> : <FileText size={18}/>}
+              <span>{mediaLoadState === 'loading' ? 'Carregando anexo do WhatsApp…' : 'Anexo do WhatsApp ainda não recuperado'}</span>
+              {mediaEventId ? <Button size="sm" variant="ghost" disabled={mediaLoadState === 'loading'} onClick={() => void recoverMedia(mediaEventId)}>{mediaLoadState === 'loading' ? 'Carregando' : 'Carregar mídia'}</Button> : null}
+            </div> : null}
+            {text && !(placeholderOnly && (media || mediaMissing)) ? <p>{text}</p> : null}
             <div className="whatsapp-chat__native-actions">{item.metadata?.externalMessageId ? <button type="button" onClick={() => setReplyingTo(item)} title="Responder"><Reply size={13}/></button> : null}{outbound && item.status === 'failed' ? <button type="button" onClick={() => void retry(item)} title="Tentar novamente"><RotateCcw size={13}/></button> : null}</div>
             <footer><time title={formatDateTime(item.occurredAt)}>{timeLabel(item.occurredAt)}</time>{outbound ? <MessageStatus status={item.status} metadata={item.metadata}/> : null}</footer>
           </article>

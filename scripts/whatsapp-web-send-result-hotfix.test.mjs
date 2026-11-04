@@ -68,8 +68,11 @@ test('Linux launcher must not silently reuse a stale gateway from before the sen
   const { readFileSync } = await import('node:fs')
   const start = readFileSync(new URL('./start.mjs', import.meta.url), 'utf8')
   const gateway = readFileSync(new URL('./realtalent-communications-gateway.mjs', import.meta.url), 'utf8')
-  assert.ok(start.includes("const COMM_EXPECTED_SEND_REVISION = 'msgkey-dollar1-20261102'"))
-  assert.ok(gateway.includes("const WHATSAPP_SEND_RETURN_REVISION = 'msgkey-dollar1-20261102'"))
+  const expected = start.match(/const COMM_EXPECTED_SEND_REVISION = '([^']+)'/)?.[1]
+  const actual = gateway.match(/const WHATSAPP_SEND_RETURN_REVISION = '([^']+)'/)?.[1]
+  assert.ok(expected && actual, 'a versão de envio deve estar declarada em ambos os runtimes')
+  assert.equal(expected, actual, 'o launcher deve exigir a mesma correção oferecida pelo gateway')
+  assert.notEqual(actual, 'msgkey-dollar1-20261102', 'o novo runtime não pode reutilizar o gateway antigo')
   assert.ok(gateway.includes('whatsappSendReturnRevision:WHATSAPP_SEND_RETURN_REVISION'))
   assert.ok(start.includes('existing.data?.whatsappSendReturnRevision === COMM_EXPECTED_SEND_REVISION'))
   assert.ok(start.includes('stopStaleCommunicationsProcesses({'))

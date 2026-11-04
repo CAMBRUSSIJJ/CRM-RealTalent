@@ -9,6 +9,8 @@ import { inspectPort, listCommunicationsProcesses, stopStaleCommunicationsProces
 import { isTrustedRealTalentViteProcess } from './runtime-preview-process-trust.mjs'
 import { listConnectProcesses, stopStaleConnectProcesses, connectDiagnostics } from './runtime-connect-recovery.mjs'
 import { communicationsRuntimeDependenciesPresent } from './communications-runtime-deps.mjs'
+import { assertCommunicationSourceLineage } from './communications-source-contract.mjs'
+import { restoreReferencedCommunicationMedia } from './communications-media-migration.mjs'
 
 const __filename = fileURLToPath(import.meta.url)
 const ROOT = path.resolve(path.dirname(__filename), '..')
@@ -23,7 +25,7 @@ const UI_COHESION_NAME = 'Global UI & Product Cohesion'
 const UI_HOTFIX = 'H20.7-H1'
 const UI_HOTFIX_NAME = 'Appearance & Sidebar Truth'
 const COMM_EXPECTED_VERSION = '101.8.4-h18'
-const COMM_EXPECTED_SEND_REVISION = 'msgkey-dollar1-20261102'
+const COMM_EXPECTED_SEND_REVISION = 'msgkey-dollar1-media-realtime-20261104'
 const CRM_PORT = Number(process.env.PORT || 4188)
 const CONNECT_PORT = Number(process.env.REALTALENT_CONNECT_PORT || 3001)
 const COMM_PORT = Number(process.env.REALTALENT_COMMUNICATIONS_PORT || 3002)
@@ -209,6 +211,22 @@ function migrateLocalState() {
       }
     }
   }
+  // Existing message references can point at media files kept in older
+  // release folders. Restore exactly those references, not whole media stores.
+  const parent = path.dirname(ROOT)
+  let additionalMediaSources = []
+  try {
+    additionalMediaSources = fs.readdirSync(parent, { withFileTypes: true })
+      .filter(entry => entry.isDirectory() && /^RealTalent-(?:CRM-|Teste-WhatsApp)/.test(entry.name))
+      .map(entry => path.join(parent, entry.name))
+  } catch {}
+  try {
+    const recovered = restoreReferencedCommunicationMedia(ROOT, [...candidates, ...additionalMediaSources])
+    if (recovered.restored) log(`✓ ${recovered.restored} anexo(s) de versões anteriores restaurado(s).`)
+    if (recovered.missing) log(`ℹ ${recovered.missing} anexo(s) ainda indisponível(is); use Carregar mídia na conversa.`)
+  } catch (error) {
+    log(`⚠ Migração opcional de mídia não concluída: ${error instanceof Error ? error.message : String(error)}`)
+  }
 }
 
 function readRuntimeToken() {
@@ -323,22 +341,11 @@ function hasDistMarker() {
 function verifyCommunicationSourceLineage() {
   const page = fs.readFileSync(abs('src/features/communications/communications-page.tsx'), 'utf8')
   const chat = fs.readFileSync(abs('src/features/communications/whatsapp-chat-panel.tsx'), 'utf8')
-  const required = [
-    'V101.11.3-H19.7 — WhatsApp Pure Chat',
-    'V101.11.3-H19.8 — WhatsApp Continuous Chat & Settings Control Center',
-    'WhatsAppChatPanel',
-    'communication-channel-switch',
-  ]
-  for (const marker of required) if (!page.includes(marker)) fail(`source de Comunicação regrediu; marker ausente: ${marker}`)
-  const inboxActionMarkers = [
-    'whatsapp-inbox-create-actions is-h1911',
-    'whatsapp-inbox-create-actions is-h207h2',
-  ]
-  if (!inboxActionMarkers.some((marker) => page.includes(marker))) {
-    fail(`source de Comunicação regrediu; marker de ações da inbox ausente: ${inboxActionMarkers.join(' ou ')}`)
+  try {
+    assertCommunicationSourceLineage({ page, chat })
+  } catch (error) {
+    fail(error instanceof Error ? error.message : String(error))
   }
-  if (!chat.includes('whatsapp-chat__composer--pure')) fail('source de WhatsApp regrediu: Pure Chat ausente.')
-  if (chat.includes('Respostas rápidas') || chat.includes('Criar follow-up') || chat.includes('Salvar como nota')) fail('source de WhatsApp regrediu: controles comerciais antigos voltaram ao corpo do chat.')
 }
 
 function previewProcessInfo(pid) {

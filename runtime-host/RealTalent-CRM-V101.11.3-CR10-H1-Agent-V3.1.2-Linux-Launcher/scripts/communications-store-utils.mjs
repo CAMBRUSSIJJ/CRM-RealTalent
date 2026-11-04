@@ -11,9 +11,18 @@ const bodyQuality = value => {
 
 const richerBody = (current, incoming) => bodyQuality(incoming) >= bodyQuality(current) ? (incoming || current || '') : (current || incoming || '')
 
-export const eventIdentityKey = event => event?.externalMessageId
-  ? `${event.workspaceId || ''}|${event.accountId || ''}|${event.channel || ''}|external:${event.externalMessageId}`
-  : `${event?.workspaceId || ''}|id:${event?.id || ''}`
+export const eventIdentityKey = event => {
+  const idempotency = String(event?.metadata?.idempotencyKey || '').trim()
+  // QR sends are acknowledged immediately and completed asynchronously.
+  // The early queued event and the later WhatsApp message must remain ONE row,
+  // even once the WhatsApp server assigns an external message ID.
+  if (event?.channel === 'whatsapp' && event?.direction === 'outbound' && idempotency) {
+    return `${event.workspaceId || ''}|${event.accountId || ''}|whatsapp|request:${idempotency}`
+  }
+  return event?.externalMessageId
+    ? `${event.workspaceId || ''}|${event.accountId || ''}|${event.channel || ''}|external:${event.externalMessageId}`
+    : `${event?.workspaceId || ''}|id:${event?.id || ''}`
+}
 
 export function mergeCommunicationEvent(current, incoming) {
   if (!current) return incoming

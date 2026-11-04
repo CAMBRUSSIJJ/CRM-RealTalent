@@ -72,3 +72,95 @@ test('healthy upstream response is passed back', async () => {
   assert.equal(result.status, 200)
   assert.equal(result.body.ok, true)
 })
+
+const QR_WORKSPACE = '4d26b0a2-1391-48ba-b6a1-5c0def2490a6'
+const QR_USER = 'ff091d5e-ab2f-4f3f-94ad-1ad555a12345'
+
+async function qrScenario({ role = 'owner', method = 'GET', workspaceId = QR_WORKSPACE, membershipStatus = 200 } = {}) {
+  const originalFetch = globalThis.fetch
+  const originalEnv = Object.fromEntries(envKeys.map((key) => [key, process.env[key]]))
+  let result = ''
+  let status = 200
+  const calls = []
+  try {
+    process.env.SUPABASE_URL = 'https://example.supabase.co'
+    process.env.SUPABASE_PUBLISHABLE_KEY = 'test-publishable'
+    process.env.REALTALENT_COMMUNICATIONS_UPSTREAM_URL = 'https://runtime.example/communications'
+    process.env.REALTALENT_RUNTIME_TOKEN = 'private-runtime-token'
+    process.env.VERCEL_ENV = 'production'
+    globalThis.fetch = async (url, options) => {
+      const target = String(url)
+      calls.push({ url: target, options })
+      if (target.includes('/auth/v1/user')) {
+        return new Response(JSON.stringify({ id: QR_USER }), { status: 200, headers: { 'content-type': 'application/json' } })
+      }
+      if (target.includes('/rest/v1/organization_members')) {
+        return new Response(JSON.stringify(role ? [{ role }] : []), { status: membershipStatus, headers: { 'content-type': 'application/json' } })
+      }
+      return new Response(JSON.stringify({ ok:true, state: 'idle' }), { status: 200, headers: { 'content-type': 'application/json' } })
+    }
+    const qrPath = method === 'POST' ? '/api/integrations/whatsapp/qr/start'
+      : '/api/integrations/whatsapp/qr/status?workspaceId=' + encodeURIComponent(workspaceId)
+    await proxyRuntime({
+      method,
+      url: '/api/runtime/communications' + qrPath,
+      __realtalentRuntimePath: qrPath,
+      headers: { authorization: 'Bearer test-user-access-token', 'content-type': 'application/json' },
+      body: method === 'POST' ? { workspaceId, displayName: 'RealTalent' } : undefined,
+    }, {
+      setHeader() {},
+      end(chunk='') { result += chunk },
+      get statusCode() { return status },
+      set statusCode(code) { status=code },
+    }, 'communications')
+    return { status, body: JSON.parse(result), calls }
+  } finally {
+    globalThis.fetch = originalFetch
+    for (const key of envKeys) {
+      if (originalEnv[key] === undefined) delete process.env[key]
+      else process.env[key] = originalEnv[key]
+    }
+  }
+}
+
+test('owner/admin QR permission: scope verified before forwarding QR status', async () => {
+  for (const role of ['owner','admin']) {
+    const result = await qrScenario({ role })
+    assert.equal(result.status, 200)
+    assert.equal(result.calls.length, 3)
+    const membership = result.calls[1]
+    assert.equal(new URL(membership.url).searchParams.get('organization_id'), 'eq.' + QR_WORKSPACE)
+    assert.equal(new URL(membership.url).searchParams.get('user_id'), 'eq.' + QR_USER)
+    assert.ok(membership.options.headers.authorization.startsWith('Bearer '))
+    assert.equal(result.calls[2].options.headers['x-realtalent-runtime-token'], 'private-runtime-token')
+  }
+})
+
+test('owner/admin QR permission: denied users cannot read QR or start a session', async () => {
+  for (const role of ['member','viewer',null]) {
+    for (const method of ['GET','POST']) {
+      const result = await qrScenario({ role, method })
+      assert.equal(result.status, 403)
+      assert.equal(result.body.error, 'workspace_admin_required')
+      assert.equal(result.calls.length, 2)
+    }
+  }
+})
+
+test('owner/admin QR permission: invalid workspace and unavailable membership fail closed', async () => {
+  const invalid = await qrScenario({ workspaceId:'other-organization' })
+  assert.equal(invalid.status, 400)
+  assert.equal(invalid.body.error, 'invalid_workspace_id')
+  assert.equal(invalid.calls.length, 1)
+  const unavailable = await qrScenario({ membershipStatus: 500 })
+  assert.equal(unavailable.status, 503)
+  assert.equal(unavailable.body.error, 'workspace_permission_check_unavailable')
+  assert.equal(unavailable.calls.length, 2)
+})
+
+test('owner/admin QR permission: authorized POST pairing retains original request payload', async () => {
+  const allowed = await qrScenario({ method:'POST',role:'admin' })
+  assert.equal(allowed.status, 200)
+  assert.equal(allowed.calls.length, 3)
+  assert.deepEqual(JSON.parse(allowed.calls[2].options.body), { workspaceId: QR_WORKSPACE, displayName:'RealTalent' })
+})

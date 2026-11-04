@@ -10,6 +10,7 @@ import { isTrustedRealTalentViteProcess } from './runtime-preview-process-trust.
 import { listConnectProcesses, stopStaleConnectProcesses, connectDiagnostics } from './runtime-connect-recovery.mjs'
 import { communicationsRuntimeDependenciesPresent } from './communications-runtime-deps.mjs'
 import { assertCommunicationSourceLineage } from './communications-source-contract.mjs'
+import { restoreReferencedCommunicationMedia } from './communications-media-migration.mjs'
 
 const __filename = fileURLToPath(import.meta.url)
 const ROOT = path.resolve(path.dirname(__filename), '..')
@@ -209,6 +210,22 @@ function migrateLocalState() {
         break
       }
     }
+  }
+  // Existing message references can point at media files kept in older
+  // release folders. Restore exactly those references, not whole media stores.
+  const parent = path.dirname(ROOT)
+  let additionalMediaSources = []
+  try {
+    additionalMediaSources = fs.readdirSync(parent, { withFileTypes: true })
+      .filter(entry => entry.isDirectory() && /^RealTalent-(?:CRM-|Teste-WhatsApp)/.test(entry.name))
+      .map(entry => path.join(parent, entry.name))
+  } catch {}
+  try {
+    const recovered = restoreReferencedCommunicationMedia(ROOT, [...candidates, ...additionalMediaSources])
+    if (recovered.restored) log(`✓ ${recovered.restored} anexo(s) de versões anteriores restaurado(s).`)
+    if (recovered.missing) log(`ℹ ${recovered.missing} anexo(s) ainda indisponível(is); use Carregar mídia na conversa.`)
+  } catch (error) {
+    log(`⚠ Migração opcional de mídia não concluída: ${error instanceof Error ? error.message : String(error)}`)
   }
 }
 

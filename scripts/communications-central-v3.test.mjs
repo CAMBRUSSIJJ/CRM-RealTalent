@@ -49,3 +49,10 @@ test('Central V3: CSS não modifica sidebar global nem outras abas', () => {
   for(const char of css){braces+=char==='{'?1:char==='}'?-1:0;assert.ok(braces>=0)}
   assert.equal(braces,0)
 })
+
+test('Central V3: histórico completo visível ao conectar QR e aviso antigo limpo após recuperação', () => {
+  assert.ok(page.includes("useState<'7' | '30' | '90' | 'all'>('all')"), 'WhatsApp não deve ocultar conversas por filtro implícito de 30 dias')
+  assert.ok(page.includes("const clearCommunicationFilters = () => { setDirection('all'); setPeriod('all') }"))
+  assert.ok(page.includes("allValue: 'all', allLabel: 'Todo histórico'"))
+  assert.ok(page.includes('setChannelState(state); setOfficialError(\'\')'), 'Aviso de erro antigo deve desaparecer quando a recuperação funcionar')
+})

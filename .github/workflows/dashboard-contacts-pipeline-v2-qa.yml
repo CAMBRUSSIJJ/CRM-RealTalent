@@ -1,4 +1,4 @@
-name: RealTalent Dashboard/Contatos/Pipeline/Tarefas V4 QA
+name: RealTalent CRM UX V3 Comunicação e Tarefas QA
 
 on:
   push:
@@ -15,6 +15,9 @@ on:
       - 'scripts/opportunity-modal-v3.test.mjs'
       - 'src/features/tasks/task-modal.tsx'
       - 'src/features/tasks/tasks-page.tsx'
+      - 'src/features/communications/communications-page.tsx'
+      - 'src/features/communications/communications-central-v3.css'
+      - 'scripts/communications-central-v3.test.mjs'
       - 'src/features/tasks/tasks-page-v4.css'
       - 'scripts/tasks-page-v4.test.mjs'
       - 'scripts/v101_11_2_teams_tasks_foundation_audit.mjs'
@@ -58,6 +61,8 @@ jobs:
         run: node --test scripts/tasks-unified-board-v3.test.mjs
       - name: Verificar layout unico de Tarefas V4
         run: node --test scripts/tasks-page-v4.test.mjs
+      - name: Testar Central de Comunicacao V3
+        run: node --test scripts/communications-central-v3.test.mjs
       - name: Validar sintaxe e imports do CRM
         run: npm run typecheck
       # O projeto usa tsconfig.typecheck.json para o app de produção.

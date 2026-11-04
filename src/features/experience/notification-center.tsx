@@ -76,6 +76,9 @@ export function NotificationCenter({ open, onClose }: { open: boolean; onClose()
       const client = getSupabaseClient()
       if (client) void client.from('seller_notifications').update({ status: 'read', read_at: new Date().toISOString() })
         .eq('organization_id', snapshot.workspace.id).eq('user_id', user.id).eq('id', rawId)
+        .then(({ error }) => {
+          if (!error) window.dispatchEvent(new Event('realtalent:task-notification-updated'))
+        })
       setAssignedTaskAlerts((current) => current.filter((alert) => alert.id !== rawId))
     }
     navigate(item.route, item.context)

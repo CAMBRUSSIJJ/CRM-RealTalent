@@ -35,5 +35,6 @@ test('Topbar includes unread task notification count and immediate read refresh'
 test('migration only grants selected columns under existing RLS; never grants mutation rights', () => {
   assert.match(migration, /GRANT SELECT \(/)
   assert.match(migration, /TO authenticated;/)
-  assert.doesNotMatch(migration, /GRANT\s+(?:ALL|INSERT|UPDATE|DELETE)/i)
+  const executable = migration.split('\n').filter(line => !line.trim().startsWith('--')).join('\n')
+  assert.doesNotMatch(executable, /GRANT\s+(?:ALL|INSERT|UPDATE|DELETE)/i)
 })

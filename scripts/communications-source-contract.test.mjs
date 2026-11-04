@@ -15,10 +15,10 @@ test('real communication workspace and Pure Chat pass the launcher source gate',
 
 test('source guard protects every real navigation, inbox and chat feature', () => {
   for (const [feature, token] of COMMUNICATIONS_PAGE_REQUIREMENTS) {
-    assert.throws(() => assertCommunicationSourceLineage({ page: page.replace(token, '__MISSING__'), chat }), { message: new RegExp(feature, 'i') })
+    assert.throws(() => assertCommunicationSourceLineage({ page: page.replaceAll(token, '__MISSING__'), chat }), { message: new RegExp(feature, 'i') })
   }
   for (const [feature, token] of WHATSAPP_CHAT_REQUIREMENTS) {
-    assert.throws(() => assertCommunicationSourceLineage({ page, chat: chat.replace(token, '__MISSING__') }), { message: new RegExp(feature, 'i') })
+    assert.throws(() => assertCommunicationSourceLineage({ page, chat: chat.replaceAll(token, '__MISSING__') }), { message: new RegExp(feature, 'i') })
   }
 })
 

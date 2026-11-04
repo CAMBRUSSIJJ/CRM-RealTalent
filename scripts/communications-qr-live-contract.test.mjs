@@ -5,6 +5,7 @@ import ts from 'typescript'
 
 const read=(p)=>readFileSync(p,'utf8')
 const gateway=read('scripts/realtalent-communications-gateway.mjs')
+const railwayGateway=read('runtime-host/RealTalent-CRM-V101.11.3-CR10-H1-Agent-V3.1.2-Linux-Launcher/scripts/realtalent-communications-gateway.mjs')
 const proxy=read('api/runtime/_proxy.mjs')
 const transport=read('src/services/local-communications-gateway.ts')
 const panel=read('src/features/communications/whatsapp-chat-panel.tsx')
@@ -39,6 +40,16 @@ test('hosted browser listens to all-message revision and refreshes on focus',()=
   assert.match(transport,/window\.addEventListener\('focus', onVisible\)/)
   assert.match(transport,/window\.setInterval\([\s\S]*?, 3000\)/)
   assert.ok(!transport.includes('/api/communications/events?workspaceId=${encodeURIComponent(workspaceId)}&limit=1'))
+})
+
+test('Railway runtime copy implements the same QR live protocol without modifying Agent',()=>{
+  for(const key of [
+    'async function acceptQrSend(','workspaceCommunicationsRevision(s.events,workspaceId)',
+    'sendAttemptInProgress: true','return json(res,202,{event:accepted,accepted:true})',
+    'mayAutoRetryQueuedQrEvent(event)','WHATSAPP_LIVE_FIX_VERSION',
+    'syncAccount(current,account,{background:true})',
+  ]) assert.ok(railwayGateway.includes(key),'Runtime Railway ausente: '+key)
+  assert.match(railwayGateway,/return json\(res,202,\{event:accepted,accepted:true\}\)/)
 })
 
 test('visual status and manual protection for uncertain delivery',()=>{

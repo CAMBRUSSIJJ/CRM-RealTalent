@@ -9,6 +9,7 @@ import { inspectPort, listCommunicationsProcesses, stopStaleCommunicationsProces
 import { isTrustedRealTalentViteProcess } from './runtime-preview-process-trust.mjs'
 import { listConnectProcesses, stopStaleConnectProcesses, connectDiagnostics } from './runtime-connect-recovery.mjs'
 import { communicationsRuntimeDependenciesPresent } from './communications-runtime-deps.mjs'
+import { assertCommunicationSourceLineage } from './communications-source-contract.mjs'
 
 const __filename = fileURLToPath(import.meta.url)
 const ROOT = path.resolve(path.dirname(__filename), '..')
@@ -323,22 +324,11 @@ function hasDistMarker() {
 function verifyCommunicationSourceLineage() {
   const page = fs.readFileSync(abs('src/features/communications/communications-page.tsx'), 'utf8')
   const chat = fs.readFileSync(abs('src/features/communications/whatsapp-chat-panel.tsx'), 'utf8')
-  const required = [
-    'V101.11.3-H19.7 — WhatsApp Pure Chat',
-    'V101.11.3-H19.8 — WhatsApp Continuous Chat & Settings Control Center',
-    'WhatsAppChatPanel',
-    'communication-channel-switch',
-  ]
-  for (const marker of required) if (!page.includes(marker)) fail(`source de Comunicação regrediu; marker ausente: ${marker}`)
-  const inboxActionMarkers = [
-    'whatsapp-inbox-create-actions is-h1911',
-    'whatsapp-inbox-create-actions is-h207h2',
-  ]
-  if (!inboxActionMarkers.some((marker) => page.includes(marker))) {
-    fail(`source de Comunicação regrediu; marker de ações da inbox ausente: ${inboxActionMarkers.join(' ou ')}`)
+  try {
+    assertCommunicationSourceLineage({ page, chat })
+  } catch (error) {
+    fail(error instanceof Error ? error.message : String(error))
   }
-  if (!chat.includes('whatsapp-chat__composer--pure')) fail('source de WhatsApp regrediu: Pure Chat ausente.')
-  if (chat.includes('Respostas rápidas') || chat.includes('Criar follow-up') || chat.includes('Salvar como nota')) fail('source de WhatsApp regrediu: controles comerciais antigos voltaram ao corpo do chat.')
 }
 
 function previewProcessInfo(pid) {

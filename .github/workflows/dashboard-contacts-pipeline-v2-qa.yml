@@ -1,4 +1,4 @@
-name: RealTalent CRM UX V3 Comunicação Tarefas e Métricas QA
+name: RealTalent CRM UX V3 Follow-ups Comunicação Tarefas e Métricas QA
 
 on:
   push:
@@ -21,6 +21,9 @@ on:
       - 'src/features/metrics/metrics-page.tsx'
       - 'src/features/metrics/metrics-v3.css'
       - 'scripts/metrics-dashboard-v3.test.mjs'
+      - 'src/features/followups/followups-page.tsx'
+      - 'src/features/followups/followups-v3.css'
+      - 'scripts/followups-page-v3.test.mjs'
       - 'src/features/tasks/tasks-page-v4.css'
       - 'scripts/tasks-page-v4.test.mjs'
       - 'scripts/v101_11_2_teams_tasks_foundation_audit.mjs'
@@ -68,6 +71,8 @@ jobs:
         run: node --test scripts/communications-central-v3.test.mjs
       - name: Testar Dashboard de Metricas V3
         run: node --test scripts/metrics-dashboard-v3.test.mjs
+      - name: Testar Central de Follow-ups V3
+        run: node --test scripts/followups-page-v3.test.mjs
       - name: Validar sintaxe e imports do CRM
         run: npm run typecheck
       # O projeto usa tsconfig.typecheck.json para o app de produção.

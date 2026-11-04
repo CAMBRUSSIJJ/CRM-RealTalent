@@ -21,6 +21,12 @@ on:
       - 'src/features/metrics/metrics-page.tsx'
       - 'src/features/metrics/metrics-v3.css'
       - 'scripts/metrics-dashboard-v3.test.mjs'
+      - 'src/features/settings/whatsapp-integration-panel.tsx'
+      - 'src/features/communications/whatsapp-connection-center.tsx'
+      - 'src/services/local-communications-gateway.ts'
+      - 'api/runtime/_proxy.mjs'
+      - 'api/runtime/_proxy.test.mjs'
+      - 'scripts/hosted-whatsapp-qr-regression.test.mjs'
       - 'src/features/followups/followups-page.tsx'
       - 'src/features/followups/followups-v3.css'
       - 'scripts/followups-page-v3.test.mjs'
@@ -73,6 +79,10 @@ jobs:
         run: node --test scripts/metrics-dashboard-v3.test.mjs
       - name: Testar Central de Follow-ups V3
         run: node --test scripts/followups-page-v3.test.mjs
+      - name: Validar WhatsApp QR Code hospedado e protecao do pareamento
+        run: |
+          node --test scripts/hosted-whatsapp-qr-regression.test.mjs
+          node --test api/runtime/_proxy.test.mjs
       - name: Auditar dependencias de producao (sem upgrades forçados)
         run: npm audit --omit=dev --audit-level=high
       - name: Validar sintaxe e imports do CRM

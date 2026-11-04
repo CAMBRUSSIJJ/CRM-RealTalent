@@ -2,7 +2,7 @@ import type { CommunicationChannel, CommunicationDirection, CommunicationEvent, 
 import { createUuid } from '../lib/id'
 import { getSupabaseClient } from '../lib/supabase'
 import {effectiveDataMode} from '../lib/env'
-import { loadGatewayCommunicationEvents, markGatewayConversationRead, sendGatewayCommunication, syncGatewayCommunications, type GatewaySyncFailure } from './local-communications-gateway'
+import { loadGatewayAccounts, loadGatewayCommunicationEvents, markGatewayConversationRead, sendGatewayCommunication, syncGatewayCommunications, type GatewaySyncFailure } from './local-communications-gateway'
 import { safeStorage } from '../lib/storage'
 import { loadIntegrationFramework, type ConnectedAccount } from './integration-framework'
 
@@ -210,9 +210,25 @@ const mapGatewayCommunicationEvent = (row: CommunicationEvent): UnifiedCommunica
 export async function loadOfficialCommunicationTimeline(workspaceId: string, limit = 3000): Promise<UnifiedCommunicationItem[]> {
   const client = communicationCloudClient() as any
   if (!client) return (await loadGatewayCommunicationEvents(workspaceId, limit)).map(mapGatewayCommunicationEvent).filter((item) => !isTechnicalWhatsAppItem(item))
-  const { data, error } = await client.from('communication_events').select('id,lead_id,contact_id,account_id,thread_id,channel,direction,status,external_message_id,subject,body_text,sender_address,recipient_addresses,occurred_at,created_at,metadata').eq('organization_id', workspaceId).order('occurred_at', { ascending: false }).limit(limit)
-  if (error) throw new Error(`Não foi possível carregar o histórico oficial: ${error.message}`)
-  return (Array.isArray(data) ? data : []).map((row: Record<string, unknown>) => mapCommunicationEvent(row)).filter((item) => !isTechnicalWhatsAppItem(item))
+  // Supabase is authoritative for official Cloud/API mail; WhatsApp Web QR lives
+  // in the Railway gateway, even when the CRM frontend runs in Supabase mode.
+  // Fetch both independently: one unavailable source must not hide the other.
+  const [cloud, gateway] = await Promise.allSettled([
+    (async () => {
+      const { data, error } = await client.from('communication_events').select('id,lead_id,contact_id,account_id,thread_id,channel,direction,status,external_message_id,subject,body_text,sender_address,recipient_addresses,occurred_at,created_at,metadata').eq('organization_id', workspaceId).order('occurred_at', { ascending: false }).limit(limit)
+      if (error) throw new Error(`Não foi possível carregar o histórico oficial: ${error.message}`)
+      return (Array.isArray(data) ? data : []).map((row: Record<string, unknown>) => mapCommunicationEvent(row))
+    })(),
+    loadGatewayCommunicationEvents(workspaceId, limit),
+  ])
+  if (cloud.status === 'rejected' && gateway.status === 'rejected') {
+    throw new Error('Supabase e gateway de Comunicação indisponíveis. Confira a conexão e tente novamente.')
+  }
+  const official = cloud.status === 'fulfilled' ? cloud.value : []
+  const qr = gateway.status === 'fulfilled' ? gateway.value
+    .filter((row) => row.channel === 'whatsapp' && row.metadata?.transport === 'qr')
+    .map(mapGatewayCommunicationEvent) : []
+  return mergeCommunicationTimeline(official, qr).filter((item) => !isTechnicalWhatsAppItem(item))
 }
 
 export const mergeCommunicationTimeline = (...groups: UnifiedCommunicationItem[][]) => {
@@ -299,11 +315,22 @@ export const buildCommunicationConversations = (timeline: UnifiedCommunicationIt
 }
 
 export async function loadCommunicationChannelState(workspaceId: string) {
-  const state = await loadIntegrationFramework(workspaceId)
-  const live = state.accounts.filter((item) => item.status === 'connected' && item.connectionMode === 'live')
+  const cloudMode = Boolean(communicationCloudClient())
+  const [state, gatewayQr] = await Promise.all([
+    loadIntegrationFramework(workspaceId),
+    cloudMode ? loadGatewayAccounts(workspaceId)
+      .then((accounts) => accounts.filter((account) => account.provider === 'whatsapp_cloud' && account.metadata?.transport === 'qr'))
+      .catch((): ConnectedAccount[] => []) : Promise.resolve([] as ConnectedAccount[]),
+  ])
+  // The gateway response checks the live WhatsApp session, so do not use stale
+  // Supabase/localStorage QR account status as proof of a connection.
+  const accounts = cloudMode
+    ? [...state.accounts.filter((account) => account.metadata?.transport !== 'qr'), ...gatewayQr]
+    : state.accounts
+  const live = accounts.filter((item) => item.status === 'connected' && item.connectionMode === 'live')
   const emailAccounts = live.filter((item) => (item.provider === 'google' || item.provider === 'microsoft') && item.capabilities.email_send)
   const mailSyncAccounts = live.filter((item) => (item.provider === 'google' || item.provider === 'microsoft') && (item.capabilities.email_read || item.capabilities.mail_sync))
-  const whatsappAccounts = state.accounts.filter((item) => item.connectionMode === 'live' && item.provider === 'whatsapp_cloud' && item.capabilities.messages && (item.status === 'connected' || (item.status === 'attention' && item.metadata?.transport === 'qr')))
+  const whatsappAccounts = accounts.filter((item) => item.connectionMode === 'live' && item.provider === 'whatsapp_cloud' && item.capabilities.messages && (item.status === 'connected' || (item.status === 'attention' && item.metadata?.transport === 'qr')))
   const calendarAccounts = live.filter((item) => (item.provider === 'google' || item.provider === 'microsoft') && item.capabilities.calendar_write)
   const metaAccounts = live.filter((item) => item.provider === 'meta')
   const instagramAccounts = metaAccounts.filter((item) => item.capabilities.instagram_messages)
@@ -329,11 +356,54 @@ export async function sendOfficialEmail(input: { workspaceId: string; leadId: st
 export async function syncOfficialCommunications(workspaceId: string): Promise<{ queued: string[]; triggered: string[]; accounts: number; imported: number; failures: GatewaySyncFailure[] }> {
   const client = communicationCloudClient()
   if (!client) { const result = await syncGatewayCommunications(workspaceId); return { queued: result.queued, triggered: result.triggered, accounts: result.accounts, imported: result.imported, failures: result.failures ?? [] } }
-  const { data, error } = await client.functions.invoke('communication-sync-now', { body: { organizationId: workspaceId } })
-  if (error) throw new Error(error.message)
-  const payload = data as { queued?: string[]; triggered?: string[]; accounts?: number; error?: string } | null
-  if (payload?.error) throw new Error(payload.error)
-  return { queued: payload?.queued ?? [], triggered: payload?.triggered ?? [], accounts: Number(payload?.accounts ?? 0), imported: 0, failures: [] }
+  // QR sessions are NOT Supabase integration accounts. Run QR sync through
+  // Railway, and call the Edge Function only when a live official account
+  // actually exists; otherwise clicking Sync would always trigger a fetch error.
+  const [framework, qrAccounts] = await Promise.all([
+    loadIntegrationFramework(workspaceId),
+    loadGatewayAccounts(workspaceId).then((accounts) => accounts.filter(
+      (account) => account.provider === 'whatsapp_cloud' && account.metadata?.transport === 'qr',
+    )).catch((): ConnectedAccount[] => []),
+  ])
+  const officialAccounts = framework.accounts.filter((account) =>
+    account.connectionMode === 'live' && account.status === 'connected' && account.metadata?.transport !== 'qr'
+    && ['google', 'microsoft', 'meta', 'whatsapp_cloud'].includes(account.provider),
+  )
+  const result = { queued: [] as string[], triggered: [] as string[], accounts: 0, imported: 0, failures: [] as GatewaySyncFailure[] }
+  let succeeded = 0
+  for (const qr of qrAccounts) {
+    try {
+      const qrResult = await syncGatewayCommunications(workspaceId, qr.id)
+      result.queued.push(...qrResult.queued)
+      result.triggered.push(...qrResult.triggered)
+      result.accounts += qrResult.accounts
+      result.imported += qrResult.imported
+      result.failures.push(...(qrResult.failures ?? []))
+      succeeded += 1
+    } catch (error) {
+      result.failures.push({ accountId: qr.id, provider: 'whatsapp_cloud', transport: 'qr',
+        message: error instanceof Error ? error.message : 'O gateway não conseguiu sincronizar o WhatsApp QR.' })
+    }
+  }
+  if (officialAccounts.length) {
+    try {
+      const { data, error } = await client.functions.invoke('communication-sync-now', { body: { organizationId: workspaceId } })
+      if (error) throw error
+      const payload = data as { queued?: string[]; triggered?: string[]; accounts?: number; error?: string } | null
+      if (payload?.error) throw new Error(payload.error)
+      result.queued.push(...(payload?.queued ?? []))
+      result.triggered.push(...(payload?.triggered ?? []))
+      result.accounts += Number(payload?.accounts ?? 0)
+      succeeded += 1
+    } catch (error) {
+      result.failures.push({ accountId: 'official-sync', provider: 'cloud', transport: 'cloud',
+        message: error instanceof Error ? error.message : 'Sincronização oficial indisponível.' })
+    }
+  }
+  if (result.failures.length && !succeeded && !result.imported && !result.queued.length) {
+    throw new Error(result.failures.map((item) => item.message).join(' · '))
+  }
+  return result
 }
 
 export async function markCommunicationConversationRead(workspaceId: string, conversation: Pick<CommunicationConversation, 'externalThreadId' | 'externalAddress'>): Promise<number> {

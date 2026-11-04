@@ -122,7 +122,7 @@ export function LeadForm({ lead, initialStageId, formId, onSubmit, defaultExpand
   // Opportunity V3 is its own complete form. The contact/editor workflow below
   // intentionally retains its existing behavior and is NOT wrapped in V3 CSS.
   if (mode === 'opportunity' && !lead) return (
-    <form id={formId} className="opportunity-create-v3" onSubmit={(event) => { event.preventDefault(); void onSubmit(submitValue()) }}>
+    <form id={formId} className="opportunity-create-v3" onSubmit={(event) => { event.preventDefault(); if (!value.name.trim() || !value.stageId || !value.nextActionAt || (value.email.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value.email.trim()))) { setOpportunityTab('essencial'); return }; void onSubmit(submitValue()) }}>
       <nav className="opportunity-create-v3__tabs" role="tablist" aria-label="Dados da nova oportunidade">
         {([
           ['essencial', 'Essencial'],
@@ -135,7 +135,7 @@ export function LeadForm({ lead, initialStageId, formId, onSubmit, defaultExpand
             role="tab"
             id={`${formId}-tab-${id}`}
             aria-selected={opportunityTab === id}
-            aria-controls={`${formId}-panel-${id}`}
+            aria-controls={`${formId}-panel`}
             className={opportunityTab === id ? 'is-active' : ''}
             onClick={() => setOpportunityTab(id)}
           >{label}</button>
@@ -145,7 +145,7 @@ export function LeadForm({ lead, initialStageId, formId, onSubmit, defaultExpand
       {possibleDuplicate ? <div className="opportunity-create-v3__notice is-warning"><AlertTriangle size={18} /><div><strong>Possível contato duplicado</strong><span>{possibleDuplicate.name} já utiliza esse telefone ou e-mail. Confira antes de criar outro registro.</span></div></div> : null}
 
       <div
-        id={`${formId}-panel-${opportunityTab}`}
+        id={`${formId}-panel`}
         role="tabpanel"
         aria-labelledby={`${formId}-tab-${opportunityTab}`}
         className="opportunity-create-v3__panel"

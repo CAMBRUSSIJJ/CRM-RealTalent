@@ -20,6 +20,7 @@ import { OfficialConversationComposer } from './official-conversation-composer'
 import { EmailConversationPanel } from './email-conversation-panel'
 import { WhatsAppChatPanel } from './whatsapp-chat-panel'
 import { WhatsAppWorkToolbar } from './whatsapp-work-toolbar'
+import './communications-central-v3.css'
 import { useDomainProjectionRevision, useRealtimeTransportState } from '../../platform/events'
 import { resolveWhatsAppContactLink, saveWhatsAppContactLink } from '../../services/whatsapp-contact-links'
 import type { ConnectedAccount } from '../../services/integration-framework'
@@ -718,59 +719,136 @@ export function CommunicationsPage() {
   ]
   const changeCommunicationQuickFilter = (key: string, value: string) => { if (key === 'direction') setDirection(value as typeof direction); else if (key === 'period') setPeriod(value as typeof period) }
 
-  return <div className="communications-v10094 communication-focus-experience">
-    {/* Legacy lineage: Central de Comunicação 2.0 · Omnichannel Inbox · V100.94 */}
-    {/* V101.11.3-H19.4 — Communication Focus Experience */}
-    {/* V101.11.3-H19.5 — Dedicated WhatsApp + Email Workspaces */}
-    {/* V101.11.3-H19.6 — WhatsApp Native UX + Follow-up Focus */}
-    {/* V101.11.3-H19.7 — WhatsApp Pure Chat */}
-    {/* V101.11.3-H19.8 — WhatsApp Continuous Chat & Settings Control Center */}
-    {/* V101.11.3-H19.13 — Work Management over H19.12 lineage; Pure Chat body remains clean */}
-    {/* V101.11.3-H19.13 — WhatsApp Work Management: labels, status, owner, follow-up and Tasks outside message body */}
-    {/* V101.11.3-H20.7-H2 — WhatsApp Conversation-Only Inbox: left rail is conversation navigation only */}
-    <section className="panel omnichannel-hero communication-focus-header communication-channel-workspace-header">
-      <div className="communication-focus-header__title"><span className="eyebrow">{workspaceView === 'email' ? <Mail size={15}/> : <MessageCircle size={15}/>} Canal de comunicação</span><h2>{communicationAreaLabel}</h2></div>
-      <nav className="communication-channel-switch" aria-label="Alternar canal">
-        {communicationAreas.map((item) => { const Icon = item.icon; const active = workspaceView === item.id; return <button type="button" key={item.id} className={active ? 'is-active' : ''} onClick={() => { setWorkspaceView(item.id); setChannel('all'); setInboxView('all') }}><Icon size={16}/><span>{item.label}</span>{item.count ? <b>{item.count}</b> : null}</button> })}
-      </nav>
-      <div className="communication-focus-header__actions"><span className={`communication-focus-health ${(workspaceView === 'email' ? channelState?.emailAccounts.length : connectedWhatsAppCount) ? 'is-live' : ''}`}><i/><strong>{workspaceView === 'email' ? (channelState?.emailAccounts.length ? 'E-mail conectado' : 'E-mail desconectado') : (connectedWhatsAppCount ? 'WhatsApp conectado' : 'WhatsApp desconectado')}</strong><small>{workspaceView === 'email' ? `${channelState?.emailAccounts.length ?? 0} conta(s) oficial(is)` : (connectedWhatsAppCount ? 'Pronto para conversar' : 'Conectar para enviar')}</small></span><Button size="sm" variant="secondary" loading={officialLoading} onClick={() => void syncNow()}><RefreshCw size={15}/> Sincronizar</Button></div>
-    </section>
+  return <div className="communications-central-v3">
+    <header className="communications-central-v3__header">
+      <div className="communications-central-v3__header-left">
+        <h1>Central de Comunicação</h1>
+        <span className="communications-central-v3__header-divider" aria-hidden="true"/>
+        <nav className="communications-central-v3__channels" aria-label="Canal de comunicação">
+          {communicationAreas.map((item) => {
+            const Icon = item.icon
+            return <button key={item.id} type="button" className={workspaceView === item.id ? 'is-active' : ''}
+              aria-pressed={workspaceView === item.id}
+              onClick={() => { setWorkspaceView(item.id); setChannel('all'); setInboxView('all') }}>
+              <Icon size={15}/>{item.label}
+              {item.count ? <span>{item.count}</span> : null}
+            </button>
+          })}
+        </nav>
+      </div>
+      <div className="communications-central-v3__header-actions">
+        <span className={`communications-central-v3__connection ${workspaceView === 'email'
+          ? channelState?.emailAccounts.length ? 'is-connected' : 'is-disconnected'
+          : connectedWhatsAppCount ? 'is-connected' : 'is-disconnected'}`}
+          role="status" aria-live="polite">
+          <i aria-hidden="true"/>
+          {workspaceView === 'email'
+            ? (channelState?.emailAccounts.length ? 'E-mail conectado' : 'E-mail desconectado')
+            : (connectedWhatsAppCount ? whatsappConnectionText : 'WhatsApp desconectado')}
+        </span>
+        <Button size="sm" variant="secondary" loading={officialLoading} onClick={() => void syncNow()}>
+          <RefreshCw size={15}/> Sincronizar
+        </Button>
+      </div>
+    </header>
 
-    {filtersOpen ? <WorkspaceAdvancedFilterDrawer title="Filtros da comunicação" eyebrow="Central de Comunicação" description="Combine canal, direção e período. Os mesmos filtros alimentam a caixa, a conversa e a timeline." onClose={() => setFiltersOpen(false)} onClear={clearCommunicationFilters}>
+    {filtersOpen ? <WorkspaceAdvancedFilterDrawer title="Filtros da comunicação" eyebrow="Central de Comunicação" description="Combine direção e período nas conversas do CRM." onClose={() => setFiltersOpen(false)} onClear={clearCommunicationFilters}>
       <label className="field"><span>Direção</span><NativeSelectionSelect value={direction} onChange={(event) => setDirection(event.target.value as typeof direction)}><option value="all">Todas</option><option value="inbound">Recebidas</option><option value="outbound">Enviadas</option><option value="internal">Internas</option></NativeSelectionSelect></label>
       <label className="field"><span>Período</span><NativeSelectionSelect value={period} onChange={(event) => setPeriod(event.target.value as typeof period)}><option value="7">7 dias</option><option value="30">30 dias</option><option value="90">90 dias</option><option value="all">Todo histórico</option></NativeSelectionSelect></label>
     </WorkspaceAdvancedFilterDrawer> : null}
 
-    {officialError ? <div className="communications-warning"><WifiOff size={17}/><span><strong>{officialError.startsWith('WhatsApp QR') ? (realtimeState === 'live' ? 'Histórico do WhatsApp precisa de atenção; tempo real está ativo.' : 'WhatsApp QR precisa de atenção.') : 'Histórico oficial indisponível.'}</strong> {officialError} A timeline local continua funcionando; ações assistidas também permanecem disponíveis.</span></div> : null}
+    {officialError ? <div className="communications-central-v3__warning" role="status">
+      <AlertCircle size={17}/>
+      <div><strong>{officialError.startsWith('WhatsApp QR')
+        ? (realtimeState === 'live' ? 'Histórico com atenção; tempo real ativo.' : 'WhatsApp QR precisa de atenção.')
+        : 'Histórico oficial indisponível.'}</strong> <span>{officialError} As ações e registros locais continuam acessíveis.</span></div>
+    </div> : null}
 
-    <section className="omnichannel-shell" ref={communicationShellRef}>
-      <aside className={`panel omnichannel-conversations communication-focus-inbox ${workspaceView === 'whatsapp' ? 'communication-focus-inbox--conversations-only' : ''}`}>
-        <header><div><span className="eyebrow">Conversas</span><h3>{communicationAreaLabel}</h3></div><StatusPill tone="neutral">{visibleConversations.length}</StatusPill></header>
-        <div className="communication-focus-inbox__tools">
-          <label className="communication-focus-search"><Search size={15}/><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder={workspaceView === 'whatsapp' ? 'Buscar conversas...' : 'Buscar mensagem, contato, grupo ou empresa...'} /></label>{workspaceView === 'whatsapp' ? <div className="whatsapp-inbox-create-actions is-h207h2" aria-label="Ações de conversa">{canCommunicationCreate ? <><Button size="sm" variant="secondary" title="Novo contato" onClick={() => setNewWhatsAppContactOpen(true)}><UserPlus size={14}/> Contato</Button><Button size="sm" variant="secondary" title="Novo grupo" onClick={() => setCreateWhatsAppGroupOpen(true)}><UsersRound size={14}/> Grupo</Button></> : null}<Button size="sm" variant="secondary" title="Contatos do WhatsApp" onClick={() => setWhatsAppContactsOpen(true)}><UserRound size={14}/> Contatos</Button></div> : null}
-          <div className={`communication-focus-inbox__views ${workspaceView === 'whatsapp' ? 'is-whatsapp-normalized' : ''}`} aria-label="Visualização das conversas">
-            <button type="button" className={inboxView === 'all' ? 'is-active' : ''} onClick={() => setInboxView('all')}>Todas <span>{channelConversations.length}</span></button>
-            {workspaceView === 'whatsapp' ? <><button type="button" className={inboxView === 'people' ? 'is-active' : ''} onClick={() => setInboxView('people')}>Pessoas <span>{channelPeopleCount}</span></button><button type="button" className={inboxView === 'groups' ? 'is-active' : ''} onClick={() => setInboxView('groups')}>Grupos <span>{channelGroupCount}</span></button></> : null}
-            <button type="button" className={inboxView === 'unread' ? 'is-active' : ''} onClick={() => setInboxView('unread')}>Não lidas <span>{channelUnreadCount}</span></button>
-            {workspaceView !== 'whatsapp' ? <button type="button" className={inboxView === 'needs_reply' ? 'is-active is-priority' : ''} onClick={() => setInboxView('needs_reply')}>Responder <span>{channelNeedsReplyCount}</span></button> : null}
-          </div>
-          {workspaceView !== 'whatsapp' ? <div className="communication-focus-inbox__filter-row">
-            <WorkspaceFilterMenu workspaceKey={`communications:${workspaceId}`} fields={universalCommunicationFilters} activeCount={communicationFilterCount} onOpenAdvanced={() => setFiltersOpen(true)} onClearAll={clearCommunicationFilters} onChange={changeCommunicationQuickFilter} />
-            <label className="communication-focus-contact-jump"><UserRound size={14}/><NativeSelectionSelect aria-label="Ir para contato" value={selectedLead?.id ?? ''} onChange={(event) => selectLead(event.target.value)}><option value="">Ir para contato...</option>{snapshot?.leads.filter((lead) => lead.status === 'active').sort((a,b) => a.name.localeCompare(b.name)).map((lead) => <option key={lead.id} value={lead.id}>{lead.name} · {lead.company || 'Sem empresa'}</option>)}</NativeSelectionSelect></label>
+    <section className="communications-central-v3__shell" ref={communicationShellRef}>
+      <aside className="communications-central-v3__inbox">
+        <header className="communications-central-v3__inbox-heading">
+          <h2>Conversas</h2>
+          <span>{visibleConversations.length}</span>
+        </header>
+        <div className="communications-central-v3__inbox-tools">
+          <label className="communications-central-v3__search">
+            <Search size={16}/>
+            <input value={query} onChange={(event) => setQuery(event.target.value)}
+              placeholder="Buscar conversas..." aria-label="Buscar conversas"/>
+          </label>
+
+          {workspaceView === 'whatsapp' ? <div className="communications-central-v3__create-tools" aria-label="Gerenciar conversas">
+            {canCommunicationCreate ? <>
+              <button type="button" onClick={() => setNewWhatsAppContactOpen(true)}><UserPlus size={14}/> Novo contato</button>
+              <button type="button" onClick={() => setCreateWhatsAppGroupOpen(true)}><UsersRound size={14}/> Novo grupo</button>
+            </> : null}
+            <button type="button" onClick={() => setWhatsAppContactsOpen(true)}><UserRound size={14}/> Contatos</button>
           </div> : null}
+
+          <div className="communications-central-v3__inbox-tabs" role="group" aria-label="Filtrar conversas">
+            <button type="button" className={inboxView === 'all' ? 'is-active' : ''}
+              onClick={() => setInboxView('all')}>Todas <span>{channelConversations.length}</span></button>
+            {workspaceView === 'whatsapp' ? <>
+              <button type="button" className={inboxView === 'people' ? 'is-active' : ''} onClick={() => setInboxView('people')}>Pessoas <span>{channelPeopleCount}</span></button>
+              <button type="button" className={inboxView === 'groups' ? 'is-active' : ''} onClick={() => setInboxView('groups')}>Grupos <span>{channelGroupCount}</span></button>
+            </> : null}
+            <button type="button" className={inboxView === 'unread' ? 'is-active' : ''} onClick={() => setInboxView('unread')}>Não lidas <span>{channelUnreadCount}</span></button>
+            {workspaceView !== 'whatsapp' ? <button type="button" className={inboxView === 'needs_reply' ? 'is-active' : ''}
+              onClick={() => setInboxView('needs_reply')}>Responder <span>{channelNeedsReplyCount}</span></button> : null}
+          </div>
+
+          <div className="communications-central-v3__filters">
+            <WorkspaceFilterMenu workspaceKey={`communications:${workspaceId}`}
+              fields={universalCommunicationFilters} activeCount={communicationFilterCount}
+              onOpenAdvanced={() => setFiltersOpen(true)} onClearAll={clearCommunicationFilters}
+              onChange={changeCommunicationQuickFilter} />
+            {workspaceView !== 'whatsapp' ? <label className="communications-central-v3__jump">
+              <UserRound size={13}/>
+              <NativeSelectionSelect aria-label="Ir para contato" value={selectedLead?.id ?? ''}
+                onChange={(event) => selectLead(event.target.value)}>
+                <option value="">Ir para contato...</option>
+                {snapshot?.leads.filter((lead) => lead.status === 'active')
+                  .sort((a,b) => a.name.localeCompare(b.name)).map((lead) =>
+                  <option key={lead.id} value={lead.id}>{lead.name} · {lead.company || 'Sem empresa'}</option>)}
+              </NativeSelectionSelect>
+            </label> : null}
+          </div>
         </div>
-        <div className="omnichannel-conversation-list">{visibleConversations.length ? visibleConversations.map((conversation) => {
-          const lead = conversation.leadId ? leadsById.get(conversation.leadId) : undefined
-          const Icon = channelIcons[conversation.channel] ?? SlidersHorizontal
-          const qrLocal = conversation.events.some((event) => event.metadata?.transport === 'qr')
-          return <button type="button" className={`omnichannel-conversation ${conversation.isGroup ? 'is-group' : 'is-person'} ${selectedConversationKey === conversation.key ? 'is-active' : ''}`} key={conversation.key} onClick={() => selectConversation(conversation)}>
-            <span className={`omnichannel-conversation__icon omnichannel-conversation__icon--${conversation.channel}`}><Icon size={17}/></span>
-            <span className="omnichannel-conversation__content"><span className="omnichannel-conversation__top"><strong>{conversationLabel(conversation, lead)}</strong><time>{daysAgo(conversation.lastOccurredAt) === 0 ? 'Hoje' : `${daysAgo(conversation.lastOccurredAt)}d`}</time></span><small>{lead?.company || channelLabel(conversation.channel)}</small><span className="omnichannel-conversation__preview">{conversation.preview}</span><span className="omnichannel-conversation__meta">{conversationStatusText(conversation) ? <em>{conversationStatusText(conversation)}</em> : null}{conversation.channel === 'whatsapp' ? null : (qrLocal ? <b>QR Local</b> : conversation.official ? <b>Oficial</b> : null)}{conversation.unreadCount ? <i>{conversation.unreadCount}</i> : null}</span></span>
-          </button>
-        }) : <div className="communications-empty-feed"><Inbox size={30}/><strong>Nenhuma conversa</strong><p>Nenhuma conversa neste canal. Sincronize a conta ou escolha um contato para iniciar uma conversa.</p></div>}</div>
+
+        <div className="communications-central-v3__conversation-list">
+          {visibleConversations.length ? visibleConversations.map((conversation) => {
+            const lead = conversation.leadId ? leadsById.get(conversation.leadId) : undefined
+            const Icon = channelIcons[conversation.channel] ?? SlidersHorizontal
+            const qrLocal = conversation.events.some((event) => event.metadata?.transport === 'qr')
+            return <button type="button" key={conversation.key}
+              className={`communications-central-v3__conversation ${selectedConversationKey === conversation.key ? 'is-active' : ''}`}
+              aria-pressed={selectedConversationKey === conversation.key}
+              onClick={() => selectConversation(conversation)}>
+              <span className="communications-central-v3__avatar"><Icon size={18}/></span>
+              <span className="communications-central-v3__conversation-content">
+                <span className="communications-central-v3__conversation-title">
+                  <strong>{conversationLabel(conversation, lead)}</strong>
+                  <time>{daysAgo(conversation.lastOccurredAt) === 0 ? 'Hoje' : `${daysAgo(conversation.lastOccurredAt)}d`}</time>
+                </span>
+                <small>{lead?.company || (conversation.isGroup ? 'Grupo' : channelLabel(conversation.channel))}</small>
+                <span className="communications-central-v3__preview">{conversation.preview}</span>
+                <span className="communications-central-v3__conversation-footer">
+                  {conversationStatusText(conversation) ? <em>{conversationStatusText(conversation)}</em> : null}
+                  {conversation.channel !== 'whatsapp' && (qrLocal || conversation.official)
+                    ? <span>{qrLocal ? 'QR Local' : 'Oficial'}</span> : null}
+                  {conversation.unreadCount > 0 ? <b aria-label={`${conversation.unreadCount} não lidas`}>{conversation.unreadCount}</b> : null}
+                </span>
+              </span>
+            </button>
+          }) : <div className="communications-central-v3__empty">
+            <MessageCircle size={26}/>
+            <strong>Nenhuma conversa</strong>
+            <p>{query.trim() || inboxView !== 'all' ? 'Nenhuma conversa corresponde aos filtros.' : 'Sincronize a conta ou inicie uma conversa a partir de um contato.'}</p>
+          </div>}
+        </div>
       </aside>
 
-      <main className={`panel omnichannel-thread ${selectedConversation?.channel === 'whatsapp' ? 'is-whatsapp-chat' : ''}`}>
+      <main className={`communications-central-v3__thread ${selectedConversation?.channel === 'whatsapp' ? 'is-whatsapp-chat' : ''}`}>
         {workspaceView === 'whatsapp' && (selectedConversation?.channel === 'whatsapp' || selectedLead) ? <WhatsAppChatPanel
           lead={selectedLead}
           externalIdentity={selectedConversation?.channel === 'whatsapp' ? selectedWhatsAppExternalIdentity : undefined}

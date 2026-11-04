@@ -21,6 +21,7 @@ export function WhatsAppConnectionCenter({ open, workspaceId, onClose, onChanged
   const connected = useMemo(() => accounts.filter((item) => item.status === 'connected'), [accounts])
   const cloudAccount = useMemo(() => accounts.find((item) => String(item.metadata?.transport || '').toLowerCase() !== 'qr'), [accounts])
   const qrLive = qrAvailable && qrStatus?.state === 'connected'
+  const qrExpired = qrAvailable && qrStatus?.state === 'disconnected' && /QR Code expirou/i.test(qrStatus.lastError || '')
 
   const refresh = async () => {
     try {
@@ -79,14 +80,14 @@ export function WhatsAppConnectionCenter({ open, workspaceId, onClose, onChanged
 
       <div className="wa-connection-center__grid">
         <section className={`wa-connection-card ${qrLive ? 'is-connected' : ''}`}>
-          <header><div className="wa-connection-card__icon"><QrCode size={20}/></div><div><strong>WhatsApp por QR Code</strong><span>Conexão rápida neste computador</span></div>{qrLive ? <CheckCircle2 size={18}/> : null}</header>
+          <header><div className="wa-connection-card__icon"><QrCode size={20}/></div><div><strong>WhatsApp por QR Code</strong><span>Conexão pelo gateway do RealTalent</span></div>{qrLive ? <CheckCircle2 size={18}/> : null}</header>
           {qrAvailable ? <>
             {qrStatus?.state === 'connected' ? <div className="wa-connection-card__health"><span>Status</span><strong>Conectado</strong><small>{qrStatus.phone ? `+${qrStatus.phone}` : qrStatus.displayName || 'Sessão local'} · {qrStatus.engine || 'WhatsApp Web'}</small></div> : null}
             {qrStatus?.qrDataUrl && qrStatus.state === 'qr' ? <div className="wa-connection-center__qr"><img src={qrStatus.qrDataUrl} alt="QR Code para conectar o WhatsApp"/><div><strong>Escaneie pelo celular</strong><span>WhatsApp → Dispositivos conectados → Conectar dispositivo</span></div></div> : null}
             {qrStatus?.state === 'starting' ? <div className="wa-connection-card__waiting"><LoaderCircle size={18}/><span>Inicializando o WhatsApp Web. Uma sessão salva pode ser restaurada sem novo QR Code.</span></div> : null}
-            {qrStatus?.lastError ? <p className="wa-connection-card__error">{qrStatus.lastError}</p> : null}
+            {qrExpired ? <p className="wa-connection-card__error" role="status"><strong>QR Code expirado.</strong> Gere outro quando estiver com o celular pronto. A sessão em produção não será alterada.</p> : qrStatus?.lastError ? <p className="wa-connection-card__error" role="status">{qrStatus.lastError}</p> : null}
             <div className="wa-connection-card__actions">
-              {qrLive ? <div className="wa-connection-card__health"><strong>Conectado — QR não necessário</strong><small>O teste de Tarefas reutiliza esta sessão.</small></div> : <Button loading={busy === 'qr'} disabled={Boolean(busy)} onClick={() => void startQr()}><QrCode size={15}/> {qrStatus?.state === 'starting' ? 'Verificar conexão' : qrStatus?.state === 'qr' ? 'Exibir QR atual' : 'Conectar por QR'}</Button>}
+              {qrLive ? <div className="wa-connection-card__health"><strong>Conectado — QR não necessário</strong><small>O teste de Tarefas reutiliza esta sessão.</small></div> : <Button loading={busy === 'qr'} disabled={Boolean(busy)} onClick={() => void startQr()}><QrCode size={15}/> {qrStatus?.state === 'starting' ? 'Verificar conexão' : qrStatus?.state === 'qr' ? 'Exibir QR atual' : qrExpired ? 'Gerar novo QR Code' : 'Conectar por QR'}</Button>}
             </div>
           </> : <div className="wa-connection-card__note" role="status"><ShieldCheck size={16}/><span>Não foi possível acessar o gateway de QR Code. Inicie o serviço do RealTalent no Linux ou configure o gateway de Comunicação hospedado antes de parear a conta.</span><Button size="sm" variant="secondary" onClick={() => void refresh()}><RefreshCw size={14}/> Verificar gateway</Button></div>}
         </section>

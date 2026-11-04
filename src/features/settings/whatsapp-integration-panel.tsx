@@ -76,6 +76,7 @@ export function WhatsappIntegrationPanel({ preferences, onPreferencesChange }: {
   const [gatewayHealth, setGatewayHealth] = useState<CommunicationsGatewayHealth | null>(null)
   const [runtimeStatus, setRuntimeStatus] = useState<RuntimeStatus | null>(null)
   const [gatewayError, setGatewayError] = useState<string>('')
+  const [gatewayChecked, setGatewayChecked] = useState(false)
 
   const saveControlPreferences = (patch: Partial<WhatsAppControlPreferences>) => {
     setControlPreferences((current) => {
@@ -91,18 +92,23 @@ export function WhatsappIntegrationPanel({ preferences, onPreferencesChange }: {
   }
 
   const refreshRuntimeState = async () => {
-    if (!localGatewayMode) return true
-    let runtime: RuntimeStatus | null = null
-    try { runtime = await loadRuntimeStatus(); setRuntimeStatus(runtime) }
-    catch { setRuntimeStatus(null) }
+    if (localGatewayMode) {
+      let runtime: RuntimeStatus | null = null
+      try { runtime = await loadRuntimeStatus(); setRuntimeStatus(runtime) }
+      catch { setRuntimeStatus(null) }
+    } else {
+      setRuntimeStatus(null)
+    }
     try {
       const health = await loadCommunicationsGatewayHealth()
       if(!health.ok)throw Error('O gateway respondeu, mas não está saudável.')
       setGatewayHealth(health)
       setGatewayError('')
+      setGatewayChecked(true)
       return true
     } catch (error) {
       setGatewayHealth(null)
+      setGatewayChecked(true)
       setGatewayError(error instanceof Error?error.message:'O gateway não respondeu.')
       // A supervisor process may be alive without a usable HTTP gateway.
       // Never present it as connected without a successful health request.
@@ -133,13 +139,12 @@ export function WhatsappIntegrationPanel({ preferences, onPreferencesChange }: {
   }
 
   const ensureGatewayReady = async () => {
-    if (!localGatewayMode) return true
     try{
       const health=await loadCommunicationsGatewayHealth()
       if(!health.ok)return false
-      setGatewayHealth(health);setGatewayError('')
+      setGatewayHealth(health);setGatewayError('');setGatewayChecked(true)
       return true
-    }catch{return false}
+    }catch{setGatewayHealth(null);setGatewayChecked(true);return false}
   }
 
   const refreshDiagnostics = async () => {
@@ -148,9 +153,7 @@ export function WhatsappIntegrationPanel({ preferences, onPreferencesChange }: {
       const gatewayReady = await refreshRuntimeState()
       if (gatewayReady) {
         try { await refreshAccounts() } catch { setAccounts([]) }
-        if (localGatewayMode) {
-          try { setQrStatus(await loadGatewayWhatsAppQrStatus(workspaceId)) } catch { setQrStatus(null) }
-        }
+        try { setQrStatus(await loadGatewayWhatsAppQrStatus(workspaceId)) } catch { setQrStatus(null) }
       } else {
         setQrStatus(null)
       }
@@ -163,7 +166,14 @@ export function WhatsappIntegrationPanel({ preferences, onPreferencesChange }: {
     setTemplates(loadWhatsAppTemplates(workspaceId))
     setControlPreferences(loadControlPreferences(workspaceId))
     void refreshAccounts().catch(() => setAccounts([]))
-    void refreshRuntimeState()
+    let active = true
+    void refreshRuntimeState().then(async (ready) => {
+      if (!active) return
+      if (!ready) { setQrStatus(null); return }
+      try { const status = await loadGatewayWhatsAppQrStatus(workspaceId); if (active) setQrStatus(status) }
+      catch { if (active) setQrStatus(null) }
+    })
+    return () => { active = false }
   }, [workspaceId])
 
   useEffect(() => {
@@ -174,7 +184,7 @@ export function WhatsappIntegrationPanel({ preferences, onPreferencesChange }: {
   }, [repositoryMode, workspaceId, listWorkspaceMembers])
 
   useEffect(() => {
-    if (!localGatewayMode || !showQr) return
+    if (!showQr) return
     let active = true
     let inFlight = false
     let consecutiveFailures = 0
@@ -206,14 +216,14 @@ export function WhatsappIntegrationPanel({ preferences, onPreferencesChange }: {
     void tick()
     const id = window.setInterval(() => void tick(), 1500)
     return () => { active = false; window.clearInterval(id) }
-  }, [localGatewayMode, showQr, workspaceId])
+  }, [showQr, workspaceId])
 
   const selectedAccount = useMemo(
     () => accounts.find((item) => item.id === preferences.whatsappOfficialAccountId) ?? accounts.find((item) => item.status === 'connected') ?? null,
     [accounts, preferences.whatsappOfficialAccountId],
   )
   const connectedAccounts = accounts.filter((item) => item.status === 'connected')
-  const gatewayReady = !localGatewayMode || whatsappGatewayIsHealthy(gatewayHealth,runtimeStatus)
+  const gatewayReady = whatsappGatewayIsHealthy(gatewayHealth,runtimeStatus)
   const qrConnected = gatewayReady && qrStatus?.state === 'connected'
   const overallConnected = gatewayReady && (qrConnected || connectedAccounts.length > 0)
   const persistTemplates = (next: WhatsAppTemplate[]) => { setTemplates(next); saveWhatsAppTemplates(workspaceId, next) }
@@ -259,9 +269,10 @@ export function WhatsappIntegrationPanel({ preferences, onPreferencesChange }: {
       notify('info', 'WhatsApp já conectado. Não é necessário gerar outro QR Code para usá-lo nas Tarefas.')
       return
     }
+    if (qrStatus?.state === 'qr' && qrStatus.qrDataUrl) { setShowQr(true); return }
     setBusy('qr-start')
     const ready = await ensureGatewayReady()
-    if (!ready) { setBusy(''); setShowQr(false); notify('info', 'Recupere o gateway no topo desta página antes de solicitar um QR Code.'); return }
+    if (!ready) { setBusy(''); setShowQr(false); notify('info', 'O gateway não está acessível. Verifique a conexão nesta tela e o serviço de comunicação antes de gerar o QR Code.'); return }
     setShowQr(true)
     try {
       const next = await startGatewayWhatsAppQr(workspaceId, 'WhatsApp QR Local')
@@ -326,7 +337,7 @@ export function WhatsappIntegrationPanel({ preferences, onPreferencesChange }: {
     <header className="whatsapp-control-center-h198__hero whatsapp-control-hero-s3">
       <div className="whatsapp-control-hero-s3__intro"><h2>Canal WhatsApp</h2><p>Conexões, mensagens e equipe em uma única área.</p></div>
       <div className={`whatsapp-control-status-h198 whatsapp-control-status-s3 ${gatewayReady && overallConnected?'is-connected':''}`} aria-live="polite">
-        <i/><span><strong>{!gatewayReady?'Serviço indisponível':overallConnected?'Conectado':'Sem conta conectada'}</strong><small>{!gatewayReady?'Gateway de comunicação offline':qrConnected?'Conectado via QR':connectedAccounts.length?'Cloud API':'Configure sua conexão'}</small></span>
+        <i/><span><strong>{!gatewayChecked?'Verificando gateway':overallConnected?'Conectado':!gatewayReady?'Gateway indisponível':'Sem conta conectada'}</strong><small>{!gatewayChecked?'Consultando serviço de comunicação':qrConnected?'Conectado via QR':connectedAccounts.length?'Cloud API':!gatewayReady?'Verifique o serviço de comunicação':'Configure sua conexão'}</small></span>
       </div>
       {!gatewayReady&&localGatewayMode?
         <Button size="sm" variant="secondary" disabled={Boolean(busy)&&busy!=='runtime-recovery'} loading={busy==='runtime-recovery'} onClick={()=>void recoverGateway()}><RefreshCw size={15}/> Recuperar gateway</Button>:
@@ -367,7 +378,7 @@ export function WhatsappIntegrationPanel({ preferences, onPreferencesChange }: {
 
         {section === 'accounts' ? <div className="whatsapp-settings-section-h198">
           <header><span className="eyebrow">Contas e conexão</span><h3>Conectar WhatsApp</h3><p>Mantenha QR Local e Cloud API no mesmo lugar, com ações separadas e estado claro.</p></header>
-          {localGatewayMode ? <section className="whatsapp-setting-card-h198"><div className="whatsapp-setting-card-h198__heading"><span><QrCode size={20}/></span><div><strong>WhatsApp por QR Code</strong><small>Conexão local por WhatsApp Web/Chromium.</small></div><StatusPill tone={gatewayReady && qrConnected ? 'success' : 'neutral'}>{!gatewayReady ? 'Serviço offline' : qrConnected ? 'Conectado' : qrStatus?.state || 'Desconectado'}</StatusPill></div><p>A sessão fica neste computador. Use para operação local e testes; para equipes e produção, prefira a Cloud API.</p>{!gatewayReady ? <div className="integration-note"><Activity size={18}/><span><strong>Conexão por QR indisponível.</strong> Use “Recuperar gateway” no topo da página antes de gerar um código.</span></div> : null}<div className="settings-actions"><Button disabled={!gatewayReady||Boolean(busy)&&busy!=='qr-start'} loading={busy === 'qr-start'} onClick={() => void startQr()}><QrCode size={16}/> {qrConnected ? 'WhatsApp já conectado' : qrStatus?.state === 'starting' ? 'Verificar geração do QR' : 'Gerar QR Code'}</Button><Button variant="ghost" disabled={!gatewayReady} loading={busy === 'qr-disconnect'} onClick={() => void disconnectQr()}><Unplug size={15}/> Remover sessão</Button></div>{showQr ? <div className="whatsapp-qr-panel-h198">{qrStatus?.qrDataUrl ? <img src={qrStatus.qrDataUrl} alt="QR Code para conectar o WhatsApp" width={260} height={260}/> : <div className="integration-note"><QrCode size={18}/><span><strong>{qrStatus?.state === 'starting' ? 'Aguardando inicialização do WhatsApp Web…' : qrStatus?.state === 'qr' ? 'O QR ainda não está disponível como imagem.' : 'Preparando conexão…'}</strong> {qrStatus?.lastError || 'Se uma sessão salva for restaurada automaticamente, o QR não será necessário.'}</span></div>}<small>Motor: WhatsApp Web (Chromium) · Status: {qrStatus?.state ?? 'starting'}{qrStatus?.lastError ? ` · ${qrStatus.lastError}` : ''}</small></div> : null}</section> : null}
+          <section className="whatsapp-setting-card-h198"><div className="whatsapp-setting-card-h198__heading"><span><QrCode size={20}/></span><div><strong>WhatsApp por QR Code</strong><small>Conexão local por WhatsApp Web/Chromium.</small></div><StatusPill tone={gatewayReady && qrConnected ? 'success' : 'neutral'}>{!gatewayReady ? 'Serviço offline' : qrConnected ? 'Conectado' : qrStatus?.state || 'Desconectado'}</StatusPill></div><p>Conecte pelo QR Code usando o gateway de comunicação do RealTalent. A sessão pertence ao serviço que hospeda o WhatsApp; não é uma conexão direta do navegador.</p>{gatewayChecked && !gatewayReady ? <div className="integration-note" role="status"><Activity size={18}/><span><strong>Gateway de QR Code não acessível.</strong> {localGatewayMode ? 'Inicie ou recupere o gateway pelo inicializador Linux.' : 'Confira a conexão do serviço de Comunicação no Railway. Se o QR estiver disponível apenas no computador Linux, abra a versão local do CRM para parear a sessão.'}{gatewayError ? <small>{gatewayError}</small> : null}</span></div> : null}<div className="settings-actions"><Button disabled={!gatewayReady||Boolean(busy)&&busy!=='qr-start'} loading={busy === 'qr-start'} onClick={() => void startQr()}><QrCode size={16}/> {qrConnected ? 'WhatsApp já conectado' : qrStatus?.state === 'qr' && qrStatus.qrDataUrl ? 'Exibir QR atual' : qrStatus?.state === 'starting' ? 'Verificar geração do QR' : 'Gerar QR Code'}</Button><Button variant="secondary" loading={busy === 'diagnostics'} disabled={Boolean(busy)&&busy!=='diagnostics'} onClick={() => void refreshDiagnostics()}><RefreshCw size={15}/> Verificar gateway</Button><Button variant="ghost" disabled={!gatewayReady||!qrStatus||qrStatus.state==='disconnected'} loading={busy === 'qr-disconnect'} onClick={() => void disconnectQr()}><Unplug size={15}/> Remover sessão</Button></div>{showQr ? <div className="whatsapp-qr-panel-h198">{qrStatus?.qrDataUrl ? <img src={qrStatus.qrDataUrl} alt="QR Code para conectar o WhatsApp" width={260} height={260}/> : <div className="integration-note"><QrCode size={18}/><span><strong>{qrStatus?.state === 'starting' ? 'Aguardando inicialização do WhatsApp Web…' : qrStatus?.state === 'qr' ? 'O QR ainda não está disponível como imagem.' : 'Preparando conexão…'}</strong> {qrStatus?.lastError || 'Se uma sessão salva for restaurada automaticamente, o QR não será necessário.'}</span></div>}<small>Motor: WhatsApp Web (Chromium) · Status: {qrStatus?.state ?? 'starting'}{qrStatus?.lastError ? ` · ${qrStatus.lastError}` : ''}</small></div> : null}</section>
           <section className="whatsapp-setting-card-h198"><div className="whatsapp-setting-card-h198__heading"><span><Cloud size={20}/></span><div><strong>WhatsApp Cloud API</strong><small>Integração oficial da Meta para operação comercial.</small></div><StatusPill tone={selectedAccount?.status === 'connected' ? 'success' : 'neutral'}>{selectedAccount?.status === 'connected' ? 'Conectado' : 'Sem conta'}</StatusPill></div>{selectedAccount ? <div className="whatsapp-account-v85 whatsapp-account-h198"><div><strong>{selectedAccount.displayName}</strong><small>{selectedAccount.externalAccountId}</small></div><div className="settings-actions"><Button size="sm" variant="secondary" loading={busy === 'test'} onClick={() => void test()}>Testar conexão</Button><Button size="sm" variant="ghost" loading={busy === 'disconnect'} onClick={() => void disconnect()}><Unplug size={15}/> Revogar</Button></div></div> : <p>Nenhuma conta oficial conectada. O QR Local continua disponível quando o gateway local estiver ativo.</p>}<div className="settings-actions"><Button loading={busy === 'connect'} onClick={() => void connect()}><Plus size={16}/> {localGatewayMode ? 'Configurar Cloud API' : 'Conectar WhatsApp Business'}</Button>{accounts.filter((item) => item.status === 'connected').map((account) => <button type="button" key={account.id} className={preferences.whatsappOfficialAccountId === account.id ? 'whatsapp-account-option is-active' : 'whatsapp-account-option'} onClick={() => onPreferencesChange({ whatsappOfficialAccountId: account.id, whatsappMode: 'official' })}><CheckCircle2 size={14}/>{account.displayName}</button>)}</div>{localGatewayMode && showLocalSetup ? <div className="settings-form-grid settings-form-grid--2 whatsapp-cloud-form-h198"><label className="field"><span>Access Token permanente</span><input type="password" autoComplete="off" value={accessToken} onChange={(event) => setAccessToken(event.target.value)} placeholder="EAAG..."/></label><label className="field"><span>Phone Number ID</span><input value={phoneNumberId} onChange={(event) => setPhoneNumberId(event.target.value.replace(/\D/g, ''))} placeholder="123456789..."/></label><label className="field"><span>WhatsApp Business Account ID</span><input value={wabaId} onChange={(event) => setWabaId(event.target.value.replace(/\D/g, ''))} placeholder="Opcional"/></label><label className="field"><span>Nome da conta</span><input value={displayName} onChange={(event) => setDisplayName(event.target.value)} placeholder="RealTalent Comercial"/></label><div className="settings-actions"><Button loading={busy === 'local-connect'} onClick={() => void saveLocalConnection()}><ShieldCheck size={16}/> Validar e conectar</Button><Button variant="ghost" onClick={() => setShowLocalSetup(false)}>Cancelar</Button></div></div> : null}</section>
         </div> : null}
 

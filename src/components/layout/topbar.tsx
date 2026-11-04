@@ -14,6 +14,8 @@ import { NotificationCenter } from '../../features/experience/notification-cente
 import { useExperience } from '../../features/experience/experience-context'
 import { buildNotificationAlerts } from '../../services/notification-engine'
 import { NOTIFICATION_STATE_EVENT } from '../../services/notification-state'
+import { getSupabaseClient } from '../../lib/supabase'
+import { useAuth } from '../../features/auth/auth-context'
 import { globalSearchKindLabel, searchWorkspace, type GlobalSearchResult } from '../../services/global-search'
 import { GlobalSearchPopover } from './global-search-popover'
 
@@ -21,6 +23,7 @@ const AssistantDrawer = lazy(() => import('../../features/assistant/assistant-dr
 
 export function Topbar() {
   const { repositoryMode, snapshot, currentWorkspace, can } = useAppWorkspace()
+  const { user } = useAuth()
   const { route, setRoute, navigate } = useAppNavigation()
   const { refresh } = useAppActions()
   const { preferences } = usePreferences()
@@ -37,18 +40,52 @@ export function Topbar() {
   const [assistantOpen, setAssistantOpen] = useState(false)
   const [assistantPrompt, setAssistantPrompt] = useState('')
   const [notificationRevision, setNotificationRevision] = useState(0)
+  const [unreadTaskNotifications, setUnreadTaskNotifications] = useState(0)
   const baseMeta = routeTitles[route]
   const meta = { ...baseMeta, title: preferences.navigation.labels[route]?.trim() || baseMeta.title }
   const notificationCount = useMemo(() => {
     if (!snapshot || !experiencePreferences.notifications.inAppEnabled) return 0
-    return buildNotificationAlerts(snapshot, experiencePreferences.notifications, { staleLeadDays: preferences.commercial.staleLeadDays }).length
-  }, [experiencePreferences.notifications, notificationRevision, preferences.commercial.staleLeadDays, snapshot])
+    return buildNotificationAlerts(snapshot, experiencePreferences.notifications, { staleLeadDays: preferences.commercial.staleLeadDays }).length + unreadTaskNotifications
+  }, [experiencePreferences.notifications, notificationRevision, preferences.commercial.staleLeadDays, snapshot, unreadTaskNotifications])
   const openAssistant = () => {
     if (activeOverlayCount() > 0) return
     setCustomizationOpen(false); setNotificationsOpen(false); setAssistantOpen(true)
   }
   const openCustomization = () => { setAssistantOpen(false); setNotificationsOpen(false); setCustomizationOpen(true) }
   const openNotifications = () => { setAssistantOpen(false); setCustomizationOpen(false); setNotificationsOpen(true) }
+
+  useEffect(() => {
+    if (repositoryMode !== 'supabase' || !currentWorkspace?.id || !user?.id || !experiencePreferences.notifications.inAppEnabled) {
+      setUnreadTaskNotifications(0)
+      return
+    }
+    const client = getSupabaseClient()
+    if (!client) return
+    let active = true
+    let pending = false
+    const check = async () => {
+      if (pending) return
+      pending = true
+      try {
+        const { count, error } = await client.from('seller_notifications')
+          .select('id', { count: 'exact', head: true })
+          .eq('organization_id', currentWorkspace.id)
+          .eq('user_id', user.id)
+          .eq('source_type', 'task-reminder')
+          .eq('status', 'unread')
+        if (active && !error) setUnreadTaskNotifications(count ?? 0)
+      } finally { pending = false }
+    }
+    void check()
+    const timer = window.setInterval(() => void check(), 30_000)
+    const onTaskNotificationChanged = () => { void check() }
+    window.addEventListener('realtalent:task-notification-updated', onTaskNotificationChanged)
+    return () => {
+      active = false
+      window.clearInterval(timer)
+      window.removeEventListener('realtalent:task-notification-updated', onTaskNotificationChanged)
+    }
+  }, [repositoryMode, currentWorkspace?.id, user?.id, experiencePreferences.notifications.inAppEnabled])
 
   useEffect(() => {
     const onNotificationState = () => setNotificationRevision((value) => value + 1)

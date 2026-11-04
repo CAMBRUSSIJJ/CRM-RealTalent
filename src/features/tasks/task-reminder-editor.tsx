@@ -38,6 +38,7 @@ type Props = {
   workspaceId: string
   repositoryMode: 'local' | 'supabase'
   open: boolean
+  compact?: boolean
 }
 
 const localJobStatusLabel: Record<LocalTaskAutoJob['status'],string> = {
@@ -48,7 +49,7 @@ const dateLabel = (iso: string) => new Date(iso).toLocaleString('pt-BR', {
   day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit',
 })
 
-export function TaskReminderEditor({ value, onChange, assigneeId, assigneeName, dueAt, status, taskId, workspaceId, repositoryMode, open }: Props) {
+export function TaskReminderEditor({ value, onChange, assigneeId, assigneeName, dueAt, status, taskId, workspaceId, repositoryMode, open, compact = false }: Props) {
   const [history, setHistory] = useState<TaskReminderHistory[]>([])
   const [localJobs, setLocalJobs] = useState<LocalTaskAutoJob[]>([])
   const [loadingHistory, setLoadingHistory] = useState(false)
@@ -92,6 +93,77 @@ export function TaskReminderEditor({ value, onChange, assigneeId, assigneeName, 
       ? value.offsets.filter(item => item !== offset) : [...value.offsets, offset] })
   }
   const noDestination = !canSchedule && value.enabled
+  if (compact) return <section className="task-reminders task-reminders--compact" aria-label="Lembretes da tarefa">
+    <div className="task-reminders__compact-heading">
+      <label className="task-reminders__compact-enable">
+        <input type="checkbox" checked={value.enabled} onChange={(event) => onChange({ ...value, enabled: event.target.checked })} />
+        <Bell size={15} />
+        <strong>Lembretes</strong>
+      </label>
+      <span>{value.enabled ? 'Ativos' : 'Desativados'}</span>
+    </div>
+    {value.enabled ? <>
+      <div className="task-reminders__compact-row">
+        <strong>Canais</strong>
+        <div className="task-reminders__compact-choices">
+          {([
+            ['in_app', 'CRM'], ['email', 'E-mail'],
+            ['whatsapp', repositoryMode === 'local' ? 'WhatsApp QR' : 'WhatsApp'],
+          ] as const).map(([channel, label]) => <label key={channel} className="task-reminders__compact-chip">
+            <input type="checkbox" checked={value.channels.includes(channel)} onChange={() => toggleChannel(channel)} />
+            <span>{label}</span>
+          </label>)}
+        </div>
+      </div>
+      <div className="task-reminders__compact-row">
+        <strong>Quando</strong>
+        <div className="task-reminders__compact-choices">
+          <label className="task-reminders__compact-chip">
+            <input type="checkbox" checked={value.onAssignment} onChange={(event) => onChange({ ...value, onAssignment: event.target.checked })} />
+            <span>Ao atribuir</span>
+          </label>
+          {([
+            [1440, '1 dia antes'], [60, '1 hora antes'], [15, '15 min antes'],
+          ] as const).map(([minutes, label]) => <label key={minutes} className="task-reminders__compact-chip">
+            <input type="checkbox" checked={value.offsets.includes(minutes)} disabled={!dueAt} onChange={() => toggleOffset(minutes)} />
+            <span>{label}</span>
+          </label>)}
+        </div>
+      </div>
+      <label className="task-reminders__compact-custom">
+        <span>Outra antecedência</span>
+        <input type="number" inputMode="numeric" min={5} max={10080} step={1} disabled={!dueAt}
+          value={value.customMinutes ?? ''}
+          onChange={(event) => onChange({ ...value, customMinutes: event.target.value === '' ? null : Number(event.target.value) })}
+          placeholder="Minutos" aria-label="Antecedência personalizada em minutos" />
+      </label>
+      {noDestination ? <p className="task-reminders__compact-info" role="status">Selecione um responsável para programar avisos.</p>
+        : !dueAt ? <p className="task-reminders__compact-info">Sem prazo: apenas avisos de atribuição.</p> : null}
+      {!value.channels.length ? <p className="task-reminders__compact-info" role="status">Selecione pelo menos um canal para notificar.</p> : null}
+      {value.channels.includes('email') && repositoryMode === 'local'
+        ? <p className="task-reminders__compact-info is-warning" role="status">E-mail automático indisponível no modo local.</p> : null}
+      {value.channels.includes('whatsapp')
+        ? <p className="task-reminders__compact-info" role="status">{repositoryMode === 'local'
+            ? 'WhatsApp QR: exige autorização do integrante e gateway conectado.'
+            : 'WhatsApp: exige integração oficial e autorização do destinatário.'}</p> : null}
+      {repositoryMode === 'local' && value.onAssignment && assigneeId
+        ? <p className="task-reminders__compact-footnote">Avisos automáticos de atribuição usam a autorização registrada em Equipes. O agendamento não confirma entrega.</p>
+        : null}
+    </> : null}
+    {taskId ? <div className="task-reminders__compact-history">
+      <div><strong>Histórico de notificações</strong>
+        <Button variant="secondary" size="sm" onClick={() => setHistoryRefresh((value) => value + 1)} disabled={loadingHistory}><RefreshCw size={13} /> Atualizar</Button>
+      </div>
+      {historyError ? <p role="status" className="task-reminders__compact-info is-warning">{historyError}</p> : null}
+      {repositoryMode === 'local'
+        ? (localJobs.length ? <ol>{[...localJobs].reverse().slice(0, 5).map((job) => <li key={job.id}>{job.eventType === 'assigned' ? 'Atribuição' : 'Antes do prazo'} · {dateLabel(job.at)} · {localJobStatusLabel[job.status]}</li>)}</ol>
+          : <small>Sem notificações registradas.</small>)
+        : loadingHistory ? <small>Consultando histórico…</small>
+        : history.length ? <ol>{history.slice(0, 5).map((item) => <li key={item.id}>{reminderChannelLabel[item.channel]} · {dateLabel(item.scheduledAt)} · {reminderHistoryStatusLabel[item.status]}</li>)}</ol>
+        : <small>Sem notificações registradas.</small>}
+      <small>O envio aceito pelo provedor não garante entrega ou leitura.</small>
+    </div> : null}
+  </section>
   return <section className="work-form-section task-reminders">
     <header><Bell size={18}/><div><strong>Notificações e lembretes</strong>
       <small>Defina quando avisar o responsável. O sistema respeita suas permissões e os canais autorizados.</small>

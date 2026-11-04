@@ -28,8 +28,8 @@
 }
 .modal:has(.task-board-v3) .modal__header {
   flex: 0 0 auto;
-  min-height: 71px;
-  padding: 15px 22px;
+  min-height: 56px;
+  padding: 11px 18px;
   border-bottom: 1px solid var(--tb3-border);
   background: var(--tb3-surface);
 }
@@ -56,7 +56,7 @@
 }
 .modal:has(.task-board-v3) .modal__footer {
   flex: 0 0 auto;
-  padding: 12px 22px;
+  padding: 10px 18px;
   border-top: 1px solid var(--tb3-border);
   background: #f9fbfd;
 }
@@ -67,21 +67,30 @@
   display: flex;
   flex-direction: column;
   min-width: 0;
-  padding: 21px 22px 24px;
-  gap: 18px;
+  padding: 14px 18px 18px;
+  gap: 11px;
 }
 .task-board-v3__title {
   display: block;
   min-width: 0;
   width: 100%;
 }
+.task-board-v3__title-label {
+  display: block;
+  margin-bottom: 2px;
+  color: #63768f;
+  font-size: 10px;
+  font-weight: 750;
+  letter-spacing: .055em;
+  text-transform: uppercase;
+}
 .task-board-v3__title input {
   display: block;
   width: 100%;
-  min-height: 40px;
-  padding: 4px 0 10px;
+  min-height: 33px;
+  padding: 4px 0 7px;
   margin: 0;
-  font-size: clamp(19px, 2.25vw, 25px);
+  font-size: 16px;
   line-height: 1.25;
   font-weight: 790;
   letter-spacing: -.035em;
@@ -100,7 +109,7 @@
   display: grid;
   grid-template-columns: minmax(0, 1.08fr) minmax(0, 0.92fr);
   align-items: start;
-  gap: 16px;
+  gap: 12px;
   min-width: 0;
 }
 .task-board-v3__primary,
@@ -108,13 +117,13 @@
   display: flex;
   flex-direction: column;
   min-width: 0;
-  gap: 14px;
+  gap: 11px;
 }
 .task-board-v3__section {
   display: flex;
   flex-direction: column;
-  gap: 13px;
-  padding: 16px;
+  gap: 10px;
+  padding: 13px;
   min-width: 0;
   background: #fff;
   border: 1px solid var(--tb3-border);
@@ -150,13 +159,13 @@
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   align-items: start;
-  gap: 13px 14px;
+  gap: 10px 12px;
   min-width: 0;
 }
 .task-board-v3__field {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 4px;
   min-width: 0;
   font-size: 11px;
 }
@@ -176,9 +185,9 @@
 .task-board-v3__field .selection-select {
   width: 100%;
   min-width: 0;
-  min-height: 36px;
+  min-height: 34px;
   margin: 0;
-  padding: 8px 10px;
+  padding: 7px 9px;
   border: 1px solid #e8edf5;
   border-radius: 8px;
   font-size: 11px;
@@ -190,8 +199,8 @@
 }
 .task-board-v3__field textarea {
   display: block;
-  min-height: 86px;
-  max-height: 200px;
+  min-height: 61px;
+  max-height: 160px;
   resize: vertical;
 }
 .task-board-v3__field :is(input,textarea,select):focus {
@@ -338,100 +347,158 @@
   cursor: pointer;
 }
 .task-board-v3__hide-completed:hover { color: #1d4ed8; }
-.task-board-v3__reminders .task-reminders {
+/* Editor de lembretes do quadro de tarefas: controles visíveis e sem avisos extensos. */
+.task-board-v3__reminders .task-reminders--compact {
   display: flex;
   flex-direction: column;
   gap: 9px;
   min-width: 0;
-  padding: 16px !important;
   margin: 0 !important;
+  padding: 13px !important;
   border: 1px solid var(--tb3-border);
   border-radius: 12px;
   background: var(--tb3-surface);
   box-shadow: 0 1px 2px rgb(15 23 42 / 3%);
 }
-.task-board-v3__reminders .task-reminders > header {
+.task-board-v3__reminders .task-reminders__compact-heading {
   display: flex;
-  align-items: start;
-  gap: 8px;
-  margin: 0;
-  padding: 0;
-  border: 0;
-  background: transparent;
-}
-.task-board-v3__reminders .task-reminders > header > svg {
-  width: 17px;
-  color: #2563eb;
-  flex: 0 0 auto;
-}
-.task-board-v3__reminders .task-reminders > header strong {
-  color: var(--tb3-ink);
-  font-size: 13px;
-  font-weight: 800;
-}
-.task-board-v3__reminders .task-reminders > header small {
-  display: block;
-  font-size: 10px;
-  color: var(--tb3-muted);
-  line-height: 1.4;
-}
-.task-board-v3__reminders .task-reminders__toggle {
-  display: flex;
-  align-items: start;
+  align-items: center;
+  justify-content: space-between;
   gap: 10px;
-  padding: 9px 10px;
-  border: 1px solid #e8edf5;
-  border-radius: 9px;
-  background: #f8fafc;
+}
+.task-board-v3__reminders .task-reminders__compact-heading > span {
+  color: var(--tb3-muted);
+  font-size: 10px;
+}
+.task-board-v3__reminders .task-reminders__compact-enable {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  color: var(--tb3-ink);
   cursor: pointer;
 }
-.task-board-v3__reminders .task-reminders__toggle strong {
-  font-size: 11px;
+.task-board-v3__reminders .task-reminders__compact-enable > svg {
+  color: #2563eb;
+}
+.task-board-v3__reminders .task-reminders__compact-enable > strong {
+  font-size: 12px;
+  font-weight: 790;
+}
+.task-board-v3__reminders .task-reminders__compact-enable input {
+  width: 15px; height: 15px; margin: 0; accent-color: #2563eb;
+}
+.task-board-v3__reminders .task-reminders__compact-row {
+  display: grid;
+  grid-template-columns: 52px minmax(0,1fr);
+  align-items: start;
+  gap: 9px;
+  min-width: 0;
+}
+.task-board-v3__reminders .task-reminders__compact-row > strong {
+  padding-top: 6px;
+  font-size: 10px;
+  color: #62748e;
   font-weight: 760;
 }
-.task-board-v3__reminders .task-reminders__toggle small {
+.task-board-v3__reminders .task-reminders__compact-choices {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 5px 8px;
+  min-width: 0;
+}
+.task-board-v3__reminders .task-reminders__compact-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  min-height: 26px;
+  padding: 3px 5px;
+  border-radius: 7px;
+  color: var(--tb3-ink);
+  background: var(--tb3-soft);
+  font-size: 10px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.task-board-v3__reminders .task-reminders__compact-chip input {
+  flex: 0 0 auto;
+  width: 13px;
+  height: 13px;
+  margin: 0;
+  accent-color: #2563eb;
+}
+.task-board-v3__reminders .task-reminders__compact-chip:has(input:disabled) {
+  opacity: .55;
+}
+.task-board-v3__reminders .task-reminders__compact-custom {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: #64748b;
+  font-size: 10px;
+}
+.task-board-v3__reminders .task-reminders__compact-custom input {
+  width: 85px;
+  max-width: 100%;
+  min-height: 29px;
+  padding: 5px 8px;
+  color: var(--tb3-ink);
+  border: 1px solid var(--tb3-border);
+  border-radius: 7px;
+  background: var(--tb3-soft);
+  outline: 0;
+  font-size: 10px;
+}
+.task-board-v3__reminders .task-reminders__compact-info,
+.task-board-v3__reminders .task-reminders__compact-footnote {
+  margin: 0;
+  padding: 6px 8px;
+  border-radius: 7px;
+  color: #62748c;
+  background: #f3f6fb;
   font-size: 10px;
   line-height: 1.35;
 }
-.task-board-v3__reminders .task-reminders__body {
+.task-board-v3__reminders .task-reminders__compact-info.is-warning {
+  color: #9a5616;
+  background: #fffbeb;
+}
+.task-board-v3__reminders .task-reminders__compact-footnote {
   padding: 0;
-  margin: 0;
+  background: transparent;
 }
-.task-board-v3__reminders .task-reminders__columns {
-  display: grid;
-  grid-template-columns: minmax(0,1fr) minmax(0,1fr);
-  gap: 11px;
-}
-.task-board-v3__reminders .task-reminders__label {
-  font-size: 10px;
-  color: #64748b;
-  font-weight: 800;
-  margin: 6px 0;
-}
-.task-board-v3__reminders .task-reminders__choices { gap: 4px; }
-.task-board-v3__reminders .task-reminders__choice {
+.task-board-v3__reminders .task-reminders__compact-history {
   display: flex;
+  flex-direction: column;
+  gap: 7px;
+  padding-top: 9px;
+  border-top: 1px solid var(--tb3-border);
+  font-size: 10px;
+  color: var(--tb3-muted);
+}
+.task-board-v3__reminders .task-reminders__compact-history > div {
+  display: flex;
+  justify-content: space-between;
   align-items: center;
-  gap: 6px;
-  min-height: 25px;
-  font-size: 10px;
+  gap: 8px;
+}
+.task-board-v3__reminders .task-reminders__compact-history strong {
   color: var(--tb3-ink);
+  font-size: 11px;
 }
-.task-board-v3__reminders .task-reminders__choice input { width: 14px; height: 14px; }
-.task-board-v3__reminders .task-reminders__custom { margin-top: 7px; font-size: 10px; }
-.task-board-v3__reminders .task-reminders__custom input { min-height: 31px; max-width: 125px; padding: 6px; }
-.task-board-v3__reminders .task-reminders__notice {
-  padding: 7px 9px;
-  margin: 5px 0;
-  border-left-width: 2px;
+.task-board-v3__reminders .task-reminders__compact-history .button {
+  min-height: 27px;
   font-size: 10px;
-  line-height: 1.4;
 }
-.task-board-v3__reminders .task-reminders__history { margin-top: 9px; padding-top: 9px; }
-.task-board-v3__reminders .task-reminders__history-heading { margin-bottom: 6px; }
-.task-board-v3__reminders .task-reminders__history-heading strong { font-size: 11px; }
-.task-board-v3__reminders .task-reminders__timeline { max-height: 125px; overflow: auto; }
-.task-board-v3__reminders .task-reminders__timeline li { padding-block: 6px; }
+.task-board-v3__reminders .task-reminders__compact-history ol {
+  max-height: 110px;
+  overflow: auto;
+  margin: 0;
+  padding-left: 14px;
+}
+.task-board-v3__reminders .task-reminders__compact-history li {
+  padding: 3px 0;
+}
 .task-board-v3__automation {
   border: 1px solid #d9e5f6;
   border-radius: 10px;
@@ -472,7 +539,6 @@
   gap: 10px;
   min-width: 0;
 }
-.task-board-v3__footer-hint { margin-right: auto; color: #8492a5; font-size: 10px; }
 .task-board-v3__footer > .button { min-height: 37px; font-size: 12px; border-radius: 8px; }
 .task-board-v3__footer > .button:last-child { background: #2563eb; border-color: #2563eb; color: white; }
 .modal:has(.task-board-v3) :is(button,input,textarea,select):focus-visible {
@@ -491,13 +557,12 @@
   .task-board-v3 { padding: 14px; gap: 13px; }
   .task-board-v3__section { padding: 12px; }
   .task-board-v3__fields, .task-board-v3__relation { gap: 11px; }
-  .task-board-v3__footer-hint { display: none; }
 }
 @media (max-width: 435px) {
   .task-board-v3__fields,
   .task-board-v3__relation,
-  .task-board-v3__reminders .task-reminders__columns { grid-template-columns: minmax(0,1fr); }
-  .task-board-v3__title input { font-size: 20px; }
+  .task-board-v3__reminders .task-reminders__compact-row { grid-template-columns: minmax(0,1fr); gap: 3px; }
+  .task-board-v3__title input { font-size: 16px; }
   .task-board-v3__footer > .button { padding-inline: 9px; }
 }
 html[data-theme="dark"] .modal:has(.task-board-v3) {

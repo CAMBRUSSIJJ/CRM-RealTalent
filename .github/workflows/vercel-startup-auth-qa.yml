@@ -1,0 +1,39 @@
+name: RealTalent Vercel Startup Authentication QA
+on:
+  push:
+    branches:
+      - fix/vercel-workspace-startup-auth-20261104
+  pull_request:
+    paths:
+      - src/app/app-context.tsx
+      - src/app/app.tsx
+      - src/repositories/supabase-crm-repository.ts
+      - src/services/startup-auth-recovery.ts
+      - src/services/startup-auth-recovery.test.ts
+      - .github/workflows/vercel-startup-auth-qa.yml
+
+permissions:
+  contents: read
+
+jobs:
+  verify-vercel-workspace-startup:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: '22'
+      - name: Install locked dependencies
+        run: npm ci --include=dev --no-audit --no-fund
+      - name: Test expired session, transient outage and forbidden access
+        run: npx vitest run src/services/startup-auth-recovery.test.ts
+      - name: Typecheck and build app
+        run: |
+          npm run typecheck
+          npm run build
+      - name: Ensure no silent local data mode and no global signout
+        run: |
+          node --input-type=module -e "import fs from 'node:fs';import assert from 'node:assert/strict';const app=fs.readFileSync('src/app/app.tsx','utf8');const repo=fs.readFileSync('src/repositories/supabase-crm-repository.ts','utf8');assert.ok(app.includes("scope: 'local'"));assert.ok(repo.includes('recoverStartupRead('));assert.ok(!fs.readFileSync('src/services/startup-auth-recovery.ts','utf8').includes('localStorage.clear'));"

@@ -32,7 +32,7 @@ async function authenticatedUser(req) {
 // A WhatsApp Web QR is a pairing secret. Authentication alone is not enough:
 // only an owner/admin of the requested workspace may read/start/revoke its pairing.
 const isQrPairingRoute = (service, suffix) => service === 'communications'
-  && /^\\/api\\/integrations\\/whatsapp\\/qr\\/(?:status|start|disconnect|diagnostics)$/.test(new URL(suffix, 'https://runtime.local').pathname)
+  && /^\/api\/integrations\/whatsapp\/qr\/(?:status|start|disconnect|diagnostics)$/.test(new URL(suffix, 'https://runtime.local').pathname)
 
 const qrWorkspaceId = (req, suffix) => {
   const endpoint = new URL(suffix, 'https://runtime.local')

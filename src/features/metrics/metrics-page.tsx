@@ -12,6 +12,7 @@ import { WorkspaceAdvancedFilterDrawer, WorkspaceFilterChips, WorkspaceFilterMen
 import { formatCurrency } from '../../domain/formatters'
 import { StageModal } from '../pipeline/stage-modal'
 import { VisualFunnel } from './visual-funnel'
+import './metrics-v3.css'
 import {
   calculateActivityIntelligence, calculateCommercialMetrics, calculateForecast, calculateFunnelIntelligence, calculateLossAnalysis,
   calculateOwnerPerformance, calculateSourcePerformance, calculateTrend, compareMetric, createMetricsRange, createPreviousMetricsRange,
@@ -157,32 +158,50 @@ export function MetricsPage() {
   }
 
   return (
-    <div className={`page-stack metrics-page metrics-page--intelligence metrics-page-v10167 ${filtersOpen ? 'metrics-page-v10167--filters-open' : ''}`}>
-      <section className="workspace-page-header-v10167 metrics-page-header-v10167">
-        <div>
-          <span className="eyebrow"><BarChart3 size={14} /> Inteligência comercial</span>
-          <h2>Métricas</h2>
-          <p>Compare períodos, encontre gargalos e transforme os dados do CRM em prioridades comerciais.</p>
+    <div className="page-stack metrics-v3">
+      <header className="metrics-v3__header">
+        <div className="metrics-v3__heading">
+          <h1>Inteligência Comercial</h1>
+          <p>Compare períodos, encontre gargalos e transforme os dados do CRM em prioridades.</p>
         </div>
-        <div className="workspace-page-header-v10167__actions"><Button size="sm" variant="secondary" onClick={() => window.print()}><Printer size={15} /> PDF</Button><Button size="sm" onClick={downloadReport}><Download size={15} /> Exportar</Button></div>
-      </section>
+        <div className="metrics-v3__header-actions">
+          <Button size="sm" variant="secondary" onClick={() => window.print()}><Printer size={15} /> PDF</Button>
+          <Button size="sm" onClick={downloadReport}><Download size={15} /> Exportar dados</Button>
+        </div>
+      </header>
 
-      <div ref={visualizationAnchorRef}>
-        <nav className="metrics-section-nav-v10171" aria-label="Áreas analíticas de Métricas">
-          <button type="button" className={tab === 'overview' ? 'is-active' : ''} onClick={() => showTab('overview')}><Gauge size={15}/> Visão executiva</button>
-          <button type="button" className={tab === 'funnel' ? 'is-active' : ''} onClick={() => showTab('funnel')}><Funnel size={15}/> Funil</button>
-          <button type="button" className={tab === 'losses' ? 'is-active' : ''} onClick={() => showTab('losses')}><TrendingDown size={15}/> Perdas</button>
-          <button type="button" className={tab === 'activities' ? 'is-active' : ''} onClick={() => showTab('activities')}><Activity size={15}/> Atividades</button>
-          <button type="button" className={tab === 'forecast' ? 'is-active' : ''} onClick={() => showTab('forecast')}><LineChart size={15}/> Previsão</button>
+      <div className="metrics-v3__navigation" ref={visualizationAnchorRef}>
+        <nav className="metrics-v3__tabs" aria-label="Áreas de inteligência comercial">
+          <button type="button" className={tab === 'overview' ? 'is-active' : ''} aria-current={tab === 'overview' ? 'page' : undefined} onClick={() => showTab('overview')}><BarChart3 size={16} /> Visão executiva</button>
+          <button type="button" className={tab === 'funnel' ? 'is-active' : ''} aria-current={tab === 'funnel' ? 'page' : undefined} onClick={() => showTab('funnel')}><Funnel size={16} /> Funil</button>
+          <button type="button" className={tab === 'losses' ? 'is-active' : ''} aria-current={tab === 'losses' ? 'page' : undefined} onClick={() => showTab('losses')}><TrendingDown size={16} /> Perdas</button>
+          <button type="button" className={tab === 'activities' ? 'is-active' : ''} aria-current={tab === 'activities' ? 'page' : undefined} onClick={() => showTab('activities')}><Activity size={16} /> Atividades</button>
+          <button type="button" className={tab === 'forecast' ? 'is-active' : ''} aria-current={tab === 'forecast' ? 'page' : undefined} onClick={() => showTab('forecast')}><Target size={16} /> Previsão</button>
         </nav>
+        <div className="metrics-v3__scope">
+          <label className="metrics-v3__period">
+            <CalendarCheck2 size={15} />
+            <span className="sr-only">Período dos indicadores</span>
+            <NativeSelectionSelect value={String(days)} onChange={(event) => setDays(Number(event.target.value))} aria-label="Período dos indicadores">
+              <option value="7">Últimos 7 dias</option>
+              <option value="30">Últimos 30 dias</option>
+              <option value="90">Últimos 90 dias</option>
+              <option value="180">Últimos 180 dias</option>
+              <option value="365">Últimos 12 meses</option>
+            </NativeSelectionSelect>
+          </label>
+          <WorkspaceFilterMenu
+            workspaceKey={`metrics:${snapshot?.workspace.id ?? 'local'}`}
+            fields={universalMetricsFilters}
+            activeCount={activeFilterCount}
+            onOpenAdvanced={() => setFiltersOpen(true)}
+            onClearAll={clearFilters}
+            onChange={changeMetricsQuickFilter}
+          />
+        </div>
       </div>
-
-      <section className="workspace-data-toolbar-v10167 metrics-toolbar-v10167 metrics-toolbar-v10171 workspace-command-bar-v10169">
-        <div className="metrics-current-scope-v10167"><CalendarCheck2 size={16}/><span><strong>{range.label}</strong><small>{ownerOptions.find((owner) => owner.id === ownerId)?.name ?? 'Toda a equipe'} · {source || 'Todas as origens'}{stageId ? ` · ${stageOptions.find((stage) => stage.id === stageId)?.name ?? 'Etapa'}` : ''}</small></span></div>
-        <div className="workspace-toolbar-actions-v10167"><WorkspaceFilterMenu workspaceKey={`metrics:${snapshot?.workspace.id ?? 'local'}`} fields={universalMetricsFilters} activeCount={activeFilterCount} onOpenAdvanced={() => setFiltersOpen(true)} onClearAll={clearFilters} onChange={changeMetricsQuickFilter} /></div>
-      </section>
-
-      <WorkspaceFilterChips fields={universalMetricsFilters} onChange={changeMetricsQuickFilter} onClearAll={clearFilters} />
+      {activeFilterCount ? <div className="metrics-v3__active-filters"><WorkspaceFilterChips fields={universalMetricsFilters} onChange={changeMetricsQuickFilter} onClearAll={clearFilters} /></div> : null}
+      <main className="metrics-v3__body">
       {filtersOpen ? <WorkspaceAdvancedFilterDrawer title="Filtros do relatório" eyebrow="Métricas" description="O mesmo Filter Engine controla indicadores, gráficos, funil e exportações." onClose={() => setFiltersOpen(false)} onClear={clearFilters}>
         <div className="metrics-advanced-filter-grid-v10171">
           {universalMetricsFilters.map((field) => <label className="field" key={field.key}><span>{field.label}</span><NativeSelectionSelect value={field.value} onChange={(event) => changeMetricsQuickFilter(field.key, event.target.value)}><option value={field.allValue ?? 'all'}>{field.allLabel ?? 'Qualquer'}</option>{field.options.map((option) => <option key={`${field.key}-${option.value}`} value={option.value}>{option.label}</option>)}</NativeSelectionSelect></label>)}
@@ -190,19 +209,22 @@ export function MetricsPage() {
       </WorkspaceAdvancedFilterDrawer> : null}
 
       {tab === 'overview' ? <>
-        <section className="metric-grid metrics-executive-grid">
-          <article className="metric-card metric-card--priority"><span className="metric-card__icon"><UsersRound /></span><div><small>Novos contatos</small><strong>{current.leads.length}</strong><ComparisonBadge comparison={comparisons.leads} /></div></article>
-          <article className="metric-card"><span className="metric-card__icon metric-card__icon--green"><CircleDollarSign /></span><div><small>Receita fechada</small><strong>{formatCurrency(current.revenue)}</strong><ComparisonBadge comparison={comparisons.revenue} /></div></article>
-          <article className="metric-card"><span className="metric-card__icon metric-card__icon--orange"><Contact /></span><div><small>Taxa de contato</small><strong>{percent(current.contactRate)}</strong><ComparisonBadge comparison={comparisons.contactRate} /></div></article>
-          <article className="metric-card"><span className="metric-card__icon metric-card__icon--purple"><Target /></span><div><small>Conversão comercial</small><strong>{percent(current.conversion)}</strong><ComparisonBadge comparison={comparisons.conversion} /></div></article>
+        <section className="metrics-v3__executive-cards" aria-label="Indicadores executivos">
+          <article className="metrics-v3__kpi"><span>Novos contatos</span><div><strong>{integer(current.leads.length)}</strong><ComparisonBadge comparison={comparisons.leads} /></div></article>
+          <article className="metrics-v3__kpi"><span>Receita fechada</span><div><strong>{formatCurrency(current.revenue)}</strong><ComparisonBadge comparison={comparisons.revenue} /></div></article>
+          <article className="metrics-v3__kpi"><span>Taxa de contato</span><div><strong>{percent(current.contactRate)}</strong><ComparisonBadge comparison={comparisons.contactRate} /></div></article>
+          <article className="metrics-v3__kpi"><span>Conversão comercial</span><div><strong>{percent(current.conversion)}</strong><ComparisonBadge comparison={comparisons.conversion} /></div></article>
+          <article className="metrics-v3__kpi"><span>Propostas enviadas</span><div><strong>{integer(current.proposals)}</strong><ComparisonBadge comparison={comparisons.proposals} /></div></article>
         </section>
-
-        <section className="metrics-kpi-strip">
-          <article><span><PhoneCall /></span><div><small>Ligações</small><strong>{current.calls.length}</strong></div><ComparisonBadge comparison={comparisons.calls} /></article>
-          <article><span><CalendarCheck2 /></span><div><small>Reuniões realizadas</small><strong>{current.completedMeetings.length}</strong></div><ComparisonBadge comparison={comparisons.meetings} /></article>
-          <article><span><Layers3 /></span><div><small>Propostas</small><strong>{current.proposals}</strong></div><ComparisonBadge comparison={comparisons.proposals} /></article>
-          <article><span><Trophy /></span><div><small>Taxa de ganho</small><strong>{percent(current.winRate)}</strong></div><ComparisonBadge comparison={comparisons.winRate} /></article>
-        </section>
+        <details className="metrics-v3__secondary-kpis">
+          <summary>Ver indicadores complementares <span>Ligações, reuniões, propostas e taxa de ganho</span></summary>
+          <section className="metrics-v3__secondary-kpi-grid" aria-label="Indicadores complementares">
+            <article><span><PhoneCall size={17}/> Ligações</span><strong>{integer(current.calls.length)}</strong><ComparisonBadge comparison={comparisons.calls}/></article>
+            <article><span><CalendarCheck2 size={17}/> Reuniões realizadas</span><strong>{integer(current.completedMeetings.length)}</strong><ComparisonBadge comparison={comparisons.meetings}/></article>
+            <article><span><Layers3 size={17}/> Propostas</span><strong>{integer(current.proposals)}</strong><ComparisonBadge comparison={comparisons.proposals}/></article>
+            <article><span><Trophy size={17}/> Taxa de ganho</span><strong>{percent(current.winRate)}</strong><ComparisonBadge comparison={comparisons.winRate}/></article>
+          </section>
+        </details>
 
         <section className="metrics-overview-grid">
           <article className="panel metrics-trend-panel">
@@ -274,6 +296,7 @@ export function MetricsPage() {
         <section className="metrics-forecast-grid"><article><span><Trophy /></span><small>Realizado</small><strong>{formatCurrency(forecast.currentRevenue)}</strong><p>Receita já conquistada no período.</p></article><article><span><Gauge /></span><small>Ritmo atual</small><strong>{formatCurrency(forecast.runRateRevenue)}</strong><p>Projeção mantendo o ritmo observado.</p></article><article><span><Target /></span><small>Previsão ponderada</small><strong>{formatCurrency(forecast.weightedByStage)}</strong><p>Pipeline ajustado pelas probabilidades das etapas.</p></article><article><span><Flag /></span><small>Comprometido</small><strong>{formatCurrency(forecast.committed)}</strong><p>Oportunidades com probabilidade de 75% ou mais.</p></article><article><span><TrendingUp /></span><small>Cenário otimista</small><strong>{formatCurrency(forecast.optimistic + forecast.currentRevenue)}</strong><p>Todo o Pipeline ativo convertido.</p></article></section>
         <section className="metrics-overview-grid"><article className="panel"><div className="panel__heading"><div><span className="eyebrow">Acompanhamento das metas</span><h3>Ritmo e risco do período</h3></div><Goal /></div>{activeGoals.length ? <div className="metrics-goal-list">{activeGoals.map((goal) => { const progress = goalProgress(snapshot!, goal.metric, goal.targetValue, goal.periodStart, goal.periodEnd, goal.userId); const formattedValue = goalMetricUnits[goal.metric] === 'currency' ? formatCurrency(progress.value) : integer(progress.value); const formattedTarget = goalMetricUnits[goal.metric] === 'currency' ? formatCurrency(goal.targetValue) : integer(goal.targetValue); return <article key={goal.id}><div><strong>{goalMetricLabels[goal.metric]}</strong><small>{goal.userName || 'Equipe'} · {formattedValue} de {formattedTarget}</small></div><div className="metrics-goal-list__track"><i style={{ width: `${Math.min(100, progress.percentage)}%` }} /></div><StatusPill tone={progress.pace === 'on_track' ? 'success' : progress.pace === 'attention' ? 'warning' : 'danger'}>{progress.percentage}%</StatusPill></article> })}</div> : <p className="empty-copy">Nenhuma meta ativa para o filtro selecionado.</p>}</article><article className="panel metrics-diagnosis"><div className="panel__heading"><div><span className="eyebrow">Leitura da previsão</span><h3>Cenário para decisão</h3></div><Crosshair /></div><ul><li><strong>Receita projetada:</strong> {formatCurrency(forecast.projectedRevenue)} no fechamento do período.</li><li><strong>Pipeline ponderado:</strong> {formatCurrency(forecast.weightedByStage)} com base na probabilidade atual.</li><li><strong>Oportunidades maduras:</strong> {formatCurrency(forecast.committed)} em etapas com 75% ou mais de chance.</li><li><strong>Próxima ação:</strong> priorize propostas sem retorno e oportunidades paradas nas etapas finais.</li></ul></article></section>
       </> : null}
+      </main>
     </div>
   )
 }

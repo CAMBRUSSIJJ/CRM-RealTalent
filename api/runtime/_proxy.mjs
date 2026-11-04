@@ -58,6 +58,27 @@ async function canManageQrWorkspace(req, userId, workspaceId) {
   return Array.isArray(rows) && rows.some((row) => row?.role === 'owner' || row?.role === 'admin')
 }
 
+// QR chats and account lists live in Railway, not in Supabase's RLS tables.
+// Enforce a workspace membership check before the hosted proxy can read/sync
+// gateway records; a valid JWT from another workspace is not sufficient.
+const needsCommunicationWorkspaceMembership = (service, suffix) => service === 'communications'
+  && ['/api/communications/events', '/api/integrations/accounts', '/api/communications/sync']
+    .includes(new URL(suffix, 'https://runtime.local').pathname)
+
+async function canReadCommunicationWorkspace(req, userId, workspaceId) {
+  const supabaseUrl = clean(process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL)
+  const publishable = clean(process.env.SUPABASE_PUBLISHABLE_KEY || process.env.VITE_SUPABASE_PUBLISHABLE_KEY)
+  const params = new URLSearchParams({ select: 'role', organization_id: 'eq.' + workspaceId,
+    user_id: 'eq.' + userId, limit: '1' })
+  const response = await fetch(supabaseUrl + '/rest/v1/organization_members?' + params, {
+    headers: { apikey: publishable, authorization: clean(req.headers.authorization), accept: 'application/json' },
+    signal: AbortSignal.timeout(8000),
+  })
+  if (!response.ok) throw new Error('workspace_membership_check_unavailable')
+  const rows = await response.json()
+  return Array.isArray(rows) && rows.some((row) => typeof row?.role === 'string' && row.role.length > 0)
+}
+
 const safeBody = (req) => {
   if (['GET','HEAD'].includes(String(req.method || 'GET').toUpperCase())) return undefined
   if (req.body == null) return undefined
@@ -85,15 +106,19 @@ export async function proxyRuntime(req, res, service) {
   const suffix = typeof req.__realtalentRuntimePath === 'string'
     ? req.__realtalentRuntimePath
     : (rawUrl.startsWith(prefix) ? rawUrl.slice(prefix.length) || '/' : '/')
-  if (isQrPairingRoute(service, suffix)) {
+  if (isQrPairingRoute(service, suffix) || needsCommunicationWorkspaceMembership(service, suffix)) {
     const workspaceId = qrWorkspaceId(req, suffix)
     if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(workspaceId)) {
       return sendJson(res, 400, { ok:false, error:'invalid_workspace_id' })
     }
+    const pairing = isQrPairingRoute(service, suffix)
     let permitted = false
-    try { permitted = await canManageQrWorkspace(req, String(user.id), workspaceId) }
-    catch { return sendJson(res, 503, { ok:false, error:'workspace_permission_check_unavailable' }) }
-    if (!permitted) return sendJson(res, 403, { ok:false, error:'workspace_admin_required' })
+    try {
+      permitted = pairing
+        ? await canManageQrWorkspace(req, String(user.id), workspaceId)
+        : await canReadCommunicationWorkspace(req, String(user.id), workspaceId)
+    } catch { return sendJson(res, 503, { ok:false, error:'workspace_permission_check_unavailable' }) }
+    if (!permitted) return sendJson(res, 403, { ok:false, error:pairing ? 'workspace_admin_required' : 'workspace_membership_required' })
   }
   const target = `${upstream}${suffix.startsWith('/') ? suffix : `/${suffix}`}`
   let cloudflareHeaders = {}

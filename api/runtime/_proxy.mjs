@@ -64,6 +64,7 @@ async function canManageQrWorkspace(req, userId, workspaceId) {
 const needsCommunicationWorkspaceMembership = (service, suffix) => service === 'communications'
   && ['/api/communications/events', '/api/communications/revision', '/api/integrations/accounts', '/api/communications/sync',
     '/api/communications/send', '/api/communications/retry', '/api/communications/read',
+    '/api/communications/media/resolve',
     '/api/integrations/whatsapp/qr/contacts', '/api/integrations/whatsapp/qr/groups',
     '/api/integrations/whatsapp/qr/groups/info']
     .includes(new URL(suffix, 'https://runtime.local').pathname)

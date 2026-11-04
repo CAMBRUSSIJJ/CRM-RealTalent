@@ -16,6 +16,7 @@ test('new QR send accepted before slow whatsapp-web.js execution',()=>{
   assert.match(gateway,/saveStore\(snapshot\)[\s\S]*?void \(async \(\) =>/)
   assert.match(gateway,/return json\(res,202,\{event:accepted,accepted:true\}\)/)
   assert.match(gateway,/sendAttemptInProgress:\s*true/)
+  assert.match(gateway,/setTimeout\(\(\) => \{[\s\S]*?pending\.status = 'failed'[\s\S]*?\}, 40_000\)/)
   assert.match(gateway,/idempotencyEvent\(s,b\); if\(existing\)/)
 })
 
@@ -50,6 +51,7 @@ test('Railway runtime copy implements the same QR live protocol without modifyin
     'syncAccount(current,account,{background:true})',
   ]) assert.ok(railwayGateway.includes(key),'Runtime Railway ausente: '+key)
   assert.match(railwayGateway,/return json\(res,202,\{event:accepted,accepted:true\}\)/)
+  assert.match(railwayGateway,/\}, 40_000\)/)
 })
 
 test('visual status and manual protection for uncertain delivery',()=>{

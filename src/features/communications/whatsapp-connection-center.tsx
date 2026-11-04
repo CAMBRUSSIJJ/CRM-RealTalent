@@ -19,9 +19,8 @@ export function WhatsAppConnectionCenter({ open, workspaceId, onClose, onChanged
   const [busy, setBusy] = useState('')
   const [qrAvailable, setQrAvailable] = useState(false)
   const connected = useMemo(() => accounts.filter((item) => item.status === 'connected'), [accounts])
-  const qrAccount = useMemo(() => accounts.find((item) => String(item.metadata?.transport || '').toLowerCase() === 'qr'), [accounts])
   const cloudAccount = useMemo(() => accounts.find((item) => String(item.metadata?.transport || '').toLowerCase() !== 'qr'), [accounts])
-  const qrLive = qrAvailable && (qrStatus?.state === 'connected' || qrAccount?.status === 'connected')
+  const qrLive = qrAvailable && qrStatus?.state === 'connected'
 
   const refresh = async () => {
     try {

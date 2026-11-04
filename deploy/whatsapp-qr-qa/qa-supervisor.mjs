@@ -60,6 +60,8 @@ const bootstrap = async () => {
           console.log('[qa] Solicitação de QR:', started.status)
           if(!started.ok) console.warn('[qa] Inicialização rejeitada HTTP',started.status)
         }
+        const revision = await gatewayFetch(`/api/communications/revision?workspaceId=${encodeURIComponent(WORKSPACE)}`)
+        console.log('[qa] Revisão em tempo real HTTP:', revision.status)
         await reportQr()
         setInterval(reportQr, 7_000).unref()
         return
@@ -97,12 +99,13 @@ const server = http.createServer(async (req,res) => {
   if (!safeEqual(supplied)) return json(res,401,{ok:false,error:'qa_access_denied'})
   if (route === '/qa/diagnostics' && req.method === 'GET') {
     try{
-      const [h,s] = await Promise.all([
+      const [h,s,revision] = await Promise.all([
         gatewayFetch('/api/communications/health'),
         gatewayFetch(`/api/integrations/whatsapp/qr/status?workspaceId=${encodeURIComponent(WORKSPACE)}`),
+        gatewayFetch(`/api/communications/revision?workspaceId=${encodeURIComponent(WORKSPACE)}`),
       ])
       const a=await h.json(),b=await s.json()
-      return json(res,200,{ok:h.ok && s.ok,version:a.version,liveRevision:a.whatsappLiveFixRevision, state:b.state, hasQr:Boolean(b.qrDataUrl), lastError:b.lastError || null})
+      return json(res,200,{ok:h.ok && s.ok && revision.ok,version:a.version,liveRevision:a.whatsappLiveFixRevision, revisionHttpStatus:revision.status, state:b.state, hasQr:Boolean(b.qrDataUrl), lastError:b.lastError || null})
     }catch(e){return json(res,502,{ok:false,error:String(e.message || e)})}
   }
   if (!ALLOWED.has(`${req.method} ${route}`)) return json(res,403,{ok:false,error:'qa_read_only_route'})
@@ -135,7 +138,7 @@ const PAIR_PAGE = `<!doctype html>
 <main><h1>Teste isolado do WhatsApp QR</h1>
 <p>Este ambiente não compartilha sessão nem dados com o CRM em produção. Não envia mensagens.</p>
 <label>Credencial do ambiente QA<input id="secret" type="password" autocomplete="off"></label>
-<button id="start">Verificar / iniciar QR</button>
+<button id="start">Gerar QR Code</button>
 <img id="qr" alt="QR temporário para pareamento de teste"><p id="message">Informe a credencial isolada para iniciar a consulta.</p>
 <small>Depois de escanear, aguarde até aparecer conectado. Não use a credencial de produção.</small></main>
 <script>
@@ -152,14 +155,17 @@ async function tick(){
   qr.style.display=x.qrDataUrl ? 'block':'none';
   if(x.qrDataUrl)qr.src=x.qrDataUrl;
   msg.textContent='Estado: '+x.state+(x.lastError?'\\n'+x.lastError:'');
-  if(x.state==='connected'){clearInterval(timer);btn.disabled=false;msg.textContent='WhatsApp conectado somente ao ambiente QA.'}
- }catch(e){clearInterval(timer);btn.disabled=false;msg.textContent=String(e.message||e)}
+  if(x.state==='connected'){clearInterval(timer);btn.disabled=false;btn.textContent='Conectado';msg.textContent='WhatsApp conectado somente ao ambiente QA.'}
+  if(x.state==='disconnected' || x.state==='logged_out'){clearInterval(timer);btn.disabled=false;btn.textContent='Gerar novo QR Code'}
+  return x.state;
+ }catch(e){clearInterval(timer);btn.disabled=false;msg.textContent=String(e.message||e);return 'error'}
 }
 btn.onclick=async()=>{
- btn.disabled=true; clearInterval(timer);
+ btn.disabled=true; clearInterval(timer);qr.style.display='none';msg.textContent='Inicializando QR Code...';
  try{
   await req('/api/integrations/whatsapp/qr/start','POST',{workspaceId:ws,displayName:'WhatsApp QA isolado'});
-  await tick();timer=setInterval(tick,1600);
+  const state=await tick();
+  if(state!=='connected' && state!=='disconnected' && state!=='logged_out' && state!=='error') timer=setInterval(tick,1600);
  }catch(e){btn.disabled=false;msg.textContent=String(e.message||e)}
 };
 </script></html>`

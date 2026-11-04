@@ -23,6 +23,8 @@ on:
       - 'scripts/metrics-dashboard-v3.test.mjs'
       - 'src/features/settings/whatsapp-integration-panel.tsx'
       - 'src/features/communications/whatsapp-connection-center.tsx'
+      - 'src/services/communication-workspace-core.ts'
+      - 'src/services/communication-workspace-core.test.ts'
       - 'src/services/local-communications-gateway.ts'
       - 'api/runtime/_proxy.mjs'
       - 'api/runtime/_proxy.test.mjs'
@@ -73,6 +75,8 @@ jobs:
         run: node --test scripts/tasks-unified-board-v3.test.mjs
       - name: Verificar layout unico de Tarefas V4
         run: node --test scripts/tasks-page-v4.test.mjs
+      - name: Testar ponte entre WhatsApp QR Railway e Supabase hospedado
+        run: npx vitest run src/services/communication-workspace-core.test.ts --reporter=dot
       - name: Testar Central de Comunicacao V3
         run: node --test scripts/communications-central-v3.test.mjs
       - name: Testar Dashboard de Metricas V3

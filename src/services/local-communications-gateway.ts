@@ -168,6 +168,21 @@ export interface GatewaySyncFailure { accountId: string; provider: string; messa
 export const syncGatewayCommunications = (workspaceId: string, accountId?: string | null) => request<{ queued: string[]; triggered: string[]; accounts: number; imported: number; failures: GatewaySyncFailure[] }>('/api/communications/sync', { method: 'POST', body: JSON.stringify({ workspaceId, accountId: accountId || null }) })
 export const markGatewayConversationRead = (workspaceId: string, threadId?: string | null, peerAddress?: string | null) => request<{ updated: number }>('/api/communications/read', { method: 'POST', body: JSON.stringify({ workspaceId, threadId: threadId || '', peerAddress: peerAddress || '' }) })
 export const loadGatewayCommunicationEvents = (workspaceId: string, limit = 500) => request<{ events: CommunicationEvent[] }>(`/api/communications/events?workspaceId=${encodeURIComponent(workspaceId)}&limit=${limit}`).then((result) => result.events)
+export type WhatsAppMediaRecoveryResult = {
+  ok: boolean
+  state: 'ready' | 'not_found' | 'invalid_request' | 'not_available' | 'download_failed' | 'unsupported'
+  message?: string
+  attachment?: { id: string; url: string; fileName: string; mimeType: string; kind: string; size: number }
+}
+
+// The request only reads the already-received WhatsApp message. It NEVER sends
+// or retries messages; historical media is persisted on the gateway on success.
+export const recoverGatewayWhatsAppMedia = (workspaceId: string, eventId: string) =>
+  request<WhatsAppMediaRecoveryResult>('/api/communications/media/resolve', {
+    method: 'POST',
+    body: JSON.stringify({ workspaceId, eventId }),
+  })
+
 export interface GatewayWhatsAppAttachmentInput {
   dataBase64: string
   mimeType: string

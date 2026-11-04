@@ -11,7 +11,7 @@ import { EmptyState } from '../../components/ui/empty-state'
 import { Modal } from '../../components/ui/modal'
 import { StatusPill } from '../../components/ui/status-pill'
 import { WorkspaceFilterMenu, type WorkspaceFilterField } from '../../components/workspace/workspace-filter-system'
-import { WorkspacePageHeader, WorkspaceSummaryMetric, WorkspaceSummaryStrip, WorkspaceViewStrip } from '../../components/workspace/workspace-shell'
+import './followups-v3.css'
 import { formatDateTime } from '../../domain/formatters'
 import { isKeyboardActivationKey } from '../../lib/keyboard-navigation'
 import type { ActivityItem, ContactRecord, Lead } from '../../domain/types'
@@ -231,7 +231,7 @@ export function FollowupsPage() {
     }
   }, [enriched, now, nowMs, snapshot])
 
-  const selectedActivity = enriched.find((item) => item.activity.id === selectedActivityId) ?? filteredActivities[0] ?? null
+  const selectedActivity = filteredActivities.find((item) => item.activity.id === selectedActivityId) ?? filteredActivities[0] ?? null
   useEffect(() => { if (routeContext.activityId && enriched.some((item) => item.activity.id === routeContext.activityId)) { setView('queue'); setSelectedActivityId(routeContext.activityId) } }, [enriched, routeContext.activityId])
   useEffect(() => {
     if (selectedActivityId && !enriched.some((item) => item.activity.id === selectedActivityId)) setSelectedActivityId(null)
@@ -342,40 +342,69 @@ export function FollowupsPage() {
   const duplicateSavedView = (item: FollowupSavedView) => { const copy = { ...item, id: `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`, name: `${item.name} — cópia` }; persistFollowupViews([...savedViews, copy]); setActiveSavedViewId(copy.id) }
   const deleteSavedView = (id: string) => { persistFollowupViews(savedViews.filter((item) => item.id !== id)); if (activeSavedViewId === id) setActiveSavedViewId(null) }
 
-  return <div className={`page-stack followups-page followups-page--professional followups-page-v10167 ${filtersOpen ? 'followups-page-v10167--filters-open' : ''}`}>
-    <WorkspacePageHeader className="followup-page-header-v10167" eyebrow="Execução comercial" icon={Target} title="Central de follow-ups" description="Priorize próximos contatos, execute a fila e mantenha cada oportunidade com uma próxima ação clara." actions={canWrite ? <><Button variant="secondary" onClick={() => openCadence()}><Layers3 size={16} /> Cadência</Button><Button onClick={() => setExecutionOpen(true)} disabled={!queue.length}><Play size={16} /> Trabalhar fila ({queue.length})</Button></> : null} />
+  const followupViews = [
+    { id: 'queue', label: 'Fila', icon: ListChecks },
+    { id: 'board', label: 'Quadro', icon: Kanban },
+    { id: 'calendar', label: 'Calendário', icon: CalendarDays },
+    { id: 'cadences', label: 'Cadências', icon: Layers3 },
+    { id: 'performance', label: 'Desempenho', icon: BarChart3 },
+  ] as const
+  const followupKpis = [
+    { id: 'overdue', icon: AlertTriangle, label: 'Vencidos', value: stats.overdue, hint: 'Exigem ação' },
+    { id: 'today', icon: CalendarClock, label: 'Hoje', value: stats.today, hint: 'Prazo no dia' },
+    { id: 'upcoming', icon: Clock3, label: 'Próximos', value: stats.upcoming, hint: 'Agendados' },
+    { id: 'completed', icon: CheckCircle2, label: 'Concluídos', value: stats.completed, hint: 'Resolvidos' },
+    { id: 'without-next', icon: Target, label: 'Sem próxima ação', value: stats.withoutNext, hint: 'Oportunidades ativas' },
+  ] as const
+  return <div className="page-stack followups-v3">
+    <header className="followups-v3__header">
+      <div className="followups-v3__heading">
+        <span className="followups-v3__eyebrow"><Target size={13}/> Execução comercial</span>
+        <h1>Central de follow-ups</h1>
+        <p>Priorize próximos contatos, execute a fila e mantenha cada oportunidade com uma próxima ação clara.</p>
+      </div>
+      {canWrite ? <div className="followups-v3__header-actions">
+        <Button variant="secondary" onClick={() => openCadence()}><Layers3 size={16}/> Cadência</Button>
+        <Button onClick={() => setExecutionOpen(true)} disabled={!queue.length}><Play size={16}/> Trabalhar fila ({queue.length})</Button>
+      </div> : null}
+    </header>
+    <section className="followups-v3__kpis" aria-label="Indicadores de follow-ups">
+      {followupKpis.map(({ id, icon: Icon, label, value, hint }) =>
+        <button type="button" key={id} className={`followups-v3__kpi is-${id} ${filter === id && view === 'queue' ? 'is-active' : ''}`}
+          onClick={() => { if (id === 'without-next') { setRoute('pipeline'); return } setActiveSavedViewId(null); setView('queue'); setFilter(id) }}
+          aria-pressed={id !== 'without-next' && filter === id && view === 'queue'}>
+          <span className="followups-v3__kpi-icon"><Icon size={18}/></span>
+          <span className="followups-v3__kpi-label">{label}</span>
+          <strong>{value}</strong><small>{hint}</small>
+        </button>
+      )}
+    </section>
 
-    <WorkspaceSummaryStrip className="followup-summary-strip-v10167">
-      <WorkspaceSummaryMetric icon={AlertTriangle} label="Vencidos" value={stats.overdue} meta="Exigem ação" tone={stats.overdue ? 'danger' : 'neutral'} onClick={() => { setView('queue'); setFilter('overdue') }} />
-      <WorkspaceSummaryMetric icon={CalendarClock} label="Hoje" value={stats.today} meta="Prazo no dia" tone="brand" onClick={() => { setView('queue'); setFilter('today') }} />
-      <WorkspaceSummaryMetric icon={Clock3} label="Próximos" value={stats.upcoming} meta="Agendados" onClick={() => { setView('queue'); setFilter('upcoming') }} />
-      <WorkspaceSummaryMetric icon={CheckCircle2} label="Concluídos" value={stats.completed} meta="Resolvidos" tone="success" onClick={() => { setView('queue'); setFilter('completed') }} />
-      <WorkspaceSummaryMetric icon={Target} label="Sem próxima ação" value={stats.withoutNext} meta="Oportunidades ativas" tone={stats.withoutNext ? 'warning' : 'neutral'} />
-    </WorkspaceSummaryStrip>
+    <section className="followups-v3__toolbar" aria-label="Visualizações e filtros da central">
+      <nav className="followups-v3__views" aria-label="Visualizar follow-ups">
+        {followupViews.map(({ id, label, icon: Icon }) =>
+          <button type="button" key={id} className={view === id ? 'is-active' : ''}
+            aria-current={view === id ? 'page' : undefined} onClick={() => setView(id)}>
+            <Icon size={15}/>{label}{id === 'queue' && queue.length ? <span>{queue.length}</span> : null}
+          </button>
+        )}
+      </nav>
+      {['queue', 'board', 'calendar'].includes(view) ? <div className="followups-v3__toolbar-actions">
+        <label className="followups-v3__search"><Search size={15}/>
+          <input aria-label="Buscar follow-up ou contato" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Buscar follow-up ou contato..." />
+        </label>
+        <WorkspaceFilterMenu workspaceKey={`followups:${snapshot?.workspace.id ?? 'local'}`}
+          fields={universalFollowupFilters} activeCount={activeAdvancedFilters} onOpenAdvanced={() => setFiltersOpen(true)}
+          onClearAll={clearAdvancedFilters}
+          onChange={(key, value) => { if (key === 'stageId') setStageId(value); else if (key === 'priority') { setPriority(value); setHotStalledOnly(false) } else if (key === 'channel') setChannel(value); else if (key === 'owner') setOwner(value); else if (key === 'hotStalledOnly') setHotStalledOnly(value === 'yes') }} />
+          <details className="followups-v3__saved-views"><summary><Bookmark size={14}/> Exibições{savedViews.length ? <b>{savedViews.length}</b> : null}</summary><div>{savedViews.map((item) => <div className="followups-v3__saved-view" key={item.id}><button type="button" className={activeSavedViewId === item.id ? 'is-active' : ''} onClick={() => applySavedView(item.id)}>{item.name}</button><button type="button" onClick={() => void renameSavedView(item)} aria-label={`Renomear ${item.name}`}>✎</button><button type="button" onClick={() => duplicateSavedView(item)} aria-label={`Duplicar ${item.name}`}>⧉</button><button type="button" className="is-danger" onClick={() => deleteSavedView(item.id)} aria-label={`Excluir ${item.name}`}>×</button></div>)}<button type="button" className="followups-v3__save-view" onClick={() => void saveCurrentView()}>+ Salvar exibição atual</button></div></details>
 
-    <WorkspaceViewStrip className="followup-navigation-v10168 followup-view-strip-h20" value={view} onChange={setView} ariaLabel="Visualização dos follow-ups" items={[
-      { id:'queue', label:'Fila', icon:ListChecks, badge:queue.length || undefined }, { id:'board', label:'Quadro', icon:Kanban }, { id:'calendar', label:'Calendário', icon:CalendarDays },
-      { id:'cadences', label:'Cadências', icon:Layers3 }, { id:'performance', label:'Desempenho', icon:BarChart3 },
-    ] as const} />
+        {canWrite ? <Button size="sm" onClick={() => setCreateOpen(true)}><Plus size={15}/> Nova atividade</Button> : null}
+      </div> : null}
+    </section>
 
     {['queue', 'board', 'calendar'].includes(view) ? <>
-      <section className="followup-focus-toolbar">
-        <div className="followup-focus-status" aria-label="Situação dos follow-ups">
-          <button type="button" className={filter === 'queue' ? 'is-active' : ''} onClick={() => { setActiveSavedViewId(null); setView('queue'); setFilter('queue') }}><Target size={13}/> Fila</button>
-          <button type="button" className={filter === 'overdue' ? 'is-active is-danger' : ''} onClick={() => { setActiveSavedViewId(null); setView('queue'); setFilter('overdue') }}><AlertTriangle size={13}/> Vencidos <b>{stats.overdue}</b></button>
-          <button type="button" className={filter === 'today' ? 'is-active' : ''} onClick={() => { setActiveSavedViewId(null); setView('queue'); setFilter('today') }}><CalendarClock size={13}/> Hoje <b>{stats.today}</b></button>
-          <button type="button" className={filter === 'upcoming' ? 'is-active' : ''} onClick={() => { setActiveSavedViewId(null); setView('queue'); setFilter('upcoming') }}><Clock3 size={13}/> Próximos <b>{stats.upcoming}</b></button>
-          <button type="button" className={filter === 'completed' ? 'is-active' : ''} onClick={() => { setActiveSavedViewId(null); setView('queue'); setFilter('completed') }}><CheckCircle2 size={13}/> Concluídos <b>{stats.completed}</b></button>
-        </div>
-        <div className="followup-focus-controls">
-          <label className="followup-focus-search"><Search size={15}/><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Buscar follow-up ou contato…" /></label>
-          <WorkspaceFilterMenu workspaceKey={`followups:${snapshot?.workspace.id ?? 'local'}`} fields={universalFollowupFilters} activeCount={activeAdvancedFilters} onOpenAdvanced={() => setFiltersOpen(true)} onClearAll={clearAdvancedFilters} onChange={(key, value) => { if (key === 'stageId') setStageId(value); else if (key === 'priority') { setPriority(value); setHotStalledOnly(false) } else if (key === 'channel') setChannel(value); else if (key === 'owner') setOwner(value); else if (key === 'hotStalledOnly') setHotStalledOnly(value === 'yes') }} />
-          <details className="followup-saved-views-menu"><summary><Bookmark size={14}/> Exibições{savedViews.length ? <b>{savedViews.length}</b> : null}</summary><div>{savedViews.map((item) => <div className="followup-saved-view" key={item.id}><button type="button" className={activeSavedViewId === item.id ? 'is-active' : ''} onClick={() => applySavedView(item.id)}>{item.name}</button><button type="button" onClick={() => void renameSavedView(item)} aria-label={`Renomear ${item.name}`}>✎</button><button type="button" onClick={() => duplicateSavedView(item)} aria-label={`Duplicar ${item.name}`}>⧉</button><button type="button" className="is-danger" onClick={() => deleteSavedView(item.id)} aria-label={`Excluir ${item.name}`}>×</button></div>)}<button type="button" className="followup-save-view" onClick={() => void saveCurrentView()}>+ Salvar exibição atual</button></div></details>
-          {canWrite ? <Button size="sm" onClick={() => setCreateOpen(true)}><Plus size={15}/> Nova atividade</Button> : null}
-        </div>
-      </section>
-
-      {activeAdvancedFilters ? <div className="workspace-filter-chips-v10167 followup-active-filters-v10167">
+      {activeAdvancedFilters ? <div className="followups-v3__active-filters">
         {stageId ? <button type="button" onClick={() => setStageId('')}>Etapa: {snapshot?.stages.find((stage) => stage.id === stageId)?.name ?? 'Selecionada'} ×</button> : null}
         {priority ? <button type="button" onClick={() => setPriority('')}>Prioridade: {priority === 'urgent' ? 'Urgente' : priority === 'high' ? 'Alta' : priority === 'medium' ? 'Média' : 'Baixa'} ×</button> : null}
         {channel ? <button type="button" onClick={() => setChannel('')}>Canal: {channelLabel[channel as FollowupChannel]} ×</button> : null}
@@ -383,7 +412,7 @@ export function FollowupsPage() {
         {hotStalledOnly ? <button type="button" onClick={() => setHotStalledOnly(false)}>Quentes parados ×</button> : null}
         <button className="is-clear" type="button" onClick={clearAdvancedFilters}>Limpar</button>
       </div> : null}
-      {filtersOpen ? <aside className="workspace-settings-drawer-v10167 followup-filter-drawer-v10167" aria-label="Filtros de follow-ups">
+      {filtersOpen ? <aside className="workspace-settings-drawer-v10167 followups-v3__filter-drawer" aria-label="Filtros de follow-ups">
         <header><div><span>Follow-ups</span><strong>Filtros da fila</strong></div><button type="button" onClick={() => setFiltersOpen(false)} aria-label="Fechar filtros">×</button></header>
         <div className="workspace-settings-drawer-v10167__body">
           <section><div className="workspace-settings-section-title-v10167"><strong>Contexto comercial</strong><span>Refine a fila sem ocupar espaço permanente na tela.</span></div>

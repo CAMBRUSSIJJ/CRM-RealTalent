@@ -615,6 +615,12 @@ export function PipelinePage() {
   }, [filtered, officialProposalByLead, opportunityByLead])
 
   const renderForecast = () => <section className="pipeline-forecast-view">
+    {revenueIntelligence && revenueIntelligence.goalTarget > 0 ? <div className="sales-pipeline-v3__forecast-goal" aria-label="Cobertura da meta comercial">
+      <div><span>Meta comercial</span><strong>{formatCurrency(revenueIntelligence.goalTarget)}</strong></div>
+      <div><span>Forecast RealTalent</span><strong>{formatCurrency(revenueIntelligence.realTalentForecast)}</strong></div>
+      <div><span>Cobertura da meta</span><strong>{Math.round(revenueIntelligence.expectedAttainment ?? 0)}%</strong></div>
+      <progress max={100} value={Math.max(0, Math.min(100, revenueIntelligence.expectedAttainment ?? 0))} aria-label="Percentual de cobertura da meta" />
+    </div> : null}
     {forecastGroups.map(([key, group]) => {
       const { label, leads } = group
       const total = leads.reduce((sum, lead) => sum + commercialValue(lead), 0)

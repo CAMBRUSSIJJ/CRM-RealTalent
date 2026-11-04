@@ -200,3 +200,20 @@ test('gateway data API: membership lookup failures cannot leak conversations', a
   assert.equal(result.body.error,'workspace_permission_check_unavailable')
   assert.equal(result.calls.length,2)
 })
+
+test('gateway outgoing messages and WhatsApp group operations reject cross-workspace access', async () => {
+  for (const path of [
+    '/api/communications/send',
+    '/api/communications/retry',
+    '/api/communications/read',
+    '/api/integrations/whatsapp/qr/groups',
+  ]) {
+    const member = await qrScenario({ role:'member', method:'POST', path })
+    assert.equal(member.status,200)
+    assert.equal(member.calls.length,3)
+    const outsider = await qrScenario({ role:null, method:'POST', path })
+    assert.equal(outsider.status,403)
+    assert.equal(outsider.body.error,'workspace_membership_required')
+    assert.equal(outsider.calls.length,2)
+  }
+})

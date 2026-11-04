@@ -47,6 +47,17 @@ test('Follow-ups V3: contexto selecionado segue filtros e mantém acessibilidade
   assert.ok(page.includes("onReschedule(item.activity, 'tomorrow')"),'Reagendar')
   assert.ok(page.includes('onWhatsApp(lead)'),'WhatsApp real')
 })
+test('Follow-ups V3: as quatro visualizações complementares usam contêineres V3',()=>{
+  for(const name of ['followups-v3__board','followups-v3__calendar','followups-v3__cadences','followups-v3__performance']) {
+    assert.ok(page.includes('className="'+name+'"'),name+' ausente')
+    assert.ok(css.includes('.'+name),name+' sem CSS')
+  }
+  for(const old of ['className="followup-board"','className="panel followup-calendar"','className="cadence-dashboard"','className="performance-dashboard"']) {
+    assert.ok(!page.includes(old),'Contêiner antigo renderizado: '+old)
+  }
+  assert.ok(page.includes('DEFAULT') || page.includes('cadenceEnrollments'),'Dados de cadência reais')
+  assert.ok(page.includes('performance.outcomeCounts'),'Desempenho real')
+})
 test('Follow-ups V3: CSS próprio com grade e responsividade sem vazamento global',()=>{
   assert.ok(page.includes("import './followups-v3.css'"))
   for(const fragment of ['.followups-v3__kpis','.followups-v3__toolbar','.followups-v3__workspace','.followups-v3__queue-list','.followups-v3__context-panel','@media(max-width:970px)','@media(max-width:660px)','html[data-theme="dark"] .followups-v3']) assert.ok(css.includes(fragment),fragment)

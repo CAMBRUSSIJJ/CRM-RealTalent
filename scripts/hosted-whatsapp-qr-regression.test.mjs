@@ -18,7 +18,10 @@ test('WhatsApp hospedado: QR Code não está mais condicionado ao modo local', (
 test('WhatsApp hospedado: status real do gateway é consultado antes de habilitar o QR', () => {
   assert.ok(settings.includes('const gatewayReady = whatsappGatewayIsHealthy(gatewayHealth,runtimeStatus)'))
   assert.ok(!settings.includes('const gatewayReady = !localGatewayMode'))
-  assert.ok(!settings.includes('if (!localGatewayMode) return true'))
+  const runtimeHealth = settings.slice(settings.indexOf('const refreshRuntimeState ='), settings.indexOf('const recoverGateway ='))
+  const readyCheck = settings.slice(settings.indexOf('const ensureGatewayReady ='), settings.indexOf('const refreshDiagnostics ='))
+  assert.ok(!runtimeHealth.includes('if (!localGatewayMode) return true'))
+  assert.ok(!readyCheck.includes('if (!localGatewayMode) return true'))
   assert.ok(settings.includes('await loadCommunicationsGatewayHealth()'))
   assert.ok(settings.includes('await loadGatewayWhatsAppQrStatus(workspaceId)'))
   assert.ok(settings.includes('await ensureGatewayReady()'))

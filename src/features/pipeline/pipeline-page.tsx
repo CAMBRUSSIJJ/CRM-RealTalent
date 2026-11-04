@@ -9,7 +9,7 @@ import { Button } from '../../components/ui/button'
 import { SelectionSelect, SelectionToolbar } from '../../components/selection'
 import { Modal } from '../../components/ui/modal'
 import { WorkspaceDisplayMenu, WorkspaceFilterMenu, WorkspaceSortMenu, WorkspaceViewStrip as FilterWorkspaceViewStrip, type WorkspaceFilterField } from '../../components/workspace/workspace-filter-system'
-import { WorkspaceCommandBar, WorkspacePageHeader, WorkspaceSummaryMetric, WorkspaceSummaryStrip } from '../../components/workspace/workspace-shell'
+import { WorkspacePageHeader } from '../../components/workspace/workspace-shell'
 import { formatCurrency, formatDateTime } from '../../domain/formatters'
 import type { ActivityType, Lead, PipelineStage } from '../../domain/types'
 import { ActivityModal } from '../followups/activity-modal'
@@ -36,12 +36,12 @@ import { buildDealPortfolio, type DealIntelligence } from '../../services/deal-i
 import { calculateRevenueIntelligence } from '../../services/revenue-intelligence'
 import { DealPortfolioPanel } from '../deal-intelligence/deal-portfolio-panel'
 import { DealInspectorModal } from '../deal-intelligence/deal-inspector-modal'
+import './sales-pipeline-v3.css'
 
 const INITIAL_CARDS = 30
 const DEFAULT_FILTERS: PipelineFiltersState = { query: '', stage: 'all', temperature: 'all', priority: 'all', source: 'all', due: 'all', owner: 'all', health: 'all' }
 const priorityLabels: Record<string, string> = { urgent: 'Urgente', high: 'Alta', medium: 'Média', low: 'Baixa' }
 const healthLabels = { healthy: 'Saudável', attention: 'Atenção', critical: 'Risco crítico', no_action: 'Sem próxima ação', proposal_stale: 'Proposta sem retorno' } as const
-const viewLabels: Record<PipelineViewMode, string> = { board: 'Kanban', list: 'Lista', forecast: 'Previsão', calendar: 'Calendário', funnel: 'Funil' }
 const isDue = (value: string | null) => value ? new Date(value).getTime() <= new Date().setHours(23, 59, 59, 999) : false
 const localDateInput = (date: Date) => {
   const adjusted = new Date(date.getTime() - date.getTimezoneOffset() * 60_000)
@@ -79,6 +79,7 @@ export function PipelinePage() {
   const workspaceId = snapshot?.workspace.id ?? rawSnapshot?.workspace.id ?? ''
   const [filters, setFilters] = useState<PipelineFiltersState>(DEFAULT_FILTERS)
   const [filtersOpen, setFiltersOpen] = useState(false)
+  const [intelligenceOpen, setIntelligenceOpen] = useState(false)
   const [compact, setCompact] = useState(false)
   const [viewMode, setViewMode] = useState<PipelineViewMode>('board')
   const [sort, setSort] = useState<PipelineSort>('updated_desc')
@@ -492,6 +493,7 @@ export function PipelinePage() {
   }
 
 
+
   const renderCard = (lead: Lead) => {
     const signal = signals.get(lead.id)
     const deal = dealByLead.get(lead.id)
@@ -504,25 +506,30 @@ export function PipelinePage() {
       return `${day} · ${new Intl.DateTimeFormat('pt-BR', { hour: '2-digit', minute: '2-digit' }).format(date)}`
     })()
     return <article
-      draggable={canPipelineEdit} className={`pipeline-card-v1008 pipeline-card-v101113 pipeline-card-v101113--${rotting} ${draggingId === lead.id ? 'is-dragging' : ''} ${selected ? 'is-selected' : ''}`} key={lead.id}
+      draggable={canPipelineEdit}
+      className={`sales-pipeline-v3__card is-${rotting} ${draggingId === lead.id ? 'is-dragging' : ''} ${selected ? 'is-selected' : ''}`}
+      key={lead.id}
       onDragStart={(event) => { if (!canPipelineEdit) { event.preventDefault(); return }; setDraggingId(lead.id); event.dataTransfer.setData('text/lead-id', lead.id); event.dataTransfer.effectAllowed = 'move' }}
       onDragEnd={() => { setDraggingId(null); setDropTargetId(null) }}
     >
-      <div className="pipeline-card-v101113__chrome">
-        {canPipelineEdit ? <button className={`pipeline-select ${selected ? 'is-selected' : ''}`} type="button" onClick={() => toggleSelected(lead.id)} aria-label={selected ? 'Desmarcar oportunidade' : 'Selecionar oportunidade'}>{selected ? <Check size={13} /> : null}</button> : null}
-        <span className={`pipeline-rotting-indicator pipeline-rotting-indicator--${rotting}`} title={rotting === 'critical' ? 'Negócio exige ação imediata' : rotting === 'warning' ? 'Negócio começando a estagnar' : 'Negócio saudável'} />
-        <GripVertical size={15} />
+      <div className="sales-pipeline-v3__card-top">
+        {canPipelineEdit ? <button className={`sales-pipeline-v3__select ${selected ? 'is-selected' : ''}`} type="button" onClick={() => toggleSelected(lead.id)} aria-label={selected ? `Desmarcar ${lead.name}` : `Selecionar ${lead.name}`}>{selected ? <Check size={13}/> : null}</button> : null}
+        <span className={`sales-pipeline-v3__health is-${rotting}`} aria-label={rotting === 'critical' ? 'Negócio em risco' : rotting === 'warning' ? 'Negócio exige atenção' : 'Negócio saudável'} title={rotting === 'critical' ? 'Negócio em risco' : rotting === 'warning' ? 'Negócio exige atenção' : 'Negócio saudável'} />
+        {canPipelineEdit ? <GripVertical className="sales-pipeline-v3__grip" size={15} aria-label="Arraste para mudar de etapa" /> : null}
       </div>
-      <button type="button" className="pipeline-card-v1008__main pipeline-card-v101113__main" onClick={() => setViewing(lead)}>
-        <h4>{opportunityByLead.get(lead.id)?.title ?? `${lead.company || lead.name} — oportunidade`}</h4>
-        <p>{lead.name}{lead.company && lead.company !== lead.name ? ` · ${lead.company}` : ''}</p>
-        <div className="pipeline-card-v101113__footer"><strong>{formatCurrency(commercialValue(lead))}</strong><span className={`${overdue ? 'is-overdue' : ''} ${!lead.nextActionAt ? 'is-missing' : ''}`}><Clock3 size={12}/>{nextActionLabel}</span></div>
+      <button type="button" className="sales-pipeline-v3__card-main" onClick={() => setViewing(lead)}>
+        <strong>{opportunityByLead.get(lead.id)?.title ?? (lead.company || lead.name)}</strong>
+        <small>{lead.name}{lead.company && lead.company !== lead.name ? ` · ${lead.company}` : ''}</small>
+        <span className="sales-pipeline-v3__card-footer">
+          <b>{formatCurrency(commercialValue(lead))}</b>
+          <time className={overdue ? 'is-overdue' : !lead.nextActionAt ? 'is-missing' : ''} dateTime={lead.nextActionAt ?? undefined}><Clock3 size={12} />{nextActionLabel}</time>
+        </span>
       </button>
-      {renderQuickActions(lead, 'card')}
+      <div className="sales-pipeline-v3__quick-actions">{renderQuickActions(lead, 'card')}</div>
     </article>
   }
 
-  const renderBoard = () => <section className="pipeline-board pipeline-board-v1008" aria-label="Pipeline de vendas">
+  const renderBoard = () => <section className="sales-pipeline-v3__board" aria-label="Pipeline de vendas">
     {snapshot?.stages.map((stage) => {
       const stageLeads = filtered.filter((lead) => lead.stageId === stage.id)
       const stageValue = stageLeads.reduce((sum, lead) => sum + commercialValue(lead), 0)
@@ -530,23 +537,36 @@ export function PipelinePage() {
       const visibleLeads = stageLeads.slice(0, visible)
       const collapsed = preferences.collapsedStageIds.includes(stage.id)
       const config = stagePolicies.get(stage.id) ?? recommendedStagePolicy(stage)
-      return <article className={`pipeline-column pipeline-column-v1008 ${collapsed ? 'is-collapsed' : ''} ${stage.isWon ? 'pipeline-column--won' : ''} ${stage.isLost ? 'pipeline-column--lost' : ''} ${dropTargetId === stage.id ? 'is-drop-target' : ''}`} key={stage.id} onDragEnter={() => { if (canPipelineEdit) setDropTargetId(stage.id) }} onDragLeave={(event) => { if (!event.currentTarget.contains(event.relatedTarget as Node | null)) setDropTargetId(null) }} onDragOver={(event) => { if (canPipelineEdit) event.preventDefault() }} onDrop={(event) => { if (canPipelineEdit) void drop(event, stage.id) }}>
-        <header className="pipeline-column-v1008__header">
-          <div className="pipeline-column-v1008__identity"><span className="pipeline-column__dot" style={{ background: stage.color }} /><strong>{stage.name}</strong><span>{stageLeads.length}</span></div>
-          <div className="pipeline-column-v1008__controls">
-            <button className="icon-button" type="button" onClick={() => toggleStageCollapse(stage.id)} aria-label={collapsed ? `Expandir ${stage.name}` : `Recolher ${stage.name}`}>{collapsed ? <ChevronRight size={17} /> : <ChevronLeft size={17} />}</button>
-            {canManageStages ? <button className="icon-button" type="button" onClick={() => setStageEditing(stage)} aria-label={`Configurar ${stage.name}`}><MoreHorizontal size={17} /></button> : null}
+      return <article
+        key={stage.id}
+        className={`sales-pipeline-v3__column ${collapsed ? 'is-collapsed' : ''} ${dropTargetId === stage.id ? 'is-drop-target' : ''}`}
+        onDragEnter={() => { if (canPipelineEdit) setDropTargetId(stage.id) }}
+        onDragLeave={(event) => { if (!event.currentTarget.contains(event.relatedTarget as Node | null)) setDropTargetId(null) }}
+        onDragOver={(event) => { if (canPipelineEdit) event.preventDefault() }}
+        onDrop={(event) => { if (canPipelineEdit) void drop(event, stage.id) }}
+      >
+        <header className="sales-pipeline-v3__column-heading" title={config.instructions || undefined}>
+          <div className="sales-pipeline-v3__column-name">
+            <i style={{ background: stage.color }} aria-hidden="true"/>
+            <strong>{stage.name}</strong>
+            <span>{stageLeads.length}</span>
+          </div>
+          <div className="sales-pipeline-v3__column-controls">
+            <button type="button" onClick={() => toggleStageCollapse(stage.id)} aria-label={collapsed ? `Expandir ${stage.name}` : `Recolher ${stage.name}`}>{collapsed ? <ChevronRight size={16} /> : <ChevronLeft size={16} />}</button>
+            {canManageStages ? <button type="button" onClick={() => setStageEditing(stage)} aria-label={`Configurar ${stage.name}`}><MoreHorizontal size={17} /></button> : null}
           </div>
         </header>
-        {collapsed ? <div className="pipeline-column-v1008__collapsed"><strong>{stageLeads.length}</strong><span>{formatCurrency(stageValue)}</span></div> : <>
-          <div className="pipeline-column-v1008__value"><span>{formatCurrency(stageValue)}</span><small>{stage.probability}% prob. · limite {config.maxDays}d</small></div>
-          {config.instructions ? <div className="pipeline-stage-instruction">{config.instructions}</div> : null}
-          <div className="pipeline-column__cards">
-            {visibleLeads.map(renderCard)}
-            {!stageLeads.length ? <div className="pipeline-column__empty">Arraste uma oportunidade para esta etapa</div> : null}
-            {visible < stageLeads.length ? <button type="button" className="pipeline-load-more" onClick={() => setVisibleCounts((current) => ({ ...current, [stage.id]: visible + INITIAL_CARDS }))}>Carregar mais {Math.min(INITIAL_CARDS, stageLeads.length - visible)}</button> : null}
+        {collapsed ? <div className="sales-pipeline-v3__collapsed"><strong>{formatCurrency(stageValue)}</strong></div> : <>
+          <div className="sales-pipeline-v3__column-total">
+            <strong>{formatCurrency(stageValue)}</strong>
+            <small>{stage.probability}% prob. · {config.maxDays}d</small>
           </div>
-          {canPipelineCreate ? <button type="button" className="pipeline-column__add" onClick={() => setCreateStageId(stage.id)}><Plus size={16} /> Adicionar oportunidade</button> : null}
+          <div className="sales-pipeline-v3__column-body">
+            {visibleLeads.map(renderCard)}
+            {!stageLeads.length ? <span className="sales-pipeline-v3__empty" aria-label="Etapa sem oportunidades" /> : null}
+            {visible < stageLeads.length ? <button type="button" className="sales-pipeline-v3__load-more" onClick={() => setVisibleCounts((current) => ({ ...current, [stage.id]: visible + INITIAL_CARDS }))}>Carregar mais {Math.min(INITIAL_CARDS, stageLeads.length - visible)}</button> : null}
+          </div>
+          {canPipelineCreate ? <button type="button" className="sales-pipeline-v3__add" onClick={() => setCreateStageId(stage.id)}><Plus size={15} /> Adicionar</button> : null}
         </>}
       </article>
     })}
@@ -595,6 +615,12 @@ export function PipelinePage() {
   }, [filtered, officialProposalByLead, opportunityByLead])
 
   const renderForecast = () => <section className="pipeline-forecast-view">
+    {revenueIntelligence && revenueIntelligence.goalTarget > 0 ? <div className="sales-pipeline-v3__forecast-goal" aria-label="Cobertura da meta comercial">
+      <div><span>Meta comercial</span><strong>{formatCurrency(revenueIntelligence.goalTarget)}</strong></div>
+      <div><span>Forecast RealTalent</span><strong>{formatCurrency(revenueIntelligence.realTalentForecast)}</strong></div>
+      <div><span>Cobertura da meta</span><strong>{Math.round(revenueIntelligence.expectedAttainment ?? 0)}%</strong></div>
+      <progress max={100} value={Math.max(0, Math.min(100, revenueIntelligence.expectedAttainment ?? 0))} aria-label="Percentual de cobertura da meta" />
+    </div> : null}
     {forecastGroups.map(([key, group]) => {
       const { label, leads } = group
       const total = leads.reduce((sum, lead) => sum + commercialValue(lead), 0)
@@ -641,73 +667,78 @@ export function PipelinePage() {
     })}</div></section>
   }
 
-  return <div className={`page-stack pipeline-page pipeline-page-v1008 pipeline-page-h20 ${compact ? 'pipeline-page--compact' : ''}`}>
-    <WorkspacePageHeader className="pipeline-page-header-h20" eyebrow="Execução comercial" title="Pipeline" description="Oportunidades, risco, forecast e próximas ações em um único fluxo de trabalho." icon={TrendingUp} actions={canPipelineCreate ? <Button className="pipeline-new-opportunity-v101113" onClick={() => setCreateStageId(snapshot?.stages[0]?.id ?? '')}><Plus size={17} /> Nova oportunidade</Button> : null} />
 
-    <WorkspaceSummaryStrip className="pipeline-summary-strip-h20">
-      <WorkspaceSummaryMetric label="Oportunidades" value={kpiTotals.count} meta={scope === 'mine' ? 'Minhas oportunidades ativas' : 'Negócios ativos'} icon={UsersRound} tone="brand" active={viewMode === 'board' && quickSlice === 'all' && activeSavedViewId === null} onClick={() => activateQuickSlice('all')} />
-      <WorkspaceSummaryMetric label="Valor do Pipeline" value={formatCurrency(kpiTotals.value)} meta={revenueIntelligence?.goalTarget ? `Meta ${formatCurrency(revenueIntelligence.goalTarget)}` : 'Total aberto'} icon={BarChart3} tone="brand" progress={revenueIntelligence?.goalTarget ? kpiTotals.value / revenueIntelligence.goalTarget * 100 : null} progressLabel={revenueIntelligence?.goalTarget ? `${Math.round(kpiTotals.value / revenueIntelligence.goalTarget * 100)}% da meta` : undefined} onClick={() => activateQuickSlice('all')} />
-      <WorkspaceSummaryMetric label="Forecast RealTalent" value={formatCurrency(revenueIntelligence?.realTalentForecast ?? dealPortfolio?.predictedValue ?? kpiTotals.weighted)} meta={revenueIntelligence?.goalTarget ? `Meta ${formatCurrency(revenueIntelligence.goalTarget)}` : dealPortfolio ? `Saúde média ${dealPortfolio.averageHealth}/100` : 'Previsão ponderada'} icon={TrendingUp} tone="brand" progress={revenueIntelligence?.expectedAttainment ?? null} progressLabel={revenueIntelligence?.expectedAttainment !== null && revenueIntelligence?.expectedAttainment !== undefined ? `${Math.round(revenueIntelligence.expectedAttainment)}% da meta` : undefined} active={viewMode === 'forecast'} onClick={() => { setQuickSlice('all'); setActiveSavedViewId(null); selectViewMode('forecast') }} />
-      <WorkspaceSummaryMetric label="Em risco" value={kpiTotals.risk} meta="Fila que pede atenção" icon={AlertTriangle} tone={kpiTotals.risk ? 'danger' : 'success'} active={quickSlice === 'risk'} onClick={() => activateQuickSlice('risk')} />
-      <WorkspaceSummaryMetric label="Sem próxima ação" value={kpiTotals.noAction} meta="Precisam de planejamento" icon={Clock3} tone={kpiTotals.noAction ? 'warning' : 'success'} active={quickSlice === 'no_action'} onClick={() => activateQuickSlice('no_action')} />
-    </WorkspaceSummaryStrip>
+  return <div className={`page-stack sales-pipeline-v3 ${compact ? 'sales-pipeline-v3--compact' : ''}`}>
+    <WorkspacePageHeader className="sales-pipeline-v3__header" eyebrow="Execução comercial" title="Pipeline" description="Acompanhe negócios, prazos e próximas ações em cada etapa." icon={TrendingUp} actions={canPipelineCreate ? <Button className="sales-pipeline-v3__new" onClick={() => setCreateStageId(snapshot?.stages[0]?.id ?? '')}><Plus size={16} /> Nova oportunidade</Button> : null} />
 
-    {dealPortfolio ? <section className={`pipeline-intelligence-shell ${preferences.intelligenceCollapsed ? 'is-collapsed' : ''}`} aria-label="Pipeline Intelligence">
-      <header className="pipeline-intelligence-shell__header">
-        <div className="pipeline-intelligence-shell__title"><span><Sparkles size={15} /> Pipeline Intelligence</span><strong>{preferences.intelligenceCollapsed ? 'Resumo inteligente do funil' : 'Saúde, risco e próximas melhores ações'}</strong></div>
-        <div className="pipeline-intelligence-shell__summary">
-          <span><small>Saúde</small><b>{dealPortfolio.averageHealth}/100</b></span>
-          <span><small>Em risco</small><b>{formatCurrency(dealPortfolio.atRiskValue)}</b></span>
-          <span><small>Forecast</small><b>{formatCurrency(dealPortfolio.predictedValue)}</b></span>
-          <span><small>Prioridades</small><b>{dealPortfolio.priorities.length}</b></span>
+    <section className="sales-pipeline-v3__toolbar" aria-label="Controles do Pipeline">
+      <div className="sales-pipeline-v3__toolbar-main">
+        <nav className="sales-pipeline-v3__tabs" aria-label="Recortes de negócios">
+          <button type="button" className={activeSavedViewId === null && scope === 'team' && quickSlice === 'all' ? 'is-active' : ''} onClick={() => activateQuickSlice('all', 'team')} aria-pressed={activeSavedViewId === null && scope === 'team' && quickSlice === 'all'}>Todos <span>{kpiTotals.count}</span></button>
+          {canSeeTeam ? <button type="button" className={activeSavedViewId === null && scope === 'mine' && quickSlice === 'all' ? 'is-active' : ''} onClick={() => activateQuickSlice('all', 'mine')} aria-pressed={activeSavedViewId === null && scope === 'mine' && quickSlice === 'all'}>Meus negócios</button> : null}
+          <button type="button" className={activeSavedViewId === null && quickSlice === 'risk' ? 'is-active is-risk' : 'is-risk'} onClick={() => activateQuickSlice('risk')} aria-pressed={activeSavedViewId === null && quickSlice === 'risk'}>Em risco <span>{kpiTotals.risk}</span></button>
+        </nav>
+        <details className="sales-pipeline-v3__extra-views">
+          <summary title="Exibições adicionais">Outros <ChevronDown size={14}/></summary>
+          <div className="sales-pipeline-v3__extra-panel">
+            <FilterWorkspaceViewStrip
+              items={[
+                { id: 'no-action', label: 'Sem próxima ação', count: kpiTotals.noAction, active: activeSavedViewId === null && quickSlice === 'no_action', accent: 'orange', icon: <Clock3 size={14}/>, onClick: () => activateQuickSlice('no_action') },
+                { id: 'overdue', label: 'Atrasadas', count: kpiTotals.overdue, active: activeSavedViewId === null && quickSlice === 'overdue', accent: 'orange', icon: <CalendarDays size={14}/>, onClick: () => activateQuickSlice('overdue') },
+                ...[...preferences.savedViews].filter((item) => !item.starterKey).sort((a,b) => (a.position ?? 0) - (b.position ?? 0)).map((item) => ({ id: item.id, label: item.name, active: activeSavedViewId === item.id, favorite: item.isDefault, accent: 'purple' as const, icon: <Bookmark size={14}/>, onClick: () => applySavedView(item.id), menu: [
+                  { label: 'Renomear', onClick: () => void renameSavedView(item) },
+                  { label: 'Duplicar', onClick: () => duplicateSavedView(item) },
+                  { label: 'Definir como padrão', onClick: () => setDefaultSavedView(item) },
+                  { label: 'Mover para esquerda', onClick: () => moveSavedView(item, -1) },
+                  { label: 'Mover para direita', onClick: () => moveSavedView(item, 1) },
+                  { label: 'Excluir exibição', danger: true, onClick: () => deleteSavedView(item.id) },
+                ] })),
+              ]}
+              onAdd={() => void saveView()}
+              addLabel="Salvar visão"
+            />
+          </div>
+        </details>
+        <label className="sales-pipeline-v3__search"><Search size={16}/><input aria-label="Buscar oportunidades" value={filters.query} onChange={(event) => { setActiveSavedViewId(null); setFilters((current) => ({ ...current, query: event.target.value })) }} placeholder="Buscar oportunidade..." /></label>
+        <div className="sales-pipeline-v3__actions">
+          <div className="sales-pipeline-v3__mode-tabs" role="group" aria-label="Modo de visualização">
+            <button type="button" className={viewMode === 'board' ? 'is-active' : ''} aria-pressed={viewMode === 'board'} title="Kanban" onClick={() => selectViewMode('board')}><LayoutGrid size={17}/></button>
+            <button type="button" className={viewMode === 'list' ? 'is-active' : ''} aria-pressed={viewMode === 'list'} title="Lista" onClick={() => selectViewMode('list')}><List size={17}/></button>
+          </div>
+          <WorkspaceFilterMenu workspaceKey={`pipeline:${workspaceId}`} fields={universalPipelineFilters} activeCount={activeFilterCount} onChange={(key, value) => { setActiveSavedViewId(null); setQuickSlice('all'); setFilters((current) => ({ ...current, [key]: value })) }} onClearAll={() => { setActiveSavedViewId(null); resetFilters() }} onOpenAdvanced={() => setFiltersOpen(true)} />
+          <details className="sales-pipeline-v3__more-actions">
+            <summary aria-label="Mais ferramentas" title="Mais ferramentas"><MoreHorizontal size={19}/></summary>
+            <div className="sales-pipeline-v3__more-panel">
+              <WorkspaceSortMenu value={sort} onChange={(value) => { setActiveSavedViewId(null); setSort(value as PipelineSort) }} options={[{ value: 'deal_health_asc', label: 'Maior risco' }, { value: 'deal_probability_desc', label: 'Maior probabilidade RealTalent' }, { value: 'updated_desc', label: 'Atualização recente' }, { value: 'next_action', label: 'Próxima ação' }, { value: 'value_desc', label: 'Maior TCV' }, { value: 'probability_desc', label: 'Probabilidade do vendedor' }, { value: 'close_date', label: 'Fechamento mais próximo' }, { value: 'name', label: 'Nome' }]} />
+              <WorkspaceDisplayMenu label="Visualizar" value={viewMode} onChange={(value) => selectViewMode(value as PipelineViewMode)} modes={[{ value: 'board', label: 'Kanban', icon: <LayoutGrid size={15}/> }, { value: 'list', label: 'Lista', icon: <List size={15}/> }, { value: 'forecast', label: 'Previsão', icon: <TrendingUp size={15}/> }, { value: 'calendar', label: 'Calendário', icon: <CalendarDays size={15}/> }, { value: 'funnel', label: 'Funil', icon: <BarChart3 size={15}/> }]} />
+              <button type="button" className="sales-pipeline-v3__option" onClick={toggleDensity}><Columns3 size={15}/>{compact ? 'Densidade compacta' : 'Densidade confortável'}</button>
+              <button type="button" className="sales-pipeline-v3__option" onClick={() => void saveView()}><Bookmark size={15}/> Salvar visão</button>
+              {dealPortfolio ? <button type="button" className="sales-pipeline-v3__option" onClick={() => setIntelligenceOpen((value) => !value)}><Sparkles size={15}/> {intelligenceOpen ? 'Ocultar análise' : 'Analisar carteira'}</button> : null}
+              {canManageStages && canPipelineEdit ? <button type="button" className="sales-pipeline-v3__option" onClick={() => setStageEditing('new')}><Plus size={15}/> Nova etapa</button> : null}
+            </div>
+          </details>
         </div>
-        <button type="button" className="pipeline-intelligence-shell__toggle" aria-expanded={!preferences.intelligenceCollapsed} onClick={() => persistPreferences((current) => ({ ...current, intelligenceCollapsed: !current.intelligenceCollapsed }))}>
-          {preferences.intelligenceCollapsed ? <ChevronDown size={18} /> : <ChevronUp size={18} />}
-          {preferences.intelligenceCollapsed ? 'Expandir' : 'Recolher'}
-        </button>
-      </header>
-      {!preferences.intelligenceCollapsed ? <div className="pipeline-intelligence-shell__content"><DealPortfolioPanel portfolio={dealPortfolio} title="Prioridades comerciais" maxItems={4} onOpen={(deal) => setInspectingLeadId(deal.lead.id)} onExecute={runDealAction} />{totals.noAction || totals.proposalStale || totals.critical || totals.attention ? <section className="pipeline-action-center pipeline-action-center--inside-intelligence" aria-label="Prioridades comerciais"><div><AlertTriangle size={18} /><span><strong>Recortes que pedem ação</strong><small>Use um recorte para transformar o diagnóstico em fila de trabalho.</small></span></div><div>{totals.noAction ? <button type="button" onClick={() => setFilters((current) => ({ ...current, health: 'no_action' }))}>{totals.noAction} sem próxima ação</button> : null}{totals.proposalStale ? <button type="button" onClick={() => setFilters((current) => ({ ...current, health: 'proposal_stale' }))}>{totals.proposalStale} proposta(s) sem retorno</button> : null}{totals.critical ? <button type="button" onClick={() => setFilters((current) => ({ ...current, health: 'critical' }))}>{totals.critical} em risco crítico</button> : null}{totals.attention ? <button type="button" onClick={() => setFilters((current) => ({ ...current, health: 'attention' }))}>{totals.attention} pedem atenção</button> : null}</div></section> : null}</div> : null}
-    </section> : null}
-
-    <WorkspaceCommandBar className="pipeline-single-action-bar-v101113 pipeline-command-bar-h20" aria-label="Centro de comando do Pipeline">
-      <FilterWorkspaceViewStrip
-        items={[
-          { id: 'all', label: 'Todos', count: scope === 'team' ? kpiTotals.count : (snapshot?.leads ?? []).filter((lead) => lead.status === 'active').length, active: activeSavedViewId === null && scope === 'team' && quickSlice === 'all', favorite: true, accent: 'blue', icon: <UsersRound size={14}/>, onClick: () => activateQuickSlice('all', 'team') },
-          { id: 'mine', label: 'Meus negócios', count: (snapshot?.leads ?? []).filter((lead) => lead.status === 'active' && user && (lead.ownerId === user.id || lead.ownerName.trim().toLocaleLowerCase('pt-BR') === user.displayName.trim().toLocaleLowerCase('pt-BR'))).length, active: activeSavedViewId === null && scope === 'mine' && quickSlice === 'all', accent: 'blue', icon: <UserRound size={14}/>, onClick: () => activateQuickSlice('all', 'mine') },
-          { id: 'risk', label: 'Em risco', count: kpiTotals.risk, active: activeSavedViewId === null && quickSlice === 'risk', accent: 'red', icon: <AlertTriangle size={14}/>, onClick: () => activateQuickSlice('risk') },
-          { id: 'no-action', label: 'Sem ação', count: kpiTotals.noAction, active: activeSavedViewId === null && quickSlice === 'no_action', accent: 'orange', icon: <Clock3 size={14}/>, onClick: () => activateQuickSlice('no_action') },
-          { id: 'overdue', label: 'Atrasadas', count: kpiTotals.overdue, active: activeSavedViewId === null && quickSlice === 'overdue', accent: 'orange', icon: <CalendarDays size={14}/>, onClick: () => activateQuickSlice('overdue') },
-          ...[...preferences.savedViews].filter((item) => !item.starterKey).sort((a,b) => (a.position ?? 0) - (b.position ?? 0)).map((item) => ({ id: item.id, label: item.name, active: activeSavedViewId === item.id, favorite: item.isDefault, accent: 'purple' as const, icon: <Bookmark size={14}/>, onClick: () => applySavedView(item.id), menu: [
-            { label: 'Renomear', onClick: () => void renameSavedView(item) },
-            { label: 'Duplicar', onClick: () => duplicateSavedView(item) },
-            { label: 'Definir como padrão', onClick: () => setDefaultSavedView(item) },
-            { label: 'Mover para esquerda', onClick: () => moveSavedView(item, -1) },
-            { label: 'Mover para direita', onClick: () => moveSavedView(item, 1) },
-            { label: 'Excluir exibição', danger: true, onClick: () => deleteSavedView(item.id) },
-          ] })),
-        ]}
-        onAdd={() => void saveView()} addLabel="Salvar visão"
-      />
-      <label className="search-field workspace-search-v10167 pipeline-command-search-v101113"><Search size={18} /><input value={filters.query} onChange={(event) => { setActiveSavedViewId(null); setFilters((current) => ({ ...current, query: event.target.value })) }} placeholder="Buscar oportunidade..." /></label>
-      <div className="pipeline-command-actions-v101113">
-        <WorkspaceFilterMenu workspaceKey={`pipeline:${workspaceId}`} fields={universalPipelineFilters} activeCount={activeFilterCount} onChange={(key, value) => { setActiveSavedViewId(null); setQuickSlice('all'); setFilters((current) => ({ ...current, [key]: value })) }} onClearAll={() => { setActiveSavedViewId(null); resetFilters() }} onOpenAdvanced={() => setFiltersOpen(true)} />
-        <WorkspaceSortMenu value={sort} onChange={(value) => { setActiveSavedViewId(null); setSort(value as PipelineSort) }} options={[{ value: 'deal_health_asc', label: 'Maior risco', description: 'Deal Health mais crítico primeiro.' }, { value: 'deal_probability_desc', label: 'Maior probabilidade RealTalent' }, { value: 'updated_desc', label: 'Atualização recente' }, { value: 'next_action', label: 'Próxima ação' }, { value: 'value_desc', label: 'Maior TCV' }, { value: 'probability_desc', label: 'Probabilidade do vendedor' }, { value: 'close_date', label: 'Fechamento mais próximo' }, { value: 'name', label: 'Nome' }]} />
-        <WorkspaceDisplayMenu label="Exibição" value={viewMode} onChange={(value) => selectViewMode(value as PipelineViewMode)} modes={[{ value: 'board', label: 'Kanban', icon: <LayoutGrid size={15}/>, description: 'Execução por etapa.' }, { value: 'list', label: 'Lista', icon: <List size={15}/>, description: 'Operação densa e seleção em massa.' }, { value: 'forecast', label: 'Previsão', icon: <TrendingUp size={15}/>, description: 'Receita por fechamento esperado.' }, { value: 'calendar', label: 'Calendário', icon: <CalendarDays size={15}/>, description: 'Próximas ações por data.' }, { value: 'funnel', label: 'Funil', icon: <BarChart3 size={15}/>, description: 'Conversão e gargalos por etapa.' }]} />
-        <button type="button" className={`pipeline-density-toggle-v101113 ${compact ? 'is-active' : ''}`} onClick={toggleDensity} title="Alternar densidade do Kanban"><Columns3 size={16}/><span>{compact ? 'Compacta' : 'Confortável'}</span></button>
-        <details className="rt-overflow-menu"><summary aria-label="Mais ações do Pipeline" title="Mais ações"><MoreHorizontal size={18} /></summary><div className="rt-overflow-menu__panel">{canManageStages && canPipelineEdit ? <button type="button" onClick={() => setStageEditing('new')}><Plus size={17} /><span><strong>Nova etapa</strong><small>Editar estrutura do funil comercial</small></span></button> : null}</div></details>
       </div>
-    </WorkspaceCommandBar>
-
-
-    {pipelineFilterChips.length ? <div className="workspace-filter-chips-v10167 pipeline-filter-chips-v10168">{pipelineFilterChips.map((chip) => <button type="button" key={chip.key} onClick={() => clearPipelineFilter(chip.key)}>{chip.label} ×</button>)}<button className="is-clear" type="button" onClick={resetFilters}>Limpar filtros</button></div> : null}
-
-    <section className="pipeline-view-switcher pipeline-view-switcher-v10170-hidden" aria-hidden="true">
-      {([['board', LayoutGrid], ['list', List], ['forecast', TrendingUp], ['calendar', CalendarDays], ['funnel', BarChart3]] as const).map(([mode, Icon]) => <button type="button" key={mode} className={viewMode === mode ? 'is-active' : ''} onClick={() => selectViewMode(mode)}><Icon size={16} />{viewLabels[mode]}</button>)}
-      <span className="pipeline-view-switcher__spacer" />
-      <div className="pipeline-scope-switcher"><button type="button" className={scope === 'mine' ? 'is-active' : ''} onClick={() => setScope('mine')}><UserRound size={15} /> Meus negócios</button>{canSeeTeam ? <button type="button" className={scope === 'team' ? 'is-active' : ''} onClick={() => setScope('team')}><UsersRound size={15} /> Todos os negócios</button> : null}</div>
-      <label>Ordenar<SelectionSelect size="sm" value={sort} onValueChange={(value) => setSort(value as PipelineSort)} options={[{ value: 'deal_health_asc', label: 'Maior risco / menor Deal Health' }, { value: 'deal_probability_desc', label: 'Maior probabilidade RealTalent' }, { value: 'updated_desc', label: 'Atualização recente' }, { value: 'next_action', label: 'Próxima ação' }, { value: 'value_desc', label: 'Maior TCV' }, { value: 'probability_desc', label: 'Maior probabilidade do vendedor' }, { value: 'close_date', label: 'Fechamento mais próximo' }, { value: 'name', label: 'Nome' }]} /></label>
+      <div className="sales-pipeline-v3__metrics">
+        <button type="button" onClick={() => setIntelligenceOpen((value) => !value)} disabled={!dealPortfolio}><span>Saúde geral</span><strong>{dealPortfolio ? `${dealPortfolio.averageHealth}/100` : '—'}</strong></button>
+        <button type="button" className="is-risk" onClick={() => activateQuickSlice('risk')}><span><AlertTriangle size={13}/> Em risco</span><strong>{formatCurrency(dealPortfolio?.atRiskValue ?? 0)}</strong></button>
+        <button type="button" onClick={() => { setQuickSlice('all'); setActiveSavedViewId(null); selectViewMode('forecast') }}><span>Forecast</span><strong>{formatCurrency(revenueIntelligence?.realTalentForecast ?? dealPortfolio?.predictedValue ?? kpiTotals.weighted)}</strong></button>
+        <span className="sales-pipeline-v3__metrics-total">{formatCurrency(kpiTotals.value)} em oportunidades · {kpiTotals.noAction} sem próxima ação</span>
+      </div>
     </section>
 
+    {dealPortfolio && intelligenceOpen ? <section className="sales-pipeline-v3__analysis" aria-label="Análise da carteira">
+      <div className="sales-pipeline-v3__analysis-header"><strong>Análise comercial</strong><button type="button" onClick={() => setIntelligenceOpen(false)} aria-label="Fechar análise">Fechar <ChevronUp size={15}/></button></div>
+      <DealPortfolioPanel portfolio={dealPortfolio} title="Prioridades comerciais" maxItems={4} onOpen={(deal) => setInspectingLeadId(deal.lead.id)} onExecute={runDealAction} />
+      {totals.noAction || totals.proposalStale || totals.critical || totals.attention ? <div className="sales-pipeline-v3__analysis-actions">
+        {totals.noAction ? <button type="button" onClick={() => setFilters((current) => ({ ...current, health: 'no_action' }))}>{totals.noAction} sem próxima ação</button> : null}
+        {totals.proposalStale ? <button type="button" onClick={() => setFilters((current) => ({ ...current, health: 'proposal_stale' }))}>{totals.proposalStale} proposta sem retorno</button> : null}
+        {totals.critical ? <button type="button" onClick={() => setFilters((current) => ({ ...current, health: 'critical' }))}>{totals.critical} em risco crítico</button> : null}
+        {totals.attention ? <button type="button" onClick={() => setFilters((current) => ({ ...current, health: 'attention' }))}>{totals.attention} precisam de atenção</button> : null}
+      </div> : null}
+    </section> : null}
+
+    {pipelineFilterChips.length ? <div className="workspace-filter-chips-v10167 pipeline-filter-chips-v10168">{pipelineFilterChips.map((chip) => <button type="button" key={chip.key} onClick={() => clearPipelineFilter(chip.key)}>{chip.label} ×</button>)}<button className="is-clear" type="button" onClick={resetFilters}>Limpar filtros</button></div> : null}
 
     {filtersOpen ? <aside className="workspace-settings-drawer-v10167 pipeline-filter-drawer-v10168" aria-label="Filtros do Pipeline">
       <header><div><span>Pipeline</span><strong>Filtros comerciais</strong></div><button type="button" onClick={() => setFiltersOpen(false)} aria-label="Fechar filtros">×</button></header>
@@ -736,7 +767,20 @@ export function PipelinePage() {
     {viewMode === 'funnel' ? renderFunnel() : null}
 
     <DealInspectorModal open={Boolean(inspectingDeal)} insight={inspectingDeal} snapshot={snapshot} readOnly={!canPipelineEdit} onClose={() => setInspectingLeadId(null)} onExecute={runDealAction} onOpenAccount={(deal) => { setInspectingLeadId(null); navigate('leads', { leadId: deal.lead.id, action: 'account360' }) }} onOpenLead={(deal) => { setInspectingLeadId(null); setViewing(deal.lead) }} />
-    <CreateLeadModal mode="opportunity" open={canPipelineCreate && createStageId !== null} initialStageId={createStageId ?? undefined} onClose={() => setCreateStageId(null)} />
+    <CreateLeadModal
+      mode="opportunity"
+      open={canPipelineCreate && createStageId !== null}
+      initialStageId={createStageId ?? undefined}
+      onClose={() => setCreateStageId(null)}
+      onCreated={(lead, action) => {
+        if (action === 'open') setViewing(lead)
+        if (action === 'call') {
+          if (!canCommunicate) { notify('info', 'Este perfil não tem acesso às ligações.'); setViewing(lead); return }
+          openPipelineCall(lead)
+        }
+        if (action === 'followup') openActivity(lead, 'followup')
+      }}
+    />
     <LeadDetailsDrawer readOnly={!canPipelineEdit} lead={viewing} duplicateMatches={[]} onClose={() => setViewing(null)} onEdit={(lead) => { setViewing(null); setEditing(lead) }} onActivity={(lead, type = 'followup') => { setViewing(null); setActivityLead(lead); setActivityType(type) }} onEvent={(lead) => { setViewing(null); setActivityLead(lead); setActivityType('meeting') }} onCall={(lead) => { setViewing(null); setCallLead(lead) }} onOpenDuplicate={() => undefined} />
     <EditLeadModal lead={editing} open={canPipelineEdit && Boolean(editing)} onClose={() => setEditing(null)} />
     <ActivityModal open={canPipelineEdit && Boolean(activityLead)} initialLeadId={activityLead?.id} initialType={activityType} initialTitle={activityType === 'meeting' ? 'Reunião comercial' : 'Follow-up comercial'} onClose={() => setActivityLead(null)} />

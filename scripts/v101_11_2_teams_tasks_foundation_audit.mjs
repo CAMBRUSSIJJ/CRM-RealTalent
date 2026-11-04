@@ -25,7 +25,7 @@ ok('tasks have required statuses',types.includes("'todo' | 'in_progress' | 'bloc
 ok('tasks have required priorities',types.includes("'low' | 'normal' | 'high' | 'urgent'"))
 ok('task relations cover CRM contexts',types.includes("'contact' | 'company' | 'opportunity' | 'lead' | 'pipeline' | 'playbook' | 'meeting'"))
 ok('tasks UI provides list board today overdue completed',['Lista','Quadro','Hoje','Atrasadas','Concluídas'].every(x=>tasks.includes(x)))
-ok('tasks UI filters owner team priority',tasks.includes('Todos responsáveis')&&tasks.includes('Todas as equipes')&&tasks.includes('Todas prioridades'))
+ok('tasks UI filters owner team priority',tasks.includes('Todos os responsáveis')&&tasks.includes('Todas as equipes')&&tasks.includes('Todas as prioridades'))
 ok('task modal captures assignee team due relation checklist',taskModal.includes('Responsável')&&taskModal.includes('Equipe')&&taskModal.includes('Prazo')&&taskModal.includes('Relacionar ao CRM')&&taskModal.includes('Checklist'))
 ok('teams UI exposes workload',teams.includes('Carga de trabalho')&&teams.includes('capacity')&&teams.includes('Sobrecarregado'))
 ok('teams UI summarizes team tasks',teams.includes('Tarefas da equipe')&&teams.includes('teamOpenTasks'))

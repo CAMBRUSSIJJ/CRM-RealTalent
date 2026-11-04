@@ -40,12 +40,12 @@ const formatDuration = formatVoiceTime
 type ComposerAttachment = GatewayWhatsAppAttachmentInput & { previewUrl: string }
 type PendingMessage = { id: string; idempotencyKey: string; serverEventId?: string | null; body: string; occurredAt: string; status: PendingSendState; attachment?: ComposerAttachment | null; replyToExternalMessageId?: string | null; replyPreview?: string | null }
 
-function MessageStatus({ status }: { status: UnifiedCommunicationItem['status'] }) {
+function MessageStatus({ status, metadata }: { status: UnifiedCommunicationItem['status']; metadata?: Record<string, unknown> }) {
   if (status === 'read') return <span className="whatsapp-chat__ticks is-read" title="Lida"><CheckCheck size={14}/></span>
   if (status === 'delivered') return <span className="whatsapp-chat__ticks" title="Entregue"><CheckCheck size={14}/></span>
   if (status === 'sent') return <span className="whatsapp-chat__ticks" title="Enviada"><Check size={14}/></span>
-  if (status === 'queued') return <span className="whatsapp-chat__ticks" title="Na fila"><Clock3 size={13}/></span>
-  if (status === 'failed') return <span className="whatsapp-chat__ticks is-failed" title="Falhou"><AlertCircle size={13}/></span>
+  if (status === 'queued') return <span className="whatsapp-chat__ticks" title={metadata?.sendAttemptInProgress ? 'Enviando pelo WhatsApp; aguardando confirmação.' : 'Aguardando envio'}><Clock3 size={13}/></span>
+  if (status === 'failed') return <span className="whatsapp-chat__ticks is-failed" title={metadata?.sendUncertain ? 'Envio sem confirmação. Confira no WhatsApp antes de tentar novamente.' : 'Falha no envio'}><AlertCircle size={13}/></span>
   return null
 }
 
@@ -224,7 +224,7 @@ export function WhatsAppChatPanel({ lead, externalIdentity, workspaceId, events,
     setPendingMessages(current => [...current, { id: optimisticId, idempotencyKey, body: text, occurredAt: new Date().toISOString(), status: 'queued', attachment: selectedAttachment, replyToExternalMessageId: replyId, replyPreview }])
     window.setTimeout(() => textareaRef.current?.focus(), 0)
     try {
-      const event = await sendOfficialWhatsApp({ workspaceId, leadId: lead?.id ?? null, contactId: lead?.primaryContactId ?? null, accountId: account.id, recipient: recipient || undefined, threadId: groupThreadId || null, body: text, idempotencyKey, attachment: selectedAttachment ? { dataBase64: selectedAttachment.dataBase64, mimeType: selectedAttachment.mimeType, fileName: selectedAttachment.fileName, size: selectedAttachment.size, kind: selectedAttachment.kind } : null, replyToExternalMessageId: replyId, replyPreview })
+      const event = await sendOfficialWhatsApp({ workspaceId, leadId: lead?.id ?? null, contactId: lead?.primaryContactId ?? null, accountId: account.id, transport: account.metadata?.transport === 'qr' ? 'qr' : 'cloud', recipient: recipient || undefined, threadId: groupThreadId || null, body: text, idempotencyKey, attachment: selectedAttachment ? { dataBase64: selectedAttachment.dataBase64, mimeType: selectedAttachment.mimeType, fileName: selectedAttachment.fileName, size: selectedAttachment.size, kind: selectedAttachment.kind } : null, replyToExternalMessageId: replyId, replyPreview })
       // Keep the bubble until the official event is visible. Removing it on
       // HTTP acknowledgement caused the message to disappear during reload.
       setPendingMessages(current => current.map(item => item.idempotencyKey === idempotencyKey
@@ -245,6 +245,7 @@ export function WhatsAppChatPanel({ lead, externalIdentity, workspaceId, events,
   const retry = async (item: UnifiedCommunicationItem) => {
     const eventId = String(item.metadata?.eventId || item.id.replace(/^official:/, ''))
     if (!eventId) return
+    if (item.metadata?.sendUncertain && !window.confirm('O WhatsApp não confirmou esta mensagem. Confira no celular se ela chegou antes de tentar novamente, para evitar duplicação. Deseja reenviar mesmo assim?')) return
     try { await retryGatewayCommunication(workspaceId, eventId); onSent('Mensagem colocada novamente na fila.'); onSync() }
     catch (error) { onError(error instanceof Error ? error.message : 'Não foi possível reenviar a mensagem.') }
   }
@@ -298,7 +299,7 @@ export function WhatsAppChatPanel({ lead, externalIdentity, workspaceId, events,
             </div> : null}
             {text && !(/^\[(Imagem|Áudio|Documento|Mídia|Sticker|Vídeo)\]/.test(text) && media) ? <p>{text}</p> : null}
             <div className="whatsapp-chat__native-actions">{item.metadata?.externalMessageId ? <button type="button" onClick={() => setReplyingTo(item)} title="Responder"><Reply size={13}/></button> : null}{outbound && item.status === 'failed' ? <button type="button" onClick={() => void retry(item)} title="Tentar novamente"><RotateCcw size={13}/></button> : null}</div>
-            <footer><time title={formatDateTime(item.occurredAt)}>{timeLabel(item.occurredAt)}</time>{outbound ? <MessageStatus status={item.status}/> : null}</footer>
+            <footer><time title={formatDateTime(item.occurredAt)}>{timeLabel(item.occurredAt)}</time>{outbound ? <MessageStatus status={item.status} metadata={item.metadata}/> : null}</footer>
           </article>
         </div>
       })}<div ref={endRef}/>

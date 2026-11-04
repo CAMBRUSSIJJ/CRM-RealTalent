@@ -3,8 +3,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { Button } from '../../components/ui/button'
 import { Modal } from '../../components/ui/modal'
 import { StatusPill } from '../../components/ui/status-pill'
-import { effectiveDataMode } from '../../lib/env'
-import { loadGatewayWhatsAppQrStatus, startGatewayWhatsAppQr, type WhatsAppQrStatus } from '../../services/local-communications-gateway'
+import { loadCommunicationsGatewayHealth, loadGatewayWhatsAppQrStatus, startGatewayWhatsAppQr, type WhatsAppQrStatus } from '../../services/local-communications-gateway'
 import { loadCommunicationChannelState } from '../../services/communication-workspace'
 import type { ConnectedAccount } from '../../services/integration-framework'
 
@@ -18,25 +17,33 @@ export function WhatsAppConnectionCenter({ open, workspaceId, onClose, onChanged
   const [accounts, setAccounts] = useState<ConnectedAccount[]>([])
   const [qrStatus, setQrStatus] = useState<WhatsAppQrStatus | null>(null)
   const [busy, setBusy] = useState('')
-  const localGateway = effectiveDataMode === 'local'
+  const [qrAvailable, setQrAvailable] = useState(false)
   const connected = useMemo(() => accounts.filter((item) => item.status === 'connected'), [accounts])
-  const qrAccount = useMemo(() => accounts.find((item) => String(item.metadata?.transport || '').toLowerCase() === 'qr'), [accounts])
   const cloudAccount = useMemo(() => accounts.find((item) => String(item.metadata?.transport || '').toLowerCase() !== 'qr'), [accounts])
-  const qrLive = localGateway ? qrStatus?.state === 'connected' : qrAccount?.status === 'connected'
+  const qrLive = qrAvailable && qrStatus?.state === 'connected'
 
   const refresh = async () => {
     try {
       const state = await loadCommunicationChannelState(workspaceId)
       setAccounts(state.whatsappAccounts)
-      if (localGateway) setQrStatus(await loadGatewayWhatsAppQrStatus(workspaceId))
     } catch (error) {
       onError(error instanceof Error ? error.message : 'Não foi possível consultar o WhatsApp.')
+    }
+    try {
+      const health = await loadCommunicationsGatewayHealth()
+      if (!health.ok) throw new Error('Gateway indisponível')
+      const status = await loadGatewayWhatsAppQrStatus(workspaceId)
+      setQrStatus(status)
+      setQrAvailable(true)
+    } catch {
+      setQrStatus(null)
+      setQrAvailable(false)
     }
   }
 
   useEffect(() => { if (open) void refresh() }, [open, workspaceId])
   useEffect(() => {
-    if (!open || !localGateway || !qrStatus || !['starting', 'qr'].includes(qrStatus.state)) return
+    if (!open || !qrAvailable || !qrStatus || !['starting', 'qr'].includes(qrStatus.state)) return
     let active = true
     const id = window.setInterval(async () => {
       try {
@@ -47,10 +54,11 @@ export function WhatsAppConnectionCenter({ open, workspaceId, onClose, onChanged
       } catch { /* status polling is best effort */ }
     }, 1500)
     return () => { active = false; window.clearInterval(id) }
-  }, [open, localGateway, qrStatus?.state, workspaceId])
+  }, [open, qrAvailable, qrStatus?.state, workspaceId])
 
   const startQr = async () => {
     if (qrLive) return
+    if (!qrAvailable) { onError('Gateway de QR Code indisponível. Verifique o serviço de comunicação e tente novamente.'); return }
     setBusy('qr')
     try {
       const next = await startGatewayWhatsAppQr(workspaceId, 'RealTalent WhatsApp')
@@ -65,14 +73,14 @@ export function WhatsAppConnectionCenter({ open, workspaceId, onClose, onChanged
     <div className="wa-connection-center">
       <section className="wa-connection-center__summary">
         <div className="wa-connection-center__icon"><Wifi size={22}/></div>
-        <div><span className="eyebrow">Connection Center</span><h3>{connected.length ? 'WhatsApp conectado ao RealTalent' : 'Conecte seu WhatsApp ao workspace'}</h3><p>O canal fica disponível no chat, histórico e sincronização em tempo real sem transformar a tela em um painel técnico.</p></div>
-        <StatusPill tone={connected.length ? 'success' : 'warning'}>{connected.length ? `${connected.length} conexão(ões)` : 'Desconectado'}</StatusPill>
+        <div><span className="eyebrow">Connection Center</span><h3>{connected.length || qrLive ? 'WhatsApp conectado ao RealTalent' : 'Conecte seu WhatsApp ao workspace'}</h3><p>O canal fica disponível no chat, histórico e sincronização em tempo real sem transformar a tela em um painel técnico.</p></div>
+        <StatusPill tone={connected.length || qrLive ? 'success' : 'warning'}>{connected.length ? `${connected.length} conexão(ões)` : qrLive ? 'QR conectado' : 'Desconectado'}</StatusPill>
       </section>
 
       <div className="wa-connection-center__grid">
         <section className={`wa-connection-card ${qrLive ? 'is-connected' : ''}`}>
           <header><div className="wa-connection-card__icon"><QrCode size={20}/></div><div><strong>WhatsApp por QR Code</strong><span>Conexão rápida neste computador</span></div>{qrLive ? <CheckCircle2 size={18}/> : null}</header>
-          {localGateway ? <>
+          {qrAvailable ? <>
             {qrStatus?.state === 'connected' ? <div className="wa-connection-card__health"><span>Status</span><strong>Conectado</strong><small>{qrStatus.phone ? `+${qrStatus.phone}` : qrStatus.displayName || 'Sessão local'} · {qrStatus.engine || 'WhatsApp Web'}</small></div> : null}
             {qrStatus?.qrDataUrl && qrStatus.state === 'qr' ? <div className="wa-connection-center__qr"><img src={qrStatus.qrDataUrl} alt="QR Code para conectar o WhatsApp"/><div><strong>Escaneie pelo celular</strong><span>WhatsApp → Dispositivos conectados → Conectar dispositivo</span></div></div> : null}
             {qrStatus?.state === 'starting' ? <div className="wa-connection-card__waiting"><LoaderCircle size={18}/><span>Inicializando o WhatsApp Web. Uma sessão salva pode ser restaurada sem novo QR Code.</span></div> : null}
@@ -80,7 +88,7 @@ export function WhatsAppConnectionCenter({ open, workspaceId, onClose, onChanged
             <div className="wa-connection-card__actions">
               {qrLive ? <div className="wa-connection-card__health"><strong>Conectado — QR não necessário</strong><small>O teste de Tarefas reutiliza esta sessão.</small></div> : <Button loading={busy === 'qr'} disabled={Boolean(busy)} onClick={() => void startQr()}><QrCode size={15}/> {qrStatus?.state === 'starting' ? 'Verificar conexão' : qrStatus?.state === 'qr' ? 'Exibir QR atual' : 'Conectar por QR'}</Button>}
             </div>
-          </> : <div className="wa-connection-card__note"><ShieldCheck size={16}/><span>O QR local está disponível no launcher Linux. Neste ambiente, use a conexão oficial.</span></div>}
+          </> : <div className="wa-connection-card__note" role="status"><ShieldCheck size={16}/><span>Não foi possível acessar o gateway de QR Code. Inicie o serviço do RealTalent no Linux ou configure o gateway de Comunicação hospedado antes de parear a conta.</span><Button size="sm" variant="secondary" onClick={() => void refresh()}><RefreshCw size={14}/> Verificar gateway</Button></div>}
         </section>
 
         <section className={`wa-connection-card ${cloudAccount?.status === 'connected' ? 'is-connected' : ''}`}>

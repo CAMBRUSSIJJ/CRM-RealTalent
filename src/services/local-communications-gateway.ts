@@ -65,8 +65,11 @@ export function subscribeGatewayCommunicationsRealtime(
       if (closed || inFlight || Date.now() < nextAttemptAt) return
       inFlight = true
       try {
-        const response = await runtimeFetch(`${base()}/api/communications/events?workspaceId=${encodeURIComponent(workspaceId)}&limit=1`, { headers: { accept: 'application/json' } })
-        const payload = await response.json().catch(() => ({})) as { events?: Array<{ id?: string; createdAt?: string; updatedAt?: string }>; error?: string }
+        // Vercel cannot keep the Railway SSE stream open reliably. Poll a
+        // compact tenant-wide revision instead of inspecting only the newest
+        // event: ACK/read changes and older chats must wake the inbox too.
+        const response = await runtimeFetch(`${base()}/api/communications/revision?workspaceId=${encodeURIComponent(workspaceId)}`, { headers: { accept: 'application/json' } })
+        const payload = await response.json().catch(() => ({})) as { revision?: string; count?: number; error?: string }
         if (!response.ok) {
           // 401 do proxy exige nova sessão; 502 runtime_upstream_auth_rejected
           // exige corrigir as credenciais entre serviços, não repetir a cada 5 s.
@@ -76,8 +79,8 @@ export function subscribeGatewayCommunicationsRealtime(
           if (!closed) handlers.onState?.(authFailure ? 'offline' : 'connecting')
           return
         }
-        const event = payload.events?.[0]
-        const fingerprint = event ? `${event.id ?? ''}:${event.updatedAt ?? event.createdAt ?? ''}` : 'empty'
+        const fingerprint = String(payload.revision || '')
+        if (!fingerprint) throw new Error('Gateway não retornou a revisão do histórico.')
         if (lastFingerprint && fingerprint !== lastFingerprint && !closed) handlers.onSignal({ type: 'communications.changed', workspaceId, at: new Date().toISOString() })
         lastFingerprint = fingerprint
         failureCount = 0
@@ -90,8 +93,11 @@ export function subscribeGatewayCommunicationsRealtime(
       } finally { inFlight = false }
     }
     void poll()
-    const timer = window.setInterval(() => void poll(), 5000)
-    return () => { closed = true; window.clearInterval(timer) }
+    const onVisible = () => { if (document.visibilityState === 'visible') void poll() }
+    window.addEventListener('focus', onVisible)
+    document.addEventListener('visibilitychange', onVisible)
+    const timer = window.setInterval(() => { if (document.visibilityState === 'visible') void poll() }, 3000)
+    return () => { closed = true; window.clearInterval(timer); window.removeEventListener('focus', onVisible); document.removeEventListener('visibilitychange', onVisible) }
   }
   const source = new EventSource(`${base()}/api/communications/stream?workspaceId=${encodeURIComponent(workspaceId)}`)
   let closed = false

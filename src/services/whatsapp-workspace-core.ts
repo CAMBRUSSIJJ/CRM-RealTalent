@@ -1,9 +1,10 @@
 import type { CommunicationEvent, Lead } from '../domain/types'
 import { openExternalUrl } from '../lib/browser-actions'
 import { getSupabaseClient } from '../lib/supabase'
+import { effectiveDataMode } from '../lib/env'
 import { safeStorage } from '../lib/storage'
 import { loadIntegrationFramework, type ConnectedAccount } from './integration-framework'
-import { sendGatewayCommunication, type GatewayWhatsAppAttachmentInput } from './local-communications-gateway'
+import { loadGatewayAccounts, sendGatewayCommunication, type GatewayWhatsAppAttachmentInput } from './local-communications-gateway'
 
 export type WhatsAppMode = 'assisted' | 'official'
 export type WhatsAppTemplatePurpose = 'first_contact' | 'followup' | 'proposal' | 'meeting' | 'post_sale' | 'custom'
@@ -58,14 +59,26 @@ export const openAssistedWhatsApp = (phone: string, message: string, defaultCoun
 
 export const connectedWhatsAppAccounts = async (workspaceId: string): Promise<ConnectedAccount[]> => {
   const state = await loadIntegrationFramework(workspaceId)
-  return state.accounts.filter((item) => item.provider === 'whatsapp_cloud' && item.status === 'connected' && item.connectionMode === 'live')
+  if (effectiveDataMode === 'local') return state.accounts.filter((item) => item.provider === 'whatsapp_cloud' && item.status === 'connected' && item.connectionMode === 'live')
+  const gatewayQr = await loadGatewayAccounts(workspaceId)
+    .then((items) => items.filter((item) => item.provider === 'whatsapp_cloud' && item.metadata?.transport === 'qr' && item.status === 'connected' && item.connectionMode === 'live'))
+    .catch((): ConnectedAccount[] => [])
+  return [...state.accounts.filter((item) => item.provider === 'whatsapp_cloud' && item.status === 'connected' && item.connectionMode === 'live' && item.metadata?.transport !== 'qr'), ...gatewayQr]
 }
 
-export async function sendOfficialWhatsApp(input: { workspaceId: string; leadId?: string | null; contactId?: string | null; accountId: string; recipient?: string; threadId?: string | null; body: string; idempotencyKey?: string; attachment?: GatewayWhatsAppAttachmentInput | null; replyToExternalMessageId?: string | null; replyPreview?: string | null }): Promise<CommunicationEvent> {
-  const client = getSupabaseClient()
+export async function sendOfficialWhatsApp(input: { workspaceId: string; leadId?: string | null; contactId?: string | null; accountId: string; recipient?: string; threadId?: string | null; body: string; idempotencyKey?: string; attachment?: GatewayWhatsAppAttachmentInput | null; replyToExternalMessageId?: string | null; replyPreview?: string | null; transport?: 'qr' | 'cloud' }): Promise<CommunicationEvent> {
+  const client = effectiveDataMode === 'local' ? null : getSupabaseClient()
   const idempotencyKey = input.idempotencyKey ?? `crm-whatsapp:${input.leadId || input.threadId || input.recipient}:${Date.now()}`
-  if (client && input.threadId?.endsWith('@g.us')) throw new Error('Envio para grupos está disponível apenas no WhatsApp por QR local nesta versão.')
-  if (!client) return sendGatewayCommunication({ workspaceId: input.workspaceId, leadId: input.leadId || null, contactId: input.contactId ?? null, accountId: input.accountId, channel: 'whatsapp', recipient: input.recipient, threadId: input.threadId ?? null, body: input.body, idempotencyKey, attachment: input.attachment ?? null, replyToExternalMessageId: input.replyToExternalMessageId ?? null, replyPreview: input.replyPreview ?? null })
+  let gatewayQr = input.transport === 'qr'
+  if (client && !input.transport) {
+    // Legacy callers have no transport hint. Resolve the account by workspace
+    // instead of silently sending Railway QR account IDs to Supabase.
+    gatewayQr = await loadGatewayAccounts(input.workspaceId)
+      .then((accounts) => accounts.some((account) => account.id === input.accountId && account.metadata?.transport === 'qr'))
+      .catch(() => false)
+  }
+  if (client && !gatewayQr && input.threadId?.endsWith('@g.us')) throw new Error('Envio para grupos está disponível apenas no WhatsApp por QR nesta versão.')
+  if (!client || gatewayQr) return sendGatewayCommunication({ workspaceId: input.workspaceId, leadId: input.leadId || null, contactId: input.contactId ?? null, accountId: input.accountId, channel: 'whatsapp', recipient: input.recipient, threadId: input.threadId ?? null, body: input.body, idempotencyKey, attachment: input.attachment ?? null, replyToExternalMessageId: input.replyToExternalMessageId ?? null, replyPreview: input.replyPreview ?? null })
   const { data, error } = await client.functions.invoke('official-communication-send', { body: { organizationId: input.workspaceId, leadId: input.leadId || null, contactId: input.contactId ?? null, accountId: input.accountId, channel: 'whatsapp', recipient: input.recipient, body: input.body, idempotencyKey, attachment: input.attachment ?? null, replyToExternalMessageId: input.replyToExternalMessageId ?? null } })
   if (error) throw new Error(error.message)
   const event = (data as { event?: CommunicationEvent; error?: string } | null)?.event

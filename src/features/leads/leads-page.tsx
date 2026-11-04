@@ -1,7 +1,8 @@
 import '../../styles/account-360.css'
 import '../../styles/lead-experience-v10060.css'
+import './contacts-v3.css'
 import {
-  AlertCircle, Archive, CalendarClock, CheckSquare, Columns3, Download, Filter, Flame, Gauge, LayoutGrid, List, MoreHorizontal,
+  AlertCircle, Archive, CalendarClock, CheckSquare, ChevronDown, Columns3, Download, Filter, Flame, Gauge, LayoutGrid, List, MoreHorizontal,
   ArrowUpDown, Briefcase, MessageCircle, PhoneCall, Plus, RefreshCw, Search, Settings2, SlidersHorizontal, Star, Tag, Target, Trash2, Upload, UsersRound, X,
 } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
@@ -12,7 +13,7 @@ import { DataGrid } from '../../components/ui/data-grid'
 import { EmptyState } from '../../components/ui/empty-state'
 import { StatusPill } from '../../components/ui/status-pill'
 import { WorkspaceFilterMenu, WorkspaceSortMenu, type WorkspaceFilterField } from '../../components/workspace/workspace-filter-system'
-import { WorkspaceCommandBar, WorkspaceCommandGroup, WorkspacePageHeader, WorkspaceSummaryMetric, WorkspaceSummaryStrip } from '../../components/workspace/workspace-shell'
+import { WorkspacePageHeader } from '../../components/workspace/workspace-shell'
 import { formatCurrency, formatDateTime, initials } from '../../domain/formatters'
 import type { ActivityType, Lead, LeadPriority, LeadStatus, LeadTemperature } from '../../domain/types'
 import { safeStorage } from '../../lib/storage'
@@ -701,18 +702,24 @@ export function LeadsPage() {
   if (recordLead) return <ContactRecordPage lead={recordLead} onBack={() => clearRouteContext(['leadId', 'action'])} />
 
   return (
-    <div className={`page-stack leads-v107 contacts-page-h20 leads-v107--${density} ${viewSettingsOpen ? 'contact-view-settings-open-v10164' : ''}`}>
-      <WorkspacePageHeader className="contacts-page-header-h20" eyebrow="Base comercial" title="Contatos" description="Pessoas, empresas, prioridade comercial e próximas ações em uma única base operacional." icon={UsersRound} actions={canContactCreate ? <Button onClick={() => setCreateOpen(true)}><Plus size={17} /> Novo contato</Button> : null} />
-
-      <WorkspaceSummaryStrip className="contacts-summary-strip-h20">
-        <WorkspaceSummaryMetric label="Contatos ativos" value={stats.total} meta="Base comercial" icon={UsersRound} tone="brand" active={activeView === savedViews.find((view) => view.starterKey === 'all')?.id} onClick={() => applyStarterView('all')} />
-        <WorkspaceSummaryMetric label="Precisam de ação" value={stats.due} meta="Vencidos ou hoje" icon={CalendarClock} tone={stats.due ? 'warning' : 'success'} active={activeView === savedViews.find((view) => view.starterKey === 'due')?.id} onClick={() => applyStarterView('due')} />
-        <WorkspaceSummaryMetric label="Sem próxima ação" value={stats.noAction} meta="Risco de esquecimento" icon={AlertCircle} tone={stats.noAction ? 'danger' : 'success'} active={activeView === savedViews.find((view) => view.starterKey === 'no-action')?.id} onClick={() => applyStarterView('no-action')} />
-        <WorkspaceSummaryMetric label="Novos em 7 dias" value={stats.newLeads} meta="Entradas recentes" icon={Plus} tone="success" active={filters.quality === 'new' && activeView === 'custom'} onClick={() => { setFilters({ ...defaultFilters, quality: 'new', sort: 'created-desc' }); setActiveView('custom') }} />
-      </WorkspaceSummaryStrip>
-
-      <section className="lead-view-tabs contact-view-tabs-v1016 contact-view-tabs-v10163" aria-label="Visualizações de contatos">
-        <div className="lead-view-tabs__scroll contact-view-tabs-v10163__scroll">
+    <div className={`page-stack contacts-v3 ${density === 'compact' ? 'contacts-v3--compact' : ''} ${viewSettingsOpen ? 'contact-view-settings-open-v10164' : ''}`}>
+      <WorkspacePageHeader className="contacts-v3__header" eyebrow="Base comercial" title="Contatos" description="Pessoas, empresas, prioridade comercial e próximas ações em uma única base." icon={UsersRound} actions={canContactCreate ? <Button className="contacts-v3__new" onClick={() => setCreateOpen(true)}><Plus size={17}/> Novo contato</Button> : null} />
+      <section className="contacts-v3__kpis" aria-label="Indicadores de contatos">
+        <button type="button" className={`contacts-v3__kpi is-blue ${activeView === savedViews.find((v) => v.starterKey === 'all')?.id ? 'is-active' : ''}`} onClick={() => applyStarterView('all')}><span className="contacts-v3__kpi-icon"><UsersRound size={18}/></span><span className="contacts-v3__kpi-label">Contatos ativos</span><strong>{stats.total}</strong><small>Base comercial</small></button>
+<button type="button" className={`contacts-v3__kpi is-amber ${activeView === savedViews.find((v) => v.starterKey === 'due')?.id ? 'is-active' : ''}`} onClick={() => applyStarterView('due')}><span className="contacts-v3__kpi-icon"><CalendarClock size={18}/></span><span className="contacts-v3__kpi-label">Precisam de ação</span><strong>{stats.due}</strong><small>Vencidos ou hoje</small></button>
+<button type="button" className={`contacts-v3__kpi is-slate ${activeView === savedViews.find((v) => v.starterKey === 'no-action')?.id ? 'is-active' : ''}`} onClick={() => applyStarterView('no-action')}><span className="contacts-v3__kpi-icon"><AlertCircle size={18}/></span><span className="contacts-v3__kpi-label">Sem próxima ação</span><strong>{stats.noAction}</strong><small>Risco de esquecimento</small></button>
+<button type="button" className={`contacts-v3__kpi is-green ${filters.quality === 'new' && activeView === 'custom' ? 'is-active' : ''}`} onClick={() => { setFilters({ ...defaultFilters, quality: 'new', sort: 'created-desc' }); setActiveView('custom') }}><span className="contacts-v3__kpi-icon"><Plus size={18}/></span><span className="contacts-v3__kpi-label">Novos em 7 dias</span><strong>{stats.newLeads}</strong><small>Entradas recentes</small></button>
+      </section>
+      <section className="contacts-v3__toolbar" aria-label="Busca, filtros e visualizações">
+        <nav className="contacts-v3__quick-views" aria-label="Visualizações principais">
+          <button type="button" className={activeView === savedViews.find((v) => v.starterKey === 'all')?.id ? 'is-active' : ''} onClick={() => applyStarterView('all')}><UsersRound size={15}/>Todos os contatos</button>
+          <button type="button" className={activeView === savedViews.find((v) => v.starterKey === 'hot')?.id ? 'is-active' : ''} onClick={() => applyStarterView('hot')}><Flame size={15}/>Contatos quentes</button>
+          <button type="button" className={activeView === savedViews.find((v) => v.starterKey === 'due')?.id ? 'is-active' : ''} onClick={() => applyStarterView('due')}><CalendarClock size={15}/>Retornos pendentes</button>
+        </nav>
+        <details className="contacts-v3__views-menu"><summary>Outras visões <ChevronDown size={14}/></summary>
+          <div className="contacts-v3__views-panel">
+                  <section className="contacts-v3__saved-views" aria-label="Visualizações de contatos">
+        <div className="contacts-v3__saved-scroll">
           {savedViews.map((view) => {
             const owned = repositoryMode !== 'supabase' || view.createdBy === (user?.id ?? 'anonymous')
             return <div
@@ -769,34 +776,33 @@ export function LeadsPage() {
           </div> : null}
         </div>
       </section>
-
-      <WorkspaceCommandBar className="leads-toolbar contact-data-toolbar-v10164 workspace-command-bar-v10169 contacts-command-bar-h20">
-        <WorkspaceCommandGroup className="toolbar-card__filters">
-          <label className="search-field leads-search"><Search size={18} /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Buscar nome, empresa, telefone, e-mail, cidade, tag..." /></label>
-          <WorkspaceFilterMenu workspaceKey={`contacts:${workspaceId}`} fields={universalContactFilters} activeCount={activeFilterChips.length} onChange={(key, value) => updateFilters({ [key]: value } as Partial<LeadFilters>)} onClearAll={resetFilters} onOpenAdvanced={() => openViewSettings('filters')} />
-          <WorkspaceSortMenu value={filters.sort} onChange={(value) => updateFilters({ sort: value })} options={[{ value: 'updated-desc', label: 'Atualização recente', description: 'Últimos registros atualizados primeiro.' }, { value: 'priority', label: 'Maior prioridade', description: 'Score comercial mais alto primeiro.' }, { value: 'created-desc', label: 'Mais novos', description: 'Contatos criados mais recentemente.' }, { value: 'name', label: 'Nome A–Z' }, { value: 'value-desc', label: 'Maior valor' }, { value: 'next-action', label: 'Próxima ação', description: 'Ações mais próximas primeiro.' }, ...customProperties.flatMap((property) => [{ value: `custom:${property.id}:asc`, label: `${property.name} ↑` }, { value: `custom:${property.id}:desc`, label: `${property.name} ↓` }])]} />
-          {hasFilters ? <Button variant="ghost" onClick={resetFilters}><X size={16} /> Limpar</Button> : null}
-        </WorkspaceCommandGroup>
-        <WorkspaceCommandGroup align="end" className="toolbar-card__actions">
-          <input ref={fileRef} type="file" accept="application/json,.json,text/csv,.csv" hidden onChange={(event) => void importFile(event.target.files?.[0])} />
-          <Button variant="secondary" onClick={() => openViewSettings('overview')} aria-expanded={viewSettingsOpen}><Settings2 size={17} /> Exibição</Button>
-          <div className="lead-secondary-actions">
-            {canContactCreate ? <Button variant="secondary" loading={busy} onClick={() => fileRef.current?.click()}><Upload size={17} /> Importar</Button> : null}
-            {canContactExport ? <Button variant="secondary" onClick={downloadCsv}><Download size={17} /> Exportar</Button> : null}
           </div>
-        </WorkspaceCommandGroup>
-      </WorkspaceCommandBar>
-
+        </details>
+        <label className="contacts-v3__search"><Search size={16}/><input aria-label="Buscar contatos" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Buscar nome, e-mail, telefone..." /></label>
+        <div className="contacts-v3__filters">
+          <WorkspaceFilterMenu workspaceKey={`contacts:${workspaceId}`} fields={universalContactFilters} activeCount={activeFilterChips.length} onChange={(key, value) => updateFilters({ [key]: value } as Partial<LeadFilters>)} onClearAll={resetFilters} onOpenAdvanced={() => openViewSettings('filters')} />
+          <WorkspaceSortMenu value={filters.sort} onChange={(value) => updateFilters({ sort: value })} options={[{ value: 'updated-desc', label: 'Atualização recente', description: 'Últimos registros atualizados primeiro.' }, { value: 'priority', label: 'Maior prioridade' }, { value: 'created-desc', label: 'Mais novos' }, { value: 'name', label: 'Nome A–Z' }, { value: 'value-desc', label: 'Maior valor' }, { value: 'next-action', label: 'Próxima ação' }, ...customProperties.flatMap((property) => [{ value: `custom:${property.id}:asc`, label: `${property.name} ↑` }, { value: `custom:${property.id}:desc`, label: `${property.name} ↓` }])]} />
+          <details className="contacts-v3__more"><summary aria-label="Mais opções"><MoreHorizontal size={18}/></summary>
+            <div className="contacts-v3__more-panel">
+              <button type="button" onClick={() => openViewSettings('overview')}><Settings2 size={16}/> Configurar exibição</button>
+              <input ref={fileRef} type="file" accept="application/json,.json,text/csv,.csv" hidden onChange={(event) => void importFile(event.target.files?.[0])} />
+              {canContactCreate ? <button type="button" disabled={busy} onClick={() => fileRef.current?.click()}><Upload size={16}/> Importar contatos</button> : null}
+              {canContactExport ? <button type="button" onClick={downloadCsv}><Download size={16}/> Exportar contatos</button> : null}
+              {hasFilters ? <button type="button" onClick={resetFilters}><X size={16}/> Limpar filtros</button> : null}
+            </div>
+          </details>
+        </div>
+      </section>
 
       {activeFilterChips.length ? <section className="lead-filter-chips"><span><SlidersHorizontal size={15} /> Filtros aplicados</span>{activeFilterChips.map((chip) => <button key={chip.key} type="button" onClick={chip.clear}>{chip.label}<X size={13} /></button>)}</section> : null}
 
       <SelectionToolbar count={selected.size} label="contatos selecionados" onClear={() => setSelected(new Set())}><SelectionSelect size="sm" value="" placeholder="Mover para etapa..." disabled={busy} onValueChange={(value) => { if (value) void updateSelected({ stageId: value }) }} options={(snapshot?.stages ?? []).map((item) => ({ value: item.id, label: item.name }))} /><SelectionSelect size="sm" value="" placeholder="Alterar prioridade..." disabled={busy} onValueChange={(value) => { if (value) void updateSelected({ priority: value as LeadPriority }) }} options={[{ value: 'urgent', label: '!! Urgente' }, { value: 'high', label: '↑ Alta' }, { value: 'medium', label: '– Média' }, { value: 'low', label: '↓ Baixa' }]} /><Button variant="secondary" disabled={busy} onClick={() => void addTagSelected()}><Tag size={16} /> Adicionar tag</Button><Button variant="secondary" disabled={busy} onClick={() => void createFollowupsSelected()}><RefreshCw size={16} /> Follow-up amanhã</Button><Button variant="secondary" disabled={busy} onClick={() => void updateSelected({ status: 'archived' as LeadStatus })}><Archive size={16} /> Arquivar</Button>{canContactDelete ? <Button variant="danger" disabled={busy} onClick={() => void removeSelected()}><Trash2 size={16} /> Excluir</Button> : null}</SelectionToolbar>
 
-      <section className="panel data-panel leads-data-panel">
-        <div className="data-panel__header"><div><h3>Base de contatos</h3><p>{leads.length} de {allLeads.length} registros • página {page} de {totalPages}</p></div><div className="leads-data-panel__summary"><span><Gauge size={14} /> {leads.filter((lead) => (scoreByLead.get(lead.id)?.score ?? 0) >= crmPreferences.commercial.leadScoring.thresholds.high).length} prioritários</span><span><Flame size={14} /> {leads.filter((lead) => lead.temperature === 'hot').length} quentes</span></div></div>
+      <section className="contacts-v3__data">
+        <div className="contacts-v3__data-header"><div><h3>Base de contatos</h3><p>{leads.length} de {allLeads.length} registros • página {page} de {totalPages}</p></div><div className="contacts-v3__data-summary"><span><Gauge size={14} /> {leads.filter((lead) => (scoreByLead.get(lead.id)?.score ?? 0) >= crmPreferences.commercial.leadScoring.thresholds.high).length} prioritários</span><span><Flame size={14} /> {leads.filter((lead) => lead.temperature === 'hot').length} quentes</span></div></div>
         {leads.length ? <>
-          {(mobileView ? 'cards' : viewMode) === 'table' ? <div className="table-scroll leads-table-scroll">
-            <DataGrid className="leads-table">
+          {(mobileView ? 'cards' : viewMode) === 'table' ? <div className="contacts-v3__table-scroll">
+            <DataGrid className="contacts-v3__table">
               <thead><tr>{canContactEdit ? <th className="selection-cell"><SelectionCheckbox checked={pageSelected} indeterminate={!pageSelected && selected.size > 0} onCheckedChange={togglePage} ariaLabel="Selecionar página" /></th> : null}{visibleColumns.map((column) => <th key={column} className={`lead-column ${column.startsWith('custom:') ? 'lead-column--custom' : `lead-column--${column}`}`}>{columnLabel(column)}</th>)}<th aria-label="Ações" /></tr></thead>
               <tbody>{pageLeads.map((lead) => {
                 const leadStage = snapshot?.stages.find((item) => item.id === lead.stageId)

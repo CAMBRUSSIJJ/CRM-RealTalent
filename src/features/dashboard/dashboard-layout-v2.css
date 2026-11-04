@@ -1,0 +1,311 @@
+/* RealTalent CRM — Dashboard V2 (layout only).
+   Isolado em .dashboard-layout-v2; não altera outras abas, dados ou handlers. */
+.dashboard-layout-v2 {
+  --rt-dv2-blue: #2563eb;
+  --rt-dv2-text: #0f172a;
+  --rt-dv2-muted: #64748b;
+  --rt-dv2-line: #e2e8f0;
+  --rt-dv2-soft: #f8fafc;
+  --rt-dv2-card: #fff;
+  width: 100%;
+  max-width: 1440px;
+  margin-inline: auto;
+  padding-bottom: 24px;
+  color: var(--rt-dv2-text);
+}
+.route-transition[data-route="dashboard"] .dashboard-layout-v2 > .myday-v1016,
+.route-transition[data-route="dashboard"] .dashboard-layout-v2 > .myday-v1016.is-glance-open-v10173,
+.route-transition[data-route="dashboard"] .dashboard-layout-v2 > .myday-v1016.is-glance-collapsed-v10173 {
+  display: grid !important;
+  grid-template-columns: minmax(0, 1fr) !important;
+  align-items: start;
+  gap: 16px !important;
+  width: 100%;
+  background: transparent;
+  border: 0;
+  box-shadow: none;
+}
+.dashboard-layout-v2 .myday-v1016__main {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: minmax(180px, 1fr) minmax(0, 2.2fr);
+  grid-template-areas:
+    "hero hero"
+    "scope starters"
+    "metrics-heading metrics-heading"
+    "metrics metrics"
+    "activities-heading activities-heading"
+    "activities activities";
+  gap: 14px 16px;
+  align-items: stretch;
+}
+.dashboard-layout-v2 .myday-v1016__hero {
+  grid-area: hero;
+  min-width: 0;
+  min-height: 0 !important;
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 8px 0 10px !important;
+  margin: 0;
+  border: 0 !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+}
+.dashboard-layout-v2 .myday-v1016__hero > div:first-child { min-width: 0; flex: 1; }
+.dashboard-layout-v2 .myday-v1016__hero > div:last-child {
+  display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: 8px;
+}
+.dashboard-layout-v2 .myday-v1016__hero .eyebrow {
+  display: inline-flex; align-items: center; gap: 8px;
+  color: var(--rt-dv2-blue); font-size: 11px; font-weight: 700;
+  letter-spacing: .04em; text-transform: capitalize;
+}
+.route-transition[data-route="dashboard"] .dashboard-layout-v2 .myday-v1016__hero h2 {
+  margin: 7px 0 5px;
+  color: var(--rt-dv2-text);
+  font-size: clamp(23px, 2.25vw, 30px) !important;
+  font-weight: 750; line-height: 1.16; letter-spacing: -.035em;
+}
+.dashboard-layout-v2 .myday-v1016__hero p {
+  max-width: 720px; margin: 0; color: var(--rt-dv2-muted);
+  font-size: 13px; line-height: 1.5;
+}
+.dashboard-layout-v2 .myday-v1016__hero .button {
+  min-height: 40px; padding-inline: 15px; border-radius: 10px;
+  background: var(--rt-dv2-blue); border-color: var(--rt-dv2-blue);
+  color: #fff; font-size: 12px; white-space: nowrap;
+}
+.dashboard-layout-v2 .myday-v1016__hero .button:disabled {
+  opacity: .55; cursor: not-allowed;
+}
+.dashboard-layout-v2 .icon-action {
+  width: 40px; height: 40px; flex: 0 0 40px;
+  display: grid; place-items: center;
+  border: 1px solid var(--rt-dv2-line); border-radius: 10px;
+  background: var(--rt-dv2-card); color: var(--rt-dv2-muted);
+}
+.dashboard-layout-v2 .icon-action:hover,
+.dashboard-layout-v2 .icon-action.is-active {
+  border-color: #bfdbfe; background: #eff6ff; color: #1d4ed8;
+}
+.dashboard-layout-v2 .myday-selection-strip-v101105 {
+  grid-area: scope; min-width: 0; min-height: 76px;
+  display: flex; align-items: center; flex-wrap: wrap; gap: 9px;
+  margin: 0; padding: 14px 16px;
+  border: 1px solid var(--rt-dv2-line); border-radius: 14px;
+  background: var(--rt-dv2-card);
+}
+.dashboard-layout-v2 .myday-selection-strip-v101105 > span {
+  margin: 0; color: var(--rt-dv2-muted); font-size: 11px;
+}
+.dashboard-layout-v2 .myday-v1016__starters {
+  grid-area: starters; min-width: 0;
+  display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px;
+}
+.dashboard-layout-v2 .myday-v1016__starters > button {
+  min-width: 0; min-height: 76px; width: 100%;
+  display: flex; align-items: center; gap: 10px;
+  padding: 12px 14px;
+  border: 1px solid var(--rt-dv2-line); border-radius: 14px;
+  background: var(--rt-dv2-card);
+  color: var(--rt-dv2-text); text-align: left; cursor: pointer;
+  box-shadow: 0 1px 3px rgb(15 23 42 / 3%);
+}
+.dashboard-layout-v2 .myday-v1016__starters > button:hover {
+  border-color: #bfdbfe; background: #f8fbff;
+}
+.dashboard-layout-v2 .myday-v1016__starters > button:disabled {
+  opacity: .55; cursor: not-allowed;
+}
+.dashboard-layout-v2 .myday-v1016__starters > button > span {
+  width: 34px; height: 34px; flex: 0 0 34px;
+  display: grid; place-items: center; border-radius: 10px;
+  background: #eff6ff; color: #2563eb;
+}
+.dashboard-layout-v2 .myday-v1016__starters > button > div {
+  display: grid; gap: 3px; flex: 1; min-width: 0;
+}
+.dashboard-layout-v2 .myday-v1016__starters strong {
+  font-size: 12px; font-weight: 750; line-height: 1.4;
+}
+.dashboard-layout-v2 .myday-v1016__starters small {
+  display: -webkit-box; overflow: hidden;
+  -webkit-box-orient: vertical; -webkit-line-clamp: 2;
+  color: var(--rt-dv2-muted); font-size: 10px; line-height: 1.4;
+}
+.dashboard-layout-v2 .myday-v1016__starters > button > svg {
+  flex: 0 0 15px; color: #94a3b8;
+}
+.dashboard-layout-v2 .myday-layout-v2__heading {
+  display: flex; justify-content: space-between; align-items: end;
+  gap: 12px; min-width: 0;
+}
+.dashboard-layout-v2 .myday-layout-v2__heading--metrics { grid-area: metrics-heading; margin-top: 4px; }
+.dashboard-layout-v2 .myday-layout-v2__heading--activities { grid-area: activities-heading; margin-top: 5px; }
+.dashboard-layout-v2 .myday-layout-v2__heading h3 {
+  margin: 0; font-size: 15px; line-height: 1.3;
+  font-weight: 750; letter-spacing: -.02em; color: var(--rt-dv2-text);
+}
+.dashboard-layout-v2 .myday-layout-v2__heading > span,
+.dashboard-layout-v2 .myday-layout-v2__heading p {
+  margin: 0; font-size: 12px; line-height: 1.45; color: var(--rt-dv2-muted);
+}
+.dashboard-layout-v2 .myday-layout-v2__heading p { margin-top: 4px; }
+.dashboard-layout-v2 .health-strip {
+  grid-area: metrics;
+  display: grid !important; grid-template-columns: repeat(4, minmax(0,1fr)) !important;
+  gap: 12px; padding: 0; margin: 0;
+  background: transparent !important; border: 0 !important;
+  border-radius: 0 !important; overflow: visible !important;
+}
+.dashboard-layout-v2 .health-item {
+  position: relative; display: flex !important; flex-direction: column !important;
+  align-items: stretch !important; justify-content: flex-start;
+  gap: 0 !important; min-width: 0; min-height: 140px !important;
+  padding: 18px !important; text-align: left;
+  border: 1px solid var(--rt-dv2-line) !important;
+  border-radius: 16px !important; background: var(--rt-dv2-card) !important;
+  box-shadow: 0 1px 3px rgb(15 23 42 / 4%);
+  transition: border-color .16s ease, box-shadow .16s ease;
+}
+.dashboard-layout-v2 .health-item:hover {
+  border-color: #bfdbfe !important;
+  box-shadow: 0 8px 22px rgb(15 23 42 / 7%);
+}
+.dashboard-layout-v2 .health-item > .health-item__icon {
+  position: absolute; right: 16px; top: 15px;
+  width: 36px !important; height: 36px !important;
+  display: grid; place-items: center;
+  border: 0 !important; border-radius: 11px !important;
+  background: #eff6ff !important; color: #2563eb !important;
+}
+.dashboard-layout-v2 .health-item:nth-child(3) .health-item__icon { background: #ecfdf5 !important; color: #047857 !important; }
+.dashboard-layout-v2 .health-item:nth-child(4) .health-item__icon { background: #f5f3ff !important; color: #6d28d9 !important; }
+.dashboard-layout-v2 .health-item > span:nth-child(2) {
+  min-width: 0; padding-right: 40px;
+  display: flex !important; flex-direction: column; align-items: flex-start;
+}
+.dashboard-layout-v2 .health-item small {
+  color: #475569; font-size: 13px !important; font-weight: 650;
+  line-height: 1.35;
+}
+.dashboard-layout-v2 .health-item strong {
+  margin-top: 19px; color: var(--rt-dv2-text);
+  font-size: clamp(20px, 1.8vw, 29px) !important;
+  font-weight: 800; line-height: 1.05; letter-spacing: -.03em;
+  overflow-wrap: anywhere; max-width: 100%;
+}
+.dashboard-layout-v2 .health-item em {
+  margin-top: 11px; color: var(--rt-dv2-muted);
+  font-size: 11px !important; line-height: 1.35;
+  font-style: normal; white-space: normal !important; overflow: visible !important;
+}
+.dashboard-layout-v2 .health-item > svg { display: none; }
+.dashboard-layout-v2 .health-item--danger {
+  border-color: #fecaca !important; background: #fffafb !important;
+}
+.dashboard-layout-v2 .health-item--danger .health-item__icon {
+  background: #fef2f2 !important; color: #dc2626 !important;
+}
+.dashboard-layout-v2 .health-item--danger strong { color: #b91c1c; }
+.dashboard-layout-v2 .myday-v1016__cards {
+  grid-area: activities;
+  min-width: 0; display: grid;
+  grid-template-columns: repeat(3, minmax(0,1fr)); gap: 12px;
+}
+.route-transition[data-route="dashboard"] .dashboard-layout-v2 .myday-v1016__cards > button {
+  display: flex; flex-direction: column; align-items: flex-start;
+  gap: 10px; min-width: 0; min-height: 164px !important;
+  padding: 18px !important; border: 1px solid var(--rt-dv2-line) !important;
+  border-radius: 16px; background: var(--rt-dv2-card);
+  color: var(--rt-dv2-text); text-align: left;
+  box-shadow: 0 1px 3px rgb(15 23 42 / 3%);
+}
+.dashboard-layout-v2 .myday-v1016__cards > button:hover { border-color: #bfdbfe !important; }
+.dashboard-layout-v2 .myday-v1016__cards > button > svg {
+  width: 35px; height: 35px; padding: 9px;
+  border-radius: 10px; background: #f1f5f9; color: #475569;
+}
+.dashboard-layout-v2 .myday-v1016__cards > button > strong {
+  font-size: 13px; font-weight: 750; line-height: 1.35;
+}
+.dashboard-layout-v2 .myday-v1016__cards > button > span {
+  width: 100%; min-height: 45px; margin-top: auto;
+  display: flex; align-items: center; padding: 10px 12px;
+  border: 1px dashed var(--rt-dv2-line); border-radius: 10px;
+  background: var(--rt-dv2-soft); color: var(--rt-dv2-muted);
+  font-size: 12px; line-height: 1.4;
+}
+.dashboard-layout-v2 .myday-v1016__glance {
+  width: 100%; min-width: 0; min-height: 0 !important;
+  margin: 0; padding: 18px 20px;
+  border: 1px solid var(--rt-dv2-line); border-radius: 16px;
+  background: var(--rt-dv2-card); box-shadow: 0 1px 3px rgb(15 23 42 / 4%);
+}
+.dashboard-layout-v2 .myday-v1016__glance > header {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+}
+.dashboard-layout-v2 .myday-v1016__glance > nav {
+  display: flex; flex-wrap: wrap; gap: 4px; margin-top: 12px;
+  padding: 7px 0 10px !important; border-bottom: 1px solid var(--rt-dv2-line);
+}
+.dashboard-layout-v2 .myday-v1016__glance > nav button {
+  min-height: 32px; padding: 6px 11px; border-radius: 8px;
+  white-space: nowrap; color: var(--rt-dv2-muted);
+}
+.dashboard-layout-v2 .myday-v1016__glance > nav button.is-active {
+  background: #eff6ff; color: #1d4ed8;
+}
+.dashboard-layout-v2 .myday-v1016__glance-stats {
+  display: grid; grid-template-columns: repeat(3, minmax(0,1fr)); gap: 12px; margin-top: 14px;
+}
+.dashboard-layout-v2 .myday-v1016__glance-stats > div {
+  min-width: 0; padding: 16px;
+  border: 1px solid var(--rt-dv2-line); border-radius: 12px; background: var(--rt-dv2-soft);
+}
+.dashboard-layout-v2 .myday-v1016__glance-list { margin-top: 12px; }
+.dashboard-layout-v2 button:focus-visible {
+  outline: 2px solid var(--rt-dv2-blue); outline-offset: 3px;
+}
+@media (max-width: 1260px) {
+  .dashboard-layout-v2 .myday-v1016__main { grid-template-columns: minmax(170px, .8fr) minmax(0, 2fr); }
+  .dashboard-layout-v2 .myday-v1016__starters small { -webkit-line-clamp: 1; }
+}
+@media (max-width: 1100px) {
+  .dashboard-layout-v2 .myday-v1016__main {
+    grid-template-columns: minmax(0,1fr);
+    grid-template-areas: "hero" "scope" "starters" "metrics-heading" "metrics" "activities-heading" "activities";
+  }
+  .dashboard-layout-v2 .health-strip { grid-template-columns: repeat(2, minmax(0,1fr)) !important; }
+  .dashboard-layout-v2 .myday-selection-strip-v101105 { min-height: 54px; }
+  .dashboard-layout-v2 .myday-v1016__starters small { -webkit-line-clamp: 2; }
+}
+@media (max-width: 760px) {
+  .dashboard-layout-v2 .myday-v1016__hero { align-items: flex-start; flex-direction: column; }
+  .dashboard-layout-v2 .myday-v1016__hero > div:last-child { width: 100%; justify-content: flex-start; }
+  .dashboard-layout-v2 .myday-v1016__hero .button { flex: 1; }
+  .dashboard-layout-v2 .myday-v1016__cards { grid-template-columns: minmax(0,1fr); }
+  .dashboard-layout-v2 .myday-v1016__cards > button { min-height: 132px !important; }
+}
+@media (max-width: 530px) {
+  .dashboard-layout-v2 .myday-v1016__starters { grid-template-columns: minmax(0,1fr); }
+  .dashboard-layout-v2 .health-strip { grid-template-columns: minmax(0,1fr) !important; }
+  .dashboard-layout-v2 .health-item { min-height: 120px !important; }
+  .dashboard-layout-v2 .myday-v1016__glance-stats { grid-template-columns: minmax(0,1fr); }
+  .dashboard-layout-v2 .myday-layout-v2__heading--metrics { align-items: flex-start; flex-direction: column; }
+}
+html[data-theme="dark"] .dashboard-layout-v2 {
+  --rt-dv2-text: #eef3ff; --rt-dv2-muted: #a6b7ce;
+  --rt-dv2-line: #30415a; --rt-dv2-soft: #17243a; --rt-dv2-card: #152239;
+}
+html[data-theme="dark"] .dashboard-layout-v2 .health-item small,
+html[data-theme="dark"] .dashboard-layout-v2 .myday-v1016__hero h2 { color: var(--rt-dv2-text); }
+html[data-theme="dark"] .dashboard-layout-v2 .myday-v1016__starters > button:hover,
+html[data-theme="dark"] .dashboard-layout-v2 .health-item:hover { background: #21324d !important; }
+html[data-theme="dark"] .dashboard-layout-v2 .health-item--danger { background: #3c202a !important; }
+@media (prefers-reduced-motion: reduce) {
+  .dashboard-layout-v2 .health-item { transition: none; }
+}

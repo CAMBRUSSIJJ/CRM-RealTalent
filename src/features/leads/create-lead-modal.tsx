@@ -5,6 +5,7 @@ import { Button } from '../../components/ui/button'
 import { Modal } from '../../components/ui/modal'
 import type { Lead } from '../../domain/types'
 import { LeadForm, type LeadFormValue } from './lead-form'
+import './opportunity-create-v3.css'
 
 export type LeadCreateNextAction = 'close' | 'open' | 'call' | 'followup' | 'another'
 

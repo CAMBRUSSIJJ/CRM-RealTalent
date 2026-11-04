@@ -951,17 +951,19 @@ export function createWhatsAppBrowserQrBridge({ root, now, uuid, store, saveStor
       if (typeof session.client?.getMessageById !== 'function') return { ok: false, state: 'unsupported' }
       // Only recover one user-visible message; never trigger a full history sync.
       // Do not await Chromium indefinitely if the WhatsApp cache lacks the file.
-      let timeout = null
+      const withTimeout = async (request, limitMs) => {
+        let timer
+        try {
+          return await Promise.race([
+            request,
+            new Promise((_, reject) => { timer = setTimeout(() => reject(new Error('O WhatsApp Web demorou para responder.')), limitMs) }),
+          ])
+        } finally { clearTimeout(timer) }
+      }
       try {
-        const message = await Promise.race([
-          session.client.getMessageById(event.externalMessageId),
-          new Promise((_, reject) => { timeout = setTimeout(() => reject(new Error('Tempo limite ao consultar mídia histórica.')), 12_000) }),
-        ])
+        const message = await withTimeout(session.client.getMessageById(event.externalMessageId), 12_000)
         if (!message?.hasMedia || typeof message.downloadMedia !== 'function') return { ok: false, state: 'not_available' }
-        const media = await Promise.race([
-          message.downloadMedia(),
-          new Promise((_, reject) => { timeout = setTimeout(() => reject(new Error('Tempo limite ao baixar mídia histórica.')), 15_000) }),
-        ])
+        const media = await withTimeout(message.downloadMedia(), 15_000)
         if (!media?.data || !media?.mimetype) return { ok: false, state: 'not_available' }
         const ref = persistMedia({
           dataBase64: media.data, mimeType: media.mimetype,
@@ -979,8 +981,6 @@ export function createWhatsAppBrowserQrBridge({ root, now, uuid, store, saveStor
         return { ok: true, state: 'ready', attachment: ref }
       } catch (error) {
         return { ok: false, state: 'download_failed', message: String(error?.message || error).slice(0, 180) }
-      } finally {
-        if (timeout) clearTimeout(timeout)
       }
     })()
     mediaRecoveryRequests.set(key, promise)

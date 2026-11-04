@@ -76,7 +76,7 @@ test('healthy upstream response is passed back', async () => {
 const QR_WORKSPACE = '4d26b0a2-1391-48ba-b6a1-5c0def2490a6'
 const QR_USER = 'ff091d5e-ab2f-4f3f-94ad-1ad555a12345'
 
-async function qrScenario({ role = 'owner', method = 'GET', workspaceId = QR_WORKSPACE, membershipStatus = 200 } = {}) {
+async function qrScenario({ role = 'owner', method = 'GET', workspaceId = QR_WORKSPACE, membershipStatus = 200, path = '' } = {}) {
   const originalFetch = globalThis.fetch
   const originalEnv = Object.fromEntries(envKeys.map((key) => [key, process.env[key]]))
   let result = ''
@@ -99,8 +99,8 @@ async function qrScenario({ role = 'owner', method = 'GET', workspaceId = QR_WOR
       }
       return new Response(JSON.stringify({ ok:true, state: 'idle' }), { status: 200, headers: { 'content-type': 'application/json' } })
     }
-    const qrPath = method === 'POST' ? '/api/integrations/whatsapp/qr/start'
-      : '/api/integrations/whatsapp/qr/status?workspaceId=' + encodeURIComponent(workspaceId)
+    const qrPath = path || (method === 'POST' ? '/api/integrations/whatsapp/qr/start'
+      : '/api/integrations/whatsapp/qr/status?workspaceId=' + encodeURIComponent(workspaceId))
     await proxyRuntime({
       method,
       url: '/api/runtime/communications' + qrPath,
@@ -163,4 +163,40 @@ test('owner/admin QR permission: authorized POST pairing retains original reques
   assert.equal(allowed.status, 200)
   assert.equal(allowed.calls.length, 3)
   assert.deepEqual(JSON.parse(allowed.calls[2].options.body), { workspaceId: QR_WORKSPACE, displayName:'RealTalent' })
+})
+
+test('gateway data API: QR chat history and account list require matching workspace membership', async () => {
+  for (const path of [
+    '/api/communications/events?workspaceId=' + QR_WORKSPACE,
+    '/api/integrations/accounts?workspaceId=' + QR_WORKSPACE,
+  ]) {
+    const member = await qrScenario({ role:'member',path })
+    assert.equal(member.status,200)
+    assert.equal(member.calls.length,3)
+    const outsider = await qrScenario({ role:null,path })
+    assert.equal(outsider.status,403)
+    assert.equal(outsider.body.error,'workspace_membership_required')
+    assert.equal(outsider.calls.length,2)
+  }
+})
+
+test('gateway data API: sync uses workspace authorization and refuses mismatched tenant', async () => {
+  const path='/api/communications/sync'
+  const allowed=await qrScenario({role:'member',method:'POST',path})
+  assert.equal(allowed.status,200)
+  assert.equal(allowed.calls.length,3)
+  const denied=await qrScenario({role:null,method:'POST',path})
+  assert.equal(denied.status,403)
+  assert.equal(denied.body.error,'workspace_membership_required')
+  assert.equal(denied.calls.length,2)
+  const unknown=await qrScenario({role:'admin',method:'GET',path:'/api/communications/events?workspaceId=other-tenant'})
+  assert.equal(unknown.status,400)
+  assert.equal(unknown.calls.length,1)
+})
+
+test('gateway data API: membership lookup failures cannot leak conversations', async () => {
+  const result=await qrScenario({path:'/api/communications/events?workspaceId='+QR_WORKSPACE,membershipStatus:500})
+  assert.equal(result.status,503)
+  assert.equal(result.body.error,'workspace_permission_check_unavailable')
+  assert.equal(result.calls.length,2)
 })

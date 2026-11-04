@@ -32,6 +32,9 @@ on:
       - 'scripts/communications-qr-live-contract.test.mjs'
       - 'scripts/realtalent-communications-gateway.mjs'
       - 'scripts/communications-store-utils.mjs'
+      - 'runtime-host/RealTalent-CRM-V101.11.3-CR10-H1-Agent-V3.1.2-Linux-Launcher/scripts/realtalent-communications-gateway.mjs'
+      - 'runtime-host/RealTalent-CRM-V101.11.3-CR10-H1-Agent-V3.1.2-Linux-Launcher/scripts/communications-store-utils.mjs'
+      - 'runtime-host/RealTalent-CRM-V101.11.3-CR10-H1-Agent-V3.1.2-Linux-Launcher/scripts/communications-live-revision.mjs'
       - 'src/features/communications/whatsapp-chat-panel.tsx'
       - 'src/services/local-communications-gateway.ts'
       - 'api/runtime/_proxy.mjs'
@@ -90,6 +93,7 @@ jobs:
       - name: Verificar WhatsApp QR envio assíncrono e atualização em tempo real
         run: |
           node --check scripts/realtalent-communications-gateway.mjs
+          node --check runtime-host/RealTalent-CRM-V101.11.3-CR10-H1-Agent-V3.1.2-Linux-Launcher/scripts/realtalent-communications-gateway.mjs
           node --test scripts/communications-live-revision.test.mjs
           node --test scripts/communications-qr-live-contract.test.mjs
           node --test scripts/v101_8_4_h9_communications_reliability_smoke.mjs

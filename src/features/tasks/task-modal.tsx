@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { CalendarClock, Check, CheckSquare2, GripVertical, Link2, Plus, Save, Trash2, UserRound, UsersRound, X } from 'lucide-react'
+import { Check, CheckSquare2, GripVertical, Link2, Plus, Save, Trash2, UserRound, UsersRound } from 'lucide-react'
 import { NativeSelectionSelect } from '../../components/selection'
 import { Button } from '../../components/ui/button'
 import { Modal } from '../../components/ui/modal'
@@ -201,6 +201,7 @@ export function TaskModal({ open, task, relation, checklist, teams, memberships,
               <UsersRound size={14}/><span>{selectedTeam?.name ?? 'Sem equipe'}</span><span aria-hidden="true">·</span><UserRound size={14}/><span>{selectedMember?.displayName ?? 'Sem responsável'}</span>
             </div> : null}
             {teamId && !availableMembers.length ? <small className="task-board-v3__helper">Esta equipe não possui integrantes. Adicione membros em Equipes para atribuir.</small> : null}
+            {selectedMember && !selectedTeam && teamsForAssignee.length ? <small className="task-board-v3__helper">Este responsável participa de {teamsForAssignee.map((team) => team.name).join(', ')}.</small> : null}
           </section>
 
           <section className="task-board-v3__section" aria-labelledby="task-board-v3-context">

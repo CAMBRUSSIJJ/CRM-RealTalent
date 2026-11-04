@@ -13,6 +13,7 @@ const gateway = read('scripts/realtalent-communications-gateway.mjs')
 const hostedGateway = read('runtime-host/RealTalent-CRM-V101.11.3-CR10-H1-Agent-V3.1.2-Linux-Launcher/scripts/realtalent-communications-gateway.mjs')
 const ui = read('src/features/communications/whatsapp-chat-panel.tsx')
 const proxy = read('api/runtime/_proxy.mjs')
+const launcher = read('scripts/start.mjs')
 
 test('only QR media belonging to this workspace can be recovered', () => {
   const event = { workspaceId:'test-workspace',channel:'whatsapp',hasAttachments:true,externalMessageId:'true_551199999999@c.us_abc', metadata:{transport:'qr'} }
@@ -57,6 +58,12 @@ test('historical media route requires a workspace membership before hosted proxy
   assert.match(ui,/recoverGatewayWhatsAppMedia/)
   assert.match(ui,/mediaAttemptsRef/)
   assert.ok(!ui.includes('recoverMedia(eventId, true); await sendOfficialWhatsApp'))
+})
+
+test('Linux launcher switches away from old WhatsApp sidecar after media fix', () => {
+  assert.match(launcher, /COMM_EXPECTED_SEND_REVISION = 'msgkey-dollar1-media-realtime-20261104'/)
+  assert.match(gateway, /WHATSAPP_SEND_RETURN_REVISION = 'msgkey-dollar1-media-realtime-20261104'/)
+  assert.match(launcher, /restoreReferencedCommunicationMedia\(ROOT/)
 })
 
 test('migration restores only existing attachment references without overwriting local files', () => {

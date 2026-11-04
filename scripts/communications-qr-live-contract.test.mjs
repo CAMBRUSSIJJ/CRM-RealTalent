@@ -14,7 +14,7 @@ test('new QR send accepted before slow whatsapp-web.js execution',()=>{
   assert.match(gateway,/async function acceptQrSend\(/)
   assert.match(gateway,/saveStore\(snapshot\)[\s\S]*?void \(async \(\) =>/)
   assert.match(gateway,/return json\(res,202,\{event:accepted,accepted:true\}\)/)
-  assert.match(gateway,/sendAttemptInProgress:true/)
+  assert.match(gateway,/sendAttemptInProgress:\s*true/)
   assert.match(gateway,/idempotencyEvent\(s,b\); if\(existing\)/)
 })
 
@@ -22,7 +22,7 @@ test('server persists completion and never performs ambiguous auto re-send',()=>
   assert.match(gateway,/sendAttemptInProgress:false,sendUncertain:false,lastSendError:null/)
   assert.match(gateway,/if\(!mayAutoRetryQueuedQrEvent\(event\)&&event\.metadata\?\.manualRetryRequested!==true\)/)
   assert.match(gateway,/retrySafety:'requires_review',sendUncertain:true/)
-  assert.match(gateway,/legacy queued/i)
+  assert.match(gateway,/Legacy timed-out/i)
   assert.match(store,/request:\$\{idempotency\}/)
 })
 

@@ -7,6 +7,7 @@ import { URL } from 'node:url'
 import { createWhatsAppBrowserQrBridge } from './whatsapp-browser-qr-bridge.mjs'
 import { eventIdentityKey, mergeCommunicationEvent, mergeStoreSnapshots } from './communications-store-utils.mjs'
 import { createRealtimeBus } from './communications-realtime-bus.mjs'
+import { workspaceCommunicationsRevision, mayAutoRetryQueuedQrEvent } from './communications-live-revision.mjs'
 import { looksLikeEncodedMediaText } from './whatsapp-sync-utils.mjs'
 
 const ROOT = path.resolve(path.dirname(new URL(import.meta.url).pathname), '..')
@@ -26,6 +27,7 @@ const EXTRA_ALLOWED_HOSTS = String(process.env.REALTALENT_COMMUNICATIONS_ALLOWED
 const INTERNAL_ALLOWED_ORIGINS = new Set([`http://127.0.0.1:${CRM_PORT}`, `http://localhost:${CRM_PORT}`, 'http://127.0.0.1:4173', 'http://localhost:4173', 'http://127.0.0.1:4174', 'http://localhost:4174'])
 // historical marker: const VERSION = '101.8.4-h10'
 const VERSION = '101.8.4-h13'
+const WHATSAPP_LIVE_FIX_VERSION = '20261104-qr-async-revision-v1'
 let shuttingDown = false
 let fatalScheduled = false
 function fatal(label, error) {
@@ -120,9 +122,9 @@ async function performWhatsAppTransport(account, cred, input, attachmentRef = nu
 }
 function queueWhatsAppEvent(snapshot, input, account, attachmentRef = null, error = null) {
   const existing = idempotencyEvent(snapshot, input)
-  if (existing) { existing.status='queued'; existing.metadata={...(existing.metadata||{}),outbox:true,lastSendError:error?String(error.message||error):null,nextRetryAt:now(),attachment:attachmentRef||existing.metadata?.attachment||null}; saveStore(snapshot); return existing }
+  if (existing) { existing.status='queued'; existing.metadata={...(existing.metadata||{}),outbox:true,retrySafety:error?.message==='WhatsApp desconectado. A mensagem ficará na fila.'?'confirmed_not_attempted':'requires_review',lastSendError:error?String(error.message||error):null,nextRetryAt:now(),attachment:attachmentRef||existing.metadata?.attachment||null}; saveStore(snapshot); return existing }
   const isGroup=String(input.threadId||'').endsWith('@g.us')
-  const event=makeEvent({workspaceId:input.workspaceId,leadId:input.leadId||null,contactId:input.contactId||null,accountId:account.id,channel:'whatsapp',direction:'outbound',status:'queued',threadId:input.threadId||null,senderAddress:String(account.metadata?.displayPhoneNumber||account.displayName||''),recipientAddresses:input.recipient?[String(input.recipient)]:[],bodyText:String(input.body||''),replyToExternalMessageId:input.replyToExternalMessageId||null,hasAttachments:Boolean(attachmentRef),metadata:{provider:account.provider,transport:account.metadata?.transport||null,idempotencyKey:input.idempotencyKey||null,peerAddress:!isGroup?String(input.recipient||'').replace(/\D/g,''):null,isGroup,unofficial:account.metadata?.transport==='qr',outbox:true,attempts:0,lastSendError:error?String(error.message||error):null,nextRetryAt:now(),attachment:attachmentRef||null,replyPreview:input.replyPreview||null}})
+  const event=makeEvent({workspaceId:input.workspaceId,leadId:input.leadId||null,contactId:input.contactId||null,accountId:account.id,channel:'whatsapp',direction:'outbound',status:'queued',threadId:input.threadId||null,senderAddress:String(account.metadata?.displayPhoneNumber||account.displayName||''),recipientAddresses:input.recipient?[String(input.recipient)]:[],bodyText:String(input.body||''),replyToExternalMessageId:input.replyToExternalMessageId||null,hasAttachments:Boolean(attachmentRef),metadata:{provider:account.provider,transport:account.metadata?.transport||null,idempotencyKey:input.idempotencyKey||null,peerAddress:!isGroup?String(input.recipient||'').replace(/\D/g,''):null,isGroup,unofficial:account.metadata?.transport==='qr',outbox:true,retrySafety:error?.message==='WhatsApp desconectado. A mensagem ficará na fila.'?'confirmed_not_attempted':'requires_review',attempts:0,lastSendError:error?String(error.message||error):null,nextRetryAt:now(),attachment:attachmentRef||null,replyPreview:input.replyPreview||null}})
   pushEvent(snapshot,event);saveStore(snapshot);return event
 }
 function isWhatsAppMediaIdRegression(error) { return /Data passed to getter must include an id property|how we memoize|WHATSAPP_WEB_MEDIA_ID_REGRESSION/i.test(String(error?.code||'')+' '+String(error?.message||error||'')) }
@@ -155,7 +157,7 @@ async function executeCommunicationSend(snapshot, input, account) {
   })
   pushEvent(snapshot,event)
   const stored=(snapshot.events||[]).find(item=>eventIdentityKey(item)===eventIdentityKey(event))||event
-  stored.status='sent'; stored.replyToExternalMessageId=input.replyToExternalMessageId||stored.replyToExternalMessageId||null; stored.hasAttachments=Boolean(attachmentRef||stored.hasAttachments); stored.metadata={...(stored.metadata||{}),attachment:attachmentRef||stored.metadata?.attachment||null,replyPreview:input.replyPreview||stored.metadata?.replyPreview||null,outbox:false}
+  stored.status='sent'; stored.replyToExternalMessageId=input.replyToExternalMessageId||stored.replyToExternalMessageId||null; stored.hasAttachments=Boolean(attachmentRef||stored.hasAttachments); stored.metadata={...(stored.metadata||{}),attachment:attachmentRef||stored.metadata?.attachment||null,replyPreview:input.replyPreview||stored.metadata?.replyPreview||null,outbox:false,sendAttemptInProgress:false,sendUncertain:false,lastSendError:null}
   account.lastError=null; account.updatedAt=now(); saveStore(snapshot)
   return stored
 }
@@ -165,12 +167,36 @@ async function attemptQueuedWhatsAppEvent(snapshot,event,account){
     const cred=account.metadata?.transport==='qr'?null:await credential(snapshot,account)
     const input={workspaceId:event.workspaceId,leadId:event.leadId,contactId:event.contactId,accountId:event.accountId,channel:'whatsapp',recipient:event.recipientAddresses?.[0]||'',threadId:event.threadId||null,body:event.bodyText||'',idempotencyKey:event.metadata?.idempotencyKey||null,replyToExternalMessageId:event.replyToExternalMessageId||null,replyPreview:event.metadata?.replyPreview||null}
     const result=await performWhatsAppTransport(account,cred,input,ref)
-    event.externalMessageId=result.id||event.externalMessageId||null; event.threadId=result.threadId||event.threadId||null; event.status='sent'; event.metadata={...(event.metadata||{}),outbox:false,lastSendError:null,lastAttemptAt:now(),attempts:Number(event.metadata?.attempts||0)+1}; account.lastError=null; account.updatedAt=now(); return true
-  }catch(error){event.status='queued';event.metadata={...(event.metadata||{}),outbox:true,lastSendError:String(error?.message||error),lastAttemptAt:now(),attempts:Number(event.metadata?.attempts||0)+1,nextRetryAt:new Date(Date.now()+Math.min(30000,2000*Math.max(1,Number(event.metadata?.attempts||1)))).toISOString()};return false}
+    event.externalMessageId=result.id||event.externalMessageId||null; event.threadId=result.threadId||event.threadId||null; event.status='sent'; event.metadata={...(event.metadata||{}),outbox:false,manualRetryRequested:false,sendUncertain:false,lastSendError:null,lastAttemptAt:now(),attempts:Number(event.metadata?.attempts||0)+1}; account.lastError=null; account.updatedAt=now(); return true
+  }catch(error){
+    if(account.metadata?.transport==='qr'){
+      event.status='failed'
+      event.metadata={...(event.metadata||{}),outbox:false,manualRetryRequested:false,
+        retrySafety:'requires_review',sendUncertain:true,
+        lastSendError:String(error?.message||error),lastAttemptAt:now(),
+        attempts:Number(event.metadata?.attempts||0)+1}
+    }else{
+      event.status='queued'
+      event.metadata={...(event.metadata||{}),outbox:true,lastSendError:String(error?.message||error),
+        lastAttemptAt:now(),attempts:Number(event.metadata?.attempts||0)+1,
+        nextRetryAt:new Date(Date.now()+Math.min(30000,2000*Math.max(1,Number(event.metadata?.attempts||1)))).toISOString()}
+    }
+    return false
+  }
 }
 async function drainWhatsAppOutbox(){
   if(outboxDraining)return;outboxDraining=true
-  try{const snapshot=store();let touched=false;for(const event of snapshot.events||[]){if(event.channel!=='whatsapp'||event.direction!=='outbound'||event.status!=='queued'||event.metadata?.outbox!==true)continue;if(event.metadata?.nextRetryAt&&Date.parse(String(event.metadata.nextRetryAt))>Date.now())continue;const account=accountById(snapshot,event.workspaceId,event.accountId);if(!account||account.status!=='connected')continue;await attemptQueuedWhatsAppEvent(snapshot,event,account);touched=true}if(touched)saveStore(snapshot)}finally{outboxDraining=false}
+  try{const snapshot=store();let touched=false;for(const event of snapshot.events||[]){if(event.channel!=='whatsapp'||event.direction!=='outbound'||event.status!=='queued'||event.metadata?.outbox!==true)continue;
+      if(!mayAutoRetryQueuedQrEvent(event)&&event.metadata?.manualRetryRequested!==true){
+        if(event.metadata?.transport==='qr'){
+          event.status='failed'
+          event.metadata={...(event.metadata||{}),outbox:false,sendAttemptInProgress:false,
+            sendUncertain:true,retrySafety:'requires_review',
+            lastSendError:event.metadata?.lastSendError||'Envio anterior sem confirmação. Confira no WhatsApp antes de reenviar.'}
+          touched=true
+        }
+        continue
+      }if(event.metadata?.nextRetryAt&&Date.parse(String(event.metadata.nextRetryAt))>Date.now())continue;const account=accountById(snapshot,event.workspaceId,event.accountId);if(!account||account.status!=='connected')continue;await attemptQueuedWhatsAppEvent(snapshot,event,account);touched=true}if(touched)saveStore(snapshot)}finally{outboxDraining=false}
 }
 for (const account of store().accounts || []) { if (account.provider==='whatsapp_cloud' && account.metadata?.transport==='qr' && account.status==='connected') { whatsappQr.start(account.workspaceId, account.displayName).catch(err=>console.warn('WhatsApp QR restore:', err instanceof Error ? err.message : String(err))) } }
 
@@ -233,7 +259,7 @@ async function route(req,res){
   if(internalApi&&!originAllowed(req))return json(res,403,{error:'Origem não autorizada para o Communications Gateway.'})
   if(internalApi&&!internalAuthorized(req))return json(res,401,{error:'Autenticação local do Communications Gateway ausente ou inválida.'})
   const s=store();
-  if(req.method==='GET'&&u.pathname==='/api/communications/health'){const google=providerConfig('google');const microsoft=providerConfig('microsoft');return json(res,200,{ok:true,mode:'local-gateway',version:VERSION,security:{runtimeAuth:Boolean(RUNTIME_TOKEN),hostValidation:true,originValidation:true,webhooksFailClosed:true},providers:{google:Boolean(google.clientId),microsoft:Boolean(microsoft.clientId),whatsapp:true,whatsappQr:true},syncIntervalMs:SYNC_INTERVAL_MS,realtime:{transport:'sse',...realtimeBus.stats()}})}
+  if(req.method==='GET'&&u.pathname==='/api/communications/health'){const google=providerConfig('google');const microsoft=providerConfig('microsoft');return json(res,200,{ok:true,mode:'local-gateway',version:VERSION,whatsappLiveFixRevision:WHATSAPP_LIVE_FIX_VERSION,security:{runtimeAuth:Boolean(RUNTIME_TOKEN),hostValidation:true,originValidation:true,webhooksFailClosed:true},providers:{google:Boolean(google.clientId),microsoft:Boolean(microsoft.clientId),whatsapp:true,whatsappQr:true},syncIntervalMs:SYNC_INTERVAL_MS,realtime:{transport:'sse',...realtimeBus.stats()}})}
   if(req.method==='GET'&&u.pathname==='/api/integrations/accounts'){const workspaceId=u.searchParams.get('workspaceId')||'';const accounts=s.accounts.filter(a=>a.workspaceId===workspaceId&&a.status!=='revoked').map(a=>{const view=safeAccount(a);if(a.provider==='whatsapp_cloud'&&a.metadata?.transport==='qr'){const live=whatsappQr.status(a.workspaceId);view.metadata={...(view.metadata||{}),liveState:live.state,qrEngine:live.engine||a.metadata?.qrEngine};if(live.state==='connected'){view.status='connected';view.lastError=null}else if(['starting','disconnected','idle'].includes(live.state)){view.status='attention';view.lastError=live.lastError||a.lastError||'WhatsApp QR reconectando.'}else if(live.state==='qr'){view.status='attention';view.lastError='WhatsApp QR aguardando leitura do código.'}}return view});return json(res,200,{accounts})}
   if(req.method==='POST'&&u.pathname==='/api/integrations/oauth/start'){const b=await body(req); if(!['google','microsoft'].includes(b.provider))return json(res,400,{error:b.provider==='whatsapp_cloud'?'No modo Linux local, conecte o WhatsApp Business pela tela WhatsApp informando o token permanente e o Phone Number ID.':'Este provedor ainda exige o backend hospedado.'}); try{return json(res,200,{mode:'oauth',url:authUrl(b.provider,b.workspaceId,b.returnUrl),message:'OAuth real iniciado pelo gateway local.'})}catch(e){return json(res,400,{error:e.message})}}
   if(req.method==='GET'&&(u.pathname==='/oauth/google/callback'||u.pathname==='/oauth/microsoft/callback')){const provider=u.pathname.includes('google')?'google':'microsoft';const stateId=u.searchParams.get('state')||'';const code=u.searchParams.get('code')||'';const error=u.searchParams.get('error_description')||u.searchParams.get('error');const st=oauthStates.get(stateId);oauthStates.delete(stateId);if(error)return html(res,400,`<h2>Conexão cancelada</h2><p>${escapeHtml(error)}</p>`);if(!st||st.provider!==provider||Date.now()-st.createdAt>10*60_000)return html(res,400,'<h2>Estado OAuth inválido ou expirado.</h2>');try{const token=await tokenExchange(provider,code,st.verifier);token.expires_at=Date.now()+Number(token.expires_in||3600)*1000;const who=await identity(provider,token.access_token);const date=now();const existing=s.accounts.find(a=>a.workspaceId===st.workspaceId&&a.provider===provider&&a.externalAccountId===who.id);const account={id:existing?.id||uuid(),workspaceId:st.workspaceId,provider,externalAccountId:who.id,displayName:who.email||who.name,status:'connected',scopes:scopes(provider),credential:encrypt(token),tokenExpiresAt:new Date(token.expires_at).toISOString(),lastSyncAt:existing?.lastSyncAt||null,lastError:null,capabilities:cap(provider),metadata:{email:who.email},createdAt:existing?.createdAt||date,updatedAt:date};upsertAccount(s,account);saveStore(s);const ret=new URL(st.returnUrl);ret.searchParams.set('integration','connected');ret.searchParams.set('provider',provider);res.writeHead(302,{location:ret.toString(),'cache-control':'no-store'});return res.end()}catch(e){return html(res,500,`<h2>Falha ao conectar ${escapeHtml(provider)}</h2><p>${escapeHtml(e instanceof Error?e.message:e)}</p>`)} }
@@ -271,9 +297,63 @@ async function route(req,res){
     req.on('close',close);req.on('aborted',close)
     return
   }
+  if(req.method==='GET'&&u.pathname==='/api/communications/revision'){
+    const workspaceId=String(u.searchParams.get('workspaceId')||'')
+    if(!workspaceId)return json(res,400,{error:'Workspace é obrigatório.'})
+    return json(res,200,{ok:true,...workspaceCommunicationsRevision(s.events,workspaceId)})
+  }
   if(req.method==='GET'&&u.pathname==='/api/communications/events'){const workspaceId=u.searchParams.get('workspaceId')||'';const limit=Math.min(5000,Math.max(1,Number(u.searchParams.get('limit')||3000)));const events=s.events.filter(e=>e.workspaceId===workspaceId).sort((a,b)=>Date.parse(b.occurredAt)-Date.parse(a.occurredAt)).slice(0,limit);return json(res,200,{events})}
   if(req.method==='GET'&&u.pathname.startsWith('/api/communications/media/')){const parts=u.pathname.split('/').filter(Boolean);const id=String(parts[3]||'').replace(/[^a-zA-Z0-9-]/g,'');const file=id?mediaDiskPath({id}):'';if(!file||!fs.existsSync(file))return json(res,404,{error:'Mídia não encontrada.'});const stat=fs.statSync(file);res.writeHead(200,{'content-type':contentTypeFor(file),'content-length':stat.size,'cache-control':'private, max-age=3600','x-content-type-options':'nosniff'});return fs.createReadStream(file).pipe(res)}
-  if(req.method==='POST'&&u.pathname==='/api/communications/retry'){const b=await body(req);const event=(s.events||[]).find(item=>item.id===String(b.eventId||'')&&item.workspaceId===String(b.workspaceId||'')&&item.channel==='whatsapp'&&item.direction==='outbound');if(!event)return json(res,404,{error:'Mensagem não encontrada.'});event.status='queued';event.metadata={...(event.metadata||{}),outbox:true,nextRetryAt:now(),lastSendError:null};saveStore(s);void drainWhatsAppOutbox();return json(res,200,{event})}
+  if(req.method==='POST'&&u.pathname==='/api/communications/retry'){const b=await body(req);const event=(s.events||[]).find(item=>item.id===String(b.eventId||'')&&item.workspaceId===String(b.workspaceId||'')&&item.channel==='whatsapp'&&item.direction==='outbound');if(!event)return json(res,404,{error:'Mensagem não encontrada.'});event.status='queued';event.metadata={...(event.metadata||{}),outbox:true,manualRetryRequested:true,nextRetryAt:now(),lastSendError:null};saveStore(s);void drainWhatsAppOutbox();return json(res,200,{event})}
+// A QR send can outlive Vercel's 55s upstream timeout. Acknowledge the
+// attempt promptly, persist its idempotency key before touching WhatsApp Web,
+// and reconcile the same event when the WhatsApp operation eventually returns.
+// Never retry an ambiguous attempt automatically.
+async function acceptQrSend(snapshot, input, account) {
+  const attachmentRef = await ensureAttachmentRef(input)
+  const isGroup = String(input.threadId || '').endsWith('@g.us')
+  const event = makeEvent({
+    workspaceId: input.workspaceId, leadId: input.leadId || null, contactId: input.contactId || null,
+    accountId: account.id, channel: 'whatsapp', direction: 'outbound', status: 'queued',
+    threadId: input.threadId || null,
+    senderAddress: String(account.metadata?.displayPhoneNumber || account.displayName || ''),
+    recipientAddresses: input.recipient ? [String(input.recipient)] : [],
+    bodyText: String(input.body || ''),
+    replyToExternalMessageId: input.replyToExternalMessageId || null,
+    hasAttachments: Boolean(attachmentRef),
+    metadata: {
+      provider: account.provider, transport: 'qr', unofficial: true,
+      idempotencyKey: input.idempotencyKey || null, peerAddress: !isGroup ? String(input.recipient || '').replace(/\D/g,'') : null,
+      isGroup, outbox: false, sendAttemptInProgress: true, sendUncertain: false,
+      attachment: attachmentRef || null, replyPreview: input.replyPreview || null,
+    },
+  })
+  pushEvent(snapshot, event)
+  saveStore(snapshot)
+  void (async () => {
+    try {
+      const current = store()
+      const freshAccount = accountById(current, input.workspaceId, input.accountId)
+      if (!freshAccount) throw new Error('Conta WhatsApp não encontrada no gateway.')
+      await executeCommunicationSend(current, input, freshAccount)
+    } catch (error) {
+      const current = store()
+      const pending = idempotencyEvent(current, input)
+      // A message_create/ACK callback can already have confirmed this send.
+      if (!pending || ['sent', 'delivered', 'read'].includes(pending.status)) return
+      pending.status = 'failed'
+      pending.metadata = {
+        ...(pending.metadata || {}), outbox: false, sendAttemptInProgress: false,
+        sendUncertain: true, retrySafety: 'requires_review',
+        lastSendError: `WhatsApp não confirmou o envio. Confira no celular antes de tentar novamente. ${String(error?.message || error || '').slice(0,220)}`,
+      }
+      saveStore(current)
+      console.warn('[WhatsApp QR] Envio não confirmado; reenvio automático bloqueado:', String(error?.message || error || '').slice(0,240))
+    }
+  })().catch(error => console.error('[WhatsApp QR] Falha ao reconciliar envio:', String(error?.message || error || '').slice(0,240)))
+  return event
+}
+
   if(req.method==='POST'&&u.pathname==='/api/communications/send'){
     const b=await body(req); const a=accountById(s,b.workspaceId,b.accountId)
     if(b.channel==='whatsapp'&&looksLikeEncodedMediaText(b.body)){b.body=''}
@@ -283,6 +363,11 @@ async function route(req,res){
     const lockKey=String(b.idempotencyKey||'').trim()?`${b.workspaceId}|${b.accountId}|${b.channel}|${b.idempotencyKey}`:''
     try{
       if(lockKey&&sendLocks.has(lockKey))return json(res,200,{event:await sendLocks.get(lockKey),idempotent:true})
+      if(b.channel==='whatsapp'&&a.metadata?.transport==='qr'&&a.status==='connected'
+        && !/^task-whatsapp-manual-test:/.test(String(b.idempotencyKey||''))){
+        const accepted=await acceptQrSend(s,b,a)
+        return json(res,202,{event:accepted,accepted:true})
+      }
       const operation=(async()=>{
         if(b.channel==='whatsapp'&&a.status!=='connected'){const ref=await ensureAttachmentRef(b);return queueWhatsAppEvent(s,b,a,ref,new Error('WhatsApp desconectado. A mensagem ficará na fila.'))}
         try{return await executeCommunicationSend(s,b,a)}catch(error){if(b.channel==='whatsapp'&&isWhatsAppMediaIdRegression(error))return await failedWhatsAppEvent(s,b,a,error);if(b.channel==='whatsapp'&&retryableWhatsAppError(error)){const ref=await ensureAttachmentRef(b);return queueWhatsAppEvent(s,b,a,ref,error)}throw error}
@@ -292,7 +377,23 @@ async function route(req,res){
     }catch(e){a.lastError=e instanceof Error?e.message:String(e);a.updatedAt=now();saveStore(s);return json(res,502,{error:a.lastError})}
     finally{if(lockKey)sendLocks.delete(lockKey)}
   }
-  if(req.method==='POST'&&u.pathname==='/api/communications/sync'){const b=await body(req);const list=s.accounts.filter(a=>a.workspaceId===b.workspaceId&&(a.status==='connected'||(a.provider==='whatsapp_cloud'&&a.metadata?.transport==='qr'&&a.status==='attention'))&&(!b.accountId||a.id===b.accountId));let imported=0;const triggered=[];const failures=[];for(const a of list){try{const n=await syncAccount(s,a);imported+=n;triggered.push(a.id);a.lastError=null;a.status='connected'}catch(e){a.lastError=e instanceof Error?e.message:String(e);a.updatedAt=now();const live=a.metadata?.transport==='qr'?whatsappQr.status(a.workspaceId):null;failures.push({accountId:a.id,provider:a.provider,transport:a.metadata?.transport||null,displayName:a.displayName||'',liveState:live?.state||null,message:a.lastError})}}saveStore(s);return json(res,200,{queued:[],triggered,accounts:list.length,imported,failures})}
+  if(req.method==='POST'&&u.pathname==='/api/communications/sync'){const b=await body(req);const list=s.accounts.filter(a=>a.workspaceId===b.workspaceId&&(a.status==='connected'||(a.provider==='whatsapp_cloud'&&a.metadata?.transport==='qr'&&a.status==='attention'))&&(!b.accountId||a.id===b.accountId));let imported=0;const triggered=[];const failures=[];for(const a of list){
+      if(a.metadata?.transport==='qr'){
+        // Do not block a Vercel request on a long WhatsApp Web history import.
+        triggered.push(a.id)
+        void (async()=>{
+          const current=store()
+          const account=accountById(current,a.workspaceId,a.id)
+          if(!account)return
+          try{await syncAccount(current,account,{background:true});account.lastError=null}
+          catch(error){account.lastError=String(error?.message||error);account.updatedAt=now();console.warn('[WhatsApp QR] Sync incremental:',account.lastError.slice(0,200))}
+          finally{saveStore(current)}
+        })().catch(error=>console.warn('[WhatsApp QR] Sync em segundo plano:',String(error?.message||error).slice(0,200)))
+        continue
+      }
+      try{const n=await syncAccount(s,a);imported+=n;triggered.push(a.id);a.lastError=null;a.status='connected'}
+      catch(e){a.lastError=e instanceof Error?e.message:String(e);a.updatedAt=now();failures.push({accountId:a.id,provider:a.provider,transport:a.metadata?.transport||null,displayName:a.displayName||'',liveState:null,message:a.lastError})}
+    }saveStore(s);return json(res,200,{queued:[],triggered,accounts:list.length,imported,failures})}
   if(req.method==='POST'&&u.pathname==='/api/communications/read'){const b=await body(req);if(!b.workspaceId)return json(res,400,{error:'Workspace é obrigatório.'});const updated=markConversationRead(s,{workspaceId:String(b.workspaceId),threadId:String(b.threadId||''),peerAddress:String(b.peerAddress||'')});if(updated)saveStore(s);return json(res,200,{updated})}
   if(req.method==='GET'&&u.pathname==='/webhooks/whatsapp'){const token=String(config().whatsappWebhookVerifyToken||'').trim();if(!token)return json(res,503,{error:'Webhook WhatsApp bloqueado: verify token não configurado.'});if(u.searchParams.get('hub.mode')==='subscribe'&&constantTimeTextEqual(u.searchParams.get('hub.verify_token')||'',token)){res.writeHead(200,{'content-type':'text/plain','cache-control':'no-store'});return res.end(u.searchParams.get('hub.challenge')||'')}return res.writeHead(403).end()}
   if(req.method==='POST'&&u.pathname==='/webhooks/whatsapp'){const b=await body(req);if(!String(config().metaAppSecret||'').trim())return json(res,503,{error:'Webhook WhatsApp bloqueado: Meta App Secret não configurado.'});if(!validWebhookSignature(req))return json(res,401,{error:'Assinatura Meta inválida.'});const imported=await parseWhatsAppWebhook(s,b);saveStore(s);return json(res,200,{ok:true,imported})}

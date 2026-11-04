@@ -330,6 +330,19 @@ async function acceptQrSend(snapshot, input, account) {
   })
   pushEvent(snapshot, event)
   saveStore(snapshot)
+  // Keep an unknown WhatsApp outcome visible as "verify", never an endless
+  // clock. The WhatsApp Web call continues; a later ACK can upgrade the event.
+  const confirmationTimer = setTimeout(() => {
+    const current = store()
+    const pending = idempotencyEvent(current, input)
+    if (!pending || pending.status !== 'queued' || pending.metadata?.sendAttemptInProgress !== true) return
+    pending.status = 'failed'
+    pending.metadata = { ...(pending.metadata || {}), outbox: false,
+      sendAttemptInProgress: false, sendUncertain: true, retrySafety: 'requires_review',
+      lastSendError: 'WhatsApp ainda não confirmou o envio. Confira no celular antes de tentar novamente.' }
+    saveStore(current)
+  }, 40_000)
+  confirmationTimer.unref?.()
   void (async () => {
     try {
       const current = store()
@@ -349,6 +362,8 @@ async function acceptQrSend(snapshot, input, account) {
       }
       saveStore(current)
       console.warn('[WhatsApp QR] Envio não confirmado; reenvio automático bloqueado:', String(error?.message || error || '').slice(0,240))
+    } finally {
+      clearTimeout(confirmationTimer)
     }
   })().catch(error => console.error('[WhatsApp QR] Falha ao reconciliar envio:', String(error?.message || error || '').slice(0,240)))
   return event

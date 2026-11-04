@@ -16,6 +16,8 @@ import { buildCadenceOutcomePatches, buildCadenceStatePatches } from '../service
 import { createId } from '../lib/id'
 import { goalProgress } from '../services/metrics'
 import { recordDiagnostic } from '../lib/diagnostics'
+import { getSupabaseClient } from '../lib/supabase'
+import { recoverStartupRead } from '../services/startup-auth-recovery'
 import { recordContactDraft, recordSellerNotification } from '../services/automation-operations'
 import { dispatchAutomationWebhook } from '../services/automation-webhooks'
 import { createAutomationEventExecutor } from '../services/automation-event-executor'
@@ -177,8 +179,17 @@ export function AppProvider({ children }: PropsWithChildren) {
   const loadWorkspace = useCallback(async (workspace: Workspace) => {
     setLoading(true); setError(null)
     try {
+      const loadInitialSnapshot = () => loadProgressiveWorkspaceSnapshot(repository, workspace, routeRef.current)
+      const recoverAuth = async () => {
+        const client = getSupabaseClient()
+        if (!client) return false
+        const { data, error } = await client.auth.refreshSession()
+        return Boolean(!error && data.session)
+      }
       const [progressive, accessSnapshot, workManagement] = await Promise.all([
-        loadProgressiveWorkspaceSnapshot(repository, workspace, routeRef.current),
+        repository.mode === 'supabase'
+          ? recoverStartupRead(loadInitialSnapshot, recoverAuth)
+          : loadInitialSnapshot(),
         loadTeamAccessControl(repository.mode, workspace.id).catch(() => ({ profiles: defaultAccessProfiles(workspace.id), assignments: [] })),
         loadWorkManagement(repository.mode, workspace.id).catch(() => ({ teams: [], memberships: [], tasks: [], relations: [], checklistItems: [], comments: [] })),
       ])

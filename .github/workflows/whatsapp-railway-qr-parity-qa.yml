@@ -30,6 +30,16 @@ jobs:
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
         with:
           node-version: '22'
+      - name: Install exact locked project dependencies
+        run: npm ci --include=dev --no-fund --no-audit
+      - name: Validate QR expiry behavior without connecting a WhatsApp phone
+        run: node --test scripts/whatsapp-qr-recovery-policy.test.mjs
+      - name: Validate hosted WhatsApp integration contracts
+        run: node --test scripts/hosted-whatsapp-qr-regression.test.mjs scripts/communications-qr-live-contract.test.mjs
+      - name: Validate CRM TypeScript and production build
+        run: |
+          npm run typecheck
+          npm run build
       - name: Validate browser bridge and helpers syntax
         run: |
           node --check scripts/whatsapp-browser-qr-bridge.mjs

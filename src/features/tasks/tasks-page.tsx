@@ -328,7 +328,7 @@ function TaskBoard({ tasks, teamById, relationByTask, checklistItems, diagnostic
     {status:'completed',label:'Concluídas'},
   ]
   const [dropTarget, setDropTarget] = useState<TaskStatus | null>(null)
-  const moveTask = (event: DragEvent<HTMLDivElement>, target: TaskStatus) => {
+  const moveTask = (event: DragEvent<HTMLElement>, target: TaskStatus) => {
     event.preventDefault()
     setDropTarget(null)
     if (readOnly) return

@@ -227,7 +227,18 @@ async function attemptQueuedWhatsAppEvent(snapshot,event,account){
 }
 async function drainWhatsAppOutbox(){
   if(outboxDraining)return;outboxDraining=true
-  try{const snapshot=store();let touched=false;for(const event of snapshot.events||[]){if(event.channel!=='whatsapp'||event.direction!=='outbound'||event.status!=='queued'||event.metadata?.outbox!==true)continue;if(!mayAutoRetryQueuedQrEvent(event)&&event.metadata?.manualRetryRequested!==true)continue;if(event.metadata?.nextRetryAt&&Date.parse(String(event.metadata.nextRetryAt))>Date.now())continue;const account=accountById(snapshot,event.workspaceId,event.accountId);if(!account||account.status!=='connected')continue;await attemptQueuedWhatsAppEvent(snapshot,event,account);touched=true}if(touched)saveStore(snapshot)}finally{outboxDraining=false}
+  try{const snapshot=store();let touched=false;for(const event of snapshot.events||[]){if(event.channel!=='whatsapp'||event.direction!=='outbound'||event.status!=='queued'||event.metadata?.outbox!==true)continue;if(!mayAutoRetryQueuedQrEvent(event)&&event.metadata?.manualRetryRequested!==true){
+  if(event.metadata?.transport==='qr'){
+    // Legacy timed-out sends from before h19 must be reviewed, not silently
+    // retried after a restart. We cannot know if WhatsApp delivered them.
+    event.status='failed'
+    event.metadata={...(event.metadata||{}),outbox:false,sendAttemptInProgress:false,sendUncertain:true,
+      retrySafety:'requires_review',
+      lastSendError:event.metadata?.lastSendError||'Envio anterior sem confirmação. Confira no WhatsApp antes de reenviar.'}
+    touched=true
+  }
+  continue
+}if(event.metadata?.nextRetryAt&&Date.parse(String(event.metadata.nextRetryAt))>Date.now())continue;const account=accountById(snapshot,event.workspaceId,event.accountId);if(!account||account.status!=='connected')continue;await attemptQueuedWhatsAppEvent(snapshot,event,account);touched=true}if(touched)saveStore(snapshot)}finally{outboxDraining=false}
 }
 for (const account of store().accounts || []) { if (account.provider==='whatsapp_cloud' && account.metadata?.transport==='qr' && account.status==='connected') { whatsappQr.start(account.workspaceId, account.displayName).catch(err=>console.warn('WhatsApp QR restore:', err instanceof Error ? err.message : String(err))) } }
 

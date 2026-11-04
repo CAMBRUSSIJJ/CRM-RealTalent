@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { Check, CheckSquare2, GripVertical, Link2, Plus, Save, Trash2, UserRound, UsersRound } from 'lucide-react'
+import { Check, CheckSquare2, GripVertical, Link2, Plus, Save, Trash2, UserRound } from 'lucide-react'
 import { NativeSelectionSelect } from '../../components/selection'
 import { Button } from '../../components/ui/button'
 import { Modal } from '../../components/ui/modal'
@@ -153,24 +153,22 @@ export function TaskModal({ open, task, relation, checklist, teams, memberships,
     open={open}
     size="xl"
     title={task ? 'Editar tarefa' : 'Nova tarefa'}
-    subtitle="Planeje, atribua e acompanhe tudo em um único quadro."
     onClose={onClose}
     footer={<div className="task-board-v3__footer">
-      <span className="task-board-v3__footer-hint">{checklistDraft.length ? `${checklistCompleted}/${checklistDraft.length} itens concluídos` : 'Campos e ferramentas em um só lugar'}</span>
       <Button type="button" variant="secondary" onClick={onClose}>Cancelar</Button>
       <Button type="button" loading={loading} disabled={!title.trim()} onClick={() => void submit()}><Save size={16}/>{task ? 'Salvar alterações' : 'Criar tarefa'}</Button>
     </div>}
   >
     <div className="task-board-v3">
       <label className="task-board-v3__title">
-        <span className="sr-only">Título da tarefa</span>
-        <input autoFocus data-autofocus value={title} onChange={(event) => setTitle(event.target.value)} placeholder="O que precisa ser feito?" aria-label="Título da tarefa" maxLength={250} />
+        <span className="task-board-v3__title-label">Título</span>
+        <input autoFocus data-autofocus value={title} onChange={(event) => setTitle(event.target.value)} placeholder="Ex.: Revisar proposta para o cliente" aria-label="Título da tarefa" maxLength={250} />
       </label>
 
       <div className="task-board-v3__layout">
         <div className="task-board-v3__primary">
           <section className="task-board-v3__section" aria-labelledby="task-board-v3-plan">
-            <header className="task-board-v3__section-head"><strong id="task-board-v3-plan">Planejamento</strong><span>Defina a execução e quem será responsável.</span></header>
+            <header className="task-board-v3__section-head"><strong id="task-board-v3-plan">Planejamento</strong></header>
             <div className="task-board-v3__fields">
               <label className="task-board-v3__field"><span>Responsável</span>
                 <NativeSelectionSelect value={assigneeId} onChange={(event) => chooseAssignee(event.target.value)}>
@@ -197,17 +195,14 @@ export function TaskModal({ open, task, relation, checklist, teams, memberships,
               </label>
               <label className="task-board-v3__field"><span>Tags</span><input value={tags} onChange={(event) => setTags(event.target.value)} placeholder="proposta, retorno..." /></label>
             </div>
-            {selectedMember || selectedTeam ? <div className="task-board-v3__assignment">
-              <UsersRound size={14}/><span>{selectedTeam?.name ?? 'Sem equipe'}</span><span aria-hidden="true">·</span><UserRound size={14}/><span>{selectedMember?.displayName ?? 'Sem responsável'}</span>
-            </div> : null}
             {teamId && !availableMembers.length ? <small className="task-board-v3__helper">Esta equipe não possui integrantes. Adicione membros em Equipes para atribuir.</small> : null}
             {selectedMember && !selectedTeam && teamsForAssignee.length ? <small className="task-board-v3__helper">Este responsável participa de {teamsForAssignee.map((team) => team.name).join(', ')}.</small> : null}
           </section>
 
           <section className="task-board-v3__section" aria-labelledby="task-board-v3-context">
-            <header className="task-board-v3__section-head"><strong id="task-board-v3-context">Descrição e contexto</strong><span>Informações para a pessoa executar a tarefa.</span></header>
+            <header className="task-board-v3__section-head"><strong id="task-board-v3-context">Descrição e vínculo</strong></header>
             <label className="task-board-v3__field task-board-v3__field--wide"><span>Descrição</span>
-              <textarea rows={3} value={description} onChange={(event) => setDescription(event.target.value)} placeholder="Descreva o resultado esperado, orientações e links de referência..." />
+              <textarea rows={2} value={description} onChange={(event) => setDescription(event.target.value)} placeholder="Descreva o resultado esperado, orientações e links de referência..." />
             </label>
             <div className="task-board-v3__relation">
               <label className="task-board-v3__field"><span><Link2 size={14}/> Relacionar ao CRM</span>
@@ -228,13 +223,12 @@ export function TaskModal({ open, task, relation, checklist, teams, memberships,
             {task && task.assigneeId === assigneeId && task.status === status
               ? <LocalTeamTaskWhatsAppAction workspaceId={workspaceId} task={task} member={selectedMember}/>
               : <div className="task-board-v3__automation-note">
-                  <UserRound size={16}/><div><strong>WhatsApp · {selectedMember.displayName}</strong>
-                    <small>{selectedMember.whatsappPhone ? `Telefone cadastrado: •••• ${selectedMember.whatsappPhone.slice(-4)}` : 'Telefone ainda não cadastrado na equipe.'}</small>
-                    <p>{selectedMember.whatsappAutoEnabledAt && reminders.enabled && reminders.onAssignment
-                      ? 'Ao salvar, a atribuição será programada no gateway local. O envio depende de conexão ativa.'
+                  <UserRound size={15}/><div><strong>WhatsApp de {selectedMember.displayName}</strong>
+                    <small>{selectedMember.whatsappAutoEnabledAt && reminders.enabled && reminders.onAssignment
+                      ? 'Aviso de atribuição programado ao salvar, se o gateway estiver conectado.'
                       : selectedMember.whatsappAutoEnabledAt
-                        ? 'Ative os lembretes e “Ao atribuir a tarefa” para agendar o aviso automático.'
-                        : 'A automação de WhatsApp precisa ser ativada para esta pessoa em Equipes.'}</p>
+                        ? 'Ative o lembrete de atribuição para avisar automaticamente.'
+                        : 'Automação não ativada para este integrante.'}</small>
                   </div>
                 </div>}
           </section> : null}
@@ -279,6 +273,7 @@ export function TaskModal({ open, task, relation, checklist, teams, memberships,
               dueAt={dueAt}
               status={status}
               open={open}
+              compact
             />
           </div>
         </div>

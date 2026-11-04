@@ -8,6 +8,7 @@ import { URL } from 'node:url'
 import { createWhatsAppBrowserQrBridge } from './whatsapp-browser-qr-bridge.mjs'
 import { eventIdentityKey, mergeCommunicationEvent, mergeStoreSnapshots } from './communications-store-utils.mjs'
 import { createRealtimeBus } from './communications-realtime-bus.mjs'
+import { workspaceCommunicationsRevision, mayAutoRetryQueuedQrEvent } from './communications-live-revision.mjs'
 import { looksLikeEncodedMediaText } from './whatsapp-sync-utils.mjs'
 import { createLocalTaskWhatsAppScheduler } from './local-task-whatsapp-scheduler.mjs'
 
@@ -38,7 +39,7 @@ const PUBLIC_APP_URL = String(process.env.REALTALENT_PUBLIC_APP_URL || '').trim(
 const EXTRA_ALLOWED_HOSTS = String(process.env.REALTALENT_COMMUNICATIONS_ALLOWED_HOSTS || '').split(',').map((value) => value.trim().toLowerCase()).filter(Boolean)
 const INTERNAL_ALLOWED_ORIGINS = new Set([`http://127.0.0.1:${CRM_PORT}`, `http://localhost:${CRM_PORT}`, 'http://127.0.0.1:4173', 'http://localhost:4173', 'http://127.0.0.1:4174', 'http://localhost:4174'])
 // historical marker: const VERSION = '101.8.4-h10'
-const VERSION = '101.8.4-h18'
+const VERSION = '101.8.4-h19'
 // Allows the Linux launcher to detect a healthy but stale Communications process.
 const WHATSAPP_SEND_RETURN_REVISION = 'msgkey-dollar1-20261102'
 let shuttingDown = false
@@ -135,9 +136,9 @@ async function performWhatsAppTransport(account, cred, input, attachmentRef = nu
 }
 function queueWhatsAppEvent(snapshot, input, account, attachmentRef = null, error = null) {
   const existing = idempotencyEvent(snapshot, input)
-  if (existing) { existing.status='queued'; existing.metadata={...(existing.metadata||{}),outbox:true,lastSendError:error?String(error.message||error):null,nextRetryAt:now(),attachment:attachmentRef||existing.metadata?.attachment||null}; saveStore(snapshot); return existing }
+  if (existing) { existing.status='queued'; existing.metadata={...(existing.metadata||{}),outbox:true,retrySafety:error?.message==='WhatsApp desconectado. A mensagem ficará na fila.'?'confirmed_not_attempted':'requires_review',lastSendError:error?String(error.message||error):null,nextRetryAt:now(),attachment:attachmentRef||existing.metadata?.attachment||null}; saveStore(snapshot); return existing }
   const isGroup=String(input.threadId||'').endsWith('@g.us')
-  const event=makeEvent({workspaceId:input.workspaceId,leadId:input.leadId||null,contactId:input.contactId||null,accountId:account.id,channel:'whatsapp',direction:'outbound',status:'queued',threadId:input.threadId||null,senderAddress:String(account.metadata?.displayPhoneNumber||account.displayName||''),recipientAddresses:input.recipient?[String(input.recipient)]:[],bodyText:String(input.body||''),replyToExternalMessageId:input.replyToExternalMessageId||null,hasAttachments:Boolean(attachmentRef),metadata:{provider:account.provider,transport:account.metadata?.transport||null,idempotencyKey:input.idempotencyKey||null,peerAddress:!isGroup?String(input.recipient||'').replace(/\D/g,''):null,isGroup,unofficial:account.metadata?.transport==='qr',outbox:true,attempts:0,lastSendError:error?String(error.message||error):null,nextRetryAt:now(),attachment:attachmentRef||null,replyPreview:input.replyPreview||null}})
+  const event=makeEvent({workspaceId:input.workspaceId,leadId:input.leadId||null,contactId:input.contactId||null,accountId:account.id,channel:'whatsapp',direction:'outbound',status:'queued',threadId:input.threadId||null,senderAddress:String(account.metadata?.displayPhoneNumber||account.displayName||''),recipientAddresses:input.recipient?[String(input.recipient)]:[],bodyText:String(input.body||''),replyToExternalMessageId:input.replyToExternalMessageId||null,hasAttachments:Boolean(attachmentRef),metadata:{provider:account.provider,transport:account.metadata?.transport||null,idempotencyKey:input.idempotencyKey||null,peerAddress:!isGroup?String(input.recipient||'').replace(/\D/g,''):null,isGroup,unofficial:account.metadata?.transport==='qr',outbox:true,retrySafety:error?.message==='WhatsApp desconectado. A mensagem ficará na fila.'?'confirmed_not_attempted':'requires_review',attempts:0,lastSendError:error?String(error.message||error):null,nextRetryAt:now(),attachment:attachmentRef||null,replyPreview:input.replyPreview||null}})
   pushEvent(snapshot,event);saveStore(snapshot);return event
 }
 function isWhatsAppMediaIdRegression(error) { return /Data passed to getter must include an id property|how we memoize|WHATSAPP_WEB_MEDIA_ID_REGRESSION/i.test(String(error?.code||'')+' '+String(error?.message||error||'')) }
@@ -195,7 +196,7 @@ async function executeCommunicationSend(snapshot, input, account) {
   })
   pushEvent(snapshot,event)
   const stored=(snapshot.events||[]).find(item=>eventIdentityKey(item)===eventIdentityKey(event))||event
-  stored.status='sent'; stored.replyToExternalMessageId=input.replyToExternalMessageId||stored.replyToExternalMessageId||null; stored.hasAttachments=Boolean(attachmentRef||stored.hasAttachments); stored.metadata={...(stored.metadata||{}),attachment:attachmentRef||stored.metadata?.attachment||null,replyPreview:input.replyPreview||stored.metadata?.replyPreview||null,outbox:false}
+  stored.status='sent'; stored.replyToExternalMessageId=input.replyToExternalMessageId||stored.replyToExternalMessageId||null; stored.hasAttachments=Boolean(attachmentRef||stored.hasAttachments); stored.metadata={...(stored.metadata||{}),attachment:attachmentRef||stored.metadata?.attachment||null,replyPreview:input.replyPreview||stored.metadata?.replyPreview||null,outbox:false,sendAttemptInProgress:false,sendUncertain:false,lastSendError:null}
   account.lastError=null; account.updatedAt=now(); saveStore(snapshot)
   return stored
 }
@@ -210,7 +211,7 @@ async function attemptQueuedWhatsAppEvent(snapshot,event,account){
 }
 async function drainWhatsAppOutbox(){
   if(outboxDraining)return;outboxDraining=true
-  try{const snapshot=store();let touched=false;for(const event of snapshot.events||[]){if(event.channel!=='whatsapp'||event.direction!=='outbound'||event.status!=='queued'||event.metadata?.outbox!==true)continue;if(event.metadata?.nextRetryAt&&Date.parse(String(event.metadata.nextRetryAt))>Date.now())continue;const account=accountById(snapshot,event.workspaceId,event.accountId);if(!account||account.status!=='connected')continue;await attemptQueuedWhatsAppEvent(snapshot,event,account);touched=true}if(touched)saveStore(snapshot)}finally{outboxDraining=false}
+  try{const snapshot=store();let touched=false;for(const event of snapshot.events||[]){if(event.channel!=='whatsapp'||event.direction!=='outbound'||event.status!=='queued'||event.metadata?.outbox!==true)continue;if(!mayAutoRetryQueuedQrEvent(event)&&event.metadata?.manualRetryRequested!==true)continue;if(event.metadata?.nextRetryAt&&Date.parse(String(event.metadata.nextRetryAt))>Date.now())continue;const account=accountById(snapshot,event.workspaceId,event.accountId);if(!account||account.status!=='connected')continue;await attemptQueuedWhatsAppEvent(snapshot,event,account);touched=true}if(touched)saveStore(snapshot)}finally{outboxDraining=false}
 }
 for (const account of store().accounts || []) { if (account.provider==='whatsapp_cloud' && account.metadata?.transport==='qr' && account.status==='connected') { whatsappQr.start(account.workspaceId, account.displayName).catch(err=>console.warn('WhatsApp QR restore:', err instanceof Error ? err.message : String(err))) } }
 
@@ -364,9 +365,63 @@ async function route(req,res){
     req.on('close',close);req.on('aborted',close)
     return
   }
+  if(req.method==='GET'&&u.pathname==='/api/communications/revision'){
+    const workspaceId=String(u.searchParams.get('workspaceId')||'')
+    if(!workspaceId)return json(res,400,{error:'Workspace é obrigatório.'})
+    return json(res,200,{ok:true,...workspaceCommunicationsRevision(s.events,workspaceId)})
+  }
   if(req.method==='GET'&&u.pathname==='/api/communications/events'){const workspaceId=u.searchParams.get('workspaceId')||'';const limit=Math.min(5000,Math.max(1,Number(u.searchParams.get('limit')||3000)));const events=s.events.filter(e=>e.workspaceId===workspaceId).sort((a,b)=>Date.parse(b.occurredAt)-Date.parse(a.occurredAt)).slice(0,limit);return json(res,200,{events})}
   if(req.method==='GET'&&u.pathname.startsWith('/api/communications/media/')){const parts=u.pathname.split('/').filter(Boolean);const id=String(parts[3]||'').replace(/[^a-zA-Z0-9-]/g,'');const file=id?mediaDiskPath({id}):'';if(!file||!fs.existsSync(file))return json(res,404,{error:'Mídia não encontrada.'});const stat=fs.statSync(file);res.writeHead(200,{'content-type':contentTypeFor(file),'content-length':stat.size,'cache-control':'private, max-age=3600','x-content-type-options':'nosniff'});return fs.createReadStream(file).pipe(res)}
-  if(req.method==='POST'&&u.pathname==='/api/communications/retry'){const b=await body(req);const event=(s.events||[]).find(item=>item.id===String(b.eventId||'')&&item.workspaceId===String(b.workspaceId||'')&&item.channel==='whatsapp'&&item.direction==='outbound');if(!event)return json(res,404,{error:'Mensagem não encontrada.'});event.status='queued';event.metadata={...(event.metadata||{}),outbox:true,nextRetryAt:now(),lastSendError:null};saveStore(s);void drainWhatsAppOutbox();return json(res,200,{event})}
+  if(req.method==='POST'&&u.pathname==='/api/communications/retry'){const b=await body(req);const event=(s.events||[]).find(item=>item.id===String(b.eventId||'')&&item.workspaceId===String(b.workspaceId||'')&&item.channel==='whatsapp'&&item.direction==='outbound');if(!event)return json(res,404,{error:'Mensagem não encontrada.'});event.status='queued';event.metadata={...(event.metadata||{}),outbox:true,manualRetryRequested:true,nextRetryAt:now(),lastSendError:null};saveStore(s);void drainWhatsAppOutbox();return json(res,200,{event})}
+// A QR send can outlive Vercel's 55s upstream timeout. Acknowledge the
+// attempt promptly, persist its idempotency key before touching WhatsApp Web,
+// and reconcile the same event when the WhatsApp operation eventually returns.
+// Never retry an ambiguous attempt automatically.
+async function acceptQrSend(snapshot, input, account) {
+  const attachmentRef = await ensureAttachmentRef(input)
+  const isGroup = String(input.threadId || '').endsWith('@g.us')
+  const event = makeEvent({
+    workspaceId: input.workspaceId, leadId: input.leadId || null, contactId: input.contactId || null,
+    accountId: account.id, channel: 'whatsapp', direction: 'outbound', status: 'queued',
+    threadId: input.threadId || null,
+    senderAddress: String(account.metadata?.displayPhoneNumber || account.displayName || ''),
+    recipientAddresses: input.recipient ? [String(input.recipient)] : [],
+    bodyText: String(input.body || ''),
+    replyToExternalMessageId: input.replyToExternalMessageId || null,
+    hasAttachments: Boolean(attachmentRef),
+    metadata: {
+      provider: account.provider, transport: 'qr', unofficial: true,
+      idempotencyKey: input.idempotencyKey || null, peerAddress: !isGroup ? String(input.recipient || '').replace(/\\D/g,'') : null,
+      isGroup, outbox: false, sendAttemptInProgress: true, sendUncertain: false,
+      attachment: attachmentRef || null, replyPreview: input.replyPreview || null,
+    },
+  })
+  pushEvent(snapshot, event)
+  saveStore(snapshot)
+  void (async () => {
+    try {
+      const current = store()
+      const freshAccount = accountById(current, input.workspaceId, input.accountId)
+      if (!freshAccount) throw new Error('Conta WhatsApp não encontrada no gateway.')
+      await executeCommunicationSend(current, input, freshAccount)
+    } catch (error) {
+      const current = store()
+      const pending = idempotencyEvent(current, input)
+      // A message_create/ACK callback can already have confirmed this send.
+      if (!pending || ['sent', 'delivered', 'read'].includes(pending.status)) return
+      pending.status = 'failed'
+      pending.metadata = {
+        ...(pending.metadata || {}), outbox: false, sendAttemptInProgress: false,
+        sendUncertain: true, retrySafety: 'requires_review',
+        lastSendError: `WhatsApp não confirmou o envio. Confira no celular antes de tentar novamente. ${String(error?.message || error || '').slice(0,220)}`,
+      }
+      saveStore(current)
+      console.warn('[WhatsApp QR] Envio não confirmado; reenvio automático bloqueado:', String(error?.message || error || '').slice(0,240))
+    }
+  })().catch(error => console.error('[WhatsApp QR] Falha ao reconciliar envio:', String(error?.message || error || '').slice(0,240)))
+  return event
+}
+
   if(req.method==='POST'&&u.pathname==='/api/communications/send'){
     const b=await body(req); const a=accountById(s,b.workspaceId,b.accountId)
     const manualTaskTest = isManualTaskWhatsAppTest(b)
@@ -377,6 +432,10 @@ async function route(req,res){
     const lockKey=String(b.idempotencyKey||'').trim()?`${b.workspaceId}|${b.accountId}|${b.channel}|${b.idempotencyKey}`:''
     try{
       if(lockKey&&sendLocks.has(lockKey))return json(res,200,{event:await sendLocks.get(lockKey),idempotent:true})
+      if(b.channel==='whatsapp'&&a.metadata?.transport==='qr'&&a.status==='connected'&&!manualTaskTest){
+        const accepted = await acceptQrSend(s,b,a)
+        return json(res,202,{event:accepted,accepted:true})
+      }
       const operation=(async()=>{
         if(b.channel==='whatsapp'&&a.status!=='connected'){
           if(manualTaskTest) return recordManualTaskWhatsAppFailure(s,b,a,new Error('A conta WhatsApp está desconectada no momento do teste. Nenhum reenvio foi agendado.'))

@@ -34,6 +34,5 @@ jobs:
         run: |
           npm run typecheck
           npm run build
-      - name: Ensure no silent local data mode and no global signout
-        run: |
-          node --input-type=module -e "import fs from 'node:fs';import assert from 'node:assert/strict';const app=fs.readFileSync('src/app/app.tsx','utf8');const repo=fs.readFileSync('src/repositories/supabase-crm-repository.ts','utf8');assert.ok(app.includes("scope: 'local'"));assert.ok(repo.includes('recoverStartupRead('));assert.ok(!fs.readFileSync('src/services/startup-auth-recovery.ts','utf8').includes('localStorage.clear'));"
+      - name: Verify local-only reauthentication and no silent fallback
+        run: node --test scripts/vercel-startup-auth-contract.test.mjs

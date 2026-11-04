@@ -115,7 +115,7 @@ export function createWhatsAppBrowserQrBridge({ root, now, uuid, store, saveStor
 
   async function destroySession(session, { logout = false } = {}) {
     if (!session?.client) return
-    session.manualDisconnect = Boolean(logout)
+    session.manualDisconnect = true // Suppress disconnect/reconnect events on any intentional teardown.
     if (session.reconnectTimer) { clearTimeout(session.reconnectTimer); session.reconnectTimer = null }
     if (logout) {
       try { await session.client.logout() } catch {}
@@ -141,7 +141,7 @@ export function createWhatsAppBrowserQrBridge({ root, now, uuid, store, saveStor
     try { updateQrAccount(session.workspaceId, { status: 'attention', lastError: session.lastError, metadata: { liveState: 'starting' } }) } catch {}
     session.reconnectTimer = setTimeout(() => {
       session.reconnectTimer = null
-      start(session.workspaceId, session.displayName).catch(error => rememberAsyncError(session, 'Falha ao reconectar WhatsApp Web', error))
+      start(session.workspaceId, session.displayName, { autoReconnect: true }).catch(error => rememberAsyncError(session, 'Falha ao reconectar WhatsApp Web', error))
     }, delay)
   }
 
@@ -553,17 +553,17 @@ export function createWhatsAppBrowserQrBridge({ root, now, uuid, store, saveStor
   // One start request per workspace at a time. Starting QR again must not
   // destroy an already connected session or reset an in-flight QR pairing.
   const pendingStarts = new Map()
-  async function start(workspaceId, displayName = 'WhatsApp QR Local') {
+  async function start(workspaceId, displayName = 'WhatsApp QR Local', options = {}) {
     workspaceId = String(workspaceId || 'default')
     const running = pendingStarts.get(workspaceId)
     if (running) return running
-    const request = Promise.resolve().then(() => startSession(workspaceId, displayName))
+    const request = Promise.resolve().then(() => startSession(workspaceId, displayName, options))
     pendingStarts.set(workspaceId, request)
     try { return await request }
     finally { if (pendingStarts.get(workspaceId) === request) pendingStarts.delete(workspaceId) }
   }
 
-  async function startSession(workspaceId, displayName = 'WhatsApp QR Local') {
+  async function startSession(workspaceId, displayName = 'WhatsApp QR Local', options = {}) {
     workspaceId = String(workspaceId || 'default')
     const prior = get(workspaceId)
     // Preserve a live pairing (or the first Chromium startup), but let
@@ -601,7 +601,7 @@ export function createWhatsAppBrowserQrBridge({ root, now, uuid, store, saveStor
       syncPromise: null,
       manualDisconnect: false,
       reconnectTimer: null,
-      reconnectAttempts: Number(prior?.reconnectAttempts || 0),
+      reconnectAttempts: options.autoReconnect === true ? Number(prior?.reconnectAttempts || 0) : 0,
       liveMessageIds: new Map(),
       resolvedSendIds: new Map(),
       contactNames: new Map(),
@@ -641,18 +641,21 @@ export function createWhatsAppBrowserQrBridge({ root, now, uuid, store, saveStor
       }
     })
     client.on('authenticated', () => {
+      if (get(workspaceId) !== session) return
       session.state = 'starting'
       session.qrDataUrl = null
       session.lastError = null
       session.updatedAt = now()
     })
     client.on('auth_failure', message => {
+      if (get(workspaceId) !== session) return
       session.state = 'disconnected'
       session.lastError = `O WhatsApp recusou a autenticação: ${String(message || 'falha de autenticação')}. Remova a sessão QR e gere um código novo.`
       session.updatedAt = now()
       updateQrAccount(workspaceId, { status: 'error', lastError: session.lastError })
     })
     client.on('ready', () => {
+      if (get(workspaceId) !== session) return
       try {
         session.state = 'connected'
         session.qrDataUrl = null
@@ -686,11 +689,19 @@ export function createWhatsAppBrowserQrBridge({ root, now, uuid, store, saveStor
       }
     })
     client.on('disconnected', reason => {
+      if (get(workspaceId) !== session || session.manualDisconnect) return
+      const detail = String(reason || 'desconexão')
+      const qrExpired = /max\s+qr\s*code\s+retries|max\s+qrcode\s+retries|qr\s*code\s+expired/i.test(detail)
       session.state = 'disconnected'
-      session.lastError = `Sessão WhatsApp Web encerrada${reason ? `: ${String(reason)}` : ''}. Tentando reconectar automaticamente.`
+      session.qrDataUrl = null
+      // QR expiry is normal when a code is not scanned; it must not create
+      // an endless Chromium restart loop or log out a different session.
+      session.lastError = qrExpired
+        ? 'O QR Code expirou antes de ser escaneado. Clique em Gerar novo QR Code quando estiver pronto para conectar o celular.'
+        : `Sessão WhatsApp Web encerrada: ${detail}. Tentando reconectar automaticamente.`
       session.updatedAt = now()
       updateQrAccount(workspaceId, { status: 'attention', lastError: session.lastError, metadata: { liveState: 'disconnected' } })
-      if (!session.manualDisconnect) scheduleReconnect(session, String(reason || 'desconexão'))
+      if (!qrExpired) scheduleReconnect(session, detail)
     })
 
     const recordLiveMessage = async (message, source = 'live') => {
@@ -778,12 +789,18 @@ export function createWhatsAppBrowserQrBridge({ root, now, uuid, store, saveStor
     })
 
     void client.initialize().catch(error => {
+      if (get(workspaceId) !== session || session.manualDisconnect) return
+      const reason = error instanceof Error ? error.message : String(error)
+      const qrExpired = /max\s+qr\s*code\s+retries|max\s+qrcode\s+retries|qr\s*code\s+expired/i.test(reason)
       session.state = 'disconnected'
-      session.lastError = `Não foi possível abrir o WhatsApp Web: ${error instanceof Error ? error.message : String(error)}`
+      session.qrDataUrl = null
+      session.lastError = qrExpired
+        ? 'O QR Code expirou antes de ser escaneado. Clique em Gerar novo QR Code quando estiver pronto para conectar o celular.'
+        : `Não foi possível abrir o WhatsApp Web: ${reason}`
       console.warn(`[WhatsApp QR] ${session.lastError}`)
       session.updatedAt = now()
       updateQrAccount(workspaceId, { status: 'attention', lastError: session.lastError, metadata: { liveState: 'disconnected' } })
-      if (!session.manualDisconnect) scheduleReconnect(session, 'falha ao inicializar')
+      if (!qrExpired) scheduleReconnect(session, 'falha ao inicializar')
     })
     return status(workspaceId)
   }

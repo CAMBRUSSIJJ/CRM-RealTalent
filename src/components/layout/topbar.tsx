@@ -55,7 +55,9 @@ export function Topbar() {
   const openNotifications = () => { setAssistantOpen(false); setCustomizationOpen(false); setNotificationsOpen(true) }
 
   useEffect(() => {
-    if (repositoryMode !== 'supabase' || !currentWorkspace?.id || !user?.id || !experiencePreferences.notifications.inAppEnabled) {
+    const workspaceId = currentWorkspace?.id ?? ''
+    const recipientId = user?.id ?? ''
+    if (repositoryMode !== 'supabase' || !workspaceId || !recipientId || !experiencePreferences.notifications.inAppEnabled) {
       setUnreadTaskNotifications(0)
       return
     }
@@ -69,8 +71,8 @@ export function Topbar() {
       try {
         const { count, error } = await client.from('seller_notifications')
           .select('id', { count: 'exact', head: true })
-          .eq('organization_id', currentWorkspace.id)
-          .eq('user_id', user.id)
+          .eq('organization_id', workspaceId)
+          .eq('user_id', recipientId)
           .eq('source_type', 'task-reminder')
           .eq('status', 'unread')
         if (active && !error) setUnreadTaskNotifications(count ?? 0)

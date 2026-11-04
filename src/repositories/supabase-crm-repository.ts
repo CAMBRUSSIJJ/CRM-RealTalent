@@ -3,6 +3,7 @@ import type {
   AuditLog, RepositoryHealth, Workspace, WorkspaceInvite, WorkspaceMember, WorkspaceSnapshot,
 } from '../domain/types'
 import { getSupabaseClient } from '../lib/supabase'
+import { recoverStartupRead } from '../services/startup-auth-recovery'
 import { BACKUP_SCHEMA_VERSION } from '../lib/app-version'
 import { createBuyerRoomShareToken } from '../services/buyer-room'
 import type { Database } from '../lib/supabase.types'
@@ -156,11 +157,18 @@ export class SupabaseCrmRepository implements CrmRepository {
 
   async listWorkspaces() {
     const client = requireClient()
-    const { data, error } = await client.from('organization_members').select('role, organizations!inner(id,name,slug,created_at)').order('created_at', { foreignTable: 'organizations' })
-    if (error) throw error
-    return (data ?? []).map((item) => {
-      const organization = item.organizations as unknown as { id: string; name: string; slug: string; created_at: string }
-      return { id: organization.id, name: organization.name, slug: organization.slug, role: item.role, createdAt: organization.created_at } satisfies Workspace
+    return recoverStartupRead(async () => {
+      const { data, error } = await client.from('organization_members')
+        .select('role, organizations!inner(id,name,slug,created_at)')
+        .order('created_at', { foreignTable: 'organizations' })
+      if (error) throw error
+      return (data ?? []).map((item) => {
+        const organization = item.organizations as unknown as { id: string; name: string; slug: string; created_at: string }
+        return { id: organization.id, name: organization.name, slug: organization.slug, role: item.role, createdAt: organization.created_at } satisfies Workspace
+      })
+    }, async () => {
+      const { data, error } = await client.auth.refreshSession()
+      return Boolean(!error && data.session)
     })
   }
 

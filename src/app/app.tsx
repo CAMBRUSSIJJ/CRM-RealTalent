@@ -9,6 +9,7 @@ import { WorkspaceOnboarding } from '../features/workspaces/workspace-onboarding
 import { LocalOnboarding } from '../features/onboarding/local-onboarding'
 import { isLocalSetupPending } from '../lib/local-experience'
 import { configurationError } from '../lib/env'
+import { getSupabaseClient } from '../lib/supabase'
 import { PageExperienceBoundary } from '../features/experience/page-experience-boundary'
 import { VoiceInboundWatcher } from '../features/calls/voice-inbound-watcher'
 import { BrandSplash } from '../features/auth/brand-splash'
@@ -144,7 +145,27 @@ export function App() {
   if (!introComplete) return <BrandSplash message={authLoading ? 'Validando sua sessão...' : 'Preparando seu CRM...'} />
   if (!user || recoveryMode) return <AuthPage />
   if (loading) return <BrandSplash message="Carregando seu workspace..." />
-  if (error) return <div className="fatal-state"><h1>Não foi possível abrir o CRM</h1><p>{error}</p><Button onClick={() => window.location.reload()}><RefreshCw size={17} /> Tentar novamente</Button></div>
+  if (error) {
+    const sessionExpired = /sessão.*expir|jwt expired|invalid jwt|invalid token|PGRST301|401/i.test(error)
+    const signInAgain = async () => {
+      try {
+        // Only close this browser's invalid session. Never sign other devices out.
+        await getSupabaseClient()?.auth.signOut({ scope: 'local' })
+      } catch (reason) {
+        console.warn('[RealTalent] Falha ao encerrar sessão local antes de novo login', reason)
+      }
+      window.location.reload()
+    }
+    return <div className="fatal-state" role="alert">
+      <h1>{sessionExpired ? 'Sua sessão precisa ser renovada' : 'Não foi possível abrir o CRM'}</h1>
+      <p>{error}</p>
+      <p>{sessionExpired ? 'Você pode entrar novamente nesta máquina sem afetar a sessão dos outros computadores.' : 'Verifique a conexão. Seus dados continuam armazenados no workspace online.'}</p>
+      <div className="settings-actions">
+        <Button onClick={() => void reinitialize()}><RefreshCw size={17} /> Tentar novamente</Button>
+        {sessionExpired && mode === 'supabase' ? <Button variant="secondary" onClick={() => void signInAgain()}>Entrar novamente</Button> : null}
+      </div>
+    </div>
+  }
 
   if (mode === 'local' && isLocalSetupPending()) return <LocalOnboarding onComplete={reinitialize} />
 

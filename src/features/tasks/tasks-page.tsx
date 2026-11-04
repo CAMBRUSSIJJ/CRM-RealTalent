@@ -124,7 +124,7 @@ export function TasksPage() {
       if (owner !== 'all' && owner !== 'mine' && task.assigneeId !== owner) return false
       if (teamId !== 'all' && task.teamId !== teamId) return false
       if (priority !== 'all' && task.priority !== priority) return false
-      if (view === 'today' && dueKey(task.dueAt) !== today) return false
+      if (view === 'today' && !(OPEN_STATUSES.includes(task.status) && dueKey(task.dueAt) === today)) return false
       if (view === 'overdue' && !(OPEN_STATUSES.includes(task.status) && task.dueAt && new Date(task.dueAt).getTime() < nowMs)) return false
       if (view === 'completed' && task.status !== 'completed') return false
       if (view === 'blocked' && task.status !== 'blocked') return false
@@ -359,7 +359,7 @@ function TaskBoard({ tasks, teamById, relationByTask, checklistItems, diagnostic
                 <StatusPill tone={priorityTone(task.priority)}>{taskPriorityLabel[task.priority]}</StatusPill>
                 <span className={isOverdue ? 'is-overdue' : ''}><Clock3 size={12}/>{dueLabel(task.dueAt)}</span>
               </div>
-              <button className="tasks-page-v4__card-title" type="button" onClick={()=>onEdit(task)}>{task.title}</button>
+              <button className="tasks-page-v4__card-title" type="button" onClick={()=>onEdit(task)} disabled={readOnly}>{task.title}</button>
               {task.description ? <p>{task.description}</p> : null}
               <div className="tasks-page-v4__card-meta">
                 <span><UserRound size={13}/>{task.assigneeName || 'Sem responsável'}</span>

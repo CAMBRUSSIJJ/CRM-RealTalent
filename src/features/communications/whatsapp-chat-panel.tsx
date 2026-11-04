@@ -224,7 +224,7 @@ export function WhatsAppChatPanel({ lead, externalIdentity, workspaceId, events,
     setPendingMessages(current => [...current, { id: optimisticId, idempotencyKey, body: text, occurredAt: new Date().toISOString(), status: 'queued', attachment: selectedAttachment, replyToExternalMessageId: replyId, replyPreview }])
     window.setTimeout(() => textareaRef.current?.focus(), 0)
     try {
-      const event = await sendOfficialWhatsApp({ workspaceId, leadId: lead?.id ?? null, contactId: lead?.primaryContactId ?? null, accountId: account.id, recipient: recipient || undefined, threadId: groupThreadId || null, body: text, idempotencyKey, attachment: selectedAttachment ? { dataBase64: selectedAttachment.dataBase64, mimeType: selectedAttachment.mimeType, fileName: selectedAttachment.fileName, size: selectedAttachment.size, kind: selectedAttachment.kind } : null, replyToExternalMessageId: replyId, replyPreview })
+      const event = await sendOfficialWhatsApp({ workspaceId, leadId: lead?.id ?? null, contactId: lead?.primaryContactId ?? null, accountId: account.id, transport: account.metadata?.transport === 'qr' ? 'qr' : 'cloud', recipient: recipient || undefined, threadId: groupThreadId || null, body: text, idempotencyKey, attachment: selectedAttachment ? { dataBase64: selectedAttachment.dataBase64, mimeType: selectedAttachment.mimeType, fileName: selectedAttachment.fileName, size: selectedAttachment.size, kind: selectedAttachment.kind } : null, replyToExternalMessageId: replyId, replyPreview })
       // Keep the bubble until the official event is visible. Removing it on
       // HTTP acknowledgement caused the message to disappear during reload.
       setPendingMessages(current => current.map(item => item.idempotencyKey === idempotencyKey

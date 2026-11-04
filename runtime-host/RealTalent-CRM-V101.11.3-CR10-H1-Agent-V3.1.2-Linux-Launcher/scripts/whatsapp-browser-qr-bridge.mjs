@@ -485,7 +485,9 @@ export function createWhatsAppBrowserQrBridge({ root, now, uuid, store, saveStor
     const candidates = [...(session.outboundSendContexts || [])].reverse()
     return candidates.find(context => {
       if (context.failed || context.matched) return false
-      if (String(context.chatId || '') !== messageThread) return false
+      // WhatsApp may emit the original @c.us thread while the send was
+      // addressed using a resolved @lid. Both represent the same send.
+      if (String(context.chatId || '') !== messageThread && String(context.requestedChatId || '') !== messageThread) return false
       if (Boolean(context.hasMedia) !== hasMedia) return false
       if (!hasMedia && context.body && messageBody && String(context.body) !== messageBody) return false
       return true
@@ -815,6 +817,7 @@ export function createWhatsAppBrowserQrBridge({ root, now, uuid, store, saveStor
         if (!event) return
         const previous = Number(event.metadata?.ack)
         const nextAck = Number(ack)
+        if (!Number.isFinite(nextAck)) return
         const strongestAck = Number.isFinite(previous) && Number.isFinite(nextAck) ? Math.max(previous, nextAck) : nextAck
         event.externalMessageId = event.externalMessageId || externalMessageId
         event.status = mapWhatsAppAckStatus(strongestAck)
@@ -868,6 +871,7 @@ export function createWhatsAppBrowserQrBridge({ root, now, uuid, store, saveStor
     const context = registerOutboundSendContext(session, {
       idempotencyKey: String(options.idempotencyKey || ''),
       chatId,
+      requestedChatId,
       body: String(body || ''),
       hasMedia: Boolean(options.attachment?.dataBase64 && options.attachment?.mimeType),
       createdAt: Date.now(),

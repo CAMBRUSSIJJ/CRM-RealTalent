@@ -42,7 +42,7 @@ const INTERNAL_ALLOWED_ORIGINS = new Set([`http://127.0.0.1:${CRM_PORT}`, `http:
 const VERSION = '101.8.4-h18'
 const WHATSAPP_LIVE_FIX_VERSION = '20261104-qr-async-revision-v1'
 // Allows the Linux launcher to detect a healthy but stale Communications process.
-const WHATSAPP_SEND_RETURN_REVISION = 'msgkey-dollar1-20261102'
+const WHATSAPP_SEND_RETURN_REVISION = 'msgkey-dollar1-media-realtime-20261104'
 let shuttingDown = false
 let fatalScheduled = false
 function fatal(label, error) {

@@ -10,6 +10,7 @@ const parityFiles = [
   'whatsapp-lid-addressing.mjs',
   'whatsapp-web-send-result-hotfix.mjs',
   'whatsapp-qr-recovery-policy.mjs',
+  'whatsapp-media-recovery.mjs',
 ]
 
 test('QR hospedado: o navegador WhatsApp no Railway usa as mesmas correções testadas localmente', () => {

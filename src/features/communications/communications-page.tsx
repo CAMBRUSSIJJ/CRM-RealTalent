@@ -413,7 +413,7 @@ export function CommunicationsPage() {
   const [workspaceView, setWorkspaceView] = useState<'inbox' | 'whatsapp' | 'email' | 'call' | 'activity'>(() => routeContext.action === 'email' ? 'email' : 'whatsapp')
   const [inboxView, setInboxView] = useState<string>('all')
   const [direction, setDirection] = useState<'all' | 'inbound' | 'outbound' | 'internal'>('all')
-  const [period, setPeriod] = useState<'7' | '30' | '90' | 'all'>('30')
+  const [period, setPeriod] = useState<'7' | '30' | '90' | 'all'>('all')
   const [filtersOpen, setFiltersOpen] = useState(false)
   const [official, setOfficial] = useState<UnifiedCommunicationItem[]>([])
   const [assisted, setAssisted] = useState<UnifiedCommunicationItem[]>([])
@@ -532,7 +532,7 @@ export function CommunicationsPage() {
     if (!silent) setOfficialError('')
     try {
       const [events, state] = await Promise.all([loadOfficialCommunicationTimeline(currentWorkspace.id), loadCommunicationChannelState(currentWorkspace.id)])
-      setOfficial(linkOfficialEventsToLeads(events, snapshot?.leads ?? [], workspaceId)); setChannelState(state)
+      setOfficial(linkOfficialEventsToLeads(events, snapshot?.leads ?? [], workspaceId)); setChannelState(state); setOfficialError('')
     } catch (error) {
       if (!silent) setOfficialError(error instanceof Error ? error.message : 'Não foi possível carregar as comunicações oficiais.')
     } finally {
@@ -550,7 +550,7 @@ export function CommunicationsPage() {
     try {
       const syncResult = await syncOfficialCommunications(currentWorkspace.id)
       const [events, state] = await Promise.all([loadOfficialCommunicationTimeline(currentWorkspace.id), loadCommunicationChannelState(currentWorkspace.id)])
-      setOfficial(linkOfficialEventsToLeads(events, snapshot?.leads ?? [], workspaceId)); setChannelState(state); setAssisted(loadAssistedCommunicationTimeline(workspaceId))
+      setOfficial(linkOfficialEventsToLeads(events, snapshot?.leads ?? [], workspaceId)); setChannelState(state); setOfficialError(''); setAssisted(loadAssistedCommunicationTimeline(workspaceId))
       if (syncResult.failures.length) {
         const qrFailures = syncResult.failures.filter((item) => item.transport === 'qr')
         const details = syncResult.failures.slice(0, 2).map((item) => item.message).join(' · ')
@@ -711,11 +711,11 @@ export function CommunicationsPage() {
   const channelGroupCount = channelConversations.filter((item) => item.channel === 'whatsapp' && item.isGroup).length
   const channelNeedsReplyCount = channelConversations.filter((item) => item.status === 'needs_reply').length
 
-  const communicationFilterCount = (direction !== 'all' ? 1 : 0) + (period !== '30' ? 1 : 0)
-  const clearCommunicationFilters = () => { setDirection('all'); setPeriod('30') }
+  const communicationFilterCount = (direction !== 'all' ? 1 : 0) + (period !== 'all' ? 1 : 0)
+  const clearCommunicationFilters = () => { setDirection('all'); setPeriod('all') }
   const universalCommunicationFilters: WorkspaceFilterField[] = [
     { key: 'direction', label: 'Direção', value: direction, allValue: 'all', allLabel: 'Todas as direções', group: 'Conversa', options: [{ value: 'inbound', label: 'Recebidas' }, { value: 'outbound', label: 'Enviadas' }, { value: 'internal', label: 'Internas' }] },
-    { key: 'period', label: 'Período', value: period, allValue: '30', allLabel: '30 dias', group: 'Tempo', options: [{ value: '7', label: '7 dias' }, { value: '90', label: '90 dias' }, { value: 'all', label: 'Todo histórico' }] },
+    { key: 'period', label: 'Período', value: period, allValue: 'all', allLabel: 'Todo histórico', group: 'Tempo', options: [{ value: '7', label: '7 dias' }, { value: '30', label: '30 dias' }, { value: '90', label: '90 dias' }] },
   ]
   const changeCommunicationQuickFilter = (key: string, value: string) => { if (key === 'direction') setDirection(value as typeof direction); else if (key === 'period') setPeriod(value as typeof period) }
 

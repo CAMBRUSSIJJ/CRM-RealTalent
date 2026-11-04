@@ -1,3 +1,4 @@
+import { isQrExpiredDisconnect, QR_EXPIRED_MESSAGE } from './whatsapp-qr-recovery-policy.mjs'
 import fs from 'node:fs'
 import path from 'node:path'
 import { cleanNumber, isDirectPhoneAddress, isLidAddress, isPhoneCandidate, isWhatsAppTechnicalMessage, mapWhatsAppAckStatus, whatsappMessageBody } from './whatsapp-sync-utils.mjs'
@@ -691,13 +692,13 @@ export function createWhatsAppBrowserQrBridge({ root, now, uuid, store, saveStor
     client.on('disconnected', reason => {
       if (get(workspaceId) !== session || session.manualDisconnect) return
       const detail = String(reason || 'desconexão')
-      const qrExpired = /max\s+qr\s*code\s+retries|max\s+qrcode\s+retries|qr\s*code\s+expired/i.test(detail)
+      const qrExpired = isQrExpiredDisconnect(detail)
       session.state = 'disconnected'
       session.qrDataUrl = null
       // QR expiry is normal when a code is not scanned; it must not create
       // an endless Chromium restart loop or log out a different session.
       session.lastError = qrExpired
-        ? 'O QR Code expirou antes de ser escaneado. Clique em Gerar novo QR Code quando estiver pronto para conectar o celular.'
+        ? QR_EXPIRED_MESSAGE
         : `Sessão WhatsApp Web encerrada: ${detail}. Tentando reconectar automaticamente.`
       session.updatedAt = now()
       updateQrAccount(workspaceId, { status: 'attention', lastError: session.lastError, metadata: { liveState: 'disconnected' } })
@@ -791,11 +792,11 @@ export function createWhatsAppBrowserQrBridge({ root, now, uuid, store, saveStor
     void client.initialize().catch(error => {
       if (get(workspaceId) !== session || session.manualDisconnect) return
       const reason = error instanceof Error ? error.message : String(error)
-      const qrExpired = /max\s+qr\s*code\s+retries|max\s+qrcode\s+retries|qr\s*code\s+expired/i.test(reason)
+      const qrExpired = isQrExpiredDisconnect(reason)
       session.state = 'disconnected'
       session.qrDataUrl = null
       session.lastError = qrExpired
-        ? 'O QR Code expirou antes de ser escaneado. Clique em Gerar novo QR Code quando estiver pronto para conectar o celular.'
+        ? QR_EXPIRED_MESSAGE
         : `Não foi possível abrir o WhatsApp Web: ${reason}`
       console.warn(`[WhatsApp QR] ${session.lastError}`)
       session.updatedAt = now()

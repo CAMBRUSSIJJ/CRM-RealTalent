@@ -73,6 +73,8 @@ jobs:
         run: node --test scripts/metrics-dashboard-v3.test.mjs
       - name: Testar Central de Follow-ups V3
         run: node --test scripts/followups-page-v3.test.mjs
+      - name: Auditar dependencias de producao (sem upgrades forçados)
+        run: npm audit --omit=dev --audit-level=high
       - name: Validar sintaxe e imports do CRM
         run: npm run typecheck
       # O projeto usa tsconfig.typecheck.json para o app de produção.

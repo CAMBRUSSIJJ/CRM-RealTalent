@@ -1,0 +1,42 @@
+name: RealTalent Cloud Task Notifications QA
+on:
+  push:
+    branches:
+      - feat/task-notifications-cloud-20261104
+  pull_request:
+    paths:
+      - src/features/tasks/tasks-page.tsx
+      - src/features/communications-automations/cloud-task-automation-center.tsx
+      - src/services/notifications/cloud-task-notification-history.ts
+      - src/services/notifications/cloud-task-notification-history.test.ts
+      - src/components/layout/topbar.tsx
+      - src/features/experience/notification-center.tsx
+      - supabase/migrations/202611040001_task_notification_history_read_grant.sql
+      - scripts/task-cloud-notification-contract.test.mjs
+      - .github/workflows/cloud-task-notifications-qa.yml
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: '22'
+          cache: npm
+      - name: Install frozen dependencies
+        run: npm ci --include=dev --no-audit --no-fund
+      - name: Test real queue visibility, provider readiness and RLS-safe UI
+        run: |
+          npx vitest run src/services/notifications/cloud-task-notification-history.test.ts
+          node --test scripts/task-cloud-notification-contract.test.mjs
+      - name: Typecheck RealTalent CRM
+        run: npm run typecheck
+      - name: Build hosted CRM
+        run: npm run build

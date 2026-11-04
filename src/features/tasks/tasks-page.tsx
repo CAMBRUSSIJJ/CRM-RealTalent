@@ -9,6 +9,7 @@ import type { TaskRelation, TaskStatus, Team, WorkTask, WorkspaceMember } from '
 import { deleteTask, loadWorkManagement, saveTask, taskPriorityLabel, taskStatusLabel, updateTaskStatus, type WorkManagementSnapshot } from '../../services/work-management'
 import { TaskModal } from './task-modal'
 import { CommunicationAutomationCenter } from '../communications-automations/communication-automation-center'
+import { CloudTaskAutomationCenter } from '../communications-automations/cloud-task-automation-center'
 import { TaskCommunicationState } from '../communications-automations/task-communication-state'
 import { Modal } from '../../components/ui/modal'
 import { loadGatewayLocalTaskAutoHistory, type LocalTaskAutoDiagnostic } from '../../services/local-communications-gateway'
@@ -163,6 +164,8 @@ export function TasksPage() {
         'Tarefa salva, mas a notificação de atribuição expirou antes da reconexão. Não haverá envio atrasado.')
       else if(assignmentChanged && outbox?.scheduledTaskIds.includes(task.id))
         notify('success','Tarefa atribuída. Aviso automático de WhatsApp programado no gateway.')
+      else if(assignmentChanged && repositoryMode==='supabase')
+        notify('success','Tarefa atribuída. Acompanhe o aviso na Central de Comunicação e automações.')
       else notify('success',input.id?'Tarefa atualizada.':'Tarefa criada.')
     } catch(error) {
       notify('error',error instanceof Error?error.message:'Não foi possível salvar a tarefa.')
@@ -234,15 +237,18 @@ export function TasksPage() {
         <div><h1>Tarefas da Equipe</h1><span>Organize, acompanhe e distribua o trabalho.</span></div>
       </div>
       <div className="tasks-page-v4__top-actions">
-        {repositoryMode === 'local' && workspaceId ? <button type="button" className="tasks-page-v4__automation" onClick={() => setShowNotifications(true)} title="Comunicação e automações" aria-label="Comunicação e automações"><Bell size={16} /></button> : null}
+        {workspaceId ? <button type="button" className="tasks-page-v4__automation" onClick={() => setShowNotifications(true)} title="Ver notificações e automações" aria-label="Ver notificações e automações"><Bell size={16} /></button> : null}
         {canTaskCreate ? <Button className="tasks-page-v4__new" onClick={showTaskCreate}><Plus size={16}/> Nova tarefa</Button> : null}
       </div>
     </div>
 
-    {repositoryMode === 'local' && workspaceId ? <Modal open={showNotifications} onClose={() => setShowNotifications(false)}
-      size="xl" title="Comunicação e automações" subtitle="Acompanhe notificações e entenda por que um aviso não foi programado.">
-      <CommunicationAutomationCenter workspaceId={workspaceId} tasks={data.tasks}
-        onOpenTask={task => {setShowNotifications(false);setEditing(task);setModalOpen(true)}} />
+    {workspaceId && showNotifications ? <Modal open={showNotifications} onClose={() => setShowNotifications(false)}
+      size="xl" title="Comunicação e automações" subtitle="Consulte avisos programados, histórico e motivos de bloqueio.">
+      {repositoryMode === 'local'
+        ? <CommunicationAutomationCenter workspaceId={workspaceId} tasks={data.tasks}
+            onOpenTask={task => {setShowNotifications(false);setEditing(task);setModalOpen(true)}} />
+        : <CloudTaskAutomationCenter workspaceId={workspaceId} tasks={data.tasks}
+            onOpenTask={task => {setShowNotifications(false);setEditing(task);setModalOpen(true)}} />}
     </Modal> : null}
 
     <section className="tasks-page-v4__toolbar" aria-label="Ferramentas de tarefas">

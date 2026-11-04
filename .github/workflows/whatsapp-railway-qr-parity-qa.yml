@@ -34,6 +34,8 @@ jobs:
         run: npm ci --include=dev --no-fund --no-audit
       - name: Verify current Communications and Pure Chat source before Linux startup
         run: node --test scripts/communications-source-contract.test.mjs
+      - name: Check WhatsApp media recovery, realtime ACK and safe Linux migration
+        run: node --test scripts/whatsapp-media-recovery.test.mjs
       - name: Validate QR expiry behavior without connecting a WhatsApp phone
         run: node --test scripts/whatsapp-qr-recovery-policy.test.mjs
       - name: Validate hosted WhatsApp integration contracts

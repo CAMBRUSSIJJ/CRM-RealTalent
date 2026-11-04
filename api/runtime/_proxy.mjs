@@ -62,7 +62,7 @@ async function canManageQrWorkspace(req, userId, workspaceId) {
 // Enforce a workspace membership check before the hosted proxy can read/sync
 // gateway records; a valid JWT from another workspace is not sufficient.
 const needsCommunicationWorkspaceMembership = (service, suffix) => service === 'communications'
-  && ['/api/communications/events', '/api/integrations/accounts', '/api/communications/sync',
+  && ['/api/communications/events', '/api/communications/revision', '/api/integrations/accounts', '/api/communications/sync',
     '/api/communications/send', '/api/communications/retry', '/api/communications/read',
     '/api/integrations/whatsapp/qr/contacts', '/api/integrations/whatsapp/qr/groups',
     '/api/integrations/whatsapp/qr/groups/info']

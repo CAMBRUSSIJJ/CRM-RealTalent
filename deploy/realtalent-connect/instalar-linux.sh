@@ -16,16 +16,43 @@ node -e 'if(Number(process.versions.node.split(".")[0])!==22)process.exit(1)' ||
 }
 mkdir -p "$INSTALL_DIR" "$CONFIG_DIR" "$SYSTEMD_DIR" "$APP_DIR"
 chmod 700 "$CONFIG_DIR"
-cp "$ROOT/app.mjs" "$ROOT/index.html" "$ROOT/compose.yaml" "$INSTALL_DIR/"
-# QR codes supplied as raw WhatsApp pairing strings must be rendered entirely
-# on this computer. Never send pairing tokens to third-party QR websites.
-if command -v npm >/dev/null 2>&1; then
-  echo "Preparando gerador seguro de QR Code no Linux..."
-  npm install --prefix "$INSTALL_DIR" --no-save --ignore-scripts --no-audit --no-fund qrcode@1.5.4 ||
-    echo "Aviso: QR local não instalado. Verifique a conexão do npm e repita o instalador."
-else
-  echo "Aviso: npm indisponível. Necessário para gerar imagens QR locais."
+# Dependencies are installed BEFORE switching the running service, so a
+# network failure leaves the previous working app untouched.
+if ! command -v npm >/dev/null 2>&1; then
+  echo "ERRO: npm não encontrado. Instale npm para Node.js 22."
+  exit 1
 fi
+mkdir -p "$INSTALL_DIR/runtime"
+cp "$ROOT/runtime-package.json" "$INSTALL_DIR/runtime/package.json"
+echo "Instalando o motor WhatsApp Web nativo e o renderizador QR..."
+if [[ -x /usr/bin/google-chrome-stable || -x /usr/bin/google-chrome || -x /usr/bin/chromium || -x /usr/bin/chromium-browser ]]; then
+  PUPPETEER_SKIP_DOWNLOAD=1 npm install --prefix "$INSTALL_DIR/runtime" --no-audit --no-fund
+else
+  # Puppeteer downloads its compatible headless Chromium during install.
+  npm install --prefix "$INSTALL_DIR/runtime" --no-audit --no-fund
+fi
+"$NODE_BIN" -e '
+const {createRequire}=require("node:module");
+const {join}=require("node:path");
+const r=createRequire(join(process.argv[1],"package.json"));
+if(!r("whatsapp-web.js").Client || !r("qrcode").toDataURL) process.exit(1);
+' "$INSTALL_DIR/runtime" || {
+  echo "ERRO: dependências do WhatsApp Web não estão disponíveis."
+  exit 1
+}
+# Stop the old Evolution transport without modifying Docker volumes, Postgres,
+# Redis, WhatsApp data or the secured RealTalent pairing token.
+if command -v docker >/dev/null 2>&1 && [[ -f "$INSTALL_DIR/compose.yaml" && -f "$CONFIG_DIR/docker.env" ]]; then
+  echo "Desativando apenas os serviços antigos da Evolution (sem apagar dados)..."
+  docker compose --project-name realtalent-connect \
+    --env-file "$CONFIG_DIR/docker.env" \
+    -f "$INSTALL_DIR/compose.yaml" stop evolution postgres redis >/dev/null 2>&1 || true
+fi
+if command -v systemctl >/dev/null 2>&1; then
+  systemctl --user stop realtalent-connect.service >/dev/null 2>&1 || true
+fi
+cp "$ROOT/app.mjs" "$ROOT/whatsapp-web-engine.mjs" "$ROOT/index.html" "$INSTALL_DIR/"
+chmod 700 "$CONFIG_DIR"
 cat > "$INSTALL_DIR/abrir.sh" <<'EOF'
 #!/usr/bin/env bash
 set -Eeuo pipefail
@@ -58,7 +85,7 @@ StartupNotify=true
 EOF
 cat > "$SYSTEMD_DIR/realtalent-connect.service" <<EOF
 [Unit]
-Description=RealTalent Connect WhatsApp (local, protegido)
+Description=RealTalent Connect WhatsApp Web (local, sem Docker)
 After=network-online.target
 Wants=network-online.target
 
@@ -84,37 +111,9 @@ else
   echo "Aviso: systemd --user indisponível. Aplicativo iniciado sem ativação automática."
 fi
 
-if ! command -v docker >/dev/null || ! docker compose version >/dev/null 2>&1; then
-  echo ""
-  echo "Docker Compose não está instalado: precisamos prepará-lo uma única vez."
-  echo "O aplicativo continuará abrindo normalmente para vincular o computador."
-  if [[ -f /etc/debian_version ]] && command -v apt-get >/dev/null 2>&1; then
-    echo ""
-    read -r -p "Instalar Docker agora com permissão de administrador? [s/N]: " answer
-    if [[ "$answer" == [sS] ]]; then
-      echo "O Linux solicitará sua senha administrativa para instalar pacotes."
-      sudo apt-get update
-      sudo apt-get install -y docker.io
-      if ! sudo apt-get install -y docker-compose-v2; then
-        if ! sudo apt-get install -y docker-compose-plugin; then
-          echo "O plugin Docker Compose v2 não está disponível neste repositório."
-          echo "Instale o plugin Compose por meio dos pacotes oficiais da sua distribuição."
-        fi
-      fi
-      sudo systemctl enable --now docker
-      sudo groupadd -f docker
-      sudo usermod -aG docker "$USER"
-      echo "IMPORTANTE: saia da sua conta Linux e entre novamente para obter a permissão de Docker."
-      echo "O grupo docker dá poderes administrativos; use apenas neste computador de confiança."
-    fi
-  else
-    echo "Em outros Linux, instale Docker Engine + plugin Compose pelo gerenciador da distribuição."
-  fi
-fi
-
 if command -v xdg-open >/dev/null 2>&1; then
   xdg-open http://127.0.0.1:4375/ >/dev/null 2>&1 || true
 fi
 echo ""
 echo "Abra: http://127.0.0.1:4375/"
-echo "Depois: no CRM, Configurações → WhatsApp → Gerar código."
+echo "Seu vínculo com o CRM foi preservado. Abra Configurações → WhatsApp → Gerar QR Code."

@@ -19,6 +19,7 @@ import { usePreferences } from '../settings/preferences-context'
 import { OfficialConversationComposer } from './official-conversation-composer'
 import { EmailConversationPanel } from './email-conversation-panel'
 import { WhatsAppChatPanel } from './whatsapp-chat-panel'
+import { WahaConversationsPage } from './waha-conversations-page'
 import { WhatsAppWorkToolbar } from './whatsapp-work-toolbar'
 import './communications-central-v3.css'
 import { useDomainProjectionRevision, useRealtimeTransportState } from '../../platform/events'
@@ -401,7 +402,7 @@ const conversationStatusText = (conversation: CommunicationConversation) => conv
   ? ''
   : conversation.status === 'needs_reply' ? 'Responder' : conversation.status === 'waiting_reply' ? 'Aguardando' : conversation.status === 'internal' ? 'Interno' : 'Histórico'
 
-export function CommunicationsPage() {
+function OriginalCommunicationsPage() {
   const { snapshot, currentWorkspace, repositoryMode, can, canTeamAccess, canTeamAccessRecord, teamAccessScope } = useAppWorkspace()
   const { routeContext, navigate } = useAppNavigation()
   const { notify } = useAppUi()
@@ -1001,5 +1002,38 @@ export function CommunicationsPage() {
     <SalesMessageModal lead={selectedLead} stageName={selectedStage} templatePurpose={messagePurpose} initialChannel={messageChannel} open={messageOpen} onClose={() => setMessageOpen(false)} />
     <SocialTouchModal lead={selectedLead} channel={socialChannel} workspaceId={workspaceId} open={socialOpen} onClose={() => setSocialOpen(false)} onRecorded={refreshAssisted} />
     <MeetingQuickModal lead={selectedLead} open={meetingOpen} onClose={() => setMeetingOpen(false)} />
+  </div>
+}
+
+/**
+ * V101.11.3: Preserve the complete Pure Chat / E-mail / CRM communication
+ * workspace. WAHA is an isolated transport mode on the same existing route.
+ * No legacy navigation, sidebar, task or lead modules are replaced.
+ */
+export function CommunicationsPage() {
+  const [useWaha, setUseWaha] = useState(() => {
+    try {
+      const saved = sessionStorage.getItem('realtalent.communications.transport.v101')
+      if (saved === 'waha') return true
+      if (saved === 'original') return false
+    } catch { /* storage unavailable */ }
+    return import.meta.env.VITE_WAHA_DIRECT_PREVIEW === '1'
+  })
+  function change(value: boolean) {
+    setUseWaha(value)
+    try { sessionStorage.setItem('realtalent.communications.transport.v101', value ? 'waha' : 'original') } catch { /* optional */ }
+  }
+  return <div className="page-stack">
+    <nav aria-label="Motor de comunicação" style={{display:'flex',flexWrap:'wrap',alignItems:'center',gap:8,padding:'9px 12px',borderRadius:11,border:'1px solid var(--border, #e1e7f0)',background:'var(--surface, #fff)'}}>
+      <span style={{fontSize:12,marginRight:6,fontWeight:650,color:'var(--text-muted, #64748b)'}}>Conexão WhatsApp:</span>
+      <button type="button" onClick={() => change(true)} aria-pressed={useWaha} style={{padding:'8px 12px',fontSize:12,borderRadius:8,border:'1px solid #c8d7f2',background:useWaha?'#e7efff':'transparent',color:'#264c9b',fontWeight:useWaha?700:500}}>
+        WAHA GOWS local
+      </button>
+      <button type="button" onClick={() => change(false)} aria-pressed={!useWaha} style={{padding:'8px 12px',fontSize:12,borderRadius:8,border:'1px solid #c8d7f2',background:!useWaha?'#e7efff':'transparent',color:'#264c9b',fontWeight:!useWaha?700:500}}>
+        Central original
+      </button>
+      <span style={{fontSize:11,color:'#78849a'}}>A conexão WAHA não utiliza o Supabase para mensagens.</span>
+    </nav>
+    {useWaha ? <WahaConversationsPage /> : <OriginalCommunicationsPage />}
   </div>
 }

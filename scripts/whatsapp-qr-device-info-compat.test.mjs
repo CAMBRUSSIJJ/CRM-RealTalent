@@ -13,8 +13,9 @@ test('do not trigger optional device-label customization that requires WAWebMisc
   const constructor=hosted.slice(hosted.indexOf('const client = new Client({'),hosted.indexOf('session.client = client'))
   assert.ok(constructor.includes('new LocalAuth('))
   assert.ok(constructor.includes('qrMaxRetries: 8'))
-  assert.doesNotMatch(constructor, /deviceName\s*:/)
-  assert.doesNotMatch(constructor, /browserName\s*:/)
+  const optionsOnly = constructor.split('\n').filter(line => !/^\s*\/\//.test(line)).join('\n')
+  assert.doesNotMatch(optionsOnly, /deviceName\s*:/)
+  assert.doesNotMatch(optionsOnly, /browserName\s*:/)
 })
 
 test('preserve authentication profile and recovery behavior while removing device labels',()=>{

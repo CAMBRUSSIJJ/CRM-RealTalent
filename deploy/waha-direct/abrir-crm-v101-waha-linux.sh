@@ -80,4 +80,4 @@ echo "A outra prévia antiga em 5173 não será alterada."
 echo "Ctrl+C para sair; WAHA Docker e o WhatsApp permanecem conectados."
 echo
 (sleep 3; xdg-open http://127.0.0.1:5174/ >/dev/null 2>&1 || true) &
-exec ./node_modules/.bin/vite --host 127.0.0.1 --port 5174 --strictPort
+./node_modules/.bin/vite --host 127.0.0.1 --port 5174 --strictPort

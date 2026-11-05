@@ -622,8 +622,9 @@ export function createWhatsAppBrowserQrBridge({ root, now, uuid, store, saveStor
       qrMaxRetries: 8,
       takeoverOnConflict: true,
       takeoverTimeoutMs: 8_000,
-      deviceName: 'RealTalent CRM',
-      browserName: 'Chrome',
+      // Do not customize deviceName/browserName: whatsapp-web.js 1.34.7
+      // calls window.require('WAWebMiscBrowserUtils').info during inject().
+      // On newer WA Web builds that optional module may be null and QR fails.
     })
     session.client = client
 

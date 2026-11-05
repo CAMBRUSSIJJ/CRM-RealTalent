@@ -1,4 +1,5 @@
 import { isQrExpiredDisconnect, QR_EXPIRED_MESSAGE } from './whatsapp-qr-recovery-policy.mjs'
+import { chromiumProfileLockFailure, recoverStaleChromiumProfileLock } from './chromium-profile-lock-recovery.mjs'
 import fs from 'node:fs'
 import path from 'node:path'
 import { cleanNumber, isDirectPhoneAddress, isLidAddress, isPhoneCandidate, isWhatsAppTechnicalMessage, mapWhatsAppAckStatus, whatsappMessageBody } from './whatsapp-sync-utils.mjs'
@@ -793,15 +794,31 @@ export function createWhatsAppBrowserQrBridge({ root, now, uuid, store, saveStor
       if (get(workspaceId) !== session || session.manualDisconnect) return
       const reason = error instanceof Error ? error.message : String(error)
       const qrExpired = isQrExpiredDisconnect(reason)
+      const profileLocked = chromiumProfileLockFailure(error)
+      // On Railway the LocalAuth browser profile lives on the persistent
+      // volume. A previous container hostname may leave a stale
+      // ProcessSingleton symlink behind after deployment.
+      // Recover ONLY verified singleton markers, never the auth profile.
+      const lockResult = profileLocked
+        ? recoverStaleChromiumProfileLock(
+          path.join(authRoot, `session-${safeId(workspaceId)}`),
+          { allowForeignHost: process.env.REALTALENT_WHATSAPP_SINGLETON_RECOVERY === '1' },
+        )
+        : null
       session.state = 'disconnected'
       session.qrDataUrl = null
       session.lastError = qrExpired
         ? QR_EXPIRED_MESSAGE
-        : `Não foi possível abrir o WhatsApp Web: ${reason}`
-      console.warn(`[WhatsApp QR] ${session.lastError}`)
+        : lockResult?.recovered
+          ? 'Perfil do Chromium liberado após implantação. Reconectando o WhatsApp Web sem apagar a sessão.'
+          : profileLocked
+            ? 'O perfil do Chromium ainda está bloqueado por outro processo. Para proteger sua sessão, a reconexão automática foi pausada. Verifique o Diagnóstico.'
+            : `Não foi possível abrir o WhatsApp Web: ${reason}`
+      console.warn(`[WhatsApp QR] ${session.lastError}${lockResult ? ` (perfil: ${lockResult.reason})` : ''}`)
       session.updatedAt = now()
       updateQrAccount(workspaceId, { status: 'attention', lastError: session.lastError, metadata: { liveState: 'disconnected' } })
-      if (!qrExpired) scheduleReconnect(session, 'falha ao inicializar')
+      if (lockResult?.recovered) scheduleReconnect(session, 'perfil Chromium anterior liberado')
+      else if (!qrExpired && !profileLocked) scheduleReconnect(session, 'falha ao inicializar')
     })
     return status(workspaceId)
   }

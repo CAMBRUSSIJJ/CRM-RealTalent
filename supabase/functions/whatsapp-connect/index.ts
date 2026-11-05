@@ -172,12 +172,15 @@ Deno.serve(async (request: Request) => {
       return json({ error: 'invalid_state' }, 400)
     const qr = state === 'open' ? null : safeQr(body.qr)
     const expiry = qr ? new Date(Date.now() + 40_000).toISOString() : null
-    const update = {
+    const update: Record<string, unknown> = {
       organization_id: org, heartbeat_at: new Date().toISOString(),
       connection_state: state, qr_base64: qr, qr_expires_at: expiry,
-      last_error: safeError(body.error),
       updated_at: new Date().toISOString(),
     }
+    // Do not erase the command failure every six seconds.
+    // A new connection request or a successful QR clears it explicitly.
+    if (typeof body.error === 'string') update.last_error = safeError(body.error)
+    else if (state === 'open' || qr) update.last_error = null
     const { error: heartbeatError } = await db.from('whatsapp_local_bridge')
       .upsert(update, { onConflict: 'organization_id' })
     if (heartbeatError) return json({ error: 'could_not_record_heartbeat' }, 503)

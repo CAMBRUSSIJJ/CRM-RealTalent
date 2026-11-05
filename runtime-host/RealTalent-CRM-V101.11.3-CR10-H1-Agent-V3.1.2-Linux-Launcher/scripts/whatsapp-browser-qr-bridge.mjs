@@ -5,6 +5,7 @@ import path from 'node:path'
 import { cleanNumber, isDirectPhoneAddress, isLidAddress, isPhoneCandidate, isWhatsAppTechnicalMessage, mapWhatsAppAckStatus, whatsappMessageBody } from './whatsapp-sync-utils.mjs'
 import { applyWhatsAppWebMediaHotfix } from './whatsapp-web-media-hotfix.mjs'
 import { applyWhatsAppWebSendResultHotfix } from './whatsapp-web-send-result-hotfix.mjs'
+import { applyWhatsAppWebSocketReadinessHotfix } from './whatsapp-web-socket-readiness-hotfix.mjs'
 import { importCommunicationsPackage } from './communications-runtime-deps.mjs'
 import { resolveWhatsAppSendAddress } from './whatsapp-lid-addressing.mjs'
 // Historical H8 media markers preserved after parser extraction: '[Imagem]' '[Áudio]' '[Documento]'
@@ -43,6 +44,14 @@ function findBrowserExecutable() {
 }
 
 async function loadWebJs() {
+  // Patch vendor startup before require()/import() caches Client.js.
+  // This only waits for an actual WhatsApp Socket; it does not change auth data.
+  try {
+    const socketReady = applyWhatsAppWebSocketReadinessHotfix()
+    console.log(`[WhatsApp QR] WA Socket ready: ${socketReady.state}`)
+  } catch (error) {
+    throw new Error(`WhatsApp Web não pôde validar a inicialização do Socket: ${error instanceof Error ? error.message : String(error)}`)
+  }
   let mediaHotfix = { ok: false, state: 'not-checked', target: '' }
   try { mediaHotfix = applyWhatsAppWebMediaHotfix() } catch (error) { console.warn(`[WhatsApp QR] Hotfix de mídia não aplicado: ${error instanceof Error ? error.message : String(error)}`) }
   // Apply BEFORE import() and before Chromium injects Utils.js. A missing

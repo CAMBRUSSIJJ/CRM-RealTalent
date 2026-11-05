@@ -49,6 +49,13 @@ export const reminderErrorLabel = (error: string | null): string => {
     recipient_email_not_verified: 'E-mail do responsável não verificado.',
     recipient_phone_missing: 'Telefone do responsável não cadastrado em Equipes.',
     phone_verification_required: 'Número de WhatsApp não verificado.',
+    whatsapp_consent_required: 'O responsável precisa autorizar o WhatsApp em Configurações → Notificações.',
+    task_no_longer_eligible: 'A tarefa foi alterada ou o responsável não está mais habilitado.',
+    qr_session_not_connected: 'O WhatsApp QR não está conectado no Railway. Conecte em Configurações → WhatsApp.',
+    qr_bridge_auth_rejected: 'A autenticação entre o Supabase e o Railway foi rejeitada.',
+    gateway_send_unconfirmed_requires_review: 'O gateway não confirmou a aceitação. Verifique a conversa antes de reenviar.',
+    gateway_rejected_message: 'O gateway rejeitou a mensagem. Consulte Comunicações.',
+
     directory_phone_change_requires_employee_reconsent: 'Telefone alterado: é necessária nova autorização do responsável.',
     approved_whatsapp_template_or_credentials_missing: 'Credenciais ou modelo oficial do WhatsApp indisponíveis.',
     team_contact_directory_unavailable: 'Diretório de Equipes indisponível.',

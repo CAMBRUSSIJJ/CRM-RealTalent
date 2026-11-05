@@ -17,6 +17,15 @@ node -e 'if(Number(process.versions.node.split(".")[0])!==22)process.exit(1)' ||
 mkdir -p "$INSTALL_DIR" "$CONFIG_DIR" "$SYSTEMD_DIR" "$APP_DIR"
 chmod 700 "$CONFIG_DIR"
 cp "$ROOT/app.mjs" "$ROOT/index.html" "$ROOT/compose.yaml" "$INSTALL_DIR/"
+# QR codes supplied as raw WhatsApp pairing strings must be rendered entirely
+# on this computer. Never send pairing tokens to third-party QR websites.
+if command -v npm >/dev/null 2>&1; then
+  echo "Preparando gerador seguro de QR Code no Linux..."
+  npm install --prefix "$INSTALL_DIR" --no-save --ignore-scripts --no-audit --no-fund qrcode@1.5.4 ||
+    echo "Aviso: QR local não instalado. Verifique a conexão do npm e repita o instalador."
+else
+  echo "Aviso: npm indisponível. Necessário para gerar imagens QR locais."
+fi
 cat > "$INSTALL_DIR/abrir.sh" <<'EOF'
 #!/usr/bin/env bash
 set -Eeuo pipefail

@@ -184,7 +184,7 @@ export function createLocalBridge(config, { fetcher = fetch, now = Date.now } = 
         const ageMinutes = (now() - Date.parse(job.scheduled_at)) / 60000
         const stale = !Number.isFinite(ageMinutes) || ageMinutes > (job.event_type === 'assigned' ? 60 : 180)
         const allowed = task && member && pref?.whatsapp_enabled && pref?.whatsapp_consented_at &&
-          /^\\+[1-9][0-9]{7,14}$/.test(phone) &&
+          /^\+[1-9][0-9]{7,14}$/.test(phone) &&
           (!directory?.phone_e164 || directory.phone_e164 === phone) &&
           verified?.verified_at && verified.phone_e164 === phone &&
           task.assignee_id === job.assignee_id && ['todo', 'in_progress', 'blocked'].includes(task.status) &&
@@ -200,8 +200,8 @@ export function createLocalBridge(config, { fetcher = fetch, now = Date.now } = 
             dateStyle: 'short', timeStyle: 'short' }).format(new Date(task.due_at))
           : 'Sem prazo'
         const message = (job.event_type === 'assigned' ? 'Nova tarefa atribuída' : 'Tarefa próxima do prazo') +
-          ' no RealTalent\\nTarefa: ' + String(task.title || 'Tarefa').slice(0, 120) +
-          '\\nPrazo: ' + due + '\\nAcesse: ' + website.origin
+          ' no RealTalent\nTarefa: ' + String(task.title || 'Tarefa').slice(0, 120) +
+          '\nPrazo: ' + due + '\nAcesse: ' + website.origin
         attempted = true
         const sent = await evolution('/message/sendText/' + instance, 'POST', {
           number: phone.substring(1), text: message,

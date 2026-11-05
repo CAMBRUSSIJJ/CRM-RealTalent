@@ -3,6 +3,7 @@ import { spawn } from 'node:child_process'
 import path from 'node:path'
 import fs from 'node:fs'
 import { fileURLToPath } from 'node:url'
+import { handleTaskReminderQrBridge } from './task-reminder-qr-bridge.mjs'
 
 const here=path.dirname(fileURLToPath(import.meta.url))
 const bundle=path.resolve(here,'../..')
@@ -18,13 +19,38 @@ for(const dir of ['agent-config','agent-state','communications','prospecting']) 
 const required=['REALTALENT_AGENT_RUNTIME_TOKEN','REALTALENT_RUNTIME_TOKEN','REALTALENT_PROSPECTING_RUNTIME_TOKEN']
 for(const name of required){ if(String(process.env[name]||'').length<24){ console.error(`${name} é obrigatório (mín. 24 caracteres).`); process.exit(1) } }
 
-const children=[]
-const launch=(name,cmd,args,extra)=>{
-  const child=spawn(cmd,args,{cwd:extra.cwd||bundle,env:{...process.env,...extra.env},stdio:'inherit'})
-  child.on('exit',(code,signal)=>{ console.error(`[${name}] encerrou code=${code} signal=${signal||''}`); if(!shuttingDown) process.exit(code||1) })
-  children.push(child); return child
-}
+// Communications contains a Chromium profile and can fail during WhatsApp
+// navigation. Restart only that child with bounded backoff. The Agent and
+// Prospecting remain online, and no state or volume is removed.
+const children=new Set()
+const restartTimers=new Set()
+const crashes=new Map()
 let shuttingDown=false
+const launch=(name,cmd,args,extra)=>{
+  const started=Date.now()
+  const child=spawn(cmd,args,{cwd:extra.cwd||bundle,env:{...process.env,...extra.env},stdio:'inherit'})
+  children.add(child)
+  child.on('error',error=>console.error(`[${name}] falha ao iniciar: ${error.message}`))
+  child.on('exit',(code,signal)=>{
+    children.delete(child)
+    console.error(`[${name}] encerrou code=${code} signal=${signal||''}`)
+    if(shuttingDown)return
+    if(name==='communications'){
+      const consecutive=Date.now()-started>90_000?1:(crashes.get(name)||0)+1
+      crashes.set(name,consecutive)
+      const delayMs=Math.min(60_000,Math.pow(2,Math.min(consecutive,5))*1_000)
+      console.warn(`[communications] reinício isolado em ${delayMs}ms, tentativa ${consecutive} (sem reiniciar Agent/Garimpo)`)
+      const timer=setTimeout(()=>{
+        restartTimers.delete(timer)
+        if(!shuttingDown)launch(name,cmd,args,extra)
+      },delayMs)
+      restartTimers.add(timer)
+      return
+    }
+    process.exit(code||1)
+  })
+  return child
+}
 launch('agent',process.execPath,[path.join(agent,'cloud-agent-gateway.mjs')],{cwd:agent,env:{REALTALENT_AGENT_HOST:'127.0.0.1',REALTALENT_AGENT_PORT:'8791',REALTALENT_AGENT_INNER_PORT:'8792',XDG_CONFIG_HOME:path.join(DATA,'agent-config'),XDG_STATE_HOME:path.join(DATA,'agent-state')}})
 launch('communications',process.execPath,[path.join(crm,'scripts/realtalent-communications-gateway.mjs')],{cwd:crm,env:{REALTALENT_COMMUNICATIONS_HOST:'127.0.0.1',REALTALENT_COMMUNICATIONS_PORT:'3002',REALTALENT_COMMUNICATIONS_STORE:path.join(DATA,'communications','store.json'),REALTALENT_COMMUNICATIONS_KEY_FILE:path.join(DATA,'communications','key'),REALTALENT_COMMUNICATIONS_CONFIG:path.join(DATA,'communications','config.json'),REALTALENT_COMMUNICATIONS_MEDIA_DIR:path.join(DATA,'communications','media')}})
 launch('prospecting',process.execPath,[path.join(crm,'scripts/realtalent-prospecting-agent.mjs')],{cwd:crm,env:{REALTALENT_PROSPECTING_AGENT_HOST:'127.0.0.1',REALTALENT_PROSPECTING_AGENT_PORT:'4319',REALTALENT_PROSPECTING_AGENT_STATE_DIR:path.join(DATA,'prospecting')}})
@@ -109,6 +135,10 @@ const sendJson=(res,status,payload)=>{
 const server=http.createServer(async(req,res)=>{
   const pathname=new URL(req.url||'/',`http://${req.headers.host||'localhost'}`).pathname
 
+  // Authenticated Supabase cron -> Railway QR delivery, never a browser API.
+  if (pathname === '/internal/task-reminders/qr')
+    return handleTaskReminderQrBridge(req, res)
+
   // Liveness deve responder assim que o supervisor abriu a porta. Ele não depende
   // de Agent, Comunicações ou Garimpo e é o endpoint usado pelo healthcheck Railway.
   if(pathname==='/health'){
@@ -127,5 +157,5 @@ const server=http.createServer(async(req,res)=>{
 })
 
 server.listen(PORT,HOST,()=>console.log(`RealTalent Cloud Runtime (${RUNTIME_ENVIRONMENT}) em ${HOST}:${PORT}`))
-const shutdown=()=>{if(shuttingDown)return;shuttingDown=true;server.close();for(const child of children)try{child.kill('SIGTERM')}catch{};setTimeout(()=>process.exit(0),1000).unref()}
+const shutdown=()=>{if(shuttingDown)return;shuttingDown=true;for(const timer of restartTimers)clearTimeout(timer);restartTimers.clear();server.close();for(const child of children)try{child.kill('SIGTERM')}catch{};setTimeout(()=>process.exit(0),1000).unref()}
 process.on('SIGTERM',shutdown);process.on('SIGINT',shutdown)

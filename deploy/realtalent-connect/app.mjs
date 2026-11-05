@@ -381,7 +381,7 @@ async function diagnostic() {
       result.advice = 'A Evolution pode estar com falha de DNS. Verifique a rede do Docker.'
     else if (/ECONNREFUSED|ETIMEDOUT|websocket.*(?:error|closed)|connection timeout/i.test(lines))
       result.advice = 'A Evolution não conseguiu manter conexão com os servidores WhatsApp.'
-    else if (/P1001|prisma|database.*(?:error|failed)|redis.*(?:error|failed)/i.test(lines))
+    else if (/P1000|P1001|P1002|P1017|PrismaClient(?:Initialization|KnownRequest)Error|database.*(?:connection refused|authentication failed)|redis.*(?:ECONNREFUSED|NOAUTH|WRONGPASS|failed to connect)/i.test(lines))
       result.advice = 'Há erros de banco de dados ou Redis no Evolution.'
     else if (/bad.session|version.*(?:unsupported|invalid)|handshake.*failed/i.test(lines))
       result.advice = 'A versão do motor WhatsApp pode estar incompatível.'

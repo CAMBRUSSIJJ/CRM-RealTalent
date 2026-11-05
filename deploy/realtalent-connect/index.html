@@ -70,6 +70,11 @@
   <section class="card">
     <h2>2 · Escaneie o QR Code no CRM</h2>
     <p>Quando o computador estiver conectado, abra <strong>Configurações → WhatsApp</strong> e clique em <strong>Gerar QR Code</strong>. No celular, use <strong>WhatsApp → Dispositivos conectados</strong>.</p>
+    <div id="local-qr" class="hidden" style="background:white;border:1px solid #dae2ec;border-radius:12px;padding:20px;margin-bottom:16px;text-align:center">
+      <strong style="display:block;margin-bottom:8px">QR Code do WhatsApp — direto neste computador</strong>
+      <img id="local-qr-image" src="" alt="QR Code do WhatsApp para vincular o aparelho" width="300" height="300" style="max-width:100%;object-fit:contain">
+      <p style="margin:8px 0 0">Escaneie em WhatsApp → Dispositivos conectados.</p>
+    </div>
     <div class="alert" id="diagnostic">Carregando diagnóstico...</div>
     <div style="margin-top:14px" class="row">
       <button class="secondary" id="diagnostic-button" type="button">Verificar problema do QR</button>
@@ -95,6 +100,33 @@
     if (!res.ok) throw new Error(body.error || 'Não foi possível concluir.')
     return body
   }
+  let currentQrActive = false
+  async function refreshLocalQr(show) {
+    const box = $('local-qr')
+    if (!show) {
+      box.classList.add('hidden')
+      $('local-qr-image').removeAttribute('src')
+      currentQrActive = false
+      return
+    }
+    try {
+      const r = await fetch('/api/qr', { headers: { 'x-rt-csrf': token }, cache: 'no-store' })
+      if (!r.ok) throw new Error('QR indisponível')
+      const body = await r.json()
+      if (!body.ready || typeof body.image !== 'string' ||
+          !body.image.startsWith('data:image/png;base64,')) {
+        box.classList.add('hidden')
+        currentQrActive = false
+        return
+      }
+      if ($('local-qr-image').src !== body.image) $('local-qr-image').src = body.image
+      box.classList.remove('hidden')
+      currentQrActive = true
+    } catch {
+      box.classList.add('hidden')
+      currentQrActive = false
+    }
+  }
   async function refresh() {
     try {
       const s = await api('/api/status')
@@ -104,6 +136,7 @@
         s.started ? 'WhatsApp desconectado' : s.paired ? 'Computador vinculado (sem WhatsApp)' : 'Aguardando código'
       $('status').classList.toggle('connected', s.connection === 'open')
       $('diagnostic').textContent = s.message || 'Conector preparado.'
+      await refreshLocalQr(Boolean(s.qrReady && s.connection !== 'open'))
       for (const id of ['crm1','crm2']) $(id).href = s.crmUrl
       $('start-button').disabled = !!s.started
       $('start-button').textContent = s.started ? 'Conector iniciado' : 'Iniciar WhatsApp'

@@ -22,6 +22,7 @@ import { applyPreferences, createDefaultPreferences, type CrmPreferences, usePre
 import { IntegrationCenter } from './integration-center'
 import { CalendarIntegrationPanel } from './calendar-integration-panel'
 import { WhatsappIntegrationPanel } from './whatsapp-integration-panel'
+import { WhatsappLocalBridgePanel } from './whatsapp-local-bridge-panel'
 import { FunctionalAuditPanel } from './functional-audit-panel'
 import { RealTalentAiPanel } from './realtalent-ai-panel'
 import { useExperience, type ExperiencePreset, type NotificationPreferences } from '../experience/experience-context'
@@ -590,7 +591,10 @@ export function SettingsPage() {
 
         {activeTab === 'ai' ? <RealTalentAiPanel /> : null}
         {activeTab === 'calendar' ? <CalendarIntegrationPanel /> : null}
-        {activeTab === 'whatsapp' ? <WhatsappIntegrationPanel preferences={draft.integrations} onPreferencesChange={(patch) => patchDraft('integrations', patch)} /> : null}
+        {activeTab === 'whatsapp' ? import.meta.env.VITE_WHATSAPP_CONNECTION_MODE === 'bridge'
+          ? <WhatsappLocalBridgePanel />
+          : <WhatsappIntegrationPanel preferences={draft.integrations} onPreferencesChange={(patch) => patchDraft('integrations', patch)} />
+        : null}
         {activeTab === 'integrations' ? <div id="settings-integrations"><IntegrationCenter preferences={draft.integrations} members={members} onPreferencesChange={(patch) => patchDraft('integrations', patch)} /></div> : null}
         {activeTab === 'maps' ? <MapsIntegrationPanel /> : null}
 

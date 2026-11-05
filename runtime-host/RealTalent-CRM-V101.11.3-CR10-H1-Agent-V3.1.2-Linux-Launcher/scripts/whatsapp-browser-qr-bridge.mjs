@@ -67,8 +67,14 @@ async function loadWebJs() {
 }
 
 export function createWhatsAppBrowserQrBridge({ root, now, uuid, store, saveStore, upsertAccount, pushEvent, makeEvent, persistMedia }) {
-  const authRoot = path.join(root, '.realtalent-whatsapp-browser')
+  // Recovery profile is opt-in and isolated. Never delete or overwrite the
+  // pre-existing authenticated profile on the persistent Railway /data volume.
+  const isolatedProfile = process.env.REALTALENT_WHATSAPP_SESSION_PROFILE === 'qr-qa-restore-20261105'
+  const authRoot = path.join(root, isolatedProfile
+    ? '.realtalent-whatsapp-browser-qa-restore-20261105'
+    : '.realtalent-whatsapp-browser')
   fs.mkdirSync(authRoot, { recursive: true, mode: 0o700 })
+  if (isolatedProfile) console.info('[WhatsApp QR] Perfil novo e isolado habilitado; sessão anterior preservada.')
 
   const get = workspaceId => sessions.get(String(workspaceId)) || null
 
@@ -622,9 +628,13 @@ export function createWhatsAppBrowserQrBridge({ root, now, uuid, store, saveStor
       qrMaxRetries: 8,
       takeoverOnConflict: true,
       takeoverTimeoutMs: 8_000,
-      // Do not customize deviceName/browserName: whatsapp-web.js 1.34.7
-      // calls window.require('WAWebMiscBrowserUtils').info during inject().
-      // On newer WA Web builds that optional module may be null and QR fails.
+      // QA e31e847 confirmed QR creation on 2026-11-05 using these options.
+      // Use only with the isolated recovery profile; preserve the default
+      // production behaviour and all message/media handlers otherwise.
+      ...(isolatedProfile ? {
+        deviceName: 'RealTalent CRM',
+        browserName: 'Chrome',
+      } : {}),
     })
     session.client = client
 

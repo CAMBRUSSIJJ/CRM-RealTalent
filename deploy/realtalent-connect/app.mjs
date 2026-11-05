@@ -393,7 +393,13 @@ async function diagnostic() {
     // Classify locally. Never expose logs, WhatsApp pairing material,
     // phone numbers, or Docker secrets to the browser or to Supabase.
     const lines = (stdout + '\n' + stderr).slice(-30000)
-    if (/ENOTFOUND|EAI_AGAIN|getaddrinfo|DNS|resolve failed/i.test(lines))
+    if (result.postgres !== 'Saudável')
+      result.advice = 'O PostgreSQL não responde. Verifique o banco local, sem apagar volumes.'
+    else if (result.redis !== 'Saudável')
+      result.advice = 'O Redis não responde. Verifique o serviço de cache antes do QR.'
+    else if (result.evolution !== 'API respondendo')
+      result.advice = 'PostgreSQL e Redis respondem, mas a API Evolution está indisponível.'
+    else if (/ENOTFOUND|EAI_AGAIN|getaddrinfo|DNS|resolve failed/i.test(lines))
       result.advice = 'A Evolution pode estar com falha de DNS. Verifique a rede do Docker.'
     else if (/ECONNREFUSED|ETIMEDOUT|websocket.*(?:error|closed)|connection timeout/i.test(lines))
       result.advice = 'A Evolution não conseguiu manter conexão com os servidores WhatsApp.'
@@ -403,6 +409,11 @@ async function diagnostic() {
       result.advice = 'A versão do motor WhatsApp pode estar incompatível.'
   } catch {
     result.advice = 'Não foi possível consultar os registros do Docker. Verifique o serviço Evolution.'
+  }
+  if (!result.advice && result.postgres === 'Saudável' && result.redis === 'Saudável' && result.evolution === 'API respondendo') {
+    result.advice = qrZeroCount
+      ? 'PostgreSQL e Redis estão saudáveis. A Evolution responde count=0: a sessão WhatsApp não gerou QR.'
+      : 'Os serviços estão saudáveis. O bloqueio parece ocorrer na sessão WhatsApp, não no banco.'
   }
   if (!result.advice && qrZeroCount)
     result.advice = 'Evolution respondeu count=0. Isso pode ser incompatibilidade do motor WhatsApp, rede ou sessão travada.'

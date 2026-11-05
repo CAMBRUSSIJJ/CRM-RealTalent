@@ -277,22 +277,54 @@ async function tick() {
   if (!config || inTick || !state.started) return
   inTick = true
   try {
-    state.connection = await connectionState()
-    if (state.connection === 'open') qrCache = { image: null, expires: 0 }
-    const qr = qrCache.expires > Date.now() ? qrCache.image : null
-    await callDevice('heartbeat', { state: state.connection, qr })
+    const evolutionState = await connectionState()
+    if (evolutionState === 'open') {
+      qrRequested = false
+      state.connection = 'open'
+      qrCache = { image: null, expires: 0 }
+      state.qrReady = false
+      state.lastError = null
+    } else {
+      state.connection = qrRequested ? 'connecting' : evolutionState
+      if (qrRequested && Date.now() - lastQrAttempt >= 7000 &&
+          qrCache.expires <= Date.now()) {
+        lastQrAttempt = Date.now()
+        try {
+          await fetchNewQr('realtalent-' + config.organizationId)
+        } catch (err) {
+          state.lastError = err instanceof Error && /^Evolution HTTP [0-9]{3}$/.test(err.message)
+            ? err.message + '. Verifique a Evolution no computador.'
+            : 'Evolution não conseguiu criar um QR. Verifique os serviços no Linux.'
+        }
+      }
+    }
+    let qr = state.connection !== 'open' && qrCache.expires > Date.now()
+      ? qrCache.image : null
+    const heartbeat = { state: state.connection, qr }
+    if (qr || state.connection === 'open') heartbeat.error = ''
+    else if (state.lastError) heartbeat.error = state.lastError
+    await callDevice('heartbeat', heartbeat)
     const batch = await callDevice('poll')
     for (const cmd of batch.commands || []) await processCommand(cmd)
+    if ((batch.commands || []).length > 0) {
+      qr = state.connection !== 'open' && qrCache.expires > Date.now()
+        ? qrCache.image : null
+      await callDevice('heartbeat', { state: state.connection, qr,
+        ...(qr ? { error: '' } : state.lastError ? { error: state.lastError } : {}) })
+    }
     if (state.connection === 'open') {
       for (const item of batch.verifications || []) await processVerification(item)
       for (const item of batch.reminders || []) await processReminder(item)
     }
-    if (state.connection === 'open') state.message = 'WhatsApp conectado. Notificações locais habilitadas.'
-    else if (state.connection === 'connecting') state.message = 'Abra o CRM e escaneie o QR Code.'
+    state.qrReady = !!qr && qrCache.expires > Date.now()
+    if (state.lastError) state.message = state.lastError
+    else if (state.connection === 'open') state.message = 'WhatsApp conectado. Notificações locais habilitadas.'
+    else if (state.qrReady) state.message = 'QR Code pronto. Abra Configurações → WhatsApp no CRM.'
+    else if (qrRequested) state.message = 'Preparando QR Code no Evolution (tentativa ' + qrAttempts + ').'
     else state.message = 'Abra Configurações → WhatsApp no CRM e clique em Gerar QR Code.'
     state.lastTick = new Date().toISOString()
-  } catch {
-    state.message = 'A comunicação ainda não foi estabelecida. Confira a conexão com a internet e o Docker.'
+  } catch (err) {
+    state.message = 'Conector sem sincronização. Confira a internet e os serviços Docker.'
   } finally { inTick = false }
 }
 async function pair(code) {

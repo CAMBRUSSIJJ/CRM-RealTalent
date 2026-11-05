@@ -1,6 +1,7 @@
 import http from 'node:http'
 import { readFile, mkdir, writeFile, chmod, unlink } from 'node:fs/promises'
 import { existsSync } from 'node:fs'
+import { randomBytes } from 'node:crypto'
 import { homedir } from 'node:os'
 import { join, dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'

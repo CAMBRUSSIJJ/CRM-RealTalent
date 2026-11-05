@@ -22,7 +22,8 @@ test('expired unscanned pairing is classified, not confused with network and aut
 test('both WhatsApp browser bundles handle QR expiry without reconnect loop', () => {
   assert.equal(bridge, hosted)
   assert.match(bridge, /if \(!qrExpired\) scheduleReconnect\(session, detail\)/)
-  assert.match(bridge, /if \(!qrExpired\) scheduleReconnect\(session, 'falha ao inicializar'\)/)
+  assert.match(bridge, /else if \(!qrExpired && !profileLocked\) scheduleReconnect\(session, 'falha ao inicializar'\)/)
+  assert.match(bridge, /if \(lockResult\?\.recovered\) scheduleReconnect\(session, 'perfil Chromium anterior liberado'\)/)
   assert.match(bridge, /session\.qrDataUrl = null/)
   assert.match(bridge, /const qrExpired = isQrExpiredDisconnect\(/)
   assert.match(bridge, /session\.manualDisconnect = true \/\/ Suppress disconnect/)

@@ -71,7 +71,11 @@
     <h2>2 · Escaneie o QR Code no CRM</h2>
     <p>Quando o computador estiver conectado, abra <strong>Configurações → WhatsApp</strong> e clique em <strong>Gerar QR Code</strong>. No celular, use <strong>WhatsApp → Dispositivos conectados</strong>.</p>
     <div class="alert" id="diagnostic">Carregando diagnóstico...</div>
-    <div style="margin-top:14px" class="row"><button class="secondary" id="diagnostic-button" type="button">Verificar problema do QR</button></div>
+    <div style="margin-top:14px" class="row">
+      <button class="secondary" id="diagnostic-button" type="button">Verificar problema do QR</button>
+      <button class="secondary" id="recover-button" type="button">Reiniciar conexão do WhatsApp</button>
+    </div>
+    <p style="font-size:13px;margin-top:12px">A recuperação reinicia somente a Evolution, sem apagar a sessão, o banco ou o vínculo com o CRM. Limite de uma tentativa a cada 10 minutos.</p>
     <div class="alert hidden" id="technical-diagnostic" role="status" style="margin-top:12px;white-space:pre-line"></div>
   </section>
   <div class="foot">Seu computador precisa estar ligado para manter a conexão. A chave administrativa do Supabase nunca é enviada ao Linux.</div>
@@ -115,6 +119,17 @@
       $('code').value = ''
     } catch(error) { issue(error.message) }
     finally { $('pair-button').disabled = false; await refresh() }
+  })
+  $('recover-button').addEventListener('click', async () => {
+    if (!confirm('Reiniciar somente a Evolution para tentar gerar o QR novamente? Os dados e a sessão serão preservados.')) return
+    $('recover-button').disabled = true
+    clear()
+    try {
+      await api('/api/recover', {})
+      $('ok').textContent = 'Evolution reiniciada. Abra Configurações → WhatsApp no CRM e verifique se o QR apareceu.'
+      $('ok').classList.remove('hidden')
+    } catch (error) { issue(error.message || 'Não foi possível reiniciar a Evolution.') }
+    finally { $('recover-button').disabled = false; await refresh() }
   })
   $('diagnostic-button').addEventListener('click', async () => {
     $('diagnostic-button').disabled = true

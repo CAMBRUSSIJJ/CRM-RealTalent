@@ -25,9 +25,9 @@ Deno.serve(async (request) => {
   const auth = request.headers.get('authorization') || ''
   if (!/^Bearer\s+\S+$/i.test(auth)) return reply({ error: 'sign_in_required' }, 401)
 
-  let body: { organizationId?: unknown; action?: unknown }
+  let body: { organizationId?: unknown; action?: unknown; code?: unknown }
   try { body = await request.json() } catch { return reply({ error: 'invalid_json' }, 400) }
-  if (!uuid(body.organizationId) || !['status', 'connect', 'disconnect'].includes(String(body.action)))
+  if (!uuid(body.organizationId) || !['status', 'connect', 'disconnect', 'verify-start', 'verify-confirm'].includes(String(body.action)))
     return reply({ error: 'invalid_request' }, 400)
   const organizationId = body.organizationId as string
   const action = body.action as string
@@ -46,7 +46,7 @@ Deno.serve(async (request) => {
     .select('role').eq('organization_id', organizationId).eq('user_id', user.id).maybeSingle()
   if (memberError || !member) return reply({ error: 'workspace_access_denied' }, 403)
   const canConnect = member.role === 'owner' || member.role === 'admin'
-  if (action !== 'status' && !canConnect) return reply({ error: 'admin_required' }, 403)
+  if (['connect','disconnect'].includes(action) && !canConnect) return reply({ error: 'admin_required' }, 403)
 
   const admin = createClient(url, serviceKey, { auth: { persistSession: false, autoRefreshToken: false } })
   const { data: bridge, error } = await admin.from('whatsapp_local_bridge').select(
@@ -55,6 +55,38 @@ Deno.serve(async (request) => {
   if (error) return reply({ error: 'local_bridge_migration_missing' }, 503)
   const lastBeat = Date.parse(bridge?.heartbeat_at || '')
   const online = Number.isFinite(lastBeat) && Date.now() - lastBeat >= 0 && Date.now() - lastBeat < 45_000
+  // Number ownership is verified by a short code sent to the opted-in phone.
+  // Neither browser nor Edge response receives the verification code.
+  if (action === 'verify-start') {
+    if (!online || bridge?.connection_state !== 'open')
+      return reply({ error: 'pair_whatsapp_before_verifying_phone' }, 503)
+    const { data: prefs, error: prefError } = await admin.from('task_notification_preferences')
+      .select('whatsapp_enabled,whatsapp_phone_e164,whatsapp_consented_at')
+      .eq('organization_id', organizationId).eq('user_id', user.id).maybeSingle()
+    const phone = String(prefs?.whatsapp_phone_e164 || '')
+    if (prefError || !prefs?.whatsapp_enabled || !prefs?.whatsapp_consented_at || !/^\\+[1-9][0-9]{7,14}$/.test(phone))
+      return reply({ error: 'save_your_phone_and_consent_first' }, 400)
+    const { data: directory } = await admin.from('team_member_notification_contacts')
+      .select('phone_e164').eq('organization_id', organizationId).eq('user_id', user.id).maybeSingle()
+    if (directory?.phone_e164 && directory.phone_e164 !== phone)
+      return reply({ error: 'team_phone_changed_confirm_again' }, 409)
+    const code = String(crypto.getRandomValues(new Uint32Array(1))[0] % 1_000_000).padStart(6, '0')
+    const { data: queued, error: queueError } = await admin.rpc('queue_whatsapp_local_phone_code', {
+      p_organization_id: organizationId, p_user_id: user.id, p_phone: phone, p_code: code,
+    })
+    if (queueError) return reply({ error: 'phone_verification_not_installed' }, 503)
+    if (!queued) return reply({ error: 'verification_rate_limited' }, 429)
+    return reply({ queued: true, message: 'Código solicitado. Consulte seu WhatsApp e informe os seis dígitos.' })
+  }
+  if (action === 'verify-confirm') {
+    if (typeof body.code !== 'string' || !/^[0-9]{6}$/.test(body.code))
+      return reply({ error: 'invalid_verification_code' }, 400)
+    const { data: verified, error: verifyError } = await admin.rpc('confirm_whatsapp_local_phone_code', {
+      p_organization_id: organizationId, p_user_id: user.id, p_code: body.code,
+    })
+    if (verifyError) return reply({ error: 'phone_verification_unavailable' }, 503)
+    return verified ? reply({ verified: true }) : reply({ error: 'invalid_or_expired_code' }, 400)
+  }
   if (!online) {
     return action === 'status'
       ? reply({ state: 'offline', qr: null, online: false, connectionMode: 'bridge' })

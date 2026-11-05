@@ -8,7 +8,7 @@ const RUNTIME_TOKEN='test-only-runtime-token-123456789'
 const base={ workspaceId:'839f852a-fdbc-4dd3-8f9e-020a238605f3',jobId:'8346d109-6f58-4d1a-8711-9edb960c9d7a',phone:'+5551999999999',title:'Verificar proposta',dueAt:null,eventType:'assigned' }
 
 const execute=async ({ input=base, token=TOKEN, method='POST', headers={}, gateway }={})=>{
-  const req=Readable.from([JSON.stringify(input)])
+  const req=Readable.from([Buffer.from(JSON.stringify(input))])
   req.method=method
   req.headers={'x-realtalent-task-bridge-token':token, ...headers}
   let status,output

@@ -1,4 +1,4 @@
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.57.4'
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.110.7'
 
 const cors = {
   'access-control-allow-origin': '*',
@@ -8,6 +8,13 @@ const cors = {
 const reply = (data: unknown, code = 200) => new Response(JSON.stringify(data), {
   status: code, headers: { ...cors, 'content-type': 'application/json', 'cache-control': 'no-store' },
 })
+const configured = (key: string) => (Deno.env.get(key) || '').trim()
+const defaultApiKey = (name: string) => {
+  try {
+    const keys = JSON.parse(configured(name))
+    return typeof keys?.default === 'string' ? keys.default : ''
+  } catch { return '' }
+}
 const uuid = (v: unknown) => typeof v === 'string' &&
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(v)
 const qrImage = (v: unknown): string | null => {
@@ -20,7 +27,10 @@ const qrImage = (v: unknown): string | null => {
 Deno.serve(async (request) => {
   if (request.method === 'OPTIONS') return new Response(null, { status: 204, headers: cors })
   if (request.method !== 'POST') return reply({ error: 'method_not_allowed' }, 405)
-  if (Deno.env.get('WHATSAPP_CONNECTION_MODE') !== 'bridge')
+  // Dedicated bridge endpoint: no manual mode secret is needed.
+  // An explicit non-bridge value still disables it.
+  if (configured('WHATSAPP_CONNECTION_MODE') &&
+      configured('WHATSAPP_CONNECTION_MODE') !== 'bridge')
     return reply({ error: 'local_bridge_not_enabled' }, 503)
   const auth = request.headers.get('authorization') || ''
   if (!/^Bearer\s+\S+$/i.test(auth)) return reply({ error: 'sign_in_required' }, 401)
@@ -32,8 +42,10 @@ Deno.serve(async (request) => {
   const organizationId = body.organizationId as string
   const action = body.action as string
   const url = Deno.env.get('SUPABASE_URL') || ''
-  const anon = Deno.env.get('SUPABASE_ANON_KEY') || ''
-  const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || ''
+  const anon = configured('SUPABASE_ANON_KEY') ||
+    defaultApiKey('SUPABASE_PUBLISHABLE_KEYS')
+  const serviceKey = configured('SUPABASE_SERVICE_ROLE_KEY') ||
+    defaultApiKey('SUPABASE_SECRET_KEYS')
   if (!url || !anon || !serviceKey) return reply({ error: 'supabase_configuration_missing' }, 503)
 
   const sessionClient = createClient(url, anon, {

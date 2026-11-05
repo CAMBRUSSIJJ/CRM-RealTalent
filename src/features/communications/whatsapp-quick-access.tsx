@@ -13,7 +13,7 @@ const bridgeMode = import.meta.env.VITE_WHATSAPP_CONNECTION_MODE === 'bridge'
  * direct path to its existing WhatsApp setup screen.
  */
 export function WhatsAppQuickAccess() {
-  const { currentWorkspace, repositoryMode } = useAppWorkspace()
+  const { currentWorkspace } = useAppWorkspace()
   const { navigate } = useAppNavigation()
   const workspaceId = currentWorkspace?.id
   const [state, setState] = useState<ConnectionState>('checking')
@@ -29,7 +29,7 @@ export function WhatsAppQuickAccess() {
       inFlight = true
       try {
         let next: ConnectionState
-        if (bridgeMode && repositoryMode === 'supabase') {
+        if (bridgeMode) {
           const client = getSupabaseClient()
           if (!client) throw new Error('Supabase não configurado')
           const { data, error } = await client.functions.invoke('whatsapp-session', {
@@ -62,7 +62,7 @@ export function WhatsAppQuickAccess() {
       window.removeEventListener('focus', onVisible)
       document.removeEventListener('visibilitychange', onVisible)
     }
-  }, [workspaceId, repositoryMode])
+  }, [workspaceId])
 
   if (!workspaceId) return null
 

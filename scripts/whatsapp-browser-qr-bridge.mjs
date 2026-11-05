@@ -968,6 +968,36 @@ export function createWhatsAppBrowserQrBridge({ root, now, uuid, store, saveStor
     return { ok: true }
   }
 
+  // whatsapp-web.js can schedule an internal Client.inject() after a page
+  // navigation. Its rejected Promise may escape the normal initialize()
+  // catch handler if the Puppeteer frame is detached meanwhile. Recover
+  // exactly one identifiable live QR client instead of terminating the
+  // entire Communications Gateway and all other Cloud Runtime processes.
+  function recoverDetachedFrame(error) {
+    const detail = String(error?.message || error || '')
+    if (!/Attempted to use detached Frame|detached frame/i.test(detail)) return false
+    const candidates = [...sessions.values()].filter(session =>
+      session?.client && !session.manualDisconnect &&
+      ['starting', 'qr', 'connected'].includes(session.state))
+    if (candidates.length !== 1) return false
+    const session = candidates[0]
+    if (session.reconnectTimer) return true
+    session.state = 'disconnected'
+    session.qrDataUrl = null
+    session.lastError = 'O WhatsApp Web mudou de página durante a inicialização. Recuperando o navegador sem remover a sessão.'
+    session.updatedAt = now()
+    try {
+      updateQrAccount(session.workspaceId, {
+        status: 'attention', lastError: session.lastError,
+        metadata: { liveState: 'disconnected' },
+      })
+    } catch (saveError) {
+      console.warn('[WhatsApp QR] Não foi possível registrar a recuperação do navegador:', saveError instanceof Error ? saveError.message : String(saveError))
+    }
+    scheduleReconnect(session, 'página Chromium reiniciada')
+    return true
+  }
+
   async function shutdown() {
     const active = [...sessions.values()]
     for (const session of active) if (session.reconnectTimer) { clearTimeout(session.reconnectTimer); session.reconnectTimer = null }
@@ -976,5 +1006,5 @@ export function createWhatsAppBrowserQrBridge({ root, now, uuid, store, saveStor
     return { ok: true, closed: active.length }
   }
 
-  return { start, status, send, createGroup, listContacts, groupInfo, disconnect, syncHistory, diagnostics, shutdown }
+  return { start, status, send, createGroup, listContacts, groupInfo, disconnect, syncHistory, diagnostics, recoverDetachedFrame, shutdown }
 }

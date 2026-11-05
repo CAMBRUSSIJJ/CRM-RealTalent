@@ -1,58 +1,40 @@
-# RealTalent Connect — instalação e pareamento simples (Linux)
+# RealTalent Connect — WhatsApp Web nativo (sem Evolution)
+Versão de teste para RealTalent V101.11.3. Mantém o CRM da Vercel e o pareamento já existente com o Supabase.
 
-## O que já é possível fazer
-O RealTalent Connect configura o conector WhatsApp sem pedir `service_role`, URL
-do Supabase, ID de workspace, QR gerado fora do CRM, nem edição de arquivos `.env`.
-O único passo de segurança é digitar o código temporário gerado no CRM.
+## O que muda
+- O aplicativo Linux utiliza `whatsapp-web.js@1.34.7` e `qrcode@1.5.4`.
+- A sessão é armazenada em `~/.config/realtalent-connect/whatsapp-web-session`.
+- O vínculo do dispositivo com o Supabase continua em `~/.config/realtalent-connect/device.json` (não enviar).
+- Não utiliza o container Evolution, PostgreSQL ou Redis para gerar o QR.
+- O instalador para somente os containers do projeto local `realtalent-connect`, sem remover volumes ou configurações.
+- O QR aparece em `http://127.0.0.1:4375/` e também é enviado pela função `whatsapp-connect` já publicada no Supabase.
+- Notificações de tarefas continuam usando a fila existente e os requisitos de consentimento e telefone verificado. Resultado incerto bloqueia reenvio automático.
 
-1. Instalar o aplicativo uma vez pelo instalador `INSTALAR.sh`.
-2. Abrir **Aplicativos → RealTalent Connect** (interface local em `127.0.0.1:4375`).
-3. No CRM **Configurações → WhatsApp → Gerar código para o aplicativo**.
-4. Copiar o código de 16 caracteres para o RealTalent Connect (expira em 5 min).
-5. O programa salva credencial revogável só para aquele workspace, gera as senhas
-   locais automaticamente, ativa o Docker e inicia com sua sessão Linux.
-6. Voltar ao CRM e clicar **Gerar QR Code**; depois escanear com o WhatsApp do telefone.
-7. Em Notificações: usuário autoriza número, recebe código, confirma e cria tarefa
-   atribuída com canal WhatsApp.
+## Instalar
+1. Baixe e extraia o ZIP de inicialização da versão WhatsApp Web nativa.
+2. Execute `bash start-linux.sh`. Ele clona/atualiza apenas a branch de teste e roda `deploy/realtalent-connect/instalar-linux.sh`.
+3. Node 22 e npm são necessários. O instalador prepara o motor e baixa Chromium automaticamente se nenhum navegador compatível estiver instalado.
+4. Abra **Aplicativos → RealTalent Connect**, ou `http://127.0.0.1:4375/`.
+5. **Se o computador já está vinculado ao CRM, não é necessário outro código**.
+6. Espere o QR aparecer no próprio aplicativo. No telefone: WhatsApp → Dispositivos conectados → Conectar dispositivo.
+7. Se o QR não aparecer, clique **Verificar problema do QR**; agora o diagnóstico mostra `WhatsApp Web` e o caminho do Chromium, não Evolution.
 
-## Pré-requisitos
-- Linux Debian ou Ubuntu com ambiente de desktop.
-- Node.js **22**, Git e Internet.
-- Docker Engine + Docker Compose v2: o instalador pergunta se deve instalar
-  automaticamente via `sudo` quando ausentes. Instalação de Docker precisa da senha
-  do administrador **uma vez**; a permissão `docker` é equivalente a controle
-  administrativo do computador e pode exigir sair e entrar no Linux novamente.
-- O computador deve permanecer ligado para enviar e receber WhatsApp.
+## Segurança e preservação
+- Não se usa a chave `service_role` no computador. O aplicativo retém apenas um token de dispositivo revogável.
+- O navegador local só escuta `127.0.0.1:4375`, com verificações de Origin/CSRF.
+- O QR é um segredo temporário: não compartilhar capturas do QR.
+- O instalador **não** executa `docker compose down -v`, `logout`, `rm -rf`, `db reset` ou comando que remova sessões.
+- A sessão do gateway Railway é independente e não é alterada. Deixe Railway ativo até migrar chat e mídia.
+- Nunca exponha o arquivo `device.json` ou os diretórios `whatsapp-web-session`.
 
-## Segurança e arquitetura
-- O app roda painel HTTP **somente em 127.0.0.1**, protegido contra POST de sites
-  externos pelo cabeçalho Origin e um token CSRF. Evolution API também limita
-  portas a 127.0.0.1. Redis e Postgres não expõem portas.
-- A conta do CRM autoriza o vínculo por JWT válido + papel owner/admin, e gera
-  80 bits aleatórios de código único válido por 5 min; só SHA-256 fica na tabela.
-- A função `whatsapp-connect` troca o código por um token aleatório de 256 bits,
-  cujo SHA-256 fica no Supabase. O Linux guarda só esse token de dispositivo,
-  nunca a chave `service_role`. Seu administrador pode revogar a associação.
-- O app faz heartbeat, recebe comandos para obter QR, envia códigos de verificação
-  e notificações da fila **existente** `task_notification_outbox`, sem duplicação.
-- Resultados incertos são bloqueados, sem envio automático de duplicata.
-- Para impedir dois conectores simultâneos, **não inicie o conector manual antigo**
-  e o RealTalent Connect na mesma organização.
-- O projeto de Docker novo usa volumes próprios, preservando os antigos; não execute
-  `docker compose down -v`.
+## Limites
+Esta entrega substitui **o motor de conexão** do RealTalent Connect e liga o QR e os avisos de tarefas ao Supabase. A sincronização de conversas recebidas, grupos, anexos e histórico do Railway **não foi migrada ainda** para o transporte Web nativo. A comunicação pode continuar pelo gateway legado durante o teste, sem atribuir indevidamente o estado 'conectado' ao chat antigo.
 
-## Limites conhecidos
-**Ainda não foi migrado o histórico de conversas, mensagens recebidas e mídias
-(áudios, imagens e documentos)** do gateway antigo para o Evolution local.
-Essa etapa requer sincronização de mensagens e anexos antes de desligar Railway.
-O teste de QR e de envio real exige o Linux do usuário; não há confirmação ainda.
+O WhatsApp Web é uma integração não oficial e pode sofrer mudanças de compatibilidade. A conexão precisa ser validada no Linux real, incluindo Chromium e leitura do QR, antes de promover a branch para produção.
 
-## Diagnóstico
-- Abra `http://127.0.0.1:4375/`.
-- Se Docker estiver ausente, o instalador pode instalar no Debian/Ubuntu após
-  sua autorização. Se der erro de grupo, saia da sessão Linux e entre novamente.
-- Para logs locais sem mostrar credenciais:
-  `journalctl --user -u realtalent-connect -n 40 --no-pager`
-- Para ver serviços:
-  `docker compose --project-name realtalent-connect -f ~/.local/share/realtalent-connect/compose.yaml ps`
-- O QR e o status ficam no CRM; o aplicativo local não exibe o token privado.
+## Diagnóstico seguro
+```bash
+systemctl --user status realtalent-connect.service
+journalctl --user -u realtalent-connect.service -n 40 --no-pager
+```
+Evite enviar logs que possam revelar números, QR ou mensagens.

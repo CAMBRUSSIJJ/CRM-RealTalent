@@ -141,6 +141,7 @@ async function processCommand(command) {
       const previous = webEngine.status()
       if (previous.state === 'error') await webEngine.restart()
       else await webEngine.start(config.organizationId)
+      state.started = true
       state.message = 'WhatsApp Web inicializado. Aguarde o QR ou a restauração da sessão.'
     } else if (command.action === 'disconnect') {
       await webEngine.stop()

@@ -59,16 +59,33 @@ export function WhatsappLocalBridgePanel() {
     try {
       const { data, error } = await client.functions.invoke('whatsapp-connect', {
         body: { action: 'create-code', organizationId: workspaceId },
+        signal: AbortSignal.timeout(12000),
       })
-      if (error || !data?.pairingCode) throw new Error(
-        data?.error === 'admin_required'
-          ? 'Somente o administrador pode vincular este computador.'
-          : 'Não foi possível criar o código. Confira as funções do Supabase.'
-      )
+      let reason = typeof data?.error === 'string' ? data.error : ''
+      if (error && !reason && 'context' in error) {
+        const context = error.context
+        if (context instanceof Response) {
+          const payload = await context.clone().json().catch(() => ({}))
+          reason = typeof payload?.error === 'string' ? payload.error : ''
+        }
+      }
+      if (error || !data?.pairingCode) {
+        const errors: Record<string, string> = {
+          admin_required: 'Este usuário não é administrador do workspace.',
+          bridge_mode_not_enabled: 'A configuração do conector está desativada no Supabase.',
+          backend_not_configured: 'O Supabase não disponibilizou a chave interna do conector.',
+          pairing_storage_unavailable: 'O armazenamento de vinculação está indisponível.',
+          invalid_session: 'Sua sessão expirou. Entre novamente no CRM.',
+        }
+        throw new Error(errors[reason] || 'Não foi possível gerar o código. Verifique o Supabase e tente novamente.')
+      }
       setPairingCode(String(data.pairingCode))
       setNotice('Digite este código no aplicativo RealTalent Connect do seu Linux. Válido por 5 minutos.')
     } catch (error) {
-      setProblem(error instanceof Error ? error.message : 'Falha no pareamento.')
+      const timedOut = error instanceof Error && (error.name === 'TimeoutError' ||
+        error.name === 'AbortError')
+      setProblem(timedOut ? 'Tempo de conexão esgotado. Confira o Supabase e tente novamente.'
+        : error instanceof Error ? error.message : 'Falha no pareamento.')
     } finally { setPairingBusy(false) }
   }
 

@@ -4,10 +4,14 @@ on:
   push:
     branches:
       - fix/whatsapp-qr-runtime-parity-20261104
+      - fix/whatsapp-chromium-singleton-lock-20261104
   pull_request:
     paths:
       - 'scripts/railway-qr-bundle-parity.test.mjs'
       - 'scripts/whatsapp-browser-qr-bridge.mjs'
+      - 'scripts/chromium-profile-lock-recovery.mjs'
+      - 'scripts/chromium-profile-lock-recovery.test.mjs'
+      - 'runtime-host/**/scripts/chromium-profile-lock-recovery.mjs'
       - 'scripts/whatsapp-lid-addressing.mjs'
       - 'scripts/whatsapp-web-send-result-hotfix.mjs'
       - 'runtime-host/**/scripts/whatsapp-browser-qr-bridge.mjs'
@@ -32,6 +36,8 @@ jobs:
           node-version: '22'
       - name: Install exact locked project dependencies
         run: npm ci --include=dev --no-fund --no-audit
+      - name: Validate safe Chromium singleton recovery without deleting WhatsApp credentials
+        run: node --test scripts/chromium-profile-lock-recovery.test.mjs
       - name: Validate QR expiry behavior without connecting a WhatsApp phone
         run: node --test scripts/whatsapp-qr-recovery-policy.test.mjs
       - name: Validate hosted WhatsApp integration contracts

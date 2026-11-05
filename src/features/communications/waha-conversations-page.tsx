@@ -30,6 +30,7 @@ export function WahaConversationsPage(){
   const [sending,setSending]=useState(false)
   const [error,setError]=useState('')
   const [sendError,setSendError]=useState('')
+  const [requiresReview,setRequiresReview]=useState(false)
   const [revision,setRevision]=useState(0)
   const bottom=useRef<HTMLDivElement>(null)
   const selectedId=selected?.id||''
@@ -71,7 +72,6 @@ export function WahaConversationsPage(){
         const next=await wahaMessages(token,selectedId)
         if(active){
           setMessages([...next].sort((a,b)=>(a.timestamp||0)-(b.timestamp||0)))
-          setSendError('')
         }
       }catch(e){if(active)setSendError(e instanceof Error?e.message:'Falha ao carregar mensagens.')}
     }
@@ -108,21 +108,22 @@ export function WahaConversationsPage(){
       if(!/^\d{10,15}$/.test(digits))throw new Error('Digite o número com DDI e DDD.')
       const r=await wahaResolve(token,digits)
       if(!r.numberExists||!r.chatId)throw new Error('O WAHA não localizou esse contato no WhatsApp.')
-      setSelected({id:r.chatId,name:'+'+digits});setPhone('');setAdding(false);setMessages([])
+      setSelected({id:r.chatId,name:'+'+digits});setPhone('');setAdding(false);setMessages([]);setRequiresReview(false)
     }catch(e){setError(e instanceof Error?e.message:'Número não encontrado.')}
   }
 
   async function send(){
-    if(!token||!selectedId||!connected||sending||!draft.trim())return
+    if(!token||!selectedId||!connected||sending||requiresReview||!draft.trim())return
     const body=draft.trim()
     setSending(true);setSendError('')
     try{
       await wahaSend(token,selectedId,body,crypto.randomUUID())
-      setDraft('')
+      setDraft('');setRequiresReview(false)
       const next=await wahaMessages(token,selectedId)
       setMessages([...next].sort((a,b)=>(a.timestamp||0)-(b.timestamp||0)))
     }catch(e){
-      setSendError((e instanceof Error?e.message:'Falha no envio.')+' Verifique a conversa antes de tentar novamente.')
+      setSendError((e instanceof Error?e.message:'Falha no envio.')+' Confira o WhatsApp antes de decidir se deve tentar novamente.')
+      setRequiresReview(true)
     }finally{setSending(false)}
   }
 
@@ -154,7 +155,7 @@ export function WahaConversationsPage(){
         {adding?<div className="waha-new"><label htmlFor="waha-phone">Número com DDI e DDD</label><div><input id="waha-phone" placeholder="55 51 99999 9999" value={phone} onChange={e=>setPhone(e.target.value)} onKeyDown={e=>{if(e.key==='Enter')void newChat()}}/><button onClick={()=>void newChat()}>Buscar</button></div></div>:null}
         <div className="waha-search"><Search size={17}/><input aria-label="Buscar conversas" placeholder="Buscar conversa" value={query} onChange={e=>setQuery(e.target.value)}/></div>
         <div className="waha-list-items">
-          {filtered.map(c=><button key={c.id} className={'waha-chat '+(selectedId===c.id?'active':'')} onClick={()=>{setSelected(c);setSendError('');setMessages([])}}>
+          {filtered.map(c=><button key={c.id} className={'waha-chat '+(selectedId===c.id?'active':'')} onClick={()=>{setSelected(c);setSendError('');setRequiresReview(false);setMessages([])}}>
             <span className="waha-avatar">{(c.name||c.id).slice(0,1).toUpperCase()}</span>
             <span className="waha-chat-info"><strong>{c.name||c.id.split('@')[0]}</strong><small>{c.lastMessage?.hasMedia?mediaLabel(c.lastMessage):c.lastMessage?.body||'Sem mensagens recentes'}</small></span>
             <span className="waha-chat-time">{messageTime(c.lastMessage?.timestamp)}</span>
@@ -173,10 +174,10 @@ export function WahaConversationsPage(){
             {!messages.length?<p className="waha-empty">Nenhuma mensagem carregada nesta conversa.</p>:null}
             <div ref={bottom}/>
           </div>
-          {sendError?<p className="waha-error" role="alert">{sendError}</p>:null}
+          {sendError?<div className="waha-error" role="alert">{sendError}{requiresReview?<button type="button" onClick={()=>{setRequiresReview(false);setSendError('')}}>Verifiquei a conversa; liberar novo envio</button>:null}</div>:null}
           <form className="waha-compose" onSubmit={e=>{e.preventDefault();void send()}}>
-            <textarea aria-label="Mensagem WhatsApp" placeholder={connected?'Escreva uma mensagem...':'WAHA desconectado'} value={draft} onChange={e=>setDraft(e.target.value)} onKeyDown={e=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();void send()}}} disabled={!connected||sending} rows={2}/>
-            <button type="submit" className="waha-primary" disabled={!connected||sending||!draft.trim()}>{sending?<LoaderCircle className="spin" size={17}/>:<Send size={17}/>} Enviar</button>
+            <textarea aria-label="Mensagem WhatsApp" placeholder={connected?'Escreva uma mensagem...':'WAHA desconectado'} value={draft} onChange={e=>setDraft(e.target.value)} onKeyDown={e=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();void send()}}} disabled={!connected||sending||requiresReview} rows={2}/>
+            <button type="submit" className="waha-primary" disabled={!connected||sending||requiresReview||!draft.trim()}>{sending?<LoaderCircle className="spin" size={17}/>:<Send size={17}/>} Enviar</button>
           </form>
         </>:<div className="waha-blank"><MessageCircle size={38}/><h3>Selecione uma conversa</h3><p>Mensagens consultadas diretamente no WAHA local, sem armazenamento adicional.</p></div>}
       </div>

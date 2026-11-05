@@ -1,0 +1,131 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>RealTalent Connect · WhatsApp</title>
+<style>
+  :root{color-scheme:light;--blue:#1155c7;--ink:#182536;--muted:#66758a;--border:#e1e7ee}
+  *{box-sizing:border-box}body{margin:0;font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;background:#f4f7fc;color:var(--ink)}
+  header{background:#fff;border-bottom:1px solid var(--border);padding:20px 28px;display:flex;align-items:center;gap:12px}
+  .brand{background:#1155c7;color:white;border-radius:12px;display:grid;place-items:center;width:44px;height:44px;font-size:25px;font-weight:700}
+  .title{font-weight:750;font-size:20px}.subtitle{color:var(--muted);font-size:13px;margin-top:2px}
+  main{max-width:790px;padding:38px 20px;margin:auto}
+  .card{background:white;border:1px solid var(--border);border-radius:18px;padding:26px;box-shadow:0 10px 35px #1a4b8310;margin-bottom:18px}
+  .section-header{display:flex;align-items:center;justify-content:space-between;gap:16px}
+  h1{font-size:27px;letter-spacing:-.7px;margin:0 0 8px}h2{font-size:18px;margin:0 0 12px}
+  p{color:var(--muted);line-height:1.6;margin:0 0 16px}
+  .status{display:inline-flex;align-items:center;gap:8px;border-radius:999px;background:#eaf0fa;padding:8px 12px;font-size:13px;font-weight:650}
+  .dot{height:9px;width:9px;background:#8a97a8;border-radius:50%}
+  .connected .dot{background:#1b9c59}.connected{background:#e9f8f0}
+  .steps{padding:0;list-style:none;display:grid;gap:12px}
+  .steps li{display:flex;gap:12px;align-items:start;color:#3c4c5d}
+  .num{flex:none;width:29px;height:29px;background:#eaf1ff;border-radius:50%;display:grid;place-items:center;color:var(--blue);font-weight:750}
+  button,.btn{background:var(--blue);color:#fff;text-decoration:none;padding:11px 15px;border:0;border-radius:10px;cursor:pointer;font-size:14px;font-weight:650;display:inline-flex;align-items:center;justify-content:center;gap:8px}
+  button:hover,.btn:hover{background:#0d46aa}button:disabled{opacity:.55;cursor:wait}
+  .secondary{background:#eef3fc;color:#174c9d}.secondary:hover{background:#e0ecff}
+  label{display:block;color:#3c4c5d;font-size:13px;font-weight:650;margin-bottom:8px}
+  input{width:100%;max-width:360px;padding:12px 14px;border:1px solid #cfd8e3;border-radius:10px;font-family:ui-monospace,monospace;letter-spacing:1px;font-size:17px}
+  .row{display:flex;gap:12px;align-items:center;flex-wrap:wrap}
+  small{color:var(--muted)}.hidden{display:none!important}
+  .alert{background:#fff8e5;color:#795710;padding:14px;border-radius:9px;font-size:14px;line-height:1.6}
+  .success{background:#e6f6ec;color:#116837;padding:14px;border-radius:9px;font-size:14px}
+  .foot{font-size:13px;text-align:center;color:#69788c;padding:14px 0 30px}
+  code{background:#edf2fa;padding:2px 5px;border-radius:5px}
+</style>
+</head>
+<body>
+<header>
+  <div class="brand">R</div>
+  <div><div class="title">RealTalent Connect</div><div class="subtitle">Seu WhatsApp conectado ao CRM · Linux</div></div>
+</header>
+<main>
+  <div class="card">
+    <div class="section-header"><div><h1>Conecte o WhatsApp</h1><p>Sem copiar chaves, editar arquivos ou abrir portas na internet.</p></div>
+      <span class="status" id="status"><span class="dot"></span><span id="status-text">Verificando...</span></span>
+    </div>
+    <div class="alert hidden" id="error" role="alert"></div>
+    <div class="success hidden" id="ok" role="status"></div>
+  </div>
+  <section class="card" id="pair-card">
+    <h2>1 · Vincule este computador ao CRM</h2>
+    <ol class="steps">
+      <li><span class="num">1</span><span>Abra <strong>Configurações → WhatsApp</strong> no RealTalent.</span></li>
+      <li><span class="num">2</span><span>Clique em <strong>Gerar código para o aplicativo</strong>.</span></li>
+      <li><span class="num">3</span><span>Digite o código abaixo. É válido por 5 minutos e só pode ser usado uma vez.</span></li>
+    </ol>
+    <p><a class="btn secondary" id="crm1" rel="noopener noreferrer" target="_blank" href="#">Abrir CRM e gerar código ↗</a></p>
+    <form id="pair-form" autocomplete="off">
+      <label for="code">Código exibido no CRM</label>
+      <div class="row"><input id="code" inputmode="text" maxlength="19" placeholder="ABCD-EFGH-JKLM-NPQR" required autocomplete="off">
+        <button id="pair-button" type="submit">Vincular computador</button></div>
+    </form>
+  </section>
+  <section class="card hidden" id="connected-card">
+    <h2>✓ Computador vinculado</h2>
+    <p>O vínculo foi salvo neste Linux e será retomado automaticamente sempre que você entrar no computador.</p>
+    <div class="row"><button id="start-button" type="button">Iniciar WhatsApp</button>
+      <a class="btn secondary" id="crm2" rel="noopener noreferrer" target="_blank" href="#">Abrir WhatsApp no CRM ↗</a></div>
+  </section>
+  <section class="card">
+    <h2>2 · Escaneie o QR Code no CRM</h2>
+    <p>Quando o computador estiver conectado, abra <strong>Configurações → WhatsApp</strong> e clique em <strong>Gerar QR Code</strong>. No celular, use <strong>WhatsApp → Dispositivos conectados</strong>.</p>
+    <div class="alert" id="diagnostic">Carregando diagnóstico...</div>
+  </section>
+  <div class="foot">Seu computador precisa estar ligado para manter a conexão. A chave administrativa do Supabase nunca é enviada ao Linux.</div>
+</main>
+<script>
+(() => {
+  'use strict'
+  const token = '__CSRF_TOKEN__'
+  const $ = id => document.getElementById(id)
+  const issue = message => { $('error').textContent = message; $('error').classList.remove('hidden') }
+  const clear = () => { $('error').classList.add('hidden'); $('ok').classList.add('hidden') }
+  async function api(path, data) {
+    const options = data ? { method: 'POST', headers: { 'content-type':'application/json',
+      'x-rt-csrf': token }, body: JSON.stringify(data) } : {}
+    const res = await fetch(path, options)
+    const body = await res.json()
+    if (!res.ok) throw new Error(body.error || 'Não foi possível concluir.')
+    return body
+  }
+  async function refresh() {
+    try {
+      const s = await api('/api/status')
+      $('pair-card').classList.toggle('hidden', s.paired)
+      $('connected-card').classList.toggle('hidden', !s.paired)
+      $('status-text').textContent = s.connection === 'open' ? 'WhatsApp conectado' :
+        s.started ? 'Conector iniciado' : s.paired ? 'Computador vinculado' : 'Aguardando código'
+      $('status').classList.toggle('connected', s.connection === 'open')
+      $('diagnostic').textContent = s.message || 'Conector preparado.'
+      for (const id of ['crm1','crm2']) $(id).href = s.crmUrl
+      $('start-button').disabled = !!s.started
+      $('start-button').textContent = s.started ? 'Conector iniciado' : 'Iniciar WhatsApp'
+    } catch { issue('Não foi possível consultar o aplicativo local.') }
+  }
+  $('pair-form').addEventListener('submit', async event => {
+    event.preventDefault(); clear()
+    $('pair-button').disabled = true
+    try {
+      await api('/api/pair', { code: $('code').value.trim().toUpperCase() })
+      $('ok').textContent = 'Computador vinculado com segurança!'
+      $('ok').classList.remove('hidden')
+      $('code').value = ''
+    } catch(error) { issue(error.message) }
+    finally { $('pair-button').disabled = false; await refresh() }
+  })
+  $('start-button').addEventListener('click', async () => {
+    clear()
+    try {
+      await api('/api/start', {})
+      $('ok').textContent = 'Inicialização solicitada. Confira o status abaixo.'
+      $('ok').classList.remove('hidden')
+    } catch(error) { issue(error.message) }
+    await refresh()
+  })
+  void refresh()
+  setInterval(refresh, 5000)
+})()
+</script>
+</body>
+</html>

@@ -123,11 +123,11 @@
     destination.textContent = 'Verificando a Evolution e os serviços Docker...'
     try {
       const d = await api('/api/diagnostic')
-      destination.textContent = 'Serviços: ' + d.engine + '\\nPostgreSQL: ' + (d.postgres || 'não verificado') +
-        '\\nRedis: ' + (d.redis || 'não verificado') +
-        '\\nEvolution: ' + (d.evolution || 'não verificado') +
-        '\\nWhatsApp: ' + d.whatsApp + '\\nQR Code: ' + d.qr + '\\nDiagnóstico: ' + d.advice +
-        (d.detail ? '\\nDetalhe: ' + d.detail : '')
+      destination.textContent = 'Serviços: ' + d.engine + '\nPostgreSQL: ' + (d.postgres || 'não verificado') +
+        '\nRedis: ' + (d.redis || 'não verificado') +
+        '\nEvolution: ' + (d.evolution || 'não verificado') +
+        '\nWhatsApp: ' + d.whatsApp + '\nQR Code: ' + d.qr + '\nDiagnóstico: ' + d.advice +
+        (d.detail ? '\nDetalhe: ' + d.detail : '')
     } catch {
       destination.textContent = 'Não foi possível verificar os serviços locais.'
     } finally {

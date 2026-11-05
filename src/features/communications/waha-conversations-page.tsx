@@ -169,7 +169,7 @@ export function WahaConversationsPage(){
             {messages.map(m=><div key={m.id} className={'waha-bubble '+(m.fromMe?'out':'in')}>
               {m.body?<p>{m.body}</p>:null}
               {m.hasMedia?<p className="waha-media">{mediaLabel(m)} — mídia disponível no WAHA; pré-visualização será integrada na próxima etapa.</p>:null}
-              <small>{messageTime(m.timestamp)} {m.fromMe&&m.ackName?<CheckCheck size={12} title={m.ackName}/>:null}</small>
+              <small>{messageTime(m.timestamp)} {m.fromMe&&m.ackName?<CheckCheck size={12} aria-label={m.ackName}/>:null}</small>
             </div>)}
             {!messages.length?<p className="waha-empty">Nenhuma mensagem carregada nesta conversa.</p>:null}
             <div ref={bottom}/>

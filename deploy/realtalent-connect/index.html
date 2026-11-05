@@ -68,8 +68,8 @@
       <a class="btn secondary" id="crm2" rel="noopener noreferrer" target="_blank" href="#">Abrir WhatsApp no CRM ↗</a></div>
   </section>
   <section class="card">
-    <h2>2 · Escaneie o QR Code no CRM</h2>
-    <p>Quando o computador estiver conectado, abra <strong>Configurações → WhatsApp</strong> e clique em <strong>Gerar QR Code</strong>. No celular, use <strong>WhatsApp → Dispositivos conectados</strong>.</p>
+    <h2>2 · Escaneie o QR Code do WhatsApp</h2>
+    <p>O novo motor abre o WhatsApp Web no Linux. O QR deve aparecer logo abaixo; ele também é enviado a <strong>Configurações → WhatsApp</strong> no CRM. No celular, use <strong>Dispositivos conectados → Conectar dispositivo</strong>.</p>
     <div id="local-qr" class="hidden" style="background:white;border:1px solid #dae2ec;border-radius:12px;padding:20px;margin-bottom:16px;text-align:center">
       <strong style="display:block;margin-bottom:8px">QR Code do WhatsApp — direto neste computador</strong>
       <img id="local-qr-image" src="" alt="QR Code do WhatsApp para vincular o aparelho" width="300" height="300" style="max-width:100%;object-fit:contain">
@@ -80,7 +80,7 @@
       <button class="secondary" id="diagnostic-button" type="button">Verificar problema do QR</button>
       <button class="secondary" id="recover-button" type="button">Reiniciar conexão do WhatsApp</button>
     </div>
-    <p style="font-size:13px;margin-top:12px">A recuperação reinicia somente a Evolution, sem apagar a sessão, o banco ou o vínculo com o CRM. Limite de uma tentativa a cada 10 minutos.</p>
+    <p style="font-size:13px;margin-top:12px">A recuperação reinicia somente o Chromium/WhatsApp Web, preservando a sessão e o vínculo com o CRM. Limite de uma tentativa a cada 10 minutos.</p>
     <div class="alert hidden" id="technical-diagnostic" role="status" style="margin-top:12px;white-space:pre-line"></div>
   </section>
   <div class="foot">Seu computador precisa estar ligado para manter a conexão. A chave administrativa do Supabase nunca é enviada ao Linux.</div>
@@ -139,7 +139,7 @@
       await refreshLocalQr(Boolean(s.qrReady && s.connection !== 'open'))
       for (const id of ['crm1','crm2']) $(id).href = s.crmUrl
       $('start-button').disabled = !!s.started
-      $('start-button').textContent = s.started ? 'Conector iniciado' : 'Iniciar WhatsApp'
+      $('start-button').textContent = s.started ? 'WhatsApp Web iniciado' : 'Iniciar WhatsApp Web'
     } catch { issue('Não foi possível consultar o aplicativo local.') }
   }
   $('pair-form').addEventListener('submit', async event => {
@@ -154,12 +154,12 @@
     finally { $('pair-button').disabled = false; await refresh() }
   })
   $('recover-button').addEventListener('click', async () => {
-    if (!confirm('Reiniciar somente a Evolution para tentar gerar o QR novamente? Os dados e a sessão serão preservados.')) return
+    if (!confirm('Reiniciar somente o motor WhatsApp Web para tentar gerar um novo QR? O vínculo será preservado.')) return
     $('recover-button').disabled = true
     clear()
     try {
       await api('/api/recover', {})
-      $('ok').textContent = 'Evolution reiniciada. Abra Configurações → WhatsApp no CRM e verifique se o QR apareceu.'
+      $('ok').textContent = 'WhatsApp Web reiniciado. Confira o QR aqui ou no CRM.'
       $('ok').classList.remove('hidden')
     } catch (error) { issue(error.message || 'Não foi possível reiniciar a Evolution.') }
     finally { $('recover-button').disabled = false; await refresh() }
@@ -168,13 +168,13 @@
     $('diagnostic-button').disabled = true
     const destination = $('technical-diagnostic')
     destination.classList.remove('hidden')
-    destination.textContent = 'Verificando a Evolution e os serviços Docker...'
+    destination.textContent = 'Verificando o WhatsApp Web e o Chromium...'
     try {
       const d = await api('/api/diagnostic')
-      destination.textContent = 'Serviços: ' + d.engine + '\nPostgreSQL: ' + (d.postgres || 'não verificado') +
-        '\nRedis: ' + (d.redis || 'não verificado') +
-        '\nEvolution: ' + (d.evolution || 'não verificado') +
-        '\nWhatsApp: ' + d.whatsApp + '\nQR Code: ' + d.qr + '\nDiagnóstico: ' + d.advice +
+      destination.textContent = 'Motor: ' + d.engine +
+        '\nChromium: ' + (d.browser || 'Não identificado') +
+        '\nWhatsApp: ' + d.whatsApp + '\nQR Code: ' + d.qr +
+        '\nDiagnóstico: ' + d.advice +
         (d.detail ? '\nDetalhe: ' + d.detail : '')
     } catch {
       destination.textContent = 'Não foi possível verificar os serviços locais.'

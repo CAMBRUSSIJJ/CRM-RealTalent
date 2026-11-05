@@ -87,7 +87,10 @@ if ! command -v docker >/dev/null || ! docker compose version >/dev/null 2>&1; t
       sudo apt-get update
       sudo apt-get install -y docker.io
       if ! sudo apt-get install -y docker-compose-v2; then
-        sudo apt-get install -y docker-compose-plugin
+        if ! sudo apt-get install -y docker-compose-plugin; then
+          echo "O plugin Docker Compose v2 não está disponível neste repositório."
+          echo "Instale o plugin Compose por meio dos pacotes oficiais da sua distribuição."
+        fi
       fi
       sudo systemctl enable --now docker
       sudo groupadd -f docker

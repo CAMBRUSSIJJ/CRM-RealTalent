@@ -37,7 +37,24 @@ function fatal(label, error) {
   fatalScheduled = true
   setTimeout(() => process.exit(1), 20).unref?.()
 }
-process.on('unhandledRejection', error => fatal('Promise rejeitada sem tratamento', error))
+let recoverDetachedFrame = () => false
+process.on('unhandledRejection', error => {
+  // Puppeteer/whatsapp-web.js may reject Client.inject() asynchronously
+  // after navigating away from its old frame. Prefer a bounded QR client
+  // reconnect without taking down the complete gateway.
+  const detail = String(error?.message || error || '')
+  if (/Attempted to use detached Frame|detached frame/i.test(detail)) {
+    try {
+      if (recoverDetachedFrame(error)) {
+        console.warn('[Communications Gateway] Frame antigo descartado; recuperação da sessão QR agendada.')
+        return
+      }
+    } catch (recoveryError) {
+      console.error('[Communications Gateway] Falha na recuperação do frame:', recoveryError)
+    }
+  }
+  fatal('Promise rejeitada sem tratamento', error)
+})
 process.on('uncaughtException', error => fatal('Exceção não tratada', error))
 
 function readJson(file, fallback) { try { return JSON.parse(fs.readFileSync(file, 'utf8')) } catch { return fallback } }
@@ -101,6 +118,7 @@ function mediaDiskPath(ref) {
 function mediaPayload(ref) { const file = mediaDiskPath(ref); if (!file || !fs.existsSync(file)) throw new Error('Arquivo de mídia não está mais disponível no runtime local.'); return { dataBase64:fs.readFileSync(file).toString('base64'), mimeType:String(ref.mimeType || 'application/octet-stream'), fileName:String(ref.fileName || 'arquivo'), size:Number(ref.size || fs.statSync(file).size), kind:String(ref.kind || mediaKind(ref.mimeType)) } }
 function contentTypeFor(name) { const ext=path.extname(name).toLowerCase(); return ({'.png':'image/png','.jpg':'image/jpeg','.jpeg':'image/jpeg','.gif':'image/gif','.webp':'image/webp','.mp4':'video/mp4','.webm':'video/webm','.mp3':'audio/mpeg','.ogg':'audio/ogg','.opus':'audio/ogg','.wav':'audio/wav','.pdf':'application/pdf','.txt':'text/plain','.zip':'application/zip'}[ext]||'application/octet-stream') }
 const whatsappQr = createWhatsAppBrowserQrBridge({ root:ROOT, now, uuid, store, saveStore, upsertAccount, pushEvent, makeEvent, persistMedia })
+recoverDetachedFrame = error => whatsappQr.recoverDetachedFrame(error)
 const sendLocks = new Map()
 let outboxDraining = false
 function idempotencyEvent(snapshot, input) {

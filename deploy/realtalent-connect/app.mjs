@@ -279,7 +279,7 @@ const server = http.createServer(async (req, res) => {
   if (req.method === 'GET' && path === '/api/status') {
     json(res, 200, {
       ...state, paired: !!config && state.paired,
-      crmUrl: 'https://crm-real-talent-38lumbcas-marcelocambrussijunior-3071s-projects.vercel.app/#/settings?filter=whatsapp',
+      crmUrl: 'https://crm-real-talen-git-a52b30-marcelocambrussijunior-3071s-projects.vercel.app/#/settings?filter=whatsapp',
     })
     return
   }

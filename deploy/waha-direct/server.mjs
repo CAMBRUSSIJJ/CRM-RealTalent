@@ -22,7 +22,7 @@ let token=fs.existsSync(tokenFile)?fs.readFileSync(tokenFile,'utf8').trim():''
 if(!/^[a-f0-9]{64}$/.test(token)){
   token=randomBytes(32).toString('hex');fs.writeFileSync(tokenFile,token+'\n',{mode:0o600})
 }
-const origins=new Set(['https://crm-real-talent.vercel.app','http://127.0.0.1:5173','http://localhost:5173','http://127.0.0.1:4173','http://localhost:4173',...String(process.env.REALTALENT_WAHA_ALLOWED_ORIGINS||'').split(',').map(x=>x.trim()).filter(Boolean)])
+const origins=new Set(['https://crm-real-talent.vercel.app','http://127.0.0.1:5173','http://localhost:5173','http://127.0.0.1:5174','http://localhost:5174','http://127.0.0.1:4173','http://localhost:4173',...String(process.env.REALTALENT_WAHA_ALLOWED_ORIGINS||'').split(',').map(x=>x.trim()).filter(Boolean)])
 const wahaBase='http://127.0.0.1:4385'
 const watchers=new Set(), sent=new Map()
 const chatValid=v=>typeof v==='string'&&/^[a-zA-Z0-9_-]{5,70}@(c\.us|lid|g\.us)$/.test(v)

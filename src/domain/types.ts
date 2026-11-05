@@ -5,6 +5,7 @@ export type AppRoute =
   | 'pipeline'
   | 'followups'
   | 'calls'
+  | 'communications'
   | 'proposals'
   | 'agenda'
   | 'playbooks'

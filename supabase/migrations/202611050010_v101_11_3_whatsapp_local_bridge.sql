@@ -76,7 +76,7 @@ comment on table public.whatsapp_local_bridge is
 create table if not exists public.whatsapp_local_phone_challenges (
   organization_id uuid not null references public.organizations(id) on delete cascade,
   user_id uuid not null references auth.users(id) on delete cascade,
-  phone_e164 text not null check (phone_e164 ~ '^\\+[1-9][0-9]{7,14}
+  phone_e164 text not null check (phone_e164 ~ '^\+[1-9][0-9]{7,14}
 ),
   code text not null check (code ~ '^[0-9]{6}
 ),
@@ -98,7 +98,7 @@ create or replace function public.queue_whatsapp_local_phone_code(
 ) returns boolean language plpgsql security definer set search_path='' as $
 declare allowed boolean;
 begin
-  if p_phone !~ '^\\+[1-9][0-9]{7,14}
+  if p_phone !~ '^\+[1-9][0-9]{7,14}
  or p_code !~ '^[0-9]{6}
  then return false; end if;
   perform pg_advisory_xact_lock(hashtext(p_organization_id::text || ':' || p_user_id::text));

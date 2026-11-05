@@ -77,6 +77,918 @@ create table if not exists public.whatsapp_local_phone_challenges (
   organization_id uuid not null references public.organizations(id) on delete cascade,
   user_id uuid not null references auth.users(id) on delete cascade,
   phone_e164 text not null check (phone_e164 ~ '^\+[1-9][0-9]{7,14}
+  code text not null check (code ~ '^[0-9]{6}
+  requested_at timestamptz not null default now(),
+  expires_at timestamptz not null,
+  claimed_at timestamptz,
+  sent_at timestamptz,
+  attempts integer not null default 0,
+  requests_today integer not null default 1,
+  request_day date not null default current_date,
+  primary key (organization_id,user_id)
+);
+alter table public.whatsapp_local_phone_challenges enable row level security;
+revoke all on public.whatsapp_local_phone_challenges from public, anon, authenticated;
+grant select, insert, update, delete on public.whatsapp_local_phone_challenges to service_role;
+
+create or replace function public.queue_whatsapp_local_phone_code(
+  p_organization_id uuid, p_user_id uuid, p_phone text, p_code text
+) returns boolean language plpgsql security definer set search_path='' as $
+declare allowed boolean;
+begin
+  if p_phone !~ '^\+[1-9][0-9]{7,14} return false; end if;
+  perform pg_advisory_xact_lock(hashtext(p_organization_id::text || ':' || p_user_id::text));
+  select exists(
+    select 1 from public.organization_members
+     where organization_id=p_organization_id and user_id=p_user_id
+  ) into allowed;
+  if not allowed then return false; end if;
+  insert into public.whatsapp_local_phone_challenges
+    (organization_id,user_id,phone_e164,code,expires_at)
+    values (p_organization_id,p_user_id,p_phone,p_code,now()+interval '5 minutes')
+  on conflict (organization_id,user_id) do update set
+    phone_e164=excluded.phone_e164,code=excluded.code,requested_at=now(),
+    expires_at=excluded.expires_at,claimed_at=null,sent_at=null,attempts=0,
+    requests_today=case when whatsapp_local_phone_challenges.request_day=current_date
+      then whatsapp_local_phone_challenges.requests_today+1 else 1 end,
+    request_day=current_date
+  where whatsapp_local_phone_challenges.requested_at < now()-interval '90 seconds'
+    and (whatsapp_local_phone_challenges.request_day<>current_date or
+      whatsapp_local_phone_challenges.requests_today < 5);
+  return found;
+end $;
+
+create or replace function public.confirm_whatsapp_local_phone_code(
+  p_organization_id uuid, p_user_id uuid, p_code text
+) returns boolean language plpgsql security definer set search_path='' as $
+declare c record;
+begin
+  perform pg_advisory_xact_lock(hashtext(p_organization_id::text || ':' || p_user_id::text));
+  update public.whatsapp_local_phone_challenges
+     set attempts=attempts+1
+   where organization_id=p_organization_id and user_id=p_user_id
+     and sent_at is not null and expires_at>now() and attempts < 5
+   returning phone_e164,code into c;
+  if not found then return false; end if;
+  if c.code is distinct from p_code then return false; end if;
+  insert into public.task_notification_verified_phones
+    (organization_id,user_id,phone_e164,verified_at)
+    values (p_organization_id,p_user_id,c.phone_e164,now())
+  on conflict (organization_id,user_id) do update
+    set phone_e164=excluded.phone_e164,verified_at=now();
+  delete from public.whatsapp_local_phone_challenges
+   where organization_id=p_organization_id and user_id=p_user_id;
+  return true;
+end $;
+
+create or replace function public.claim_whatsapp_local_phone_codes(p_organization_id uuid)
+returns setof public.whatsapp_local_phone_challenges
+language sql security definer set search_path='' as $
+  update public.whatsapp_local_phone_challenges
+     set claimed_at=now()
+   where (organization_id,user_id) in
+     (select organization_id,user_id from public.whatsapp_local_phone_challenges
+        where organization_id=p_organization_id and expires_at>now()
+          and claimed_at is null and sent_at is null
+        order by requested_at limit 2 for update skip locked)
+   returning *;
+$;
+revoke all on function public.queue_whatsapp_local_phone_code(uuid,uuid,text,text),
+  public.confirm_whatsapp_local_phone_code(uuid,uuid,text),
+  public.claim_whatsapp_local_phone_codes(uuid) from public, anon, authenticated;
+grant execute on function public.queue_whatsapp_local_phone_code(uuid,uuid,text,text),
+  public.confirm_whatsapp_local_phone_code(uuid,uuid,text),
+  public.claim_whatsapp_local_phone_codes(uuid) to service_role;
+
+commit;
+),
+  code text not null check (code ~ '^[0-9]{6}
+),
+  requested_at timestamptz not null default now(),
+  expires_at timestamptz not null,
+  claimed_at timestamptz,
+  sent_at timestamptz,
+  attempts integer not null default 0,
+  requests_today integer not null default 1,
+  request_day date not null default current_date,
+  primary key (organization_id,user_id)
+);
+alter table public.whatsapp_local_phone_challenges enable row level security;
+revoke all on public.whatsapp_local_phone_challenges from public, anon, authenticated;
+grant select, insert, update, delete on public.whatsapp_local_phone_challenges to service_role;
+
+create or replace function public.queue_whatsapp_local_phone_code(
+  p_organization_id uuid, p_user_id uuid, p_phone text, p_code text
+) returns boolean language plpgsql security definer set search_path='' as $
+declare allowed boolean;
+begin
+  if p_phone !~ '^\+[1-9][0-9]{7,14}
+ or p_code !~ '^[0-9]{6}
+ then return false; end if;
+  perform pg_advisory_xact_lock(hashtext(p_organization_id::text || ':' || p_user_id::text));
+  select exists(
+    select 1 from public.organization_members
+     where organization_id=p_organization_id and user_id=p_user_id
+  ) into allowed;
+  if not allowed then return false; end if;
+  insert into public.whatsapp_local_phone_challenges
+    (organization_id,user_id,phone_e164,code,expires_at)
+    values (p_organization_id,p_user_id,p_phone,p_code,now()+interval '5 minutes')
+  on conflict (organization_id,user_id) do update set
+    phone_e164=excluded.phone_e164,code=excluded.code,requested_at=now(),
+    expires_at=excluded.expires_at,claimed_at=null,sent_at=null,attempts=0,
+    requests_today=case when whatsapp_local_phone_challenges.request_day=current_date
+      then whatsapp_local_phone_challenges.requests_today+1 else 1 end,
+    request_day=current_date
+  where whatsapp_local_phone_challenges.requested_at < now()-interval '90 seconds'
+    and (whatsapp_local_phone_challenges.request_day<>current_date or
+      whatsapp_local_phone_challenges.requests_today < 5);
+  return found;
+end $;
+
+create or replace function public.confirm_whatsapp_local_phone_code(
+  p_organization_id uuid, p_user_id uuid, p_code text
+) returns boolean language plpgsql security definer set search_path='' as $
+declare c record;
+begin
+  perform pg_advisory_xact_lock(hashtext(p_organization_id::text || ':' || p_user_id::text));
+  update public.whatsapp_local_phone_challenges
+     set attempts=attempts+1
+   where organization_id=p_organization_id and user_id=p_user_id
+     and sent_at is not null and expires_at>now() and attempts < 5
+   returning phone_e164,code into c;
+  if not found then return false; end if;
+  if c.code is distinct from p_code then return false; end if;
+  insert into public.task_notification_verified_phones
+    (organization_id,user_id,phone_e164,verified_at)
+    values (p_organization_id,p_user_id,c.phone_e164,now())
+  on conflict (organization_id,user_id) do update
+    set phone_e164=excluded.phone_e164,verified_at=now();
+  delete from public.whatsapp_local_phone_challenges
+   where organization_id=p_organization_id and user_id=p_user_id;
+  return true;
+end $;
+
+create or replace function public.claim_whatsapp_local_phone_codes(p_organization_id uuid)
+returns setof public.whatsapp_local_phone_challenges
+language sql security definer set search_path='' as $
+  update public.whatsapp_local_phone_challenges
+     set claimed_at=now()
+   where (organization_id,user_id) in
+     (select organization_id,user_id from public.whatsapp_local_phone_challenges
+        where organization_id=p_organization_id and expires_at>now()
+          and claimed_at is null and sent_at is null
+        order by requested_at limit 2 for update skip locked)
+   returning *;
+$;
+revoke all on function public.queue_whatsapp_local_phone_code(uuid,uuid,text,text),
+  public.confirm_whatsapp_local_phone_code(uuid,uuid,text),
+  public.claim_whatsapp_local_phone_codes(uuid) from public, anon, authenticated;
+grant execute on function public.queue_whatsapp_local_phone_code(uuid,uuid,text,text),
+  public.confirm_whatsapp_local_phone_code(uuid,uuid,text),
+  public.claim_whatsapp_local_phone_codes(uuid) to service_role;
+
+commit;
+),
+  requested_at timestamptz not null default now(),
+  expires_at timestamptz not null,
+  claimed_at timestamptz,
+  sent_at timestamptz,
+  attempts integer not null default 0,
+  requests_today integer not null default 1,
+  request_day date not null default current_date,
+  primary key (organization_id,user_id)
+);
+alter table public.whatsapp_local_phone_challenges enable row level security;
+revoke all on public.whatsapp_local_phone_challenges from public, anon, authenticated;
+grant select, insert, update, delete on public.whatsapp_local_phone_challenges to service_role;
+
+create or replace function public.queue_whatsapp_local_phone_code(
+  p_organization_id uuid, p_user_id uuid, p_phone text, p_code text
+) returns boolean language plpgsql security definer set search_path='' as $
+declare allowed boolean;
+begin
+  if p_phone !~ '^\+[1-9][0-9]{7,14}
+ or p_code !~ '^[0-9]{6}
+ then return false; end if;
+  perform pg_advisory_xact_lock(hashtext(p_organization_id::text || ':' || p_user_id::text));
+  select exists(
+    select 1 from public.organization_members
+     where organization_id=p_organization_id and user_id=p_user_id
+  ) into allowed;
+  if not allowed then return false; end if;
+  insert into public.whatsapp_local_phone_challenges
+    (organization_id,user_id,phone_e164,code,expires_at)
+    values (p_organization_id,p_user_id,p_phone,p_code,now()+interval '5 minutes')
+  on conflict (organization_id,user_id) do update set
+    phone_e164=excluded.phone_e164,code=excluded.code,requested_at=now(),
+    expires_at=excluded.expires_at,claimed_at=null,sent_at=null,attempts=0,
+    requests_today=case when whatsapp_local_phone_challenges.request_day=current_date
+      then whatsapp_local_phone_challenges.requests_today+1 else 1 end,
+    request_day=current_date
+  where whatsapp_local_phone_challenges.requested_at < now()-interval '90 seconds'
+    and (whatsapp_local_phone_challenges.request_day<>current_date or
+      whatsapp_local_phone_challenges.requests_today < 5);
+  return found;
+end $;
+
+create or replace function public.confirm_whatsapp_local_phone_code(
+  p_organization_id uuid, p_user_id uuid, p_code text
+) returns boolean language plpgsql security definer set search_path='' as $
+declare c record;
+begin
+  perform pg_advisory_xact_lock(hashtext(p_organization_id::text || ':' || p_user_id::text));
+  update public.whatsapp_local_phone_challenges
+     set attempts=attempts+1
+   where organization_id=p_organization_id and user_id=p_user_id
+     and sent_at is not null and expires_at>now() and attempts < 5
+   returning phone_e164,code into c;
+  if not found then return false; end if;
+  if c.code is distinct from p_code then return false; end if;
+  insert into public.task_notification_verified_phones
+    (organization_id,user_id,phone_e164,verified_at)
+    values (p_organization_id,p_user_id,c.phone_e164,now())
+  on conflict (organization_id,user_id) do update
+    set phone_e164=excluded.phone_e164,verified_at=now();
+  delete from public.whatsapp_local_phone_challenges
+   where organization_id=p_organization_id and user_id=p_user_id;
+  return true;
+end $;
+
+create or replace function public.claim_whatsapp_local_phone_codes(p_organization_id uuid)
+returns setof public.whatsapp_local_phone_challenges
+language sql security definer set search_path='' as $
+  update public.whatsapp_local_phone_challenges
+     set claimed_at=now()
+   where (organization_id,user_id) in
+     (select organization_id,user_id from public.whatsapp_local_phone_challenges
+        where organization_id=p_organization_id and expires_at>now()
+          and claimed_at is null and sent_at is null
+        order by requested_at limit 2 for update skip locked)
+   returning *;
+$;
+revoke all on function public.queue_whatsapp_local_phone_code(uuid,uuid,text,text),
+  public.confirm_whatsapp_local_phone_code(uuid,uuid,text),
+  public.claim_whatsapp_local_phone_codes(uuid) from public, anon, authenticated;
+grant execute on function public.queue_whatsapp_local_phone_code(uuid,uuid,text,text),
+  public.confirm_whatsapp_local_phone_code(uuid,uuid,text),
+  public.claim_whatsapp_local_phone_codes(uuid) to service_role;
+
+commit;
+),
+  code text not null check (code ~ '^[0-9]{6}
+),
+  requested_at timestamptz not null default now(),
+  expires_at timestamptz not null,
+  claimed_at timestamptz,
+  sent_at timestamptz,
+  attempts integer not null default 0,
+  requests_today integer not null default 1,
+  request_day date not null default current_date,
+  primary key (organization_id,user_id)
+);
+alter table public.whatsapp_local_phone_challenges enable row level security;
+revoke all on public.whatsapp_local_phone_challenges from public, anon, authenticated;
+grant select, insert, update, delete on public.whatsapp_local_phone_challenges to service_role;
+
+create or replace function public.queue_whatsapp_local_phone_code(
+  p_organization_id uuid, p_user_id uuid, p_phone text, p_code text
+) returns boolean language plpgsql security definer set search_path='' as $
+declare allowed boolean;
+begin
+  if p_phone !~ '^\+[1-9][0-9]{7,14}
+ or p_code !~ '^[0-9]{6}
+ then return false; end if;
+  perform pg_advisory_xact_lock(hashtext(p_organization_id::text || ':' || p_user_id::text));
+  select exists(
+    select 1 from public.organization_members
+     where organization_id=p_organization_id and user_id=p_user_id
+  ) into allowed;
+  if not allowed then return false; end if;
+  insert into public.whatsapp_local_phone_challenges
+    (organization_id,user_id,phone_e164,code,expires_at)
+    values (p_organization_id,p_user_id,p_phone,p_code,now()+interval '5 minutes')
+  on conflict (organization_id,user_id) do update set
+    phone_e164=excluded.phone_e164,code=excluded.code,requested_at=now(),
+    expires_at=excluded.expires_at,claimed_at=null,sent_at=null,attempts=0,
+    requests_today=case when whatsapp_local_phone_challenges.request_day=current_date
+      then whatsapp_local_phone_challenges.requests_today+1 else 1 end,
+    request_day=current_date
+  where whatsapp_local_phone_challenges.requested_at < now()-interval '90 seconds'
+    and (whatsapp_local_phone_challenges.request_day<>current_date or
+      whatsapp_local_phone_challenges.requests_today < 5);
+  return found;
+end $;
+
+create or replace function public.confirm_whatsapp_local_phone_code(
+  p_organization_id uuid, p_user_id uuid, p_code text
+) returns boolean language plpgsql security definer set search_path='' as $
+declare c record;
+begin
+  perform pg_advisory_xact_lock(hashtext(p_organization_id::text || ':' || p_user_id::text));
+  update public.whatsapp_local_phone_challenges
+     set attempts=attempts+1
+   where organization_id=p_organization_id and user_id=p_user_id
+     and sent_at is not null and expires_at>now() and attempts < 5
+   returning phone_e164,code into c;
+  if not found then return false; end if;
+  if c.code is distinct from p_code then return false; end if;
+  insert into public.task_notification_verified_phones
+    (organization_id,user_id,phone_e164,verified_at)
+    values (p_organization_id,p_user_id,c.phone_e164,now())
+  on conflict (organization_id,user_id) do update
+    set phone_e164=excluded.phone_e164,verified_at=now();
+  delete from public.whatsapp_local_phone_challenges
+   where organization_id=p_organization_id and user_id=p_user_id;
+  return true;
+end $;
+
+create or replace function public.claim_whatsapp_local_phone_codes(p_organization_id uuid)
+returns setof public.whatsapp_local_phone_challenges
+language sql security definer set search_path='' as $
+  update public.whatsapp_local_phone_challenges
+     set claimed_at=now()
+   where (organization_id,user_id) in
+     (select organization_id,user_id from public.whatsapp_local_phone_challenges
+        where organization_id=p_organization_id and expires_at>now()
+          and claimed_at is null and sent_at is null
+        order by requested_at limit 2 for update skip locked)
+   returning *;
+$;
+revoke all on function public.queue_whatsapp_local_phone_code(uuid,uuid,text,text),
+  public.confirm_whatsapp_local_phone_code(uuid,uuid,text),
+  public.claim_whatsapp_local_phone_codes(uuid) from public, anon, authenticated;
+grant execute on function public.queue_whatsapp_local_phone_code(uuid,uuid,text,text),
+  public.confirm_whatsapp_local_phone_code(uuid,uuid,text),
+  public.claim_whatsapp_local_phone_codes(uuid) to service_role;
+
+commit;
+ or p_code !~ '^[0-9]{6} return false; end if;
+  perform pg_advisory_xact_lock(hashtext(p_organization_id::text || ':' || p_user_id::text));
+  select exists(
+    select 1 from public.organization_members
+     where organization_id=p_organization_id and user_id=p_user_id
+  ) into allowed;
+  if not allowed then return false; end if;
+  insert into public.whatsapp_local_phone_challenges
+    (organization_id,user_id,phone_e164,code,expires_at)
+    values (p_organization_id,p_user_id,p_phone,p_code,now()+interval '5 minutes')
+  on conflict (organization_id,user_id) do update set
+    phone_e164=excluded.phone_e164,code=excluded.code,requested_at=now(),
+    expires_at=excluded.expires_at,claimed_at=null,sent_at=null,attempts=0,
+    requests_today=case when whatsapp_local_phone_challenges.request_day=current_date
+      then whatsapp_local_phone_challenges.requests_today+1 else 1 end,
+    request_day=current_date
+  where whatsapp_local_phone_challenges.requested_at < now()-interval '90 seconds'
+    and (whatsapp_local_phone_challenges.request_day<>current_date or
+      whatsapp_local_phone_challenges.requests_today < 5);
+  return found;
+end $;
+
+create or replace function public.confirm_whatsapp_local_phone_code(
+  p_organization_id uuid, p_user_id uuid, p_code text
+) returns boolean language plpgsql security definer set search_path='' as $
+declare c record;
+begin
+  perform pg_advisory_xact_lock(hashtext(p_organization_id::text || ':' || p_user_id::text));
+  update public.whatsapp_local_phone_challenges
+     set attempts=attempts+1
+   where organization_id=p_organization_id and user_id=p_user_id
+     and sent_at is not null and expires_at>now() and attempts < 5
+   returning phone_e164,code into c;
+  if not found then return false; end if;
+  if c.code is distinct from p_code then return false; end if;
+  insert into public.task_notification_verified_phones
+    (organization_id,user_id,phone_e164,verified_at)
+    values (p_organization_id,p_user_id,c.phone_e164,now())
+  on conflict (organization_id,user_id) do update
+    set phone_e164=excluded.phone_e164,verified_at=now();
+  delete from public.whatsapp_local_phone_challenges
+   where organization_id=p_organization_id and user_id=p_user_id;
+  return true;
+end $;
+
+create or replace function public.claim_whatsapp_local_phone_codes(p_organization_id uuid)
+returns setof public.whatsapp_local_phone_challenges
+language sql security definer set search_path='' as $
+  update public.whatsapp_local_phone_challenges
+     set claimed_at=now()
+   where (organization_id,user_id) in
+     (select organization_id,user_id from public.whatsapp_local_phone_challenges
+        where organization_id=p_organization_id and expires_at>now()
+          and claimed_at is null and sent_at is null
+        order by requested_at limit 2 for update skip locked)
+   returning *;
+$;
+revoke all on function public.queue_whatsapp_local_phone_code(uuid,uuid,text,text),
+  public.confirm_whatsapp_local_phone_code(uuid,uuid,text),
+  public.claim_whatsapp_local_phone_codes(uuid) from public, anon, authenticated;
+grant execute on function public.queue_whatsapp_local_phone_code(uuid,uuid,text,text),
+  public.confirm_whatsapp_local_phone_code(uuid,uuid,text),
+  public.claim_whatsapp_local_phone_codes(uuid) to service_role;
+
+commit;
+),
+  code text not null check (code ~ '^[0-9]{6}
+),
+  requested_at timestamptz not null default now(),
+  expires_at timestamptz not null,
+  claimed_at timestamptz,
+  sent_at timestamptz,
+  attempts integer not null default 0,
+  requests_today integer not null default 1,
+  request_day date not null default current_date,
+  primary key (organization_id,user_id)
+);
+alter table public.whatsapp_local_phone_challenges enable row level security;
+revoke all on public.whatsapp_local_phone_challenges from public, anon, authenticated;
+grant select, insert, update, delete on public.whatsapp_local_phone_challenges to service_role;
+
+create or replace function public.queue_whatsapp_local_phone_code(
+  p_organization_id uuid, p_user_id uuid, p_phone text, p_code text
+) returns boolean language plpgsql security definer set search_path='' as $
+declare allowed boolean;
+begin
+  if p_phone !~ '^\+[1-9][0-9]{7,14}
+ or p_code !~ '^[0-9]{6}
+ then return false; end if;
+  perform pg_advisory_xact_lock(hashtext(p_organization_id::text || ':' || p_user_id::text));
+  select exists(
+    select 1 from public.organization_members
+     where organization_id=p_organization_id and user_id=p_user_id
+  ) into allowed;
+  if not allowed then return false; end if;
+  insert into public.whatsapp_local_phone_challenges
+    (organization_id,user_id,phone_e164,code,expires_at)
+    values (p_organization_id,p_user_id,p_phone,p_code,now()+interval '5 minutes')
+  on conflict (organization_id,user_id) do update set
+    phone_e164=excluded.phone_e164,code=excluded.code,requested_at=now(),
+    expires_at=excluded.expires_at,claimed_at=null,sent_at=null,attempts=0,
+    requests_today=case when whatsapp_local_phone_challenges.request_day=current_date
+      then whatsapp_local_phone_challenges.requests_today+1 else 1 end,
+    request_day=current_date
+  where whatsapp_local_phone_challenges.requested_at < now()-interval '90 seconds'
+    and (whatsapp_local_phone_challenges.request_day<>current_date or
+      whatsapp_local_phone_challenges.requests_today < 5);
+  return found;
+end $;
+
+create or replace function public.confirm_whatsapp_local_phone_code(
+  p_organization_id uuid, p_user_id uuid, p_code text
+) returns boolean language plpgsql security definer set search_path='' as $
+declare c record;
+begin
+  perform pg_advisory_xact_lock(hashtext(p_organization_id::text || ':' || p_user_id::text));
+  update public.whatsapp_local_phone_challenges
+     set attempts=attempts+1
+   where organization_id=p_organization_id and user_id=p_user_id
+     and sent_at is not null and expires_at>now() and attempts < 5
+   returning phone_e164,code into c;
+  if not found then return false; end if;
+  if c.code is distinct from p_code then return false; end if;
+  insert into public.task_notification_verified_phones
+    (organization_id,user_id,phone_e164,verified_at)
+    values (p_organization_id,p_user_id,c.phone_e164,now())
+  on conflict (organization_id,user_id) do update
+    set phone_e164=excluded.phone_e164,verified_at=now();
+  delete from public.whatsapp_local_phone_challenges
+   where organization_id=p_organization_id and user_id=p_user_id;
+  return true;
+end $;
+
+create or replace function public.claim_whatsapp_local_phone_codes(p_organization_id uuid)
+returns setof public.whatsapp_local_phone_challenges
+language sql security definer set search_path='' as $
+  update public.whatsapp_local_phone_challenges
+     set claimed_at=now()
+   where (organization_id,user_id) in
+     (select organization_id,user_id from public.whatsapp_local_phone_challenges
+        where organization_id=p_organization_id and expires_at>now()
+          and claimed_at is null and sent_at is null
+        order by requested_at limit 2 for update skip locked)
+   returning *;
+$;
+revoke all on function public.queue_whatsapp_local_phone_code(uuid,uuid,text,text),
+  public.confirm_whatsapp_local_phone_code(uuid,uuid,text),
+  public.claim_whatsapp_local_phone_codes(uuid) from public, anon, authenticated;
+grant execute on function public.queue_whatsapp_local_phone_code(uuid,uuid,text,text),
+  public.confirm_whatsapp_local_phone_code(uuid,uuid,text),
+  public.claim_whatsapp_local_phone_codes(uuid) to service_role;
+
+commit;
+),
+  requested_at timestamptz not null default now(),
+  expires_at timestamptz not null,
+  claimed_at timestamptz,
+  sent_at timestamptz,
+  attempts integer not null default 0,
+  requests_today integer not null default 1,
+  request_day date not null default current_date,
+  primary key (organization_id,user_id)
+);
+alter table public.whatsapp_local_phone_challenges enable row level security;
+revoke all on public.whatsapp_local_phone_challenges from public, anon, authenticated;
+grant select, insert, update, delete on public.whatsapp_local_phone_challenges to service_role;
+
+create or replace function public.queue_whatsapp_local_phone_code(
+  p_organization_id uuid, p_user_id uuid, p_phone text, p_code text
+) returns boolean language plpgsql security definer set search_path='' as $
+declare allowed boolean;
+begin
+  if p_phone !~ '^\+[1-9][0-9]{7,14}
+ or p_code !~ '^[0-9]{6}
+ then return false; end if;
+  perform pg_advisory_xact_lock(hashtext(p_organization_id::text || ':' || p_user_id::text));
+  select exists(
+    select 1 from public.organization_members
+     where organization_id=p_organization_id and user_id=p_user_id
+  ) into allowed;
+  if not allowed then return false; end if;
+  insert into public.whatsapp_local_phone_challenges
+    (organization_id,user_id,phone_e164,code,expires_at)
+    values (p_organization_id,p_user_id,p_phone,p_code,now()+interval '5 minutes')
+  on conflict (organization_id,user_id) do update set
+    phone_e164=excluded.phone_e164,code=excluded.code,requested_at=now(),
+    expires_at=excluded.expires_at,claimed_at=null,sent_at=null,attempts=0,
+    requests_today=case when whatsapp_local_phone_challenges.request_day=current_date
+      then whatsapp_local_phone_challenges.requests_today+1 else 1 end,
+    request_day=current_date
+  where whatsapp_local_phone_challenges.requested_at < now()-interval '90 seconds'
+    and (whatsapp_local_phone_challenges.request_day<>current_date or
+      whatsapp_local_phone_challenges.requests_today < 5);
+  return found;
+end $;
+
+create or replace function public.confirm_whatsapp_local_phone_code(
+  p_organization_id uuid, p_user_id uuid, p_code text
+) returns boolean language plpgsql security definer set search_path='' as $
+declare c record;
+begin
+  perform pg_advisory_xact_lock(hashtext(p_organization_id::text || ':' || p_user_id::text));
+  update public.whatsapp_local_phone_challenges
+     set attempts=attempts+1
+   where organization_id=p_organization_id and user_id=p_user_id
+     and sent_at is not null and expires_at>now() and attempts < 5
+   returning phone_e164,code into c;
+  if not found then return false; end if;
+  if c.code is distinct from p_code then return false; end if;
+  insert into public.task_notification_verified_phones
+    (organization_id,user_id,phone_e164,verified_at)
+    values (p_organization_id,p_user_id,c.phone_e164,now())
+  on conflict (organization_id,user_id) do update
+    set phone_e164=excluded.phone_e164,verified_at=now();
+  delete from public.whatsapp_local_phone_challenges
+   where organization_id=p_organization_id and user_id=p_user_id;
+  return true;
+end $;
+
+create or replace function public.claim_whatsapp_local_phone_codes(p_organization_id uuid)
+returns setof public.whatsapp_local_phone_challenges
+language sql security definer set search_path='' as $
+  update public.whatsapp_local_phone_challenges
+     set claimed_at=now()
+   where (organization_id,user_id) in
+     (select organization_id,user_id from public.whatsapp_local_phone_challenges
+        where organization_id=p_organization_id and expires_at>now()
+          and claimed_at is null and sent_at is null
+        order by requested_at limit 2 for update skip locked)
+   returning *;
+$;
+revoke all on function public.queue_whatsapp_local_phone_code(uuid,uuid,text,text),
+  public.confirm_whatsapp_local_phone_code(uuid,uuid,text),
+  public.claim_whatsapp_local_phone_codes(uuid) from public, anon, authenticated;
+grant execute on function public.queue_whatsapp_local_phone_code(uuid,uuid,text,text),
+  public.confirm_whatsapp_local_phone_code(uuid,uuid,text),
+  public.claim_whatsapp_local_phone_codes(uuid) to service_role;
+
+commit;
+),
+  code text not null check (code ~ '^[0-9]{6}
+),
+  requested_at timestamptz not null default now(),
+  expires_at timestamptz not null,
+  claimed_at timestamptz,
+  sent_at timestamptz,
+  attempts integer not null default 0,
+  requests_today integer not null default 1,
+  request_day date not null default current_date,
+  primary key (organization_id,user_id)
+);
+alter table public.whatsapp_local_phone_challenges enable row level security;
+revoke all on public.whatsapp_local_phone_challenges from public, anon, authenticated;
+grant select, insert, update, delete on public.whatsapp_local_phone_challenges to service_role;
+
+create or replace function public.queue_whatsapp_local_phone_code(
+  p_organization_id uuid, p_user_id uuid, p_phone text, p_code text
+) returns boolean language plpgsql security definer set search_path='' as $
+declare allowed boolean;
+begin
+  if p_phone !~ '^\+[1-9][0-9]{7,14}
+ or p_code !~ '^[0-9]{6}
+ then return false; end if;
+  perform pg_advisory_xact_lock(hashtext(p_organization_id::text || ':' || p_user_id::text));
+  select exists(
+    select 1 from public.organization_members
+     where organization_id=p_organization_id and user_id=p_user_id
+  ) into allowed;
+  if not allowed then return false; end if;
+  insert into public.whatsapp_local_phone_challenges
+    (organization_id,user_id,phone_e164,code,expires_at)
+    values (p_organization_id,p_user_id,p_phone,p_code,now()+interval '5 minutes')
+  on conflict (organization_id,user_id) do update set
+    phone_e164=excluded.phone_e164,code=excluded.code,requested_at=now(),
+    expires_at=excluded.expires_at,claimed_at=null,sent_at=null,attempts=0,
+    requests_today=case when whatsapp_local_phone_challenges.request_day=current_date
+      then whatsapp_local_phone_challenges.requests_today+1 else 1 end,
+    request_day=current_date
+  where whatsapp_local_phone_challenges.requested_at < now()-interval '90 seconds'
+    and (whatsapp_local_phone_challenges.request_day<>current_date or
+      whatsapp_local_phone_challenges.requests_today < 5);
+  return found;
+end $;
+
+create or replace function public.confirm_whatsapp_local_phone_code(
+  p_organization_id uuid, p_user_id uuid, p_code text
+) returns boolean language plpgsql security definer set search_path='' as $
+declare c record;
+begin
+  perform pg_advisory_xact_lock(hashtext(p_organization_id::text || ':' || p_user_id::text));
+  update public.whatsapp_local_phone_challenges
+     set attempts=attempts+1
+   where organization_id=p_organization_id and user_id=p_user_id
+     and sent_at is not null and expires_at>now() and attempts < 5
+   returning phone_e164,code into c;
+  if not found then return false; end if;
+  if c.code is distinct from p_code then return false; end if;
+  insert into public.task_notification_verified_phones
+    (organization_id,user_id,phone_e164,verified_at)
+    values (p_organization_id,p_user_id,c.phone_e164,now())
+  on conflict (organization_id,user_id) do update
+    set phone_e164=excluded.phone_e164,verified_at=now();
+  delete from public.whatsapp_local_phone_challenges
+   where organization_id=p_organization_id and user_id=p_user_id;
+  return true;
+end $;
+
+create or replace function public.claim_whatsapp_local_phone_codes(p_organization_id uuid)
+returns setof public.whatsapp_local_phone_challenges
+language sql security definer set search_path='' as $
+  update public.whatsapp_local_phone_challenges
+     set claimed_at=now()
+   where (organization_id,user_id) in
+     (select organization_id,user_id from public.whatsapp_local_phone_challenges
+        where organization_id=p_organization_id and expires_at>now()
+          and claimed_at is null and sent_at is null
+        order by requested_at limit 2 for update skip locked)
+   returning *;
+$;
+revoke all on function public.queue_whatsapp_local_phone_code(uuid,uuid,text,text),
+  public.confirm_whatsapp_local_phone_code(uuid,uuid,text),
+  public.claim_whatsapp_local_phone_codes(uuid) from public, anon, authenticated;
+grant execute on function public.queue_whatsapp_local_phone_code(uuid,uuid,text,text),
+  public.confirm_whatsapp_local_phone_code(uuid,uuid,text),
+  public.claim_whatsapp_local_phone_codes(uuid) to service_role;
+
+commit;
+ then return false; end if;
+  perform pg_advisory_xact_lock(hashtext(p_organization_id::text || ':' || p_user_id::text));
+  select exists(
+    select 1 from public.organization_members
+     where organization_id=p_organization_id and user_id=p_user_id
+  ) into allowed;
+  if not allowed then return false; end if;
+  insert into public.whatsapp_local_phone_challenges
+    (organization_id,user_id,phone_e164,code,expires_at)
+    values (p_organization_id,p_user_id,p_phone,p_code,now()+interval '5 minutes')
+  on conflict (organization_id,user_id) do update set
+    phone_e164=excluded.phone_e164,code=excluded.code,requested_at=now(),
+    expires_at=excluded.expires_at,claimed_at=null,sent_at=null,attempts=0,
+    requests_today=case when whatsapp_local_phone_challenges.request_day=current_date
+      then whatsapp_local_phone_challenges.requests_today+1 else 1 end,
+    request_day=current_date
+  where whatsapp_local_phone_challenges.requested_at < now()-interval '90 seconds'
+    and (whatsapp_local_phone_challenges.request_day<>current_date or
+      whatsapp_local_phone_challenges.requests_today < 5);
+  return found;
+end $;
+
+create or replace function public.confirm_whatsapp_local_phone_code(
+  p_organization_id uuid, p_user_id uuid, p_code text
+) returns boolean language plpgsql security definer set search_path='' as $
+declare c record;
+begin
+  perform pg_advisory_xact_lock(hashtext(p_organization_id::text || ':' || p_user_id::text));
+  update public.whatsapp_local_phone_challenges
+     set attempts=attempts+1
+   where organization_id=p_organization_id and user_id=p_user_id
+     and sent_at is not null and expires_at>now() and attempts < 5
+   returning phone_e164,code into c;
+  if not found then return false; end if;
+  if c.code is distinct from p_code then return false; end if;
+  insert into public.task_notification_verified_phones
+    (organization_id,user_id,phone_e164,verified_at)
+    values (p_organization_id,p_user_id,c.phone_e164,now())
+  on conflict (organization_id,user_id) do update
+    set phone_e164=excluded.phone_e164,verified_at=now();
+  delete from public.whatsapp_local_phone_challenges
+   where organization_id=p_organization_id and user_id=p_user_id;
+  return true;
+end $;
+
+create or replace function public.claim_whatsapp_local_phone_codes(p_organization_id uuid)
+returns setof public.whatsapp_local_phone_challenges
+language sql security definer set search_path='' as $
+  update public.whatsapp_local_phone_challenges
+     set claimed_at=now()
+   where (organization_id,user_id) in
+     (select organization_id,user_id from public.whatsapp_local_phone_challenges
+        where organization_id=p_organization_id and expires_at>now()
+          and claimed_at is null and sent_at is null
+        order by requested_at limit 2 for update skip locked)
+   returning *;
+$;
+revoke all on function public.queue_whatsapp_local_phone_code(uuid,uuid,text,text),
+  public.confirm_whatsapp_local_phone_code(uuid,uuid,text),
+  public.claim_whatsapp_local_phone_codes(uuid) from public, anon, authenticated;
+grant execute on function public.queue_whatsapp_local_phone_code(uuid,uuid,text,text),
+  public.confirm_whatsapp_local_phone_code(uuid,uuid,text),
+  public.claim_whatsapp_local_phone_codes(uuid) to service_role;
+
+commit;
+),
+  code text not null check (code ~ '^[0-9]{6}
+),
+  requested_at timestamptz not null default now(),
+  expires_at timestamptz not null,
+  claimed_at timestamptz,
+  sent_at timestamptz,
+  attempts integer not null default 0,
+  requests_today integer not null default 1,
+  request_day date not null default current_date,
+  primary key (organization_id,user_id)
+);
+alter table public.whatsapp_local_phone_challenges enable row level security;
+revoke all on public.whatsapp_local_phone_challenges from public, anon, authenticated;
+grant select, insert, update, delete on public.whatsapp_local_phone_challenges to service_role;
+
+create or replace function public.queue_whatsapp_local_phone_code(
+  p_organization_id uuid, p_user_id uuid, p_phone text, p_code text
+) returns boolean language plpgsql security definer set search_path='' as $
+declare allowed boolean;
+begin
+  if p_phone !~ '^\+[1-9][0-9]{7,14}
+ or p_code !~ '^[0-9]{6}
+ then return false; end if;
+  perform pg_advisory_xact_lock(hashtext(p_organization_id::text || ':' || p_user_id::text));
+  select exists(
+    select 1 from public.organization_members
+     where organization_id=p_organization_id and user_id=p_user_id
+  ) into allowed;
+  if not allowed then return false; end if;
+  insert into public.whatsapp_local_phone_challenges
+    (organization_id,user_id,phone_e164,code,expires_at)
+    values (p_organization_id,p_user_id,p_phone,p_code,now()+interval '5 minutes')
+  on conflict (organization_id,user_id) do update set
+    phone_e164=excluded.phone_e164,code=excluded.code,requested_at=now(),
+    expires_at=excluded.expires_at,claimed_at=null,sent_at=null,attempts=0,
+    requests_today=case when whatsapp_local_phone_challenges.request_day=current_date
+      then whatsapp_local_phone_challenges.requests_today+1 else 1 end,
+    request_day=current_date
+  where whatsapp_local_phone_challenges.requested_at < now()-interval '90 seconds'
+    and (whatsapp_local_phone_challenges.request_day<>current_date or
+      whatsapp_local_phone_challenges.requests_today < 5);
+  return found;
+end $;
+
+create or replace function public.confirm_whatsapp_local_phone_code(
+  p_organization_id uuid, p_user_id uuid, p_code text
+) returns boolean language plpgsql security definer set search_path='' as $
+declare c record;
+begin
+  perform pg_advisory_xact_lock(hashtext(p_organization_id::text || ':' || p_user_id::text));
+  update public.whatsapp_local_phone_challenges
+     set attempts=attempts+1
+   where organization_id=p_organization_id and user_id=p_user_id
+     and sent_at is not null and expires_at>now() and attempts < 5
+   returning phone_e164,code into c;
+  if not found then return false; end if;
+  if c.code is distinct from p_code then return false; end if;
+  insert into public.task_notification_verified_phones
+    (organization_id,user_id,phone_e164,verified_at)
+    values (p_organization_id,p_user_id,c.phone_e164,now())
+  on conflict (organization_id,user_id) do update
+    set phone_e164=excluded.phone_e164,verified_at=now();
+  delete from public.whatsapp_local_phone_challenges
+   where organization_id=p_organization_id and user_id=p_user_id;
+  return true;
+end $;
+
+create or replace function public.claim_whatsapp_local_phone_codes(p_organization_id uuid)
+returns setof public.whatsapp_local_phone_challenges
+language sql security definer set search_path='' as $
+  update public.whatsapp_local_phone_challenges
+     set claimed_at=now()
+   where (organization_id,user_id) in
+     (select organization_id,user_id from public.whatsapp_local_phone_challenges
+        where organization_id=p_organization_id and expires_at>now()
+          and claimed_at is null and sent_at is null
+        order by requested_at limit 2 for update skip locked)
+   returning *;
+$;
+revoke all on function public.queue_whatsapp_local_phone_code(uuid,uuid,text,text),
+  public.confirm_whatsapp_local_phone_code(uuid,uuid,text),
+  public.claim_whatsapp_local_phone_codes(uuid) from public, anon, authenticated;
+grant execute on function public.queue_whatsapp_local_phone_code(uuid,uuid,text,text),
+  public.confirm_whatsapp_local_phone_code(uuid,uuid,text),
+  public.claim_whatsapp_local_phone_codes(uuid) to service_role;
+
+commit;
+),
+  requested_at timestamptz not null default now(),
+  expires_at timestamptz not null,
+  claimed_at timestamptz,
+  sent_at timestamptz,
+  attempts integer not null default 0,
+  requests_today integer not null default 1,
+  request_day date not null default current_date,
+  primary key (organization_id,user_id)
+);
+alter table public.whatsapp_local_phone_challenges enable row level security;
+revoke all on public.whatsapp_local_phone_challenges from public, anon, authenticated;
+grant select, insert, update, delete on public.whatsapp_local_phone_challenges to service_role;
+
+create or replace function public.queue_whatsapp_local_phone_code(
+  p_organization_id uuid, p_user_id uuid, p_phone text, p_code text
+) returns boolean language plpgsql security definer set search_path='' as $
+declare allowed boolean;
+begin
+  if p_phone !~ '^\+[1-9][0-9]{7,14}
+ or p_code !~ '^[0-9]{6}
+ then return false; end if;
+  perform pg_advisory_xact_lock(hashtext(p_organization_id::text || ':' || p_user_id::text));
+  select exists(
+    select 1 from public.organization_members
+     where organization_id=p_organization_id and user_id=p_user_id
+  ) into allowed;
+  if not allowed then return false; end if;
+  insert into public.whatsapp_local_phone_challenges
+    (organization_id,user_id,phone_e164,code,expires_at)
+    values (p_organization_id,p_user_id,p_phone,p_code,now()+interval '5 minutes')
+  on conflict (organization_id,user_id) do update set
+    phone_e164=excluded.phone_e164,code=excluded.code,requested_at=now(),
+    expires_at=excluded.expires_at,claimed_at=null,sent_at=null,attempts=0,
+    requests_today=case when whatsapp_local_phone_challenges.request_day=current_date
+      then whatsapp_local_phone_challenges.requests_today+1 else 1 end,
+    request_day=current_date
+  where whatsapp_local_phone_challenges.requested_at < now()-interval '90 seconds'
+    and (whatsapp_local_phone_challenges.request_day<>current_date or
+      whatsapp_local_phone_challenges.requests_today < 5);
+  return found;
+end $;
+
+create or replace function public.confirm_whatsapp_local_phone_code(
+  p_organization_id uuid, p_user_id uuid, p_code text
+) returns boolean language plpgsql security definer set search_path='' as $
+declare c record;
+begin
+  perform pg_advisory_xact_lock(hashtext(p_organization_id::text || ':' || p_user_id::text));
+  update public.whatsapp_local_phone_challenges
+     set attempts=attempts+1
+   where organization_id=p_organization_id and user_id=p_user_id
+     and sent_at is not null and expires_at>now() and attempts < 5
+   returning phone_e164,code into c;
+  if not found then return false; end if;
+  if c.code is distinct from p_code then return false; end if;
+  insert into public.task_notification_verified_phones
+    (organization_id,user_id,phone_e164,verified_at)
+    values (p_organization_id,p_user_id,c.phone_e164,now())
+  on conflict (organization_id,user_id) do update
+    set phone_e164=excluded.phone_e164,verified_at=now();
+  delete from public.whatsapp_local_phone_challenges
+   where organization_id=p_organization_id and user_id=p_user_id;
+  return true;
+end $;
+
+create or replace function public.claim_whatsapp_local_phone_codes(p_organization_id uuid)
+returns setof public.whatsapp_local_phone_challenges
+language sql security definer set search_path='' as $
+  update public.whatsapp_local_phone_challenges
+     set claimed_at=now()
+   where (organization_id,user_id) in
+     (select organization_id,user_id from public.whatsapp_local_phone_challenges
+        where organization_id=p_organization_id and expires_at>now()
+          and claimed_at is null and sent_at is null
+        order by requested_at limit 2 for update skip locked)
+   returning *;
+$;
+revoke all on function public.queue_whatsapp_local_phone_code(uuid,uuid,text,text),
+  public.confirm_whatsapp_local_phone_code(uuid,uuid,text),
+  public.claim_whatsapp_local_phone_codes(uuid) from public, anon, authenticated;
+grant execute on function public.queue_whatsapp_local_phone_code(uuid,uuid,text,text),
+  public.confirm_whatsapp_local_phone_code(uuid,uuid,text),
+  public.claim_whatsapp_local_phone_codes(uuid) to service_role;
+
+commit;
 ),
   code text not null check (code ~ '^[0-9]{6}
 ),

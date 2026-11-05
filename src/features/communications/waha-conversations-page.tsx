@@ -7,7 +7,7 @@ import {
 } from '../../services/waha-direct'
 import '../../styles/waha-direct.css'
 
-const localUrl='http://127.0.0.1:4390'
+const localUrl='http://127.0.0.1:4392'
 function messageTime(timestamp:number|undefined){
   if(!timestamp)return ''
   const millis=timestamp>1e12?timestamp:timestamp*1000
@@ -131,7 +131,7 @@ export function WahaConversationsPage(){
     <span className="waha-status"><ShieldCheck size={18}/> Conexão direta local</span>
     <h2>WhatsApp no RealTalent</h2>
     <p>A sessão <strong>realtalent</strong> já está conectada pelo WAHA GOWS. Esta integração não utiliza Supabase para transportar nem armazenar mensagens.</p>
-    <p>Primeiro execute a ponte no Linux. Abra <a href={localUrl} target="_blank" rel="noreferrer">http://127.0.0.1:4390</a>, clique em <strong>Exibir chave local</strong> e cole abaixo.</p>
+    <p>Primeiro execute a ponte no Linux. Abra <a href={localUrl} target="_blank" rel="noreferrer">http://127.0.0.1:4392</a>, clique em <strong>Exibir chave local</strong> e cole abaixo.</p>
     <label htmlFor="waha-token">Chave de acesso da ponte (não é a chave API do WAHA)</label>
     <input id="waha-token" type="password" autoComplete="off" placeholder="Cole a chave local" value={keyDraft} onChange={e=>setKeyDraft(e.target.value)} onKeyDown={e=>{if(e.key==='Enter')void connect()}} />
     <button className="waha-primary" onClick={()=>void connect()} disabled={refreshing}>{refreshing?<LoaderCircle size={16} className="spin"/>:<Wifi size={16}/>} Conectar</button>

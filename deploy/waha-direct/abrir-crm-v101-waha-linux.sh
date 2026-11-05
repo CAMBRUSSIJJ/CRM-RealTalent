@@ -56,15 +56,15 @@ if [[ "$(node -p 'require("./package.json").version')" != "101.11.3" ]]; then
   exit 1
 fi
 BRIDGE_PID=''
-if ! curl --noproxy '*' --silent --fail --max-time 2 http://127.0.0.1:4390/health >/dev/null 2>&1; then
-  echo "Iniciando ponte WAHA local (127.0.0.1:4390)..."
-  node deploy/waha-direct/server.mjs &
+if ! curl --noproxy '*' --silent --fail --max-time 2 http://127.0.0.1:4392/health >/dev/null 2>&1; then
+  echo "Iniciando ponte WAHA local (127.0.0.1:4392)..."
+  REALTALENT_WAHA_BRIDGE_PORT=4392 node deploy/waha-direct/server.mjs &
   BRIDGE_PID=$!
   for i in $(seq 1 35); do
-    if curl --noproxy '*' --silent --fail --max-time 2 http://127.0.0.1:4390/health >/dev/null 2>&1; then break; fi
+    if curl --noproxy '*' --silent --fail --max-time 2 http://127.0.0.1:4392/health >/dev/null 2>&1; then break; fi
     sleep 1
   done
-  if ! curl --noproxy '*' --silent --fail --max-time 2 http://127.0.0.1:4390/health >/dev/null 2>&1; then
+  if ! curl --noproxy '*' --silent --fail --max-time 2 http://127.0.0.1:4392/health >/dev/null 2>&1; then
     echo "Erro iniciando a ponte WAHA. Veja os logs acima."
     exit 1
   fi
@@ -74,7 +74,7 @@ echo
 echo "===== VERSÃO CORRETA ====="
 node -p '"CRM V" + require("./package.json").version + " — Central Pure Chat preservada"'
 echo "CRM V101.11.3: http://127.0.0.1:5174/"
-echo "Chave da ponte: http://127.0.0.1:4390/"
+echo "Chave da ponte: http://127.0.0.1:4392/"
 echo "Entre na aba Comunicação > WAHA GOWS local."
 echo "A outra prévia antiga em 5173 não será alterada."
 echo "Ctrl+C para sair; WAHA Docker e o WhatsApp permanecem conectados."

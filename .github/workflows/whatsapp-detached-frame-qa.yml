@@ -1,0 +1,35 @@
+name: RealTalent QR Detached Frame Runtime QA
+on:
+  push:
+    branches: [fix/whatsapp-detached-frame-runtime-resilience-20261105]
+  pull_request:
+    paths:
+      - runtime-host/deploy/cloud-runtime/**
+      - runtime-host/**/scripts/whatsapp-browser-qr-bridge.mjs
+      - runtime-host/**/scripts/realtalent-communications-gateway.mjs
+      - scripts/whatsapp-detached-frame-resilience.test.mjs
+      - .github/workflows/whatsapp-detached-frame-qa.yml
+permissions:
+  contents: read
+jobs:
+  verify-detached-frame-recovery:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: '22'
+      - name: Install dependencies
+        run: npm ci --include=dev --no-fund --no-audit
+      - name: Test controlled Chromium recovery, QR expiry and Cloud supervisor
+        run: |
+          node --test scripts/whatsapp-detached-frame-resilience.test.mjs scripts/whatsapp-qr-recovery-policy.test.mjs scripts/chromium-profile-lock-recovery.test.mjs
+          node --check runtime-host/deploy/cloud-runtime/cloud-runtime-supervisor.mjs
+          node --check runtime-host/RealTalent-CRM-V101.11.3-CR10-H1-Agent-V3.1.2-Linux-Launcher/scripts/realtalent-communications-gateway.mjs
+      - name: Verify TypeScript and web bundle
+        run: |
+          npm run typecheck
+          npm run build

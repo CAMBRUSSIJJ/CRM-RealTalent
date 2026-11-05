@@ -1,5 +1,5 @@
 import http from 'node:http'
-import { readFile, mkdir, writeFile, chmod } from 'node:fs/promises'
+import { readFile, mkdir, writeFile, chmod, unlink } from 'node:fs/promises'
 import { existsSync } from 'node:fs'
 import { homedir } from 'node:os'
 import { join, dirname } from 'node:path'
@@ -129,6 +129,8 @@ async function callDevice(action, payload = {}) {
       state.message = 'Vínculo revogado. Gere um novo código no CRM.'
       state.paired = false
       state.started = false
+      config = null
+      await unlink(SETTINGS).catch(() => {})
     }
     throw new Error('Conector Supabase: ' + (result.error || response.status))
   }

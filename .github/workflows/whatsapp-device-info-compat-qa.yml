@@ -1,0 +1,32 @@
+name: RealTalent WhatsApp QR Device Info Compatibility
+on:
+  push:
+    branches: [fix/whatsapp-web-device-info-null-20261105]
+  pull_request:
+    paths:
+      - scripts/whatsapp-browser-qr-bridge.mjs
+      - runtime-host/**/scripts/whatsapp-browser-qr-bridge.mjs
+      - scripts/whatsapp-qr-device-info-compat.test.mjs
+      - .github/workflows/whatsapp-device-info-compat-qa.yml
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: '22'
+      - run: npm ci --include=dev --no-fund --no-audit
+      - name: Verify QR device info compatibility and Chromium resilience
+        run: |
+          node --test scripts/whatsapp-qr-device-info-compat.test.mjs scripts/whatsapp-detached-frame-resilience.test.mjs scripts/chromium-profile-lock-recovery.test.mjs
+          node --check scripts/whatsapp-browser-qr-bridge.mjs
+      - name: Typecheck and build RealTalent
+        run: |
+          npm run typecheck
+          npm run build

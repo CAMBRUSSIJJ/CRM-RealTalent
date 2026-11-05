@@ -9,7 +9,8 @@
     "preview": "vite preview --host 0.0.0.0",
     "typecheck": "node scripts/source_syntax_audit.mjs",
     "test": "vitest run",
-    "validate:env": "node scripts/validate-env.mjs"
+    "validate:env": "node scripts/validate-env.mjs",
+    "test:waha": "node --test deploy/waha-direct/server.test.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "2.110.7",

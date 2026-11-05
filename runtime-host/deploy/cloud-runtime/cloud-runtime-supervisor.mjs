@@ -3,6 +3,7 @@ import { spawn } from 'node:child_process'
 import path from 'node:path'
 import fs from 'node:fs'
 import { fileURLToPath } from 'node:url'
+import { handleTaskReminderQrBridge } from './task-reminder-qr-bridge.mjs'
 
 const here=path.dirname(fileURLToPath(import.meta.url))
 const bundle=path.resolve(here,'../..')
@@ -108,6 +109,10 @@ const sendJson=(res,status,payload)=>{
 
 const server=http.createServer(async(req,res)=>{
   const pathname=new URL(req.url||'/',`http://${req.headers.host||'localhost'}`).pathname
+
+  // Authenticated Supabase cron -> Railway QR delivery, never a browser API.
+  if (pathname === '/internal/task-reminders/qr')
+    return handleTaskReminderQrBridge(req, res)
 
   // Liveness deve responder assim que o supervisor abriu a porta. Ele não depende
   // de Agent, Comunicações ou Garimpo e é o endpoint usado pelo healthcheck Railway.

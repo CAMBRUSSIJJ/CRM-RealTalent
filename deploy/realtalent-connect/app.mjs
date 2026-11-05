@@ -367,7 +367,23 @@ async function diagnostic() {
     qr: state.qrReady ? 'Código disponível' : qrZeroCount ? 'Evolution retornou count=0' : 'Código não disponível',
     detail: state.lastError || null,
     advice: '',
+    postgres: 'Não verificado',
+    redis: 'Não verificado',
+    evolution: 'Não verificado',
   }
+  const base = ['compose','--project-name','realtalent-connect','--env-file',ENV,'-f',COMPOSE]
+  async function probe(service, command, expected) {
+    try {
+      const { stdout = '' } = await runDocker([...base,'exec','-T',service,...command],10000)
+      return stdout.includes(expected) ? 'Saudável' : 'Sem resposta válida'
+    } catch { return 'Indisponível' }
+  }
+  ;[result.postgres, result.redis] = await Promise.all([
+    probe('postgres',['pg_isready','-U','evolution','-d','evolution'],'accepting connections'),
+    probe('redis',['redis-cli','PING'],'PONG'),
+  ])
+  try { await connectionState(); result.evolution = 'API respondendo' }
+  catch { result.evolution = 'API indisponível' }
   try {
     const { stdout = '', stderr = '' } = await runDocker([
       'compose', '--project-name', 'realtalent-connect',

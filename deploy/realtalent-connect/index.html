@@ -97,7 +97,7 @@
       $('pair-card').classList.toggle('hidden', s.paired)
       $('connected-card').classList.toggle('hidden', !s.paired)
       $('status-text').textContent = s.connection === 'open' ? 'WhatsApp conectado' :
-        s.started ? 'Conector iniciado' : s.paired ? 'Computador vinculado' : 'Aguardando código'
+        s.started ? 'WhatsApp desconectado' : s.paired ? 'Computador vinculado (sem WhatsApp)' : 'Aguardando código'
       $('status').classList.toggle('connected', s.connection === 'open')
       $('diagnostic').textContent = s.message || 'Conector preparado.'
       for (const id of ['crm1','crm2']) $(id).href = s.crmUrl
@@ -123,8 +123,10 @@
     destination.textContent = 'Verificando a Evolution e os serviços Docker...'
     try {
       const d = await api('/api/diagnostic')
-      destination.textContent = 'Serviços: ' + d.engine + '\\nWhatsApp: ' +
-        d.whatsApp + '\\nQR Code: ' + d.qr + '\\nDiagnóstico: ' + d.advice +
+      destination.textContent = 'Serviços: ' + d.engine + '\\nPostgreSQL: ' + (d.postgres || 'não verificado') +
+        '\\nRedis: ' + (d.redis || 'não verificado') +
+        '\\nEvolution: ' + (d.evolution || 'não verificado') +
+        '\\nWhatsApp: ' + d.whatsApp + '\\nQR Code: ' + d.qr + '\\nDiagnóstico: ' + d.advice +
         (d.detail ? '\\nDetalhe: ' + d.detail : '')
     } catch {
       destination.textContent = 'Não foi possível verificar os serviços locais.'

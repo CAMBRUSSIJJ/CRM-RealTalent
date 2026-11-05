@@ -1,0 +1,8 @@
+.env
+.env.*
+.git
+node_modules
+*.log
+README.md
+compose.yaml
+init.mjs

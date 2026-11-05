@@ -34,6 +34,8 @@ Deno.serve(async (req: Request) => {
     .select('id').eq('status', 'pending').lte('scheduled_at', new Date().toISOString())
   if (!internalEnabled) pending = pending.neq('channel', 'in_app')
   if (!externalEnabled) pending = pending.eq('channel', 'in_app')
+  // The paired computer owns WhatsApp jobs in bridge mode. Never claim them in cloud.
+  if (env('WHATSAPP_CONNECTION_MODE') === 'bridge') pending = pending.neq('channel', 'whatsapp')
   const { data: candidates, error } = await pending.order('scheduled_at', { ascending: true }).limit(25)
   if (error) return reply({ error: 'queue_unavailable' }, 503)
 

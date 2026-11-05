@@ -376,7 +376,7 @@ async function recoverWhatsApp() {
   state.message = 'Reiniciando apenas a Evolution; preservando dados e sessão.'
   try {
     await runDocker(['compose','--project-name','realtalent-connect',
-      '--env-file',ENV,'-f',COMPOSE,'restart','evolution'],60000)
+      '--env-file',ENV,'-f',COMPOSE,'up','-d','--no-deps','--force-recreate','evolution'],120000)
     qrRequested = true
     lastQrAttempt = 0
     qrAttempts = 0
@@ -385,7 +385,7 @@ async function recoverWhatsApp() {
     state.qrReady = false
     state.connection = 'connecting'
     state.lastError = null
-    state.message = 'Evolution reiniciada. Uma nova tentativa de QR ocorrerá automaticamente.'
+    state.message = 'Evolution recriada com o ajuste de rede, preservando volumes. Uma nova tentativa de QR ocorrerá automaticamente.'
   } catch {
     state.message = 'Falha ao reiniciar a Evolution. Use Verificar problema do QR.'
     throw new Error(state.message)

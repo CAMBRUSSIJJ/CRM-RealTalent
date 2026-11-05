@@ -36,11 +36,16 @@ const state = {
   connection: 'offline',
   message: 'Preparando o aplicativo...',
   lastTick: null,
+  lastError: null,
+  qrReady: false,
 }
 let config = null
 let inTick = false
 let inStart = false
 let qrCache = { image: null, expires: 0 }
+let qrRequested = false
+let lastQrAttempt = 0
+let qrAttempts = 0
 
 async function prepare() {
   await mkdir(STATE, { recursive: true, mode: 0o700 })
@@ -147,6 +152,27 @@ async function evolution(path, method = 'GET', body) {
   if (!response.ok) throw new Error('Evolution HTTP ' + response.status)
   return response.json().catch(() => ({}))
 }
+const qrFromResponse = async response => {
+  const candidates = [response?.base64,response?.qrcode?.base64,response?.data?.base64,
+    response?.data?.qrcode?.base64,response?.qr?.base64,response?.code,
+    response?.qrcode?.code,response?.data?.code]
+  for (const item of candidates) {
+    const valid = qrImage(item)
+    if (valid) return valid
+  }
+  const raw = candidates.find(v => typeof v === 'string' && v.startsWith('2@') && v.length < 4096)
+  if (raw) {
+    try {
+      const { default: QRCode } = await import('qrcode')
+      return qrImage(await QRCode.toDataURL(raw, {
+        type: 'image/png', width: 360, margin: 2, errorCorrectionLevel: 'M',
+      }))
+    } catch {
+      state.lastError = 'Biblioteca do QR local ausente. Reinstale o RealTalent Connect atualizado.'
+    }
+  }
+  return null
+}
 async function connectionState() {
   const result = await evolution('/instance/connectionState/' + 'realtalent-' + config.organizationId)
   return result.notFound ? 'missing' : result.instance?.state || 'close'
@@ -159,40 +185,80 @@ async function sendText(phone, text) {
   })
   return typeof result.key?.id === 'string' && result.key.id ? result.key.id : null
 }
+async function fetchNewQr(instance, allowCreate = true) {
+  const status = await connectionState()
+  if (status === 'open') {
+    qrRequested = false
+    state.connection = 'open'
+    qrCache = { image: null, expires: 0 }
+    state.qrReady = false
+    state.lastError = null
+    return true
+  }
+  if (status === 'missing' && allowCreate) {
+    let created = null
+    try {
+      created = await evolution('/instance/create', 'POST', {
+        instanceName: instance, integration: 'WHATSAPP-BAILEYS', qrcode: true,
+      })
+    } catch (error) {
+      // A simultaneous previous request may already have created the instance.
+      if (await connectionState() === 'missing') throw error
+    }
+    const fromCreate = await qrFromResponse(created)
+    if (fromCreate) {
+      qrCache = { image: fromCreate, expires: Date.now() + 30000 }
+      state.qrReady = true
+      state.lastError = null
+      state.connection = 'connecting'
+      return true
+    }
+  }
+  // Evolution v2 uses GET /instance/connect/{name}. The QR may appear
+  // asynchronously. This function is retried while pairing is requested.
+  const connected = await evolution('/instance/connect/' + instance)
+  if (connected.notFound) throw new Error('Evolution instance missing')
+  const image = await qrFromResponse(connected)
+  if (image) {
+    qrCache = { image, expires: Date.now() + 30000 }
+    state.qrReady = true
+    state.lastError = null
+    state.connection = 'connecting'
+    return true
+  }
+  qrAttempts += 1
+  state.connection = 'connecting'
+  state.qrReady = false
+  return false
+}
 async function processCommand(command) {
   if (!uuid(command?.requestId)) return
   let error = null
   try {
     const instance = 'realtalent-' + config.organizationId
     if (command.action === 'connect') {
-      const status = await connectionState()
-      if (status === 'open') {
-        state.connection = 'open'
-        qrCache = { image: null, expires: 0 }
-      } else {
-        let image = null
-        if (status === 'missing') {
-          try {
-            const created = await evolution('/instance/create', 'POST', {
-              instanceName: instance, integration: 'WHATSAPP-BAILEYS', qrcode: true,
-            })
-            image = qrImage(created.qrcode?.base64 || created.base64)
-          } catch { /* instance may have been created by another command */ }
-        }
-        if (!image) {
-          const connected = await evolution('/instance/connect/' + instance)
-          image = qrImage(connected.base64 || connected.qrcode?.base64)
-        }
-        if (image) qrCache = { image, expires: Date.now() + 35_000 }
-        state.connection = 'connecting'
-      }
+      qrRequested = true
+      qrAttempts = 0
+      lastQrAttempt = Date.now()
+      state.lastError = null
+      await fetchNewQr(instance)
     } else if (command.action === 'disconnect') {
+      qrRequested = false
       if (await connectionState() !== 'missing')
         await evolution('/instance/logout/' + instance, 'DELETE')
       state.connection = 'close'
       qrCache = { image: null, expires: 0 }
+      state.qrReady = false
+      state.lastError = null
     } else error = 'Ação desconhecida.'
-  } catch { error = 'Não foi possível concluir o pareamento no Evolution.' }
+  } catch (cause) {
+    error = cause instanceof Error && /^Evolution HTTP [0-9]{3}$/.test(cause.message)
+      ? cause.message + '. Consulte o serviço Evolution no Linux.'
+      : 'A Evolution não conseguiu gerar o QR. Confira os serviços no Linux.'
+    state.lastError = error
+    state.message = error
+    state.qrReady = false
+  }
   await callDevice('ack', { kind: 'command', requestId: command.requestId, error })
 }
 async function processVerification(item) {

@@ -27,11 +27,11 @@ curl -fL --retry 2 --max-time 30 \
 chmod 600 "$APP/server.mjs"
 node --check "$APP/server.mjs"
 echo
-echo "Conector local: http://127.0.0.1:4390"
+echo "Conector local: http://127.0.0.1:4392"
 echo "Copie a chave local nessa página e abra Comunicações no RealTalent CRM."
 echo "Sua WAHA_API_KEY original não será exibida nem enviada ao navegador."
 echo "As notificações de tarefas permanecem desativadas."
 echo "Este terminal deve ficar aberto. Ctrl+C encerra somente esta ponte."
 echo
-(sleep 2; xdg-open http://127.0.0.1:4390/ >/dev/null 2>&1 || true) &
-exec node "$APP/server.mjs"
+(sleep 2; xdg-open http://127.0.0.1:4392/ >/dev/null 2>&1 || true) &
+exec env REALTALENT_WAHA_BRIDGE_PORT=4392 node "$APP/server.mjs"

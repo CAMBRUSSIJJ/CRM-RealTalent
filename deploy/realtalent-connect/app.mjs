@@ -47,6 +47,8 @@ let qrRequested = false
 let lastQrAttempt = 0
 let qrAttempts = 0
 let qrZeroCount = false
+let lastRecoveryAt = 0
+let recovering = false
 const MAX_QR_ATTEMPTS = 5
 
 async function prepare() {
@@ -288,7 +290,7 @@ async function processReminder(item) {
   await callDevice('ack', { kind: 'reminder', jobId: item.jobId, providerMessageId })
 }
 async function tick() {
-  if (!config || inTick || !state.started) return
+  if (!config || inTick || recovering || !state.started) return
   inTick = true
   try {
     const evolutionState = await connectionState()
@@ -359,6 +361,35 @@ async function pair(code) {
   await saveDevice(result)
   state.message = 'Computador vinculado. Preparando o WhatsApp...'
   void startServices()
+}
+async function recoverWhatsApp() {
+  if (!config || !state.started) throw new Error('O conector não está iniciado.')
+  if (state.connection === 'open') throw new Error('O WhatsApp já está conectado.')
+  if (recovering) throw new Error('A recuperação já está em andamento.')
+  if (Date.now() - lastRecoveryAt < 10 * 60_000) {
+    throw new Error('Aguarde dez minutos antes de tentar outra recuperação.')
+  }
+  // A conservative local-only recovery: restarts just Evolution. No volumes,
+  // WhatsApp session files, database, Redis, or pairing credentials are reset.
+  recovering = true
+  lastRecoveryAt = Date.now()
+  state.message = 'Reiniciando apenas a Evolution; preservando dados e sessão.'
+  try {
+    await runDocker(['compose','--project-name','realtalent-connect',
+      '--env-file',ENV,'-f',COMPOSE,'restart','evolution'],60000)
+    qrRequested = true
+    lastQrAttempt = 0
+    qrAttempts = 0
+    qrZeroCount = false
+    qrCache = { image: null, expires: 0 }
+    state.qrReady = false
+    state.connection = 'connecting'
+    state.lastError = null
+    state.message = 'Evolution reiniciada. Uma nova tentativa de QR ocorrerá automaticamente.'
+  } catch {
+    state.message = 'Falha ao reiniciar a Evolution. Use Verificar problema do QR.'
+    throw new Error(state.message)
+  } finally { recovering = false }
 }
 async function diagnostic() {
   const result = {
@@ -465,7 +496,7 @@ const server = http.createServer(async (req, res) => {
     })
     return
   }
-  if (req.method !== 'POST' || !['/api/pair','/api/start'].includes(path)) {
+  if (req.method !== 'POST' || !['/api/pair','/api/start','/api/recover'].includes(path)) {
     json(res, 404, { error: 'Não encontrado.' }); return
   }
   if (!['http://127.0.0.1:' + PORT, 'http://localhost:' + PORT]
@@ -475,6 +506,7 @@ const server = http.createServer(async (req, res) => {
   try {
     const data = await readBody(req)
     if (path === '/api/pair') await pair(String(data.code || '').toUpperCase())
+    else if (path === '/api/recover') await recoverWhatsApp()
     else await startServices()
     json(res, 200, { ok: true })
   } catch (error) {

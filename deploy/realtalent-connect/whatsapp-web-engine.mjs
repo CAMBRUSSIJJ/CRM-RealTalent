@@ -56,6 +56,20 @@ export function createWhatsAppWebEngine({
     } else ready = false
     onState?.(value)
   }
+  function startupDiagnostic(error) {
+    const raw = String(error instanceof Error ? error.message : error || '').toLowerCase()
+    if (/failed to launch|spawn.*enoent|executable.*not found|chrome.*not found|chromium.*not found/.test(raw))
+      return 'Chromium não iniciou. Instale Chromium ou execute novamente o instalador do RealTalent Connect.'
+    if (/libnss|libatk|libgbm|shared libraries|error while loading shared libraries/.test(raw))
+      return 'Chromium precisa de bibliotecas do Linux. Verifique as dependências do navegador.'
+    if (/sandbox|running as root/.test(raw))
+      return 'Chromium bloqueado pela configuração de sandbox. Execute o aplicativo com seu usuário Linux normal.'
+    if (/profile.*in use|user data directory.*already in use|singletonlock/.test(raw))
+      return 'O perfil WhatsApp Web está em uso por outro processo. Feche sessões duplicadas do RealTalent Connect.'
+    if (/timeout|timed out|navigation failed/.test(raw))
+      return 'WhatsApp Web não abriu a página a tempo. Verifique a rede do Chromium.'
+    return 'WhatsApp Web não conseguiu iniciar. Abra Verificar problema no RealTalent Connect.'
+  }
   function fail(reason) {
     errorMessage = String(reason || 'Falha ao iniciar WhatsApp Web.').slice(0, 220)
     setState('error')
@@ -164,10 +178,10 @@ export function createWhatsAppWebEngine({
       if (client === wa && own === generation && !ready && !qrDataUrl)
         fail('WhatsApp Web abriu o navegador, mas não apresentou QR em dois minutos. Verifique o Chromium.')
     }, 120000)
-    Promise.resolve().then(() => wa.initialize()).catch(() => {
+    Promise.resolve().then(() => wa.initialize()).catch(error => {
       if (client === wa && own === generation && !manualStopping) {
         initialising = false
-        fail('Falha ao iniciar Chromium/WhatsApp Web. Use Verificar problema no aplicativo.')
+        fail(startupDiagnostic(error))
       }
     })
     return { status, ready }

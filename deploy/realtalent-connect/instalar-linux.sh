@@ -111,6 +111,29 @@ else
   echo "Aviso: systemd --user indisponível. Aplicativo iniciado sem ativação automática."
 fi
 
+# Verify that the local HTTP server actually started. Previously the
+# installer opened Firefox even when node crashed, hiding the real failure.
+echo "Verificando a inicialização do RealTalent Connect na porta 4375..."
+"$NODE_BIN" --check "$INSTALL_DIR/app.mjs"
+if ! "$NODE_BIN" -e '
+const url="http://127.0.0.1:4375/api/status";
+(async()=>{
+  for(let i=0;i<20;i++){
+    try{
+      const r=await fetch(url,{signal:AbortSignal.timeout(1200)});
+      const data=await r.json();
+      if(r.ok && data.engine==="whatsapp-web.js"){console.log("✓ RealTalent Connect HTTP ativo: motor WhatsApp Web");process.exit(0)}
+    }catch{}
+    await new Promise(resolve=>setTimeout(resolve,400))
+  }
+  process.exit(1)
+})()
+'; then
+  echo "ERRO: o RealTalent Connect não iniciou na porta 4375."
+  echo "Diagnóstico seguro: systemctl --user status realtalent-connect --no-pager"
+  echo "Se necessário: journalctl --user -u realtalent-connect -n 25 --no-pager"
+  exit 1
+fi
 if command -v xdg-open >/dev/null 2>&1; then
   xdg-open http://127.0.0.1:4375/ >/dev/null 2>&1 || true
 fi

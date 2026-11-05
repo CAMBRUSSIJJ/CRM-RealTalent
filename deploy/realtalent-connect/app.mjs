@@ -360,6 +360,42 @@ async function pair(code) {
   state.message = 'Computador vinculado. Preparando o WhatsApp...'
   void startServices()
 }
+async function diagnostic() {
+  const result = {
+    engine: state.started ? 'Serviços inicializados' : 'Serviços não inicializados',
+    whatsApp: state.connection,
+    qr: state.qrReady ? 'Código disponível' : qrZeroCount ? 'Evolution retornou count=0' : 'Código não disponível',
+    detail: state.lastError || null,
+    advice: '',
+  }
+  try {
+    const { stdout = '', stderr = '' } = await runDocker([
+      'compose', '--project-name', 'realtalent-connect',
+      '--env-file', ENV, '-f', COMPOSE, 'logs', '--tail', '90',
+      '--no-color', 'evolution',
+    ], 12_000)
+    // Classify locally. Never expose logs, WhatsApp pairing material,
+    // phone numbers, or Docker secrets to the browser or to Supabase.
+    const lines = (stdout + '\n' + stderr).slice(-30000)
+    if (/ENOTFOUND|EAI_AGAIN|getaddrinfo|DNS|resolve failed/i.test(lines))
+      result.advice = 'A Evolution pode estar com falha de DNS. Verifique a rede do Docker.'
+    else if (/ECONNREFUSED|ETIMEDOUT|websocket.*(?:error|closed)|connection timeout/i.test(lines))
+      result.advice = 'A Evolution não conseguiu manter conexão com os servidores WhatsApp.'
+    else if (/P1001|prisma|database.*(?:error|failed)|redis.*(?:error|failed)/i.test(lines))
+      result.advice = 'Há erros de banco de dados ou Redis no Evolution.'
+    else if (/bad.session|version.*(?:unsupported|invalid)|handshake.*failed/i.test(lines))
+      result.advice = 'A versão do motor WhatsApp pode estar incompatível.'
+  } catch {
+    result.advice = 'Não foi possível consultar os registros do Docker. Verifique o serviço Evolution.'
+  }
+  if (!result.advice && qrZeroCount)
+    result.advice = 'Evolution respondeu count=0. Isso pode ser incompatibilidade do motor WhatsApp, rede ou sessão travada.'
+  if (!result.advice && !state.qrReady && qrAttempts >= MAX_QR_ATTEMPTS)
+    result.advice = 'O Evolution não enviou dados de QR. Não insista no botão; verifique a rede e a versão do conector.'
+  if (!result.advice && state.connection === 'open') result.advice = 'WhatsApp conectado.'
+  if (!result.advice) result.advice = 'Solicite o QR no CRM; se falhar, consulte os serviços da Evolution.'
+  return result
+}
 const json = (res, code, data) => {
   res.writeHead(code, { 'content-type': 'application/json; charset=utf-8',
     'cache-control': 'no-store', 'x-content-type-options': 'nosniff',
@@ -386,6 +422,10 @@ const server = http.createServer(async (req, res) => {
       'cache-control': 'no-store', 'x-frame-options': 'DENY',
       'content-security-policy': "default-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline'; connect-src 'self'; frame-ancestors 'none'" })
     res.end(source.replaceAll('__CSRF_TOKEN__', CSRF))
+    return
+  }
+  if (req.method === 'GET' && path === '/api/diagnostic') {
+    json(res, 200, await diagnostic())
     return
   }
   if (req.method === 'GET' && path === '/api/status') {

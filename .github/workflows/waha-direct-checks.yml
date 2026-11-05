@@ -1,0 +1,35 @@
+name: WAHA Direct - checks
+on:
+  push:
+    branches:
+      - feat/waha-direct-communications-20261105
+  pull_request:
+    paths:
+      - 'deploy/waha-direct/**'
+      - 'src/features/communications/**'
+      - 'src/services/waha-direct.ts'
+      - 'src/styles/waha-direct.css'
+      - 'src/app/app.tsx'
+      - 'src/components/layout/navigation.ts'
+      - 'src/domain/types.ts'
+      - 'vercel.json'
+      - 'package.json'
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - name: Install
+        run: npm ci --include=dev
+      - name: WAHA mock integration tests
+        run: npm run test:waha
+      - name: Syntax and type audit
+        run: npm run typecheck
+      - name: Build
+        run: npm run build

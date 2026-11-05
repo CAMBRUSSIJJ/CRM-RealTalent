@@ -1,5 +1,5 @@
 // Only talks to localhost companion. Never put WAHA_API_KEY or Supabase service keys in frontend.
-const LOCAL='http://127.0.0.1:4390'
+const LOCAL='http://127.0.0.1:4392'
 const STORAGE='realtalent.waha.direct.token.v1'
 
 export type WahaStatus={session:string;status:string}

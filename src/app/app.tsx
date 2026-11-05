@@ -17,6 +17,7 @@ const CommercialMapPage = lazy(() => import('../features/commercial-map/commerci
 const PipelinePage = lazy(() => import('../features/pipeline/pipeline-page').then((module) => ({ default: module.PipelinePage })))
 const FollowupsPage = lazy(() => import('../features/followups/followups-page').then((module) => ({ default: module.FollowupsPage })))
 const CallsPage = lazy(() => import('../features/calls/calls-page').then((module) => ({ default: module.CallsPage })))
+const WahaConversationsPage = lazy(() => import('../features/communications/waha-conversations-page').then((module) => ({ default: module.WahaConversationsPage })))
 const ProposalsPage = lazy(() => import('../features/proposals/proposals-page').then((module) => ({ default: module.ProposalsPage })))
 const AgendaPage = lazy(() => import('../features/agenda/agenda-page').then((module) => ({ default: module.AgendaPage })))
 const PlaybooksPage = lazy(() => import('../features/playbooks/playbooks-page').then((module) => ({ default: module.PlaybooksPage })))
@@ -36,6 +37,7 @@ function RouteContent() {
   else if (route === 'pipeline') content = <PipelinePage />
   else if (route === 'followups') content = <FollowupsPage />
   else if (route === 'calls') content = <CallsPage />
+  else if (route === 'communications') content = <WahaConversationsPage />
   else if (route === 'proposals') content = <ProposalsPage />
   else if (route === 'agenda') content = <AgendaPage />
   else if (route === 'playbooks') content = <PlaybooksPage />

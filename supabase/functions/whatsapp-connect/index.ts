@@ -12,6 +12,15 @@ const json = (value: unknown, status = 200) => new Response(JSON.stringify(value
   status, headers: { ...cors, 'content-type': 'application/json', 'cache-control': 'no-store' },
 })
 const env = (name: string) => (Deno.env.get(name) || '').trim()
+const defaultApiKey = (name: string) => {
+  try {
+    const keys = JSON.parse(env(name))
+    return typeof keys?.default === 'string' ? keys.default : ''
+  } catch { return '' }
+}
+const backendKey = () => env('SUPABASE_SERVICE_ROLE_KEY') ||
+  defaultApiKey('SUPABASE_SECRET_KEYS')
+
 const uuid = (value: unknown) => typeof value === 'string' &&
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value)
 const hash = async (text: string) => [...new Uint8Array(await crypto.subtle.digest(
@@ -56,8 +65,12 @@ const link = () => {
 Deno.serve(async (request: Request) => {
   if (request.method === 'OPTIONS') return new Response(null, { status: 204, headers: cors })
   if (request.method !== 'POST') return json({ error: 'method_not_allowed' }, 405)
-  if (env('WHATSAPP_CONNECTION_MODE') !== 'bridge') return json({ error: 'bridge_mode_not_enabled' }, 503)
-  const supabaseUrl = env('SUPABASE_URL'), secret = env('SUPABASE_SERVICE_ROLE_KEY')
+  // This function only exists for the local pairing bridge. It does not
+  // depend on an additional manually installed secret to create pair codes.
+  // Explicitly setting a different connection mode remains a kill switch.
+  const mode = env('WHATSAPP_CONNECTION_MODE')
+  if (mode && mode !== 'bridge') return json({ error: 'bridge_mode_not_enabled' }, 503)
+  const supabaseUrl = env('SUPABASE_URL'), secret = backendKey()
   if (!supabaseUrl || !secret) return json({ error: 'backend_not_configured' }, 503)
   const db = createClient(supabaseUrl, secret, {
     auth: { persistSession: false, autoRefreshToken: false },

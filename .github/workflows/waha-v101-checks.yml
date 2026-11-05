@@ -1,0 +1,32 @@
+name: WAHA on CRM V101.11.3
+on:
+  push:
+    branches: [feat/waha-on-crm-v101-20261105]
+  pull_request:
+    paths:
+      - 'deploy/waha-direct/**'
+      - 'src/features/communications/**'
+      - 'src/services/waha-direct.ts'
+      - 'src/styles/waha-direct.css'
+      - 'package.json'
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci --include=dev
+      - name: WAHA connector mock tests
+        run: npm run test:waha
+      - name: Typecheck V101.11.3
+        run: npm run typecheck
+      - name: Build V101.11.3
+        env:
+          VITE_DATA_MODE: local
+          VITE_WAHA_DIRECT_PREVIEW: '1'
+        run: npm run build

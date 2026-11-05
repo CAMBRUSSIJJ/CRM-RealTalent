@@ -2,7 +2,6 @@
 import http from 'node:http'
 import fs from 'node:fs'
 import path from 'node:path'
-import os from 'node:os'
 import crypto from 'node:crypto'
 import { URL } from 'node:url'
 import { createWhatsAppBrowserQrBridge } from './whatsapp-browser-qr-bridge.mjs'
@@ -10,7 +9,6 @@ import { eventIdentityKey, mergeCommunicationEvent, mergeStoreSnapshots } from '
 import { createRealtimeBus } from './communications-realtime-bus.mjs'
 import { workspaceCommunicationsRevision, mayAutoRetryQueuedQrEvent } from './communications-live-revision.mjs'
 import { looksLikeEncodedMediaText } from './whatsapp-sync-utils.mjs'
-import { createLocalTaskWhatsAppScheduler } from './local-task-whatsapp-scheduler.mjs'
 
 const ROOT = path.resolve(path.dirname(new URL(import.meta.url).pathname), '..')
 const PORT = Number(process.env.REALTALENT_COMMUNICATIONS_PORT || 3002)
@@ -19,17 +17,6 @@ const STORE_FILE = process.env.REALTALENT_COMMUNICATIONS_STORE || path.join(ROOT
 const KEY_FILE = process.env.REALTALENT_COMMUNICATIONS_KEY_FILE || path.join(ROOT, '.realtalent-communications.key')
 const CONFIG_FILE = process.env.REALTALENT_COMMUNICATIONS_CONFIG || path.join(ROOT, '.realtalent-communications-config.json')
 const MEDIA_ROOT = process.env.REALTALENT_COMMUNICATIONS_MEDIA_DIR || path.join(ROOT, '.realtalent-communications-media')
-const TASK_AUTO_DEFAULT_STORE = path.join(process.env.XDG_STATE_HOME || path.join(os.homedir(), '.local', 'state'),
-  'realtalent-crm', 'task-whatsapp-queue.json')
-const TASK_AUTO_STORE_FILE = process.env.REALTALENT_TASK_AUTO_STORE || TASK_AUTO_DEFAULT_STORE
-const TASK_AUTO_LEGACY_STORE = path.join(ROOT, '.realtalent-task-auto-whatsapp.json')
-// Persist outside the downloaded release folder so updating the CRM does not
-// discard pending reminders. The old release-local file is migrated once.
-if (!fs.existsSync(TASK_AUTO_STORE_FILE) && fs.existsSync(TASK_AUTO_LEGACY_STORE)) {
-  fs.mkdirSync(path.dirname(TASK_AUTO_STORE_FILE), { recursive: true, mode: 0o700 })
-  fs.copyFileSync(TASK_AUTO_LEGACY_STORE, TASK_AUTO_STORE_FILE, fs.constants.COPYFILE_EXCL)
-  fs.chmodSync(TASK_AUTO_STORE_FILE,0o600)
-}
 fs.mkdirSync(MEDIA_ROOT, { recursive: true, mode: 0o700 })
 const CRM_PORT = Number(process.env.REALTALENT_CRM_PORT || 4188)
 const SYNC_INTERVAL_MS = Math.max(30_000, Number(process.env.REALTALENT_COMMUNICATIONS_SYNC_INTERVAL_MS || 60_000))
@@ -39,10 +26,8 @@ const PUBLIC_APP_URL = String(process.env.REALTALENT_PUBLIC_APP_URL || '').trim(
 const EXTRA_ALLOWED_HOSTS = String(process.env.REALTALENT_COMMUNICATIONS_ALLOWED_HOSTS || '').split(',').map((value) => value.trim().toLowerCase()).filter(Boolean)
 const INTERNAL_ALLOWED_ORIGINS = new Set([`http://127.0.0.1:${CRM_PORT}`, `http://localhost:${CRM_PORT}`, 'http://127.0.0.1:4173', 'http://localhost:4173', 'http://127.0.0.1:4174', 'http://localhost:4174'])
 // historical marker: const VERSION = '101.8.4-h10'
-const VERSION = '101.8.4-h18'
+const VERSION = '101.8.4-h13'
 const WHATSAPP_LIVE_FIX_VERSION = '20261104-qr-async-revision-v1'
-// Allows the Linux launcher to detect a healthy but stale Communications process.
-const WHATSAPP_SEND_RETURN_REVISION = 'msgkey-dollar1-20261102'
 let shuttingDown = false
 let fatalScheduled = false
 function fatal(label, error) {
@@ -52,7 +37,24 @@ function fatal(label, error) {
   fatalScheduled = true
   setTimeout(() => process.exit(1), 20).unref?.()
 }
-process.on('unhandledRejection', error => fatal('Promise rejeitada sem tratamento', error))
+let recoverDetachedFrame = () => false
+process.on('unhandledRejection', error => {
+  // Puppeteer/whatsapp-web.js may reject Client.inject() asynchronously
+  // after navigating away from its old frame. Prefer a bounded QR client
+  // reconnect without taking down the complete gateway.
+  const detail = String(error?.message || error || '')
+  if (/Attempted to use detached Frame|detached frame/i.test(detail)) {
+    try {
+      if (recoverDetachedFrame(error)) {
+        console.warn('[Communications Gateway] Frame antigo descartado; recuperação da sessão QR agendada.')
+        return
+      }
+    } catch (recoveryError) {
+      console.error('[Communications Gateway] Falha na recuperação do frame:', recoveryError)
+    }
+  }
+  fatal('Promise rejeitada sem tratamento', error)
+})
 process.on('uncaughtException', error => fatal('Exceção não tratada', error))
 
 function readJson(file, fallback) { try { return JSON.parse(fs.readFileSync(file, 'utf8')) } catch { return fallback } }
@@ -116,6 +118,7 @@ function mediaDiskPath(ref) {
 function mediaPayload(ref) { const file = mediaDiskPath(ref); if (!file || !fs.existsSync(file)) throw new Error('Arquivo de mídia não está mais disponível no runtime local.'); return { dataBase64:fs.readFileSync(file).toString('base64'), mimeType:String(ref.mimeType || 'application/octet-stream'), fileName:String(ref.fileName || 'arquivo'), size:Number(ref.size || fs.statSync(file).size), kind:String(ref.kind || mediaKind(ref.mimeType)) } }
 function contentTypeFor(name) { const ext=path.extname(name).toLowerCase(); return ({'.png':'image/png','.jpg':'image/jpeg','.jpeg':'image/jpeg','.gif':'image/gif','.webp':'image/webp','.mp4':'video/mp4','.webm':'video/webm','.mp3':'audio/mpeg','.ogg':'audio/ogg','.opus':'audio/ogg','.wav':'audio/wav','.pdf':'application/pdf','.txt':'text/plain','.zip':'application/zip'}[ext]||'application/octet-stream') }
 const whatsappQr = createWhatsAppBrowserQrBridge({ root:ROOT, now, uuid, store, saveStore, upsertAccount, pushEvent, makeEvent, persistMedia })
+recoverDetachedFrame = error => whatsappQr.recoverDetachedFrame(error)
 const sendLocks = new Map()
 let outboxDraining = false
 function idempotencyEvent(snapshot, input) {
@@ -153,31 +156,6 @@ async function failedWhatsAppEvent(snapshot,input,account,error){
   pushEvent(snapshot,event);saveStore(snapshot);return event
 }
 function retryableWhatsAppError(error) { return /(fetch|network|timeout|ECONN|EAI_AGAIN|indispon|desconect|connected|ready|sessão|autentic|429|502|503|504)/i.test(String(error?.message||error||'')) }
-function isManualTaskWhatsAppTest(input) { return input.channel === 'whatsapp' && /^task-whatsapp-manual-test:/.test(String(input.idempotencyKey || '')) }
-function recordManualTaskWhatsAppFailure(snapshot, input, account, error) {
-  // A user-requested *single* test must never enter the 2-second retry outbox:
-  // a timeout can be ambiguous and blindly resending might duplicate delivery.
-  const existing = idempotencyEvent(snapshot, input)
-  if (existing) return existing
-  const details = String(error?.message || error || 'Falha desconhecida no envio pelo WhatsApp Web.').slice(0, 500)
-  const event = makeEvent({
-    workspaceId: input.workspaceId, leadId: input.leadId || null,
-    contactId: input.contactId || null, accountId: account.id,
-    channel: 'whatsapp', direction: 'outbound', status: 'failed',
-    senderAddress: String(account.metadata?.displayPhoneNumber || account.displayName || ''),
-    recipientAddresses: input.recipient ? [String(input.recipient)] : [],
-    bodyText: String(input.body || ''),
-    metadata: {
-      provider: account.provider, transport: account.metadata?.transport || null,
-      idempotencyKey: input.idempotencyKey || null,
-      manualTest: true, outbox: false, lastSendError: details,
-      peerAddress: String(input.recipient || '').replace(/\D/g, ''),
-    },
-  })
-  pushEvent(snapshot, event)
-  saveStore(snapshot)
-  return event
-}
 async function executeCommunicationSend(snapshot, input, account) {
   const attachmentRef = input.channel==='whatsapp' ? await ensureAttachmentRef(input) : null
   const cred = account.metadata?.transport === 'qr' ? null : await credential(snapshot, account)
@@ -210,8 +188,6 @@ async function attemptQueuedWhatsAppEvent(snapshot,event,account){
     event.externalMessageId=result.id||event.externalMessageId||null; event.threadId=result.threadId||event.threadId||null; event.status='sent'; event.metadata={...(event.metadata||{}),outbox:false,manualRetryRequested:false,sendUncertain:false,lastSendError:null,lastAttemptAt:now(),attempts:Number(event.metadata?.attempts||0)+1}; account.lastError=null; account.updatedAt=now(); return true
   }catch(error){
     if(account.metadata?.transport==='qr'){
-      // A WhatsApp Web failure can mean "sent without acknowledgement".
-      // Manual verification is required before another attempt.
       event.status='failed'
       event.metadata={...(event.metadata||{}),outbox:false,manualRetryRequested:false,
         retrySafety:'requires_review',sendUncertain:true,
@@ -228,18 +204,17 @@ async function attemptQueuedWhatsAppEvent(snapshot,event,account){
 }
 async function drainWhatsAppOutbox(){
   if(outboxDraining)return;outboxDraining=true
-  try{const snapshot=store();let touched=false;for(const event of snapshot.events||[]){if(event.channel!=='whatsapp'||event.direction!=='outbound'||event.status!=='queued'||event.metadata?.outbox!==true)continue;if(!mayAutoRetryQueuedQrEvent(event)&&event.metadata?.manualRetryRequested!==true){
-  if(event.metadata?.transport==='qr'){
-    // Legacy timed-out sends from before h19 must be reviewed, not silently
-    // retried after a restart. We cannot know if WhatsApp delivered them.
-    event.status='failed'
-    event.metadata={...(event.metadata||{}),outbox:false,sendAttemptInProgress:false,sendUncertain:true,
-      retrySafety:'requires_review',
-      lastSendError:event.metadata?.lastSendError||'Envio anterior sem confirmação. Confira no WhatsApp antes de reenviar.'}
-    touched=true
-  }
-  continue
-}if(event.metadata?.nextRetryAt&&Date.parse(String(event.metadata.nextRetryAt))>Date.now())continue;const account=accountById(snapshot,event.workspaceId,event.accountId);if(!account||account.status!=='connected')continue;await attemptQueuedWhatsAppEvent(snapshot,event,account);touched=true}if(touched)saveStore(snapshot)}finally{outboxDraining=false}
+  try{const snapshot=store();let touched=false;for(const event of snapshot.events||[]){if(event.channel!=='whatsapp'||event.direction!=='outbound'||event.status!=='queued'||event.metadata?.outbox!==true)continue;
+      if(!mayAutoRetryQueuedQrEvent(event)&&event.metadata?.manualRetryRequested!==true){
+        if(event.metadata?.transport==='qr'){
+          event.status='failed'
+          event.metadata={...(event.metadata||{}),outbox:false,sendAttemptInProgress:false,
+            sendUncertain:true,retrySafety:'requires_review',
+            lastSendError:event.metadata?.lastSendError||'Envio anterior sem confirmação. Confira no WhatsApp antes de reenviar.'}
+          touched=true
+        }
+        continue
+      }if(event.metadata?.nextRetryAt&&Date.parse(String(event.metadata.nextRetryAt))>Date.now())continue;const account=accountById(snapshot,event.workspaceId,event.accountId);if(!account||account.status!=='connected')continue;await attemptQueuedWhatsAppEvent(snapshot,event,account);touched=true}if(touched)saveStore(snapshot)}finally{outboxDraining=false}
 }
 for (const account of store().accounts || []) { if (account.provider==='whatsapp_cloud' && account.metadata?.transport==='qr' && account.status==='connected') { whatsappQr.start(account.workspaceId, account.displayName).catch(err=>console.warn('WhatsApp QR restore:', err instanceof Error ? err.message : String(err))) } }
 
@@ -293,42 +268,6 @@ async function materializeCloudInboundMedia(s,account,mediaNode,type='document')
 }
 async function parseWhatsAppWebhook(s,payload){ let imported=0; for(const entry of payload.entry||[]){for(const change of entry.changes||[]){const value=change.value||{};const phoneId=String(value.metadata?.phone_number_id||'');const account=(s.accounts||[]).find(a=>a.provider==='whatsapp_cloud'&&(a.externalAccountId===phoneId||a.metadata?.phoneNumberId===phoneId)); if(!account)continue; for(const m of value.messages||[]){ const mediaNode=m.image||m.video||m.audio||m.document||null; const attachment=mediaNode?await materializeCloudInboundMedia(s,account,mediaNode,m.type||'document'):null; const text=m.text?.body||m.image?.caption||m.video?.caption||m.document?.caption||m.button?.text||m.interactive?.button_reply?.title||(mediaNode?'[Mídia WhatsApp]':'[Mensagem WhatsApp]'); const peerAddress=String(m.from||'').replace(/\D/g,''); const event=makeEvent({workspaceId:account.workspaceId,accountId:account.id,channel:'whatsapp',direction:'inbound',status:'received',externalMessageId:String(m.id||uuid()),threadId:peerAddress||null,senderAddress:String(m.from||''),recipientAddresses:[String(value.metadata?.display_phone_number||'')],bodyText:String(text),replyToExternalMessageId:String(m.context?.id||'')||null,hasAttachments:Boolean(mediaNode),metadata:{provider:'whatsapp_cloud',type:m.type||'unknown',peerAddress,...(attachment?{attachment}:{})}}); if(m.timestamp)event.occurredAt=new Date(Number(m.timestamp)*1000).toISOString();if(pushEvent(s,event))imported++ } for(const st of value.statuses||[]){ const event=s.events.find(e=>e.externalMessageId===st.id&&e.workspaceId===account.workspaceId&&e.accountId===account.id); if(event){event.status=st.status==='delivered'?'delivered':st.status==='read'?'read':st.status==='sent'?'sent':st.status==='failed'?'failed':event.status;event.metadata={...(event.metadata||{}),whatsappStatus:st.status,errors:st.errors||[]}} }} } return imported }
 
-const localTaskAuto = createLocalTaskWhatsAppScheduler({
-  file: TASK_AUTO_STORE_FILE,
-  accountFor: async workspaceId => {
-    const live = whatsappQr.status(workspaceId)
-    if(live.state !== 'connected') return null
-    return (store().accounts||[]).find(a=>a.workspaceId===workspaceId && a.provider==='whatsapp_cloud' &&
-      a.metadata?.transport==='qr' && a.status!=='revoked') || null
-  },
-  send: async (job,liveAccount) => {
-    if (whatsappQr.status(job.workspaceId).state!=='connected')
-      throw new Error('qr_disconnected')
-    const s=store(),account=accountById(s,job.workspaceId,liveAccount.id)
-    if(!account || account.metadata?.transport!=='qr')throw new Error('qr_account_not_found')
-    // WhatsApp QR supports the same self-chat transport used by the
-    // explicit Configurações test; do not block a teammate whose saved
-    // destination is the connected WhatsApp itself. Consent and explicit
-    // employee opt-in are still enforced by the durable scheduler.
-    const recipientDigits = String(job.phone).replace(/\D/g,'')
-    const input={
-      workspaceId:job.workspaceId,accountId:account.id,channel:'whatsapp',
-      recipient:recipientDigits,body:[
-        'RealTalent | Lembrete automático de tarefa',
-        '',
-        'Tarefa: '+job.title,
-        'Prazo: '+(job.dueAt?new Date(job.dueAt).toLocaleString('pt-BR',{timeZone:'America/Sao_Paulo'}):'Sem prazo'),
-        job.eventType==='assigned'?'Nova tarefa atribuída.':
-          job.eventType==='requested'?'Aviso solicitado pelo gestor.':'O prazo está próximo.',
-        '',
-        'Consulte o RealTalent para mais detalhes.',
-      ].join('\n'),
-      idempotencyKey:'task-auto-local:'+job.id,
-    }
-    return idempotencyEvent(s,input) || executeCommunicationSend(s,input,account)
-  },
-})
-
 async function route(req,res){
   if(!validHost(req))return json(res,421,{error:'Host não autorizado para o Communications Gateway.'})
   applyCors(req,res)
@@ -338,24 +277,7 @@ async function route(req,res){
   if(internalApi&&!originAllowed(req))return json(res,403,{error:'Origem não autorizada para o Communications Gateway.'})
   if(internalApi&&!internalAuthorized(req))return json(res,401,{error:'Autenticação local do Communications Gateway ausente ou inválida.'})
   const s=store();
-  if(req.method==='POST'&&u.pathname==='/api/task-reminders/member'){const b=await body(req);return json(res,200,{ok:true,...localTaskAuto.updateMember(b)})}
-  if(req.method==='POST'&&u.pathname==='/api/task-reminders/schedule'){const b=await body(req);return json(res,200,{ok:true,...localTaskAuto.schedule(b)})}
-  if(req.method==='POST'&&u.pathname==='/api/task-reminders/cancel'){const b=await body(req);return json(res,200,{ok:true,...localTaskAuto.cancel(b)})}
-  if(req.method==='POST'&&u.pathname==='/api/task-reminders/request'){const b=await body(req);return json(res,200,{ok:true,...localTaskAuto.requestOneOff(b)})}
-  if(req.method==='GET'&&u.pathname==='/api/task-reminders/diagnose'){return json(res,200,{ok:true,...localTaskAuto.diagnose({
-    workspaceId:String(u.searchParams.get('workspaceId')||''),
-    taskId:String(u.searchParams.get('taskId')||''),
-  })})}
-  if(req.method==='POST'&&u.pathname==='/api/task-reminders/reconcile'){const b=await body(req);return json(res,200,{ok:true,...localTaskAuto.reconcileWorkspace(b)})}
-  if(req.method==='GET'&&u.pathname==='/api/task-reminders/member-status'){return json(res,200,{ok:true,...localTaskAuto.memberStatus({
-    workspaceId:String(u.searchParams.get('workspaceId')||''),
-    userId:String(u.searchParams.get('userId')||''),
-  })})}
-  if(req.method==='GET'&&u.pathname==='/api/task-reminders/status'){return json(res,200,{ok:true,...localTaskAuto.status({
-    workspaceId:String(u.searchParams.get('workspaceId')||''),
-    taskId:String(u.searchParams.get('taskId')||''),
-  })})}
-  if(req.method==='GET'&&u.pathname==='/api/communications/health'){const google=providerConfig('google');const microsoft=providerConfig('microsoft');return json(res,200,{ok:true,mode:'local-gateway',version:VERSION,whatsappLiveFixRevision:WHATSAPP_LIVE_FIX_VERSION,whatsappSendReturnRevision:WHATSAPP_SEND_RETURN_REVISION,security:{runtimeAuth:Boolean(RUNTIME_TOKEN),hostValidation:true,originValidation:true,webhooksFailClosed:true},providers:{google:Boolean(google.clientId),microsoft:Boolean(microsoft.clientId),whatsapp:true,whatsappQr:true},syncIntervalMs:SYNC_INTERVAL_MS,realtime:{transport:'sse',...realtimeBus.stats()}})}
+  if(req.method==='GET'&&u.pathname==='/api/communications/health'){const google=providerConfig('google');const microsoft=providerConfig('microsoft');return json(res,200,{ok:true,mode:'local-gateway',version:VERSION,whatsappLiveFixRevision:WHATSAPP_LIVE_FIX_VERSION,security:{runtimeAuth:Boolean(RUNTIME_TOKEN),hostValidation:true,originValidation:true,webhooksFailClosed:true},providers:{google:Boolean(google.clientId),microsoft:Boolean(microsoft.clientId),whatsapp:true,whatsappQr:true},syncIntervalMs:SYNC_INTERVAL_MS,realtime:{transport:'sse',...realtimeBus.stats()}})}
   if(req.method==='GET'&&u.pathname==='/api/integrations/accounts'){const workspaceId=u.searchParams.get('workspaceId')||'';const accounts=s.accounts.filter(a=>a.workspaceId===workspaceId&&a.status!=='revoked').map(a=>{const view=safeAccount(a);if(a.provider==='whatsapp_cloud'&&a.metadata?.transport==='qr'){const live=whatsappQr.status(a.workspaceId);view.metadata={...(view.metadata||{}),liveState:live.state,qrEngine:live.engine||a.metadata?.qrEngine};if(live.state==='connected'){view.status='connected';view.lastError=null}else if(['starting','disconnected','idle'].includes(live.state)){view.status='attention';view.lastError=live.lastError||a.lastError||'WhatsApp QR reconectando.'}else if(live.state==='qr'){view.status='attention';view.lastError='WhatsApp QR aguardando leitura do código.'}}return view});return json(res,200,{accounts})}
   if(req.method==='POST'&&u.pathname==='/api/integrations/oauth/start'){const b=await body(req); if(!['google','microsoft'].includes(b.provider))return json(res,400,{error:b.provider==='whatsapp_cloud'?'No modo Linux local, conecte o WhatsApp Business pela tela WhatsApp informando o token permanente e o Phone Number ID.':'Este provedor ainda exige o backend hospedado.'}); try{return json(res,200,{mode:'oauth',url:authUrl(b.provider,b.workspaceId,b.returnUrl),message:'OAuth real iniciado pelo gateway local.'})}catch(e){return json(res,400,{error:e.message})}}
   if(req.method==='GET'&&(u.pathname==='/oauth/google/callback'||u.pathname==='/oauth/microsoft/callback')){const provider=u.pathname.includes('google')?'google':'microsoft';const stateId=u.searchParams.get('state')||'';const code=u.searchParams.get('code')||'';const error=u.searchParams.get('error_description')||u.searchParams.get('error');const st=oauthStates.get(stateId);oauthStates.delete(stateId);if(error)return html(res,400,`<h2>Conexão cancelada</h2><p>${escapeHtml(error)}</p>`);if(!st||st.provider!==provider||Date.now()-st.createdAt>10*60_000)return html(res,400,'<h2>Estado OAuth inválido ou expirado.</h2>');try{const token=await tokenExchange(provider,code,st.verifier);token.expires_at=Date.now()+Number(token.expires_in||3600)*1000;const who=await identity(provider,token.access_token);const date=now();const existing=s.accounts.find(a=>a.workspaceId===st.workspaceId&&a.provider===provider&&a.externalAccountId===who.id);const account={id:existing?.id||uuid(),workspaceId:st.workspaceId,provider,externalAccountId:who.id,displayName:who.email||who.name,status:'connected',scopes:scopes(provider),credential:encrypt(token),tokenExpiresAt:new Date(token.expires_at).toISOString(),lastSyncAt:existing?.lastSyncAt||null,lastError:null,capabilities:cap(provider),metadata:{email:who.email},createdAt:existing?.createdAt||date,updatedAt:date};upsertAccount(s,account);saveStore(s);const ret=new URL(st.returnUrl);ret.searchParams.set('integration','connected');ret.searchParams.set('provider',provider);res.writeHead(302,{location:ret.toString(),'cache-control':'no-store'});return res.end()}catch(e){return html(res,500,`<h2>Falha ao conectar ${escapeHtml(provider)}</h2><p>${escapeHtml(e instanceof Error?e.message:e)}</p>`)} }
@@ -467,7 +389,6 @@ async function acceptQrSend(snapshot, input, account) {
 
   if(req.method==='POST'&&u.pathname==='/api/communications/send'){
     const b=await body(req); const a=accountById(s,b.workspaceId,b.accountId)
-    const manualTaskTest = isManualTaskWhatsAppTest(b)
     if(b.channel==='whatsapp'&&looksLikeEncodedMediaText(b.body)){b.body=''}
     if(!a)return json(res,400,{error:'Conta não encontrada ou revogada.'})
     if((!b.body&&!b.attachment?.dataBase64)||(!b.recipient&&!b.threadId))return json(res,400,{error:'Destino e mensagem/arquivo são obrigatórios.'})
@@ -475,36 +396,23 @@ async function acceptQrSend(snapshot, input, account) {
     const lockKey=String(b.idempotencyKey||'').trim()?`${b.workspaceId}|${b.accountId}|${b.channel}|${b.idempotencyKey}`:''
     try{
       if(lockKey&&sendLocks.has(lockKey))return json(res,200,{event:await sendLocks.get(lockKey),idempotent:true})
-      if(b.channel==='whatsapp'&&a.metadata?.transport==='qr'&&a.status==='connected'&&!manualTaskTest){
-        const accepted = await acceptQrSend(s,b,a)
+      if(b.channel==='whatsapp'&&a.metadata?.transport==='qr'&&a.status==='connected'
+        && !/^task-whatsapp-manual-test:/.test(String(b.idempotencyKey||''))){
+        const accepted=await acceptQrSend(s,b,a)
         return json(res,202,{event:accepted,accepted:true})
       }
       const operation=(async()=>{
-        if(b.channel==='whatsapp'&&a.status!=='connected'){
-          if(manualTaskTest) return recordManualTaskWhatsAppFailure(s,b,a,new Error('A conta WhatsApp está desconectada no momento do teste. Nenhum reenvio foi agendado.'))
-          const ref=await ensureAttachmentRef(b)
-          return queueWhatsAppEvent(s,b,a,ref,new Error('WhatsApp desconectado. A mensagem ficará na fila.'))
-        }
-        try{return await executeCommunicationSend(s,b,a)}catch(error){
-          if(manualTaskTest) return recordManualTaskWhatsAppFailure(s,b,a,error)
-          if(b.channel==='whatsapp'&&isWhatsAppMediaIdRegression(error))return await failedWhatsAppEvent(s,b,a,error)
-          if(b.channel==='whatsapp'&&retryableWhatsAppError(error)){const ref=await ensureAttachmentRef(b);return queueWhatsAppEvent(s,b,a,ref,error)}
-          throw error
-        }
+        if(b.channel==='whatsapp'&&a.status!=='connected'){const ref=await ensureAttachmentRef(b);return queueWhatsAppEvent(s,b,a,ref,new Error('WhatsApp desconectado. A mensagem ficará na fila.'))}
+        try{return await executeCommunicationSend(s,b,a)}catch(error){if(b.channel==='whatsapp'&&isWhatsAppMediaIdRegression(error))return await failedWhatsAppEvent(s,b,a,error);if(b.channel==='whatsapp'&&retryableWhatsAppError(error)){const ref=await ensureAttachmentRef(b);return queueWhatsAppEvent(s,b,a,ref,error)}throw error}
       })()
       if(lockKey)sendLocks.set(lockKey,operation)
       const event=await operation;return json(res,200,{event})
-    }catch(e){
-      if(manualTaskTest) return json(res,200,{event:recordManualTaskWhatsAppFailure(s,b,a,e)})
-      a.lastError=e instanceof Error?e.message:String(e);a.updatedAt=now();saveStore(s);return json(res,502,{error:a.lastError})
-    }
+    }catch(e){a.lastError=e instanceof Error?e.message:String(e);a.updatedAt=now();saveStore(s);return json(res,502,{error:a.lastError})}
     finally{if(lockKey)sendLocks.delete(lockKey)}
   }
   if(req.method==='POST'&&u.pathname==='/api/communications/sync'){const b=await body(req);const list=s.accounts.filter(a=>a.workspaceId===b.workspaceId&&(a.status==='connected'||(a.provider==='whatsapp_cloud'&&a.metadata?.transport==='qr'&&a.status==='attention'))&&(!b.accountId||a.id===b.accountId));let imported=0;const triggered=[];const failures=[];for(const a of list){
       if(a.metadata?.transport==='qr'){
-        // A WhatsApp Web history import can outlive Vercel's request timeout.
-        // Run incrementally after the HTTP response; live messages and ACKs
-        // are reconciled independently by revision polling.
+        // Do not block a Vercel request on a long WhatsApp Web history import.
         triggered.push(a.id)
         void (async()=>{
           const current=store()
@@ -544,8 +452,6 @@ async function runBackgroundSync(){
 }
 const backgroundTimer=setInterval(()=>{void runBackgroundSync().catch(error=>console.warn('[Communications Gateway] sincronização em segundo plano falhou:', error instanceof Error ? error.message : String(error)))},SYNC_INTERVAL_MS)
 backgroundTimer.unref()
-const localTaskTimer=setInterval(()=>{void localTaskAuto.tick().catch(error=>console.warn('[Communications Gateway] fila automática de tarefas falhou:',error instanceof Error?error.message:String(error)))},5_000)
-localTaskTimer.unref()
 const outboxTimer=setInterval(()=>{void drainWhatsAppOutbox().catch(error=>console.warn('[Communications Gateway] fila WhatsApp falhou:',error instanceof Error?error.message:String(error)))},2_000)
 outboxTimer.unref()
 const realtimeHeartbeatTimer=setInterval(()=>realtimeBus.heartbeat(),15_000)
@@ -556,7 +462,6 @@ async function shutdown(signal){
   shuttingDown=true
   clearInterval(backgroundTimer)
   clearInterval(outboxTimer)
-  clearInterval(localTaskTimer)
   clearInterval(realtimeHeartbeatTimer)
   realtimeBus.closeAll()
   console.log(`[Communications Gateway] encerrando por ${signal}`)

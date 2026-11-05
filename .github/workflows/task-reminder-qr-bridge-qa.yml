@@ -1,0 +1,32 @@
+name: RealTalent Team Task QR Delivery QA
+on:
+  push:
+    branches: [feat/task-reminders-railway-qr-bridge-20261104]
+  pull_request:
+    paths:
+      - runtime-host/deploy/cloud-runtime/**
+      - supabase/migrations/202611050001_task_reminders_railway_qr_bridge.sql
+      - scripts/task-reminder-qr*.test.mjs
+      - .github/workflows/task-reminder-qr-bridge-qa.yml
+permissions:
+  contents: read
+jobs:
+  qr-bridge:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: '22'
+      - run: npm ci --include=dev --no-audit --no-fund
+      - name: Secure gateway API and SQL contract
+        run: |
+          node --test scripts/task-reminder-qr-bridge.test.mjs scripts/task-reminder-qr-contract.test.mjs
+          node --check runtime-host/deploy/cloud-runtime/cloud-runtime-supervisor.mjs
+      - name: CRM TypeScript and build
+        run: |
+          npm run typecheck
+          npm run build

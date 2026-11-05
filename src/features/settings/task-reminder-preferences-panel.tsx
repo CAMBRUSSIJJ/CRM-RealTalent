@@ -19,6 +19,7 @@ interface Preferences {
   whatsapp_phone_e164: string
   whatsapp_consented_at: string | null
 }
+const localWhatsAppBridge = import.meta.env.VITE_WHATSAPP_CONNECTION_MODE === 'bridge'
 const defaults: Preferences = { email_enabled: false, whatsapp_enabled: false, whatsapp_phone_e164: '', whatsapp_consented_at: null }
 const phoneValid = (text: string) => /^\+[1-9][0-9]{7,14}$/.test(text.trim())
 
@@ -126,7 +127,7 @@ export function TaskReminderPreferencesPanel({ workspaceId, userId, enabled }: P
       updated_at: new Date().toISOString(),
     }, { onConflict: 'organization_id,user_id' })
     setMessage(error ? 'Não foi possível salvar. Verifique sua sessão e as políticas do Supabase.'
-      : wantsWhatsapp ? 'Preferências salvas. O WhatsApp ficará pendente até a verificação do número e a ativação do modelo oficial.'
+      : wantsWhatsapp ? (localWhatsAppBridge ? 'Preferências salvas. Conecte o WhatsApp e confirme o número na aba WhatsApp.' : 'Preferências salvas. O WhatsApp ficará pendente até a verificação do número e a ativação do modelo oficial.')
       : 'Preferências de lembretes salvas.')
     if (!error && !wantsWhatsapp) setConsent(false)
     setSaving(false)
@@ -146,7 +147,7 @@ export function TaskReminderPreferencesPanel({ workspaceId, userId, enabled }: P
         readiness.databaseReady ? 'Banco preparado' : 'Banco não migrado',
         readiness.schedulerAuthenticated ? 'Autenticação do agendador HTTP presente' : 'Agendador HTTP externo não configurado',
         readiness.emailCredentialsPresent ? 'Credenciais de e-mail presentes (entrega não verificada)' : 'E-mail não configurado',
-        readiness.whatsappCredentialsPresent ? 'Credenciais de WhatsApp presentes (modelo não verificado)' : 'WhatsApp oficial não configurado',
+        localWhatsAppBridge ? 'Conector local: consulte a aba WhatsApp' : readiness.whatsappCredentialsPresent ? 'Credenciais de WhatsApp presentes (modelo não verificado)' : 'WhatsApp oficial não configurado',
         readiness.internalEnabled ? 'Worker de avisos internos habilitado' : 'Worker de avisos internos pela Edge desativado (o CRM usa agendamento próprio no banco)',
         readiness.deliveryEnabled ? 'Envios externos liberados pelo servidor' : 'Envios externos desativados',
       ].join(' · ') : readinessError
@@ -160,7 +161,7 @@ export function TaskReminderPreferencesPanel({ workspaceId, userId, enabled }: P
       </label>
       <label className="settings-toggle"><input type="checkbox" disabled={loading || saving}
         checked={preferences.whatsapp_enabled} onChange={(event) => setPreferences((p) => ({ ...p, whatsapp_enabled: event.target.checked }))} />
-        <span>Solicitar lembretes por WhatsApp (exige número verificado e integração oficial)</span>
+        <span>{localWhatsAppBridge ? 'Receber lembretes pelo conector WhatsApp local (exige consentimento e código)' : 'Solicitar lembretes por WhatsApp (exige número verificado e integração oficial)'}</span>
       </label>
       {preferences.whatsapp_enabled ? <>
         <label className="field"><span>Meu WhatsApp com código do país (sincronizado com Equipes)</span>
@@ -171,7 +172,7 @@ export function TaskReminderPreferencesPanel({ workspaceId, userId, enabled }: P
           onChange={(event) => { setConsent(event.target.checked); setPreferences((p) => ({ ...p, whatsapp_consented_at: null })) }} />
           <span>Autorizo o RealTalent a enviar avisos operacionais de tarefas ao meu número informado.</span>
         </label>
-        <p className="settings-copy">Você pode cadastrar o número uma única vez em Equipes → Pessoas. Se o gestor alterá-lo, confirme novamente aqui. O cadastro não valida o telefone: WhatsApp automático exige consentimento, número verificado e modelo oficial aprovado.</p>
+        <p className="settings-copy">Você pode cadastrar o número uma única vez em Equipes → Pessoas. Se o gestor alterá-lo, confirme novamente aqui. O cadastro não valida o telefone: WhatsApp automático exige consentimento e número verificado. {localWhatsAppBridge ? 'A confirmação por código está na aba WhatsApp.' : 'O envio oficial também exige um modelo aprovado.'}</p>
       </> : null}
       <div className="settings-actions"><Button type="submit" disabled={!workspaceId || !userId || loading || saving} loading={saving}>Salvar preferências de tarefas</Button></div>
       {message ? <p role="status" className="settings-copy">{message}</p> : null}

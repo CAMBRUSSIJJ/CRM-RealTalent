@@ -4,31 +4,18 @@ import { existsSync } from 'node:fs'
 import { homedir } from 'node:os'
 import { join, dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { randomBytes } from 'node:crypto'
 import { createWhatsAppWebEngine } from './whatsapp-web-engine.mjs'
-import { execFile } from 'node:child_process'
-import { promisify } from 'node:util'
 
-const execFileAsync = promisify(execFile)
 const HERE = dirname(fileURLToPath(import.meta.url))
 const STATE = join(homedir(), '.config', 'realtalent-connect')
 const SETTINGS = join(STATE, 'device.json')
-const ENV = join(STATE, 'docker.env')
-const COMPOSE = join(HERE, 'compose.yaml')
 const PORT = 4375
 const SUPABASE_URL = 'https://bacdqruzxklfqdydijjn.supabase.co'
 const PUBLIC_KEY = 'sb_publishable_xJOiFDc2_TUp1a78khj0ZA_FFwpCGGg'
 const ENDPOINT = SUPABASE_URL + '/functions/v1/whatsapp-connect'
 const CSRF = randomBytes(24).toString('hex')
-const emailFreeError = 'Verifique se o Docker foi instalado e se sua conta tem permissão para executá-lo.'
 const uuid = value => typeof value === 'string' &&
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value)
-const qrImage = value => {
-  if (typeof value !== 'string' || value.length > 500000) return null
-  const payload = value.replace(/^data:image\/png;base64,/, '')
-  return /^iVBORw0KGgo[A-Za-z0-9+/=\r\n]+$/.test(payload)
-    ? 'data:image/png;base64,' + payload : null
-}
 const state = {
   appRunning: false,
   dockerReady: false,
@@ -199,8 +186,9 @@ async function tick() {
     await callDevice('heartbeat', {
       state: wa.state,
       qr,
-      ...(wa.error ? { error: wa.error } :
-        wa.state === 'open' || qr ? { error: '' } : {}),
+      // Clear a stale Evolution error when this new browser engine is healthy
+      // but is still loading its login page.
+      error: wa.error || '',
     })
     const batch = await callDevice('poll')
     for (const cmd of batch.commands || []) await processCommand(cmd)
@@ -317,8 +305,9 @@ const server = http.createServer(async (req, res) => {
       json(res, 403, { error: 'Acesso não autorizado ao QR.' })
       return
     }
-    const ready = state.connection !== 'open' && qrCache.expires > Date.now()
-    json(res, 200, { ready, image: ready ? qrCache.image : null })
+    const image = webEngine.status().qr
+    const ready = state.connection !== 'open' && Boolean(image)
+    json(res, 200, { ready, image: ready ? image : null })
     return
   }
   if (req.method === 'GET' && path === '/api/status') {

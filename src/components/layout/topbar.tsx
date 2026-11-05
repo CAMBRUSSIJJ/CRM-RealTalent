@@ -16,6 +16,7 @@ import { buildNotificationAlerts } from '../../services/notification-engine'
 import { NOTIFICATION_STATE_EVENT } from '../../services/notification-state'
 import { globalSearchKindLabel, searchWorkspace, type GlobalSearchResult } from '../../services/global-search'
 import { GlobalSearchPopover } from './global-search-popover'
+import { WhatsAppQuickAccess } from '../../features/communications/whatsapp-quick-access'
 
 const AssistantDrawer = lazy(() => import('../../features/assistant/assistant-drawer').then((module) => ({ default: module.AssistantDrawer })))
 
@@ -160,6 +161,7 @@ export function Topbar() {
             <button className="icon-button topbar__refresh" type="button" onClick={() => void refresh()} aria-label="Atualizar dados" title="Atualizar"><RefreshCw size={17} /></button>
             <button className="icon-button topbar__help" type="button" aria-label="Abrir guia rápido" title="Ajuda" onClick={() => setHelpOpen(true)}><CircleHelp size={18} /></button>
             {route !== 'dashboard' ? <button className="icon-button topbar__customize" type="button" aria-label="Personalizar visualização" title="Personalizar visualização" onClick={openCustomization}><SlidersHorizontal size={18} /></button> : null}
+            <WhatsAppQuickAccess />
             <button className="icon-button icon-button--notification" type="button" aria-label="Abrir central de notificações" title="Notificações" onClick={openNotifications}><Bell size={18} />{notificationCount ? <span>{notificationCount > 99 ? '99+' : notificationCount}</span> : null}</button>
             <WorkspaceSwitcher />
           </div>

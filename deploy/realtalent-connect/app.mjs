@@ -393,28 +393,31 @@ async function diagnostic() {
     // Classify locally. Never expose logs, WhatsApp pairing material,
     // phone numbers, or Docker secrets to the browser or to Supabase.
     const lines = (stdout + '\n' + stderr).slice(-30000)
-    if (result.postgres !== 'Saudável')
-      result.advice = 'O PostgreSQL não responde. Verifique o banco local, sem apagar volumes.'
-    else if (result.redis !== 'Saudável')
-      result.advice = 'O Redis não responde. Verifique o serviço de cache antes do QR.'
-    else if (result.evolution !== 'API respondendo')
-      result.advice = 'PostgreSQL e Redis respondem, mas a API Evolution está indisponível.'
-    else if (/ENOTFOUND|EAI_AGAIN|getaddrinfo|DNS|resolve failed/i.test(lines))
-      result.advice = 'A Evolution pode estar com falha de DNS. Verifique a rede do Docker.'
-    else if (/ECONNREFUSED|ETIMEDOUT|websocket.*(?:error|closed)|connection timeout/i.test(lines))
-      result.advice = 'A Evolution não conseguiu manter conexão com os servidores WhatsApp.'
-    else if (/P1000|P1001|P1002|P1017|PrismaClient(?:Initialization|KnownRequest)Error|database.*(?:connection refused|authentication failed)|redis.*(?:ECONNREFUSED|NOAUTH|WRONGPASS|failed to connect)/i.test(lines))
-      result.advice = 'Há erros de banco de dados ou Redis no Evolution.'
-    else if (/bad.session|version.*(?:unsupported|invalid)|handshake.*failed/i.test(lines))
-      result.advice = 'A versão do motor WhatsApp pode estar incompatível.'
+    const historic = /P1000|P1001|P1002|P1017|PrismaClient(?:Initialization|KnownRequest)Error|database.*(?:connection refused|authentication failed)|redis.*(?:ECONNREFUSED|NOAUTH|WRONGPASS|failed to connect)/i.test(lines)
+    if (result.postgres !== 'Saudável') {
+      result.advice = 'PostgreSQL não respondeu à verificação atual. Confira o serviço sem apagar volumes.'
+    } else if (result.redis !== 'Saudável') {
+      result.advice = 'Redis não respondeu à verificação atual. Confira o serviço sem apagar volumes.'
+    } else if (result.evolution !== 'API respondendo') {
+      result.advice = 'PostgreSQL e Redis respondem, mas a Evolution não respondeu à consulta da instância.'
+    } else if (/ENOTFOUND|EAI_AGAIN|getaddrinfo.*(?:failed|error)/i.test(lines)) {
+      result.advice = 'Os serviços respondem, porém existem indícios de falha de DNS nos logs da Evolution.'
+    } else if (/websocket.*(?:error|closed)|connection timeout|handshake.*failed/i.test(lines)) {
+      result.advice = 'Os serviços respondem, mas há indícios de falha de conexão WhatsApp/WebSocket.'
+    } else if (/bad.session|version.*(?:unsupported|invalid)/i.test(lines)) {
+      result.advice = 'Os serviços respondem, mas há indícios de sessão WhatsApp inválida ou motor incompatível.'
+    } else if (qrZeroCount) {
+      result.advice = 'PostgreSQL, Redis e Evolution respondem. A Evolution retornou count=0; a sessão WhatsApp não produziu QR.'
+    } else {
+      result.advice = 'PostgreSQL, Redis e Evolution respondem agora. WhatsApp está sem sessão aberta; QR ainda não foi gerado.'
+    }
+    if (historic && result.postgres === 'Saudável' && result.redis === 'Saudável') {
+      result.advice += ' Os logs incluem erros de banco/Redis anteriores, mas não confirmam falha atual.'
+    }
   } catch {
     result.advice = 'Não foi possível consultar os registros do Docker. Verifique o serviço Evolution.'
   }
-  if (!result.advice && result.postgres === 'Saudável' && result.redis === 'Saudável' && result.evolution === 'API respondendo') {
-    result.advice = qrZeroCount
-      ? 'PostgreSQL e Redis estão saudáveis. A Evolution responde count=0: a sessão WhatsApp não gerou QR.'
-      : 'Os serviços estão saudáveis. O bloqueio parece ocorrer na sessão WhatsApp, não no banco.'
-  }
+
   if (!result.advice && qrZeroCount)
     result.advice = 'Evolution respondeu count=0. Isso pode ser incompatibilidade do motor WhatsApp, rede ou sessão travada.'
   if (!result.advice && !state.qrReady && qrAttempts >= MAX_QR_ATTEMPTS)

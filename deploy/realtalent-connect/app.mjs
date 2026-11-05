@@ -46,6 +46,8 @@ let qrCache = { image: null, expires: 0 }
 let qrRequested = false
 let lastQrAttempt = 0
 let qrAttempts = 0
+let qrZeroCount = false
+const MAX_QR_ATTEMPTS = 5
 
 async function prepare() {
   await mkdir(STATE, { recursive: true, mode: 0o700 })
@@ -218,6 +220,7 @@ async function fetchNewQr(instance, allowCreate = true) {
   // asynchronously. This function is retried while pairing is requested.
   const connected = await evolution('/instance/connect/' + instance)
   if (connected.notFound) throw new Error('Evolution instance missing')
+  qrZeroCount = Number(connected?.count ?? connected?.qrcode?.count ?? -1) === 0
   const image = await qrFromResponse(connected)
   if (image) {
     qrCache = { image, expires: Date.now() + 30000 }
@@ -229,6 +232,16 @@ async function fetchNewQr(instance, allowCreate = true) {
   qrAttempts += 1
   state.connection = 'connecting'
   state.qrReady = false
+  if (qrAttempts >= MAX_QR_ATTEMPTS) {
+    // QR count=0 is a known Baileys/Evolution symptom; repeating indefinitely
+    // can exceed WhatsApp rate limits without solving the underlying issue.
+    qrRequested = false
+    state.connection = 'error'
+    state.lastError = qrZeroCount
+      ? 'Evolution API devolveu count=0: não está conseguindo gerar o QR. Verifique o diagnóstico do Evolution.'
+      : 'Evolution não devolveu imagem nem código de QR após 5 tentativas. Verifique o diagnóstico do Evolution.'
+    state.message = state.lastError
+  }
   return false
 }
 async function processCommand(command) {
@@ -239,6 +252,7 @@ async function processCommand(command) {
     if (command.action === 'connect') {
       qrRequested = true
       qrAttempts = 0
+      qrZeroCount = false
       lastQrAttempt = Date.now()
       state.lastError = null
       await fetchNewQr(instance)
@@ -285,7 +299,7 @@ async function tick() {
       state.qrReady = false
       state.lastError = null
     } else {
-      state.connection = qrRequested ? 'connecting' : evolutionState
+      state.connection = qrRequested ? 'connecting' : state.lastError ? 'error' : evolutionState
       if (qrRequested && Date.now() - lastQrAttempt >= 7000 &&
           qrCache.expires <= Date.now()) {
         lastQrAttempt = Date.now()

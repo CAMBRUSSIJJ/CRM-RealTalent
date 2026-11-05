@@ -71,6 +71,8 @@
     <h2>2 · Escaneie o QR Code no CRM</h2>
     <p>Quando o computador estiver conectado, abra <strong>Configurações → WhatsApp</strong> e clique em <strong>Gerar QR Code</strong>. No celular, use <strong>WhatsApp → Dispositivos conectados</strong>.</p>
     <div class="alert" id="diagnostic">Carregando diagnóstico...</div>
+    <div style="margin-top:14px" class="row"><button class="secondary" id="diagnostic-button" type="button">Verificar problema do QR</button></div>
+    <div class="alert hidden" id="technical-diagnostic" role="status" style="margin-top:12px;white-space:pre-line"></div>
   </section>
   <div class="foot">Seu computador precisa estar ligado para manter a conexão. A chave administrativa do Supabase nunca é enviada ao Linux.</div>
 </main>
@@ -113,6 +115,22 @@
       $('code').value = ''
     } catch(error) { issue(error.message) }
     finally { $('pair-button').disabled = false; await refresh() }
+  })
+  $('diagnostic-button').addEventListener('click', async () => {
+    $('diagnostic-button').disabled = true
+    const destination = $('technical-diagnostic')
+    destination.classList.remove('hidden')
+    destination.textContent = 'Verificando a Evolution e os serviços Docker...'
+    try {
+      const d = await api('/api/diagnostic')
+      destination.textContent = 'Serviços: ' + d.engine + '\\nWhatsApp: ' +
+        d.whatsApp + '\\nQR Code: ' + d.qr + '\\nDiagnóstico: ' + d.advice +
+        (d.detail ? '\\nDetalhe: ' + d.detail : '')
+    } catch {
+      destination.textContent = 'Não foi possível verificar os serviços locais.'
+    } finally {
+      $('diagnostic-button').disabled = false
+    }
   })
   $('start-button').addEventListener('click', async () => {
     clear()

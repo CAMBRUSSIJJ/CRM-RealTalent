@@ -64,7 +64,7 @@ Deno.serve(async (request) => {
       .select('whatsapp_enabled,whatsapp_phone_e164,whatsapp_consented_at')
       .eq('organization_id', organizationId).eq('user_id', user.id).maybeSingle()
     const phone = String(prefs?.whatsapp_phone_e164 || '')
-    if (prefError || !prefs?.whatsapp_enabled || !prefs?.whatsapp_consented_at || !/^\\+[1-9][0-9]{7,14}$/.test(phone))
+    if (prefError || !prefs?.whatsapp_enabled || !prefs?.whatsapp_consented_at || !/^\+[1-9][0-9]{7,14}$/.test(phone))
       return reply({ error: 'save_your_phone_and_consent_first' }, 400)
     const { data: directory } = await admin.from('team_member_notification_contacts')
       .select('phone_e164').eq('organization_id', organizationId).eq('user_id', user.id).maybeSingle()

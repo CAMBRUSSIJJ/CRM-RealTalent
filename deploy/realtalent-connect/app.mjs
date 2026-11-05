@@ -489,6 +489,18 @@ const server = http.createServer(async (req, res) => {
     json(res, 200, await diagnostic())
     return
   }
+  if (req.method === 'GET' && path === '/api/qr') {
+    // QR is a temporary WhatsApp login secret. It is intentionally not sent
+    // to general /status responses. Same-origin local UI supplies the CSRF
+    // header; arbitrary external websites cannot read it via CORS.
+    if (req.headers['x-rt-csrf'] !== CSRF) {
+      json(res, 403, { error: 'Acesso não autorizado ao QR.' })
+      return
+    }
+    const ready = state.connection !== 'open' && qrCache.expires > Date.now()
+    json(res, 200, { ready, image: ready ? qrCache.image : null })
+    return
+  }
   if (req.method === 'GET' && path === '/api/status') {
     json(res, 200, {
       ...state, paired: !!config && state.paired,

@@ -47,6 +47,31 @@ export function WhatsappLocalBridgePanel() {
   const [busy, setBusy] = useState('')
   const [code, setCode] = useState('')
   const [notice, setNotice] = useState('')
+  const [pairingCode, setPairingCode] = useState('')
+  const [pairingBusy, setPairingBusy] = useState(false)
+  
+  async function createPairingCode() {
+    const client = getSupabaseClient()
+    if (!client || !workspaceId) { setProblem('Entre no CRM e selecione uma organização.'); return }
+    setPairingBusy(true)
+    setProblem('')
+    setPairingCode('')
+    try {
+      const { data, error } = await client.functions.invoke('whatsapp-connect', {
+        body: { action: 'create-code', organizationId: workspaceId },
+      })
+      if (error || !data?.pairingCode) throw new Error(
+        data?.error === 'admin_required'
+          ? 'Somente o administrador pode vincular este computador.'
+          : 'Não foi possível criar o código. Confira as funções do Supabase.'
+      )
+      setPairingCode(String(data.pairingCode))
+      setNotice('Digite este código no aplicativo RealTalent Connect do seu Linux. Válido por 5 minutos.')
+    } catch (error) {
+      setProblem(error instanceof Error ? error.message : 'Falha no pareamento.')
+    } finally { setPairingBusy(false) }
+  }
+
 
   async function invoke(action: string, more: Record<string, unknown> = {}): Promise<SessionResult> {
     const client = getSupabaseClient()
@@ -132,11 +157,39 @@ export function WhatsappLocalBridgePanel() {
   const connected = state === 'open'
   const online = !['offline', 'checking'].includes(state)
   return <article className="panel" aria-label="WhatsApp sem Railway">
+    <section aria-label="Vincular aplicativo Linux" style={{
+      border: '1px solid var(--border, #d5deea)', borderRadius: 12,
+      padding: 18, marginBottom: 20, background: 'var(--surface, transparent)',
+    }}>
+      <h4 style={{ margin: '0 0 8px' }}>1. Vincule o RealTalent Connect ao CRM</h4>
+      <p className="settings-copy" style={{ marginBottom: 12 }}>
+        Instale o aplicativo no Linux e clique abaixo para receber um código temporário.
+        Não é necessário copiar chaves privadas, configurar o Docker manualmente ou informar o ID do workspace.
+      </p>
+      <Button type="button" onClick={() => void createPairingCode()} disabled={pairingBusy}
+        loading={pairingBusy}>Gerar código para o aplicativo</Button>
+      {pairingCode ? <div style={{ marginTop: 12, display: 'flex', flexWrap: 'wrap',
+        alignItems: 'center', gap: 12 }}>
+        <strong role="status" aria-label="Código temporário de vinculação"
+          style={{ letterSpacing: 2, fontSize: 22, fontFamily: 'monospace',
+            userSelect: 'all', overflowWrap: 'anywhere' }}>{pairingCode}</strong>
+        <Button variant="secondary" type="button" onClick={() =>
+          navigator.clipboard.writeText(pairingCode).then(() =>
+            setNotice('Código copiado. Cole no RealTalent Connect.'))
+            .catch(() => setNotice('Selecione o código acima para copiá-lo.'))
+        }>Copiar código</Button>
+        <small>Expira em 5 minutos · uma utilização</small>
+      </div> : null}
+      <p className="settings-copy" style={{ marginTop: 12 }}>
+        Depois do vínculo, o QR do WhatsApp aparecerá nesta tela.
+      </p>
+    </section>
+
     <div className="panel__heading">
       <div>
         <span className="eyebrow">Conector local · Supabase</span>
         <h3>WhatsApp do RealTalent</h3>
-        <p>Conecte seu telefone uma vez. O CRM funciona na nuvem; o WhatsApp e os avisos são processados no Linux pelo Docker.</p>
+        <p>O aplicativo RealTalent Connect configura os serviços no Linux e exibe o QR aqui, sem exigir chaves privadas.</p>
       </div>
       <span role="status" style={{ display: 'inline-flex', alignItems: 'center', gap: 7, fontWeight: 600 }}>
         {state === 'checking' ? <LoaderCircle size={17}/> : connected ? <CheckCircle2 size={17} color="#198754"/> :
@@ -161,7 +214,7 @@ export function WhatsappLocalBridgePanel() {
       <span style={{ color: '#25344a', fontSize: 13 }}>No celular: WhatsApp → Dispositivos conectados → Conectar dispositivo.</span>
     </div> : null}
     {!online ? <div className="settings-copy" style={{ marginTop: 14 }}>
-      <Laptop size={16}/> Inicie o Docker no computador do conector. Nenhuma porta externa precisa ser aberta.
+      <Laptop size={16}/> Abra o aplicativo RealTalent Connect no Linux para ativar a conexão. Nenhuma porta externa precisa ser aberta.
     </div> : null}
 
     <div style={{ marginTop: 24, borderTop: '1px solid var(--border, #d5deea)', paddingTop: 18 }}>
@@ -190,8 +243,6 @@ export function WhatsappLocalBridgePanel() {
           loading={busy === 'verify-confirm'}>Confirmar número</Button>
       </form>
     </div>
-    {workspaceId ? <p className="settings-copy" style={{ marginTop: 20 }}>
-      Identificador do workspace para o conector Linux: <code>{workspaceId}</code>
-    </p> : null}
+
   </article>
 }

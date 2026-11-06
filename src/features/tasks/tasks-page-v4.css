@@ -881,3 +881,37 @@ html[data-theme="dark"] .tasks-page-v4__empty-column > svg { background: #23374f
 .tasks-page-v4__calendar-undated>div{display:flex;flex-wrap:wrap;gap:8px}
 .tasks-page-v4__calendar-undated>div button{border:1px solid #dce7f4;border-radius:8px;background:#f7faff;padding:9px 12px;color:#305991;font-size:11px;cursor:pointer}
 @media(max-width:520px){.tasks-page-v4__calendar-toolbar{align-items:flex-start;flex-direction:column}}
+
+
+/* New task surfaces inherit dark theme instead of forcing white cards. */
+html[data-theme="dark"] .tasks-page-v4__metrics,
+html[data-theme="dark"] .tasks-page-v4__metrics>button,
+html[data-theme="dark"] .tasks-page-v4__card,
+html[data-theme="dark"] .tasks-page-v4__card-menu>div,
+html[data-theme="dark"] .tasks-page-v4__notification-popover,
+html[data-theme="dark"] .tasks-page-v4__saved-views-panel,
+html[data-theme="dark"] .tasks-page-v4__quick-create,
+html[data-theme="dark"] .tasks-page-v4__calendar-scroll,
+html[data-theme="dark"] .tasks-page-v4__calendar-undated{background:#1c2d46;color:#dbe8fa;border-color:#3a4d67}
+html[data-theme="dark"] .tasks-page-v4__metrics>button span,
+html[data-theme="dark"] .tasks-page-v4__metrics>button strong,
+html[data-theme="dark"] .tasks-page-v4__card-title,
+html[data-theme="dark"] .tasks-page-v4__column-title strong,
+html[data-theme="dark"] .tasks-page-v4__saved-views-panel>strong,
+html[data-theme="dark"] .tasks-page-v4__calendar-toolbar h2{color:#e1ecff}
+html[data-theme="dark"] .tasks-page-v4__card-tools button,
+html[data-theme="dark"] .tasks-page-v4__card-menu>summary{color:#a6b9d7}
+html[data-theme="dark"] .tasks-page-v4__card-menu>div button{color:#d3e3f8}
+html[data-theme="dark"] .tasks-page-v4__card-menu select,
+html[data-theme="dark"] .tasks-page-v4__saved-views-panel input,
+html[data-theme="dark"] .tasks-page-v4__quick-create input{background:#263a55;color:#e1edff;border-color:#405775}
+html[data-theme="dark"] .tasks-page-v4__column-title span,
+html[data-theme="dark"] .tasks-page-v4__assignee i{background:#2b4364;color:#bfd9ff}
+html[data-theme="dark"] .tasks-page-v4__saved-views>summary,
+html[data-theme="dark"] .tasks-page-v4__calendar-toolbar button,
+html[data-theme="dark"] .tasks-page-v4__calendar-task,
+html[data-theme="dark"] .tasks-page-v4__calendar-undated>div button{background:#263b58;color:#c8dcfb;border-color:#3b5376}
+html[data-theme="dark"] .tasks-page-v4__calendar{background:#142237}
+html[data-theme="dark"] .tasks-page-v4__calendar-day,
+html[data-theme="dark"] .tasks-page-v4__calendar-weekday{border-color:#354962}
+html[data-theme="dark"] .tasks-page-v4__calendar-day.is-adjacent{background:#17263c}

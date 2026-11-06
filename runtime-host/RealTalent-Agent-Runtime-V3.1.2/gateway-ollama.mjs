@@ -12,6 +12,7 @@ import { researchQuestionV56 } from './crm-research-v56.mjs'
 import { deepResearchV60 } from './crm-deep-research-v60.mjs'
 import { investigateProspectG1 } from './crm-prospect-investigation-g1.mjs'
 import { planGarimpoG3 } from './crm-garimpo-conversation-g3.mjs'
+import { classifyTriggerEventsG4 } from './crm-trigger-events-g4.mjs'
 
 const OUTER_HOST = process.env.REALTALENT_AGENT_HOST || '127.0.0.1'
 const OUTER_PORT = Number(process.env.REALTALENT_AGENT_PORT || 8791)
@@ -799,6 +800,22 @@ const handleGarimpoConversationG3=async(req,res)=>{
   finally{garimpoConversationInflight--}
 }
 
+// G4 classification is read-only. Source text is supplied by the authorized
+// CRM UI, without contact metadata. No source validation is claimed by Qwen.
+let triggerG4Inflight=0
+const handleTriggerG4=async(req,res)=>{
+  if(!['127.0.0.1','localhost','::1'].includes(OUTER_HOST))
+    return sendJson(res,403,{ok:false,error:'local_only'})
+  if(triggerG4Inflight>=1)return sendJson(res,429,{ok:false,error:'model_busy'})
+  triggerG4Inflight++
+  try{
+    const input=await readJsonBody(req,7600)
+    const result=await classifyTriggerEventsG4(input,{ollamaUrl:OLLAMA_URL,model:CRM_OLLAMA_MODEL})
+    return sendJson(res,result.ok?200:result.error==='invalid_source_or_excerpt'?400:503,result)
+  }catch{return sendJson(res,503,{ok:false,error:'trigger_analysis_unavailable'})}
+  finally{triggerG4Inflight--}
+}
+
 const routerServer = http.createServer((req, res) => {
   applyLocalBrowserCors(req, res)
   if (req.method === 'OPTIONS') { res.statusCode = 204; res.end(); return }
@@ -810,6 +827,7 @@ const routerServer = http.createServer((req, res) => {
   if (req.method === 'POST' && String(req.url || '').split('?')[0] === '/tools/workflow-synthesize') { void handleContextualWorkflowV63(req,res,'synthesize'); return }
   if (req.method === 'POST' && String(req.url || '').split('?')[0] === '/tools/prospect-investigate') { void handleProspectInvestigationG1(req,res); return }
   if (req.method === 'POST' && String(req.url || '').split('?')[0] === '/tools/garimpo-conversation') { void handleGarimpoConversationG3(req,res); return }
+  if (req.method === 'POST' && String(req.url || '').split('?')[0] === '/tools/trigger-events') { void handleTriggerG4(req,res); return }
   if (req.method === 'POST' && String(req.url || '').split('?')[0] === '/tools/chat-stream') { void handleConversationStreamV61(req,res); return }
   if (req.method === 'POST' && String(req.url || '').split('?')[0] === '/tools/chat') { void handleConversationV54(req,res); return }
   if (req.method === 'POST' && String(req.url || '').split('?')[0] === '/tools/classify-work') { void handleWorkModelV53(req,res,'classify'); return }

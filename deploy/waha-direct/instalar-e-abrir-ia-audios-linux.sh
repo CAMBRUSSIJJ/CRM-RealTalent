@@ -38,7 +38,7 @@ if curl --noproxy '*' -fsS --max-time 2 http://127.0.0.1:4392/health >/dev/null 
   FEATURE_INFO=$(curl --noproxy '*' -fsS --max-time 5 \
     -H "Authorization: Bearer $(cat "$TOKEN_FILE")" \
     http://127.0.0.1:4392/v1/features || true)
-  if [[ "$FEATURE_INFO" != *'task-notifications-waha-v5'* ]]; then
+  if [[ "$FEATURE_INFO" != *'task-notifications-waha-v5'* || "$FEATURE_INFO" != *'inline-reply-g411'* ]]; then
     echo "A ponte antiga está em execução na porta 4392."
     echo "Encerre a ponte antiga com Ctrl+C. NÃO desligue o Docker WAHA."
     exit 1

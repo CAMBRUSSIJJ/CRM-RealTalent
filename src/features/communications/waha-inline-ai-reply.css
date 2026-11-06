@@ -1,0 +1,31 @@
+/* G4.11 assistant stays inside the WhatsApp chat and never sends a message. */
+.waha-inline-ai{display:grid;gap:10px;min-width:0;padding:12px 14px;background:#f4f8ff;border-top:1px solid #d8e7f9;border-bottom:1px solid #dce6f3}
+.waha-inline-ai header{display:flex;align-items:center;gap:9px;flex-wrap:wrap}
+.waha-inline-ai header strong{display:inline-flex;align-items:center;gap:6px;font-size:12px;color:#234d91}
+.waha-inline-ai header span{font-size:10px;color:#607994;margin-right:auto}
+.waha-inline-ai header>button{display:grid;place-items:center;border:0;background:transparent;color:#6983a3;padding:5px;border-radius:7px}
+.waha-inline-ai__tones{display:flex;gap:5px;flex-wrap:wrap}
+.waha-inline-ai__tones button{padding:6px 9px;border:1px solid #d6e3f3;border-radius:8px;color:#496783;font-size:11px;font-weight:650;background:#fff}
+.waha-inline-ai__tones button.active,.waha-inline-ai__tones button[aria-pressed="true"]{background:#e2eeff;color:#2159ae;border-color:#aac8ee}
+.waha-inline-ai button:focus-visible{outline:2px solid #3b75dc;outline-offset:2px}
+.waha-inline-ai button:disabled{opacity:.55;cursor:not-allowed}
+.waha-inline-ai__state{display:flex;align-items:center;gap:8px;color:#4b71a8;font-size:11px;line-height:1.5;margin:0}
+.waha-inline-ai__preview{border:1px solid #d7e4f5;border-radius:9px;background:#fff;padding:11px;max-height:165px;overflow:auto}
+.waha-inline-ai__preview p{white-space:pre-wrap;overflow-wrap:anywhere;font-size:12px;line-height:1.6;margin:0 0 7px;color:#294364}
+.waha-inline-ai__preview small{font-size:10px;color:#788da7}
+.waha-inline-ai__error,.waha-inline-ai__warning{margin:0;font-size:11px;line-height:1.5;padding:8px 10px;border:1px solid #efd6b6;background:#fff8ed;border-radius:8px;color:#905a24}
+.waha-inline-ai footer{display:flex;justify-content:flex-end;align-items:center;gap:6px;flex-wrap:wrap}
+.waha-inline-ai footer button{display:inline-flex;align-items:center;gap:5px;font-size:11px;padding:8px 10px;border:1px solid #cbdcf1;background:#fff;color:#2a60ac;border-radius:8px;font-weight:700}
+.waha-inline-ai footer .waha-inline-ai__insert{background:#2b5ecc;border-color:#2b5ecc;color:#fff}
+.waha-inline-ai__notice{font-size:10px;line-height:1.4;color:#637e9d}
+.waha-compose-ai-actions{display:flex;gap:7px;align-items:center;padding:8px 14px 0;background:#fff}
+.waha-compose-ai-actions button{display:inline-flex;align-items:center;gap:6px;color:#295ca3;border:1px solid #d6e4f5;background:#f4f8ff;border-radius:8px;padding:7px 10px;font-size:11px;font-weight:750}
+.waha-compose-ai-actions button:hover{background:#eaf2ff}
+.waha-compose-ai-actions button:disabled{opacity:.5;cursor:not-allowed}
+html[data-theme="dark"] .waha-inline-ai{background:#263d5c;border-color:#466589}
+html[data-theme="dark"] .waha-inline-ai header strong{color:#d9e9ff}
+html[data-theme="dark"] .waha-inline-ai__preview,html[data-theme="dark"] .waha-inline-ai footer button:not(.waha-inline-ai__insert){background:#20344d;border-color:#4d6888;color:#d8e9fa}
+html[data-theme="dark"] .waha-inline-ai__preview p{color:#d6e7fd}
+html[data-theme="dark"] .waha-inline-ai__tones button{background:#28435f;border-color:#4b6889;color:#cce2ff}
+html[data-theme="dark"] .waha-inline-ai__tones button.active{background:#345d88;border-color:#6996ce}
+@media(max-width:650px){.waha-inline-ai{padding:10px}.waha-inline-ai footer{justify-content:stretch}.waha-inline-ai footer button{flex:1;justify-content:center}.waha-compose-ai-actions{padding:6px 10px 0}}

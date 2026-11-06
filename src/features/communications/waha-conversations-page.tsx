@@ -164,7 +164,10 @@ export function WahaConversationsPage(){
     try{
       const [s,c]=await Promise.all([wahaStatus(token),wahaChats(token)])
       setStatus(s);setChats(c)
-      if(selectedId)setMessages((await wahaMessages(token,selectedId)).sort((a,b)=>(a.timestamp||0)-(b.timestamp||0)))
+      if(selectedId){
+        const next=await wahaMessages(token,selectedId)
+        if(selectedIdRef.current===selectedId)setMessages([...next].sort((a,b)=>(a.timestamp||0)-(b.timestamp||0)))
+      }
       setError('')
     }catch(e){setError(e instanceof Error?e.message:'Falha na atualização.')}
     finally{setRefreshing(false)}
@@ -195,20 +198,26 @@ export function WahaConversationsPage(){
 
   async function send(){
     if(!token||!selectedId||!connected||sending||requiresReview||(!draft.trim()&&!attachment))return
+    const chatId=selectedId
     const body=draft.trim()
     setSending(true);setSendError('')
     try{
-      if(attachment)await wahaSendFile(token,selectedId,attachment,body,crypto.randomUUID())
-      else await wahaSend(token,selectedId,body,crypto.randomUUID())
-      drafts.current.delete(selectedId)
-      if(selectedIdRef.current===selectedId)setDraft('')
-      setRequiresReview(false);setAttachment(null)
-      if(attachRef.current)attachRef.current.value=''
-      const next=await wahaMessages(token,selectedId)
-      setMessages([...next].sort((a,b)=>(a.timestamp||0)-(b.timestamp||0)))
+      if(attachment)await wahaSendFile(token,chatId,attachment,body,crypto.randomUUID())
+      else await wahaSend(token,chatId,body,crypto.randomUUID())
+      drafts.current.delete(chatId)
+      if(selectedIdRef.current===chatId){
+        setDraft('');setRequiresReview(false);setAttachment(null)
+        if(attachRef.current)attachRef.current.value=''
+      }
+      const next=await wahaMessages(token,chatId)
+      if(selectedIdRef.current===chatId)
+        setMessages([...next].sort((a,b)=>(a.timestamp||0)-(b.timestamp||0)))
     }catch(e){
-      setSendError((e instanceof Error?e.message:'Falha no envio.')+' Confira o WhatsApp antes de decidir se deve tentar novamente.')
-      setRequiresReview(true)
+      // Do not show a failed send from a previous chat in the newly selected chat.
+      if(selectedIdRef.current===chatId){
+        setSendError((e instanceof Error?e.message:'Falha no envio.')+' Confira o WhatsApp antes de decidir se deve tentar novamente.')
+        setRequiresReview(true)
+      }
     }finally{setSending(false)}
   }
 

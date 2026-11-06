@@ -36,13 +36,13 @@ if curl --noproxy '*' -fsS --max-time 2 http://127.0.0.1:4392/health >/dev/null 
   fi
   BRIDGE_TOKEN=$(cat "$TOKEN_FILE")
   TOOLS_STATUS=$(curl --noproxy '*' -s -o /dev/null -w '%{http_code}' --max-time 5 -H "Authorization: Bearer $BRIDGE_TOKEN" http://127.0.0.1:4392/v1/preferences || true)
-  # A chave local nunca deve ser exibida ou enviada para o chat.
-  unset BRIDGE_TOKEN
   if [[ "$TOOLS_STATUS" != "200" ]]; then
     echo "A ponte WAHA anterior está ativa. Encerre seu terminal para atualizar sem tocar no WhatsApp."
     exit 1
   fi
   FEATURE_STATUS=$(curl --noproxy '*' -s -H "Authorization: Bearer $BRIDGE_TOKEN" --max-time 5 http://127.0.0.1:4392/v1/features || true)
+  # A chave local nunca deve ser exibida ou enviada para o chat.
+  unset BRIDGE_TOKEN
   if [[ "$FEATURE_STATUS" != *'"conversation-intelligence-v1"'* ]];then
     echo "A ponte WAHA antiga ainda está na porta 4392. Feche a prévia anterior (Ctrl+C) e execute novamente."
     exit 1

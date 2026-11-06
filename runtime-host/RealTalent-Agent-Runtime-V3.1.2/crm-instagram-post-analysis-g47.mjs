@@ -3,7 +3,7 @@
 // authentication, media download or automated CRM writes.
 const safeText=(x,max=1500)=>String(x??'').replace(/[\u0000-\u001f\u007f]/g,' ')
   .replace(/\s+/g,' ').trim().slice(0,max)
-const normalized=x=>safeText(x,5000).normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase()
+const literalText=x=>safeText(x,5000)
 const instagramPostUrl=raw=>{
   try{
     const u=new URL(raw)
@@ -20,7 +20,7 @@ export function collectInstagramPostEvidenceG47(sources,{limit=6}={}){
     if(!url||seen.has(url))return false
     seen.add(url)
     return true
-  }).slice(0,Math.min(6,Math.max(0,limit))).map(item=>{
+  }).slice(0,Math.min(12,Math.max(0,limit))).map(item=>{
     const reading=['page','metadata'].includes(item.reading)?item.reading:'snippet'
     // The title/snippet are indexed metadata; they are NOT a read publication.
     const content=reading==='snippet'?[item.title,item.snippet].filter(Boolean).join(' · ')
@@ -42,7 +42,7 @@ export function validateInstagramPostAnalysisG47(response,evidence){
     if(!source||used.has(source.id))continue
     const quote=safeText(candidate?.quote,200)
     // No quote -> no supported analysis. Do not show invented interpretations.
-    if(quote.length<12||!normalized(source.text).includes(normalized(quote)))continue
+    if(quote.length<12||!literalText(source.text).includes(quote))continue
     const observation=safeText(candidate?.observation,310)
     if(observation.length<12)continue
     used.add(source.id)

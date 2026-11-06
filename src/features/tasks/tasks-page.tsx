@@ -475,7 +475,7 @@ function TaskBoard({ tasks, teamById, relationByTask, checklistItems, diagnostic
             <input id={'quick-task-'+column.status} autoFocus maxLength={250} value={quickTitle}
               onChange={event=>setQuickTitle(event.target.value)} placeholder="Digite o nome da tarefa..." />
             {quickError?<small role="alert">{quickError}</small>:null}
-            <div><button type="button" onClick={()=>{setQuickColumn(null);setQuickTitle('')}}>Cancelar</button>
+            <div><button type="button" onClick={onCreate}>Formulário completo</button><button type="button" onClick={()=>{setQuickColumn(null);setQuickTitle('')}}>Cancelar</button>
               <button type="submit" disabled={!quickTitle.trim()||quickSaving}>{quickSaving?'Salvando...':'Criar tarefa'}</button></div>
           </form>:null}
         </div>

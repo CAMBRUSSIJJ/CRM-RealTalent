@@ -1056,7 +1056,10 @@ export function ProspectingPage() {
         {tab === 'search' || tab === 'local' ? <WonSalesProspectingSignals
         workspaceId={workspaceId}
         wins={(snapshot?.leads??[]).filter(lead=>lead.status==='won' && canTeamAccessRecord('pipeline',lead.ownerId))}
-        onInvestigate={prompt=>openMainAgent(prompt)}
+        onInvestigate={prompt=>openMainAgent(
+          prompt+' Contexto fornecido pelo usuário: cidade/região: '+(city||'não definida')+
+          '; segmento: '+(segment||'não definido')+'. Não presuma localização nem segmento ausentes.'
+        )}
       />:null}
       {tab === 'search' || tab === 'local' ? <>
           <ProspectingRedesignSearch

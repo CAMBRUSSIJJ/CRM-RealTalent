@@ -48,7 +48,7 @@ test('G4.9 avoids inventing opportunities when content is generic or absent',()=
   assert.equal(result.status,'insufficient_evidence')
   assert.equal(result.discoveries.length,0)
   assert.equal(result.actions.length,0)
-  assert.match(result.executive,/Não foram identificados sinais comerciais/)
+  assert.match(result.executive,/Não encontrei conteúdo público específico/)
 })
 test('G4.9 deduplicates same post and topic while retaining provenance',()=>{
   const a=post(1,'services','Oferecemos prótese capilar com agendamento disponível ao público.')

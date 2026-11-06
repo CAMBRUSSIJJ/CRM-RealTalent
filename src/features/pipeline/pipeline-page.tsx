@@ -99,7 +99,7 @@ export function PipelinePage() {
         try{
           const prospects=readProspectingState(workspaceId).prospects
           const reviews=readTriggerReviewsG4(workspaceId,window.localStorage)
-          if(!cancelled)setTriggerSignals(loadLocalApprovedPipelineTriggersG43(snapshot.leads,prospects,reviews))
+          if(!cancelled)setTriggerSignals(loadLocalApprovedPipelineTriggersG43(workspaceId,snapshot.leads,prospects,reviews))
         }catch{if(!cancelled)setTriggerSignals([])}
       }
       refresh()

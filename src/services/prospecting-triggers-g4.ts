@@ -76,14 +76,17 @@ const save=(workspaceId:string,rows:TriggerReviewRecordG4[],store:Pick<Storage,'
   emit(workspaceId)
 }
 export function appendTriggerCandidatesG4(workspaceId:string,prospect:ProspectRecord,
-  candidates:TriggerCandidateG4[],store:Pick<Storage,'getItem'|'setItem'>):TriggerReviewRecordG4[]{
+  candidates:TriggerCandidateG4[],source:TriggerSourceG4,store:Pick<Storage,'getItem'|'setItem'>):TriggerReviewRecordG4[]{
   if(!workspaceId||prospect.workspaceId!==workspaceId)throw Error('Empresa fora do workspace atual.')
   const existing=readTriggerReviewsG4(workspaceId,store)
   const now=new Date().toISOString()
   const added:TriggerReviewRecordG4[]=[]
   for(const item of candidates.slice(0,3)){
     if(!validCategory(item.category)||!safeUrl(item.sourceUrl)||item.quote.trim().length<18||
-      item.status!=='needs_review'||item.sourceCheck!=='not_verified')continue
+      item.status!=='needs_review'||item.sourceCheck!=='not_verified'||
+      safeUrl(item.sourceUrl)!==safeUrl(source.sourceUrl)||
+      !source.excerpt.toLocaleLowerCase('pt-BR').replace(/\s+/g,' ')
+        .includes(item.quote.toLocaleLowerCase('pt-BR').trim().replace(/\s+/g,' ')))continue
     const key=safeUrl(item.sourceUrl)+'|'+item.quote.trim().toLocaleLowerCase('pt-BR')
     if(existing.some(row=>row.prospectId===prospect.id&&
       safeUrl(row.sourceUrl)+'|'+row.quote.trim().toLocaleLowerCase('pt-BR')===key))continue

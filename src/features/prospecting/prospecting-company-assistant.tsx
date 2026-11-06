@@ -1,5 +1,5 @@
 import {useEffect,useRef,useState,type FormEvent,type KeyboardEvent} from 'react'
-import {ArrowUpRight,BookOpen,Building2,ExternalLink,Instagram,LoaderCircle,MessageSquareText,Send,ShieldCheck} from 'lucide-react'
+import {ArrowUpRight,BookOpen,Building2,ExternalLink,AtSign,LoaderCircle,MessageSquareText,Send,ShieldCheck} from 'lucide-react'
 import type {ProspectRecord} from '../../services/prospecting-workspace'
 import {env} from '../../lib/env'
 import {runtimeFetch} from '../../services/realtalent-runtime-transport'
@@ -29,7 +29,7 @@ const safeUrl=(value:string|null|undefined)=>{
   }catch{return null}
 }
 const quickPrompts=[
-  {label:'Instagram público',icon:Instagram,question:'Encontre e mostre o Instagram público desta empresa e publicações acessíveis.'},
+  {label:'Instagram público',icon:AtSign,question:'Encontre e mostre o Instagram público desta empresa e publicações acessíveis.'},
   {label:'Consultar CNPJ',icon:Building2,question:'Encontre o CNPJ desta empresa e confira o cadastro público.'},
   {label:'Serviços e diferenciais',icon:BookOpen,question:'Quais serviços desta empresa aparecem nas fontes públicas?'},
 ]
@@ -101,7 +101,7 @@ export function ProspectingCompanyAssistant({prospect}:{prospect:ProspectRecord}
           <p>{exchange.result.answer}</p>
           {exchange.result.kind==='instagram'&&safeUrl(exchange.result.profileUrl)
             ?<a className="prospecting-company-assistant__profile" href={safeUrl(exchange.result.profileUrl)!}
-              target="_blank" rel="noopener noreferrer"><Instagram size={16}/> Abrir perfil público no Instagram <ArrowUpRight size={13}/></a>:null}
+              target="_blank" rel="noopener noreferrer"><AtSign size={16}/> Abrir perfil público no Instagram <ArrowUpRight size={13}/></a>:null}
           {exchange.result.cnpjFindings?.length?<div className="prospecting-company-assistant__cnpjs">
             {exchange.result.cnpjFindings.map(record=><div key={record.cnpj}>
               <div><strong>{record.cnpj.replace(/^(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})$/,'$1.$2.$3/$4-$5')}</strong>

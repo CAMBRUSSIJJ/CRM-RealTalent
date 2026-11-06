@@ -9,6 +9,7 @@ import { createGroupSenderEnricher } from './group-senders.mjs'
 import { transcribeOneReceivedMessage } from './inline-voice.mjs'
 import { analyzeWahaConversation } from './conversation-intelligence.mjs'
 import { createAudioTranscriber } from './audio-transcription.mjs'
+import { createAutoReplyController } from './auto-reply.mjs'
 
 // Local-only authenticated companion: WAHA credentials never enter the browser.
 const home=os.homedir()
@@ -38,6 +39,27 @@ const enrichGroupSenders=createGroupSenderEnricher({lookup:async id=>{
   })
   return response.ok?response.json():null
 }})
+const autoReply=createAutoReplyController({
+  readMessages:async chatId=>normalizeWahaMediaMessages(await upstream(
+    '/api/'+session+'/chats/'+encodeURIComponent(chatId)+'/messages?limit=45&downloadMedia=true')),
+  buildReply:async ({chatId,trigger,messages})=>{
+    let context=messages
+    if(trigger.hasMedia===true){
+      const voice=messages.find(m=>m.id===trigger.id)
+      if(!voice)throw new Error('Áudio ainda não disponível no WAHA')
+      const audio=await transcribeMessages([voice],chatId)
+      const transcript=audio?.messages?.[0]?._localTranscript
+      if(typeof transcript!=='string'||!transcript.trim())
+        throw new Error('Áudio não pôde ser transcrito localmente')
+      context=messages.map(m=>m.id===trigger.id?{...m,_localTranscript:transcript}:m)
+    }
+    const result=await analyzeWahaConversation({chatId,task:'autoReply'},{
+      readMessages:async()=>context
+    })
+    return result.text
+  },
+  send:async(chatId,text)=>upstream('/api/sendText','POST',{session,chatId,text}),
+})
 const chatValid=v=>typeof v==='string'&&/^[a-zA-Z0-9_-]{5,70}@(c\.us|lid|g\.us)$/.test(v)
 const authenticated=v=>{
   if(typeof v!=='string'||!v.startsWith('Bearer '))return false
@@ -71,7 +93,7 @@ async function handler(req,res){
   if(!authenticated(req.headers.authorization)){output(res,401,{error:'invalid_bridge_token'});return}
   try{
     if(url.pathname==='/v1/features'&&req.method==='GET'){
-      output(res,200,{version:'communication-experience-v3',features:['waha-chat','commercial-analysis','ask-about-chat','reply-draft','local-audio-transcription','inline-voice','group-identity','media-recovery'],autoSend:false});return
+      output(res,200,{version:'ai-reply-optin-v4',features:['waha-chat','commercial-analysis','ask-about-chat','reply-draft','local-audio-transcription','inline-voice','group-identity','media-recovery','per-chat-auto-reply'],autoSend:false,autoReplyOptIn:true});return
     }
     if(url.pathname==='/v1/session'&&req.method==='GET'){
       const v=await upstream('/api/sessions/'+session);output(res,200,{status:v.status||'UNKNOWN',session});return
@@ -118,6 +140,14 @@ async function handler(req,res){
         }
       }
       await proxyWahaMedia(src,{'X-Api-Key':key},res);return
+    }
+    if(url.pathname==='/v1/ai/auto-reply'&&req.method==='GET'){
+      const chatId=url.searchParams.get('chatId')||''
+      output(res,200,autoReply.status(chatId));return
+    }
+    if(url.pathname==='/v1/ai/auto-reply'&&req.method==='POST'){
+      const input=await readBody(req,750)
+      output(res,200,autoReply.setEnabled(input.chatId,input.enabled));return
     }
     if(url.pathname==='/v1/ai/status'&&req.method==='GET'){
       try{
@@ -188,12 +218,14 @@ function startSocket(){
   if(closed||typeof WebSocket!=='function')return
   const u=new URL('ws://127.0.0.1:4385/ws')
   u.searchParams.set('session',session);u.searchParams.set('x-api-key',key)
-  for(const event of ['message.any','message.ack','session.status'])u.searchParams.append('events',event)
+  for(const event of ['message','message.any','message.ack','session.status'])u.searchParams.append('events',event)
   ws=new WebSocket(u)
   ws.onmessage=e=>{try{
     const data=JSON.parse(String(e.data));const p=data.payload||{}
     const msg='data: '+JSON.stringify({event:data.event,chatId:p.chatId||p.from||null})+'\n\n'
     for(const client of watchers){try{client.write(msg)}catch{watchers.delete(client)}}
+    if(data.event==='message'&&data.session===session)
+      void autoReply.onMessage(data).catch(()=>{})
   }catch{}}
   ws.onclose=()=>{if(!closed)setTimeout(startSocket,5000).unref()}
   ws.onerror=()=>{try{ws.close()}catch{}}

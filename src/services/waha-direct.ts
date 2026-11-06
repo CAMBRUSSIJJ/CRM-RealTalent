@@ -144,6 +144,8 @@ export async function wahaSendFile(token:string,chatId:string,file:File,caption:
 }
 
 export type WahaAiConversationTask='summary'|'reply'|'commercial'|'ask'
+export type WahaReplyTone='objetiva'|'consultiva'|'comercial'|'amigavel'|'profissional'
+export type WahaReplyOptions={tone:WahaReplyTone;intent:'suggest'|'improve';draft?:string}
 export interface WahaAiEvidence {id:string;text:string;fromMe:boolean;source?:'text'|'audio'}
 export interface WahaAiFinding {description:string;evidence:WahaAiEvidence[]}
 export interface WahaCommercialReport {
@@ -156,8 +158,13 @@ export interface WahaConversationAiResult {
   source:'waha-local';messagesRead:number;readOnly:true;sent:false;
   textMessagesRead?:number;audioDetected?:number;audioTranscribed?:number;
   audioSkipped?:number;audioFailed?:number;audioTranscripts?:{id:string;text:string}[];
-  text?:string;analysis?:WahaCommercialReport
+  text?:string;analysis?:WahaCommercialReport;
+  tone?:WahaReplyTone;intent?:'suggest'|'improve'
 }
 /** Always loads the selected chat from WAHA server-side; no user-supplied message transcript. */
-export const wahaAnalyzeSelectedConversation=(token:string,chatId:string,task:WahaAiConversationTask,question='')=>
-  request<WahaConversationAiResult>('/v1/ai/conversation',token,'POST',{chatId,task,question})
+export const wahaAnalyzeSelectedConversation=(
+  token:string,chatId:string,task:WahaAiConversationTask,question='',
+  options?:WahaReplyOptions,
+)=>
+  request<WahaConversationAiResult>('/v1/ai/conversation',token,'POST',
+    {chatId,task,question,...(task==='reply'&&options?options:{})})

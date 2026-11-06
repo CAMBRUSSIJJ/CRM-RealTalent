@@ -81,6 +81,10 @@ if [[ "$(node -p 'require("./package.json").version')" != "101.11.3" ]]; then
   echo "ERRO: versão de CRM inesperada. Instalação interrompida."
   exit 1
 fi
+echo "=== Garimpo: conferindo busca pública por empresa (preservando WAHA) ==="
+if ! bash scripts/garimpo-g4/ativar-garimpo-local.sh; then
+  echo "A prévia CRM continuará. A investigação automática pode ficar indisponível; confira os avisos acima."
+fi
 echo "=== G4: conferindo a IA Qwen3 local (sem alterar agentes já ativos) ==="
 if ! bash scripts/garimpo-g4/ativar-agente-local.sh;then
   echo "A prévia CRM continuará. Para usar G4, confira os avisos acima."

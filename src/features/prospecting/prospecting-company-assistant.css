@@ -57,3 +57,21 @@ html[data-theme="dark"] .prospecting-company-assistant__excerpt{background:#263f
 html[data-theme="dark"] .prospecting-company-assistant__visual{background:#253e57;border-color:#42658a}
 html[data-theme="dark"] .prospecting-company-assistant__visual input{color:#d0e4fa}
 html[data-theme="dark"] .prospecting-company-assistant__visual label{color:#d0e4fa}
+
+.prospecting-company-assistant__post-analysis{display:grid;gap:9px;padding:10px;background:#f7fbff;border:1px solid #d7e6f5;border-radius:9px;min-width:0}
+.prospecting-company-assistant__post-analysis-head{display:flex;align-items:center;gap:10px;justify-content:space-between;flex-wrap:wrap}
+.prospecting-company-assistant__post-analysis-head strong{font-size:12px;color:#285e96}
+.prospecting-company-assistant__post-analysis-head small{font-size:10px;color:#647f9d}
+.prospecting-company-assistant__post-card{padding:11px;border:1px solid #dce6f3;border-radius:9px;background:var(--rt-color-surface,#fff);display:grid;gap:7px;min-width:0}
+.prospecting-company-assistant__post-heading{display:flex;gap:8px;align-items:flex-start;justify-content:space-between;flex-wrap:wrap}
+.prospecting-company-assistant__post-heading a{display:inline-flex;align-items:center;gap:5px;flex:1;min-width:0;font-size:11px;color:#2466a8;overflow-wrap:anywhere;text-decoration:none;font-weight:750}
+.prospecting-company-assistant__post-heading span{font-size:10px;border-radius:999px;background:#e9f2ff;color:#2c66a6;padding:3px 7px;white-space:nowrap}
+.prospecting-company-assistant__post-evidence{font-size:10px;color:#6781a2}
+.prospecting-company-assistant__post-card blockquote{margin:0;padding:8px 10px;border-left:3px solid #7aa7d7;border-radius:5px;background:#f0f7ff;color:#3d658e;line-height:1.55;font-size:11px}
+.prospecting-company-assistant__post-card p{margin:0;font-size:11px;line-height:1.6;color:var(--text-primary,#3f5771)}
+.prospecting-company-assistant__post-card>small{font-size:10px;color:#8a744f;line-height:1.5}
+.prospecting-company-assistant__post-empty{margin:0;font-size:11px;line-height:1.5;color:#647f9d}
+html[data-theme="dark"] .prospecting-company-assistant__post-analysis{background:#233851;border-color:#425b79}
+html[data-theme="dark"] .prospecting-company-assistant__post-card{background:#1d304b;border-color:#465f80}
+html[data-theme="dark"] .prospecting-company-assistant__post-card blockquote{background:#294565;color:#d3e5fa;border-color:#759cc9}
+html[data-theme="dark"] .prospecting-company-assistant__post-heading span{background:#345477;color:#d5e8fc}

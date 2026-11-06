@@ -31,6 +31,8 @@ jobs:
       - name: G4.4 company research - public evidence and safety
         run: |
           node --test runtime-host/RealTalent-Agent-Runtime-V3.1.2/crm-prospect-investigation-g1.test.mjs
+          node --test runtime-host/RealTalent-Agent-Runtime-V3.1.2/crm-company-assistant-g45.test.mjs
+          node --check runtime-host/RealTalent-Agent-Runtime-V3.1.2/crm-company-assistant-g45.mjs
           node --test scripts/realtalent-company-search.test.mjs
           node --check scripts/realtalent-company-search.mjs
           node --check runtime-host/RealTalent-Agent-Runtime-V3.1.2/crm-prospect-investigation-g1.mjs

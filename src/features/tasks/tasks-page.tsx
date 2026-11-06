@@ -319,6 +319,7 @@ export function TasksPage() {
       <div className="tasks-page-v4__layout-switch" role="group" aria-label="Modo de visualização">
         <button type="button" className={layout === 'list' ? 'is-active' : ''} onClick={() => switchLayout('list')} aria-pressed={layout === 'list'} aria-label="Visualizar em lista" title="Lista"><ListChecks size={17}/></button>
         <button type="button" className={layout === 'board' ? 'is-active' : ''} onClick={() => switchLayout('board')} aria-pressed={layout === 'board'} aria-label="Visualizar em quadro" title="Quadro"><Kanban size={17}/></button>
+        <button type="button" title="Calendário" aria-label="Calendário" onClick={()=>switchLayout('calendar')}><CalendarDays size={17}/></button>
       </div>
       <span className="tasks-page-v4__divider" aria-hidden="true"/>
       <label className="tasks-page-v4__search"><Search size={16}/><input value={query} onChange={(event)=>setQuery(event.target.value)} aria-label="Buscar tarefas" placeholder="Buscar tarefas..." /></label>

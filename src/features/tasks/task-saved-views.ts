@@ -1,5 +1,5 @@
-export type TaskViewMode = 'list' | 'board' | 'today' | 'overdue' | 'blocked' | 'completed' | 'in_progress'
-export type TaskViewLayout = 'list' | 'board'
+export type TaskViewMode = 'list' | 'board' | 'calendar' | 'today' | 'overdue' | 'blocked' | 'completed' | 'in_progress'
+export type TaskViewLayout = 'list' | 'board' | 'calendar'
 export interface TaskSavedView {
   id:string
   name:string
@@ -10,14 +10,14 @@ export interface TaskSavedView {
   view:TaskViewMode
   layout:TaskViewLayout
 }
-const VALID=new Set<TaskViewMode>(['list','board','today','overdue','blocked','completed','in_progress'])
+const VALID=new Set<TaskViewMode>(['list','board','calendar','today','overdue','blocked','completed','in_progress'])
 const key=(workspaceId:string)=>'realtalent:tasks:saved-views:v1:'+workspaceId
 const normalize=(v:unknown):TaskSavedView|null=>{
   if(!v||typeof v!=='object')return null
   const x=v as Partial<TaskSavedView>
   if(typeof x.id!=='string'||typeof x.name!=='string'||!x.name.trim()||
     typeof x.view!=='string'||!VALID.has(x.view as TaskViewMode)||
-    x.layout!=='list'&&x.layout!=='board')return null
+    x.layout!=='list'&&x.layout!=='board'&&x.layout!=='calendar')return null
   return {
     id:x.id.slice(0,100),name:x.name.trim().slice(0,45),view:x.view as TaskViewMode,layout:x.layout,
     owner:typeof x.owner==='string'?x.owner.slice(0,120):'all',

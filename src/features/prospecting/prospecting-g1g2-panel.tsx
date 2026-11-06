@@ -23,7 +23,7 @@ interface Investigation {
   sources?:InvestigationSource[]
   candidateEvents?:TriggerCandidateG4[]
 }
-interface Props {prospect:ProspectRecord;snapshot:WorkspaceSnapshot}
+interface Props {prospect:ProspectRecord;snapshot:WorkspaceSnapshot;readOnly:boolean}
 const safeSite=(url:string|null)=>{
   try{
     if(!url)return null
@@ -31,7 +31,7 @@ const safeSite=(url:string|null)=>{
     return parsed.protocol==='https:'?parsed.href:null
   }catch{return null}
 }
-export function ProspectingG1G2Panel({prospect,snapshot}:Props){
+export function ProspectingG1G2Panel({prospect,snapshot,readOnly}:Props){
   const base=useMemo(()=>scoreProspectWithIcp(prospect,snapshot),[prospect,snapshot])
   const score=useMemo(()=>explainProspectScore(prospect,snapshot,base),[prospect,snapshot,base])
   const [busy,setBusy]=useState(false)
@@ -66,7 +66,7 @@ export function ProspectingG1G2Panel({prospect,snapshot}:Props){
       if(!data.ok)throw Error('O modelo não conseguiu verificar esta empresa.')
       let created=0
       const issues:string[]=[]
-      if(Array.isArray(data.candidateEvents)&&data.candidateEvents.length){
+      if(!readOnly&&Array.isArray(data.candidateEvents)&&data.candidateEvents.length){
         const cloud=isTriggerCloudModeG43()
         for(const item of data.sources||[]){
           const relevant=data.candidateEvents.filter(candidate=>candidate.sourceUrl===item.url)
@@ -91,7 +91,9 @@ export function ProspectingG1G2Panel({prospect,snapshot}:Props){
       }
       if(!ctrl.signal.aborted){
         setResult(data)
-        setSignalNotice(issues.length
+        setSignalNotice(readOnly
+          ?'Investigação concluída em modo de leitura. Nenhum sinal foi gravado no G4.'
+          :issues.length
           ?'A análise foi concluída, mas houve falha ao sincronizar os sinais no G4: '+issues.slice(0,2).join(' · ')
           :created
             ?created+' sinal(is) criado(s) como PENDENTE no G4. Verifique a fonte antes de aprovar.'
@@ -107,7 +109,7 @@ export function ProspectingG1G2Panel({prospect,snapshot}:Props){
     }
   }
   const prepareSourceForG4=(source:InvestigationSource)=>{
-    if(source.reading!=='page'||source.identity==='unconfirmed'||!safeSite(source.url)||source.excerpt.length<35)return
+    if(readOnly||source.reading!=='page'||source.identity==='unconfirmed'||!safeSite(source.url)||source.excerpt.length<35)return
     window.dispatchEvent(new CustomEvent('realtalent:garimpo:g4:source-from-investigation',{
       detail:{workspaceId:prospect.workspaceId,prospectId:prospect.id,sourceUrl:source.url,excerpt:source.excerpt},
     }))
@@ -166,7 +168,7 @@ export function ProspectingG1G2Panel({prospect,snapshot}:Props){
             <a href={safeSite(source.url)||undefined} target="_blank" rel="noopener noreferrer">{source.title||source.url} <ExternalLink size={12}/></a>
             <small>{source.reading==='page'?'Página lida':'Somente resultado de busca'} · {source.identity==='compatible'
               ?'Nome e cidade compatíveis':source.identity==='partial'?'Nome compatível; localidade a conferir':'Identidade não confirmada'}</small>
-            {source.reading==='page'&&source.identity!=='unconfirmed'&&source.excerpt.length>=35
+            {!readOnly&&source.reading==='page'&&source.identity!=='unconfirmed'&&source.excerpt.length>=35
               ?<button type="button" onClick={()=>prepareSourceForG4(source)}>Usar fonte no G4</button>:null}
           </li>)}</ul>
           :<p>Nenhuma fonte pública compatível disponível nesta investigação.</p>}

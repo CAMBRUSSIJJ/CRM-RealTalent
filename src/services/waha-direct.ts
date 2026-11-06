@@ -98,6 +98,16 @@ export const emptyWahaPreferences=():WahaPreferences=>({labels:{},favorites:[],q
 export const wahaPreferences=(token:string)=>request<WahaPreferences>('/v1/preferences',token)
 export const wahaUpdatePreferences=(token:string,patch:unknown)=>request<WahaPreferences>('/v1/preferences',token,'POST',patch)
 export const wahaAiStatus=(token:string)=>request<{available:boolean;models:string[];description:string}>('/v1/ai/status',token)
+export type WahaAutoReplyStatus={
+  enabled:boolean;available:boolean;reason?:string;remainingHour?:number;
+  maxChatHour?:number;maxGlobalHour?:number;busy?:boolean;lastOutcome?:string;
+  survivesRestart?:boolean
+}
+export const wahaAutoReplyStatus=(token:string,chatId:string)=>
+  request<WahaAutoReplyStatus>('/v1/ai/auto-reply?chatId='+encodeURIComponent(chatId),token)
+export const wahaSetAutoReply=(token:string,chatId:string,enabled:boolean)=>
+  request<WahaAutoReplyStatus>('/v1/ai/auto-reply',token,'POST',{chatId,enabled})
+
 export type WahaVoiceTranscript={chatId:string;messageId:string;text:string;source:'waha-local-whisper';readOnly:true;sent:false}
 export const wahaTranscribeMessage=(token:string,chatId:string,messageId:string)=>
   request<WahaVoiceTranscript>('/v1/ai/transcribe',token,'POST',{chatId,messageId})

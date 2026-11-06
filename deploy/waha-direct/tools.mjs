@@ -54,13 +54,26 @@ export function createLocalTools(dir){
   }
 }
 export function sanitizeMediaSrc(raw){
-  if(typeof raw!=='string'||raw.length>2000)return null
+  if(typeof raw!=='string'||raw.length>2500)return null
   let parsed
   try{parsed=new URL(raw,'http://127.0.0.1:4385')}catch{return null}
-  // Prevent redirect/SSRF: only the file route from the local WAHA instance is accepted.
-  if(!['http://127.0.0.1:4385','http://localhost:4385'].includes(parsed.origin))return null
-  if(!/^\/(?:api\/)?files\/[a-zA-Z0-9_./@%~+-]+$/.test(parsed.pathname))return null
-  if(parsed.pathname.split('/').some(part=>{try{const decoded=decodeURIComponent(part);return decoded==='.'||decoded==='..'||decoded.includes('/')||decoded.includes('\\')}catch{return true}}))return null
+  if(!['http://127.0.0.1:4385','http://localhost:4385'].includes(parsed.origin)
+    ||parsed.username||parsed.password||parsed.hash)return null
+  // WAHA file names may include URL-escaped characters (including @, :, + and =).
+  // Still enforce the *exact* local files route and reject both regular and encoded traversal.
+  const prefix=parsed.pathname.startsWith('/api/files/')?'/api/files/':
+    parsed.pathname.startsWith('/files/')?'/files/':null
+  if(!prefix)return null
+  const rest=parsed.pathname.slice(prefix.length)
+  if(!rest||rest.length>1900)return null
+  for(const part of rest.split('/')){
+    if(!part)return null
+    let decoded
+    try{decoded=decodeURIComponent(part)}catch{return null}
+    if(!decoded||decoded==='.'||decoded==='..'||/[\/\\\u0000-\u001f\u007f%?#]/u.test(decoded))return null
+    // File names only: no hidden path segments or unsafe special characters.
+    if(!/^[\p{L}\p{N} _@.+:=()\[\]~,-]+$/u.test(decoded))return null
+  }
   if(!/^[?&a-zA-Z0-9_=%.-]*$/.test(parsed.search))return null
   return parsed.pathname+parsed.search
 }

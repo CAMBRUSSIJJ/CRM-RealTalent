@@ -4,7 +4,7 @@ import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
 import { randomBytes, timingSafeEqual } from 'node:crypto'
-import { createLocalTools, proxyWahaMedia, ollamaModels, analyzeConversation, wahaAllowedMime } from './tools.mjs'
+import { createLocalTools, proxyWahaMedia, ollamaModels, analyzeConversation, wahaAllowedMime, normalizeWahaMediaMessages } from './tools.mjs'
 import { analyzeWahaConversation } from './conversation-intelligence.mjs'
 import { createAudioTranscriber } from './audio-transcription.mjs'
 
@@ -77,7 +77,7 @@ async function handler(req,res){
     if(url.pathname==='/v1/messages'&&req.method==='GET'){
       const chatId=url.searchParams.get('chatId');if(!chatValid(chatId)){output(res,400,{error:'invalid_chat'});return}
       const v=await upstream('/api/'+session+'/chats/'+encodeURIComponent(chatId)+'/messages?limit=50&downloadMedia=true')
-      output(res,200,Array.isArray(v)?v:[]);return
+      output(res,200,normalizeWahaMediaMessages(v));return
     }
     if(url.pathname==='/v1/resolve'&&req.method==='GET'){
       const phone=url.searchParams.get('phone')||'';if(!/^\d{10,15}$/.test(phone)){output(res,400,{error:'invalid_phone'});return}
@@ -104,7 +104,7 @@ async function handler(req,res){
     if(url.pathname==='/v1/ai/conversation'&&req.method==='POST'){
       const input=await readBody(req,1500)
       const result=await analyzeWahaConversation(input,{
-        readMessages:chatId=>upstream('/api/'+session+'/chats/'+encodeURIComponent(chatId)+'/messages?limit=60&downloadMedia=true'),
+        readMessages:async chatId=>normalizeWahaMediaMessages(await upstream('/api/'+session+'/chats/'+encodeURIComponent(chatId)+'/messages?limit=60&downloadMedia=true')),
         transcribeMessages
       })
       output(res,200,result);return

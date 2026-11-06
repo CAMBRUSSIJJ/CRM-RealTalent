@@ -259,6 +259,30 @@ export function TasksPage() {
   const totalFiltered = filtered.length
   const taskViewLabel = view === 'today' ? 'para hoje' : view === 'overdue' ? 'atrasadas' : view === 'blocked' ? 'bloqueadas' : view === 'completed' ? 'concluídas' : view === 'in_progress' ? 'em andamento' : ''
 
+  function saveCurrentView(){
+    const name=newViewName.trim().slice(0,45)
+    if(!name){notify('warning','Informe um nome para salvar a visão.');return}
+    const next:TaskSavedView={
+      id:crypto.randomUUID(),name,owner,teamId,priority,query,view,layout
+    }
+    const unique=savedViews.filter(item=>item.name.toLocaleLowerCase('pt-BR')!==name.toLocaleLowerCase('pt-BR'))
+    const updated=[next,...unique].slice(0,12)
+    try{
+      writeSavedTaskViews(workspaceId,updated,window.localStorage)
+      setSavedViews(updated);setNewViewName('')
+      notify('success','Visão de tarefas salva neste navegador.')
+    }catch{notify('error','Não foi possível armazenar esta visão no navegador.')}
+  }
+  function applySavedView(item:TaskSavedView){
+    setOwner(item.owner);setTeamId(item.teamId);setPriority(item.priority)
+    setQuery(item.query);setLayout(item.layout);setView(item.view)
+  }
+  function removeSavedView(id:string){
+    const updated=savedViews.filter(item=>item.id!==id)
+    try{writeSavedTaskViews(workspaceId,updated,window.localStorage);setSavedViews(updated)}
+    catch{notify('error','Falha ao excluir a visão salva.')}
+  }
+
   return <div className="workspace-page tasks-page-v4">
     <div className="tasks-page-v4__header">
       <div className="tasks-page-v4__heading">

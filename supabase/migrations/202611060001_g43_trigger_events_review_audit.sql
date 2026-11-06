@@ -163,8 +163,9 @@ for select to authenticated using (
     and public.rt_access_action_allowed(organization_id,'pipeline','view')
     and exists (
       select 1 from public.leads l
-      where l.id=crm_lead_id and l.organization_id=organization_id
-        and public.rt_access_scope_allows(organization_id,'pipeline',l.owner_id,null)
+      where l.id=crm_lead_id
+        and l.organization_id=public.prospecting_trigger_events.organization_id
+        and public.rt_access_scope_allows(public.prospecting_trigger_events.organization_id,'pipeline',l.owner_id,null)
     )
   )
 );

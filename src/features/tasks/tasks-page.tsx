@@ -8,6 +8,7 @@ import { NativeSelectionSelect } from '../../components/selection'
 import type { TaskRelation, TaskStatus, Team, WorkTask, WorkspaceMember } from '../../domain/types'
 import { deleteTask, loadWorkManagement, saveTask, taskPriorityLabel, taskStatusLabel, updateTaskStatus, type WorkManagementSnapshot } from '../../services/work-management'
 import { TaskModal } from './task-modal'
+import { consumeWahaTaskHandoff, type WahaTaskHandoff } from '../../services/waha-task-handoff'
 import { CommunicationAutomationCenter } from '../communications-automations/communication-automation-center'
 import { TaskCommunicationState } from '../communications-automations/task-communication-state'
 import { Modal } from '../../components/ui/modal'
@@ -39,6 +40,7 @@ export function TasksPage() {
   const [priority, setPriority] = useState('all')
   const [modalOpen, setModalOpen] = useState(false)
   const [editing, setEditing] = useState<WorkTask | null>(null)
+  const [taskHandoff,setTaskHandoff]=useState<WahaTaskHandoff|null>(null)
   const [saving, setSaving] = useState(false)
   const [showNotifications, setShowNotifications] = useState(false)
   const [notificationDiagnostics, setNotificationDiagnostics] = useState<Record<string,LocalTaskAutoDiagnostic>>({})
@@ -48,6 +50,11 @@ export function TasksPage() {
   const canTaskCreate = canTeamAccess('create','tasks')
   const canTaskEdit = canTeamAccess('edit','tasks')
   const canTaskDelete = canTeamAccess('delete','tasks')
+  useEffect(()=>{
+    if(!canTaskCreate||!workspaceId)return
+    const handoff=consumeWahaTaskHandoff()
+    if(handoff){setTaskHandoff(handoff);setEditing(null);setModalOpen(true)}
+  },[canTaskCreate,workspaceId])
   const reload = async () => {
     if (!workspaceId) return
     try { const next = await loadWorkManagement(repositoryMode, workspaceId); const visibleTasks = next.tasks.filter((task) => canTeamAccess('view','tasks') && canTeamAccessRecord('tasks',task.assigneeId,task.teamId)); const taskIds = new Set(visibleTasks.map((task)=>task.id)); setData({ ...next, tasks:visibleTasks, relations:next.relations.filter((item)=>taskIds.has(item.taskId)), checklistItems:next.checklistItems.filter((item)=>taskIds.has(item.taskId)), comments:next.comments.filter((item)=>taskIds.has(item.taskId)) }) }
@@ -153,7 +160,7 @@ export function TasksPage() {
             inFlightCancellations:[],error:error instanceof Error?error.message:'Gateway indisponível'}
         }
       }
-      await reload();setModalOpen(false);setEditing(null)
+      await reload();setModalOpen(false);setEditing(null);setTaskHandoff(null)
       if(outbox?.pending)notify('warning',
         'Tarefa salva. Notificações aguardando sincronização; nenhum envio foi confirmado. '+
         'A reconciliação será tentada novamente quando o gateway voltar.')
@@ -216,11 +223,11 @@ export function TasksPage() {
     }catch(error){notify('error',error instanceof Error?error.message:'Falha ao excluir a tarefa.')}
   }
 
-  const openEdit = (task: WorkTask) => { setEditing(task); setModalOpen(true) }
+  const openEdit = (task: WorkTask) => { setTaskHandoff(null);setEditing(task); setModalOpen(true) }
   const relationForEditing = editing ? relationByTask.get(editing.id) ?? null : null
   const checklistForEditing = editing ? data.checklistItems.filter((item) => item.taskId === editing.id) : []
 
-  const showTaskCreate = () => { setEditing(null); setModalOpen(true) }
+  const showTaskCreate = () => { setTaskHandoff(null);setEditing(null); setModalOpen(true) }
   const switchLayout = (next: TaskLayout) => { setLayout(next); setView(next) }
   const toggleTaskFilter = (filter: ViewMode) => setView((current) => current === filter ? layout : filter)
   const filterActive = view !== 'board' && view !== 'list'
@@ -285,7 +292,7 @@ export function TasksPage() {
         : <div className="tasks-page-v4__empty-list"><ListChecks size={25}/><strong>Nenhuma tarefa encontrada</strong><span>Altere os filtros ou crie uma tarefa.</span>{canTaskCreate ? <button type="button" onClick={showTaskCreate}><Plus size={14}/> Criar tarefa</button> : null}</div>}
       </section>}
 
-    <TaskModal open={canTaskCreate || canTaskEdit ? modalOpen : false} task={editing} relation={relationForEditing} checklist={checklistForEditing} teams={data.teams} memberships={data.memberships} members={members} snapshot={snapshot} workspaceId={workspaceId} repositoryMode={repositoryMode} loading={saving} onClose={()=>{setModalOpen(false);setEditing(null)}} onSubmit={save}/>
+    <TaskModal open={canTaskCreate || canTaskEdit ? modalOpen : false} task={editing} initialDraft={taskHandoff} relation={relationForEditing} checklist={checklistForEditing} teams={data.teams} memberships={data.memberships} members={members} snapshot={snapshot} workspaceId={workspaceId} repositoryMode={repositoryMode} loading={saving} onClose={()=>{setModalOpen(false);setEditing(null);setTaskHandoff(null)}} onSubmit={save}/>
   </div>
 }
 

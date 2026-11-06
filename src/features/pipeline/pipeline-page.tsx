@@ -36,6 +36,7 @@ import { buildDealPortfolio, type DealIntelligence } from '../../services/deal-i
 import { calculateRevenueIntelligence } from '../../services/revenue-intelligence'
 import { DealPortfolioPanel } from '../deal-intelligence/deal-portfolio-panel'
 import { DealInspectorModal } from '../deal-intelligence/deal-inspector-modal'
+import {WonSalesDashboard} from '../won-sales/won-sales-dashboard'
 import './sales-pipeline-v3.css'
 
 const INITIAL_CARDS = 30
@@ -80,6 +81,7 @@ export function PipelinePage() {
   const [filters, setFilters] = useState<PipelineFiltersState>(DEFAULT_FILTERS)
   const [filtersOpen, setFiltersOpen] = useState(false)
   const [intelligenceOpen, setIntelligenceOpen] = useState(false)
+  const [wonSalesPanelOpen,setWonSalesPanelOpen]=useState(false)
   const [compact, setCompact] = useState(false)
   const [viewMode, setViewMode] = useState<PipelineViewMode>('board')
   const [sort, setSort] = useState<PipelineSort>('updated_desc')
@@ -157,6 +159,9 @@ export function PipelinePage() {
   const stagePolicies = useMemo(() => new Map((snapshot?.stages ?? []).map((stage, index) => [stage.id, effectiveStagePolicy(recommendedStagePolicy(stage, index, snapshot?.stages.length ?? 1), preferences.stageConfigs[stage.id], crmPreferences.commercial.pipelineStagePolicies[stage.id])])), [crmPreferences.commercial.pipelineStagePolicies, preferences.stageConfigs, snapshot?.stages])
 
   const opportunityByLead = useMemo(() => new Map((snapshot?.opportunities ?? []).map((opportunity) => [opportunity.leadId, opportunity])), [snapshot?.opportunities])
+  const wonSalesClosedDates=useMemo(()=>Object.fromEntries(
+    (snapshot?.opportunities??[]).filter(opp=>opp.closedWonAt).map(opp=>[opp.leadId,opp.closedWonAt!])
+  ),[snapshot?.opportunities])
   const officialProposalByLead = useMemo(() => {
     const result = new Map<string, NonNullable<typeof snapshot>['proposals'][number]>()
     for (const proposal of snapshot?.proposals ?? []) {
@@ -337,6 +342,10 @@ export function PipelinePage() {
       if (lossReason === null) return false
     }
     await moveLead(lead.id, stageId, lossReason)
+    if(target.isWon){
+      setWonSalesPanelOpen(true)
+      notify('info','Venda ganha! Registre o acontecimento que motivou a compra na seção Análise de Vendas Ganhas.')
+    }
     return true
   }
 
@@ -478,6 +487,8 @@ export function PipelinePage() {
       {canPipelineEdit ? <button type="button" onClick={() => openActivity(lead, 'followup')} title="Criar follow-up"><Clock3 size={14} /><span>Follow-up</span></button> : null}
       <button type="button" disabled={!hasProposal && !canPipelineEdit} onClick={() => openPipelineProposal(lead)} title={hasProposal ? 'Abrir proposta oficial' : 'Criar proposta'}><FileText size={14} /><span>Proposta</span></button>
       {canPipelineEdit ? <button type="button" className="pipeline-quick-actions__secondary" onClick={() => setCadenceLeadIds([lead.id])} title="Iniciar cadência"><Layers3 size={14} /><span>Cadência</span></button> : null}
+      {lead.status==='won'?<button type="button" onClick={()=>setWonSalesPanelOpen(true)} title="Analisar o evento-gatilho da venda ganha">
+        <TrendingUp size={14}/><span>Gatilho</span></button>:null}
       <button type="button" onClick={() => setViewing(lead)} title="Abrir ficha comercial"><ArrowRight size={14} /><span>Abrir</span></button>
     </div>
   }
@@ -713,6 +724,9 @@ export function PipelinePage() {
               <WorkspaceDisplayMenu label="Visualizar" value={viewMode} onChange={(value) => selectViewMode(value as PipelineViewMode)} modes={[{ value: 'board', label: 'Kanban', icon: <LayoutGrid size={15}/> }, { value: 'list', label: 'Lista', icon: <List size={15}/> }, { value: 'forecast', label: 'Previsão', icon: <TrendingUp size={15}/> }, { value: 'calendar', label: 'Calendário', icon: <CalendarDays size={15}/> }, { value: 'funnel', label: 'Funil', icon: <BarChart3 size={15}/> }]} />
               <button type="button" className="sales-pipeline-v3__option" onClick={toggleDensity}><Columns3 size={15}/>{compact ? 'Densidade compacta' : 'Densidade confortável'}</button>
               <button type="button" className="sales-pipeline-v3__option" onClick={() => void saveView()}><Bookmark size={15}/> Salvar visão</button>
+              <button type="button" className="sales-pipeline-v3__option" onClick={()=>setWonSalesPanelOpen(value=>!value)}>
+                <TrendingUp size={15}/> {wonSalesPanelOpen?'Ocultar vendas ganhas':'Análise de Vendas Ganhas'}
+              </button>
               {dealPortfolio ? <button type="button" className="sales-pipeline-v3__option" onClick={() => setIntelligenceOpen((value) => !value)}><Sparkles size={15}/> {intelligenceOpen ? 'Ocultar análise' : 'Analisar carteira'}</button> : null}
               {canManageStages && canPipelineEdit ? <button type="button" className="sales-pipeline-v3__option" onClick={() => setStageEditing('new')}><Plus size={15}/> Nova etapa</button> : null}
             </div>
@@ -726,6 +740,15 @@ export function PipelinePage() {
         <span className="sales-pipeline-v3__metrics-total">{formatCurrency(kpiTotals.value)} em oportunidades · {kpiTotals.noAction} sem próxima ação</span>
       </div>
     </section>
+
+    {wonSalesPanelOpen?<section className="panel" style={{padding:18}} aria-label="Análise de vendas ganhas no Pipeline">
+      <div style={{display:'flex',justifyContent:'flex-end',marginBottom:10}}>
+        <button type="button" className="sales-pipeline-v3__option" onClick={()=>setWonSalesPanelOpen(false)}>Fechar análise</button>
+      </div>
+      <WonSalesDashboard workspaceId={workspaceId} leads={snapshot?.leads??[]}
+        closedWonDates={wonSalesClosedDates} canEdit={canPipelineEdit}
+        onOpenLead={lead=>setViewing(lead)} compact/>
+    </section>:null}
 
     {dealPortfolio && intelligenceOpen ? <section className="sales-pipeline-v3__analysis" aria-label="Análise da carteira">
       <div className="sales-pipeline-v3__analysis-header"><strong>Análise comercial</strong><button type="button" onClick={() => setIntelligenceOpen(false)} aria-label="Fechar análise">Fechar <ChevronUp size={15}/></button></div>

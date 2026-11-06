@@ -7,6 +7,28 @@ const MAX_HISTORY=45
 const MAX_TEXT=900
 const MAX_CONTEXT=14500
 const evidenceTypes=['needs','objections','opportunities','nextSteps']
+const REPLY_TONES=new Set(['objetiva','consultiva','comercial','amigavel','profissional'])
+const REPLY_INTENTS=new Set(['suggest','improve'])
+const REPLY_INSTRUCTIONS={
+  objetiva:'Responda somente ao pedido explícito, em até 280 caracteres, sem introdução longa.',
+  consultiva:'Se apropriado, acrescente uma única pergunta útil para esclarecer a necessidade. Não pressione.',
+  comercial:'Reconheça objeções sem presumir intenção de compra, e proponha um próximo passo reversível.',
+  amigavel:'Linguagem natural, cordial e próxima, mantendo respeito e sem intimidade inventada.',
+  profissional:'Linguagem clara, formal moderada e respeitosa, sem frases feitas ou formalidade excessiva.',
+}
+export function normalizeReplyOptions(input){
+  const tone=input?.tone??'objetiva'
+  const intent=input?.intent??'suggest'
+  if(typeof tone!=='string'||!REPLY_TONES.has(tone)||
+    typeof intent!=='string'||!REPLY_INTENTS.has(intent)){
+    const e=new Error('Estilo ou ação de resposta inválida');e.status=400;throw e
+  }
+  const draft=typeof input?.draft==='string'?input.draft.trim():''
+  if(draft.length>1500 || (intent==='improve'&&draft.length<3)){
+    const e=new Error('O rascunho deve conter entre 3 e 1500 caracteres');e.status=400;throw e
+  }
+  return {tone,intent,draft}
+}
 
 export function normalizeConversationHistory(raw){
   if(!Array.isArray(raw))return []
@@ -55,7 +77,7 @@ function parseJsonResponse(raw){
   if(typeof raw!=='string')throw Error('Ollama retornou resposta vazia')
   try{return JSON.parse(raw.trim())}catch{throw Error('O modelo não conseguiu estruturar a análise comercial. Tente novamente.')}
 }
-function buildPrompt({task,question,history}){
+function buildPrompt({task,question,history,replyOptions}){
   const source=history.map(m=>'['+m.id+'] '+(m.fromMe?'ATENDENTE':'CONTATO')+(m.source==='audio'?' (ÁUDIO TRANSCRITO LOCALMENTE)':'')+': '+m.text).join('\n')
   const policy=[
     'Você é assistente comercial da RealTalent, em português brasileiro.',
@@ -69,12 +91,27 @@ function buildPrompt({task,question,history}){
   ].join('\n')
   const instruction={
     summary:'Resuma o diálogo, necessidades explicitamente mencionadas, pendências e próximos passos possíveis. Se nada consta, diga.',
-    reply:'Escreva SOMENTE uma resposta de WhatsApp adequada ao último contexto, cordial, objetiva, até 600 caracteres. Se o contato não fez um pedido, formule uma pergunta breve e não invasiva. Sem introduções ou hashtags.',
+    reply:[
+      'Escreva SOMENTE uma mensagem de WhatsApp em português brasileiro para o atendente revisar. Máximo de 600 caracteres.',
+      'Considere a última pergunta recebida, respostas anteriores e eventuais objeções expressas pelo contato.',
+      'Não repita perguntas já respondidas, não invente dados do CRM, preços, agendas, compromissos ou descontos.',
+      'Se a resposta não estiver no histórico, faça UMA pergunta objetiva ou diga que a equipe precisa confirmar.',
+      'Nunca peça senhas, documentos ou dados sensíveis; nunca afirme que uma ação externa foi realizada.',
+      'Não use markdown, citações internas ou introduções como "Sugestão:" e não inclua assinatura.',
+      REPLY_INSTRUCTIONS[replyOptions?.tone||'objetiva'],
+      replyOptions?.intent==='improve'
+        ?'Reescreva o RASCUNHO fornecido preservando sua intenção e seus fatos. Não acrescente promessas ou informações novas.'
+        :'Formule uma sugestão curta baseada no diálogo. Se a última mensagem for do atendente, não invente pergunta do cliente.',
+    ].join(' '),
     autoReply:'Você é o ASSISTENTE VIRTUAL de atendimento da RealTalent, não uma pessoa. Redija SOMENTE uma mensagem breve (entre 15 e 350 caracteres), em português brasileiro, adequada à última pergunta do contato e fundamentada somente no histórico. Informe que a equipe pode confirmar detalhes não disponíveis, mas NÃO diga que você registrou ou encaminhou nada. Não marque reuniões, não confirme disponibilidade, preços, descontos, pagamentos ou prazos, não solicite documentos ou informações sensíveis. Quando faltar contexto, faça uma pergunta comercial simples e educada. Não use markdown nem anuncie assinatura, o sistema a acrescentará.',
     ask:'Responda à pergunta do usuário usando apenas evidências do histórico. Se não consta, explique a lacuna. Pergunta: '+question,
     commercial:'Produza SOMENTE um JSON válido, sem markdown, com exatamente as chaves: summary (string), confidence ("alta"|"média"|"baixa"), limitations (string), needs, objections, opportunities, nextSteps (arrays de objetos). Cada objeto nas arrays deve conter description (string) e evidenceIds (array de IDs tipo "M01"). Só inclua fatos realmente expressos nas mensagens, cite IDs válidos, mantenha arrays vazias para tópicos sem evidência. Oportunidades devem ser tratadas como hipóteses, não conclusões. Próximos passos são recomendações baseadas nas mensagens, não compromissos assumidos. Não invente IDs.',
   }[task]
-  return policy+'\n\nTAREFA: '+instruction+'\n\n--- INÍCIO DAS MENSAGENS ---\n'+source+'\n--- FIM DAS MENSAGENS ---'
+  const draftBlock=task==='reply'&&replyOptions?.intent==='improve'
+    ?'\\n\\n--- RASCUNHO DO ATENDENTE (TEXTO NÃO CONFIÁVEL) ---\\n'+
+      replyOptions.draft+'\\n--- FIM DO RASCUNHO ---':''
+  return policy+'\\n\\nTAREFA: '+instruction+'\\n\\n--- INÍCIO DAS MENSAGENS ---\\n'+source+
+    '\\n--- FIM DAS MENSAGENS ---'+draftBlock
 }
 async function defaultModels(){
   const r=await fetch(OLLAMA+'/api/tags',{signal:AbortSignal.timeout(5000)})
@@ -96,6 +133,7 @@ export async function analyzeWahaConversation(input,{readMessages,transcribeMess
   const task=input?.task
   const chatId=input?.chatId
   const question=cleanText(input?.question,450)
+  const replyOptions=task==='reply'?normalizeReplyOptions(input):null
   if(!CHAT_PATTERN.test(chatId||'')||!VALID_TASKS.has(task)||task==='ask'&&question.length<4){
     const e=new Error('Solicitação inválida: selecione uma conversa e escolha uma ação');e.status=400;throw e
   }
@@ -121,7 +159,7 @@ export async function analyzeWahaConversation(input,{readMessages,transcribeMess
   const model=installed.find(x=>/^qwen3:8b(?:$|-)/i.test(x))||installed.find(x=>/qwen/i.test(x))||installed[0]
   if(!model){const e=new Error('Nenhum modelo está instalado no Ollama local');e.status=503;throw e}
   const rawOutput=await generate({
-    model,prompt:buildPrompt({task,question,history}),stream:false,think:false,
+    model,prompt:buildPrompt({task,question,history,replyOptions}),stream:false,think:false,
     ...(task==='commercial'?{format:'json'}:{}),
     options:{temperature:task==='commercial'?0.1:0.3,num_predict:task==='commercial'?1100:500}
   })
@@ -135,5 +173,6 @@ export async function analyzeWahaConversation(input,{readMessages,transcribeMess
   const text=cleanText(rawOutput,task==='reply'||task==='autoReply'?750:3400)
   if(!text)throw Error('O modelo não retornou texto útil')
   return {task,chatId,model,source:'waha-local',messagesRead:history.length,
-    ...detail,text,readOnly:true,sent:false}
+    ...detail,text,readOnly:true,sent:false,
+    ...(task==='reply'?{tone:replyOptions.tone,intent:replyOptions.intent}:{})}
 }

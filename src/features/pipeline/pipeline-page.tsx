@@ -636,7 +636,16 @@ export function PipelinePage() {
       const value = commercialValue(lead)
       return <tr key={lead.id} className={selectedIds.includes(lead.id) ? 'is-selected' : ''}>
         <td><button type="button" className={`pipeline-select ${selectedIds.includes(lead.id) ? 'is-selected' : ''}`} onClick={() => toggleSelected(lead.id)}>{selectedIds.includes(lead.id) ? <Check size={13} /> : null}</button></td>
-        <td><button type="button" className="pipeline-table__lead" onClick={() => setViewing(lead)}><strong>{lead.name}</strong><small>{lead.company || lead.city || 'Sem empresa'}</small></button></td>
+        <td>
+          <button type="button" className="pipeline-table__lead" onClick={() => setViewing(lead)}>
+            <strong>{lead.name}</strong><small>{lead.company || lead.city || 'Sem empresa'}</small>
+          </button>
+          {triggerSignals.some(item=>item.leadId===lead.id)?<button type="button"
+            className="sales-pipeline-v3__trigger-badge" onClick={()=>setTriggerInspectLeadId(lead.id)}
+            aria-label={'Ver '+triggerSignals.filter(item=>item.leadId===lead.id).length+' evento(s)-gatilho aprovado(s) de '+lead.name}>
+            <Sparkles size={12}/> {triggerSignals.filter(item=>item.leadId===lead.id).length} sinal(is) revisado(s)
+          </button>:null}
+        </td>
         <td><span className="pipeline-stage-chip"><i style={{ background: stage?.color }} />{stage?.name ?? 'Sem etapa'}</span></td>
         <td>{proposal ? <span className="pipeline-proposal-cell"><strong>{proposal.proposalNumber} · v{proposal.version}</strong><small>{proposal.status === 'accepted' ? 'Aceite registrado' : proposal.status === 'sent' ? 'Enviada' : proposal.status === 'viewed' ? 'Visualizada' : 'Em elaboração'}</small></span> : <span className="pipeline-table-muted">Sem proposta oficial</span>}</td>
         <td>{deal ? <button type="button" className={`pipeline-health pipeline-health--${deal.healthLevel === 'strong' ? 'healthy' : deal.healthLevel}`} onClick={() => setInspectingLeadId(lead.id)}>{deal.healthScore} · {deal.healthLabel}</button> : signal ? <span className={`pipeline-health pipeline-health--${signal.health}`}>{healthLabels[signal.health]}</span> : null}</td>

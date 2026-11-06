@@ -49,6 +49,7 @@ import { ProspectingG1G2Panel } from './prospecting-g1g2-panel'
 import {ProspectingTriggerIntelligenceG4} from './prospecting-trigger-g4'
 import type { GarimpoSearchProposal } from './garimpo-conversation-g3'
 import {WonSalesProspectingSignals} from '../won-sales/won-sales-prospecting-signals'
+import {isTriggerCloudModeG43,linkRemoteTriggerLeadG43} from '../../services/prospecting-triggers-g43-remote'
 import {buildProspectingHandoffMetrics,isProspectTransferable,transferableProspectIds,
   linkedCrmLeadId,linkedCrmCompanyId,summarizeHandoffReceipt,type ProspectingBatchReceipt,type ProspectingHandoffReceipt
 } from '../../services/prospecting-handoff-r1'
@@ -856,7 +857,7 @@ export function ProspectingPage() {
     if (!snapshot) return
     const prospects = state.prospects.filter((item) => sendIds.includes(item.id))
     setSending(true)
-    let companiesCreated = 0; let companiesUpdated = 0; let contactsCreated = 0; let contactsUpdated = 0; let opportunitiesCreated = 0; let skipped = 0; let failed = 0; let activityWarnings = 0
+    let companiesCreated = 0; let companiesUpdated = 0; let contactsCreated = 0; let contactsUpdated = 0; let opportunitiesCreated = 0; let skipped = 0; let failed = 0; let activityWarnings = 0; let triggerLinkWarnings = 0
     const sentIds: string[] = []
     const receipts:ProspectingHandoffReceipt[]=[]
     const batchId = `garimpo-${Date.now().toString(36)}`
@@ -992,6 +993,10 @@ export function ProspectingPage() {
             status:'transferred',crmCompanyId:company.id,
             ...(contactId?{crmContactId:contactId}:{}),...(leadId?{crmLeadId:leadId}:{}),
             note:options.createOpportunity?'Empresa processada e oportunidade solicitada.':'Empresa cadastrada sem criar oportunidade.'})
+          if(leadId&&isTriggerCloudModeG43()){
+            try{await linkRemoteTriggerLeadG43(workspaceId,prospect.id,leadId)}
+            catch{triggerLinkWarnings+=1}
+          }
           const now = new Date().toISOString()
           commit((current) => ({ ...current, prospects: current.prospects.map((item) => item.id === prospect.id ? { ...item, status: 'sent' as const, sentAt: now, updatedAt: now, rawData: { ...item.rawData, crmCompanyId: company.id, ...(contactId ? { crmContactId: contactId } : {}), ...(leadId ? { crmLeadId: leadId } : {}) } } : item) }))
         } catch(error) {
@@ -1003,7 +1008,7 @@ export function ProspectingPage() {
       setHandoffReceipt({id:batchId,createdAt:new Date().toISOString(),rows:receipts,activityWarnings})
       commit((current) => appendHistory(current, workspaceId, { action: companiesUpdated || contactsUpdated ? 'merge' : 'send', title: `Lote ${batchId} enviado ao CRM`, description: `${companiesCreated} empresa(s) criada(s) · ${companiesUpdated} atualizada(s) · ${contactsCreated} contato(s) criado(s) · ${contactsUpdated} atualizado(s) · ${opportunitiesCreated} oportunidade(s) criada(s) · ${skipped} ignorada(s) · ${failed} falha(s)${activityWarnings ? ` · ${activityWarnings} atividade(s) pendente(s)` : ''}`, count: sentIds.length }))
       setSendIds((current) => current.filter((id) => !sentIds.includes(id))); setSelectedIds(new Set())
-      if (failed || activityWarnings) notify('info', `${sentIds.length} empresa(s) processada(s); ${failed} falha(s) e ${activityWarnings} atividade(s) precisam de revisão.`)
+      if (failed || activityWarnings || triggerLinkWarnings) notify('info', `${sentIds.length} empresa(s) processada(s); ${failed} falha(s), ${activityWarnings} atividade(s) e ${triggerLinkWarnings} vínculo(s) G4.3 pendente(s).`)
       else notify('success', `${sentIds.length} empresa(s) enviada(s) ao CRM canônico.`)
     } finally { setSending(false) }
   }

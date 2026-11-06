@@ -75,3 +75,6 @@ html[data-theme="dark"] .prospecting-trigger-g4__cloud-link{background:#244568;c
 html[data-theme="dark"] .prospecting-g1g2__public-sources{background:#1e3049;border-color:#405975}
 html[data-theme="dark"] .prospecting-g1g2__public-sources li{border-color:#405975}
 html[data-theme="dark"] .prospecting-g1g2__public-sources li>button{background:#244568;color:#cfe5ff;border-color:#406d9b}
+
+.prospecting-g1g2__signal-notice{padding:9px 11px;margin:8px 0;color:#285e75;background:#eaf7ff;border:1px solid #c7e7f5;border-radius:8px;font-size:11px;line-height:1.5}
+html[data-theme="dark"] .prospecting-g1g2__signal-notice{background:#253d53;color:#d1eafa;border-color:#46637a}

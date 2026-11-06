@@ -6,7 +6,9 @@ import {runtimeFetch} from '../../services/realtalent-runtime-transport'
 import './prospecting-company-assistant.css'
 
 interface PublicSource {
-  id:number;title:string;url:string;snippet:string;provider:string;reading?:'snippet'
+  id:number;title:string;url:string;snippet:string;provider:string;
+  reading?:'snippet'|'metadata'|'page';excerpt?:string;readStatus?:string;
+  readTitle?:string;finalUrl?:string
 }
 interface CnpjFinding {
   cnpj:string;legalName:string;tradeName:string;city:string;state:string;
@@ -18,7 +20,8 @@ interface Answer {
   ok:boolean;kind:'instagram'|'cnpj'|'overview';company:string;answer:string
   sources?:PublicSource[];posts?:PublicSource[];
   profileUrl?:string|null;profileStatus?:string;
-  cnpjFindings?:CnpjFinding[];limitation?:string;searchStatus?:string
+  cnpjFindings?:CnpjFinding[];limitation?:string;searchStatus?:string;
+  pagesRead?:number;metadataRead?:number
 }
 interface Exchange {id:string;question:string;result:Answer}
 const safeUrl=(value:string|null|undefined)=>{
@@ -109,6 +112,11 @@ export function ProspectingCompanyAssistant({prospect}:{prospect:ProspectRecord}
         <p className="prospecting-company-assistant__question">{exchange.question}</p>
         <div className="prospecting-company-assistant__answer">
           <p>{exchange.result.answer}</p>
+          {exchange.result.kind==='instagram'?<div className="prospecting-company-assistant__coverage">
+            <strong>Leitura pública nesta pesquisa</strong>
+            <span>{exchange.result.pagesRead||0} página(s) lida(s) · {exchange.result.metadataRead||0} metadado(s) acessível(is)</span>
+            <small>Snippets de buscadores não são páginas lidas. A leitura do Instagram não inclui fotos, vídeos, Stories nem o feed completo.</small>
+          </div>:null}
           {exchange.result.kind==='instagram'&&safeUrl(exchange.result.profileUrl)
             ?<a className="prospecting-company-assistant__profile" href={safeUrl(exchange.result.profileUrl)!}
               target="_blank" rel="noopener noreferrer"><AtSign size={16}/> Abrir perfil público no Instagram <ArrowUpRight size={13}/></a>:null}
@@ -140,7 +148,17 @@ export function ProspectingCompanyAssistant({prospect}:{prospect:ProspectRecord}
                 [{index+1}] {source.title||source.url} <ExternalLink size={12}/>
               </a>
               {source.snippet?<p>{source.snippet}</p>:null}
-              <small>Resultado indexado · página não lida integralmente</small>
+              {source.excerpt&&source.reading!=='snippet'
+                ?<blockquote className="prospecting-company-assistant__excerpt">{source.excerpt}</blockquote>:null}
+              <small>{source.reading==='page'
+                ?'Trecho limitado de página pública efetivamente lida'
+                :source.reading==='metadata'
+                  ?'Metadados públicos encontrados (não é leitura integral)'
+                  :source.readStatus==='restricted_or_non_html'||source.readStatus==='unavailable'
+                    ?'Leitura pública indisponível; somente resultado indexado'
+                    :source.readStatus==='identity_not_confirmed'
+                      ?'A identidade da página não foi confirmada; somente resultado indexado'
+                      :'Resultado indexado · página não lida integralmente'}</small>
             </div>)}
           </div>:null}
           {exchange.result.limitation?<small className="prospecting-company-assistant__limitation">{exchange.result.limitation}</small>:null}

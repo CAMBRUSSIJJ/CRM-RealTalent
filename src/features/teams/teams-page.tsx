@@ -20,7 +20,7 @@ const openStatuses = new Set(['todo','in_progress','blocked'])
 const priorityWeight: Record<string, number> = { low: 1, normal: 2, high: 3, urgent: 4 }
 
 export function TeamsPage() {
-  const { currentWorkspace, repositoryMode, can, canWrite, snapshot } = useAppWorkspace()
+  const { currentWorkspace, repositoryMode, can, canWrite, canTeamAccess, snapshot } = useAppWorkspace()
   const { listWorkspaceMembers } = useAppActions()
   const { user } = useAuth()
   const { notify, confirmAction } = useAppUi()
@@ -33,6 +33,7 @@ export function TeamsPage() {
   const [view, setView] = useState<'overview'|'goals'|'people'|'performance'|'notifications'>('overview')
   const workspaceId = currentWorkspace?.id ?? ''
   const canManage = can('manage','workspace')
+  const canCreateTask=canTeamAccess('create','tasks')
 
   const reload = async () => { if (!workspaceId) return; try { const next = await loadWorkManagement(repositoryMode, workspaceId); setData(next); if (!selectedId && next.teams[0]) setSelectedId(next.teams[0].id) } catch (error) { notify('error', error instanceof Error ? error.message : 'Não foi possível carregar as equipes.') } }
   useEffect(()=>{ void reload() },[repositoryMode,workspaceId])
@@ -70,6 +71,7 @@ export function TeamsPage() {
       <main className="team-detail">{selected?<>
         <section className="team-hero"><div className="team-hero__identity"><span style={{background:selected.color}}><UsersRound/></span><div><small>Equipe</small><h2>{selected.name}</h2><p>{selected.description||'Sem descrição.'}</p></div></div><div className="team-hero__actions">
           <a className="teams-operation__nav-btn" href={routeToHash('tasks',{filter:'team:'+selected.id})}><ListTodo size={16}/> Tarefas da equipe <ArrowUpRight size={14}/></a>
+          {canCreateTask?<a className="teams-operation__nav-btn is-primary" href={routeToHash('tasks',{filter:'team:'+selected.id,action:'new'})}><Plus size={15}/> Nova tarefa nesta equipe</a>:null}
           {canManage?<><Button variant="secondary" onClick={()=>{setEditing(selected);setModalOpen(true)}}><Pencil size={16}/> Editar</Button><Button variant="ghost" onClick={()=>void remove(selected)}><Trash2 size={16}/> Excluir</Button></>:null}</div></section>
         <WorkspaceViewStrip value={view} onChange={setView} ariaLabel="Visão da equipe" items={[{id:'overview',label:'Visão geral'},{id:'people',label:'Pessoas',icon:UsersRound},{id:'goals',label:'Metas',icon:Target},{id:'performance',label:'Desempenho',icon:TrendingUp},{id:'notifications',label:'Notificações',icon:BellRing}]} />
         {view==='overview'?<><section className="work-metric-grid team-metric-grid"><article><span><UsersRound/></span><div><small>Membros</small><strong>{teamMembers.length}</strong><em>{selected.leaderId?`Líder: ${memberById.get(selected.leaderId)?.displayName??'Definido'}`:'Sem líder'}</em></div></article><article><span><Activity/></span><div><small>Tarefas abertas</small><strong>{teamOpenTasks.length}</strong><em>Na fila da equipe</em></div></article><article className={overdue?'is-danger':''}><span><AlertTriangle/></span><div><small>Atrasadas</small><strong>{overdue}</strong><em>Precisam de atenção</em></div></article><article><span><CheckCircle2/></span><div><small>Concluídas</small><strong>{completed}</strong><em>Histórico da equipe</em></div></article></section>

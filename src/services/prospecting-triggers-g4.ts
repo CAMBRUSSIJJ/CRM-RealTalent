@@ -63,7 +63,7 @@ export function readTriggerReviewsG4(workspaceId:string,store:Pick<Storage,'getI
   try{
     const data:unknown=JSON.parse(store.getItem(scopeKey(workspaceId))||'[]')
     return Array.isArray(data)
-      ?data.filter(isStored).filter(row=>row.workspaceId===workspaceId).slice(0,600):[]
+      ?data.filter(isStored).filter(row=>row.workspaceId===workspaceId).slice(0,600)
       :[]
   }catch{return []}
 }

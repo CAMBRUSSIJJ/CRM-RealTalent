@@ -26,6 +26,7 @@ export function WahaToolsDrawer({mode,token,chats,selected,messages,prefs,onClos
   const [commercial,setCommercial]=useState<WahaCommercialReport|null>(null)
   const [question,setQuestion]=useState('')
   const [messagesRead,setMessagesRead]=useState(0)
+  const [voiceInfo,setVoiceInfo]=useState<{textMessagesRead:number;audioDetected:number;audioTranscribed:number;audioSkipped:number;audioTranscripts:{id:string;text:string}[]}|null>(null)
   const requestEpoch=useRef(0)
   const [aiModel,setAiModel]=useState('')
   const [aiAvailable,setAiAvailable]=useState(false)
@@ -33,7 +34,7 @@ export function WahaToolsDrawer({mode,token,chats,selected,messages,prefs,onClos
   const [aiTask,setAiTask]=useState<WahaAiConversationTask>('summary')
 
   useEffect(()=>{setLabels((selected&&prefs.labels[selected.id]||[]).join(', '))},[selected?.id,prefs.labels])
-  useEffect(()=>{requestEpoch.current+=1;setAiResult('');setCommercial(null);setQuestion('');setMessagesRead(0);setError('')},[selected?.id,mode])
+  useEffect(()=>{requestEpoch.current+=1;setAiResult('');setCommercial(null);setQuestion('');setMessagesRead(0);setVoiceInfo(null);setError('')},[selected?.id,mode])
   useEffect(()=>{
     if(mode!=='ai')return
     let active=true
@@ -52,7 +53,7 @@ export function WahaToolsDrawer({mode,token,chats,selected,messages,prefs,onClos
   async function runAi(task:WahaAiConversationTask){
     if(!selected||!aiAvailable)return
     const epoch=++requestEpoch.current
-    setError('');setAiResult('');setCommercial(null);setAiTask(task);setSaving(true)
+    setError('');setAiResult('');setCommercial(null);setVoiceInfo(null);setAiTask(task);setSaving(true)
     try{
       // The local bridge reads actual messages directly from selected WAHA chat.
       // Generated content remains read-only until manually inserted and sent.
@@ -60,6 +61,9 @@ export function WahaToolsDrawer({mode,token,chats,selected,messages,prefs,onClos
       if(epoch!==requestEpoch.current||r.chatId!==selected.id)return
       setAiResult(r.text||'');setCommercial(r.analysis||null)
       setAiModel(r.model);setMessagesRead(r.messagesRead)
+      setVoiceInfo({textMessagesRead:r.textMessagesRead??r.messagesRead,
+        audioDetected:r.audioDetected??0,audioTranscribed:r.audioTranscribed??0,
+        audioSkipped:r.audioSkipped??0,audioTranscripts:r.audioTranscripts||[]})
     }catch(e){
       if(epoch===requestEpoch.current)setError(e instanceof Error?e.message:'Falha na IA local.')
     }finally{if(epoch===requestEpoch.current)setSaving(false)}
@@ -120,7 +124,7 @@ export function WahaToolsDrawer({mode,token,chats,selected,messages,prefs,onClos
       <p className="waha-panel-description">Assistente do WhatsApp: lê a conversa selecionada diretamente no <strong>WAHA</strong> e usa o <strong>Ollama local</strong>. Nunca envia mensagens automaticamente.</p>
       <div className="waha-ai-status"><BrainCircuit size={17}/>{!aiChecked?'Verificando Ollama...':aiAvailable?'Disponível: '+aiModel:'Ollama ou modelo local indisponível'}</div>
       {!selected?<p className="waha-panel-description">Selecione uma conversa à esquerda para que a IA leia suas mensagens reais.</p>:<>
-        <p className="waha-panel-description"><strong>Conversa:</strong> {chatName(selected)}. Até 45 mensagens recentes de texto serão consultadas diretamente no WAHA em cada análise. Áudios ainda não são transcritos.</p>
+        <p className="waha-panel-description"><strong>Conversa:</strong> {chatName(selected)}. Até 45 mensagens recentes (texto e áudios recebidos transcritos) entram na análise. A transcrição usa Whisper local, no máximo 3 áudios de até 3 minutos por solicitação.</p>
         <div className="waha-ai-actions">
           <button type="button" disabled={!aiAvailable||saving} onClick={()=>void runAi('summary')}><FileText size={15}/> Resumir conversa</button>
           <button type="button" disabled={!aiAvailable||saving} onClick={()=>void runAi('reply')}><BrainCircuit size={15}/> Preparar resposta</button>
@@ -131,7 +135,7 @@ export function WahaToolsDrawer({mode,token,chats,selected,messages,prefs,onClos
           <textarea id="waha-ai-question" rows={3} maxLength={450} placeholder="Ex.: O cliente demonstrou interesse? Quais problemas ele mencionou?" value={question} onChange={e=>setQuestion(e.target.value)}/>
           <button className="waha-primary" type="button" disabled={!aiAvailable||saving||question.trim().length<4} onClick={()=>void runAi('ask')}>Perguntar à IA</button>
         </div>
-        {saving?<p className="waha-panel-description" role="status"><LoaderCircle size={15} className="spin"/> Lendo mensagens reais no WAHA e consultando o Ollama...</p>:null}
+        {saving?<p className="waha-panel-description" role="status"><LoaderCircle size={15} className="spin"/> Lendo mensagens e transcrevendo áudios no Linux antes de consultar o Ollama...</p>:null}
         {commercial?<div className="waha-ai-result waha-commercial-result" aria-live="polite">
           <h4>Análise comercial <small>Confiança indicada: {commercial.confidence}</small></h4>
           <p className="waha-commercial-summary">{commercial.summary}</p>
@@ -141,7 +145,7 @@ export function WahaToolsDrawer({mode,token,chats,selected,messages,prefs,onClos
             {commercial[section.key].map((finding,index)=><article className="waha-commercial-finding" key={section.key+'-'+index}>
               <p>{finding.description}</p>
               <details><summary>Ver evidências ({finding.evidence.length})</summary>
-                {finding.evidence.map(e=><blockquote key={e.id}><b>{e.id} · {e.fromMe?'Atendente':'Contato'}:</b> {e.text}</blockquote>)}
+                {finding.evidence.map(e=><blockquote key={e.id}><b>{e.id} · {e.fromMe?'Atendente':'Contato'}{e.source==='audio'?' · áudio transcrito':''}:</b> {e.text}</blockquote>)}
               </details>
             </article>)}
           </section>)}
@@ -153,7 +157,16 @@ export function WahaToolsDrawer({mode,token,chats,selected,messages,prefs,onClos
           <p>{aiResult}</p>
           {aiTask==='reply'?<button type="button" onClick={()=>{onInsert(aiResult);onClose()}}>Inserir no campo de mensagem para revisar</button>:null}
         </div>:null}
-        {messagesRead>0?<p className="waha-panel-description">Fonte: {messagesRead} mensagens de texto lidas no WAHA nesta consulta · {aiModel}. Conteúdo não enviado.</p>:null}
+        {messagesRead>0?<div className="waha-panel-description" role="status">
+          Fonte: {messagesRead} mensagens consideradas ({voiceInfo?.textMessagesRead??messagesRead} de texto,
+          {' '}{voiceInfo?.audioTranscribed??0} áudios transcritos localmente) · {aiModel}. Nenhuma resposta enviada.
+          {(voiceInfo?.audioSkipped??0)>0?<p role="alert"><strong>Análise parcial:</strong> {voiceInfo?.audioSkipped} áudio(s)
+            recebido(s) não foram transcritos (mídia ausente, limite de 3 ou transcritor não instalado).
+            Para ativar, execute <code>bash deploy/waha-direct/instalar-transcricao-local-linux.sh</code> no projeto Linux.</p>:null}
+          {(voiceInfo?.audioTranscripts.length??0)>0?<details><summary>Ver transcrições utilizadas ({voiceInfo?.audioTranscripts.length})</summary>
+            {voiceInfo?.audioTranscripts.map(a=><blockquote key={a.id}><strong>{a.id} · Áudio recebido:</strong> {a.text}</blockquote>)}
+          </details>:null}
+        </div>:null}
       </>}
       <p className="waha-panel-description">Análises são sugestões, não fatos garantidos. Confira as mensagens citadas e revise qualquer texto antes de enviá-lo ao contato.</p>
     </>
@@ -164,21 +177,24 @@ export function WahaToolsDrawer({mode,token,chats,selected,messages,prefs,onClos
   </aside>
 }
 
-export function WahaMessageMedia({message,token}:{message:WahaMessage;token:string}){
+export function WahaMessageMedia({message,token,chatId}:{message:WahaMessage;token:string;chatId:string}){
   const [url,setUrl]=useState('')
   const [error,setError]=useState('')
+  const [retry,setRetry]=useState(0)
   const src=message.media?.url||message.mediaUrl||''
   useEffect(()=>{
-    if(!message.hasMedia||!src)return
+    if(!message.hasMedia||(!src&&!message.id))return
     let active=true,objectUrl=''
-    void wahaMediaBlob(token,src).then(blob=>{if(!active)return;objectUrl=URL.createObjectURL(blob);setUrl(objectUrl)}).catch(e=>{if(active)setError(e instanceof Error?e.message:'Mídia indisponível.')})
+    setUrl('');setError('')
+    void wahaMediaBlob(token,src,chatId,message.id).then(blob=>{if(!active)return;objectUrl=URL.createObjectURL(blob);setUrl(objectUrl)}).catch(e=>{if(active)setError(e instanceof Error?e.message:'Mídia indisponível.')})
     return()=>{active=false;if(objectUrl)URL.revokeObjectURL(objectUrl)}
-  },[message.id,src,message.hasMedia,token])
+  },[message.id,src,message.hasMedia,token,chatId,retry])
   if(!message.hasMedia)return null
   const mime=message.media?.mimetype||''
   const filename=message.media?.filename||'Arquivo'
-  if(!src)return <p className="waha-media"><Paperclip size={15}/> {filename}: arquivo ainda não disponibilizado pelo WAHA.</p>
-  if(error)return <p className="waha-media"><Paperclip size={15}/> {filename}: {error}</p>
+  if(error)return <p className="waha-media"><Paperclip size={15}/> {filename}: {error}{' '}
+    <button type="button" onClick={()=>setRetry(x=>x+1)}>Tentar novamente</button>
+  </p>
   if(!url)return <p className="waha-media"><LoaderCircle className="spin" size={15}/> Carregando mídia...</p>
   if(mime.startsWith('image/'))return <a href={url} target="_blank" rel="noopener noreferrer"><img className="waha-chat-image" src={url} alt="Imagem da conversa"/></a>
   if(mime.startsWith('audio/'))return <audio controls preload="none" src={url} className="waha-chat-audio"/>

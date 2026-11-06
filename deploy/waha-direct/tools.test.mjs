@@ -3,7 +3,7 @@ import assert from 'node:assert/strict'
 import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
-import { createLocalTools, sanitizeMediaSrc, analyzeConversation } from './tools.mjs'
+import { createLocalTools, sanitizeMediaSrc, normalizeWahaMediaUrl, normalizeWahaMediaMessages, analyzeConversation } from './tools.mjs'
 
 test('labels, favorites and quick replies persist locally with strict validation',()=>{
   const dir=fs.mkdtempSync(path.join(os.tmpdir(),'realtalent-waha-tools-'))
@@ -38,6 +38,33 @@ test('media proxy only allows WAHA local file paths',()=>{
   assert.equal(sanitizeMediaSrc('http://127.0.0.1:8181/files/a.png'),null)
   assert.equal(sanitizeMediaSrc('/api/other/messages'),null)
   assert.equal(sanitizeMediaSrc('/files/%2e%2e/secret'),null)
+  assert.equal(sanitizeMediaSrc('/api/files/voice%20note%20(1)%20%2B%20name.ogg'),
+    '/api/files/voice%20note%20(1)%20%2B%20name.ogg')
+  assert.equal(sanitizeMediaSrc('/api/files/a%3Db%3Ac.ogg'),'/api/files/a%3Db%3Ac.ogg')
+  assert.equal(sanitizeMediaSrc('/api/files/%252e%252e/secret'),null)
+  assert.equal(sanitizeMediaSrc('/api/files/%2Fetc'),null)
+  assert.equal(sanitizeMediaSrc('http://127.0.0.1:4385@evil.example/api/files/clip.ogg'),null)
+})
+
+
+test('WAHA container media URLs are safely rewritten to local paths in authenticated history only',()=>{
+  const original='http://localhost:3000/api/files/true_123456789@c.us_voice-note.ogg'
+  const normalized=normalizeWahaMediaUrl(original)
+  assert.equal(normalized,'/api/files/true_123456789@c.us_voice-note.ogg')
+  assert.equal(sanitizeMediaSrc(original),null,'browser must not access container origin directly')
+  assert.equal(normalizeWahaMediaUrl('https://waha.example.net/api/files/doc.pdf'),'/api/files/doc.pdf')
+  assert.equal(normalizeWahaMediaUrl('file:///etc/passwd'),null)
+  assert.equal(normalizeWahaMediaUrl('https://waha.example.net/api/private/secret'),null)
+  assert.equal(normalizeWahaMediaUrl('https://waha.example.net/api/files/%2e%2e/private'),null)
+  const messages=normalizeWahaMediaMessages([
+    {hasMedia:true,media:{url:original,mimetype:'audio/ogg'},mediaUrl:original},
+    {hasMedia:true,media:{url:'https://host.invalid/private',mimetype:'image/jpeg'}}
+  ])
+  assert.equal(messages[0].media.url,normalized)
+  assert.equal(messages[0].mediaUrl,normalized)
+  assert.equal(messages[0].media.mimetype,'audio/ogg')
+  assert.equal(messages[1].media.url,null,'unproxyable media URL is not forwarded to browser')
+  assert.equal(messages.length,2)
 })
 
 test('AI rejects invalid requests before Ollama or any network call',async()=>{

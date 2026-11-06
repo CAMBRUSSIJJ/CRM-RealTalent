@@ -8,6 +8,7 @@ export type WahaMessage={
   id:string;timestamp:number;fromMe?:boolean;body?:string;hasMedia?:boolean;
   media?:{mimetype?:string;filename?:string;url?:string};mediaUrl?:string;
   ack?:number;ackName?:string;from?:string;to?:string;
+  participant?:string;senderId?:string|null;senderName?:string|null;notifyName?:string;pushName?:string;
 }
 export type WahaChat={
   id:string;name?:string;picture?:string;lastMessage?:WahaMessage|null;
@@ -29,10 +30,10 @@ async function request<T>(route:string,token:string,method='GET',payload?:unknow
     res=await fetch(LOCAL+route,{
       method,mode:'cors',cache:'no-store',headers:{Authorization:'Bearer '+token,...(payload?{'Content-Type':'application/json'}:{})},
       body:payload?JSON.stringify(payload):undefined,
-      signal:AbortSignal.timeout(route.startsWith('/v1/ai/')&&route!=='/v1/ai/status'?130000:route==='/v1/send'?60000:16000),
+      signal:AbortSignal.timeout(route.startsWith('/v1/ai/')&&route!=='/v1/ai/status'?400000:route==='/v1/send'?60000:16000),
     })
   }catch(e){
-    if(route==='/v1/ai/conversation'&&e instanceof Error&&e.name==='TimeoutError')throw new Error('O Qwen excedeu o tempo de resposta. Verifique o Ollama local.')
+    if(route==='/v1/ai/conversation'&&e instanceof Error&&e.name==='TimeoutError')throw new Error('O Whisper ou Qwen excedeu o tempo de resposta. Confira a transcrição e o Ollama locais.')
     throw new Error('A ponte WAHA não está acessível neste computador. Inicie o conector Linux na porta 4392.')
   }
   if(!res.ok){
@@ -93,11 +94,25 @@ export const wahaUpdatePreferences=(token:string,patch:unknown)=>request<WahaPre
 export const wahaAiStatus=(token:string)=>request<{available:boolean;models:string[];description:string}>('/v1/ai/status',token)
 export const wahaAnalyze=(token:string,task:'summary'|'suggest',messages:WahaMessage[])=>
   request<{model:string;text:string}>('/v1/ai/analyze',token,'POST',{task,messages:messages.slice(-35).filter(m=>typeof m.body==='string').map(m=>({body:m.body,fromMe:!!m.fromMe}))})
-export async function wahaMediaBlob(token:string,src:string):Promise<Blob>{
-  if(!src)throw Error('Mídia indisponível.')
-  const res=await fetch(LOCAL+'/v1/media?src='+encodeURIComponent(src),{headers:{Authorization:'Bearer '+token},cache:'no-store',signal:AbortSignal.timeout(25000)})
-  if(!res.ok)throw Error('Arquivo indisponível no WAHA (HTTP '+res.status+').')
-  return res.blob()
+export async function wahaMediaBlob(token:string,src:string,chatId='',messageId=''):Promise<Blob>{
+  const headers={Authorization:'Bearer '+token}
+  const tryGet=(url:string)=>fetch(url,{headers,cache:'no-store',signal:AbortSignal.timeout(30000)})
+  // Fast path: the local bridge proxy. If stale/invalid, ask WAHA to refresh this message.
+  if(src){
+    try{
+      const response=await tryGet(LOCAL+'/v1/media?src='+encodeURIComponent(src))
+      if(response.ok)return response.blob()
+      if(!chatId||!messageId)throw new Error('Arquivo indisponível no WAHA (HTTP '+response.status+').')
+    }catch(error){
+      if(!chatId||!messageId)throw error
+    }
+  }
+  if(!chatId||!messageId)throw Error('Arquivo não disponibilizado pelo WAHA.')
+  const params=new URLSearchParams({chatId,messageId})
+  const response=await tryGet(LOCAL+'/v1/media?'+params.toString())
+  if(response.status===424)throw Error('O WAHA não armazenou esta mídia. Confira se ela abre no WhatsApp original.')
+  if(!response.ok)throw Error('Mídia indisponível após nova consulta ao WAHA (HTTP '+response.status+').')
+  return response.blob()
 }
 export async function wahaSendFile(token:string,chatId:string,file:File,caption:string,idempotencyKey:string):Promise<{accepted:boolean;id:string|null}>{
   if(file.size>8*1024*1024)throw Error('Arquivo acima de 8 MB.')
@@ -109,7 +124,7 @@ export async function wahaSendFile(token:string,chatId:string,file:File,caption:
 }
 
 export type WahaAiConversationTask='summary'|'reply'|'commercial'|'ask'
-export interface WahaAiEvidence {id:string;text:string;fromMe:boolean}
+export interface WahaAiEvidence {id:string;text:string;fromMe:boolean;source?:'text'|'audio'}
 export interface WahaAiFinding {description:string;evidence:WahaAiEvidence[]}
 export interface WahaCommercialReport {
   summary:string;confidence:'alta'|'média'|'baixa';limitations:string;
@@ -119,6 +134,8 @@ export interface WahaCommercialReport {
 export interface WahaConversationAiResult {
   task:WahaAiConversationTask;chatId:string;model:string;
   source:'waha-local';messagesRead:number;readOnly:true;sent:false;
+  textMessagesRead?:number;audioDetected?:number;audioTranscribed?:number;
+  audioSkipped?:number;audioFailed?:number;audioTranscripts?:{id:string;text:string}[];
   text?:string;analysis?:WahaCommercialReport
 }
 /** Always loads the selected chat from WAHA server-side; no user-supplied message transcript. */

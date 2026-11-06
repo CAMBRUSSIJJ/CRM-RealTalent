@@ -54,15 +54,60 @@ export function createLocalTools(dir){
   }
 }
 export function sanitizeMediaSrc(raw){
-  if(typeof raw!=='string'||raw.length>2000)return null
+  if(typeof raw!=='string'||raw.length>2500)return null
   let parsed
   try{parsed=new URL(raw,'http://127.0.0.1:4385')}catch{return null}
-  // Prevent redirect/SSRF: only the file route from the local WAHA instance is accepted.
-  if(!['http://127.0.0.1:4385','http://localhost:4385'].includes(parsed.origin))return null
-  if(!/^\/(?:api\/)?files\/[a-zA-Z0-9_./%~-]+$/.test(parsed.pathname) || parsed.pathname.split('/').includes('..'))return null
+  if(!['http://127.0.0.1:4385','http://localhost:4385'].includes(parsed.origin)
+    ||parsed.username||parsed.password||parsed.hash)return null
+  // WAHA file names may include URL-escaped characters (including @, :, + and =).
+  // Still enforce the *exact* local files route and reject both regular and encoded traversal.
+  const prefix=parsed.pathname.startsWith('/api/files/')?'/api/files/':
+    parsed.pathname.startsWith('/files/')?'/files/':null
+  if(!prefix)return null
+  const rest=parsed.pathname.slice(prefix.length)
+  if(!rest||rest.length>1900)return null
+  for(const part of rest.split('/')){
+    if(!part)return null
+    let decoded
+    try{decoded=decodeURIComponent(part)}catch{return null}
+    if(!decoded||decoded==='.'||decoded==='..'||/[\/\\\u0000-\u001f\u007f%?#]/u.test(decoded))return null
+    // File names only: no hidden path segments or unsafe special characters.
+    if(!/^[\p{L}\p{N} _@.+:=()\[\]~,-]+$/u.test(decoded))return null
+  }
   if(!/^[?&a-zA-Z0-9_=%.-]*$/.test(parsed.search))return null
   return parsed.pathname+parsed.search
 }
+/**
+ * WAHA may advertise media links using its *container* address (e.g. localhost:3000)
+ * even though the Linux host reaches it on 127.0.0.1:4385. Only paths from the
+ * authenticated WAHA message API are normalized here; incoming browser requests
+ * are still subject to sanitizeMediaSrc's strict local origin policy.
+ * Normalization NEVER fetches the host named in the media URL.
+ */
+export function normalizeWahaMediaUrl(raw){
+  if(typeof raw!=='string'||!raw||raw.length>2000)return null
+  let parsed
+  try{parsed=new URL(raw,'http://127.0.0.1:4385')}catch{return null}
+  if(!['http:','https:'].includes(parsed.protocol)||parsed.username||parsed.password||parsed.hash)return null
+  // Drop query parameters: WAHA may attach credentials to advertised URLs.
+  // The bridge authenticates to WAHA with its own X-Api-Key header.
+  return sanitizeMediaSrc(parsed.pathname)
+}
+export function normalizeWahaMediaMessages(raw){
+  if(!Array.isArray(raw))return []
+  return raw.map(m=>{
+    if(!m||typeof m!=='object'||Array.isArray(m))return m
+    let result=m
+    if(m.media&&typeof m.media==='object'&&!Array.isArray(m.media)&&m.media.url){
+      result={...result,media:{...m.media,url:normalizeWahaMediaUrl(m.media.url)}}
+    }
+    if(typeof m.mediaUrl==='string'&&m.mediaUrl){
+      result={...result,mediaUrl:normalizeWahaMediaUrl(m.mediaUrl)}
+    }
+    return result
+  })
+}
+
 export async function proxyWahaMedia(raw,headers,res){
   const p=sanitizeMediaSrc(raw)
   if(!p){res.writeHead(400);res.end();return}

@@ -1,0 +1,31 @@
+name: CRM V101 WAHA Tools - QA
+on:
+  push:
+    branches: [feat/waha-tools-in-crm-v101-20261106]
+  pull_request:
+    paths:
+      - 'deploy/waha-direct/**'
+      - 'src/features/communications/**'
+      - 'src/services/waha-direct.ts'
+      - 'src/styles/waha-conversation-tools.css'
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci --include=dev
+      - name: Testes de integração simulados e ferramentas
+        run: node --test deploy/waha-direct/server.test.mjs deploy/waha-direct/tools.test.mjs
+      - name: Verificação TypeScript
+        run: npm run typecheck
+      - name: Compilação V101.11.3
+        env:
+          VITE_DATA_MODE: local
+          VITE_WAHA_DIRECT_PREVIEW: '1'
+        run: npm run build

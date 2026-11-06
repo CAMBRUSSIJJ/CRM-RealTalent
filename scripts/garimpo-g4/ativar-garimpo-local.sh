@@ -13,7 +13,7 @@ probe_contract() {
       -d '{"company":"x","city":"Rio Grande"}' "$RESEARCH" 2>/dev/null || true)" == "400" ]]
 }
 health_json="$(curl --noproxy '*' -fsS --max-time 3 "$HEALTH" 2>/dev/null || true)"
-if [[ -n "$health_json" ]] && probe_contract; then
+if [[ "$health_json" == *'"companyResearchVersion":"g44-multisource-v2"'* ]] && probe_contract; then
   echo "✓ Prospecting Agent com pesquisa por empresa ativo em 4319."
   exit 0
 fi

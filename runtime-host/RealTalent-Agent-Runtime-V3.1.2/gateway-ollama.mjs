@@ -12,6 +12,7 @@ import { researchQuestionV56 } from './crm-research-v56.mjs'
 import { deepResearchV60 } from './crm-deep-research-v60.mjs'
 import { investigateProspectG1 } from './crm-prospect-investigation-g1.mjs'
 import { answerCompanyQuestionG45 } from './crm-company-assistant-g45.mjs'
+import { analyzeLocalScreenshotG46 } from './crm-social-vision-g46.mjs'
 import { planGarimpoG3 } from './crm-garimpo-conversation-g3.mjs'
 import { classifyTriggerEventsG4 } from './crm-trigger-events-g4.mjs'
 
@@ -800,7 +801,27 @@ const handleCompanyQuestionG45=async(req,res)=>{
   finally{companyAssistantInflight--}
 }
 
-// G3 is planning-only. Data mutations and search execution remain in the
+// Optional multimodal screenshot analysis through a locally installed Ollama
+// vision model. Strictly local, read-only, no persistence or external image APIs.
+let socialScreenshotInflight=0
+const handleSocialScreenshotG46=async(req,res)=>{
+  if(!['127.0.0.1','localhost','::1'].includes(OUTER_HOST))return sendJson(res,403,{ok:false,error:'local_only'})
+  const origin=String(req.headers.origin||'')
+  if(origin&&origin!=='http://127.0.0.1:5174'&&origin!=='http://localhost:5174')
+    return sendJson(res,403,{ok:false,error:'origin_forbidden'})
+  if(socialScreenshotInflight>=1)return sendJson(res,429,{ok:false,error:'vision_busy'})
+  socialScreenshotInflight++
+  try{
+    const input=await readJsonBody(req,3000000)
+    const result=await analyzeLocalScreenshotG46(input,{ollamaUrl:OLLAMA_URL})
+    const code=result.ok?200:result.error==='vision_model_missing'?412:
+      result.error==='invalid_image'||result.error==='invalid_company'?400:503
+    return sendJson(res,code,result)
+  }catch{return sendJson(res,400,{ok:false,error:'image_payload_invalid_or_large'})}
+  finally{socialScreenshotInflight--}
+}
+
+ // G3 is planning-only. Data mutations and search execution remain in the
 // existing permission-gated UI; the model cannot call native CRM tools here.
 let garimpoConversationInflight=0
 const handleGarimpoConversationG3=async(req,res)=>{
@@ -848,6 +869,7 @@ const routerServer = http.createServer((req, res) => {
   if (req.method === 'POST' && String(req.url || '').split('?')[0] === '/tools/workflow-synthesize') { void handleContextualWorkflowV63(req,res,'synthesize'); return }
   if (req.method === 'POST' && String(req.url || '').split('?')[0] === '/tools/prospect-investigate') { void handleProspectInvestigationG1(req,res); return }
   if (req.method === 'POST' && String(req.url || '').split('?')[0] === '/tools/company-ask') { void handleCompanyQuestionG45(req,res); return }
+  if (req.method === 'POST' && String(req.url || '').split('?')[0] === '/tools/company-image') { void handleSocialScreenshotG46(req,res); return }
   if (req.method === 'POST' && String(req.url || '').split('?')[0] === '/tools/garimpo-conversation') { void handleGarimpoConversationG3(req,res); return }
   if (req.method === 'POST' && String(req.url || '').split('?')[0] === '/tools/trigger-events') { void handleTriggerG4(req,res); return }
   if (req.method === 'POST' && String(req.url || '').split('?')[0] === '/tools/chat-stream') { void handleConversationStreamV61(req,res); return }

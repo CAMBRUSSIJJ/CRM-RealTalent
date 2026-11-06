@@ -92,6 +92,10 @@ export const emptyWahaPreferences=():WahaPreferences=>({labels:{},favorites:[],q
 export const wahaPreferences=(token:string)=>request<WahaPreferences>('/v1/preferences',token)
 export const wahaUpdatePreferences=(token:string,patch:unknown)=>request<WahaPreferences>('/v1/preferences',token,'POST',patch)
 export const wahaAiStatus=(token:string)=>request<{available:boolean;models:string[];description:string}>('/v1/ai/status',token)
+export type WahaVoiceTranscript={chatId:string;messageId:string;text:string;source:'waha-local-whisper';readOnly:true;sent:false}
+export const wahaTranscribeMessage=(token:string,chatId:string,messageId:string)=>
+  request<WahaVoiceTranscript>('/v1/ai/transcribe',token,'POST',{chatId,messageId})
+
 export const wahaAnalyze=(token:string,task:'summary'|'suggest',messages:WahaMessage[])=>
   request<{model:string;text:string}>('/v1/ai/analyze',token,'POST',{task,messages:messages.slice(-35).filter(m=>typeof m.body==='string').map(m=>({body:m.body,fromMe:!!m.fromMe}))})
 export async function wahaMediaBlob(token:string,src:string,chatId='',messageId=''):Promise<Blob>{

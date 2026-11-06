@@ -146,7 +146,7 @@ export interface WonTriggerPattern{
   evidenceCount:number
   hypothesisCount:number
 }
-export function analyzeWonSales(leads:Lead[],records:WonSalesRecord[]){
+export function analyzeWonSales(leads:Lead[],records:WonSalesRecord[],closedWonDates:Record<string,string>={}){
   const won=leads.filter(lead=>lead.status==='won')
   const winsById=new Map(won.map(lead=>[lead.id,lead]))
   const eligible=records.filter(record=>winsById.has(record.leadId))
@@ -162,7 +162,7 @@ export function analyzeWonSales(leads:Lead[],records:WonSalesRecord[]){
     const lead=winsById.get(record.leadId)
     if(!lead)return null
     // No documented close timestamp means lag must remain unknown.
-    const closedAt=lead.updatedAt
+    const closedAt=closedWonDates[record.leadId]
     if(!closedAt||!Number.isFinite(Date.parse(closedAt)))return null
     const diff=Math.round((Date.parse(closedAt)-Date.parse(record.happenedAt+'T00:00:00Z'))/86400000)
     return diff>=0?diff:null

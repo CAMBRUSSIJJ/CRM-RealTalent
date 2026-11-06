@@ -65,10 +65,20 @@ export function ProspectingCompanyAssistant({prospect}:{prospect:ProspectRecord}
           instagram:prospect.instagram||'',
         }),
       })
-      if(!response.ok)throw Error(response.status===429
-        ?'Outra pesquisa da IA está em andamento. Tente novamente.'
-        :'O serviço de consulta da empresa não respondeu ('+response.status+').')
-      const result=await response.json() as Answer
+      const payload=await response.json().catch(()=>null) as (Answer&{error?:string})|null
+      if(!response.ok){
+        const message=response.status===429
+          ?'Outra pesquisa da IA está em andamento. Tente novamente.'
+          :payload?.error==='local_ai_offline'
+            ?'A ponte de IA local está indisponível ou desatualizada. Reabra o CRM atualizado e confira o Agent na porta 8791.'
+            :response.status===404
+              ?'O Agent ainda não carregou a função G4.5. Atualize o inicializador local.'
+              :payload?.error==='company_research_unavailable'
+                ?'A pesquisa G4.5 falhou no Agent. Confira o diagnóstico do serviço local.'
+                :'O serviço de consulta da empresa não respondeu ('+response.status+').'
+        throw Error(message)
+      }
+      const result=payload as Answer
       if(!result.ok||typeof result.answer!=='string')throw Error('Resposta incompleta da pesquisa.')
       if(!ctrl.signal.aborted)setExchanges(old=>[...old,{id:crypto.randomUUID(),question:value,result}].slice(-6))
     }catch(e){

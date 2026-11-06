@@ -57,3 +57,21 @@ html[data-theme="dark"] .won-sales__pattern-list strong,html[data-theme="dark"] 
 html[data-theme="dark"] .won-sales__notice{background:#213b5b;border-color:#42658a;color:#cbddf7}
 html[data-theme="dark"] .won-sales__form-grid :is(input,textarea,select){background:#233953;color:#e8f1ff;border-color:#476180}
 html[data-theme="dark"] .won-sales__export,html[data-theme="dark"] .won-sales__win-actions button{background:#263d5b;color:#dbeaff;border-color:#405d7f}
+
+
+.won-sales-signals{display:grid;gap:12px;padding:15px 16px;border:1px solid #dce8f6;border-radius:12px;background:#f8fbff;margin:13px 0}
+.won-sales-signals>span,.won-sales-signals>header span{display:flex;align-items:center;gap:7px;font-size:12px;font-weight:780;color:#285a9a}
+.won-sales-signals>header{display:flex;justify-content:space-between;gap:10px}
+.won-sales-signals>header>svg{flex:0 0 18px;color:#5486bd}
+.won-sales-signals p{font-size:11px;line-height:1.6;color:#6e839f;margin:4px 0 0}
+.won-sales-signals__cards{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+.won-sales-signals__cards article{border:1px solid #dce7f5;border-radius:10px;background:#fff;padding:12px;display:grid;gap:12px;min-width:0}
+.won-sales-signals__cards article>div{display:grid;gap:5px}
+.won-sales-signals__cards article strong{font-size:12px;color:#295387}
+.won-sales-signals__cards article small,.won-sales-signals>small{font-size:10px;color:#778fac;line-height:1.5}
+.won-sales-signals__cards button{justify-self:start;display:flex;gap:6px;align-items:center;border:0;background:#edf5ff;color:#2d63a9;font-weight:720;font-size:11px;border-radius:7px;padding:8px 9px;cursor:pointer}
+.won-sales-signals__cards button:hover{background:#dcecff}
+html[data-theme="dark"] .won-sales-signals{background:#1d304a;border-color:#38587b}
+html[data-theme="dark"] .won-sales-signals__cards article{background:#243b57;border-color:#3c5a7d}
+html[data-theme="dark"] .won-sales-signals__cards strong{color:#d7e8ff}
+@media(max-width:790px){.won-sales-signals__cards{grid-template-columns:1fr}}

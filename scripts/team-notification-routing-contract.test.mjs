@@ -45,7 +45,12 @@ test('phone directory obeys tenant-scoped access controls', () => {
 })
 
 test('one Teams contact is reused by task settings without typing each task', () => {
-  assert.ok(teamsPage.includes('<TeamNotificationContacts'))
+  assert.ok(teamsPage.includes('<TeamNotificationsPanel'), 'Teams should expose a dedicated notifications tab')
+  assert.ok(teamsPage.includes("id:'notifications'"), 'notifications must remain available on Teams')
+  assert.ok(!teamsPage.includes("label:'Perfis e acesso'"), 'technical permission UI must not be in Teams')
+  const notificationPanel = read('src/features/teams/team-notifications-panel.tsx')
+  assert.ok(notificationPanel.includes('<TeamNotificationContacts'), 'reuse Supabase contact directory')
+  assert.ok(notificationPanel.includes('<LocalMemberWhatsAppEditor'), 'reuse local consent gateway editor')
   assert.ok(settings.includes("from('team_member_notification_contacts')"))
   assert.ok(teamSource.includes("from('team_member_notification_contacts')"))
   assert.ok(settings.includes('phoneChanged ? null'))

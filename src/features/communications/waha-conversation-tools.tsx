@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { BrainCircuit, Check, Clipboard, FileText, LoaderCircle, Paperclip, Star, Tag, X } from 'lucide-react'
 import {
-  wahaAiStatus, wahaAnalyzeSelectedConversation, wahaMediaBlob,
+  wahaAiStatus, wahaAnalyzeSelectedConversation, wahaMediaBlob, wahaTranscribeMessage,
   type WahaCommercialReport, type WahaAiConversationTask,
   type WahaChat, type WahaMessage, type WahaPreferences,
   type WahaQuickReply,
@@ -181,23 +181,62 @@ export function WahaMessageMedia({message,token,chatId}:{message:WahaMessage;tok
   const [url,setUrl]=useState('')
   const [error,setError]=useState('')
   const [retry,setRetry]=useState(0)
+  const [transcript,setTranscript]=useState('')
+  const [voiceError,setVoiceError]=useState('')
+  const [transcribing,setTranscribing]=useState(false)
   const src=message.media?.url||message.mediaUrl||''
+  const mime=message.media?.mimetype||''
+  const filename=message.media?.filename||'Arquivo'
+  const incomingVoice=mime.startsWith('audio/')&&!message.fromMe
   useEffect(()=>{
     if(!message.hasMedia||(!src&&!message.id))return
     let active=true,objectUrl=''
     setUrl('');setError('')
-    void wahaMediaBlob(token,src,chatId,message.id).then(blob=>{if(!active)return;objectUrl=URL.createObjectURL(blob);setUrl(objectUrl)}).catch(e=>{if(active)setError(e instanceof Error?e.message:'Mídia indisponível.')})
+    void wahaMediaBlob(token,src,chatId,message.id).then(blob=>{
+      if(!active)return
+      objectUrl=URL.createObjectURL(blob)
+      setUrl(objectUrl)
+    }).catch(e=>{if(active)setError(e instanceof Error?e.message:'Mídia indisponível.')})
     return()=>{active=false;if(objectUrl)URL.revokeObjectURL(objectUrl)}
   },[message.id,src,message.hasMedia,token,chatId,retry])
+  useEffect(()=>{setTranscript('');setVoiceError('');setTranscribing(false)},[chatId,message.id])
+  async function transcribe(){
+    if(transcribing)return
+    setTranscribing(true);setVoiceError('')
+    try{
+      const response=await wahaTranscribeMessage(token,chatId,message.id)
+      if(response.chatId===chatId&&response.messageId===message.id)setTranscript(response.text)
+    }catch(e){
+      setVoiceError(e instanceof Error?e.message:'Falha ao transcrever o áudio.')
+    }finally{setTranscribing(false)}
+  }
   if(!message.hasMedia)return null
-  const mime=message.media?.mimetype||''
-  const filename=message.media?.filename||'Arquivo'
-  if(error)return <p className="waha-media"><Paperclip size={15}/> {filename}: {error}{' '}
-    <button type="button" onClick={()=>setRetry(x=>x+1)}>Tentar novamente</button>
-  </p>
-  if(!url)return <p className="waha-media"><LoaderCircle className="spin" size={15}/> Carregando mídia...</p>
-  if(mime.startsWith('image/'))return <a href={url} target="_blank" rel="noopener noreferrer"><img className="waha-chat-image" src={url} alt="Imagem da conversa"/></a>
-  if(mime.startsWith('audio/'))return <audio controls preload="none" src={url} className="waha-chat-audio"/>
-  if(mime.startsWith('video/'))return <video controls preload="none" src={url} className="waha-chat-video"/>
-  return <a href={url} download={filename} className="waha-media-download"><Paperclip size={15}/>{filename}</a>
+  let media:ReactNode
+  if(error){
+    media=<p className="waha-media"><Paperclip size={15}/> {filename}: {error}{' '}
+      <button type="button" onClick={()=>setRetry(x=>x+1)}>Tentar novamente</button>
+    </p>
+  }else if(!url){
+    media=<p className="waha-media"><LoaderCircle className="spin" size={15}/> Carregando mídia...</p>
+  }else if(mime.startsWith('image/')){
+    media=<a href={url} target="_blank" rel="noopener noreferrer"><img className="waha-chat-image" src={url} alt="Imagem recebida"/></a>
+  }else if(mime.startsWith('audio/')){
+    media=<audio controls preload="none" src={url} className="waha-chat-audio"/>
+  }else if(mime.startsWith('video/')){
+    media=<video controls preload="none" src={url} className="waha-chat-video"/>
+  }else{
+    media=<a href={url} download={filename} className="waha-media-download"><Paperclip size={15}/>{filename}</a>
+  }
+  return <div className="waha-message-media">
+    {media}
+    {incomingVoice?<div className="waha-voice-transcription">
+      <button type="button" className="waha-transcribe-btn" disabled={transcribing}
+        onClick={()=>void transcribe()}>
+        {transcribing?<LoaderCircle className="spin" size={14}/>:<BrainCircuit size={14}/>}
+        {transcribing?'Transcrevendo no Linux...':transcript?'Transcrever novamente':'Transcrever áudio'}
+      </button>
+      {transcript?<div className="waha-voice-text"><strong>Transcrição local · confira o conteúdo</strong><p>{transcript}</p></div>:null}
+      {voiceError?<p className="waha-voice-error" role="alert">{voiceError}</p>:null}
+    </div>:null}
+  </div>
 }

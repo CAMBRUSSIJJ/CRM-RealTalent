@@ -56,8 +56,9 @@ export const wahaSend=(token:string,chatId:string,text:string,idempotencyKey:str
 
 // WAHA websocket is consumed on the Linux companion; browser uses authenticated SSE.
 // Browser streaming fetch supports Authorization header (EventSource does not).
+export interface WahaRealtimeEvent {event:string;chatId:string|null}
 export async function watchWaha(
-  token:string, onEvent:()=>void, signal:AbortSignal,
+  token:string, onEvent:(event:WahaRealtimeEvent)=>void, signal:AbortSignal,
 ):Promise<void>{
   while(!signal.aborted){
     try{
@@ -73,7 +74,12 @@ export async function watchWaha(
         let end:number
         while((end=pending.indexOf('\n\n'))>=0){
           const frame=pending.slice(0,end);pending=pending.slice(end+2)
-          if(frame.split('\n').some(x=>x.startsWith('data: ')))onEvent()
+          const item=frame.split('\n').find(x=>x.startsWith('data: '))
+          if(item){try{
+            const data=JSON.parse(item.slice(6)) as Partial<WahaRealtimeEvent>
+            if(typeof data.event==='string')
+              onEvent({event:data.event,chatId:typeof data.chatId==='string'?data.chatId:null})
+          }catch{/* Malformed socket event: polling remains a fallback. */}}
         }
         if(pending.length>32_000)pending=''
       }

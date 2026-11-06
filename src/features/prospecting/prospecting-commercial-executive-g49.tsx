@@ -38,7 +38,7 @@ export function ProspectingCommercialExecutiveG49({
   const actions=report.actions.slice(0,2)
   return <section className="prospecting-executive-g49" aria-label="Resumo executivo da inteligência comercial">
     <header>
-      <div className="prospecting-executive-g49__badge"><Compass size={14}/> Síntese executiva · G4.9</div>
+      <div className="prospecting-executive-g49__badge"><Compass size={14}/> Síntese executiva · G4.9.1</div>
       <h3>O que realmente importa nesta investigação?</h3>
       <p>{report.executive}</p>
       <div className="prospecting-executive-g49__coverage">

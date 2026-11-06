@@ -19,16 +19,19 @@ const mediaLabel=(m:WahaMessage)=>m.hasMedia ? (m.media?.mimetype?.startsWith('a
 function deliveryLabel(m:WahaMessage){
   if(!m.fromMe)return ''
   const name=String(m.ackName||'').toLowerCase()
+  if(name.includes('fail')||name.includes('error'))return 'Falhou'
+  if(name.includes('pending')||name.includes('clock'))return 'Pendente'
   if(name.includes('read')||name.includes('played')||name.includes('lido'))return 'Lida'
   if(name.includes('deliver'))return 'Entregue'
   if(name.includes('send')||name.includes('sent'))return 'Enviada'
   if(Number.isInteger(m.ack)){
+    if(m.ack===-1)return 'Falhou'
     if(m.ack===0)return 'Pendente'
     if(m.ack===1)return 'Enviada'
     if(m.ack===2)return 'Entregue'
     if((m.ack||0)>=3)return 'Lida'
   }
-  return 'Enviada · aguardando confirmação'
+  return 'Status não confirmado'
 }
 
 export function WahaConversationsPage(){

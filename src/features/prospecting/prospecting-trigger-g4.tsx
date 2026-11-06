@@ -50,6 +50,20 @@ export function ProspectingTriggerIntelligenceG4({prospect,readOnly}:Props){
     }catch{setItems([]);setWinningPatterns({})}
     return ()=>{cancelled=true}
   },[workspaceId,prospect.id,preset,cloud])
+  useEffect(()=>{
+    const onSource=(event:Event)=>{
+      const value=(event as CustomEvent<{
+        workspaceId:string;prospectId:string;sourceUrl:string;excerpt:string
+      }>).detail
+      if(!value||value.workspaceId!==workspaceId||value.prospectId!==prospect.id||
+        !sourceUrl(value.sourceUrl)||typeof value.excerpt!=='string'||value.excerpt.trim().length<35)return
+      setSource(old=>({...old,sourceUrl:value.sourceUrl,excerpt:value.excerpt.slice(0,5400)}))
+      setError('')
+      setMessage('Fonte pública preparada pela investigação. Confira a publicação original e clique em Analisar com Qwen local.')
+    }
+    window.addEventListener('realtalent:garimpo:g4:source-from-investigation',onSource)
+    return ()=>window.removeEventListener('realtalent:garimpo:g4:source-from-investigation',onSource)
+  },[workspaceId,prospect.id])
   const refresh=async()=>{
     if(cloud){
       const records=await readRemoteTriggerReviewsG43(workspaceId,prospect.id)

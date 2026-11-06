@@ -180,6 +180,19 @@ export function TasksPage() {
     } finally {setSaving(false)}
   }
 
+  const createQuick = async (title:string,status:TaskStatus) => {
+    if(!workspaceId || !canTaskCreate)throw new Error('Criação de tarefas indisponível.')
+    try{
+      await saveTask(repositoryMode,workspaceId,{title,status,priority:'normal',
+        reminderEnabled:true,reminderOnAssignment:true,reminderChannels:['in_app']},user?.id??null,teamAccess)
+      await reload()
+      notify('success','Tarefa criada no quadro.')
+    }catch(error){
+      notify('error',error instanceof Error?error.message:'Falha ao criar a tarefa.')
+      throw error
+    }
+  }
+
   const changeStatus = async (task: WorkTask, status: TaskStatus) => {
     if (!workspaceId) return
     try {
@@ -302,7 +315,7 @@ export function TasksPage() {
       diagnostics={notificationDiagnostics} notificationsReachable={notificationsReachable} repositoryMode={repositoryMode}
       readOnly={!canTaskEdit} canCreate={canTaskCreate} onCreate={showTaskCreate} onEdit={openEdit} onStatus={changeStatus}
       canDelete={canTaskDelete} onDelete={remove} onNotifications={()=>setShowNotifications(true)}
-      onQuickCreate={(title,status)=>save({title,status,priority:'normal',reminderEnabled:true,reminderOnAssignment:true,reminderChannels:['in_app']})} />
+      onQuickCreate={createQuick} />
       : <section className="tasks-page-v4__list" aria-label="Lista de tarefas">{filtered.length
         ? filtered.map((task) => <TaskRow key={task.id} task={task} diagnostic={notificationDiagnostics[task.id]??null}
           notificationsReachable={notificationsReachable} repositoryMode={repositoryMode} team={task.teamId ? teamById.get(task.teamId) ?? null : null}

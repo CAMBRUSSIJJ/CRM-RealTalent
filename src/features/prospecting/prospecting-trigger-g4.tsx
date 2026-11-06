@@ -73,6 +73,15 @@ export function ProspectingTriggerIntelligenceG4({prospect,readOnly}:Props){
     try{setItems(readTriggerReviewsG4(workspaceId,window.localStorage).filter(x=>x.prospectId===prospect.id))}
     catch{setItems([])}
   }
+  useEffect(()=>{
+    const onChanged=(event:Event)=>{
+      const detail=(event as CustomEvent<{workspaceId:string;prospectId?:string}>).detail
+      if(detail?.workspaceId!==workspaceId||detail?.prospectId&&detail.prospectId!==prospect.id)return
+      void refresh().catch(err=>setError(err instanceof Error?err.message:'Não foi possível atualizar os sinais G4.'))
+    }
+    window.addEventListener('realtalent:garimpo:g4:change',onChanged)
+    return ()=>window.removeEventListener('realtalent:garimpo:g4:change',onChanged)
+  },[workspaceId,prospect.id,cloud])
   async function analyze(){
     if(readOnly||busy)return
     if(!sourceUrl(source.sourceUrl)||source.excerpt.trim().length<35){

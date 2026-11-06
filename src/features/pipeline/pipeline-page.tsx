@@ -829,6 +829,22 @@ export function PipelinePage() {
     {viewMode === 'calendar' ? renderCalendar() : null}
     {viewMode === 'funnel' ? renderFunnel() : null}
 
+    <Modal open={Boolean(triggerInspectLeadId)} title="Sinais comerciais revisados"
+      subtitle="Acontecimentos documentados no Garimpo. Necessidades inferidas não confirmam intenção de compra."
+      size="lg" onClose={()=>setTriggerInspectLeadId(null)}
+      footer={<Button variant="secondary" onClick={()=>setTriggerInspectLeadId(null)}>Fechar</Button>}>
+      <div className="sales-pipeline-v3__trigger-list">
+        {triggerSignals.filter(item=>item.leadId===triggerInspectLeadId).map(signal=><article key={signal.id}>
+          <span>{triggerLabelsG4[signal.category]} · Revisão humana</span>
+          <strong>{signal.event}</strong>
+          <blockquote>“{signal.quote}”</blockquote>
+          <p><b>Possível necessidade (hipótese):</b> {signal.hypothesis}</p>
+          <a href={signal.sourceUrl} target="_blank" rel="noopener noreferrer">
+            Conferir publicação original <ArrowRight size={13}/>
+          </a>
+        </article>)}
+      </div>
+    </Modal>
     <DealInspectorModal open={Boolean(inspectingDeal)} insight={inspectingDeal} snapshot={snapshot} readOnly={!canPipelineEdit} onClose={() => setInspectingLeadId(null)} onExecute={runDealAction} onOpenAccount={(deal) => { setInspectingLeadId(null); navigate('leads', { leadId: deal.lead.id, action: 'account360' }) }} onOpenLead={(deal) => { setInspectingLeadId(null); setViewing(deal.lead) }} />
     <CreateLeadModal
       mode="opportunity"

@@ -15,12 +15,19 @@ curl --noproxy '*' -fsS --max-time 10 -H "X-Api-Key: $KEY" http://127.0.0.1:4385
   exit 1
 }
 unset KEY
-BASE="https://raw.githubusercontent.com/CAMBRUSSIJJ/CRM-RealTalent/feat/waha-local-audio-transcription-20261106/deploy/waha-direct"
+BASE="https://raw.githubusercontent.com/CAMBRUSSIJJ/CRM-RealTalent/feat/waha-unified-task-notifications-20261106/deploy/waha-direct"
 echo "Atualizando ponte e dependências do mesmo commit/branch..."
-for name in server.mjs tools.mjs conversation-intelligence.mjs audio-transcription.mjs group-senders.mjs inline-voice.mjs auto-reply.mjs transcribe-audio.py instalar-transcricao-local-linux.sh;do
+for name in server.mjs tools.mjs conversation-intelligence.mjs audio-transcription.mjs group-senders.mjs inline-voice.mjs auto-reply.mjs task-notifications.mjs transcribe-audio.py instalar-transcricao-local-linux.sh;do
   curl -fL --retry 2 --max-time 40 "$BASE/$name" -o "$APP/$name"
   chmod 600 "$APP/$name"
 done
+# The standalone bridge runs outside the Git checkout; install the canonical scheduler.
+mkdir -p "$APP/notifications"
+SCRIPT_BASE="https://raw.githubusercontent.com/CAMBRUSSIJJ/CRM-RealTalent/feat/waha-unified-task-notifications-20261106/scripts"
+curl -fL --retry 2 "$SCRIPT_BASE/local-task-whatsapp-scheduler.mjs" -o "$APP/local-task-whatsapp-scheduler.mjs"
+curl -fL --retry 2 "$SCRIPT_BASE/notifications/notification-event-contract.mjs" -o "$APP/notifications/notification-event-contract.mjs"
+chmod 600 "$APP/local-task-whatsapp-scheduler.mjs" "$APP/notifications/notification-event-contract.mjs"
+node --check "$APP/task-notifications.mjs"
 chmod 700 "$APP/instalar-transcricao-local-linux.sh"
 node --check "$APP/server.mjs"
 node --check "$APP/audio-transcription.mjs"

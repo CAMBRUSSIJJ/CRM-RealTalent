@@ -15,7 +15,7 @@ probe_release(){
   curl --noproxy '*' -sS --max-time 4 "$HOST/tools/prospect-investigate/status" 2>/dev/null \
     | grep -q '"company-research-v1"' &&
   curl --noproxy '*' -sS --max-time 4 "$HOST/tools/company-ask/status" 2>/dev/null |
-    grep -q '"company-assistant-g45"'
+    grep -q '"company-assistant-g46"'
 }
 RESULT="$(probe)"
 if [[ "$RESULT" == *'"invalid_source_or_excerpt"'* ]] && probe_release; then

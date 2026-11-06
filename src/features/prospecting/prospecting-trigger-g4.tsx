@@ -127,7 +127,7 @@ export function ProspectingTriggerIntelligenceG4({prospect,readOnly}:Props){
         <blockquote>“{row.quote}”</blockquote>
         <div className="prospecting-trigger-g4__facts">
           {row.dateQuote?<span>Data citada na fonte: {row.dateQuote}</span>:<span>Data do evento: não identificada</span>}
-          <span>Prioridade de investigação: {row.investigationPriority}/100 · <em>não é chance de compra</em></span>
+          <span>Citação localizada no trecho fornecido · verificação externa pendente</span>
           {winningPatterns[row.category]?<span>Histórico local: {winningPatterns[row.category]} venda(s) ganhas documentadas nesta categoria</span>:null}
         </div>
         <p><strong>Possível necessidade (hipótese):</strong> {row.hypothesis}</p>

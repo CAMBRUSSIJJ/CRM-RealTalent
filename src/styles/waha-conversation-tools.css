@@ -90,10 +90,10 @@
 .waha-crm-links{display:flex;gap:6px;flex-wrap:wrap}
 @media(max-width:1250px){
   .waha-layout.with-panel{grid-template-columns:minmax(240px,300px) minmax(0,1fr);position:relative}
-  .waha-layout.with-panel>.waha-tools-drawer{position:absolute;top:0;bottom:0;right:0;width:min(365px,65%);
+  .waha-layout.with-panel>.waha-tools-drawer{position:absolute;top:0;bottom:0;right:0;left:auto;width:min(365px,65%);
     box-shadow:-16px 0 38px #182f511e;z-index:5}
 }
 @media(max-width:650px){
   .waha-layout.with-panel{display:flex;flex-direction:column}
-  .waha-layout.with-panel>.waha-tools-drawer{position:absolute;top:0;bottom:0;right:0;width:100%}
+  .waha-layout.with-panel>.waha-tools-drawer{position:absolute;top:0;bottom:0;right:0;left:auto;width:100%}
 }

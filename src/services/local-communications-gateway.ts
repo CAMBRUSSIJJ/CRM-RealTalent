@@ -4,6 +4,7 @@ import type { ConnectedAccount, DiagnosticStatus, OAuthProvider } from './integr
 import {describeLocalServiceError} from '../lib/integration-availability-s34'
 import { isCloudRuntimeProxy, runtimeFetch } from './realtalent-runtime-transport'
 import { gatewayAuthFailure, gatewayPollRetryDelayMs } from './communications-retry-policy'
+import {storedWahaToken, WAHA_BRIDGE_URL} from './waha-direct'
 
 export interface CommunicationsGatewayHealth {
   ok: boolean
@@ -126,6 +127,30 @@ export function subscribeGatewayCommunicationsRealtime(
 }
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
+  // Isolated WAHA local preview: task reminders share the already connected
+  // WhatsApp GOWS session. Other communications routes remain unchanged.
+  if(import.meta.env.VITE_WAHA_DIRECT_PREVIEW === '1' &&
+     path.startsWith('/api/task-reminders/')){
+    const token=storedWahaToken()
+    if(!token)throw new Error('Abra Comunicação → WAHA GOWS local e conecte a chave da ponte antes de ativar notificações de tarefas.')
+    const route='/v1/task-reminders/'+path.slice('/api/task-reminders/'.length)
+    let response:Response
+    try{
+      response=await fetch(WAHA_BRIDGE_URL+route,{
+        ...init,cache:'no-store',
+        headers:{Authorization:'Bearer '+token,'Content-Type':'application/json'},
+        signal:AbortSignal.timeout(15000),
+      })
+    }catch{
+      throw new Error('WAHA Direct não está acessível em 127.0.0.1:4392. A fila local não foi confirmada; nenhum reenvio foi feito.')
+    }
+    const data=await response.json().catch(()=>({})) as Record<string,unknown>
+    if(!response.ok){
+      const message=String(data.detail||data.error||'Falha no gateway WAHA')
+      throw new Error('Notificações WAHA: '+message.slice(0,180))
+    }
+    return data as T
+  }
   const method = String(init?.method || 'GET').toUpperCase()
   const attempts = method === 'GET' ? 3 : 1
   let response: Response | null = null

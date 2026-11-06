@@ -31,6 +31,7 @@ export function LocalMemberWhatsAppEditor({ member, workspaceId, onSaved }: Prop
     return () => { live=false }
   }, [workspaceId,member.userId,member.whatsappAutoEnabledAt])
 
+  const transportName = import.meta.env.VITE_WAHA_DIRECT_PREVIEW === '1' ? 'WAHA GOWS local' : 'WhatsApp QR conectado'
   const stored = member.whatsappPhone ?? ''
   const normalized = normalizeTeamWhatsAppNumber(phone)
   const changedPhone = normalized !== stored || Boolean(phone.trim()) && !normalized
@@ -88,7 +89,7 @@ export function LocalMemberWhatsAppEditor({ member, workspaceId, onSaved }: Prop
     <label className="local-member-wa__consent local-member-wa__automation">
       <input type="checkbox" checked={automatic} disabled={saving || !consent || !normalized}
         onChange={event => setAutomatic(event.target.checked)}/>
-      <span><BellRing size={13}/> Enviar avisos de tarefas automaticamente pelo WhatsApp QR conectado (experimental).</span>
+      <span><BellRing size={13}/> Enviar avisos de tarefas automaticamente pelo {transportName} (experimental).</span>
     </label>
     <small className="local-member-wa__helper">Ativação individual e revogável. O Communications Gateway precisa continuar ligado; o QR não é a API oficial e não garante recebimento. Teste com um contato autorizado antes de ativar.</small>
     {automatic && remoteActive === false ? <small role="status" className="local-member-wa__error">

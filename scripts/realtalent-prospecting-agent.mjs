@@ -1383,19 +1383,19 @@ async function webPlaceDraft(result, region, job) {
   return { draft: base, classification: { ...classification, category, location } }
 }
 
-async function searchWeb(segment, region, limit = 18) {
+async function searchWeb(segment, region, limit = 18, options = {}) {
   if (!WEB_SEARCH_ENABLED) return []
   const endpoint = new URL(WEB_SEARCH)
   endpoint.searchParams.set('q', `${segment} ${region}`)
   try {
     const results = await withRetries('Busca web', async () => {
-      const response = await fetchWithTimeout(endpoint.toString(), { headers: { accept: 'text/html,application/xhtml+xml' } }, 18000)
+      const response = await fetchWithTimeout(endpoint.toString(), { headers: { accept: 'text/html,application/xhtml+xml' } }, options.timeoutMs ?? 18000)
       if (!response.ok) throw new Error(`Busca web HTTP ${response.status}`)
       const page = await readLimitedText(response, 900_000)
       if (isSearchChallenge(page)) throw new Error('DuckDuckGo exigiu verificação de acesso; pesquisa não concluída.')
         const parsed=parseSearchHtmlResults(page, endpoint.toString(), limit)
         return parsed.length?parsed:parseWebSearchResults(page, endpoint.toString(), limit)
-    })
+    }, options.retries ?? PROVIDER_RETRIES)
     markProvider('webSearch', true)
     return results
   } catch (error) {
@@ -2603,7 +2603,7 @@ const server = http.createServer(async (req, res) => {
       }
       for(const query of queries){
         try{
-          const found=await searchWeb(query,'',8)
+          const found=await searchWeb(query,'',8,{timeoutMs:6500,retries:1})
           addResults(found,'duckduckgo',query)
         }catch(error){
           attempts.push({query,provider:'duckduckgo',status:'error',reason:clean(error instanceof Error?error.message:error).slice(0,140)})
@@ -2619,7 +2619,7 @@ const server = http.createServer(async (req, res) => {
           try{
             const response=await fetchWithTimeout(endpoint.toString(),{
               headers:{accept:'application/rss+xml,application/xml,text/xml;q=0.8'},
-            },11000)
+            },7500)
             if(!response.ok)throw new Error('Bing RSS HTTP '+response.status)
             const xml=await readLimitedText(response,450_000)
             if(!/<rss\b|<channel\b/i.test(xml))throw new Error('Formato RSS inesperado ou bloqueio do buscador.')

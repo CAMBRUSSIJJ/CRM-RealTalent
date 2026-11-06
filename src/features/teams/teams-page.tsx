@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Activity, AlertTriangle, CheckCircle2, Gauge, Pencil, Plus, ShieldCheck, Target, TrendingUp, Trash2, UserRound, UsersRound } from 'lucide-react'
+import { Activity, AlertTriangle, BellRing, CheckCircle2, Gauge, Pencil, Plus, Target, TrendingUp, Trash2, UserRound, UsersRound, ArrowUpRight, ListTodo } from 'lucide-react'
 import { useAppActions, useAppUi, useAppWorkspace } from '../../app/app-context'
 import { Button } from '../../components/ui/button'
 import { EmptyState } from '../../components/ui/empty-state'
@@ -10,8 +10,9 @@ import { deleteTeam, loadWorkManagement, saveTeam, type WorkManagementSnapshot }
 import { TeamModal } from './team-modal'
 import { getMetricValue, goalMetricLabels, goalMetricUnits } from '../../services/metrics'
 import { formatCurrency } from '../../domain/formatters'
-import { TeamAccessPanel } from './team-access-panel'
-import { TeamNotificationContacts } from './team-notification-contacts'
+import { TeamNotificationsPanel } from './team-notifications-panel'
+import { routeToHash } from '../../app/route-state'
+import '../../styles/teams-operational.css'
 import { useAuth } from '../auth/auth-context'
 
 const openStatuses = new Set(['todo','in_progress','blocked'])
@@ -28,7 +29,7 @@ export function TeamsPage() {
   const [modalOpen, setModalOpen] = useState(false)
   const [editing, setEditing] = useState<Team | null>(null)
   const [saving, setSaving] = useState(false)
-  const [view, setView] = useState<'overview'|'goals'|'people'|'performance'|'access'>('overview')
+  const [view, setView] = useState<'overview'|'goals'|'people'|'performance'|'notifications'>('overview')
   const workspaceId = currentWorkspace?.id ?? ''
   const canManage = can('manage','workspace')
 

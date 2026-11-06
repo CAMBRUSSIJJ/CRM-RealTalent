@@ -10,13 +10,14 @@ interface ModalProps {
   subtitle?: string
   footer?: ReactNode
   headerActions?: ReactNode
+  className?: string
   onClose(): void
   size?: 'sm' | 'md' | 'lg' | 'xl' | 'full'
 }
 
 const EXIT_DURATION_MS = 180
 let modalLockCount = 0
-export function Modal({ open, title, subtitle, footer, headerActions, onClose, size = 'md', children }: PropsWithChildren<ModalProps>) {
+export function Modal({ open, title, subtitle, footer, headerActions, className, onClose, size = 'md', children }: PropsWithChildren<ModalProps>) {
   const titleId = useId()
   const subtitleId = useId()
   const modalId = useId()
@@ -95,7 +96,7 @@ export function Modal({ open, title, subtitle, footer, headerActions, onClose, s
   if (!mounted) return null
   const content = (
     <div data-overlay-id={`modal:${modalId}`} className={`modal-backdrop ${closing ? 'is-closing' : ''}`} role="presentation" onMouseDown={(event) => { if (open && isTopOverlay(`modal:${modalId}`) && event.target === event.currentTarget) closeRef.current() }}>
-      <section ref={dialogRef} tabIndex={-1} data-rt-primitive="dialog" className={`rt-dialog modal modal--${size} ${closing ? 'is-closing' : ''}`} role="dialog" aria-modal="true" aria-labelledby={titleId} aria-describedby={subtitle ? subtitleId : undefined}>
+      <section ref={dialogRef} tabIndex={-1} data-rt-primitive="dialog" className={`rt-dialog modal modal--${size} ${className || ''} ${closing ? 'is-closing' : ''}`} role="dialog" aria-modal="true" aria-labelledby={titleId} aria-describedby={subtitle ? subtitleId : undefined}>
         <header className="modal__header">
           <div>
             <h2 id={titleId}>{title}</h2>

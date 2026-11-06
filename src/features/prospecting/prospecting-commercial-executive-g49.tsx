@@ -43,7 +43,7 @@ export function ProspectingCommercialExecutiveG49({
       </div>
       {comparison?<p className="prospecting-executive-g49__compare">
         {comparison.added>0
-          ?String(comparison.added)+' resultado(s) indexado(s) novo(s) em relação à consulta anterior nesta tela.'
+          ?String(comparison.added)+' referência(s) de publicações analisadas nova(s) em relação à consulta anterior nesta tela.'
           :'Nenhum link indexado novo em relação à consulta anterior nesta tela.'}
         {comparison.removed>0?' '+comparison.removed+' link(s) deixaram de aparecer.':''}
         {' '}Isso não comprova uma publicação recente nem uma mudança na empresa.

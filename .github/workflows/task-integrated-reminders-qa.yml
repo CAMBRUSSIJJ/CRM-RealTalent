@@ -38,6 +38,8 @@ on:
       - 'src/styles/task-reminders.css'
       - 'scripts/task-reminder-ui-contract.test.mjs'
       - 'scripts/team-notification-routing-contract.test.mjs'
+      - 'scripts/teams-operational-ux-contract.test.mjs'
+      - 'src/styles/teams-operational.css'
 permissions:
   contents: read
 jobs:
@@ -58,6 +60,8 @@ jobs:
         run: node --test scripts/task-reminder-ui-contract.test.mjs
       - name: Team contact and reminder routing contracts
         run: node --test scripts/team-notification-routing-contract.test.mjs
+      - name: Operational Teams navigation and security contracts
+        run: node --test scripts/teams-operational-ux-contract.test.mjs
       - name: Local team phone and consent contracts
         run: node --test scripts/local-team-whatsapp-contract.test.mjs
       - name: Automatic local queue safety contracts

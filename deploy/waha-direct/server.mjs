@@ -10,6 +10,7 @@ import { transcribeOneReceivedMessage } from './inline-voice.mjs'
 import { analyzeWahaConversation } from './conversation-intelligence.mjs'
 import { createAudioTranscriber } from './audio-transcription.mjs'
 import { createAutoReplyController } from './auto-reply.mjs'
+import {createWahaTaskNotifications} from './task-notifications.mjs'
 
 // Local-only authenticated companion: WAHA credentials never enter the browser.
 const home=os.homedir()
@@ -77,6 +78,12 @@ async function readBody(req,maxBytes=12000){
   for await(const part of req){size+=part.length;if(size>maxBytes){const err=new Error('too_large');err.status=413;throw err};parts.push(part)}
   return JSON.parse(Buffer.concat(parts).toString('utf8'))
 }
+// Separate persistent queue, same WAHA realtalent session and X-Api-Key.
+const taskNotifications=createWahaTaskNotifications({dataDir,session,upstream})
+const taskTick=setInterval(()=>{void taskNotifications.tick().catch(
+  ()=>console.error('[WAHA tasks] Falha no ciclo de avisos; verificar WAHA local')
+)},3000)
+taskTick.unref()
 async function handler(req,res){
   const origin=req.headers.origin
   if(origin&&!origins.has(origin)){output(res,403,{error:'origin_blocked'});return}
@@ -93,7 +100,20 @@ async function handler(req,res){
   if(!authenticated(req.headers.authorization)){output(res,401,{error:'invalid_bridge_token'});return}
   try{
     if(url.pathname==='/v1/features'&&req.method==='GET'){
-      output(res,200,{version:'ai-reply-optin-v4',features:['waha-chat','commercial-analysis','ask-about-chat','reply-draft','local-audio-transcription','inline-voice','group-identity','media-recovery','per-chat-auto-reply'],autoSend:false,autoReplyOptIn:true});return
+      output(res,200,{version:'task-notifications-waha-v5',features:['waha-chat','commercial-analysis','ask-about-chat','reply-draft','local-audio-transcription','inline-voice','group-identity','media-recovery','per-chat-auto-reply','task-assignment-notifications'],autoSend:false,autoReplyOptIn:true});return
+    }
+    if(url.pathname.startsWith('/v1/task-reminders/')){
+      const action=url.pathname.slice('/v1/task-reminders/'.length)
+      const getOnly=new Set(['status','diagnose','member-status'])
+      const postOnly=new Set(['member','schedule','cancel','request','reconcile'])
+      if((req.method==='GET'&&!getOnly.has(action))||
+        (req.method==='POST'&&!postOnly.has(action))){
+        output(res,405,{error:'method_not_allowed'});return
+      }
+      const input=req.method==='GET'
+        ?Object.fromEntries(url.searchParams.entries()):await readBody(req,16000)
+      const result=await taskNotifications.route(action,input)
+      output(res,200,result);return
     }
     if(url.pathname==='/v1/session'&&req.method==='GET'){
       const v=await upstream('/api/sessions/'+session);output(res,200,{status:v.status||'UNKNOWN',session});return

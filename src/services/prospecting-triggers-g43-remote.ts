@@ -144,15 +144,15 @@ export async function loadApprovedPipelineTriggersG43(
   }))
 }
 export function loadLocalApprovedPipelineTriggersG43(
-  leads:Pick<Lead,'id'>[],prospects:ProspectRecord[],records:TriggerReviewRecordG4[]
+  workspaceId:string,leads:Pick<Lead,'id'>[],prospects:ProspectRecord[],records:TriggerReviewRecordG4[]
 ):TriggerPipelineSignalG43[]{
   const permitted=new Set(leads.map(lead=>lead.id))
   const prospectById=new Map(prospects.map(prospect=>[prospect.id,prospect]))
-  return records.filter(record=>record.reviewStatus==='approved'&&record.sourceConfirmed)
+  return records.filter(record=>record.workspaceId===workspaceId&&record.reviewStatus==='approved'&&record.sourceConfirmed)
     .flatMap(record=>{
       const prospect=prospectById.get(record.prospectId)
       const leadId=prospect?.rawData?.crmLeadId
-      if(typeof leadId!=='string'||!permitted.has(leadId))return []
+      if(!prospect||prospect.workspaceId!==workspaceId||typeof leadId!=='string'||!permitted.has(leadId))return []
       return [{id:record.id,leadId,event:record.event,category:record.category,
         sourceUrl:record.sourceUrl,quote:record.quote,hypothesis:record.hypothesis,
         reviewedAt:record.reviewedAt}]

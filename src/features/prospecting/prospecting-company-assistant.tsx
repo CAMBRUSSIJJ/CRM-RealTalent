@@ -10,6 +10,14 @@ interface PublicSource {
   reading?:'snippet'|'metadata'|'page';excerpt?:string;readStatus?:string;
   readTitle?:string;finalUrl?:string
 }
+interface PostAnalysis {
+  id:number;url:string;title:string;quote:string;
+  evidenceLevel:'snippet'|'metadata'|'page';
+  observation:string;topic:'services'|'positioning'|'promotion'|'call_to_action'|
+    'partnership'|'expansion'|'hiring'|'customer_experience'|'other';
+  strategicReading:string;commercialHypothesis:string;diagnosticQuestion:string;
+  reviewStatus:'analysis_only'
+}
 interface CnpjFinding {
   cnpj:string;legalName:string;tradeName:string;city:string;state:string;
   registrationStatus:string;primaryActivity:string;registrationDate:string;
@@ -22,6 +30,7 @@ interface Answer {
   profileUrl?:string|null;profileStatus?:string;
   cnpjFindings?:CnpjFinding[];limitation?:string;searchStatus?:string;
   pagesRead?:number;metadataRead?:number;
+  postAnalyses?:PostAnalysis[];postAnalysisStatus?:string;postAnalysisMessage?:string;
   visibleObservations?:string[];commercialHypotheses?:string[];limitations?:string[];model?:string
 }
 interface Exchange {id:string;question:string;result:Answer}
@@ -34,9 +43,19 @@ const safeUrl=(value:string|null|undefined)=>{
 }
 const quickPrompts=[
   {label:'Instagram público',icon:AtSign,question:'Encontre e mostre o Instagram público desta empresa e publicações acessíveis.'},
+  {label:'Analisar publicações',icon:BookOpen,
+    question:'Analise individualmente as publicações públicas indexadas desta empresa, separando fatos, posicionamento, hipóteses comerciais e perguntas de diagnóstico.'},
   {label:'Consultar CNPJ',icon:Building2,question:'Encontre o CNPJ desta empresa e confira o cadastro público.'},
   {label:'Serviços e diferenciais',icon:BookOpen,question:'Quais serviços desta empresa aparecem nas fontes públicas?'},
 ]
+const postTopics:Record<PostAnalysis['topic'],string>={
+  services:'Serviços',positioning:'Posicionamento',promotion:'Promoção',
+  call_to_action:'Chamada para ação',partnership:'Parceria',expansion:'Expansão',
+  hiring:'Contratação',customer_experience:'Experiência do cliente',other:'Outro',
+}
+const evidenceLabel:Record<PostAnalysis['evidenceLevel'],string>={
+  snippet:'Somente prévia indexada',metadata:'Metadados públicos',page:'Trecho público lido',
+}
 const tone=(value:CnpjFinding['association'])=>value==='compatible'?'compatível':
   value==='possible'?'vínculo pendente':'não confirmado'
 export function ProspectingCompanyAssistant({prospect}:{prospect:ProspectRecord}){
@@ -200,6 +219,30 @@ export function ProspectingCompanyAssistant({prospect}:{prospect:ProspectRecord}
               </a>:null}
               <small>Cadastro consultado na BrasilAPI. Revise o vínculo com este estabelecimento.</small>
             </div>)}
+          </div>:null}
+          {exchange.result.kind==='instagram'?<div className="prospecting-company-assistant__post-analysis">
+            <div className="prospecting-company-assistant__post-analysis-head">
+              <strong>Análise das publicações com Ollama</strong>
+              <small>{exchange.result.postAnalyses?.length||0} análise(s) fundamentada(s)</small>
+            </div>
+            {exchange.result.postAnalyses?.length
+              ?exchange.result.postAnalyses.map(post=><div className="prospecting-company-assistant__post-card" key={post.url}>
+                <div className="prospecting-company-assistant__post-heading">
+                  <a href={safeUrl(post.url)||undefined} target="_blank" rel="noopener noreferrer">
+                    {post.title||'Publicação'} <ExternalLink size={12}/></a>
+                  <span>{postTopics[post.topic]||'Outro'}</span>
+                </div>
+                <small className="prospecting-company-assistant__post-evidence">{evidenceLabel[post.evidenceLevel]}</small>
+                <blockquote>{post.quote}</blockquote>
+                <p><b>Fato identificado:</b> {post.observation}</p>
+                {post.strategicReading?<p><b>Leitura comercial:</b> {post.strategicReading}</p>:null}
+                {post.commercialHypothesis?<p><b>Hipótese a verificar:</b> {post.commercialHypothesis}</p>:null}
+                {post.diagnosticQuestion?<p><b>Pergunta consultiva:</b> {post.diagnosticQuestion}</p>:null}
+                <small>Esta avaliação é uma hipótese de pesquisa, não um evento-gatilho aprovado.</small>
+              </div>)
+              :<p className="prospecting-company-assistant__post-empty">
+                {exchange.result.postAnalysisMessage||'Nenhuma publicação possui conteúdo suficiente para análise individual fundamentada.'}
+              </p>}
           </div>:null}
           {exchange.result.posts?.length?<div className="prospecting-company-assistant__posts">
             <strong>Publicações indexadas encontradas</strong>

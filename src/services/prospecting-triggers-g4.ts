@@ -102,7 +102,7 @@ export function appendTriggerCandidatesG4(workspaceId:string,prospect:ProspectRe
       status:'needs_review',sourceUrl:safeUrl(item.sourceUrl),
       sourceCheck:'not_verified',investigationPriority:Math.min(65,Math.max(0,item.investigationPriority)),
       reviewStatus:'needs_review',reviewerNote:'',sourceConfirmed:false,
-      reviewedAt:null,updatedAt:now,
+      reviewedAt:null,updatedAt:now,sourceExcerpt:asText(source.excerpt,5400),
     }
     if(!record.event||!record.hypothesis)continue
     added.push(record)

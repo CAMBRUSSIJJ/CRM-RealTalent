@@ -28,6 +28,9 @@ export interface TriggerReviewRecordG4 extends TriggerCandidateG4 {
   reviewerNote:string
   sourceConfirmed:boolean
   reviewedAt:string|null
+  reviewedBy?:string|null
+  crmLeadId?:string|null
+  sourceExcerpt?:string
   updatedAt:string
 }
 export interface TriggerSourceG4 {company:string;city:string;sector:string;sourceUrl:string;excerpt:string}

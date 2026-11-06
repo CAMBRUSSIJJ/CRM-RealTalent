@@ -50,8 +50,8 @@ export function createGroupSenderEnricher({lookup,now=()=>Date.now()}){
       .map(groupSenderId).filter(Boolean))].slice(0,24)
     // Limit concurrency and total lookups to avoid overloading WAHA.
     const resolved=new Map()
-    for(let i=0;i<ids.length;i+=4){
-      await Promise.all(ids.slice(i,i+4).map(async id=>resolved.set(id,await resolve(id))))
+    for(let i=0;i<ids.length;i+=8){
+      await Promise.all(ids.slice(i,i+8).map(async id=>resolved.set(id,await resolve(id))))
     }
     return messages.map(m=>{
       if(!m||typeof m!=='object')return m

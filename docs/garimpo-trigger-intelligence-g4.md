@@ -69,4 +69,4 @@ bash scripts/garimpo-g4/ativar-agente-local.sh
 
 **G4.3** será a persistência Supabase, trilha de auditoria, políticas RLS, histórico de revisão e integração de sinais aprovados ao Pipeline. Não habilitar esta etapa sem validar segurança, precisão e falsos positivos.
 
-**Não há taxa de conversão, propensão de compra ou garantia de interesse.** "Prioridade de investigação" é um indicador provisório que não confirma necessidade comercial.
+**Não há taxa de conversão, propensão de compra ou garantia de interesse.** A interface não mostra um score comercial automático a partir do tamanho de uma citação; somente a evidência e seu estado de conferência. Futuro índice de priorização dependerá de ICP, atualidade e validação da fonte.

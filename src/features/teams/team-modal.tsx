@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState, type MouseEvent } from 'react'
 import { ArrowUpRight, CalendarDays, Check, CheckCircle2, Clock3, Crown, ListTodo, Plus, Save, Search, UserRound, UsersRound, X } from 'lucide-react'
 import { Modal } from '../../components/ui/modal'
 import { Button } from '../../components/ui/button'
@@ -95,7 +95,7 @@ export function TeamModal({open,team,memberships,members,tasks=[],loading=false,
   }
   const destination=team?routeToHash('tasks',{filter:'team:'+team.id}):''
   const newTask=team?routeToHash('tasks',{filter:'team:'+team.id,action:'new'}):''
-  const preventDiscard=(event:React.MouseEvent<HTMLAnchorElement>)=>{
+  const preventDiscard=(event:MouseEvent<HTMLAnchorElement>)=>{
     if(loading || dirty&&!window.confirm('Descartar alterações não salvas para abrir Tarefas?'))event.preventDefault()
   }
 

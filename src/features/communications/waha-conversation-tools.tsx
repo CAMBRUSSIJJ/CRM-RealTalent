@@ -180,18 +180,22 @@ export function WahaToolsDrawer({mode,token,chats,selected,messages,prefs,onClos
 export function WahaMessageMedia({message,token}:{message:WahaMessage;token:string}){
   const [url,setUrl]=useState('')
   const [error,setError]=useState('')
+  const [retry,setRetry]=useState(0)
   const src=message.media?.url||message.mediaUrl||''
   useEffect(()=>{
     if(!message.hasMedia||!src)return
     let active=true,objectUrl=''
+    setUrl('');setError('')
     void wahaMediaBlob(token,src).then(blob=>{if(!active)return;objectUrl=URL.createObjectURL(blob);setUrl(objectUrl)}).catch(e=>{if(active)setError(e instanceof Error?e.message:'Mídia indisponível.')})
     return()=>{active=false;if(objectUrl)URL.revokeObjectURL(objectUrl)}
-  },[message.id,src,message.hasMedia,token])
+  },[message.id,src,message.hasMedia,token,retry])
   if(!message.hasMedia)return null
   const mime=message.media?.mimetype||''
   const filename=message.media?.filename||'Arquivo'
   if(!src)return <p className="waha-media"><Paperclip size={15}/> {filename}: arquivo ainda não disponibilizado pelo WAHA.</p>
-  if(error)return <p className="waha-media"><Paperclip size={15}/> {filename}: {error}</p>
+  if(error)return <p className="waha-media"><Paperclip size={15}/> {filename}: {error}{' '}
+    <button type="button" onClick={()=>setRetry(x=>x+1)}>Tentar novamente</button>
+  </p>
   if(!url)return <p className="waha-media"><LoaderCircle className="spin" size={15}/> Carregando mídia...</p>
   if(mime.startsWith('image/'))return <a href={url} target="_blank" rel="noopener noreferrer"><img className="waha-chat-image" src={url} alt="Imagem da conversa"/></a>
   if(mime.startsWith('audio/'))return <audio controls preload="none" src={url} className="waha-chat-audio"/>

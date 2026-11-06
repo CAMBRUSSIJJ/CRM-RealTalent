@@ -834,3 +834,22 @@ html[data-theme="dark"] .tasks-page-v4__empty-column > svg { background: #23374f
   .tasks-page-v4__board{padding:10px;grid-auto-columns:minmax(240px,calc(100vw - 46px))}
 }
 @media(prefers-reduced-motion:reduce){.tasks-page-v4__metrics>button{transition:none}}
+
+
+.tasks-page-v4__saved-views{position:relative;flex:0 0 auto}
+.tasks-page-v4__saved-views>summary{display:flex;align-items:center;gap:7px;list-style:none;cursor:pointer;font-size:11px;font-weight:740;color:#3d5c81;border:1px solid #dce7f5;border-radius:8px;padding:9px 11px;background:#f7faff;white-space:nowrap}
+.tasks-page-v4__saved-views>summary::-webkit-details-marker{display:none}
+.tasks-page-v4__saved-views>summary:hover{color:#245db9;background:#eff5ff}
+.tasks-page-v4__saved-views>summary b{background:#e2edff;border-radius:50px;padding:2px 6px;font-size:10px}
+.tasks-page-v4__saved-views-panel{position:absolute;z-index:80;top:calc(100% + 8px);right:0;width:min(295px,calc(100vw - 40px));max-height:65dvh;overflow-y:auto;display:flex;flex-direction:column;gap:11px;padding:14px;border:1px solid #dbe6f4;border-radius:12px;background:#fff;box-shadow:0 14px 30px rgb(22 60 105 / 15%)}
+.tasks-page-v4__saved-views-panel>strong{font-size:12px;color:#284a77}
+.tasks-page-v4__saved-views-panel>small{color:#8292a6;font-size:11px;line-height:1.45}
+.tasks-page-v4__saved-view-row{display:flex;align-items:center;gap:5px}
+.tasks-page-v4__saved-view-row button{border:0;border-radius:8px;background:#f7faff;color:#335988;min-height:32px;padding:7px 8px;cursor:pointer;font-size:11px}
+.tasks-page-v4__saved-view-row button:first-child{flex:1;text-align:left}
+.tasks-page-v4__saved-view-row button:hover{background:#eaf2ff}
+.tasks-page-v4__saved-view-row button:last-child{color:#b34d4d}
+.tasks-page-v4__saved-views-panel form{display:grid;gap:7px;padding-top:10px;border-top:1px solid #edf1f7}
+.tasks-page-v4__saved-views-panel label{font-size:11px;color:#55708f;font-weight:730}
+.tasks-page-v4__saved-views-panel input{width:100%;min-width:0;border:1px solid #dce7f4;border-radius:8px;padding:9px;font-size:12px}
+.tasks-page-v4__saved-views-panel form>button{border:0;background:#245fb8;color:white;border-radius:8px;padding:9px 10px;font-weight:750;font-size:11px;cursor:pointer}

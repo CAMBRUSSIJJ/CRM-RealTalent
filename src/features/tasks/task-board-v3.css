@@ -584,3 +584,40 @@ html[data-theme="dark"] .task-board-v3__assignment { background: #213a5a; }
 @media (prefers-reduced-motion: reduce) {
   .task-board-v3__checklist-progress i { transition: none; }
 }
+
+
+/* Editing an existing task retains the native full form, in a right-side panel.
+ * New tasks still use the centered modal. No duplicate editor logic. */
+.modal-backdrop:has(.rt-task-detail-drawer){
+  display:flex;align-items:stretch;justify-content:flex-end;
+  padding:0!important;backdrop-filter:blur(2px);
+}
+.modal.rt-task-detail-drawer:has(.task-board-v3){
+  flex:0 0 auto;align-self:stretch;width:min(620px,100vw)!important;
+  max-width:min(620px,100vw)!important;min-width:0;
+  height:100dvh!important;max-height:100dvh!important;min-height:0!important;
+  margin:0;border-radius:16px 0 0 16px;box-shadow:-18px 0 60px rgb(15 23 42 / 18%);
+}
+.modal.rt-task-detail-drawer:has(.task-board-v3) .modal__header{
+  min-height:68px;padding:15px 20px;background:#f8fbff;
+}
+.modal.rt-task-detail-drawer:has(.task-board-v3) .modal__body{
+  min-height:0;flex:1;overflow:auto;scrollbar-width:thin;
+}
+.modal.rt-task-detail-drawer:has(.task-board-v3) .modal__footer{
+  padding:13px 18px;background:#fff;
+}
+.rt-task-detail-drawer .task-board-v3{padding:15px 18px 25px}
+.rt-task-detail-drawer .task-board-v3__layout{
+  grid-template-columns:minmax(0,1fr);
+  gap:13px;
+}
+.rt-task-detail-drawer .task-board-v3__primary,
+.rt-task-detail-drawer .task-board-v3__secondary{gap:12px}
+.rt-task-detail-drawer .task-board-v3__section{box-shadow:none}
+@media(max-width:650px){
+  .modal.rt-task-detail-drawer:has(.task-board-v3){
+    width:100%!important;max-width:100%!important;border-radius:0!important;
+  }
+  .rt-task-detail-drawer .task-board-v3{padding:12px 14px 20px}
+}

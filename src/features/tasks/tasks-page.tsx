@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState, type DragEvent } from 'react'
-import { AlertTriangle, Bell, CalendarDays, CheckCircle2, Clock3, Filter, Kanban, ListChecks, Pencil, Plus, Search, Trash2, UserRound, UsersRound, X } from 'lucide-react'
+import { AlertTriangle, Bell, CalendarDays, CheckCircle2, Clock3, Filter, Kanban, ListChecks, Pencil, Plus, Search, Trash2, UserRound, UsersRound, X, MoreHorizontal, GripVertical } from 'lucide-react'
 import { useAppActions, useAppUi, useAppWorkspace } from '../../app/app-context'
 import { useAuth } from '../auth/auth-context'
 import { Button } from '../../components/ui/button'
@@ -8,6 +8,8 @@ import { NativeSelectionSelect } from '../../components/selection'
 import type { TaskRelation, TaskStatus, Team, WorkTask, WorkspaceMember } from '../../domain/types'
 import { deleteTask, loadWorkManagement, saveTask, taskPriorityLabel, taskStatusLabel, updateTaskStatus, type WorkManagementSnapshot } from '../../services/work-management'
 import { TaskModal } from './task-modal'
+import {TaskCalendar} from './task-calendar'
+import {readSavedTaskViews,writeSavedTaskViews,type TaskSavedView} from './task-saved-views'
 import { consumeWahaTaskHandoff, type WahaTaskHandoff } from '../../services/waha-task-handoff'
 import { CommunicationAutomationCenter } from '../communications-automations/communication-automation-center'
 import { TaskCommunicationState } from '../communications-automations/task-communication-state'
@@ -16,13 +18,18 @@ import { loadGatewayLocalTaskAutoHistory, type LocalTaskAutoDiagnostic } from '.
 import { flushTaskNotificationIntents, reconcileTaskNotificationWorkspace } from '../../services/notifications/notification-orchestrator'
 import './tasks-page-v4.css'
 
-type ViewMode = 'list' | 'board' | 'today' | 'overdue' | 'blocked' | 'completed'
-type TaskLayout = 'list' | 'board'
+type ViewMode = 'list' | 'board' | 'calendar' | 'today' | 'overdue' | 'blocked' | 'completed' | 'in_progress'
+type TaskLayout = 'list' | 'board' | 'calendar'
 const OPEN_STATUSES: TaskStatus[] = ['todo', 'in_progress', 'blocked']
 const statusTone = (status: TaskStatus) => status === 'completed' ? 'success' : status === 'blocked' ? 'danger' : status === 'in_progress' ? 'info' : status === 'cancelled' ? 'neutral' : 'warning'
 const priorityTone = (priority: WorkTask['priority']) => priority === 'urgent' ? 'danger' : priority === 'high' ? 'warning' : priority === 'normal' ? 'info' : 'neutral'
 const todayKey = () => { const date = new Date(); return `${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,'0')}-${String(date.getDate()).padStart(2,'0')}` }
-const dueKey = (value: string | null) => value ? new Date(value).toLocaleDateString('en-CA') : ''
+const dueKey = (value:string|null) => {
+  if(!value)return ''
+  const d=new Date(value)
+  if(!Number.isFinite(d.getTime()))return ''
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`
+}
 const dueLabel = (value: string | null) => value ? new Date(value).toLocaleString('pt-BR', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' }) : 'Sem prazo'
 
 export function TasksPage() {
@@ -43,6 +50,8 @@ export function TasksPage() {
   const [taskHandoff,setTaskHandoff]=useState<WahaTaskHandoff|null>(null)
   const [saving, setSaving] = useState(false)
   const [showNotifications, setShowNotifications] = useState(false)
+  const [savedViews,setSavedViews] = useState<TaskSavedView[]>([])
+  const [newViewName,setNewViewName] = useState('')
   const [notificationDiagnostics, setNotificationDiagnostics] = useState<Record<string,LocalTaskAutoDiagnostic>>({})
   const [notificationsReachable, setNotificationsReachable] = useState(false)
 
@@ -50,6 +59,11 @@ export function TasksPage() {
   const canTaskCreate = canTeamAccess('create','tasks')
   const canTaskEdit = canTeamAccess('edit','tasks')
   const canTaskDelete = canTeamAccess('delete','tasks')
+  useEffect(()=>{
+    if(!workspaceId){setSavedViews([]);return}
+    try{setSavedViews(readSavedTaskViews(workspaceId,window.localStorage))}
+    catch{setSavedViews([])}
+  },[workspaceId])
   useEffect(()=>{
     if(!canTaskCreate||!workspaceId)return
     const handoff=consumeWahaTaskHandoff()
@@ -121,6 +135,9 @@ export function TasksPage() {
     today: openTasks.filter((task) => dueKey(task.dueAt) === today).length,
     overdue: openTasks.filter((task) => task.dueAt && new Date(task.dueAt).getTime() < nowMs).length,
     blocked: openTasks.filter((task) => task.status === 'blocked').length,
+    inProgress: openTasks.filter(task => task.status === 'in_progress').length,
+    completed: data.tasks.filter(task => task.status === 'completed').length,
+    all: data.tasks.filter(task => task.status !== 'cancelled').length,
   }
 
   const filtered = useMemo(() => {
@@ -134,8 +151,9 @@ export function TasksPage() {
       if (view === 'today' && !(OPEN_STATUSES.includes(task.status) && dueKey(task.dueAt) === today)) return false
       if (view === 'overdue' && !(OPEN_STATUSES.includes(task.status) && task.dueAt && new Date(task.dueAt).getTime() < nowMs)) return false
       if (view === 'completed' && task.status !== 'completed') return false
+      if (view === 'in_progress' && task.status !== 'in_progress') return false
       if (view === 'blocked' && task.status !== 'blocked') return false
-      if ((view === 'list' || view === 'board') && task.status === 'cancelled') return false
+      if ((view === 'list' || view === 'board' || view === 'calendar') && task.status === 'cancelled') return false
       return true
     }).sort((a, b) => {
       const rank = { urgent: 0, high: 1, normal: 2, low: 3 }
@@ -174,6 +192,19 @@ export function TasksPage() {
     } catch(error) {
       notify('error',error instanceof Error?error.message:'Não foi possível salvar a tarefa.')
     } finally {setSaving(false)}
+  }
+
+  const createQuick = async (title:string,status:TaskStatus) => {
+    if(!workspaceId || !canTaskCreate)throw new Error('Criação de tarefas indisponível.')
+    try{
+      await saveTask(repositoryMode,workspaceId,{title,status,priority:'normal',
+        reminderEnabled:true,reminderOnAssignment:true,reminderChannels:['in_app']},user?.id??null,teamAccess)
+      await reload()
+      notify('success','Tarefa criada no quadro.')
+    }catch(error){
+      notify('error',error instanceof Error?error.message:'Falha ao criar a tarefa.')
+      throw error
+    }
   }
 
   const changeStatus = async (task: WorkTask, status: TaskStatus) => {
@@ -230,15 +261,39 @@ export function TasksPage() {
   const showTaskCreate = () => { setTaskHandoff(null);setEditing(null); setModalOpen(true) }
   const switchLayout = (next: TaskLayout) => { setLayout(next); setView(next) }
   const toggleTaskFilter = (filter: ViewMode) => setView((current) => current === filter ? layout : filter)
-  const filterActive = view !== 'board' && view !== 'list'
+  const filterActive = view !== 'board' && view !== 'list' && view !== 'calendar'
   const totalFiltered = filtered.length
-  const taskViewLabel = view === 'today' ? 'para hoje' : view === 'overdue' ? 'atrasadas' : view === 'blocked' ? 'bloqueadas' : view === 'completed' ? 'concluídas' : ''
+  const taskViewLabel = view === 'today' ? 'para hoje' : view === 'overdue' ? 'atrasadas' : view === 'blocked' ? 'bloqueadas' : view === 'completed' ? 'concluídas' : view === 'in_progress' ? 'em andamento' : ''
+
+  function saveCurrentView(){
+    const name=newViewName.trim().slice(0,45)
+    if(!name){notify('warning','Informe um nome para salvar a visão.');return}
+    const next:TaskSavedView={
+      id:crypto.randomUUID(),name,owner,teamId,priority,query,view,layout
+    }
+    const unique=savedViews.filter(item=>item.name.toLocaleLowerCase('pt-BR')!==name.toLocaleLowerCase('pt-BR'))
+    const updated=[next,...unique].slice(0,12)
+    try{
+      writeSavedTaskViews(workspaceId,updated,window.localStorage)
+      setSavedViews(updated);setNewViewName('')
+      notify('success','Visão de tarefas salva neste navegador.')
+    }catch{notify('error','Não foi possível armazenar esta visão no navegador.')}
+  }
+  function applySavedView(item:TaskSavedView){
+    setOwner(item.owner);setTeamId(item.teamId);setPriority(item.priority)
+    setQuery(item.query);setLayout(item.layout);setView(item.view)
+  }
+  function removeSavedView(id:string){
+    const updated=savedViews.filter(item=>item.id!==id)
+    try{writeSavedTaskViews(workspaceId,updated,window.localStorage);setSavedViews(updated)}
+    catch{notify('error','Falha ao excluir a visão salva.')}
+  }
 
   return <div className="workspace-page tasks-page-v4">
     <div className="tasks-page-v4__header">
       <div className="tasks-page-v4__heading">
         <ListChecks size={18} aria-hidden="true" />
-        <div><h1>Tarefas da Equipe</h1><span>Organize, acompanhe e distribua o trabalho.</span></div>
+        <div><h1>Tarefas</h1><span>Organize, acompanhe e distribua o trabalho.</span></div>
       </div>
       <div className="tasks-page-v4__top-actions">
         {repositoryMode === 'local' && workspaceId ? <button type="button" className="tasks-page-v4__automation" onClick={() => setShowNotifications(true)} title="Comunicação e automações" aria-label="Comunicação e automações"><Bell size={16} /></button> : null}
@@ -252,17 +307,32 @@ export function TasksPage() {
         onOpenTask={task => {setShowNotifications(false);setEditing(task);setModalOpen(true)}} />
     </Modal> : null}
 
+    <section className="tasks-page-v4__metrics" aria-label="Indicadores e filtros">
+      <button type="button" className={!filterActive?'is-active':''} aria-pressed={!filterActive}
+        onClick={()=>setView(layout)}><span>Todas</span><strong>{metrics.all}</strong><small>Visão geral</small></button>
+      <button type="button" className={view==='today'?'is-active':''} aria-pressed={view==='today'}
+        onClick={()=>toggleTaskFilter('today')}><span>Hoje</span><strong>{metrics.today}</strong><small>Prazo de hoje</small></button>
+      <button type="button" className={view==='overdue'?'is-active is-alert':''} aria-pressed={view==='overdue'}
+        onClick={()=>toggleTaskFilter('overdue')}><span>Atrasadas</span><strong>{metrics.overdue}</strong><small>Exigem atenção</small></button>
+      <button type="button" className={view==='in_progress'?'is-active':''} aria-pressed={view==='in_progress'}
+        onClick={()=>toggleTaskFilter('in_progress')}><span>Em andamento</span><strong>{metrics.inProgress}</strong><small>Em execução</small></button>
+      <button type="button" className={view==='completed'?'is-active':''} aria-pressed={view==='completed'}
+        onClick={()=>toggleTaskFilter('completed')}><span>Concluídas</span><strong>{metrics.completed}</strong><small>Finalizadas</small></button>
+    </section>
+
     <section className="tasks-page-v4__toolbar" aria-label="Ferramentas de tarefas">
       <div className="tasks-page-v4__layout-switch" role="group" aria-label="Modo de visualização">
         <button type="button" className={layout === 'list' ? 'is-active' : ''} onClick={() => switchLayout('list')} aria-pressed={layout === 'list'} aria-label="Visualizar em lista" title="Lista"><ListChecks size={17}/></button>
         <button type="button" className={layout === 'board' ? 'is-active' : ''} onClick={() => switchLayout('board')} aria-pressed={layout === 'board'} aria-label="Visualizar em quadro" title="Quadro"><Kanban size={17}/></button>
+        <button type="button" title="Calendário" aria-label="Calendário" onClick={()=>switchLayout('calendar')}><CalendarDays size={17}/></button>
       </div>
       <span className="tasks-page-v4__divider" aria-hidden="true"/>
       <label className="tasks-page-v4__search"><Search size={16}/><input value={query} onChange={(event)=>setQuery(event.target.value)} aria-label="Buscar tarefas" placeholder="Buscar tarefas..." /></label>
-      <div className="tasks-page-v4__quick-filters" role="group" aria-label="Filtros rápidos">
-        <button type="button" className={view === 'today' ? 'is-active' : ''} onClick={()=>toggleTaskFilter('today')} aria-pressed={view === 'today'}><CalendarDays size={13} /><span>Hoje</span><b>{metrics.today}</b></button>
-        <button type="button" className={view === 'overdue' ? 'is-active is-overdue' : 'is-overdue'} onClick={()=>toggleTaskFilter('overdue')} aria-pressed={view === 'overdue'}><Clock3 size={13}/><span>Atrasadas</span><b>{metrics.overdue}</b></button>
-        <button type="button" className={view === 'blocked' ? 'is-active is-blocked' : 'is-blocked'} onClick={()=>toggleTaskFilter('blocked')} aria-pressed={view === 'blocked'}><AlertTriangle size={13}/><span>Bloqueadas</span><b>{metrics.blocked}</b></button>
+      <div className="tasks-page-v4__quick-filters" role="group" aria-label="Atalhos">
+        <button type="button" className={owner==='mine'?'is-active':''} aria-pressed={owner==='mine'}
+          onClick={()=>setOwner(current=>current==='mine'?'all':'mine')}><UserRound size={14}/> Minhas tarefas</button>
+        <button type="button" className={view==='blocked'?'is-active is-blocked':'is-blocked'} aria-pressed={view==='blocked'}
+          onClick={()=>toggleTaskFilter('blocked')}><AlertTriangle size={14}/> Bloqueadas <b>{metrics.blocked}</b></button>
       </div>
       <span className="tasks-page-v4__divider" aria-hidden="true"/>
       <details className="tasks-page-v4__filters">
@@ -276,13 +346,33 @@ export function TasksPage() {
           <button type="button" className="tasks-page-v4__reset" onClick={()=>{setOwner('all');setTeamId('all');setPriority('all');setView(layout);setQuery('')}}><X size={14}/> Limpar filtros</button>
         </div>
       </details>
+      <details className="tasks-page-v4__saved-views">
+        <summary>Visões salvas {savedViews.length?<b>{savedViews.length}</b>:null}</summary>
+        <div className="tasks-page-v4__saved-views-panel">
+          <strong>Visões deste workspace</strong>
+          {savedViews.length?savedViews.map(item=><div key={item.id} className="tasks-page-v4__saved-view-row">
+            <button type="button" onClick={()=>applySavedView(item)}>{item.name}</button>
+            <button type="button" aria-label={'Excluir visão '+item.name} title="Excluir visão" onClick={()=>removeSavedView(item.id)}><X size={14}/></button>
+          </div>):<small>Nenhuma visão salva ainda.</small>}
+          <form onSubmit={event=>{event.preventDefault();saveCurrentView()}}>
+            <label htmlFor="tasks-new-view">Salvar os filtros atuais</label>
+            <input id="tasks-new-view" maxLength={45} value={newViewName} onChange={event=>setNewViewName(event.target.value)}
+              placeholder="Ex.: Prioridades da equipe"/>
+            <button type="submit">Salvar visão</button>
+          </form>
+          <small>As visões ficam neste navegador, separadas por workspace.</small>
+        </div>
+      </details>
     </section>
 
     {filterActive ? <div className="tasks-page-v4__filter-status"><span>{totalFiltered} tarefa(s) {taskViewLabel}</span><button type="button" onClick={()=>setView(layout)}><X size={13}/> Mostrar todas</button></div> : null}
 
     {layout === 'board' ? <TaskBoard tasks={filtered} teamById={teamById} relationByTask={relationByTask} checklistItems={data.checklistItems}
       diagnostics={notificationDiagnostics} notificationsReachable={notificationsReachable} repositoryMode={repositoryMode}
-      readOnly={!canTaskEdit} canCreate={canTaskCreate} onCreate={showTaskCreate} onEdit={openEdit} onStatus={changeStatus} />
+      readOnly={!canTaskEdit} canCreate={canTaskCreate} onCreate={showTaskCreate} onEdit={openEdit} onStatus={changeStatus}
+      canDelete={canTaskDelete} onDelete={remove} onNotifications={()=>setShowNotifications(true)}
+      onQuickCreate={createQuick} />
+      : layout==='calendar'?<TaskCalendar tasks={filtered} readOnly={!canTaskEdit} onEdit={openEdit}/>
       : <section className="tasks-page-v4__list" aria-label="Lista de tarefas">{filtered.length
         ? filtered.map((task) => <TaskRow key={task.id} task={task} diagnostic={notificationDiagnostics[task.id]??null}
           notificationsReachable={notificationsReachable} repositoryMode={repositoryMode} team={task.teamId ? teamById.get(task.teamId) ?? null : null}
@@ -292,7 +382,7 @@ export function TasksPage() {
         : <div className="tasks-page-v4__empty-list"><ListChecks size={25}/><strong>Nenhuma tarefa encontrada</strong><span>Altere os filtros ou crie uma tarefa.</span>{canTaskCreate ? <button type="button" onClick={showTaskCreate}><Plus size={14}/> Criar tarefa</button> : null}</div>}
       </section>}
 
-    <TaskModal open={canTaskCreate || canTaskEdit ? modalOpen : false} task={editing} initialDraft={taskHandoff} relation={relationForEditing} checklist={checklistForEditing} teams={data.teams} memberships={data.memberships} members={members} snapshot={snapshot} workspaceId={workspaceId} repositoryMode={repositoryMode} loading={saving} onClose={()=>{setModalOpen(false);setEditing(null);setTaskHandoff(null)}} onSubmit={save}/>
+    <TaskModal presentation={editing?'drawer':'dialog'} open={canTaskCreate || canTaskEdit ? modalOpen : false} task={editing} initialDraft={taskHandoff} relation={relationForEditing} checklist={checklistForEditing} teams={data.teams} memberships={data.memberships} members={members} snapshot={snapshot} workspaceId={workspaceId} repositoryMode={repositoryMode} loading={saving} onClose={()=>{setModalOpen(false);setEditing(null);setTaskHandoff(null)}} onSubmit={save}/>
   </div>
 }
 
@@ -314,7 +404,7 @@ function TaskRow({ task, team, relation, checklist, diagnostic, notificationsRea
   </article>
 }
 
-function TaskBoard({ tasks, teamById, relationByTask, checklistItems, diagnostics, notificationsReachable, repositoryMode, readOnly, canCreate, onCreate, onEdit, onStatus }: {
+function TaskBoard({ tasks, teamById, relationByTask, checklistItems, diagnostics, notificationsReachable, repositoryMode, readOnly, canCreate, canDelete, onCreate, onEdit, onStatus, onDelete, onQuickCreate, onNotifications }: {
   tasks: WorkTask[]
   teamById: Map<string, Team>
   relationByTask: Map<string, TaskRelation>
@@ -324,6 +414,10 @@ function TaskBoard({ tasks, teamById, relationByTask, checklistItems, diagnostic
   repositoryMode: 'local' | 'supabase'
   readOnly: boolean
   canCreate: boolean
+  canDelete: boolean
+  onDelete(task: WorkTask): void
+  onQuickCreate(title: string, status: TaskStatus): Promise<void>
+  onNotifications(): void
   onCreate(): void
   onEdit(task: WorkTask): void
   onStatus(task: WorkTask, status: TaskStatus): void
@@ -335,6 +429,19 @@ function TaskBoard({ tasks, teamById, relationByTask, checklistItems, diagnostic
     {status:'completed',label:'Concluídas'},
   ]
   const [dropTarget, setDropTarget] = useState<TaskStatus | null>(null)
+  const [quickColumn,setQuickColumn] = useState<TaskStatus|null>(null)
+  const [quickTitle,setQuickTitle] = useState('')
+  const [quickSaving,setQuickSaving] = useState(false)
+  const [quickError,setQuickError] = useState('')
+  async function createInline(status:TaskStatus){
+    if(!quickTitle.trim()||quickSaving)return
+    setQuickSaving(true);setQuickError('')
+    try{
+      await onQuickCreate(quickTitle.trim(),status)
+      setQuickTitle('');setQuickColumn(null)
+    }catch(error){setQuickError(error instanceof Error?error.message:'Falha ao criar tarefa.')}
+    finally{setQuickSaving(false)}
+  }
   const moveTask = (event: DragEvent<HTMLElement>, target: TaskStatus) => {
     event.preventDefault()
     setDropTarget(null)
@@ -351,45 +458,83 @@ function TaskBoard({ tasks, teamById, relationByTask, checklistItems, diagnostic
         onDragLeave={(event)=>{ if(!event.currentTarget.contains(event.relatedTarget as Node|null))setDropTarget(null) }}
         onDrop={(event)=>moveTask(event,column.status)}>
         <header className="tasks-page-v4__column-heading">
-          <strong>{column.label}</strong>
-          <span>{entries.length}</span>
+          <div className="tasks-page-v4__column-title"><strong>{column.label}</strong><span>{entries.length}</span></div>
+          {canCreate?<button type="button" className="tasks-page-v4__column-add" aria-label={'Criar tarefa em '+column.label}
+            title={'Nova tarefa em '+column.label} onClick={()=>{setQuickColumn(column.status);setQuickTitle('');setQuickError('')}}><Plus size={16}/></button>:null}
         </header>
         <div className="tasks-page-v4__column-body">
           {entries.length ? entries.map((task)=>{
             const isOverdue=Boolean(task.dueAt && OPEN_STATUSES.includes(task.status) && new Date(task.dueAt).getTime()<Date.now())
             const taskChecklist=checklistItems.filter((item)=>item.taskId===task.id)
             const done=taskChecklist.filter((item)=>item.completed).length
-            return <article key={task.id} className={`tasks-page-v4__card ${isOverdue?'is-overdue':''}`} draggable={!readOnly}
-              onDragStart={(event)=>{if(readOnly)return;event.dataTransfer.setData('application/x-realtalent-task-id',task.id);event.dataTransfer.effectAllowed='move'}}
-              onDragEnd={()=>setDropTarget(null)}>
+            return <article key={task.id} data-priority={task.priority}
+              className={`tasks-page-v4__card ${isOverdue?'is-overdue':''}`}>
               <div className="tasks-page-v4__card-head">
                 <StatusPill tone={priorityTone(task.priority)}>{taskPriorityLabel[task.priority]}</StatusPill>
-                <span className={isOverdue ? 'is-overdue' : ''}><Clock3 size={12}/>{dueLabel(task.dueAt)}</span>
+                {!readOnly?<div className="tasks-page-v4__card-tools">
+                  <button type="button" draggable onDragStart={event=>{event.dataTransfer.setData('application/x-realtalent-task-id',task.id);event.dataTransfer.effectAllowed='move'}}
+                    onDragEnd={()=>setDropTarget(null)} className="tasks-page-v4__card-drag" aria-label={'Arrastar '+task.title}
+                    title="Arraste para mudar a etapa"><GripVertical size={16}/></button>
+                  <details className="tasks-page-v4__card-menu">
+                    <summary aria-label={'Ações de '+task.title}><MoreHorizontal size={17}/></summary>
+                    <div>
+                      <button type="button" onClick={()=>onEdit(task)}>Abrir detalhes</button>
+                      <label>Etapa
+                        <NativeSelectionSelect value={task.status} aria-label={'Alterar etapa de '+task.title}
+                          onChange={event=>onStatus(task,event.target.value as TaskStatus)}>
+                          <option value="todo">A fazer</option><option value="in_progress">Em andamento</option>
+                          <option value="blocked">Bloqueada</option><option value="completed">Concluída</option>
+                        </NativeSelectionSelect>
+                      </label>
+                      {task.status!=='completed'?<button type="button" onClick={()=>onStatus(task,'completed')}>Marcar como concluída</button>:null}
+                      {canDelete?<button type="button" className="is-danger" onClick={()=>onDelete(task)}>Excluir tarefa</button>:null}
+                    </div>
+                  </details>
+                </div>:null}
               </div>
               <button className="tasks-page-v4__card-title" type="button" onClick={()=>onEdit(task)} disabled={readOnly}>{task.title}</button>
-              {task.description ? <p>{task.description}</p> : null}
+              {task.description?<p>{task.description}</p>:null}
               <div className="tasks-page-v4__card-meta">
-                <span><UserRound size={13}/>{task.assigneeName || 'Sem responsável'}</span>
-                {task.teamId ? <span><UsersRound size={13}/>{teamById.get(task.teamId)?.name ?? 'Equipe'}</span> : null}
-                {relationByTask.get(task.id) ? <span title="Vínculo com o CRM">↗ {relationByTask.get(task.id)?.entityLabel}</span> : null}
-                {taskChecklist.length ? <span><CheckCircle2 size={13}/>{done}/{taskChecklist.length}</span> : null}
-                {repositoryMode==='local'
-                  ? <TaskCommunicationState configured={Boolean(task.assigneeId)} available={notificationsReachable} status={diagnostics[task.id]??null} />
-                  : task.reminderEnabled!==false && task.assigneeId && (task.reminderChannels??[]).length
-                    ? <span title="Regra configurada; entrega não confirmada"><Bell size={13}/> Lembrete</span> : null}
+                <span className="tasks-page-v4__assignee" title={task.assigneeName||'Sem responsável'}>
+                  <i aria-hidden="true">{(task.assigneeName?.trim()?.[0]||'?').toUpperCase()}</i>
+                  <span>{task.assigneeName||'Sem responsável'}</span>
+                </span>
+                <span className={isOverdue?'tasks-page-v4__due is-overdue':'tasks-page-v4__due'}>
+                  <Clock3 size={13}/>{dueLabel(task.dueAt)}
+                </span>
+                {task.teamId?<span className="tasks-page-v4__team"><UsersRound size={13}/>{teamById.get(task.teamId)?.name||'Equipe'}</span>:null}
+                {relationByTask.get(task.id)?<span title="Registro vinculado ao CRM">↗ {relationByTask.get(task.id)?.entityLabel}</span>:null}
+                {taskChecklist.length?<div className="tasks-page-v4__card-progress" aria-label={done+' de '+taskChecklist.length+' itens concluídos'}>
+                  <span><CheckCircle2 size={13}/>{done}/{taskChecklist.length}</span>
+                  <div><i style={{width:(done/taskChecklist.length*100)+'%'}}/></div>
+                </div>:null}
+                {task.assigneeId?<details className="tasks-page-v4__card-notification">
+                  <summary aria-label={'Situação da notificação de '+task.title} title="Ver status da notificação"><Bell size={14}/></summary>
+                  <div className="tasks-page-v4__notification-popover">
+                    <strong>Notificação de tarefa</strong>
+                    {repositoryMode==='local'
+                      ?<TaskCommunicationState configured available={notificationsReachable} status={diagnostics[task.id]??null}/>
+                      :<small>Regra cadastrada. Entrega não verificada.</small>}
+                    <small>O aceite pelo WAHA não confirma entrega nem leitura.</small>
+                    {repositoryMode==='local'?<button type="button" onClick={onNotifications}>Abrir histórico</button>:null}
+                  </div>
+                </details>:null}
               </div>
-              {!readOnly ? <div className="tasks-page-v4__card-actions">
-                <NativeSelectionSelect value={task.status} aria-label={`Alterar status de ${task.title}`} onChange={(event)=>onStatus(task,event.target.value as TaskStatus)}>
-                  <option value="todo">A fazer</option><option value="in_progress">Em andamento</option><option value="blocked">Bloqueada</option><option value="completed">Concluída</option><option value="cancelled">Cancelada</option>
-                </NativeSelectionSelect>
-                <button type="button" onClick={()=>onEdit(task)} aria-label={`Editar ${task.title}`}><Pencil size={14}/></button>
-              </div> : null}
             </article>
           }) : <div className="tasks-page-v4__empty-column">
             <ListChecks size={19}/>
             <span>{column.status==='todo' ? 'Nenhuma tarefa pendente' : 'Nenhuma tarefa nesta etapa'}</span>
-            {column.status==='todo' && canCreate ? <button type="button" onClick={onCreate}><Plus size={13}/> Criar tarefa rápida</button> : null}
+            {canCreate ? <button type="button" onClick={()=>{setQuickColumn(column.status);setQuickTitle('');setQuickError('')}}><Plus size={13}/> Adicionar tarefa</button>:null}
           </div>}
+          {quickColumn===column.status&&canCreate?<form className="tasks-page-v4__quick-create"
+            onSubmit={event=>{event.preventDefault();void createInline(column.status)}}>
+            <label htmlFor={'quick-task-'+column.status}>Nova tarefa em {column.label}</label>
+            <input id={'quick-task-'+column.status} autoFocus maxLength={250} value={quickTitle}
+              onChange={event=>setQuickTitle(event.target.value)} placeholder="Digite o nome da tarefa..." />
+            {quickError?<small role="alert">{quickError}</small>:null}
+            <div><button type="button" onClick={onCreate}>Formulário completo</button><button type="button" onClick={()=>{setQuickColumn(null);setQuickTitle('')}}>Cancelar</button>
+              <button type="submit" disabled={!quickTitle.trim()||quickSaving}>{quickSaving?'Salvando...':'Criar tarefa'}</button></div>
+          </form>:null}
         </div>
       </section>
     })}

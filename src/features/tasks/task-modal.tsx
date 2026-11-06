@@ -14,6 +14,7 @@ interface Props {
   open: boolean
   task: WorkTask | null
   initialDraft?:{title:string;description:string}|null
+  presentation?: 'dialog' | 'drawer'
   relation: TaskRelation | null
   checklist: TaskChecklistItem[]
   teams: Team[]
@@ -38,7 +39,7 @@ const toLocalInput = (value: string | null | undefined) => {
 }
 const toIso = (value: string) => value ? new Date(value).toISOString() : null
 
-export function TaskModal({ open, task, initialDraft, relation, checklist, teams, memberships, members, snapshot, workspaceId, repositoryMode, loading = false, onClose, onSubmit }: Props) {
+export function TaskModal({ open, task, initialDraft, presentation = 'dialog', relation, checklist, teams, memberships, members, snapshot, workspaceId, repositoryMode, loading = false, onClose, onSubmit }: Props) {
   const [title, setTitle] = useState('')
   const [description, setDescription] = useState('')
   const [status, setStatus] = useState<TaskStatus>('todo')
@@ -153,6 +154,7 @@ export function TaskModal({ open, task, initialDraft, relation, checklist, teams
   return <Modal
     open={open}
     size="xl"
+    className={presentation === 'drawer' ? 'rt-task-detail-drawer' : undefined}
     title={task ? 'Editar tarefa' : 'Nova tarefa'}
     onClose={onClose}
     footer={<div className="task-board-v3__footer">

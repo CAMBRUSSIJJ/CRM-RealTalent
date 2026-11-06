@@ -16,7 +16,7 @@ import { loadGatewayLocalTaskAutoHistory, type LocalTaskAutoDiagnostic } from '.
 import { flushTaskNotificationIntents, reconcileTaskNotificationWorkspace } from '../../services/notifications/notification-orchestrator'
 import './tasks-page-v4.css'
 
-type ViewMode = 'list' | 'board' | 'today' | 'overdue' | 'blocked' | 'completed'
+type ViewMode = 'list' | 'board' | 'today' | 'overdue' | 'blocked' | 'completed' | 'in_progress'
 type TaskLayout = 'list' | 'board'
 const OPEN_STATUSES: TaskStatus[] = ['todo', 'in_progress', 'blocked']
 const statusTone = (status: TaskStatus) => status === 'completed' ? 'success' : status === 'blocked' ? 'danger' : status === 'in_progress' ? 'info' : status === 'cancelled' ? 'neutral' : 'warning'
@@ -121,6 +121,9 @@ export function TasksPage() {
     today: openTasks.filter((task) => dueKey(task.dueAt) === today).length,
     overdue: openTasks.filter((task) => task.dueAt && new Date(task.dueAt).getTime() < nowMs).length,
     blocked: openTasks.filter((task) => task.status === 'blocked').length,
+    inProgress: openTasks.filter(task => task.status === 'in_progress').length,
+    completed: data.tasks.filter(task => task.status === 'completed').length,
+    all: data.tasks.filter(task => task.status !== 'cancelled').length,
   }
 
   const filtered = useMemo(() => {
@@ -134,6 +137,7 @@ export function TasksPage() {
       if (view === 'today' && !(OPEN_STATUSES.includes(task.status) && dueKey(task.dueAt) === today)) return false
       if (view === 'overdue' && !(OPEN_STATUSES.includes(task.status) && task.dueAt && new Date(task.dueAt).getTime() < nowMs)) return false
       if (view === 'completed' && task.status !== 'completed') return false
+      if (view === 'in_progress' && task.status !== 'in_progress') return false
       if (view === 'blocked' && task.status !== 'blocked') return false
       if ((view === 'list' || view === 'board') && task.status === 'cancelled') return false
       return true
@@ -232,13 +236,13 @@ export function TasksPage() {
   const toggleTaskFilter = (filter: ViewMode) => setView((current) => current === filter ? layout : filter)
   const filterActive = view !== 'board' && view !== 'list'
   const totalFiltered = filtered.length
-  const taskViewLabel = view === 'today' ? 'para hoje' : view === 'overdue' ? 'atrasadas' : view === 'blocked' ? 'bloqueadas' : view === 'completed' ? 'concluídas' : ''
+  const taskViewLabel = view === 'today' ? 'para hoje' : view === 'overdue' ? 'atrasadas' : view === 'blocked' ? 'bloqueadas' : view === 'completed' ? 'concluídas' : view === 'in_progress' ? 'em andamento' : ''
 
   return <div className="workspace-page tasks-page-v4">
     <div className="tasks-page-v4__header">
       <div className="tasks-page-v4__heading">
         <ListChecks size={18} aria-hidden="true" />
-        <div><h1>Tarefas da Equipe</h1><span>Organize, acompanhe e distribua o trabalho.</span></div>
+        <div><h1>Tarefas</h1><span>Organize, acompanhe e distribua o trabalho.</span></div>
       </div>
       <div className="tasks-page-v4__top-actions">
         {repositoryMode === 'local' && workspaceId ? <button type="button" className="tasks-page-v4__automation" onClick={() => setShowNotifications(true)} title="Comunicação e automações" aria-label="Comunicação e automações"><Bell size={16} /></button> : null}

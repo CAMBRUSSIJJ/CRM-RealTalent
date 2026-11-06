@@ -2648,7 +2648,7 @@ const server = http.createServer(async (req, res) => {
     if (req.method === 'GET' && pathname === '/api/prospecting-agent/health') {
       return json(res, {
         ok: true, version: VERSION, pid: process.pid, host: HOST, port: PORT,
-        companyResearchVersion: 'g44-multisource-v2',
+        companyResearchVersion: 'g45-company-focus-v1',
         stateFile: STATE_FILE, chromium: Boolean(CHROMIUM), chromiumBinary: CHROMIUM,
         providers: { placeFirstSearch: true, searchOntology: true, strictScope: true, territoryEngine2: true, coverageExpansion: true, runtimeTruth: true, openstreetmap: true, webDiscovery: WEB_SEARCH_ENABLED, websiteCrawler: true, websiteDiscovery: WEB_SEARCH_ENABLED, contactDiscovery: true, cnpjEnrichment: true, cnpjDiscovery: true, socialDiscovery: true, chromiumHeadless: Boolean(CHROMIUM) },
         featureVersion: H21_RUNTIME_VERSION,

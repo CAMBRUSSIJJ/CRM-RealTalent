@@ -28,6 +28,14 @@ jobs:
         run: node scripts/verify-migrations.mjs
       - name: G4.3 client and local compatibility
         run: npm exec -- vitest run src/services/prospecting-triggers-g43-remote.test.ts src/services/prospecting-triggers-g4.test.ts
+      - name: G4.4 company research - public evidence and safety
+        run: |
+          node --test runtime-host/RealTalent-Agent-Runtime-V3.1.2/crm-prospect-investigation-g1.test.mjs
+          node --check runtime-host/RealTalent-Agent-Runtime-V3.1.2/crm-prospect-investigation-g1.mjs
+          node --check scripts/realtalent-prospecting-agent.mjs
+          bash -n scripts/garimpo-g4/ativar-garimpo-local.sh
+          bash -n scripts/garimpo-g4/ativar-agente-local.sh
+          bash -n deploy/waha-direct/abrir-crm-v101-waha-linux.sh
       - name: TypeScript
         run: npm run typecheck
       - name: Build

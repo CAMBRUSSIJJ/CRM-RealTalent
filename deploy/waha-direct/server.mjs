@@ -5,6 +5,7 @@ import os from 'node:os'
 import path from 'node:path'
 import { randomBytes, timingSafeEqual } from 'node:crypto'
 import { createLocalTools, proxyWahaMedia, ollamaModels, analyzeConversation, wahaAllowedMime } from './tools.mjs'
+import { analyzeWahaConversation } from './conversation-intelligence.mjs'
 
 // Local-only authenticated companion: WAHA credentials never enter the browser.
 const home=os.homedir()
@@ -95,6 +96,13 @@ async function handler(req,res){
       }catch{output(res,200,{available:false,models:[],description:'Ollama local não está disponível neste computador.'})}
       return
     }
+    if(url.pathname==='/v1/ai/conversation'&&req.method==='POST'){
+      const input=await readBody(req,1500)
+      const result=await analyzeWahaConversation(input,{
+        readMessages:chatId=>upstream('/api/'+session+'/chats/'+encodeURIComponent(chatId)+'/messages?limit=60&downloadMedia=false')
+      })
+      output(res,200,result);return
+    }
     if(url.pathname==='/v1/ai/analyze'&&req.method==='POST'){
       const v=await readBody(req,30000)
       output(res,200,await analyzeConversation(v));return
@@ -126,7 +134,11 @@ async function handler(req,res){
     }
     output(res,404,{error:'not_found'})
   }catch(error){
-    output(res,[400,404,413].includes(error.status)?error.status:502,{error:'bridge_operation_failed',detail:'Confira a solicitação, a disponibilidade local e os logs. Nenhum envio será repetido automaticamente.'})
+    const status=[400,404,413,422,503].includes(error.status)?error.status:502
+    const details=status===400||status===422||status===503
+      ?String(error.message||'Falha na análise').slice(0,180)
+      :'Confira a disponibilidade do WAHA e do Ollama locais. Nenhum envio será repetido automaticamente.'
+    output(res,status,{error:'bridge_operation_failed',detail:details})
   }
 }
 const server=http.createServer((req,res)=>handler(req,res).catch(()=>{if(!res.headersSent)output(res,500,{error:'internal'});else res.destroy()}))

@@ -90,7 +90,7 @@ export function createAudioTranscriber({apiKey,download=downloadWahaVoice,transc
         let text=cache.get(digest)?.text
         if(!text){
           const bytes=await download(src,apiKey)
-          text=String(await transcribe(bytes)).replace(/[\\u0000-\\u001f]/g,' ').trim().slice(0,4500)
+          text=String(await transcribe(bytes)).replace(/[\u0000-\u001f]/g,' ').trim().slice(0,4500)
           if(!text){skipped++;continue}
           cache.set(digest,{text,expires:Date.now()+TTL_MS})
           if(cache.size>100)cache.delete(cache.keys().next().value)

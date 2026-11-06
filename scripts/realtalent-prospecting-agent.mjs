@@ -2589,11 +2589,14 @@ const server = http.createServer(async (req, res) => {
       const focus=['instagram','cnpj','general'].includes(body.focus)?body.focus:'general'
       const baseQueries=buildCompanySearchQueries(company,city)
       const focused=focus==='instagram'
-        ?[company+' '+city+' instagram',company+' instagram perfil',...baseQueries]
+        ?[company+' '+city+' instagram',
+            'site:instagram.com/p/ "'+company+'" '+city,
+            'site:instagram.com/reel/ "'+company+'" '+city,
+            company+' instagram perfil',...baseQueries]
         :focus==='cnpj'
           ?[company+' '+city+' CNPJ',company+' CNPJ razão social',...baseQueries]
           :baseQueries
-      const queries=[...new Set(focused.map(value=>value.trim()).filter(Boolean))].slice(0,4)
+      const queries=[...new Set(focused.map(value=>value.trim()).filter(Boolean))].slice(0,focus==='instagram'?4:4)
       const results=[],seen=new Set(),attempts=[]
       const addResults=(items,provider,query)=>{
         let accepted=0
@@ -2604,7 +2607,7 @@ const server = http.createServer(async (req, res) => {
           results.push({title:clean(result.title).slice(0,170),url:String(result.url).slice(0,550),
             snippet:clean(result.snippet).slice(0,500),provider})
           accepted++
-          if(results.length>=12)break
+          if(results.length>=(focus==='instagram'?16:12))break
         }
         attempts.push({query,provider,status:items.length?'results':'no_results',found:items.length,accepted})
       }
@@ -2615,7 +2618,7 @@ const server = http.createServer(async (req, res) => {
         }catch(error){
           attempts.push({query,provider:'duckduckgo',status:'error',reason:clean(error instanceof Error?error.message:error).slice(0,140)})
         }
-        if(results.length>=8)break
+        if(results.length>=(focus==='instagram'?16:8))break
       }
       // Optional public fallback with no credentials. Only use if HTML search yielded nothing.
       if(!results.length){
@@ -2648,7 +2651,7 @@ const server = http.createServer(async (req, res) => {
     if (req.method === 'GET' && pathname === '/api/prospecting-agent/health') {
       return json(res, {
         ok: true, version: VERSION, pid: process.pid, host: HOST, port: PORT,
-        companyResearchVersion: 'g45-company-focus-v1',
+        companyResearchVersion: 'g48-instagram-batch-v1',
         stateFile: STATE_FILE, chromium: Boolean(CHROMIUM), chromiumBinary: CHROMIUM,
         providers: { placeFirstSearch: true, searchOntology: true, strictScope: true, territoryEngine2: true, coverageExpansion: true, runtimeTruth: true, openstreetmap: true, webDiscovery: WEB_SEARCH_ENABLED, websiteCrawler: true, websiteDiscovery: WEB_SEARCH_ENABLED, contactDiscovery: true, cnpjEnrichment: true, cnpjDiscovery: true, socialDiscovery: true, chromiumHeadless: Boolean(CHROMIUM) },
         featureVersion: H21_RUNTIME_VERSION,

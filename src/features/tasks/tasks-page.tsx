@@ -54,6 +54,11 @@ export function TasksPage() {
   const canTaskEdit = canTeamAccess('edit','tasks')
   const canTaskDelete = canTeamAccess('delete','tasks')
   useEffect(()=>{
+    if(!workspaceId){setSavedViews([]);return}
+    try{setSavedViews(readSavedTaskViews(workspaceId,window.localStorage))}
+    catch{setSavedViews([])}
+  },[workspaceId])
+  useEffect(()=>{
     if(!canTaskCreate||!workspaceId)return
     const handoff=consumeWahaTaskHandoff()
     if(handoff){setTaskHandoff(handoff);setEditing(null);setModalOpen(true)}

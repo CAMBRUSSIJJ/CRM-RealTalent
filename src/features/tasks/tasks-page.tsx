@@ -334,7 +334,7 @@ function TaskRow({ task, team, relation, checklist, diagnostic, notificationsRea
   </article>
 }
 
-function TaskBoard({ tasks, teamById, relationByTask, checklistItems, diagnostics, notificationsReachable, repositoryMode, readOnly, canCreate, onCreate, onEdit, onStatus }: {
+function TaskBoard({ tasks, teamById, relationByTask, checklistItems, diagnostics, notificationsReachable, repositoryMode, readOnly, canCreate, canDelete, onCreate, onEdit, onStatus, onDelete, onQuickCreate, onNotifications }: {
   tasks: WorkTask[]
   teamById: Map<string, Team>
   relationByTask: Map<string, TaskRelation>
@@ -344,6 +344,10 @@ function TaskBoard({ tasks, teamById, relationByTask, checklistItems, diagnostic
   repositoryMode: 'local' | 'supabase'
   readOnly: boolean
   canCreate: boolean
+  canDelete: boolean
+  onDelete(task: WorkTask): void
+  onQuickCreate(title: string, status: TaskStatus): Promise<void>
+  onNotifications(): void
   onCreate(): void
   onEdit(task: WorkTask): void
   onStatus(task: WorkTask, status: TaskStatus): void
@@ -355,6 +359,19 @@ function TaskBoard({ tasks, teamById, relationByTask, checklistItems, diagnostic
     {status:'completed',label:'Concluídas'},
   ]
   const [dropTarget, setDropTarget] = useState<TaskStatus | null>(null)
+  const [quickColumn,setQuickColumn] = useState<TaskStatus|null>(null)
+  const [quickTitle,setQuickTitle] = useState('')
+  const [quickSaving,setQuickSaving] = useState(false)
+  const [quickError,setQuickError] = useState('')
+  async function createInline(status:TaskStatus){
+    if(!quickTitle.trim()||quickSaving)return
+    setQuickSaving(true);setQuickError('')
+    try{
+      await onQuickCreate(quickTitle.trim(),status)
+      setQuickTitle('');setQuickColumn(null)
+    }catch(error){setQuickError(error instanceof Error?error.message:'Falha ao criar tarefa.')}
+    finally{setQuickSaving(false)}
+  }
   const moveTask = (event: DragEvent<HTMLElement>, target: TaskStatus) => {
     event.preventDefault()
     setDropTarget(null)

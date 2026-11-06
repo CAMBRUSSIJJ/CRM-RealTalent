@@ -89,7 +89,7 @@ export async function analyzeConversation(input){
   const task=input?.task
   if(!['summary','suggest'].includes(task)||!Array.isArray(input.messages)||input.messages.length>35){const e=new Error('Solicitação inválida');e.status=400;throw e}
   const messages=input.messages.slice(-35).map(m=>{
-    if(!m||typeof m.body!=='string'||m.body.length>700||typeof m.fromMe!=='boolean')return null
+    if(!m||typeof m.body!=='string'||!m.body.trim()||m.body.length>700||typeof m.fromMe!=='boolean')return null
     return (m.fromMe?'Atendente: ':'Contato: ')+m.body.replace(/[\u0000-\u001f]/g,' ')
   }).filter(Boolean)
   if(messages.length===0){const e=new Error('Sem mensagens de texto');e.status=400;throw e}

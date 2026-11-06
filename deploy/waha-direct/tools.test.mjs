@@ -38,6 +38,12 @@ test('media proxy only allows WAHA local file paths',()=>{
   assert.equal(sanitizeMediaSrc('http://127.0.0.1:8181/files/a.png'),null)
   assert.equal(sanitizeMediaSrc('/api/other/messages'),null)
   assert.equal(sanitizeMediaSrc('/files/%2e%2e/secret'),null)
+  assert.equal(sanitizeMediaSrc('/api/files/voice%20note%20(1)%20%2B%20name.ogg'),
+    '/api/files/voice%20note%20(1)%20%2B%20name.ogg')
+  assert.equal(sanitizeMediaSrc('/api/files/a%3Db%3Ac.ogg'),'/api/files/a%3Db%3Ac.ogg')
+  assert.equal(sanitizeMediaSrc('/api/files/%252e%252e/secret'),null)
+  assert.equal(sanitizeMediaSrc('/api/files/%2Fetc'),null)
+  assert.equal(sanitizeMediaSrc('http://127.0.0.1:4385@evil.example/api/files/clip.ogg'),null)
 })
 
 

@@ -24,6 +24,8 @@ jobs:
         run: node --test deploy/waha-direct/server.test.mjs deploy/waha-direct/tools.test.mjs deploy/waha-direct/conversation-intelligence.test.mjs deploy/waha-direct/audio-transcription.test.mjs deploy/waha-direct/group-senders.test.mjs deploy/waha-direct/inline-voice.test.mjs
       - name: Verify Linux CRM preview launcher syntax
         run: bash -n deploy/waha-direct/abrir-crm-v101-waha-linux.sh deploy/waha-direct/instalar-transcricao-local-linux.sh
+      - name: Native task handoff regression
+        run: npm exec -- vitest run src/services/waha-task-handoff.test.ts
       - name: TypeScript check
         run: npm run typecheck
       - name: Build CRM V101.11.3

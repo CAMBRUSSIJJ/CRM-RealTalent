@@ -34,6 +34,8 @@ jobs:
           node --test runtime-host/RealTalent-Agent-Runtime-V3.1.2/crm-company-assistant-g45.test.mjs
           node --test runtime-host/RealTalent-Agent-Runtime-V3.1.2/crm-public-social-evidence-g46.test.mjs
           node --test runtime-host/RealTalent-Agent-Runtime-V3.1.2/crm-social-vision-g46.test.mjs
+          node --test runtime-host/RealTalent-Agent-Runtime-V3.1.2/crm-instagram-post-analysis-g47.test.mjs
+          node --check runtime-host/RealTalent-Agent-Runtime-V3.1.2/crm-instagram-post-analysis-g47.mjs
           node --check runtime-host/RealTalent-Agent-Runtime-V3.1.2/crm-social-vision-g46.mjs
           node --check runtime-host/RealTalent-Agent-Runtime-V3.1.2/crm-public-social-evidence-g46.mjs
           node --test scripts/realtalent-ai-linux/browser-connector.test.mjs

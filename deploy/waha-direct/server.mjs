@@ -4,7 +4,8 @@ import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
 import { randomBytes, timingSafeEqual } from 'node:crypto'
-import { createLocalTools, proxyWahaMedia, ollamaModels, analyzeConversation, wahaAllowedMime, normalizeWahaMediaMessages } from './tools.mjs'
+import { createLocalTools, proxyWahaMedia, ollamaModels, analyzeConversation, wahaAllowedMime, normalizeWahaMediaMessages, normalizeWahaMediaUrl } from './tools.mjs'
+import { createGroupSenderEnricher } from './group-senders.mjs'
 import { analyzeWahaConversation } from './conversation-intelligence.mjs'
 import { createAudioTranscriber } from './audio-transcription.mjs'
 
@@ -30,6 +31,12 @@ const wahaBase='http://127.0.0.1:4385'
 const watchers=new Set(), sent=new Map()
 const tools=createLocalTools(dataDir)
 const transcribeMessages=createAudioTranscriber({apiKey:key})
+const enrichGroupSenders=createGroupSenderEnricher({lookup:async id=>{
+  const response=await fetch(wahaBase+'/api/contacts?contactId='+encodeURIComponent(id)+'&session='+encodeURIComponent(session),{
+    headers:{'X-Api-Key':key},redirect:'error',signal:AbortSignal.timeout(3500)
+  })
+  return response.ok?response.json():null
+}})
 const chatValid=v=>typeof v==='string'&&/^[a-zA-Z0-9_-]{5,70}@(c\.us|lid|g\.us)$/.test(v)
 const authenticated=v=>{
   if(typeof v!=='string'||!v.startsWith('Bearer '))return false
@@ -63,7 +70,7 @@ async function handler(req,res){
   if(!authenticated(req.headers.authorization)){output(res,401,{error:'invalid_bridge_token'});return}
   try{
     if(url.pathname==='/v1/features'&&req.method==='GET'){
-      output(res,200,{version:'voice-transcription-v2.1-media',features:['waha-chat','commercial-analysis','ask-about-chat','reply-draft','local-audio-transcription'],autoSend:false});return
+      output(res,200,{version:'group-media-v2.3',features:['waha-chat','commercial-analysis','ask-about-chat','reply-draft','local-audio-transcription'],autoSend:false});return
     }
     if(url.pathname==='/v1/session'&&req.method==='GET'){
       const v=await upstream('/api/sessions/'+session);output(res,200,{status:v.status||'UNKNOWN',session});return
@@ -77,7 +84,7 @@ async function handler(req,res){
     if(url.pathname==='/v1/messages'&&req.method==='GET'){
       const chatId=url.searchParams.get('chatId');if(!chatValid(chatId)){output(res,400,{error:'invalid_chat'});return}
       const v=await upstream('/api/'+session+'/chats/'+encodeURIComponent(chatId)+'/messages?limit=50&downloadMedia=true')
-      output(res,200,normalizeWahaMediaMessages(v));return
+      output(res,200,await enrichGroupSenders(normalizeWahaMediaMessages(v),chatId));return
     }
     if(url.pathname==='/v1/resolve'&&req.method==='GET'){
       const phone=url.searchParams.get('phone')||'';if(!/^\d{10,15}$/.test(phone)){output(res,400,{error:'invalid_phone'});return}
@@ -92,7 +99,24 @@ async function handler(req,res){
       output(res,200,tools.update(v));return
     }
     if(url.pathname==='/v1/media'&&req.method==='GET'){
-      await proxyWahaMedia(url.searchParams.get('src')||'',{'X-Api-Key':key},res);return
+      let src=url.searchParams.get('src')||''
+      const requestedChat=url.searchParams.get('chatId')
+      const messageId=url.searchParams.get('messageId')
+      // Re-fetch the specific authenticated WAHA message if the advertised file link is stale.
+      // A browser cannot provide an arbitrary upstream URL or media filename by reference.
+      if(requestedChat!==null||messageId!==null){
+        if(!chatValid(requestedChat)||typeof messageId!=='string'||
+          !/^[A-Za-z0-9@_.:-]{5,250}$/.test(messageId)){
+          output(res,400,{error:'invalid_media_reference'});return
+        }
+        const message=await upstream('/api/'+session+'/chats/'+encodeURIComponent(requestedChat)+
+          '/messages/'+encodeURIComponent(messageId)+'?downloadMedia=true')
+        src=normalizeWahaMediaUrl(message?.media?.url||message?.mediaUrl||'')||''
+        if(!src){
+          output(res,424,{error:'media_not_available',detail:'O WAHA não disponibilizou o arquivo desta mensagem.'});return
+        }
+      }
+      await proxyWahaMedia(src,{'X-Api-Key':key},res);return
     }
     if(url.pathname==='/v1/ai/status'&&req.method==='GET'){
       try{
@@ -104,7 +128,7 @@ async function handler(req,res){
     if(url.pathname==='/v1/ai/conversation'&&req.method==='POST'){
       const input=await readBody(req,1500)
       const result=await analyzeWahaConversation(input,{
-        readMessages:async chatId=>normalizeWahaMediaMessages(await upstream('/api/'+session+'/chats/'+encodeURIComponent(chatId)+'/messages?limit=60&downloadMedia=true')),
+        readMessages:async chatId=>enrichGroupSenders(normalizeWahaMediaMessages(await upstream('/api/'+session+'/chats/'+encodeURIComponent(chatId)+'/messages?limit=60&downloadMedia=true')),chatId),
         transcribeMessages
       })
       output(res,200,result);return

@@ -24,7 +24,12 @@ const OPEN_STATUSES: TaskStatus[] = ['todo', 'in_progress', 'blocked']
 const statusTone = (status: TaskStatus) => status === 'completed' ? 'success' : status === 'blocked' ? 'danger' : status === 'in_progress' ? 'info' : status === 'cancelled' ? 'neutral' : 'warning'
 const priorityTone = (priority: WorkTask['priority']) => priority === 'urgent' ? 'danger' : priority === 'high' ? 'warning' : priority === 'normal' ? 'info' : 'neutral'
 const todayKey = () => { const date = new Date(); return `${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,'0')}-${String(date.getDate()).padStart(2,'0')}` }
-const dueKey = (value: string | null) => value ? new Date(value).toLocaleDateString('en-CA') : ''
+const dueKey = (value:string|null) => {
+  if(!value)return ''
+  const d=new Date(value)
+  if(!Number.isFinite(d.getTime()))return ''
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`
+}
 const dueLabel = (value: string | null) => value ? new Date(value).toLocaleString('pt-BR', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' }) : 'Sem prazo'
 
 export function TasksPage() {

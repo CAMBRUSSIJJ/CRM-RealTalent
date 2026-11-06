@@ -24,7 +24,7 @@ test('G4.9 chooses at most three evidence-backed relevant findings, not all post
     company:'Salento Barbearia',postAnalyses:posts,
     coverage:{indexed:12,analyzed:6},currentYear:2026,
   })
-  assert.equal(result.version,'g49')
+  assert.equal(result.version,'g491')
   assert.equal(result.status,'findings')
   assert.ok(result.discoveries.length<=3)
   assert.ok(result.discoveries.length>=2)
@@ -32,7 +32,9 @@ test('G4.9 chooses at most three evidence-backed relevant findings, not all post
   assert.ok(result.discoveries.every(x=>x.fact!=='Aqui é assim! E tem mais @salentobarbearia'))
   assert.ok(result.discoveries.every(x=>!x.fact.includes('Inauguração 2024')))
   assert.ok(result.actions.length<=2)
-  assert.deepEqual(result.coverage,{indexed:12,analyzed:6,selected:result.discoveries.length})
+  assert.deepEqual(result.coverage,{indexed:12,analyzed:6,
+    selected:result.discoveries.length+result.contextHighlights.length,
+    commercial:result.discoveries.length,context:result.contextHighlights.length})
   assert.match(result.limitations[1],/não interesse em comprar/)
 })
 test('G4.9 avoids inventing opportunities when content is generic or absent',()=>{
@@ -90,4 +92,41 @@ test('G4.9 priority is explicitly not purchase probability even when source is a
   ]})
   assert.equal(output.discoveries[0].priority,'alta')
   assert.match(output.limitations.join(' '),/não interesse em comprar/)
+})
+
+test('G4.9.1 distinguishes useful business context from a confirmed commercial signal',()=>{
+  const results=[
+    post(1,'positioning','Aqui é assim! E tem mais @salentobarbearia'),
+    post(2,'promotion','Chegou o grande dia de você usufruir de uma inauguração 2024',{title:'Inauguração 2024'}),
+    post(3,'positioning','A equipe mostrou bastidores do atendimento da barbearia local.'),
+    post(4,'positioning','Técnica de corte com riscos nas laterais apresentada em vídeo.'),
+    post(5,'other','Bom dia'),
+  ]
+  const report=createCommercialExecutiveG49({
+    company:'Salento Barbearia',postAnalyses:results,
+    coverage:{indexed:12,analyzed:5},currentYear:2026,
+  })
+  assert.equal(report.status,'context_only')
+  assert.equal(report.discoveries.length,0)
+  assert.ok(report.contextHighlights.length>=1)
+  assert.ok(report.contextHighlights.length<=2)
+  assert.ok(report.contextHighlights.every(x=>x.fact.length>=24))
+  assert.ok(report.contextHighlights.every(x=>!x.fact.includes('inauguração 2024')))
+  assert.equal(report.actions.length,0)
+  assert.equal(report.coverage.selected,report.contextHighlights.length)
+  assert.match(report.executive,/nenhuma oportunidade comercial foi confirmada/)
+  assert.ok(report.contextHighlights.every(x=>/instagram.com\/p\//.test(x.url)))
+})
+test('G4.9.1 shows no context for generic slogans and historical promotions',()=>{
+  const report=createCommercialExecutiveG49({
+    company:'Salento Barbearia',postAnalyses:[
+      post(1,'positioning','Aqui é assim! E tem mais @salentobarbearia'),
+      post(2,'other','Mais conteúdo em breve!'),
+      post(3,'promotion','Inauguração da unidade 2024.',{title:'Inauguração em 2024'}),
+    ],coverage:{indexed:8,analyzed:3},currentYear:2026,
+  })
+  assert.equal(report.status,'insufficient_evidence')
+  assert.equal(report.contextHighlights.length,0)
+  assert.equal(report.discoveries.length,0)
+  assert.equal(report.coverage.selected,0)
 })

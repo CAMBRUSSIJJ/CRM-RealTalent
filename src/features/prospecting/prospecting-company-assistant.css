@@ -75,3 +75,15 @@ html[data-theme="dark"] .prospecting-company-assistant__post-analysis{background
 html[data-theme="dark"] .prospecting-company-assistant__post-card{background:#1d304b;border-color:#465f80}
 html[data-theme="dark"] .prospecting-company-assistant__post-card blockquote{background:#294565;color:#d3e5fa;border-color:#759cc9}
 html[data-theme="dark"] .prospecting-company-assistant__post-heading span{background:#345477;color:#d5e8fc}
+
+.prospecting-company-assistant__batch-metrics{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px}
+.prospecting-company-assistant__batch-metrics span{display:grid;gap:3px;border:1px solid #dce8f5;border-radius:8px;background:var(--rt-color-surface,#fff);padding:9px 10px;color:var(--text-secondary,#657a94);font-size:10px;line-height:1.4}
+.prospecting-company-assistant__batch-metrics b{font-size:17px;color:var(--text-primary,#2c5382)}
+.prospecting-company-assistant__patterns{display:grid;gap:8px;border:1px solid #d9e7f6;border-radius:9px;padding:10px;background:var(--rt-color-surface,#fff)}
+.prospecting-company-assistant__patterns>strong{font-size:11px;color:var(--text-primary,#31577e)}
+.prospecting-company-assistant__patterns>div{display:flex;flex-wrap:wrap;gap:5px}
+.prospecting-company-assistant__patterns>div span{font-size:10px;background:#ebf3ff;color:#2865a9;border:1px solid #d5e5f8;border-radius:99px;padding:4px 8px}
+.prospecting-company-assistant__patterns>small{font-size:10px;color:var(--text-secondary,#71849b);line-height:1.45}
+html[data-theme="dark"] .prospecting-company-assistant__batch-metrics span,html[data-theme="dark"] .prospecting-company-assistant__patterns{background:#20344d;border-color:#45617e}
+html[data-theme="dark"] .prospecting-company-assistant__patterns>div span{background:#2d4c6f;border-color:#49688a;color:#d1e5fd}
+@media(max-width:540px){.prospecting-company-assistant__batch-metrics{grid-template-columns:repeat(2,minmax(0,1fr))}}

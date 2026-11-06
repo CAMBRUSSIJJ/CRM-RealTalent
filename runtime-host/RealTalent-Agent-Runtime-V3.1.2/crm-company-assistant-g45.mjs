@@ -2,7 +2,7 @@
 // private scraping, account login, CRM edits, or automatic opportunity creation.
 import {validResearchUrlV60} from './crm-web-reader-v60.mjs'
 import {enrichPublicSocialSourcesG46} from './crm-public-social-evidence-g46.mjs'
-import {analyzeInstagramPostsG47} from './crm-instagram-post-analysis-g47.mjs'
+import {analyzeInstagramPostBatchesG48} from './crm-instagram-batch-g48.mjs'
 
 const clean=(v,max=300)=>String(v??'').replace(/[\u0000-\u001f\u007f]/g,' ').replace(/\s+/g,' ').trim().slice(0,max)
 const norm=v=>clean(v).normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase()
@@ -67,7 +67,7 @@ const publicSearch=async(input,{fetcher,searchUrl})=>{
     const sources=body.results.map(sourceCard).filter(x=>{
       if(!x.url||!x.title||seen.has(x.url)||!matchCompany(input.company,x))return false
       seen.add(x.url);return true
-    }).slice(0,10).map((s,i)=>({...s,id:i+1}))
+    }).slice(0,16).map((s,i)=>({...s,id:i+1}))
     return {ok:true,sources,attemptedQueries:Array.isArray(body.attempts)?body.attempts.length:0}
   }catch{return {ok:false,error:'garimpo_unavailable',sources:[]}}
   finally{clearTimeout(timer)}
@@ -121,7 +121,7 @@ export async function answerCompanyQuestionG45(payload,{
   fetcher=fetch,searchUrl='http://127.0.0.1:4319',
   cnpjApiUrl='https://brasilapi.com.br/api/cnpj/v1',
   ollamaUrl='http://127.0.0.1:11434',model='qwen3:8b',
-  searcher=publicSearch,enricher=enrichPublicSocialSourcesG46,postAnalyzer=analyzeInstagramPostsG47,
+  searcher=publicSearch,enricher=enrichPublicSocialSourcesG46,postAnalyzer=analyzeInstagramPostBatchesG48,
 }={}){
   const input=normalizeCompanyQuestionG45(payload)
   if(!input)return {ok:false,error:'invalid_question'}
@@ -136,7 +136,7 @@ export async function answerCompanyQuestionG45(payload,{
     const profiles=instagramSources.filter(x=>/^\/[^/]+\/?$/.test(new URL(x.url).pathname)
       &&matchCompany(input.company,x))
     const profile=profiles[0]||null
-    const posts=instagramSources.filter(x=>/^\/(p|reel)\//.test(new URL(x.url).pathname)).slice(0,6)
+    const posts=instagramSources.filter(x=>/^\/(p|reel)\//.test(new URL(x.url).pathname)).slice(0,12)
     const displayed=profile?profile.url:input.instagram
     const enriched=await enricher(sources,{company:input.company})
     const readSources=enriched.filter(source=>source.reading==='page'||source.reading==='metadata')
@@ -162,10 +162,16 @@ export async function answerCompanyQuestionG45(payload,{
           :'Não encontrei um perfil associado com segurança à empresa nesta pesquisa.')
     return {ok:true,kind:'instagram',company:input.company,
       answer,postAnalyses:postAnalysis.posts||[],
+      postAnalysisCoverage:{
+        indexed:postAnalysis.indexedPosts??posts.length,
+        analyzed:postAnalysis.analyzedPosts??postAnalysis.posts?.length??0,
+        batches:postAnalysis.batchesProcessed??(posts.length>0?1:0),
+        patterns:postAnalysis.patterns||[],
+      },
       postAnalysisStatus:postAnalysis.status||'unknown',postAnalysisMessage:postAnalysis.message||'',
       profileUrl:displayed||null,profileStatus:profile?'indexed':'reported_in_crm',
       posts:enriched.filter(s=>posts.some(post=>post.url===s.url)),
-      sources:enriched.slice(0,8),pagesRead:readSources.filter(s=>s.reading==='page').length,
+      sources:enriched.slice(0,16),pagesRead:readSources.filter(s=>s.reading==='page').length,
       metadataRead:readSources.filter(s=>s.reading==='metadata').length,
       limitation:'A IA local analisa somente trechos indexados e textos/metadados de páginas públicas acessíveis. Não lê todo o feed, Stories, fotos ou vídeos privados; a falta de leitura pode decorrer de bloqueio ou login exigido pelo site.',
       searchStatus:result.ok?'done':result.error}

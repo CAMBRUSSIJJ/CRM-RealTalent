@@ -256,6 +256,19 @@ export function TasksPage() {
         onOpenTask={task => {setShowNotifications(false);setEditing(task);setModalOpen(true)}} />
     </Modal> : null}
 
+    <section className="tasks-page-v4__metrics" aria-label="Indicadores e filtros">
+      <button type="button" className={!filterActive?'is-active':''} aria-pressed={!filterActive}
+        onClick={()=>setView(layout)}><span>Todas</span><strong>{metrics.all}</strong><small>Visão geral</small></button>
+      <button type="button" className={view==='today'?'is-active':''} aria-pressed={view==='today'}
+        onClick={()=>toggleTaskFilter('today')}><span>Para hoje</span><strong>{metrics.today}</strong><small>Prazo de hoje</small></button>
+      <button type="button" className={view==='overdue'?'is-active is-alert':''} aria-pressed={view==='overdue'}
+        onClick={()=>toggleTaskFilter('overdue')}><span>Atrasadas</span><strong>{metrics.overdue}</strong><small>Exigem atenção</small></button>
+      <button type="button" className={view==='in_progress'?'is-active':''} aria-pressed={view==='in_progress'}
+        onClick={()=>toggleTaskFilter('in_progress')}><span>Em andamento</span><strong>{metrics.inProgress}</strong><small>Em execução</small></button>
+      <button type="button" className={view==='completed'?'is-active':''} aria-pressed={view==='completed'}
+        onClick={()=>toggleTaskFilter('completed')}><span>Concluídas</span><strong>{metrics.completed}</strong><small>Finalizadas</small></button>
+    </section>
+
     <section className="tasks-page-v4__toolbar" aria-label="Ferramentas de tarefas">
       <div className="tasks-page-v4__layout-switch" role="group" aria-label="Modo de visualização">
         <button type="button" className={layout === 'list' ? 'is-active' : ''} onClick={() => switchLayout('list')} aria-pressed={layout === 'list'} aria-label="Visualizar em lista" title="Lista"><ListChecks size={17}/></button>

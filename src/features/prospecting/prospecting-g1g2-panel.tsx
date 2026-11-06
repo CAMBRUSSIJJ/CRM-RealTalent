@@ -9,6 +9,7 @@ import {env} from '../../lib/env'
 import {runtimeFetch} from '../../services/realtalent-runtime-transport'
 import {appendTriggerCandidatesG4,type TriggerCandidateG4,type TriggerSourceG4} from '../../services/prospecting-triggers-g4'
 import {appendRemoteTriggersG43,isTriggerCloudModeG43} from '../../services/prospecting-triggers-g43-remote'
+import {ProspectingCompanyAssistant} from './prospecting-company-assistant'
 
 interface InvestigationSource {
   title:string;url:string;reading:'page'|'snippet';
@@ -149,6 +150,7 @@ export function ProspectingG1G2Panel({prospect,snapshot,readOnly}:Props){
         {busy?'Investigando…':result?'Investigar novamente':'Investigar com IA'}
       </Button>
     </div>
+    <ProspectingCompanyAssistant prospect={prospect}/>
     {error?<p className="prospecting-g1g2__error" role="alert">{error}</p>:null}
     {signalNotice?<p className="prospecting-g1g2__signal-notice" role="status">{signalNotice}</p>:null}
     {result?<div className="prospecting-g1g2__report" aria-live="polite">

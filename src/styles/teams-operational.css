@@ -104,3 +104,7 @@ html[data-theme="dark"] .teams-page-v101112 .teams-directory>div>button{backgrou
 html[data-theme="dark"] .teams-page-v101112 .teams-directory>div>button.is-active{background:#2a4566;border-color:#4776ac}
 html[data-theme="dark"] .teams-operation__person-kpis>span,
 html[data-theme="dark"] .teams-operation__channel-state{background:#2a4261;color:#d4e5fb}
+
+.teams-operation__nav-btn.is-primary{background:#285fbb;color:#fff;border-color:#285fbb}
+.teams-operation__nav-btn.is-primary:hover{background:#214e9c}
+html[data-theme="dark"] .teams-operation__nav-btn.is-primary{background:#2c65b8;border-color:#4079c7;color:#fff}

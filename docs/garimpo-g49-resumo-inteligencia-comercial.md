@@ -10,7 +10,8 @@ Garimpo → Revisar → Guiada → Investigação com IA → **Analisar publica�
 
 O resultado padrão apresenta:
 - **Síntese executiva** com cobertura da investigação;
-- Até **3 descobertas para investigar**, selecionadas pelo valor informacional;
+- Até **3 informações úteis em destaque** (descobertas prioritárias e fatos contextuais), selecionadas pelo valor informacional;
+- Quando não há sinal comercial sustentável, o resultado pode mostrar **O que as fontes permitem afirmar**, com até 2 citações verificáveis e sem sugerir necessidades não demonstradas;
 - Evidência literal, leitura comercial e hipótese explicitamente não confirmada;
 - Até **2 próximos passos** com perguntas consultivas;
 - Link da fonte de cada descoberta e indicação de leitura (snippet, metadados, página).
@@ -87,3 +88,16 @@ npm run build
 Políticas RLS são testadas no PostgreSQL isolado. Nenhuma migração G4.3
 deve ser aplicada ao banco de Production sem homologação com usuários
 de workspaces diferentes.
+
+## Ajuste G4.9.1 — quando há publicações analisadas, mas nenhuma oportunidade confirmada
+
+A regra anterior podia exibir "5 publicações analisadas, 0 descobertas" e não mostrar
+informações úteis de contexto. O G4.9.1 separa **oportunidades para investigar**
+de **características empresariais observáveis**. Nesse segundo caso, exibe
+um resumo curto com citações literais e links de origem, sem afirmar que
+existe uma dor, intenção de compra ou evento-gatilho. Conteúdo genérico
+("Bom dia", frases promocionais vagas) continua sendo filtrado.
+
+A versão local é identificada no Agent como `company-assistant-g491`. A
+mudança ainda exige nova execução da investigação na prévia Linux; os
+resultados anteriores no navegador não são reprocessados automaticamente.

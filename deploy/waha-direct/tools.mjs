@@ -56,9 +56,9 @@ export function createLocalTools(dir){
 export function sanitizeMediaSrc(raw){
   if(typeof raw!=='string'||raw.length>2000)return null
   let parsed
-  try{parsed=new URL(raw,'http://127.0.0.1')}catch{return null}
+  try{parsed=new URL(raw,'http://127.0.0.1:4385')}catch{return null}
   // Prevent redirect/SSRF: only the file route from the local WAHA instance is accepted.
-  if(!['http://127.0.0.1','http://localhost'].includes(parsed.origin))return null
+  if(!['http://127.0.0.1:4385','http://localhost:4385'].includes(parsed.origin))return null
   if(!/^\/(?:api\/)?files\/[a-zA-Z0-9_./%~-]+$/.test(parsed.pathname) || parsed.pathname.split('/').includes('..'))return null
   if(!/^[?&a-zA-Z0-9_=%.-]*$/.test(parsed.search))return null
   return parsed.pathname+parsed.search

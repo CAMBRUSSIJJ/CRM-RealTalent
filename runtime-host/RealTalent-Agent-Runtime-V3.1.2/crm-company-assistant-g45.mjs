@@ -3,6 +3,7 @@
 import {validResearchUrlV60} from './crm-web-reader-v60.mjs'
 import {enrichPublicSocialSourcesG46} from './crm-public-social-evidence-g46.mjs'
 import {analyzeInstagramPostBatchesG48} from './crm-instagram-batch-g48.mjs'
+import {createCommercialExecutiveG49} from './crm-commercial-priority-g49.mjs'
 
 const clean=(v,max=300)=>String(v??'').replace(/[\u0000-\u001f\u007f]/g,' ').replace(/\s+/g,' ').trim().slice(0,max)
 const norm=v=>clean(v).normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase()
@@ -151,6 +152,11 @@ export async function answerCompanyQuestionG45(payload,{
       company:input.company,city:input.city,question:input.question,
       sources:enriched.filter(s=>posts.some(post=>post.url===s.url)),
     },{fetcher,ollamaUrl,model})
+    const executive=createCommercialExecutiveG49({
+      company:input.company,postAnalyses:postAnalysis.posts||[],
+      coverage:{indexed:postAnalysis.indexedPosts??posts.length,
+        analyzed:postAnalysis.analyzedPosts??postAnalysis.posts?.length??0},
+    })
     const text=posts.length===0?await summarize(input,filtered,{fetcher,ollamaUrl,model}):''
     const answer=postAnalysis.posts?.length
       ?'Encontrei '+posts.length+' publicação(ões) indexada(s) e analisei '+postAnalysis.posts.length+
@@ -161,7 +167,7 @@ export async function answerCompanyQuestionG45(payload,{
           ?'Encontrei uma referência pública ao perfil, mas não houve publicação com conteúdo suficiente para análise.'
           :'Não encontrei um perfil associado com segurança à empresa nesta pesquisa.')
     return {ok:true,kind:'instagram',company:input.company,
-      answer,postAnalyses:postAnalysis.posts||[],
+      answer,executive,postAnalyses:postAnalysis.posts||[],
       postAnalysisCoverage:{
         indexed:postAnalysis.indexedPosts??posts.length,
         analyzed:postAnalysis.analyzedPosts??postAnalysis.posts?.length??0,

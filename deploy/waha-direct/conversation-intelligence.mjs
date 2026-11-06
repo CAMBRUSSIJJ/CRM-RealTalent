@@ -1,7 +1,7 @@
 // Read-only conversation intelligence: WAHA and Ollama only on local loopback.
 // A generated suggestion NEVER calls the WhatsApp send API.
 const CHAT_PATTERN=/^[A-Za-z0-9_-]{5,70}@(c\.us|lid|g\.us)$/
-const VALID_TASKS=new Set(['summary','reply','ask','commercial'])
+const VALID_TASKS=new Set(['summary','reply','ask','commercial','autoReply'])
 const OLLAMA='http://127.0.0.1:11434'
 const MAX_HISTORY=45
 const MAX_TEXT=900
@@ -65,11 +65,12 @@ function buildPrompt({task,question,history}){
     'Áudios transcritos automaticamente podem conter erros: não trate palavras incertas como fatos confirmados.',
     'Considere apenas o histórico apresentado. Se faltar informação, diga explicitamente.',
     'Não faça diagnóstico psicológico do contato. Não tome decisões automatizadas sobre pessoas.',
-    'Não envie mensagens: você apenas redige conteúdo para revisão humana.'
+    task==='autoReply'?'Você redige uma resposta que o sistema pode enviar em conversa individual explicitamente habilitada; não decida por ações externas.':'Não envie mensagens: você apenas redige conteúdo para revisão humana.'
   ].join('\n')
   const instruction={
     summary:'Resuma o diálogo, necessidades explicitamente mencionadas, pendências e próximos passos possíveis. Se nada consta, diga.',
     reply:'Escreva SOMENTE uma resposta de WhatsApp adequada ao último contexto, cordial, objetiva, até 600 caracteres. Se o contato não fez um pedido, formule uma pergunta breve e não invasiva. Sem introduções ou hashtags.',
+    autoReply:'Você é o ASSISTENTE VIRTUAL de atendimento da RealTalent, não uma pessoa. Redija SOMENTE uma mensagem breve (entre 15 e 350 caracteres), em português brasileiro, adequada à última pergunta do contato e fundamentada somente no histórico. Informe que a equipe pode confirmar detalhes não disponíveis, mas NÃO diga que você registrou ou encaminhou nada. Não marque reuniões, não confirme disponibilidade, preços, descontos, pagamentos ou prazos, não solicite documentos ou informações sensíveis. Quando faltar contexto, faça uma pergunta comercial simples e educada. Não use markdown nem anuncie assinatura, o sistema a acrescentará.',
     ask:'Responda à pergunta do usuário usando apenas evidências do histórico. Se não consta, explique a lacuna. Pergunta: '+question,
     commercial:'Produza SOMENTE um JSON válido, sem markdown, com exatamente as chaves: summary (string), confidence ("alta"|"média"|"baixa"), limitations (string), needs, objections, opportunities, nextSteps (arrays de objetos). Cada objeto nas arrays deve conter description (string) e evidenceIds (array de IDs tipo "M01"). Só inclua fatos realmente expressos nas mensagens, cite IDs válidos, mantenha arrays vazias para tópicos sem evidência. Oportunidades devem ser tratadas como hipóteses, não conclusões. Próximos passos são recomendações baseadas nas mensagens, não compromissos assumidos. Não invente IDs.',
   }[task]
@@ -131,7 +132,7 @@ export async function analyzeWahaConversation(input,{readMessages,transcribeMess
     return {task,chatId,model,source:'waha-local',messagesRead:history.length,
       ...detail,analysis:report,readOnly:true,sent:false}
   }
-  const text=cleanText(rawOutput,task==='reply'?750:3400)
+  const text=cleanText(rawOutput,task==='reply'||task==='autoReply'?750:3400)
   if(!text)throw Error('O modelo não retornou texto útil')
   return {task,chatId,model,source:'waha-local',messagesRead:history.length,
     ...detail,text,readOnly:true,sent:false}

@@ -4,6 +4,7 @@ import { stageWahaTaskHandoff } from '../../services/waha-task-handoff'
 import { routeToHash } from '../../app/route-state'
 import {
   wahaAiStatus, wahaAnalyzeSelectedConversation, wahaMediaBlob, wahaTranscribeMessage,
+  wahaAutoReplyStatus, wahaSetAutoReply, wahaSend, type WahaAutoReplyStatus,
   type WahaCommercialReport, type WahaAiConversationTask,
   type WahaChat, type WahaMessage, type WahaPreferences,
   type WahaQuickReply,
@@ -29,14 +30,20 @@ export function WahaToolsDrawer({mode,token,chats,selected,messages,prefs,onClos
   const [question,setQuestion]=useState('')
   const [messagesRead,setMessagesRead]=useState(0)
   const [voiceInfo,setVoiceInfo]=useState<{textMessagesRead:number;audioDetected:number;audioTranscribed:number;audioSkipped:number;audioTranscripts:{id:string;text:string}[]}|null>(null)
+  const activeChatId=useRef(selected?.id||'')
+  activeChatId.current=selected?.id||''
   const requestEpoch=useRef(0)
   const [aiModel,setAiModel]=useState('')
   const [aiAvailable,setAiAvailable]=useState(false)
   const [aiChecked,setAiChecked]=useState(false)
   const [aiTask,setAiTask]=useState<WahaAiConversationTask>('summary')
+  const [autoReply,setAutoReply]=useState<WahaAutoReplyStatus|null>(null)
+  const [autoSaving,setAutoSaving]=useState(false)
+  const [replySending,setReplySending]=useState(false)
+  const [replySent,setReplySent]=useState(false)
 
   useEffect(()=>{setLabels((selected&&prefs.labels[selected.id]||[]).join(', '))},[selected?.id,prefs.labels])
-  useEffect(()=>{requestEpoch.current+=1;setAiResult('');setCommercial(null);setQuestion('');setMessagesRead(0);setVoiceInfo(null);setError('')},[selected?.id,mode])
+  useEffect(()=>{requestEpoch.current+=1;setAiResult('');setCommercial(null);setQuestion('');setMessagesRead(0);setVoiceInfo(null);setError('');setReplySent(false);setAutoReply(null)},[selected?.id,mode])
   useEffect(()=>{
     if(mode!=='ai')return
     let active=true
@@ -45,6 +52,55 @@ export function WahaToolsDrawer({mode,token,chats,selected,messages,prefs,onClos
     }).catch(()=>{if(active){setAiChecked(true);setAiAvailable(false)}})
     return()=>{active=false}
   },[mode,token])
+
+  useEffect(()=>{
+    if(mode!=='ai'||!selected?.id)return
+    let active=true
+    const selectedChat=selected.id
+    const refresh=()=>{
+      void wahaAutoReplyStatus(token,selectedChat).then(status=>{
+        if(active)setAutoReply(status)
+      }).catch(()=>{if(active)setAutoReply(null)})
+    }
+    refresh()
+    const interval=window.setInterval(refresh,12000)
+    return()=>{active=false;window.clearInterval(interval)}
+  },[mode,token,selected?.id])
+
+  async function toggleAutoReply(){
+    if(!selected||autoSaving||!autoReply?.available)return
+    const chatId=selected.id
+    const enabling=!autoReply.enabled
+    if(enabling&&!window.confirm(
+      'ATIVAR RESPOSTAS AUTOMÁTICAS para '+chatName(selected)+'?'+
+      '\n\nO assistente virtual enviará respostas REAIS sem revisão individual.'+
+      '\nLimite: até 3 respostas por hora para esta conversa; 10 no total por hora.'+
+      '\nFunciona apenas neste computador e desliga quando a ponte reinicia.'+
+      '\n\nConfirma que deseja habilitar?'
+    ))return
+    setAutoSaving(true);setError('')
+    try{
+      const result=await wahaSetAutoReply(token,chatId,enabling)
+      if(activeChatId.current===chatId)setAutoReply(result)
+    }catch(e){setError(e instanceof Error?e.message:'Falha ao alterar atendimento automático.')}
+    finally{setAutoSaving(false)}
+  }
+
+  async function sendApprovedReply(){
+    if(!selected||replySending||aiTask!=='reply'||!aiResult.trim())return
+    const chatId=selected.id
+    const text=aiResult.trim().slice(0,750)
+    if(!window.confirm('ENVIAR AGORA para '+chatName(selected)+'?'+
+      '\n\n'+text+'\n\nEsta ação enviará uma mensagem real pelo WhatsApp.'))return
+    setReplySending(true);setError('');setReplySent(false)
+    try{
+      await wahaSend(token,chatId,text,crypto.randomUUID())
+      if(activeChatId.current===chatId){setAiResult('');setReplySent(true)}
+    }catch(e){if(activeChatId.current===chatId)setError(
+      (e instanceof Error?e.message:'Falha no envio.')+
+      ' Confira a conversa antes de tentar novamente para evitar duplicidade.')}
+    finally{setReplySending(false)}
+  }
 
   function openNativeTask(description:string,evidenceText=''){
     if(!selected)return
@@ -68,7 +124,7 @@ export function WahaToolsDrawer({mode,token,chats,selected,messages,prefs,onClos
   async function runAi(task:WahaAiConversationTask){
     if(!selected||!aiAvailable)return
     const epoch=++requestEpoch.current
-    setError('');setAiResult('');setCommercial(null);setVoiceInfo(null);setAiTask(task);setSaving(true)
+    setError('');setAiResult('');setCommercial(null);setVoiceInfo(null);setReplySent(false);setAiTask(task);setSaving(true)
     try{
       // The local bridge reads actual messages directly from selected WAHA chat.
       // Generated content remains read-only until manually inserted and sent.
@@ -139,10 +195,28 @@ export function WahaToolsDrawer({mode,token,chats,selected,messages,prefs,onClos
       <p className="waha-panel-description">Assistente do WhatsApp: lê a conversa selecionada diretamente no <strong>WAHA</strong> e usa o <strong>Ollama local</strong>. Nunca envia mensagens automaticamente.</p>
       <div className="waha-ai-status"><BrainCircuit size={17}/>{!aiChecked?'Verificando Ollama...':aiAvailable?'Disponível: '+aiModel:'Ollama ou modelo local indisponível'}</div>
       {!selected?<p className="waha-panel-description">Selecione uma conversa à esquerda para que a IA leia suas mensagens reais.</p>:<>
+        <section className="waha-auto-reply-control">
+          <div><strong>Respostas automáticas</strong>
+            <p>Desativadas por padrão. Apenas conversas individuais; a IA envia sem revisão somente quando você habilitar.</p>
+            {autoReply?.enabled?<small role="status">Ativo · {autoReply.remainingHour??0} respostas restantes nesta hora · limite global de {autoReply.maxGlobalHour??10}/hora.</small>:
+              <small>{selected.id.endsWith('@g.us')?'Indisponível para grupos.':'Desativado para este contato.'}</small>}
+            {autoReply?.lastOutcome==='failed'?<small role="alert">Último envio não confirmado. Confira o histórico.</small>:null}
+          </div>
+          <button type="button" className={autoReply?.enabled?'is-on':''}
+            disabled={!autoReply?.available||autoSaving||(!autoReply?.enabled&&!aiAvailable)}
+            onClick={()=>void toggleAutoReply()}>
+            {autoSaving?'Alterando...':autoReply?.enabled?'Desativar automático':'Ativar para este contato'}
+          </button>
+          <p className="waha-panel-description">
+            Somente mensagens novas; máximo de 3 respostas/h por contato e 10/h no total.
+            Não responde a grupos, ignora arquivos não suportados e para se o contato pedir para parar.
+            Reiniciar a ponte desativa todos os atendimentos automáticos.
+          </p>
+        </section>
         <p className="waha-panel-description"><strong>Conversa:</strong> {chatName(selected)}. Até 45 mensagens recentes (texto e áudios recebidos transcritos) entram na análise. A transcrição usa Whisper local, no máximo 3 áudios de até 3 minutos por solicitação.</p>
         <div className="waha-ai-actions">
           <button type="button" disabled={!aiAvailable||saving} onClick={()=>void runAi('summary')}><FileText size={15}/> Resumir conversa</button>
-          <button type="button" disabled={!aiAvailable||saving} onClick={()=>void runAi('reply')}><BrainCircuit size={15}/> Preparar resposta</button>
+          <button type="button" disabled={!aiAvailable||saving} onClick={()=>void runAi('reply')}><BrainCircuit size={15}/> Responder com IA</button>
           <button type="button" className="waha-analysis-main" disabled={!aiAvailable||saving} onClick={()=>void runAi('commercial')}><Clipboard size={15}/> Análise comercial</button>
         </div>
         <label htmlFor="waha-ai-question">Perguntar sobre esta conversa</label>
@@ -174,8 +248,14 @@ export function WahaToolsDrawer({mode,token,chats,selected,messages,prefs,onClos
         {aiResult?<div className="waha-ai-result" aria-live="polite">
           <h4>{aiTask==='reply'?'Resposta sugerida':aiTask==='ask'?'Resposta sobre a conversa':'Resumo da conversa'}</h4>
           <p>{aiResult}</p>
-          {aiTask==='reply'?<button type="button" onClick={()=>{onInsert(aiResult);onClose()}}>Inserir no campo de mensagem para revisar</button>:null}
+          {aiTask==='reply'?<div className="waha-ai-reply-buttons">
+            <button type="button" onClick={()=>{onInsert(aiResult);onClose()}}>Inserir no campo para revisar</button>
+            <button type="button" disabled={replySending} onClick={()=>void sendApprovedReply()}>
+              {replySending?'Enviando...':'Confirmar e enviar pelo WhatsApp'}
+            </button>
+          </div>:null}
         </div>:null}
+        {replySent?<p role="status" className="waha-panel-description">Envio solicitado ao WAHA. Confira a confirmação na conversa.</p>:null}
         {messagesRead>0?<div className="waha-panel-description" role="status">
           Fonte: {messagesRead} mensagens consideradas ({voiceInfo?.textMessagesRead??messagesRead} de texto,
           {' '}{voiceInfo?.audioTranscribed??0} áudios transcritos localmente) · {aiModel}. Nenhuma resposta enviada.

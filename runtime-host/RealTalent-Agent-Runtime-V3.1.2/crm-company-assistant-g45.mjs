@@ -2,6 +2,7 @@
 // private scraping, account login, CRM edits, or automatic opportunity creation.
 import {validResearchUrlV60} from './crm-web-reader-v60.mjs'
 import {enrichPublicSocialSourcesG46} from './crm-public-social-evidence-g46.mjs'
+import {analyzeInstagramPostsG47} from './crm-instagram-post-analysis-g47.mjs'
 
 const clean=(v,max=300)=>String(v??'').replace(/[\u0000-\u001f\u007f]/g,' ').replace(/\s+/g,' ').trim().slice(0,max)
 const norm=v=>clean(v).normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase()
@@ -11,7 +12,7 @@ const validRef=raw=>validResearchUrlV60(raw)?.href||''
 export function classifyCompanyQuestionG45(question){
   const text=norm(question)
   if(/\b(cnpj|cnpj\/cpf|razao social|raz[aã]o social|cnae|cadastro empresarial|inscricao federal|inscri[cç][aã]o federal)\b/.test(text))return 'cnpj'
-  if(/\b(insta|instagram|stories|story|reels?|publica[cç][oõ]es?|feed|perfil social|fotos? do perfil)\b/.test(text))return 'instagram'
+  if(/\b(insta|instagram|stories|story|reels?|publica[cç][oõ]es?|posts?|postagens?|feed|perfil social|fotos? do perfil)\b/.test(text))return 'instagram'
   return 'overview'
 }
 export function normalizeCompanyQuestionG45(input){
@@ -120,7 +121,7 @@ export async function answerCompanyQuestionG45(payload,{
   fetcher=fetch,searchUrl='http://127.0.0.1:4319',
   cnpjApiUrl='https://brasilapi.com.br/api/cnpj/v1',
   ollamaUrl='http://127.0.0.1:11434',model='qwen3:8b',
-  searcher=publicSearch,enricher=enrichPublicSocialSourcesG46,
+  searcher=publicSearch,enricher=enrichPublicSocialSourcesG46,postAnalyzer=analyzeInstagramPostsG47,
 }={}){
   const input=normalizeCompanyQuestionG45(payload)
   if(!input)return {ok:false,error:'invalid_question'}
@@ -146,11 +147,22 @@ export async function answerCompanyQuestionG45(payload,{
       ...enriched.filter(source=>!instagramSources.some(s=>s.url===source.url)).slice(0,2),
     ]
     const filtered=[...new Map(highlighted.map(source=>[source.url,source])).values()].slice(0,5)
-    const text=await summarize(input,filtered,{fetcher,ollamaUrl,model})
+    const postAnalysis=await postAnalyzer({
+      company:input.company,city:input.city,question:input.question,
+      sources:enriched.filter(s=>posts.some(post=>post.url===s.url)),
+    },{fetcher,ollamaUrl,model})
+    const text=posts.length===0?await summarize(input,filtered,{fetcher,ollamaUrl,model}):''
+    const answer=postAnalysis.posts?.length
+      ?'Encontrei '+posts.length+' publicação(ões) indexada(s) e analisei '+postAnalysis.posts.length+
+        ' com trechos atribuíveis às fontes. Veja a interpretação individual, as hipóteses e as perguntas abaixo.'
+      :posts.length>0
+        ?'Encontrei '+posts.length+' publicação(ões) indexada(s), mas não consegui confirmar uma análise individual fundamentada nesta tentativa. Confira as prévias e fontes.'
+        :text||(displayed
+          ?'Encontrei uma referência pública ao perfil, mas não houve publicação com conteúdo suficiente para análise.'
+          :'Não encontrei um perfil associado com segurança à empresa nesta pesquisa.')
     return {ok:true,kind:'instagram',company:input.company,
-      answer:text|| (displayed
-        ?'Encontrei uma referência pública ao perfil. O histórico completo, Stories, métricas privadas e todas as imagens não estão disponíveis nesta integração.'
-        :'Não encontrei um perfil do Instagram suficientemente associado a esta empresa. Confira o nome e o endereço antes de atribuir uma conta.'),
+      answer,postAnalyses:postAnalysis.posts||[],
+      postAnalysisStatus:postAnalysis.status||'unknown',postAnalysisMessage:postAnalysis.message||'',
       profileUrl:displayed||null,profileStatus:profile?'indexed':'reported_in_crm',
       posts:enriched.filter(s=>posts.some(post=>post.url===s.url)),
       sources:enriched.slice(0,8),pagesRead:readSources.filter(s=>s.reading==='page').length,

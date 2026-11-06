@@ -45,7 +45,7 @@ const authenticated=v=>{
 }
 function output(res,code,body){res.writeHead(code,{'Content-Type':'application/json; charset=utf-8','Cache-Control':'no-store'});res.end(JSON.stringify(body))}
 async function upstream(route,method='GET',body){
-  const r=await fetch(wahaBase+route,{method,headers:{'X-Api-Key':key,...(body?{'Content-Type':'application/json'}:{})},body:body?JSON.stringify(body):undefined,signal:AbortSignal.timeout(method==='POST'?50000:route.includes('/messages?')?35000:12000)})
+  const r=await fetch(wahaBase+route,{method,headers:{'X-Api-Key':key,...(body?{'Content-Type':'application/json'}:{})},body:body?JSON.stringify(body):undefined,signal:AbortSignal.timeout(method==='POST'?50000:route.includes('/messages/')?27000:route.includes('/messages?')?35000:12000)})
   if(!r.ok){const e=new Error('WAHA HTTP '+r.status);e.status=r.status;throw e}
   return r.status===204?{}:r.json()
 }

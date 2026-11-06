@@ -70,6 +70,14 @@ const sanitizedPost=(p)=>{
     diagnosticQuestion:clean(p.diagnosticQuestion,210),
   }
 }
+// Informational context may be valuable even when no defensible buying signal
+// exists. Require a specific phrase in the quoted source and avoid empty slogans.
+const substantive=/\b(?:servi[cç]os?|produto[s]?|cortes?|barbas?|pr[oó]tese|agendamento|consultoria|treinamento|cursos?|aulas?|tratamentos?|atendimento|unidades?|filiais?|parceria[s]?|equipe|evento[s]?|lan[cç]amento|promo[cç][aã]o|desconto|pacotes?|novidades?|entregas?|inscri[cç][aã]o)\b/i
+const slogan=/^(?:aqui [eé] assim|bem.vindos?|bom dia|boa tarde|vem renovar|siga|curta|compartilhe|marque seu amigo|chegou o grande dia)\b/i
+const contextWorthShowing=p=>p.quote.length>=24&&p.topic!=='other'&&
+  !p.oldHistorical&&p.score>=1&&substantive.test(p.quote)&&
+  !(slogan.test(p.quote)&&!special.test(p.quote))
+
 const keyTopic=p=>p.topic
 export function createCommercialExecutiveG49({
   company,postAnalyses=[],coverage={},checkedAt=new Date().toISOString(),currentYear=new Date().getUTCFullYear(),
@@ -116,15 +124,34 @@ export function createCommercialExecutiveG49({
     hypothesis:p.commercialHypothesis,
     diagnosticQuestion:p.diagnosticQuestion,
   }))
+  // Show verifiable business context when the model analyzed posts but none
+  // achieved the commercial-priority threshold. Do not invent buying signals.
+  const context=[]
+  for(const candidate of candidates){
+    if(discoveries.length+context.length>=3)break
+    if(!contextWorthShowing(candidate)||selected.some(p=>p.url===candidate.url)||
+      context.some(p=>p.topic===candidate.topic||
+        overlap(p.quote,candidate.quote)>=0.50))continue
+    context.push(candidate)
+  }
+  const contextHighlights=context.map((p,i)=>({
+    id:'context-'+(i+1),sourceId:p.id,url:p.url,
+    category:topics[p.topic]?.label||'Informação pública',
+    fact:p.quote,reading:p.evidenceLevel,
+    // The user is shown exactly what is quoted, not the Qwen-inferred need.
+    note:'Informação contextual da publicação, sem sinal de compra confirmado.',
+  }))
   const actions=discoveries.filter(p=>p.diagnosticQuestion.length>=16).slice(0,2)
     .map(p=>({question:p.diagnosticQuestion,sourceId:p.sourceId,url:p.url,reason:p.category}))
   const indexed=Math.max(0,Number(coverage.indexed)||0)
   const analyzed=Math.max(0,Number(coverage.analyzed)||candidates.length)
-  const status=discoveries.length?'findings':'insufficient_evidence'
+  const status=discoveries.length?'findings':
+    contextHighlights.length?'context_only':'insufficient_evidence'
   const executive=discoveries.length
-    ?'Foram selecionadas '+discoveries.length+' descoberta(s) para investigar, a partir de '+
-      analyzed+' publicação(ões) analisada(s). As oportunidades são hipóteses, não necessidades confirmadas.'
-    :'Não foram identificados sinais comerciais suficientemente relevantes e sustentados para destacar nesta investigação.'
+    ?'Encontrei '+discoveries.length+' ponto(s) para investigar a partir das publicações analisadas. Não há necessidade de compra confirmada.'
+    :contextHighlights.length
+      ?'Há '+contextHighlights.length+' informação(ões) úteis sobre a comunicação da empresa, mas nenhuma oportunidade comercial foi confirmada nas fontes disponíveis.'
+      :'Não encontrei conteúdo público específico o suficiente para destacar descobertas nesta investigação.'
   const limitations=[
     'Os resultados indexados não equivalem à leitura completa do Instagram.',
     'Prioridade indica utilidade para investigação, não interesse em comprar.',
@@ -132,8 +159,9 @@ export function createCommercialExecutiveG49({
   ]
   return {
     version:'g49',status,company:clean(company,120),checkedAt:clean(checkedAt,40),
-    executive,discoveries,actions,
-    coverage:{indexed,analyzed,selected:discoveries.length},
+    executive,discoveries,contextHighlights,actions,
+    coverage:{indexed,analyzed,selected:discoveries.length+contextHighlights.length,
+      commercial:discoveries.length,context:contextHighlights.length},
     limitations,
     // Only headlines/IDs and URLs from attributable already-analyzed results.
     sourceUrls:[...uniqueUrls].slice(0,12),

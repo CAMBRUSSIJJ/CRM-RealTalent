@@ -807,3 +807,22 @@ html[data-theme="dark"] .sales-pipeline-v3__quick-actions .pipeline-quick-action
 @media (max-width: 650px) {
   .sales-pipeline-v3__forecast-goal { grid-template-columns: minmax(0,1fr); }
 }
+
+
+/* Reviewed trigger intelligence: linked only after a human-checked source. */
+.sales-pipeline-v3__trigger-badge{
+ display:inline-flex;align-items:center;gap:6px;margin:4px 10px 8px;
+ padding:6px 9px;border:1px solid #cadff6;border-radius:7px;
+ color:#2b62ac;background:#f1f7ff;font-size:10px;font-weight:760;cursor:pointer;
+}
+.sales-pipeline-v3__trigger-badge:hover{background:#e4f0ff;border-color:#9bc3f5}
+.sales-pipeline-v3__trigger-list{display:grid;gap:10px}
+.sales-pipeline-v3__trigger-list article{display:grid;gap:9px;border:1px solid #dce8f6;background:#fafdff;border-radius:11px;padding:14px}
+.sales-pipeline-v3__trigger-list span{font-size:11px;color:#3c74b4;font-weight:750}
+.sales-pipeline-v3__trigger-list strong{font-size:14px;color:#244d85}
+.sales-pipeline-v3__trigger-list blockquote{margin:0;border-left:3px solid #9bc3f5;padding:9px;background:#f2f7ff;color:#51739b;font-size:12px;line-height:1.5}
+.sales-pipeline-v3__trigger-list p{margin:0;color:#637c9e;font-size:11px;line-height:1.5}
+.sales-pipeline-v3__trigger-list a{font-size:11px;font-weight:700;color:#3266ac;display:inline-flex;gap:6px;align-items:center}
+html[data-theme="dark"] .sales-pipeline-v3__trigger-badge{color:#cee4ff;background:#263e5d;border-color:#42678b}
+html[data-theme="dark"] .sales-pipeline-v3__trigger-list article,html[data-theme="dark"] .sales-pipeline-v3__trigger-list blockquote{background:#263a55;border-color:#466384;color:#d0e3ff}
+html[data-theme="dark"] .sales-pipeline-v3__trigger-list strong{color:#e1efff}

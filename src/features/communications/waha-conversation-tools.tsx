@@ -1,5 +1,7 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { BrainCircuit, Check, Clipboard, FileText, LoaderCircle, Paperclip, Star, Tag, X } from 'lucide-react'
+import { stageWahaTaskHandoff } from '../../services/waha-task-handoff'
+import { routeToHash } from '../../app/route-state'
 import {
   wahaAiStatus, wahaAnalyzeSelectedConversation, wahaMediaBlob, wahaTranscribeMessage,
   type WahaCommercialReport, type WahaAiConversationTask,
@@ -44,6 +46,19 @@ export function WahaToolsDrawer({mode,token,chats,selected,messages,prefs,onClos
     return()=>{active=false}
   },[mode,token])
 
+  function openNativeTask(description:string,evidenceText=''){
+    if(!selected)return
+    try{
+      stageWahaTaskHandoff({
+        title:description.slice(0,180),
+        description:'Sugestão comercial para revisão • conversa WAHA: '+chatName(selected)+
+          (evidenceText?'\nEvidência: '+evidenceText.slice(0,450):'')+
+          '\nConfira a conversa antes de assumir qualquer compromisso.',
+      })
+      onClose()
+      window.location.hash=routeToHash('tasks')
+    }catch(e){setError(e instanceof Error?e.message:'Não foi possível preparar a tarefa.')}
+  }
   async function change(patch:unknown){
     setError('');setSaving(true)
     try{await onPreference(patch)}
@@ -147,6 +162,10 @@ export function WahaToolsDrawer({mode,token,chats,selected,messages,prefs,onClos
               <details><summary>Ver evidências ({finding.evidence.length})</summary>
                 {finding.evidence.map(e=><blockquote key={e.id}><b>{e.id} · {e.fromMe?'Atendente':'Contato'}{e.source==='audio'?' · áudio transcrito':''}:</b> {e.text}</blockquote>)}
               </details>
+              {section.key==='nextSteps'?<button type="button" className="waha-handoff-button"
+                onClick={()=>openNativeTask(finding.description,finding.evidence[0]?.text||'')}>
+                <Clipboard size={14}/> Preparar tarefa no CRM
+              </button>:null}
             </article>)}
           </section>)}
           <p className="waha-panel-description"><strong>Limitações:</strong> {commercial.limitations}</p>
@@ -168,6 +187,19 @@ export function WahaToolsDrawer({mode,token,chats,selected,messages,prefs,onClos
           </details>:null}
         </div>:null}
       </>}
+      <section className="waha-crm-handoff" aria-label="Continuar no CRM">
+        <h4>Continuar o atendimento no CRM</h4>
+        <div className="waha-crm-links">
+          <a href={routeToHash('leads')}>Contatos</a>
+          <a href={routeToHash('pipeline')}>Pipeline</a>
+          <a href={routeToHash('followups')}>Follow-ups</a>
+          <a href={routeToHash('agenda')}>Agenda</a>
+          <a href={routeToHash('tasks')}>Tarefas</a>
+        </div>
+        <p className="waha-panel-description">
+          Preparar tarefa apenas abre o formulário preenchido. Revise e salve manualmente; a IA não envia mensagens nem cria negócios automaticamente.
+        </p>
+      </section>
       <p className="waha-panel-description">Análises são sugestões, não fatos garantidos. Confira as mensagens citadas e revise qualquer texto antes de enviá-lo ao contato.</p>
     </>
   }

@@ -2586,7 +2586,14 @@ const server = http.createServer(async (req, res) => {
         return json(res,{ok:false,error:'invalid_company'},400)
       if(!WEB_SEARCH_ENABLED)
         return json(res,{ok:false,error:'web_search_disabled'},503)
-      const queries=buildCompanySearchQueries(company,city)
+      const focus=['instagram','cnpj','general'].includes(body.focus)?body.focus:'general'
+      const baseQueries=buildCompanySearchQueries(company,city)
+      const focused=focus==='instagram'
+        ?[company+' '+city+' instagram',company+' instagram perfil',...baseQueries]
+        :focus==='cnpj'
+          ?[company+' '+city+' CNPJ',company+' CNPJ razão social',...baseQueries]
+          :baseQueries
+      const queries=[...new Set(focused.map(value=>value.trim()).filter(Boolean))].slice(0,4)
       const results=[],seen=new Set(),attempts=[]
       const addResults=(items,provider,query)=>{
         let accepted=0

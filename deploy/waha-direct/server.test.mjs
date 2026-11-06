@@ -18,13 +18,29 @@ const fakeWaha=http.createServer((req,res)=>{
   if(url.pathname==='/api/sessions/realtalent')reply={status:'WORKING'}
   else if(url.pathname==='/api/realtalent/chats/overview')reply=[{id:'12345678901@lid',name:'Contato teste',lastMessage:{body:'Olá',timestamp:1793890000}}]
   else if(url.pathname==='/api/contacts/check-exists')reply={numberExists:true,chatId:'12345678901@lid'}
+  else if(url.pathname==='/api/contacts'){
+    const id=url.searchParams.get('contactId')
+    reply={id,pushname:id==='112233445566@lid'?'Cliente do grupo':''}
+  }
+  else if(url.pathname==='/api/realtalent/chats/987654321%40g.us/messages')reply=[
+    {id:'group-msg1',from:'987654321@g.us',participant:'112233445566@lid',fromMe:false,body:'Preciso de uma proposta',timestamp:1793890001},
+    {id:'group-msg2',from:'987654321@g.us',participant:'112233445566@lid',fromMe:false,body:'Por favor',timestamp:1793890002},
+  ]
   else if(url.pathname==='/api/realtalent/chats/12345678901%40lid/messages')reply=[{
-    id:'msg1',body:'Precisamos de treinamento, mas orçamento é limitado.',
+    id:'msg001',body:'Precisamos de treinamento, mas orçamento é limitado.',
     fromMe:false,timestamp:1793890000,
     ...(url.searchParams.get('limit')==='50'?{hasMedia:true,media:{
       mimetype:'audio/ogg',url:'http://localhost:3000/api/files/true_12345678901@lid_voice.ogg'
     }}:{})
   }]
+  else if(url.pathname==='/api/realtalent/chats/12345678901%40lid/messages/msg001'){
+    reply={id:'msg001',hasMedia:true,media:{
+      mimetype:'audio/ogg',url:'http://localhost:3000/api/files/true_12345678901@lid_voice.ogg'
+    }}
+  }
+  else if(url.pathname==='/api/realtalent/chats/12345678901%40lid/messages/msg002'){
+    reply={id:'msg002',hasMedia:true,media:{mimetype:'image/jpeg',url:null,error:'not downloaded'}}
+  }
   else if(url.pathname==='/api/files/true_12345678901@lid_voice.ogg'){
     res.writeHead(200,{'Content-Type':'audio/ogg'})
     res.end(Buffer.from('mock-audio-bytes'))
@@ -81,6 +97,16 @@ test('WAHA local bridge: authentication, conversations, resolve, send without du
     const clip=await fetch(base+'/v1/media?src='+encodeURIComponent(inbound[0].media.url),{headers})
     assert.equal(clip.status,200,'WAHA media is served by loopback proxy, not Docker hostname')
     assert.equal(await clip.text(),'mock-audio-bytes')
+    const byMessage=await fetch(base+'/v1/media?chatId=12345678901%40lid&messageId=msg001',{headers})
+    assert.equal(byMessage.status,200,'media ID lookup should recover a Docker-origin file')
+    assert.equal(await byMessage.text(),'mock-audio-bytes')
+    const missing=await fetch(base+'/v1/media?chatId=12345678901%40lid&messageId=msg002',{headers})
+    assert.equal(missing.status,424,'missing WAHA media must be explicit, not a generic 400')
+    const invalidRef=await fetch(base+'/v1/media?chatId=bad&messageId=msg001',{headers})
+    assert.equal(invalidRef.status,400,'invalid message reference must not reach WAHA')
+    const groupMessages=await(await fetch(base+'/v1/messages?chatId=987654321%40g.us',{headers})).json()
+    assert.deepEqual(groupMessages.map(m=>m.senderName),['Cliente do grupo','Cliente do grupo'])
+    assert.equal(groupMessages[0].senderId,'112233445566@lid')
     const originalDockerUrl='http://localhost:3000/api/files/true_12345678901@lid_voice.ogg'
     assert.equal((await fetch(base+'/v1/media?src='+encodeURIComponent(originalDockerUrl),{headers})).status,400,
       'the browser cannot submit arbitrary non-loopback origins')

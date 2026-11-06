@@ -819,6 +819,9 @@ const handleTriggerG4=async(req,res)=>{
 const routerServer = http.createServer((req, res) => {
   applyLocalBrowserCors(req, res)
   if (req.method === 'OPTIONS') { res.statusCode = 204; res.end(); return }
+  if (req.method === 'GET' && String(req.url || '').split('?')[0] === '/tools/prospect-investigate/status') {
+    sendJson(res,200,{ok:true,feature:'company-research-v1',provider:'local-garimpo',publicSources:true}); return
+  }
   if (req.method === 'GET' && String(req.url || '').split('?')[0] === '/tools/health') { void localOllamaStatusV56(req,res); return }
   if (req.method === 'POST' && String(req.url || '').split('?')[0] === '/tools/research') { void handleResearchV56(req,res); return }
   if (req.method === 'POST' && String(req.url || '').split('?')[0] === '/tools/route-intent') { void handleResearchIntentV60(req,res); return }

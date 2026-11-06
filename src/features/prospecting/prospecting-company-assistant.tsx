@@ -18,6 +18,10 @@ interface PostAnalysis {
   strategicReading:string;commercialHypothesis:string;diagnosticQuestion:string;
   reviewStatus:'analysis_only'
 }
+interface InstagramBatchCoverage {
+  indexed:number;analyzed:number;batches:number;
+  patterns:Array<{topic:PostAnalysis['topic'];count:number}>
+}
 interface CnpjFinding {
   cnpj:string;legalName:string;tradeName:string;city:string;state:string;
   registrationStatus:string;primaryActivity:string;registrationDate:string;
@@ -31,6 +35,7 @@ interface Answer {
   cnpjFindings?:CnpjFinding[];limitation?:string;searchStatus?:string;
   pagesRead?:number;metadataRead?:number;
   postAnalyses?:PostAnalysis[];postAnalysisStatus?:string;postAnalysisMessage?:string;
+  postAnalysisCoverage?:InstagramBatchCoverage;
   visibleObservations?:string[];commercialHypotheses?:string[];limitations?:string[];model?:string
 }
 interface Exchange {id:string;question:string;result:Answer}
@@ -76,7 +81,7 @@ export function ProspectingCompanyAssistant({prospect}:{prospect:ProspectRecord}
     if(!value||busy)return
     const ctrl=new AbortController()
     inflight.current?.abort();inflight.current=ctrl
-    const timer=setTimeout(()=>ctrl.abort(),115000)
+    const timer=setTimeout(()=>ctrl.abort(),180000)
     setQuestion('');setBusy(true);setError('')
     try{
       const response=await runtimeFetch(env.agentGatewayUrl+'/tools/company-ask',{
@@ -174,8 +179,8 @@ export function ProspectingCompanyAssistant({prospect}:{prospect:ProspectRecord}
   return <section className="prospecting-company-assistant" aria-label="Pergunte à inteligência comercial sobre a empresa">
     <header>
       <span className="prospecting-company-assistant__icon"><MessageSquareText size={18}/></span>
-      <div><strong>Pergunte à IA sobre esta empresa</strong>
-        <p>Pesquise Instagram, CNPJ, serviços e sinais públicos sem sair da revisão.</p>
+      <div><strong>Investigação assistida por IA</strong>
+        <p>Faça perguntas sobre esta empresa, analise publicações públicas em lote e confira a origem de cada conclusão.</p>
       </div>
       <span className="prospecting-company-assistant__read-only"><ShieldCheck size={13}/> Somente consulta</span>
     </header>
@@ -223,8 +228,19 @@ export function ProspectingCompanyAssistant({prospect}:{prospect:ProspectRecord}
           {exchange.result.kind==='instagram'?<div className="prospecting-company-assistant__post-analysis">
             <div className="prospecting-company-assistant__post-analysis-head">
               <strong>Análise das publicações com Ollama</strong>
-              <small>{exchange.result.postAnalyses?.length||0} análise(s) fundamentada(s)</small>
+              <small>{exchange.result.postAnalysisCoverage?.batches||0} lote(s) processado(s)</small>
             </div>
+            <div className="prospecting-company-assistant__batch-metrics">
+              <span><b>{exchange.result.postAnalysisCoverage?.indexed??exchange.result.posts?.length??0}</b> publicações indexadas</span>
+              <span><b>{exchange.result.postAnalysisCoverage?.analyzed??exchange.result.postAnalyses?.length??0}</b> análises sustentadas</span>
+              <span><b>{exchange.result.pagesRead||0}</b> páginas realmente lidas</span>
+            </div>
+            {exchange.result.postAnalysisCoverage?.patterns?.length?<div className="prospecting-company-assistant__patterns">
+              <strong>Padrões de comunicação identificados</strong>
+              <div>{exchange.result.postAnalysisCoverage.patterns.map(pattern=>
+                <span key={pattern.topic}>{postTopics[pattern.topic]||pattern.topic} · {pattern.count}</span>)}</div>
+              <small>Contagens entre as publicações analisadas; não representam estatísticas completas do Instagram.</small>
+            </div>:null}
             {exchange.result.postAnalyses?.length
               ?exchange.result.postAnalyses.map(post=><div className="prospecting-company-assistant__post-card" key={post.url}>
                 <div className="prospecting-company-assistant__post-heading">

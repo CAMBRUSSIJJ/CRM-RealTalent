@@ -21,7 +21,7 @@ jobs:
           cache: npm
       - run: npm ci --include=dev
       - name: Validate WAHA and conversation AI
-        run: node --test deploy/waha-direct/server.test.mjs deploy/waha-direct/tools.test.mjs deploy/waha-direct/conversation-intelligence.test.mjs deploy/waha-direct/audio-transcription.test.mjs
+        run: node --test deploy/waha-direct/server.test.mjs deploy/waha-direct/tools.test.mjs deploy/waha-direct/conversation-intelligence.test.mjs deploy/waha-direct/audio-transcription.test.mjs deploy/waha-direct/group-senders.test.mjs
       - name: Verify Linux CRM preview launcher syntax
         run: bash -n deploy/waha-direct/abrir-crm-v101-waha-linux.sh deploy/waha-direct/instalar-transcricao-local-linux.sh
       - name: TypeScript check

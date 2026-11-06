@@ -64,6 +64,35 @@ export function sanitizeMediaSrc(raw){
   if(!/^[?&a-zA-Z0-9_=%.-]*$/.test(parsed.search))return null
   return parsed.pathname+parsed.search
 }
+/**
+ * WAHA may advertise media links using its *container* address (e.g. localhost:3000)
+ * even though the Linux host reaches it on 127.0.0.1:4385. Only paths from the
+ * authenticated WAHA message API are normalized here; incoming browser requests
+ * are still subject to sanitizeMediaSrc's strict local origin policy.
+ * Normalization NEVER fetches the host named in the media URL.
+ */
+export function normalizeWahaMediaUrl(raw){
+  if(typeof raw!=='string'||!raw||raw.length>2000)return null
+  let parsed
+  try{parsed=new URL(raw,'http://127.0.0.1:4385')}catch{return null}
+  if(!['http:','https:'].includes(parsed.protocol)||parsed.username||parsed.password||parsed.hash)return null
+  return sanitizeMediaSrc(parsed.pathname+parsed.search)
+}
+export function normalizeWahaMediaMessages(raw){
+  if(!Array.isArray(raw))return []
+  return raw.map(m=>{
+    if(!m||typeof m!=='object'||Array.isArray(m))return m
+    let result=m
+    if(m.media&&typeof m.media==='object'&&!Array.isArray(m.media)&&m.media.url){
+      result={...result,media:{...m.media,url:normalizeWahaMediaUrl(m.media.url)}}
+    }
+    if(typeof m.mediaUrl==='string'&&m.mediaUrl){
+      result={...result,mediaUrl:normalizeWahaMediaUrl(m.mediaUrl)}
+    }
+    return result
+  })
+}
+
 export async function proxyWahaMedia(raw,headers,res){
   const p=sanitizeMediaSrc(raw)
   if(!p){res.writeHead(400);res.end();return}

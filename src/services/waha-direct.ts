@@ -31,7 +31,10 @@ async function request<T>(route:string,token:string,method='GET',payload?:unknow
       body:payload?JSON.stringify(payload):undefined,
       signal:AbortSignal.timeout(route.startsWith('/v1/ai/')&&route!=='/v1/ai/status'?130000:route==='/v1/send'?60000:16000),
     })
-  }catch{throw new Error('A ponte WAHA não está acessível neste computador. Inicie o conector Linux na porta 4392.')}
+  }catch(e){
+    if(route==='/v1/ai/conversation'&&e instanceof Error&&e.name==='TimeoutError')throw new Error('O Qwen excedeu o tempo de resposta. Verifique o Ollama local.')
+    throw new Error('A ponte WAHA não está acessível neste computador. Inicie o conector Linux na porta 4392.')
+  }
   if(!res.ok){
     if(res.status===401)throw new Error('Chave local inválida. Copie a chave novamente do conector.')
     if(res.status===409)throw new Error('Esse envio já foi solicitado. Confira a conversa antes de tentar novamente.')

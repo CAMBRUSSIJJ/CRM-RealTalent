@@ -76,7 +76,9 @@ export function normalizeWahaMediaUrl(raw){
   let parsed
   try{parsed=new URL(raw,'http://127.0.0.1:4385')}catch{return null}
   if(!['http:','https:'].includes(parsed.protocol)||parsed.username||parsed.password||parsed.hash)return null
-  return sanitizeMediaSrc(parsed.pathname+parsed.search)
+  // Drop query parameters: WAHA may attach credentials to advertised URLs.
+  // The bridge authenticates to WAHA with its own X-Api-Key header.
+  return sanitizeMediaSrc(parsed.pathname)
 }
 export function normalizeWahaMediaMessages(raw){
   if(!Array.isArray(raw))return []

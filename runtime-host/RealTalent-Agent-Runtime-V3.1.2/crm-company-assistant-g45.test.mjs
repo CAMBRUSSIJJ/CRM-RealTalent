@@ -36,7 +36,7 @@ test('Instagram lookup gives public profile and indexed posts without claiming t
   assert.equal(result.kind,'instagram')
   assert.equal(result.profileUrl,'https://www.instagram.com/salentobarbearia/')
   assert.equal(result.posts.length,1)
-  assert.match(result.limitation,/não o feed completo/i)
+  assert.match(result.limitation,/não lê todo o feed/i)
   assert.ok(result.sources.every(x=>x.reading==='snippet'))
 })
 test('does not recommend an Instagram profile from another company',async()=>{

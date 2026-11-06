@@ -1,5 +1,5 @@
 import { useEffect, useState, type ReactNode } from 'react'
-import { BrainCircuit, Check, Clipboard, FileText, Image as ImageIcon, LoaderCircle, Paperclip, Star, Tag, X } from 'lucide-react'
+import { BrainCircuit, Check, Clipboard, FileText, LoaderCircle, Paperclip, Star, Tag, X } from 'lucide-react'
 import {
   wahaAiStatus, wahaAnalyze, wahaMediaBlob,
   type WahaChat, type WahaMessage, type WahaPreferences,

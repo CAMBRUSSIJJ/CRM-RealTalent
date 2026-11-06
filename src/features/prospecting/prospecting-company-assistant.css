@@ -46,3 +46,14 @@ html[data-theme="dark"] .prospecting-company-assistant>form textarea{background:
 .prospecting-company-assistant__excerpt{margin:2px 0;padding:8px 10px;max-height:135px;overflow:auto;background:#f3f8ff;border-left:2px solid #71a4db;border-radius:5px;font-size:11px;color:#436384;white-space:pre-wrap;line-height:1.5;overflow-wrap:anywhere}
 html[data-theme="dark"] .prospecting-company-assistant__coverage{background:#253e57;border-color:#425d79;color:#cde4ff}
 html[data-theme="dark"] .prospecting-company-assistant__excerpt{background:#263f59;border-color:#648ab4;color:#d5e6f7}
+
+.prospecting-company-assistant__visual{display:grid;gap:6px;padding:10px;border:1px dashed #b8d4ef;border-radius:9px;background:#f7fbff}
+.prospecting-company-assistant__visual label{font-size:11px;font-weight:760;color:#42698e}
+.prospecting-company-assistant__visual input{font-size:11px;max-width:100%;color:#44678d}
+.prospecting-company-assistant__visual small{font-size:10px;line-height:1.5;color:#718aa5}
+.prospecting-company-assistant__coverage>div{display:grid;gap:4px;font-size:11px}
+.prospecting-company-assistant__coverage ul{padding-left:20px;margin:4px 0}
+.prospecting-company-assistant__coverage li{margin:3px 0;line-height:1.5}
+html[data-theme="dark"] .prospecting-company-assistant__visual{background:#253e57;border-color:#42658a}
+html[data-theme="dark"] .prospecting-company-assistant__visual input{color:#d0e4fa}
+html[data-theme="dark"] .prospecting-company-assistant__visual label{color:#d0e4fa}

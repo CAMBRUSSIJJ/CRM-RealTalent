@@ -14,6 +14,7 @@ interface Props {
   open: boolean
   task: WorkTask | null
   initialDraft?:{title:string;description:string}|null
+  initialTeamId?:string|null
   presentation?: 'dialog' | 'drawer'
   relation: TaskRelation | null
   checklist: TaskChecklistItem[]
@@ -39,7 +40,7 @@ const toLocalInput = (value: string | null | undefined) => {
 }
 const toIso = (value: string) => value ? new Date(value).toISOString() : null
 
-export function TaskModal({ open, task, initialDraft, presentation = 'dialog', relation, checklist, teams, memberships, members, snapshot, workspaceId, repositoryMode, loading = false, onClose, onSubmit }: Props) {
+export function TaskModal({ open, task, initialDraft, initialTeamId, presentation = 'dialog', relation, checklist, teams, memberships, members, snapshot, workspaceId, repositoryMode, loading = false, onClose, onSubmit }: Props) {
   const [title, setTitle] = useState('')
   const [description, setDescription] = useState('')
   const [status, setStatus] = useState<TaskStatus>('todo')
@@ -67,14 +68,14 @@ export function TaskModal({ open, task, initialDraft, presentation = 'dialog', r
     setReminders(draftTaskReminders(task))
     setReminderError('')
     setAssigneeId(task?.assigneeId ?? '')
-    setTeamId(task?.teamId ?? '')
+    setTeamId(task?.teamId ?? initialTeamId ?? '')
     setRelationType(relation?.entityType ?? 'contact')
     setRelationId(relation?.entityId ?? '')
     setTags((task?.tags ?? []).join(', '))
     setChecklistDraft([...checklist].sort((a, b) => a.position - b.position).map((item) => ({ id: item.id, title: item.title, completed: item.completed })))
     setNewChecklistTitle('')
     setHideCompleted(false)
-  }, [checklist, open, relation, task, initialDraft])
+  }, [checklist, open, relation, task, initialDraft, initialTeamId])
 
   const activeTeams = useMemo(() => teams.filter((team) => team.active), [teams])
   const selectedTeam = useMemo(() => activeTeams.find((team) => team.id === teamId) ?? null, [activeTeams, teamId])

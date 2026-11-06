@@ -29,10 +29,10 @@ async function request<T>(route:string,token:string,method='GET',payload?:unknow
     res=await fetch(LOCAL+route,{
       method,mode:'cors',cache:'no-store',headers:{Authorization:'Bearer '+token,...(payload?{'Content-Type':'application/json'}:{})},
       body:payload?JSON.stringify(payload):undefined,
-      signal:AbortSignal.timeout(route.startsWith('/v1/ai/')&&route!=='/v1/ai/status'?130000:route==='/v1/send'?60000:16000),
+      signal:AbortSignal.timeout(route.startsWith('/v1/ai/')&&route!=='/v1/ai/status'?400000:route==='/v1/send'?60000:16000),
     })
   }catch(e){
-    if(route==='/v1/ai/conversation'&&e instanceof Error&&e.name==='TimeoutError')throw new Error('O Qwen excedeu o tempo de resposta. Verifique o Ollama local.')
+    if(route==='/v1/ai/conversation'&&e instanceof Error&&e.name==='TimeoutError')throw new Error('O Whisper ou Qwen excedeu o tempo de resposta. Confira a transcrição e o Ollama locais.')
     throw new Error('A ponte WAHA não está acessível neste computador. Inicie o conector Linux na porta 4392.')
   }
   if(!res.ok){
@@ -109,7 +109,7 @@ export async function wahaSendFile(token:string,chatId:string,file:File,caption:
 }
 
 export type WahaAiConversationTask='summary'|'reply'|'commercial'|'ask'
-export interface WahaAiEvidence {id:string;text:string;fromMe:boolean}
+export interface WahaAiEvidence {id:string;text:string;fromMe:boolean;source?:'text'|'audio'}
 export interface WahaAiFinding {description:string;evidence:WahaAiEvidence[]}
 export interface WahaCommercialReport {
   summary:string;confidence:'alta'|'média'|'baixa';limitations:string;
@@ -119,6 +119,8 @@ export interface WahaCommercialReport {
 export interface WahaConversationAiResult {
   task:WahaAiConversationTask;chatId:string;model:string;
   source:'waha-local';messagesRead:number;readOnly:true;sent:false;
+  textMessagesRead?:number;audioDetected?:number;audioTranscribed?:number;
+  audioSkipped?:number;audioFailed?:number;audioTranscripts?:{id:string;text:string}[];
   text?:string;analysis?:WahaCommercialReport
 }
 /** Always loads the selected chat from WAHA server-side; no user-supplied message transcript. */

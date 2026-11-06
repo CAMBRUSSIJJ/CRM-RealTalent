@@ -1,4 +1,4 @@
-import {useEffect,useRef,useState,type FormEvent,type KeyboardEvent} from 'react'
+import {useEffect,useRef,useState,type ChangeEvent,type FormEvent,type KeyboardEvent} from 'react'
 import {ArrowUpRight,BookOpen,Building2,ExternalLink,AtSign,LoaderCircle,MessageSquareText,Send,ShieldCheck} from 'lucide-react'
 import type {ProspectRecord} from '../../services/prospecting-workspace'
 import {env} from '../../lib/env'
@@ -17,11 +17,12 @@ interface CnpjFinding {
   registrySource:string
 }
 interface Answer {
-  ok:boolean;kind:'instagram'|'cnpj'|'overview';company:string;answer:string
+  ok:boolean;kind:'instagram'|'cnpj'|'overview'|'screenshot';company:string;answer:string
   sources?:PublicSource[];posts?:PublicSource[];
   profileUrl?:string|null;profileStatus?:string;
   cnpjFindings?:CnpjFinding[];limitation?:string;searchStatus?:string;
-  pagesRead?:number;metadataRead?:number
+  pagesRead?:number;metadataRead?:number;
+  visibleObservations?:string[];commercialHypotheses?:string[];limitations?:string[];model?:string
 }
 interface Exchange {id:string;question:string;result:Answer}
 const safeUrl=(value:string|null|undefined)=>{
@@ -44,9 +45,11 @@ export function ProspectingCompanyAssistant({prospect}:{prospect:ProspectRecord}
   const [busy,setBusy]=useState(false)
   const [error,setError]=useState('')
   const inflight=useRef<AbortController|null>(null)
+  const [imageName,setImageName]=useState('')
+  const fileInput=useRef<HTMLInputElement|null>(null)
   useEffect(()=>{
     inflight.current?.abort()
-    setQuestion('');setExchanges([]);setError('');setBusy(false)
+    setQuestion('');setExchanges([]);setError('');setBusy(false);setImageName('')
     return ()=>inflight.current?.abort()
   },[prospect.id])
   const sendQuestion=async(requested:string)=>{
@@ -91,6 +94,60 @@ export function ProspectingCompanyAssistant({prospect}:{prospect:ProspectRecord}
       if(inflight.current===ctrl){setBusy(false);inflight.current=null}
     }
   }
+  const localAgent=(()=>{
+    try{
+      const url=new URL(env.agentGatewayUrl)
+      return url.protocol==='http:'&&url.hostname==='127.0.0.1'&&url.port==='8791'
+    }catch{return false}
+  })()
+  const onImageSelected=async(event:ChangeEvent<HTMLInputElement>)=>{
+    const file=event.target.files?.[0]
+    if(!file||busy)return
+    event.target.value=''
+    if(!['image/png','image/jpeg','image/webp'].includes(file.type)||file.size>2_100_000){
+      setError('Envie uma captura PNG, JPG ou WebP com no máximo 2 MB.')
+      return
+    }
+    const ctrl=new AbortController()
+    inflight.current?.abort();inflight.current=ctrl
+    const timer=setTimeout(()=>ctrl.abort(),115000)
+    setBusy(true);setError('');setImageName(file.name)
+    try{
+      const data=await new Promise<string>((resolve,reject)=>{
+        const reader=new FileReader()
+        reader.onload=()=>resolve(String(reader.result||''))
+        reader.onerror=()=>reject(new Error('Não foi possível ler a captura.'))
+        reader.readAsDataURL(file)
+      })
+      if(ctrl.signal.aborted)return
+      const base64=data.split(',')[1]||''
+      const response=await runtimeFetch(env.agentGatewayUrl+'/tools/company-image',{
+        method:'POST',signal:ctrl.signal,headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({
+          company:prospect.company||prospect.name,
+          question:question.trim()||'Analise somente o que está visível nesta captura pública e identifique hipóteses comerciais.',
+          mime:file.type,imageBase64:base64,
+        }),
+      })
+      const result=await response.json().catch(()=>null) as (Answer&{error?:string;model?:string})|null
+      if(!response.ok){
+        if(response.status===412&&result?.error==='vision_model_missing')
+          throw Error('Modelo de visão não instalado no Ollama. Opcional: execute no terminal ollama pull '+(result.model||'qwen2.5vl:3b')+'.')
+        throw Error(response.status===429?'A análise visual já está ocupada. Tente novamente.'
+          :'A leitura da captura falhou ('+response.status+'): '+(result?.error||'serviço indisponível'))
+      }
+      if(!result?.ok||!result.answer)throw Error('A IA visual não gerou uma resposta válida.')
+      if(!ctrl.signal.aborted)setExchanges(old=>[...old,{
+        id:crypto.randomUUID(),question:'Captura enviada: '+file.name,result,
+      }].slice(-6))
+      setQuestion('')
+    }catch(e){
+      if(!ctrl.signal.aborted)setError(e instanceof Error?e.message:'Falha ao analisar captura.')
+    }finally{
+      clearTimeout(timer)
+      if(inflight.current===ctrl){setBusy(false);setImageName('');inflight.current=null}
+    }
+  }
   const handleSubmit=(event:FormEvent)=>{event.preventDefault();void sendQuestion(question)}
   const onKeyDown=(event:KeyboardEvent<HTMLTextAreaElement>)=>{
     if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();void sendQuestion(question)}
@@ -112,6 +169,15 @@ export function ProspectingCompanyAssistant({prospect}:{prospect:ProspectRecord}
         <p className="prospecting-company-assistant__question">{exchange.question}</p>
         <div className="prospecting-company-assistant__answer">
           <p>{exchange.result.answer}</p>
+          {exchange.result.kind==='screenshot'?<div className="prospecting-company-assistant__coverage">
+            <strong>Imagem fornecida por você · analisada localmente no Ollama</strong>
+            <small>A captura não confirma a identidade ou atualidade da conta. O RealTalent não acessou o feed por sua conta.</small>
+            {exchange.result.visibleObservations?.length?<div><b>Observações visíveis</b>
+              <ul>{exchange.result.visibleObservations.map((value,i)=><li key={i}>{value}</li>)}</ul></div>:null}
+            {exchange.result.commercialHypotheses?.length?<div><b>Hipóteses a confirmar</b>
+              <ul>{exchange.result.commercialHypotheses.map((value,i)=><li key={i}>{value}</li>)}</ul></div>:null}
+            {exchange.result.limitations?.length?<small>{exchange.result.limitations.join(' · ')}</small>:null}
+          </div>:null}
           {exchange.result.kind==='instagram'?<div className="prospecting-company-assistant__coverage">
             <strong>Leitura pública nesta pesquisa</strong>
             <span>{exchange.result.pagesRead||0} página(s) lida(s) · {exchange.result.metadataRead||0} metadado(s) acessível(is)</span>
@@ -177,6 +243,14 @@ export function ProspectingCompanyAssistant({prospect}:{prospect:ProspectRecord}
           {busy?'Pesquisando':'Perguntar'}
         </button></div>
       <small>Enter envia · Shift+Enter quebra a linha · Nenhum dado é alterado automaticamente.</small>
+      {localAgent?<div className="prospecting-company-assistant__visual">
+        <label htmlFor={'prospect-image-'+prospect.id}>Captura do Instagram (opcional)</label>
+        <input id={'prospect-image-'+prospect.id} ref={fileInput} type="file"
+          accept="image/png,image/jpeg,image/webp" disabled={busy}
+          onChange={event=>void onImageSelected(event)}/>
+        <small>{busy&&imageName?'Analisando '+imageName+' no Ollama local…':
+          'Analisa a imagem que você fornecer, somente no Ollama local. PNG/JPG/WebP de até 2 MB. Requer modelo visual instalado.'}</small>
+      </div>:null}
     </form>
     {error?<p role="alert" className="prospecting-company-assistant__error">{error}</p>:null}
   </section>

@@ -43,7 +43,7 @@ if curl --noproxy '*' -fsS --max-time 2 http://127.0.0.1:4392/health >/dev/null 
   FEATURE_STATUS=$(curl --noproxy '*' -s -H "Authorization: Bearer $BRIDGE_TOKEN" --max-time 5 http://127.0.0.1:4392/v1/features || true)
   # A chave local nunca deve ser exibida ou enviada para o chat.
   unset BRIDGE_TOKEN
-  if [[ "$FEATURE_STATUS" != *'"voice-transcription-v2"'* ]];then
+  if [[ "$FEATURE_STATUS" != *'"voice-transcription-v2.1-media"'* ]];then
     echo "A ponte WAHA antiga ainda está na porta 4392. Feche a prévia anterior (Ctrl+C) e execute novamente."
     exit 1
   fi

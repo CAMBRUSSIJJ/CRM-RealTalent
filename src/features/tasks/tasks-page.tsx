@@ -8,6 +8,7 @@ import { NativeSelectionSelect } from '../../components/selection'
 import type { TaskRelation, TaskStatus, Team, WorkTask, WorkspaceMember } from '../../domain/types'
 import { deleteTask, loadWorkManagement, saveTask, taskPriorityLabel, taskStatusLabel, updateTaskStatus, type WorkManagementSnapshot } from '../../services/work-management'
 import { TaskModal } from './task-modal'
+import {TaskCalendar} from './task-calendar'
 import {readSavedTaskViews,writeSavedTaskViews,type TaskSavedView} from './task-saved-views'
 import { consumeWahaTaskHandoff, type WahaTaskHandoff } from '../../services/waha-task-handoff'
 import { CommunicationAutomationCenter } from '../communications-automations/communication-automation-center'
@@ -17,8 +18,8 @@ import { loadGatewayLocalTaskAutoHistory, type LocalTaskAutoDiagnostic } from '.
 import { flushTaskNotificationIntents, reconcileTaskNotificationWorkspace } from '../../services/notifications/notification-orchestrator'
 import './tasks-page-v4.css'
 
-type ViewMode = 'list' | 'board' | 'today' | 'overdue' | 'blocked' | 'completed' | 'in_progress'
-type TaskLayout = 'list' | 'board'
+type ViewMode = 'list' | 'board' | 'calendar' | 'today' | 'overdue' | 'blocked' | 'completed' | 'in_progress'
+type TaskLayout = 'list' | 'board' | 'calendar'
 const OPEN_STATUSES: TaskStatus[] = ['todo', 'in_progress', 'blocked']
 const statusTone = (status: TaskStatus) => status === 'completed' ? 'success' : status === 'blocked' ? 'danger' : status === 'in_progress' ? 'info' : status === 'cancelled' ? 'neutral' : 'warning'
 const priorityTone = (priority: WorkTask['priority']) => priority === 'urgent' ? 'danger' : priority === 'high' ? 'warning' : priority === 'normal' ? 'info' : 'neutral'
@@ -147,7 +148,7 @@ export function TasksPage() {
       if (view === 'completed' && task.status !== 'completed') return false
       if (view === 'in_progress' && task.status !== 'in_progress') return false
       if (view === 'blocked' && task.status !== 'blocked') return false
-      if ((view === 'list' || view === 'board') && task.status === 'cancelled') return false
+      if ((view === 'list' || view === 'board' || view === 'calendar') && task.status === 'cancelled') return false
       return true
     }).sort((a, b) => {
       const rank = { urgent: 0, high: 1, normal: 2, low: 3 }
@@ -255,7 +256,7 @@ export function TasksPage() {
   const showTaskCreate = () => { setTaskHandoff(null);setEditing(null); setModalOpen(true) }
   const switchLayout = (next: TaskLayout) => { setLayout(next); setView(next) }
   const toggleTaskFilter = (filter: ViewMode) => setView((current) => current === filter ? layout : filter)
-  const filterActive = view !== 'board' && view !== 'list'
+  const filterActive = view !== 'board' && view !== 'list' && view !== 'calendar'
   const totalFiltered = filtered.length
   const taskViewLabel = view === 'today' ? 'para hoje' : view === 'overdue' ? 'atrasadas' : view === 'blocked' ? 'bloqueadas' : view === 'completed' ? 'concluídas' : view === 'in_progress' ? 'em andamento' : ''
 

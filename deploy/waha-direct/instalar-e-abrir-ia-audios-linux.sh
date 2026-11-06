@@ -2,7 +2,7 @@
 set -euo pipefail
 
 REPO="https://github.com/CAMBRUSSIJJ/CRM-RealTalent.git"
-BRANCH="feat/teams-operational-ux-h1-20261106"
+BRANCH="feat/teams-editor-drawer-20261106"
 APP="$HOME/Downloads/RealTalent-CRM-V101-WAHA"
 
 echo "==============================================="

@@ -1,47 +1,190 @@
-import { useEffect, useState } from 'react'
-import { Save, UsersRound } from 'lucide-react'
+import { useEffect, useMemo, useRef, useState, type MouseEvent } from 'react'
+import { ArrowUpRight, CalendarDays, Check, CheckCircle2, Clock3, Crown, ListTodo, Plus, Save, Search, UserRound, UsersRound, X } from 'lucide-react'
 import { Modal } from '../../components/ui/modal'
 import { Button } from '../../components/ui/button'
-import { NativeSelectionSelect } from '../../components/selection'
-import type { Team, TeamMembership, WorkspaceMember } from '../../domain/types'
+import type { Team, TeamMembership, WorkTask, WorkspaceMember } from '../../domain/types'
 import type { TeamInput } from '../../services/work-management'
+import { routeToHash } from '../../app/route-state'
+import '../../styles/team-editor-drawer.css'
+import { DEFAULT_TEAM_COLOR, TEAM_COLORS, addTeamMember, initialTeamDraft, removeTeamMember, teamDraftKey, toggleTeamLeader, validTeamDraft, type TeamDraft } from './team-editor-state'
 
 interface Props {
-  open: boolean
-  team: Team | null
-  memberships: TeamMembership[]
-  members: WorkspaceMember[]
-  loading?: boolean
-  onClose(): void
-  onSubmit(input: TeamInput): Promise<void>
+  open:boolean
+  team:Team|null
+  memberships:TeamMembership[]
+  members:WorkspaceMember[]
+  tasks?:WorkTask[]
+  loading?:boolean
+  onClose():void
+  onSubmit(input:TeamInput):Promise<void>
 }
 
-export function TeamModal({ open, team, memberships, members, loading = false, onClose, onSubmit }: Props) {
-  const [name, setName] = useState('')
-  const [description, setDescription] = useState('')
-  const [leaderId, setLeaderId] = useState('')
-  const [color, setColor] = useState('#356AE6')
-  const [selected, setSelected] = useState<string[]>([])
+export function TeamModal({open,team,memberships,members,tasks=[],loading=false,onClose,onSubmit}:Props){
+  const [draft,setDraft]=useState<TeamDraft>(()=>initialTeamDraft(team,memberships))
+  const baseline=useRef(teamDraftKey(initialTeamDraft(team,memberships)))
+  const [search,setSearch]=useState('')
+  const [adding,setAdding]=useState(false)
+  const [error,setError]=useState('')
+  useEffect(()=>{
+    if(!open)return
+    const initial=initialTeamDraft(team,memberships)
+    setDraft(initial);baseline.current=teamDraftKey(initial)
+    setSearch('');setAdding(false);setError('')
+    // Deliberately reset only when a form is opened for another team.
+    // Async membership refresh must not discard unsaved edits.
+  },[open,team?.id])
 
-  useEffect(() => {
-    if (!open) return
-    setName(team?.name ?? '')
-    setDescription(team?.description ?? '')
-    setLeaderId(team?.leaderId ?? '')
-    setColor(team?.color ?? '#356AE6')
-    setSelected(team ? memberships.filter((item) => item.teamId === team.id).map((item) => item.userId) : [])
-  }, [memberships, open, team])
+  const dirty=teamDraftKey(draft)!==baseline.current
+  const canSave=dirty && validTeamDraft(draft) && !loading
+  const selectedMembers=useMemo(()=>{
+    const byId=new Map(members.map(member=>[member.userId,member]))
+    return draft.selected.map(id=>byId.get(id)).filter((m):m is WorkspaceMember=>Boolean(m))
+  },[members,draft.selected])
+  const missingMemberCount=draft.selected.length-selectedMembers.length
+  const candidates=useMemo(()=>{
+    const query=search.trim().toLocaleLowerCase('pt-BR')
+    return members.filter(m=>!draft.selected.includes(m.userId)&&
+      (!query||[m.displayName,m.email].some(v=>v.toLocaleLowerCase('pt-BR').includes(query))))
+  },[members,draft.selected,search])
+  const activeTasks=tasks.filter(t=>['todo','in_progress','blocked'].includes(t.status))
+  const overdue=activeTasks.filter(t=>t.dueAt && Number.isFinite(Date.parse(t.dueAt)) &&
+    new Date(t.dueAt).getTime()<Date.now()).length
+  const completed=tasks.filter(t=>t.status==='completed').length
 
-  const toggle = (userId: string) => setSelected((items) => items.includes(userId) ? items.filter((item) => item !== userId) : [...items, userId])
-  const submit = async () => onSubmit({ id: team?.id, name, description, leaderId: leaderId || null, color, memberIds: selected })
+  const patch=(value:Partial<TeamDraft>)=>setDraft(d=>({...d,...value}))
+  const chooseLeader=(userId:string)=>setDraft(d=>toggleTeamLeader(d,userId))
+  const removeMember=(userId:string)=>setDraft(d=>removeTeamMember(d,userId))
+  const addMember=(userId:string)=>setDraft(d=>addTeamMember(d,userId))
+  const close=()=>{
+    if(loading)return
+    if(dirty&&!window.confirm('Existem alterações não salvas nesta equipe. Deseja descartá-las?'))return
+    onClose()
+  }
+  const submit=async()=>{
+    if(!canSave)return
+    setError('')
+    try{
+      await onSubmit({
+        id:team?.id,name:draft.name.trim(),description:draft.description.trim(),
+        leaderId:draft.leaderId||null,color:draft.color,memberIds:draft.selected
+      })
+    }catch(e){setError(e instanceof Error?e.message:'Não foi possível salvar a equipe.')}
+  }
+  const destination=team?routeToHash('tasks',{filter:'team:'+team.id}):''
+  const newTask=team?routeToHash('tasks',{filter:'team:'+team.id,action:'new'}):''
+  const preventDiscard=(event:MouseEvent<HTMLAnchorElement>)=>{
+    if(loading || dirty&&!window.confirm('Descartar alterações não salvas para abrir Tarefas?'))event.preventDefault()
+  }
 
-  return <Modal open={open} size="lg" title={team ? 'Editar equipe' : 'Nova equipe'} subtitle="Organize liderança, membros e capacidade operacional do time." onClose={onClose}
-    footer={<><span className="modal__footer-spacer"/><Button variant="secondary" onClick={onClose}>Cancelar</Button><Button loading={loading} onClick={() => void submit()}><Save size={16}/> Salvar equipe</Button></>}>
-    <div className="work-team-modal">
-      <section className="work-form-section"><header><UsersRound size={18}/><div><strong>Identidade da equipe</strong><small>Use um nome claro e uma descrição curta do papel do time.</small></div></header>
-        <div className="form-grid"><label className="form-field form-field--full"><span>Nome</span><input value={name} onChange={(event)=>setName(event.target.value)} placeholder="Ex.: Comercial Sul"/></label><label className="form-field form-field--full"><span>Descrição</span><textarea rows={3} value={description} onChange={(event)=>setDescription(event.target.value)} placeholder="Responsabilidades, região ou segmento atendido..."/></label><label className="form-field"><span>Líder</span><NativeSelectionSelect value={leaderId} onChange={(event)=>setLeaderId(event.target.value)}><option value="">Sem líder definido</option>{members.map((member)=><option key={member.userId} value={member.userId}>{member.displayName}</option>)}</NativeSelectionSelect></label><label className="form-field"><span>Cor</span><input type="color" value={color} onChange={(event)=>setColor(event.target.value)}/></label></div>
+  return <Modal open={open} size="xl" className="rt-team-edit-drawer"
+    title={team?'Editar equipe':'Nova equipe'}
+    subtitle={team?'Pessoas, liderança e atividades em um só lugar.':'Configure a identidade e os integrantes da nova equipe.'}
+    onClose={close}
+    footer={<div className="team-editor__footer">
+      <span className="team-editor__save-state" role="status">
+        {loading?'Salvando...':dirty?'Alterações não salvas':'Nenhuma alteração pendente'}
+      </span>
+      <Button type="button" variant="secondary" disabled={loading} onClick={close}>Cancelar</Button>
+      <Button type="button" loading={loading} disabled={!canSave} onClick={()=>void submit()}>
+        <Save size={16}/>{team?'Salvar alterações':'Criar equipe'}
+      </Button>
+    </div>}>
+    <div className="team-editor">
+      <section className="team-editor__section" aria-labelledby="team-editor-identity">
+        <header><div><h3 id="team-editor-identity">Identidade da equipe</h3>
+          <p>Informações visíveis para quem trabalha com a equipe.</p></div></header>
+        <label className="team-editor__field"><span>Nome da equipe</span>
+          <input data-autofocus autoFocus maxLength={120} value={draft.name}
+            onChange={e=>patch({name:e.target.value})} placeholder="Ex.: Comercial Sul"/>
+        </label>
+        <label className="team-editor__field"><span>Descrição <small>opcional</small></span>
+          <textarea rows={2} maxLength={850} value={draft.description}
+            onChange={e=>patch({description:e.target.value})}
+            placeholder="Responsabilidades, região ou segmento atendido..."/>
+        </label>
+        <div className="team-editor__palette" role="group" aria-label="Cor de identificação da equipe">
+          <span>Cor de identificação</span>
+          <div>{TEAM_COLORS.map(c=><button type="button" key={c} aria-label={'Cor '+c}
+            aria-pressed={draft.color.toLowerCase()===c.toLowerCase()}
+            className={draft.color.toLowerCase()===c.toLowerCase()?'is-selected':''}
+            style={{backgroundColor:c}} onClick={()=>patch({color:c})}>
+            {draft.color.toLowerCase()===c.toLowerCase()?<Check size={15}/>:null}
+          </button>)}
+          <label className="team-editor__custom-color" title="Escolher cor personalizada">
+            <span>Personalizar cor</span><input type="color" value={/^#[\da-f]{6}$/i.test(draft.color)?draft.color:DEFAULT_TEAM_COLOR}
+              onChange={e=>patch({color:e.target.value})}/>
+          </label></div>
+        </div>
+        <div className="team-editor__leader-info">
+          <Crown size={16}/><span><strong>Liderança:</strong> {selectedMembers.find(m=>m.userId===draft.leaderId)?.displayName??'Não definida'}
+            <small>Defina ou altere o líder diretamente na lista de integrantes.</small></span>
+        </div>
       </section>
-      <section className="work-form-section"><header><UsersRound size={18}/><div><strong>Membros</strong><small>Selecione as pessoas que pertencem a esta equipe.</small></div></header><div className="work-member-picker">{members.map((member)=>{const active=selected.includes(member.userId);return <button type="button" key={member.userId} className={active?'is-selected':''} aria-pressed={active} onClick={()=>toggle(member.userId)}><span className="avatar avatar--small">{member.displayName.slice(0,1).toUpperCase()}</span><div><strong>{member.displayName}</strong><small>{member.email} · {member.role}</small></div><span className="work-member-picker__state">{active?'Selecionado':'Adicionar'}</span></button>})}</div></section>
+
+      <section className="team-editor__section" aria-labelledby="team-editor-members">
+        <header className="team-editor__members-head">
+          <div><h3 id="team-editor-members">Integrantes <em>{draft.selected.length}</em></h3>
+            <p>Selecione pessoas do workspace; liderança não altera o papel de acesso.</p>
+          </div>
+          <Button type="button" variant="secondary" onClick={()=>{setAdding(v=>!v);setSearch('')}}>
+            {adding?<X size={15}/>:<Plus size={15}/>} {adding?'Fechar':'Adicionar'}
+          </Button>
+        </header>
+        {selectedMembers.length?<div className="team-editor__members">
+          {selectedMembers.map(member=><div key={member.userId} className="team-editor__member">
+            <span className="team-editor__avatar" aria-hidden="true">{member.displayName.slice(0,1).toUpperCase()}</span>
+            <div className="team-editor__member-info"><strong>{member.displayName}</strong><small>{member.email}</small>
+              <span className="team-editor__role">{draft.leaderId===member.userId?'Líder da equipe':'Integrante'}</span>
+            </div>
+            <div className="team-editor__member-actions">
+              <button type="button" aria-label={(draft.leaderId===member.userId?'Remover liderança de ':'Definir como líder ')+member.displayName}
+                className={draft.leaderId===member.userId?'is-leader':''}
+                onClick={()=>chooseLeader(member.userId)} title={draft.leaderId===member.userId?'Remover liderança':'Definir como líder'}>
+                <Crown size={15}/><span>{draft.leaderId===member.userId?'Líder':'Tornar líder'}</span>
+              </button>
+              <button type="button" className="team-editor__remove" title="Remover integrante"
+                aria-label={'Remover '+member.displayName+' da equipe'} onClick={()=>removeMember(member.userId)}><X size={16}/></button>
+            </div>
+          </div>)}
+        </div>:<div className="team-editor__empty"><UsersRound size={19}/><span>Nenhum integrante selecionado. Adicione pessoas para organizar o trabalho.</span></div>}
+        {missingMemberCount>0?<p className="team-editor__warning" role="status">
+          {missingMemberCount} integrante(s) não estão disponíveis na lista atual do workspace.
+          Suas vinculações foram preservadas para evitar remoção acidental.
+        </p>:null}
+        {adding?<div className="team-editor__picker">
+          <label className="team-editor__search"><Search size={16}/>
+            <input value={search} onChange={e=>setSearch(e.target.value)}
+              autoFocus placeholder="Buscar por nome ou e-mail..." aria-label="Buscar integrantes"/>
+          </label>
+          <div className="team-editor__picker-list">
+            {candidates.map(member=><button type="button" key={member.userId}
+              onClick={()=>addMember(member.userId)}>
+              <span className="team-editor__avatar"><UserRound size={16}/></span>
+              <span><strong>{member.displayName}</strong><small>{member.email}</small></span>
+              <Plus size={17}/>
+            </button>)}
+            {!candidates.length?<div className="team-editor__empty">
+              {members.length===draft.selected.length?'Todas as pessoas disponíveis já estão na equipe.':'Nenhuma pessoa encontrada.'}
+            </div>:null}
+          </div>
+          <small>Não encontrou alguém? Cadastre ou convide a pessoa no workspace antes de adicioná-la à equipe.</small>
+        </div>:null}
+      </section>
+
+      {team?<section className="team-editor__section team-editor__activities" aria-labelledby="team-editor-activities">
+        <header><div><h3 id="team-editor-activities">Atividades da equipe</h3>
+          <p>Resumo atual das tarefas vinculadas à equipe.</p></div></header>
+        <div className="team-editor__stats">
+          <div><ListTodo size={17}/><strong>{activeTasks.length}</strong><span>Abertas</span></div>
+          <div><Clock3 size={17}/><strong>{overdue}</strong><span>Atrasadas</span></div>
+          <div><CheckCircle2 size={17}/><strong>{completed}</strong><span>Concluídas</span></div>
+        </div>
+        <div className="team-editor__links">
+          <a href={destination} onClick={preventDiscard}><ListTodo size={15}/> Ver tarefas <ArrowUpRight size={14}/></a>
+          <a href={newTask} onClick={preventDiscard}><CalendarDays size={15}/> Criar tarefa <ArrowUpRight size={14}/></a>
+        </div>
+      </section>:null}
+      {error?<p className="team-editor__warning" role="alert">{error}</p>:null}
     </div>
   </Modal>
 }

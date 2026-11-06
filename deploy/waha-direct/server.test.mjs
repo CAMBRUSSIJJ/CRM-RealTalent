@@ -8,9 +8,9 @@ import { spawn } from 'node:child_process'
 import { fileURLToPath } from 'node:url'
 
 const serverFile=fileURLToPath(new URL('./server.mjs',import.meta.url))
-const WAHA_PORT=4385, BRIDGE_PORT=4391
+const WAHA_PORT=4385, BRIDGE_PORT=4391, OLLAMA_PORT=11434
 const home=fs.mkdtempSync(path.join(os.tmpdir(),'realtalent-waha-qa-'))
-let count=0
+let count=0, aiCalls=0
 const fakeWaha=http.createServer((req,res)=>{
   const url=new URL(req.url,'http://localhost')
   let reply={}
@@ -18,14 +18,34 @@ const fakeWaha=http.createServer((req,res)=>{
   if(url.pathname==='/api/sessions/realtalent')reply={status:'WORKING'}
   else if(url.pathname==='/api/realtalent/chats/overview')reply=[{id:'12345678901@lid',name:'Contato teste',lastMessage:{body:'Olá',timestamp:1793890000}}]
   else if(url.pathname==='/api/contacts/check-exists')reply={numberExists:true,chatId:'12345678901@lid'}
-  else if(url.pathname==='/api/realtalent/chats/12345678901%40lid/messages')reply=[{id:'msg1',body:'Olá',timestamp:1793890000}]
+  else if(url.pathname==='/api/realtalent/chats/12345678901%40lid/messages')reply=[{id:'msg1',body:'Precisamos de treinamento, mas orçamento é limitado.',fromMe:false,timestamp:1793890000}]
   else if(url.pathname==='/api/sendText'){count++;reply={id:'test-message-id'}}
   else {res.writeHead(404);res.end();return}
   res.writeHead(200,{'Content-Type':'application/json'});res.end(JSON.stringify(reply))
 })
 
+
+const mockOllama=http.createServer((req,res)=>{
+  if(req.url==='/api/tags'){
+    res.writeHead(200,{'Content-Type':'application/json'});res.end(JSON.stringify({models:[{name:'qwen3:8b'}]}));return
+  }
+  if(req.url!=='/api/generate'){res.writeHead(404);res.end();return}
+  let body=''
+  req.on('data',chunk=>body+=chunk)
+  req.on('end',()=>{
+    const instruction=JSON.parse(body)
+    aiCalls++
+    const output=instruction.format==='json'
+      ?JSON.stringify({summary:'Treinamento com orçamento restrito',confidence:'média',limitations:'Histórico curto',needs:[{description:'Treinamento',evidenceIds:['M01']}],objections:[{description:'Orçamento',evidenceIds:['M01']}],opportunities:[{description:'Negócio milionário',evidenceIds:['M99']}],nextSteps:[]})
+      :'Podemos conversar sobre as prioridades do treinamento?'
+    res.writeHead(200,{'Content-Type':'application/json'})
+    res.end(JSON.stringify({response:output}))
+  })
+})
+
 test('WAHA local bridge: authentication, conversations, resolve, send without duplication', {timeout:20000}, async ()=>{
   await new Promise(resolve=>fakeWaha.listen(WAHA_PORT,'127.0.0.1',resolve))
+  await new Promise(resolve=>mockOllama.listen(OLLAMA_PORT,'127.0.0.1',resolve))
   const child=spawn(process.execPath,[serverFile],{env:{...process.env,HOME:home,WAHA_API_KEY:'test-waha-key',WAHA_SESSION:'realtalent',REALTALENT_WAHA_BRIDGE_PORT:String(BRIDGE_PORT)},stdio:'ignore'})
   try{
     const base='http://127.0.0.1:'+BRIDGE_PORT
@@ -55,10 +75,29 @@ test('WAHA local bridge: authentication, conversations, resolve, send without du
     assert.equal((await sent.json()).accepted,true)
     assert.equal((await fetch(base+'/v1/send',opts)).status,409)
     assert.equal(count,1)
+
+    const aiHeaders={...headers,'Content-Type':'application/json'}
+    const reply=await fetch(base+'/v1/ai/conversation',{method:'POST',headers:aiHeaders,body:JSON.stringify({chatId:'12345678901@lid',task:'reply'})})
+    assert.equal(reply.status,200)
+    const replyData=await reply.json()
+    assert.equal(replyData.source,'waha-local')
+    assert.equal(replyData.messagesRead,1)
+    assert.equal(replyData.sent,false)
+    assert.match(replyData.text,/prioridades do treinamento/)
+    const commercial=await fetch(base+'/v1/ai/conversation',{method:'POST',headers:aiHeaders,body:JSON.stringify({chatId:'12345678901@lid',task:'commercial'})})
+    assert.equal(commercial.status,200)
+    const commercialData=await commercial.json()
+    assert.equal(commercialData.analysis.needs.length,1)
+    assert.equal(commercialData.analysis.opportunities.length,0,'AI invented message references must be discarded')
+    assert.equal(aiCalls,2)
+    assert.equal(count,1,'AI must never send WhatsApp messages')
+    const invalid=await fetch(base+'/v1/ai/conversation',{method:'POST',headers:aiHeaders,body:JSON.stringify({chatId:'invalid@fake',task:'reply'})})
+    assert.equal(invalid.status,400)
     assert.equal((await fetch(base+'/v1/send',{...opts,body:JSON.stringify({...payload,chatId:'evil@localhost',idempotencyKey:'00000000-0000-4000-a000-000000000002'})})).status,400)
   }finally{
     child.kill('SIGTERM')
     await new Promise(resolve=>fakeWaha.close(resolve))
+    await new Promise(resolve=>mockOllama.close(resolve))
     fs.rmSync(home,{recursive:true,force:true})
   }
 })

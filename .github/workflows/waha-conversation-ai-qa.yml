@@ -1,0 +1,33 @@
+name: WAHA Conversation Intelligence - QA
+on:
+  push:
+    branches: [feat/waha-conversation-intelligence-20261106]
+  pull_request:
+    paths:
+      - 'deploy/waha-direct/**'
+      - 'src/features/communications/**'
+      - 'src/services/waha-direct.ts'
+      - 'src/styles/waha-conversation-tools.css'
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci --include=dev
+      - name: Validate WAHA and conversation AI
+        run: node --test deploy/waha-direct/server.test.mjs deploy/waha-direct/tools.test.mjs deploy/waha-direct/conversation-intelligence.test.mjs
+      - name: Verify Linux CRM preview launcher syntax
+        run: bash -n deploy/waha-direct/abrir-crm-v101-waha-linux.sh
+      - name: TypeScript check
+        run: npm run typecheck
+      - name: Build CRM V101.11.3
+        env:
+          VITE_DATA_MODE: local
+          VITE_WAHA_DIRECT_PREVIEW: '1'
+        run: npm run build

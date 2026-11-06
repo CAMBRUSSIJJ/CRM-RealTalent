@@ -1,7 +1,8 @@
-import { useEffect, useState, type ReactNode } from 'react'
+import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { BrainCircuit, Check, Clipboard, FileText, LoaderCircle, Paperclip, Star, Tag, X } from 'lucide-react'
 import {
-  wahaAiStatus, wahaAnalyze, wahaMediaBlob,
+  wahaAiStatus, wahaAnalyzeSelectedConversation, wahaMediaBlob,
+  type WahaCommercialReport, type WahaAiConversationTask,
   type WahaChat, type WahaMessage, type WahaPreferences,
   type WahaQuickReply,
 } from '../../services/waha-direct'
@@ -22,13 +23,17 @@ export function WahaToolsDrawer({mode,token,chats,selected,messages,prefs,onClos
   const [error,setError]=useState('')
   const [saving,setSaving]=useState(false)
   const [aiResult,setAiResult]=useState('')
+  const [commercial,setCommercial]=useState<WahaCommercialReport|null>(null)
+  const [question,setQuestion]=useState('')
+  const [messagesRead,setMessagesRead]=useState(0)
+  const requestEpoch=useRef(0)
   const [aiModel,setAiModel]=useState('')
   const [aiAvailable,setAiAvailable]=useState(false)
   const [aiChecked,setAiChecked]=useState(false)
-  const [aiTask,setAiTask]=useState<'summary'|'suggest'>('summary')
+  const [aiTask,setAiTask]=useState<WahaAiConversationTask>('summary')
 
   useEffect(()=>{setLabels((selected&&prefs.labels[selected.id]||[]).join(', '))},[selected?.id,prefs.labels])
-  useEffect(()=>{setAiResult('');setError('')},[selected?.id,mode])
+  useEffect(()=>{requestEpoch.current+=1;setAiResult('');setCommercial(null);setQuestion('');setMessagesRead(0);setError('')},[selected?.id,mode])
   useEffect(()=>{
     if(mode!=='ai')return
     let active=true
@@ -44,13 +49,20 @@ export function WahaToolsDrawer({mode,token,chats,selected,messages,prefs,onClos
     catch(e){setError(e instanceof Error?e.message:'Não foi possível salvar.')}
     finally{setSaving(false)}
   }
-  async function runAi(task:'summary'|'suggest'){
-    setError('');setAiResult('');setAiTask(task);setSaving(true)
+  async function runAi(task:WahaAiConversationTask){
+    if(!selected||!aiAvailable)return
+    const epoch=++requestEpoch.current
+    setError('');setAiResult('');setCommercial(null);setAiTask(task);setSaving(true)
     try{
-      const r=await wahaAnalyze(token,task,messages)
-      setAiResult(r.text);setAiModel(r.model)
-    }catch(e){setError(e instanceof Error?e.message:'Falha no Ollama local.')}
-    finally{setSaving(false)}
+      // The local bridge reads actual messages directly from selected WAHA chat.
+      // Generated content remains read-only until manually inserted and sent.
+      const r=await wahaAnalyzeSelectedConversation(token,selected.id,task,task==='ask'?question.trim():'')
+      if(epoch!==requestEpoch.current||r.chatId!==selected.id)return
+      setAiResult(r.text||'');setCommercial(r.analysis||null)
+      setAiModel(r.model);setMessagesRead(r.messagesRead)
+    }catch(e){
+      if(epoch===requestEpoch.current)setError(e instanceof Error?e.message:'Falha na IA local.')
+    }finally{if(epoch===requestEpoch.current)setSaving(false)}
   }
 
   let content:ReactNode=null
@@ -98,21 +110,52 @@ export function WahaToolsDrawer({mode,token,chats,selected,messages,prefs,onClos
     </>
   }
   if(mode==='ai'){
+    const sections: {key:keyof Pick<WahaCommercialReport,'needs'|'objections'|'opportunities'|'nextSteps'>;title:string}[]=[
+      {key:'needs',title:'Necessidades identificadas'},
+      {key:'objections',title:'Objeções e dificuldades'},
+      {key:'opportunities',title:'Oportunidades possíveis'},
+      {key:'nextSteps',title:'Próximos passos sugeridos'},
+    ]
     content=<>
-      <p className="waha-panel-description">A IA utiliza somente o <strong>Ollama local</strong>. Ela não responde automaticamente, não envia mensagens e não usa API paga.</p>
+      <p className="waha-panel-description">Assistente do WhatsApp: lê a conversa selecionada diretamente no <strong>WAHA</strong> e usa o <strong>Ollama local</strong>. Nunca envia mensagens automaticamente.</p>
       <div className="waha-ai-status"><BrainCircuit size={17}/>{!aiChecked?'Verificando Ollama...':aiAvailable?'Disponível: '+aiModel:'Ollama ou modelo local indisponível'}</div>
-      {!selected?<p className="waha-panel-description">Selecione uma conversa antes de analisar.</p>:<>
-        <p className="waha-panel-description">Serão analisadas até 35 mensagens de texto recentes da conversa selecionada.</p>
+      {!selected?<p className="waha-panel-description">Selecione uma conversa à esquerda para que a IA leia suas mensagens reais.</p>:<>
+        <p className="waha-panel-description"><strong>Conversa:</strong> {chatName(selected)}. Até 45 mensagens recentes de texto serão consultadas diretamente no WAHA em cada análise. Áudios ainda não são transcritos.</p>
         <div className="waha-ai-actions">
-          <button type="button" disabled={!aiAvailable||saving||!messages.some(m=>m.body)} onClick={()=>void runAi('summary')}><FileText size={15}/> Resumir conversa</button>
-          <button type="button" disabled={!aiAvailable||saving||!messages.some(m=>m.body)} onClick={()=>void runAi('suggest')}><BrainCircuit size={15}/> Sugerir resposta</button>
+          <button type="button" disabled={!aiAvailable||saving} onClick={()=>void runAi('summary')}><FileText size={15}/> Resumir conversa</button>
+          <button type="button" disabled={!aiAvailable||saving} onClick={()=>void runAi('reply')}><BrainCircuit size={15}/> Preparar resposta</button>
+          <button type="button" className="waha-analysis-main" disabled={!aiAvailable||saving} onClick={()=>void runAi('commercial')}><Clipboard size={15}/> Análise comercial</button>
         </div>
-        {saving?<p className="waha-panel-description"><LoaderCircle size={15} className="spin"/> Consultando IA local...</p>:null}
-        {aiResult?<div className="waha-ai-result"><h4>{aiTask==='summary'?'Resumo sugerido':'Resposta sugerida'}</h4><p>{aiResult}</p>
-          {aiTask==='suggest'?<button type="button" onClick={()=>{onInsert(aiResult);onClose()}}>Inserir no campo para revisão</button>:null}
+        <label htmlFor="waha-ai-question">Perguntar sobre esta conversa</label>
+        <div className="waha-ai-question">
+          <textarea id="waha-ai-question" rows={3} maxLength={450} placeholder="Ex.: O cliente demonstrou interesse? Quais problemas ele mencionou?" value={question} onChange={e=>setQuestion(e.target.value)}/>
+          <button className="waha-primary" type="button" disabled={!aiAvailable||saving||question.trim().length<4} onClick={()=>void runAi('ask')}>Perguntar à IA</button>
+        </div>
+        {saving?<p className="waha-panel-description" role="status"><LoaderCircle size={15} className="spin"/> Lendo mensagens reais no WAHA e consultando o Ollama...</p>:null}
+        {commercial?<div className="waha-ai-result waha-commercial-result" aria-live="polite">
+          <h4>Análise comercial <small>Confiança indicada: {commercial.confidence}</small></h4>
+          <p className="waha-commercial-summary">{commercial.summary}</p>
+          {sections.map(section=><section className="waha-commercial-section" key={section.key}>
+            <h5>{section.title}</h5>
+            {commercial[section.key].length===0?<p className="waha-panel-description">Não identificadas nas mensagens consultadas.</p>:null}
+            {commercial[section.key].map((finding,index)=><article className="waha-commercial-finding" key={section.key+'-'+index}>
+              <p>{finding.description}</p>
+              <details><summary>Ver evidências ({finding.evidence.length})</summary>
+                {finding.evidence.map(e=><blockquote key={e.id}><b>{e.id} · {e.fromMe?'Atendente':'Contato'}:</b> {e.text}</blockquote>)}
+              </details>
+            </article>)}
+          </section>)}
+          <p className="waha-panel-description"><strong>Limitações:</strong> {commercial.limitations}</p>
+          <button type="button" disabled={saving} onClick={()=>void runAi('reply')}><BrainCircuit size={15}/> Preparar resposta para revisar</button>
         </div>:null}
+        {aiResult?<div className="waha-ai-result" aria-live="polite">
+          <h4>{aiTask==='reply'?'Resposta sugerida':aiTask==='ask'?'Resposta sobre a conversa':'Resumo da conversa'}</h4>
+          <p>{aiResult}</p>
+          {aiTask==='reply'?<button type="button" onClick={()=>{onInsert(aiResult);onClose()}}>Inserir no campo de mensagem para revisar</button>:null}
+        </div>:null}
+        {messagesRead>0?<p className="waha-panel-description">Fonte: {messagesRead} mensagens de texto lidas no WAHA nesta consulta · {aiModel}. Conteúdo não enviado.</p>:null}
       </>}
-      <p className="waha-panel-description">Confira as informações geradas. A IA pode errar ou interpretar mensagens fora de contexto.</p>
+      <p className="waha-panel-description">Análises são sugestões, não fatos garantidos. Confira as mensagens citadas e revise qualquer texto antes de enviá-lo ao contato.</p>
     </>
   }
   return <aside className="waha-tools-drawer" aria-label="Ferramentas do WhatsApp">

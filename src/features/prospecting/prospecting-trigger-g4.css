@@ -54,3 +54,10 @@ html[data-theme="dark"] .prospecting-trigger-g4__card blockquote{background:#273
 html[data-theme="dark"] .prospecting-trigger-g4__head h3,html[data-theme="dark"] .prospecting-trigger-g4__card h5{color:#dbe9ff}
 html[data-theme="dark"] .prospecting-trigger-g4__source input,html[data-theme="dark"] .prospecting-trigger-g4__source textarea,
 html[data-theme="dark"] .prospecting-trigger-g4__review input:not([type=checkbox]){background:#1a2d48;color:#e2edff;border-color:#47617f}
+
+
+.prospecting-trigger-g4__cloud-link{justify-self:start;display:inline-flex;align-items:center;gap:7px;
+ border:1px solid #b9d4f2;background:#eaf4ff;color:#265fa6;border-radius:8px;
+ padding:9px 12px;font-size:11px;font-weight:750;cursor:pointer}
+.prospecting-trigger-g4__cloud-link:disabled{opacity:.55;cursor:not-allowed}
+html[data-theme="dark"] .prospecting-trigger-g4__cloud-link{background:#244568;color:#cfe5ff;border-color:#406d9b}

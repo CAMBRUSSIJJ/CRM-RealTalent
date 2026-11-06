@@ -45,6 +45,38 @@ export interface Database {
         Update: Partial<Database['public']['Tables']['prospecting_leads']['Insert']>
         Relationships: []
       }
+      prospecting_trigger_events: {
+        Row: {
+          id: string; organization_id: string; prospect_id: string; created_by: string; owner_id: string;
+          crm_lead_id: string | null; category: 'negative_experience'|'transition'|'new_awareness';
+          event_label: string; source_url: string; source_excerpt: string; source_quote: string;
+          date_quote: string | null; hypothesis: string; rationale: string; suggested_question: string;
+          review_status: 'needs_review'|'approved'|'rejected'; source_confirmed: boolean;
+          reviewer_note: string; reviewed_by: string | null; reviewed_at: string | null;
+          created_at: string; updated_at: string; evidence_fingerprint: string;
+        }
+        Insert: {
+          id?: string; organization_id: string; prospect_id: string; created_by?: string; owner_id?: string;
+          crm_lead_id?: string | null; category: 'negative_experience'|'transition'|'new_awareness';
+          event_label: string; source_url: string; source_excerpt: string; source_quote: string;
+          date_quote?: string | null; hypothesis?: string; rationale?: string; suggested_question?: string;
+          review_status?: 'needs_review'|'approved'|'rejected'; source_confirmed?: boolean;
+          reviewer_note?: string; reviewed_by?: string | null; reviewed_at?: string | null;
+          created_at?: string; updated_at?: string;
+        }
+        Update: Partial<Database['public']['Tables']['prospecting_trigger_events']['Insert']>
+        Relationships: []
+      }
+      prospecting_trigger_reviews: {
+        Row: {
+          id: number; organization_id: string; event_id: string; actor_id: string;
+          decision: 'approved'|'rejected'; source_confirmed: boolean;
+          reviewer_note: string; decided_at: string;
+        }
+        Insert: never
+        Update: never
+        Relationships: []
+      }
       prospecting_events: {
         Row: { id: string; organization_id: string; prospect_id: string | null; batch_id: string | null; action: string; title: string; description: string; item_count: number; metadata: Json; created_by: string | null; created_at: string }
         Insert: { id?: string; organization_id: string; prospect_id?: string | null; batch_id?: string | null; action: string; title: string; description?: string; item_count?: number; metadata?: Json; created_by?: string | null; created_at?: string }

@@ -81,6 +81,10 @@ if [[ "$(node -p 'require("./package.json").version')" != "101.11.3" ]]; then
   echo "ERRO: versão de CRM inesperada. Instalação interrompida."
   exit 1
 fi
+echo "=== G4: conferindo a IA Qwen3 local (sem alterar agentes já ativos) ==="
+if ! bash scripts/garimpo-g4/ativar-agente-local.sh;then
+  echo "A prévia CRM continuará. Para usar G4, confira os avisos acima."
+fi
 BRIDGE_PID=''
 if ! curl --noproxy '*' --silent --fail --max-time 2 http://127.0.0.1:4392/health >/dev/null 2>&1; then
   echo "Iniciando ponte WAHA local (127.0.0.1:4392)..."

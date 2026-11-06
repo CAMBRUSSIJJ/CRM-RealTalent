@@ -38,6 +38,7 @@ interface Answer {
   postAnalyses?:PostAnalysis[];postAnalysisStatus?:string;postAnalysisMessage?:string;
   postAnalysisCoverage?:InstagramBatchCoverage;
   executive?:CommercialExecutiveG49;
+  answerSourceIds?:number[];directAnswer?:boolean;
   visibleObservations?:string[];commercialHypotheses?:string[];limitations?:string[];model?:string
 }
 interface Exchange {id:string;question:string;result:Answer;comparison?:SourceComparisonG49}
@@ -63,11 +64,18 @@ const postTopics:Record<PostAnalysis['topic'],string>={
 const evidenceLabel:Record<PostAnalysis['evidenceLevel'],string>={
   snippet:'Somente prévia indexada',metadata:'Metadados públicos',page:'Trecho público lido',
 }
+const answerSources=(result:Answer)=>{
+  const ids=result.answerSourceIds?.length
+    ?result.answerSourceIds
+    :[...result.answer.matchAll(/\[(\d+)\]/g)].map(match=>Number(match[1]))
+  return (result.sources||[]).filter(source=>ids.includes(source.id)&&safeUrl(source.url)).slice(0,2)
+}
 const tone=(value:CnpjFinding['association'])=>value==='compatible'?'compatível':
   value==='possible'?'vínculo pendente':'não confirmado'
 export function ProspectingCompanyAssistant({prospect}:{prospect:ProspectRecord}){
   const [question,setQuestion]=useState('')
   const [exchanges,setExchanges]=useState<Exchange[]>([])
+  const [selectedExchangeId,setSelectedExchangeId]=useState<string|null>(null)
   const [busy,setBusy]=useState(false)
   const [error,setError]=useState('')
   const inflight=useRef<AbortController|null>(null)
@@ -75,7 +83,7 @@ export function ProspectingCompanyAssistant({prospect}:{prospect:ProspectRecord}
   const fileInput=useRef<HTMLInputElement|null>(null)
   useEffect(()=>{
     inflight.current?.abort()
-    setQuestion('');setExchanges([]);setError('');setBusy(false);setImageName('')
+    setQuestion('');setExchanges([]);setSelectedExchangeId(null);setError('');setBusy(false);setImageName('')
     return ()=>inflight.current?.abort()
   },[prospect.id])
   const sendQuestion=async(requested:string)=>{
@@ -84,7 +92,7 @@ export function ProspectingCompanyAssistant({prospect}:{prospect:ProspectRecord}
     const ctrl=new AbortController()
     inflight.current?.abort();inflight.current=ctrl
     const timer=setTimeout(()=>ctrl.abort(),180000)
-    setQuestion('');setBusy(true);setError('')
+    setQuestion('');setSelectedExchangeId(null);setBusy(true);setError('')
     try{
       const response=await runtimeFetch(env.agentGatewayUrl+'/tools/company-ask',{
         method:'POST',signal:ctrl.signal,headers:{'Content-Type':'application/json'},
@@ -171,9 +179,12 @@ export function ProspectingCompanyAssistant({prospect}:{prospect:ProspectRecord}
           :'A leitura da captura falhou ('+response.status+'): '+(result?.error||'serviço indisponível'))
       }
       if(!result?.ok||!result.answer)throw Error('A IA visual não gerou uma resposta válida.')
-      if(!ctrl.signal.aborted)setExchanges(old=>[...old,{
-        id:crypto.randomUUID(),question:'Captura enviada: '+file.name,result,
-      }].slice(-6))
+      if(!ctrl.signal.aborted){
+        setSelectedExchangeId(null)
+        setExchanges(old=>[...old,{
+          id:crypto.randomUUID(),question:'Captura enviada: '+file.name,result,
+        }].slice(-6))
+      }
       setQuestion('')
     }catch(e){
       if(!ctrl.signal.aborted)setError(e instanceof Error?e.message:'Falha ao analisar captura.')
@@ -182,6 +193,8 @@ export function ProspectingCompanyAssistant({prospect}:{prospect:ProspectRecord}
       if(inflight.current===ctrl){setBusy(false);setImageName('');inflight.current=null}
     }
   }
+  const visibleExchange=exchanges.find(item=>item.id===selectedExchangeId)||
+    exchanges[exchanges.length-1]
   const handleSubmit=(event:FormEvent)=>{event.preventDefault();void sendQuestion(question)}
   const onKeyDown=(event:KeyboardEvent<HTMLTextAreaElement>)=>{
     if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();void sendQuestion(question)}
@@ -198,8 +211,17 @@ export function ProspectingCompanyAssistant({prospect}:{prospect:ProspectRecord}
       {quickPrompts.map(prompt=><button key={prompt.label} type="button" disabled={busy}
         onClick={()=>void sendQuestion(prompt.question)}><prompt.icon size={14}/>{prompt.label}</button>)}
     </div>
-    {exchanges.length?<div className="prospecting-company-assistant__conversation" aria-live="polite">
-      {exchanges.map(exchange=><article key={exchange.id}>
+    {exchanges.length>1?<details className="prospecting-company-assistant__history">
+      <summary>Consultas anteriores ({exchanges.length-1})</summary>
+      <div>{exchanges.slice(0,-1).map(item=><button type="button" key={item.id}
+        onClick={()=>setSelectedExchangeId(item.id)}
+        aria-pressed={visibleExchange?.id===item.id}>{item.question}</button>)}
+        {selectedExchangeId?<button type="button" onClick={()=>setSelectedExchangeId(null)}>
+          Voltar à resposta mais recente
+        </button>:null}</div>
+    </details>:null}
+    {visibleExchange?<div className="prospecting-company-assistant__conversation" aria-live="polite">
+      {[visibleExchange].map(exchange=><article key={exchange.id}>
         <p className="prospecting-company-assistant__question">{exchange.question}</p>
         <div className="prospecting-company-assistant__answer">
           {exchange.result.kind!=='instagram'||!exchange.result.executive
@@ -317,6 +339,16 @@ export function ProspectingCompanyAssistant({prospect}:{prospect:ProspectRecord}
               <small>Cadastro consultado na BrasilAPI. Revise o vínculo com este estabelecimento.</small>
             </div>)}
           </div>:null}
+{answerSources(exchange.result).length?<div className="prospecting-company-assistant__inline-citations">
+  <span>Fontes da resposta:</span>
+  {answerSources(exchange.result).map(source=><a key={source.url}
+    href={safeUrl(source.url)||undefined} target="_blank" rel="noopener noreferrer">
+    [{source.id}] {source.title||'Conferir fonte'} <ExternalLink size={12}/></a>)}
+</div>:null}
+{exchange.result.sources?.length?<details className="prospecting-company-assistant__disclosure">
+  <summary><ExternalLink size={14}/> Conferir todas as fontes
+    <span>{exchange.result.sources.length} referências</span></summary>
+  <div className="prospecting-company-assistant__disclosure-body">
 {exchange.result.sources?.length?<div className="prospecting-company-assistant__sources">
             <strong>Fontes públicas ({exchange.result.sources.length})</strong>
             {exchange.result.sources.map((source,index)=><div key={source.url}>
@@ -337,9 +369,12 @@ export function ProspectingCompanyAssistant({prospect}:{prospect:ProspectRecord}
                       :'Resultado indexado · página não lida integralmente'}</small>
             </div>)}
           </div>:null}
-{exchange.result.limitation?<small className="prospecting-company-assistant__limitation">{exchange.result.limitation}</small>:null}
+  </div>
+</details>:null}
+{exchange.result.limitation&&!exchange.result.directAnswer
+  ?<small className="prospecting-company-assistant__limitation">{exchange.result.limitation}</small>:null}
 {exchange.result.searchStatus&&exchange.result.searchStatus!=='done'
-            ?<small className="prospecting-company-assistant__limitation">Pesquisa incompleta: {exchange.result.searchStatus}</small>:null}
+  ?<small className="prospecting-company-assistant__limitation">Pesquisa incompleta: {exchange.result.searchStatus}</small>:null}
           </>:null}
         </div>
       </article>)}

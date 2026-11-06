@@ -30,6 +30,8 @@ export function WahaToolsDrawer({mode,token,chats,selected,messages,prefs,onClos
   const [question,setQuestion]=useState('')
   const [messagesRead,setMessagesRead]=useState(0)
   const [voiceInfo,setVoiceInfo]=useState<{textMessagesRead:number;audioDetected:number;audioTranscribed:number;audioSkipped:number;audioTranscripts:{id:string;text:string}[]}|null>(null)
+  const activeChatId=useRef(selected?.id||'')
+  activeChatId.current=selected?.id||''
   const requestEpoch=useRef(0)
   const [aiModel,setAiModel]=useState('')
   const [aiAvailable,setAiAvailable]=useState(false)
@@ -79,7 +81,7 @@ export function WahaToolsDrawer({mode,token,chats,selected,messages,prefs,onClos
     setAutoSaving(true);setError('')
     try{
       const result=await wahaSetAutoReply(token,chatId,enabling)
-      if(selected.id===chatId)setAutoReply(result)
+      if(activeChatId.current===chatId)setAutoReply(result)
     }catch(e){setError(e instanceof Error?e.message:'Falha ao alterar atendimento automático.')}
     finally{setAutoSaving(false)}
   }
@@ -93,8 +95,8 @@ export function WahaToolsDrawer({mode,token,chats,selected,messages,prefs,onClos
     setReplySending(true);setError('');setReplySent(false)
     try{
       await wahaSend(token,chatId,text,crypto.randomUUID())
-      if(selected.id===chatId){setAiResult('');setReplySent(true)}
-    }catch(e){if(selected.id===chatId)setError(
+      if(activeChatId.current===chatId){setAiResult('');setReplySent(true)}
+    }catch(e){if(activeChatId.current===chatId)setError(
       (e instanceof Error?e.message:'Falha no envio.')+
       ' Confira a conversa antes de tentar novamente para evitar duplicidade.')}
     finally{setReplySending(false)}

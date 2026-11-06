@@ -8,10 +8,17 @@ import {scoreProspectWithIcp} from '../../services/prospecting-intelligence'
 import {env} from '../../lib/env'
 import {runtimeFetch} from '../../services/realtalent-runtime-transport'
 
+interface InvestigationSource {
+  title:string;url:string;reading:'page'|'snippet';
+  identity:'compatible'|'partial'|'unconfirmed';
+  origin:string;excerpt:string
+}
 interface Investigation {
   ok:boolean;summary:string;hypotheses:string[];questions:string[];
   approach:string;caveats:string[];pageRead:boolean;readUrl:string|null;
-  readTitle:string|null;quality:string
+  readTitle:string|null;quality:string;
+  searchStatus?:'done'|'no_results'|'unavailable';
+  sources?:InvestigationSource[]
 }
 interface Props {prospect:ProspectRecord;snapshot:WorkspaceSnapshot}
 const safeSite=(url:string|null)=>{
@@ -37,7 +44,7 @@ export function ProspectingG1G2Panel({prospect,snapshot}:Props){
     abortRef.current?.abort()
     const ctrl=new AbortController()
     abortRef.current=ctrl
-    const timer=setTimeout(()=>ctrl.abort(),72000)
+    const timer=setTimeout(()=>ctrl.abort(),125000)
     setBusy(true);setError('');setResult(null)
     try{
       const response=await runtimeFetch(env.agentGatewayUrl+'/tools/prospect-investigate',{
@@ -60,6 +67,13 @@ export function ProspectingG1G2Panel({prospect,snapshot}:Props){
       clearTimeout(timer)
       if(abortRef.current===ctrl){setBusy(false);abortRef.current=null}
     }
+  }
+  const prepareSourceForG4=(source:InvestigationSource)=>{
+    if(source.reading!=='page'||source.identity==='unconfirmed'||!safeSite(source.url)||source.excerpt.length<35)return
+    window.dispatchEvent(new CustomEvent('realtalent:garimpo:g4:source-from-investigation',{
+      detail:{workspaceId:prospect.workspaceId,prospectId:prospect.id,sourceUrl:source.url,excerpt:source.excerpt},
+    }))
+    document.querySelector('.prospecting-trigger-g4')?.scrollIntoView({behavior:'smooth',block:'start'})
   }
   const labels:[string,number][]=[
     ['Aderência ao ICP',score.fit],
@@ -89,7 +103,7 @@ export function ProspectingG1G2Panel({prospect,snapshot}:Props){
     </details>
     <div className="prospecting-g1g2__investigate">
       <div><strong>Investigação com Qwen3 8B</strong>
-      <small>Opcional. Usa apenas dados comerciais do registro e lê o website público, quando disponível. Não aprova nem envia empresas.</small></div>
+      <small>Pesquisa o nome e a cidade em fontes públicas, lê páginas compatíveis e analisa as evidências. Não aprova nem envia empresas.</small></div>
       <Button variant="secondary" disabled={busy} onClick={()=>void run()}>
         {busy?<LoaderCircle size={15} className="spin"/>:<SearchCheck size={15}/>}
         {busy?'Investigando…':result?'Investigar novamente':'Investigar com IA'}
@@ -98,9 +112,26 @@ export function ProspectingG1G2Panel({prospect,snapshot}:Props){
     {error?<p className="prospecting-g1g2__error" role="alert">{error}</p>:null}
     {result?<div className="prospecting-g1g2__report" aria-live="polite">
       <div className="prospecting-g1g2__report-source">
-        <span>{result.pageRead?'Website público lido':'Sem leitura externa confirmada'}</span>
+        <span>{result.pageRead?'Fonte pública compatível lida':'Sem leitura externa compatível confirmada'}</span>
         {result.pageRead&&safeSite(result.readUrl)?<a href={safeSite(result.readUrl)!} rel="noopener noreferrer" target="_blank"><ExternalLink size={13}/> Conferir fonte</a>:null}
       </div>
+      <section className="prospecting-g1g2__public-sources">
+        <strong>Pesquisa e evidências públicas</strong>
+        <small>{result.searchStatus==='unavailable'
+          ?'Busca indisponível. Verifique o Garimpo na porta 4319.'
+          :result.searchStatus==='no_results'
+            ?'A pesquisa não encontrou resultados; não foram criados fatos artificiais.'
+            :'Os links são sugestões para conferência; páginas lidas não equivalem à validação definitiva da empresa.'}</small>
+        {(result.sources||[]).length
+          ?<ul>{(result.sources||[]).map((source,index)=><li key={source.url+'-'+index}>
+            <a href={safeSite(source.url)||undefined} target="_blank" rel="noopener noreferrer">{source.title||source.url} <ExternalLink size={12}/></a>
+            <small>{source.reading==='page'?'Página lida':'Somente resultado de busca'} · {source.identity==='compatible'
+              ?'Nome e cidade compatíveis':source.identity==='partial'?'Nome compatível; localidade a conferir':'Identidade não confirmada'}</small>
+            {source.reading==='page'&&source.identity!=='unconfirmed'&&source.excerpt.length>=35
+              ?<button type="button" onClick={()=>prepareSourceForG4(source)}>Usar fonte no G4</button>:null}
+          </li>)}</ul>
+          :<p>Nenhuma fonte pública compatível disponível nesta investigação.</p>}
+      </section>
       <p>{result.summary}</p>
       {result.hypotheses.length?<section><strong>Hipóteses para investigar</strong><ul>{result.hypotheses.map((h,i)=><li key={i}>{h}</li>)}</ul></section>:null}
       {result.questions.length?<section><strong>Perguntas de diagnóstico</strong><ul>{result.questions.map((q,i)=><li key={i}>{q}</li>)}</ul></section>:null}

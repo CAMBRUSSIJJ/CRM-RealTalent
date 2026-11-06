@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState, type DragEvent } from 'react'
-import { AlertTriangle, Bell, CalendarDays, CheckCircle2, Clock3, Filter, Kanban, ListChecks, Pencil, Plus, Search, Trash2, UserRound, UsersRound, X } from 'lucide-react'
+import { AlertTriangle, Bell, CalendarDays, CheckCircle2, Clock3, Filter, Kanban, ListChecks, Pencil, Plus, Search, Trash2, UserRound, UsersRound, X, MoreHorizontal, GripVertical } from 'lucide-react'
 import { useAppActions, useAppUi, useAppWorkspace } from '../../app/app-context'
 import { useAuth } from '../auth/auth-context'
 import { Button } from '../../components/ui/button'

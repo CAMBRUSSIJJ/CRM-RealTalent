@@ -45,6 +45,7 @@ export function TasksPage() {
   const [query, setQuery] = useState('')
   const [owner, setOwner] = useState('all')
   const [teamId, setTeamId] = useState('all')
+  const [newTaskTeamId,setNewTaskTeamId]=useState<string|null>(null)
   const consumedTeamRoute=useRef('')
   const [priority, setPriority] = useState('all')
   const [modalOpen, setModalOpen] = useState(false)
@@ -85,13 +86,16 @@ export function TasksPage() {
     const routeFilter=routeContextFromHash(window.location.hash).filter
     if(!routeFilter?.startsWith('team:'))return
     const requestedId=routeFilter.slice(5)
-    const key=workspaceId+':'+requestedId
+    const key=workspaceId+':'+requestedId+':'+(routeContextFromHash(window.location.hash).action||'')
     if(consumedTeamRoute.current===key)return
     if(data.teams.some(team=>team.id===requestedId)){
       setTeamId(requestedId)
+      if(routeContextFromHash(window.location.hash).action==='new' && canTaskCreate){
+        setNewTaskTeamId(requestedId);setTaskHandoff(null);setEditing(null);setModalOpen(true)
+      }
       consumedTeamRoute.current=key
     }
-  },[workspaceId,data.teams])
+  },[workspaceId,data.teams,canTaskCreate])
   useEffect(() => {
     let active = true
     void listWorkspaceMembers().then(async items => {
@@ -194,7 +198,7 @@ export function TasksPage() {
             inFlightCancellations:[],error:error instanceof Error?error.message:'Gateway indisponível'}
         }
       }
-      await reload();setModalOpen(false);setEditing(null);setTaskHandoff(null)
+      await reload();setModalOpen(false);setEditing(null);setTaskHandoff(null);setNewTaskTeamId(null)
       if(outbox?.pending)notify('warning',
         'Tarefa salva. Notificações aguardando sincronização; nenhum envio foi confirmado. '+
         'A reconciliação será tentada novamente quando o gateway voltar.')
@@ -270,11 +274,11 @@ export function TasksPage() {
     }catch(error){notify('error',error instanceof Error?error.message:'Falha ao excluir a tarefa.')}
   }
 
-  const openEdit = (task: WorkTask) => { setTaskHandoff(null);setEditing(task); setModalOpen(true) }
+  const openEdit = (task: WorkTask) => { setTaskHandoff(null);setNewTaskTeamId(null);setEditing(task); setModalOpen(true) }
   const relationForEditing = editing ? relationByTask.get(editing.id) ?? null : null
   const checklistForEditing = editing ? data.checklistItems.filter((item) => item.taskId === editing.id) : []
 
-  const showTaskCreate = () => { setTaskHandoff(null);setEditing(null); setModalOpen(true) }
+  const showTaskCreate = () => { setTaskHandoff(null);setNewTaskTeamId(null);setEditing(null); setModalOpen(true) }
   const switchLayout = (next: TaskLayout) => { setLayout(next); setView(next) }
   const toggleTaskFilter = (filter: ViewMode) => setView((current) => current === filter ? layout : filter)
   const filterActive = view !== 'board' && view !== 'list' && view !== 'calendar'
@@ -398,7 +402,7 @@ export function TasksPage() {
         : <div className="tasks-page-v4__empty-list"><ListChecks size={25}/><strong>Nenhuma tarefa encontrada</strong><span>Altere os filtros ou crie uma tarefa.</span>{canTaskCreate ? <button type="button" onClick={showTaskCreate}><Plus size={14}/> Criar tarefa</button> : null}</div>}
       </section>}
 
-    <TaskModal presentation={editing?'drawer':'dialog'} open={canTaskCreate || canTaskEdit ? modalOpen : false} task={editing} initialDraft={taskHandoff} relation={relationForEditing} checklist={checklistForEditing} teams={data.teams} memberships={data.memberships} members={members} snapshot={snapshot} workspaceId={workspaceId} repositoryMode={repositoryMode} loading={saving} onClose={()=>{setModalOpen(false);setEditing(null);setTaskHandoff(null)}} onSubmit={save}/>
+    <TaskModal presentation={editing?'drawer':'dialog'} open={canTaskCreate || canTaskEdit ? modalOpen : false} task={editing} initialDraft={taskHandoff} initialTeamId={newTaskTeamId} relation={relationForEditing} checklist={checklistForEditing} teams={data.teams} memberships={data.memberships} members={members} snapshot={snapshot} workspaceId={workspaceId} repositoryMode={repositoryMode} loading={saving} onClose={()=>{setModalOpen(false);setEditing(null);setTaskHandoff(null);setNewTaskTeamId(null)}} onSubmit={save}/>
   </div>
 }
 

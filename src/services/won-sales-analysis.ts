@@ -120,14 +120,16 @@ export function upsertWonSale(workspaceId:string,lead:Lead,input:WonSalesInput,
   }
   const records=[record,...existing.filter(item=>item.leadId!==lead.id)].slice(0,MAX_RECORDS)
   store.setItem(storageKey(workspaceId),JSON.stringify({version:STORE_VERSION,records}))
-  if(typeof window!=='undefined')window.dispatchEvent(new CustomEvent(CHANGE_EVENT,{detail:{workspaceId}}))
+  if(typeof window!=='undefined'&&typeof window.dispatchEvent==='function'&&typeof CustomEvent==='function')
+    window.dispatchEvent(new CustomEvent(CHANGE_EVENT,{detail:{workspaceId}}))
   return record
 }
 export function removeWonSale(workspaceId:string,leadId:string,
   store:Pick<Storage,'getItem'|'setItem'>):void{
   const records=readWonSales(workspaceId,store).filter(item=>item.leadId!==leadId)
   store.setItem(storageKey(workspaceId),JSON.stringify({version:STORE_VERSION,records}))
-  if(typeof window!=='undefined')window.dispatchEvent(new CustomEvent(CHANGE_EVENT,{detail:{workspaceId}}))
+  if(typeof window!=='undefined'&&typeof window.dispatchEvent==='function'&&typeof CustomEvent==='function')
+    window.dispatchEvent(new CustomEvent(CHANGE_EVENT,{detail:{workspaceId}}))
 }
 export function listenWonSales(workspaceId:string,refresh:()=>void):()=>void{
   const onLocal=(event:Event)=>{

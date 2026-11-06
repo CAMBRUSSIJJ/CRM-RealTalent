@@ -90,6 +90,28 @@ test('WAHA local bridge: authentication, conversations, resolve, send without du
     assert.equal(pre.status,200)
     assert.equal(pre.headers.get('access-control-allow-origin'),'https://crm-real-talent.vercel.app')
     assert.equal((await pre.json()).status,'WORKING')
+    const features=await(await fetch(base+'/v1/features',{headers})).json()
+    assert.equal(features.autoSend,false,'automatic sending stays off on startup')
+    assert.equal(features.autoReplyOptIn,true)
+    const initial=await(await fetch(base+'/v1/ai/auto-reply?chatId=12345678901%40lid',{headers})).json()
+    assert.equal(initial.enabled,false,'new contact is never automatically enabled')
+    const autoHeaders={...headers,'Content-Type':'application/json'}
+    const groupAttempt=await fetch(base+'/v1/ai/auto-reply',{
+      method:'POST',headers:autoHeaders,
+      body:JSON.stringify({chatId:'987654321@g.us',enabled:true})
+    })
+    assert.equal(groupAttempt.status,400,'groups cannot activate autonomous AI')
+    const activation=await fetch(base+'/v1/ai/auto-reply',{
+      method:'POST',headers:autoHeaders,
+      body:JSON.stringify({chatId:'12345678901@lid',enabled:true})
+    })
+    assert.equal((await activation.json()).enabled,true)
+    const deactivation=await fetch(base+'/v1/ai/auto-reply',{
+      method:'POST',headers:autoHeaders,
+      body:JSON.stringify({chatId:'12345678901@lid',enabled:false})
+    })
+    assert.equal((await deactivation.json()).enabled,false)
+    assert.equal(count,0,'enabling and disabling never sends a WAHA message')
     const chats=await (await fetch(base+'/v1/chats',{headers})).json()
     assert.equal(chats[0].id,'12345678901@lid')
     const inbound=await (await fetch(base+'/v1/messages?chatId=12345678901%40lid',{headers})).json()

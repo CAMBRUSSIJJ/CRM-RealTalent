@@ -48,3 +48,6 @@ Thumbs.db
 .realtalent-whatsapp-browser/
 .env.cr10
 .cr10.runtime.env
+
+# Ignore the ephemeral gateway wrapper created by local Ollama runtime.
+runtime-host/RealTalent-Agent-Runtime-V3.1.2/.gateway-ollama-runtime.generated.mjs

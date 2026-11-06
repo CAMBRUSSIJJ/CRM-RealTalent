@@ -46,6 +46,7 @@ import { requireExportApproval } from '../../services/team-governance'
 import { buildProspectingIcp, prospectingIcpSummary, rankProspects } from '../../services/prospecting-intelligence'
 import { ProspectingRedesignSearch, ProspectingRedesignShell } from './prospecting-redesign'
 import { ProspectingG1G2Panel } from './prospecting-g1g2-panel'
+import {ProspectingTriggerIntelligenceG4} from './prospecting-trigger-g4'
 import type { GarimpoSearchProposal } from './garimpo-conversation-g3'
 import {WonSalesProspectingSignals} from '../won-sales/won-sales-prospecting-signals'
 import {buildProspectingHandoffMetrics,isProspectTransferable,transferableProspectIds,
@@ -1733,6 +1734,7 @@ function ProcessingWorkspace({ readOnly, queue, active, leads, snapshot, onSelec
       </div>
       {attentionReasons.length ? <section className="prospecting-review-attention-v101106"><AlertTriangle size={16}/><div><strong>O que precisa da sua atenção</strong><div>{attentionReasons.map((reason) => <span key={reason}>{reason}</span>)}</div></div></section> : <section className="prospecting-review-attention-v101106 is-clear"><CheckCircle2 size={16}/><div><strong>Sem divergências importantes</strong><small>Identidade, local, contato e duplicidade atendem às regras atuais.</small></div></section>}
       <ProspectingG1G2Panel prospect={active} snapshot={snapshot}/>
+      <ProspectingTriggerIntelligenceG4 prospect={active} readOnly={readOnly}/>
       <details className="prospecting-review-edit-v101106">
         <summary><div><span><SlidersHorizontal size={15}/> Editar dados</span><small>Abra somente se precisar corrigir alguma informação.</small></div><ChevronRight size={15}/></summary>
         <div className="prospecting-review-form">

@@ -9,7 +9,7 @@ command -v npm >/dev/null || { echo "Node/npm indisponíveis."; exit 1; }
 node -e 'if(Number(process.versions.node.split(".")[0])!==22)process.exit(1)' || { echo "É necessário Node.js 22."; exit 1; }
 APP="$HOME/Downloads/RealTalent-CRM-V101-WAHA"
 REPO="https://github.com/CAMBRUSSIJJ/CRM-RealTalent.git"
-BRANCH="feat/won-sales-trigger-analysis-20261106"
+BRANCH="feat/garimpo-trigger-intelligence-g4-20261106"
 WAHA_ENV="$HOME/.local/share/realtalent-waha-gows/.env"
 [[ -f "$WAHA_ENV" ]] || { echo "WAHA local não encontrado. Nenhuma sessão foi alterada."; exit 1; }
 KEY=$(sed -n 's/^WAHA_API_KEY=//p' "$WAHA_ENV")
@@ -80,6 +80,10 @@ npm ci --include=dev --no-fund
 if [[ "$(node -p 'require("./package.json").version')" != "101.11.3" ]]; then
   echo "ERRO: versão de CRM inesperada. Instalação interrompida."
   exit 1
+fi
+echo "=== G4: conferindo a IA Qwen3 local (sem alterar agentes já ativos) ==="
+if ! bash scripts/garimpo-g4/ativar-agente-local.sh;then
+  echo "A prévia CRM continuará. Para usar G4, confira os avisos acima."
 fi
 BRIDGE_PID=''
 if ! curl --noproxy '*' --silent --fail --max-time 2 http://127.0.0.1:4392/health >/dev/null 2>&1; then

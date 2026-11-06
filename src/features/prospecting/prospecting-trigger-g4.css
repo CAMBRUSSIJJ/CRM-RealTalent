@@ -1,0 +1,56 @@
+.prospecting-trigger-g4{display:grid;gap:13px;padding:16px;border:1px solid #dbe6f4;border-radius:12px;background:var(--rt-color-surface,#fff);min-width:0}
+.prospecting-trigger-g4__head{display:flex;justify-content:space-between;align-items:flex-start;gap:13px}
+.prospecting-trigger-g4__head>div{min-width:0}
+.prospecting-trigger-g4__head>div>span{display:inline-flex;gap:6px;align-items:center;font-size:11px;font-weight:800;color:#2863ae}
+.prospecting-trigger-g4__head h3{margin:5px 0;color:#2f527e;font-size:15px}
+.prospecting-trigger-g4__head p{margin:0;color:#7186a2;font-size:11px;line-height:1.5}
+.prospecting-trigger-g4__count{white-space:nowrap;border:1px solid #cee0f7;border-radius:18px;padding:5px 9px;font-size:10px;color:#386eb2;background:#f2f7ff}
+.prospecting-trigger-g4__notice{display:flex;gap:9px;align-items:flex-start;border-radius:8px;background:#f3f8ff;border:1px solid #dbe8fa;padding:10px 12px;color:#4e739e;font-size:11px;line-height:1.5}
+.prospecting-trigger-g4__notice>svg{flex:0 0 17px}
+.prospecting-trigger-g4__source{display:grid;gap:10px;padding:12px;border:1px solid #e2eaf5;border-radius:10px;background:#fafcff}
+.prospecting-trigger-g4__source>label,.prospecting-trigger-g4__review>label:not(.prospecting-trigger-g4__checkbox){display:grid;gap:6px;color:#526a88;font-weight:740;font-size:11px}
+.prospecting-trigger-g4__source input,.prospecting-trigger-g4__source textarea,.prospecting-trigger-g4__review>label input[type=text],.prospecting-trigger-g4__review>label input:not([type]){width:100%;min-width:0;box-sizing:border-box;border:1px solid #d9e6f5;border-radius:8px;padding:9px 10px;background:#fff;font:500 12px system-ui;color:#2f4e76;outline:none}
+.prospecting-trigger-g4__source textarea{resize:vertical;min-height:75px}
+.prospecting-trigger-g4__source input:focus-visible,.prospecting-trigger-g4__source textarea:focus-visible{border-color:#8ab8ec;box-shadow:0 0 0 3px rgb(74 129 206 / 12%)}
+.prospecting-trigger-g4__source small{font-size:10px;color:#8596ab;line-height:1.5}
+.prospecting-trigger-g4__controls{display:flex;align-items:center;justify-content:flex-end;gap:10px;flex-wrap:wrap}
+.prospecting-trigger-g4__controls a,.prospecting-trigger-g4__card>a{display:inline-flex;align-items:center;gap:5px;font-size:11px;color:#2865ac;text-decoration:none;font-weight:750}
+.prospecting-trigger-g4__controls button,.prospecting-trigger-g4__review button{display:inline-flex;align-items:center;justify-content:center;gap:7px;padding:9px 11px;background:#2565bb;border:1px solid #2565bb;color:#fff;border-radius:8px;font-size:11px;font-weight:760;cursor:pointer}
+.prospecting-trigger-g4__controls button:disabled,.prospecting-trigger-g4__review button:disabled{opacity:.48;cursor:not-allowed}
+.prospecting-trigger-g4__message{padding:10px;border-radius:8px;background:#f0f9f4;color:#2f7d5a;font-size:11px;line-height:1.5;margin:0}
+.prospecting-trigger-g4__error{padding:10px;border-radius:8px;background:#fff1ef;color:#a34141;font-size:11px;line-height:1.5;margin:0}
+.prospecting-trigger-g4__list{display:grid;gap:10px}
+.prospecting-trigger-g4__list>h4{display:flex;align-items:center;gap:7px;margin:0;color:#3d5d85;font-size:12px}
+.prospecting-trigger-g4__card{border:1px solid #dce7f5;border-radius:10px;padding:12px;display:grid;gap:9px;background:#fff}
+.prospecting-trigger-g4__card.is-approved{border-left:3px solid #47a77f}
+.prospecting-trigger-g4__card.is-rejected{opacity:.8;border-left:3px solid #cc8686}
+.prospecting-trigger-g4__cardtop{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.prospecting-trigger-g4__cardtop span{font-size:10px;color:#5985ba;font-weight:760}
+.prospecting-trigger-g4__cardtop b{font-size:10px;color:#7189a7;background:#edf4fc;padding:4px 8px;border-radius:20px}
+.prospecting-trigger-g4__card h5{font-size:12px;color:#2d507e;margin:0}
+.prospecting-trigger-g4__card blockquote{border-left:3px solid #9ac5ed;padding:7px 10px;background:#f3f8ff;margin:0;font-size:11px;line-height:1.5;color:#4c6b91}
+.prospecting-trigger-g4__card>p{margin:0;font-size:11px;color:#6b8098;line-height:1.5}
+.prospecting-trigger-g4__card>p strong{color:#3f5f86}
+.prospecting-trigger-g4__facts{display:flex;flex-wrap:wrap;gap:6px}
+.prospecting-trigger-g4__facts span{border-radius:7px;padding:6px 8px;background:#f2f6fc;color:#6484a9;font-size:10px}
+.prospecting-trigger-g4__facts em{font-style:normal;font-weight:760}
+.prospecting-trigger-g4__card>small{display:flex;align-items:center;gap:5px;font-size:10px;color:#699181;line-height:1.5}
+.prospecting-trigger-g4__review{border-top:1px solid #e9eff7;padding-top:12px;display:grid;gap:10px}
+.prospecting-trigger-g4__checkbox{display:flex;align-items:flex-start;gap:8px;font-size:11px;line-height:1.5;color:#546c89}
+.prospecting-trigger-g4__checkbox input{margin-top:2px;flex:0 0 auto}
+.prospecting-trigger-g4__review>div{display:flex;justify-content:flex-end;gap:7px}
+.prospecting-trigger-g4__review button.is-reject{background:#fff;color:#ad4545;border-color:#e4c6c6}
+.prospecting-trigger-g4__review button.is-approve{background:#27815b;border-color:#27815b}
+.prospecting-trigger-g4__empty{display:flex;gap:8px;align-items:center;color:#849ab5;font-size:11px}
+.prospecting-trigger-g4>footer{border-top:1px solid #e6edf6;padding-top:10px;font-size:10px;line-height:1.5;color:#8796ac}
+.prospecting-trigger-g4 .is-loading{animation:g4-spin 1.1s linear infinite}
+@keyframes g4-spin{to{transform:rotate(360deg)}}
+@media(max-width:680px){.prospecting-trigger-g4{padding:12px}.prospecting-trigger-g4__head{flex-wrap:wrap}}
+html[data-theme="dark"] .prospecting-trigger-g4,
+html[data-theme="dark"] .prospecting-trigger-g4__card{background:#1e3049;border-color:#405975}
+html[data-theme="dark"] .prospecting-trigger-g4__source,
+html[data-theme="dark"] .prospecting-trigger-g4__notice,
+html[data-theme="dark"] .prospecting-trigger-g4__card blockquote{background:#273c59;border-color:#486389;color:#d7e5fa}
+html[data-theme="dark"] .prospecting-trigger-g4__head h3,html[data-theme="dark"] .prospecting-trigger-g4__card h5{color:#dbe9ff}
+html[data-theme="dark"] .prospecting-trigger-g4__source input,html[data-theme="dark"] .prospecting-trigger-g4__source textarea,
+html[data-theme="dark"] .prospecting-trigger-g4__review input:not([type=checkbox]){background:#1a2d48;color:#e2edff;border-color:#47617f}

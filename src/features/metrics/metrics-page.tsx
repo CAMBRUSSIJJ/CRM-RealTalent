@@ -12,6 +12,7 @@ import { WorkspaceAdvancedFilterDrawer, WorkspaceFilterChips, WorkspaceFilterMen
 import { formatCurrency } from '../../domain/formatters'
 import { StageModal } from '../pipeline/stage-modal'
 import { VisualFunnel } from './visual-funnel'
+import {WonSalesDashboard} from '../won-sales/won-sales-dashboard'
 import './metrics-v3.css'
 import {
   calculateActivityIntelligence, calculateCommercialMetrics, calculateForecast, calculateFunnelIntelligence, calculateLossAnalysis,
@@ -19,7 +20,7 @@ import {
   generateMetricsAlerts, goalMetricLabels, goalMetricUnits, goalProgress, type MetricComparison, type MetricsAlert,
 } from '../../services/metrics'
 
-type MetricsTab = 'overview' | 'funnel' | 'losses' | 'activities' | 'forecast'
+type MetricsTab = 'overview' | 'funnel' | 'losses' | 'activities' | 'forecast' | 'wins'
 
 const percent = (value: number) => `${new Intl.NumberFormat('pt-BR', { maximumFractionDigits: 1 }).format(value)}%`
 const integer = (value: number) => new Intl.NumberFormat('pt-BR', { maximumFractionDigits: 0 }).format(value)
@@ -47,7 +48,7 @@ function AlertIcon({ alert }: { alert: MetricsAlert }) {
 }
 
 export function MetricsPage() {
-  const { snapshot } = useAppWorkspace()
+  const { snapshot, canTeamAccess, canTeamAccessRecord } = useAppWorkspace()
   const { notify } = useAppUi()
   const { navigate } = useAppNavigation()
   const [days, setDays] = useState(30)
@@ -79,6 +80,8 @@ export function MetricsPage() {
   const sourceOptions = useMemo(() => [...new Set((snapshot?.leads ?? []).map((lead) => lead.source || 'Não informada'))].sort(), [snapshot?.leads])
   const ownerOptions = useMemo(() => [...new Map((snapshot?.leads ?? []).filter((lead) => lead.ownerId).map((lead) => [lead.ownerId!, { id: lead.ownerId!, name: lead.ownerName || 'Sem nome' }])).values()], [snapshot?.leads])
   const stageOptions = useMemo(() => [...(snapshot?.stages ?? [])].sort((a, b) => a.order - b.order), [snapshot?.stages])
+  const closedWonDates=useMemo(()=>Object.fromEntries((snapshot?.opportunities??[])
+    .filter(item=>item.closedWonAt).map(item=>[item.leadId,item.closedWonAt!])),[snapshot?.opportunities])
   const funnelLeads = useMemo(() => (snapshot?.leads ?? []).filter((lead) => (!ownerId || lead.ownerId === ownerId) && (!source || (lead.source || 'Não informada') === source) && (!stageId || lead.stageId === stageId) && (!priority || lead.priority === priority) && (!temperature || lead.temperature === temperature) && (!status || lead.status === status)), [ownerId, priority, snapshot?.leads, source, stageId, status, temperature])
   const outcomes = useMemo(() => Object.entries(current.calls.reduce<Record<string, number>>((acc, call) => ({ ...acc, [call.outcome]: (acc[call.outcome] ?? 0) + 1 }), {})).map(([key, count]) => ({ key, label: outcomeNames[key] ?? key, count })).sort((a, b) => b.count - a.count), [current.calls])
   const activeGoals = useMemo(() => (snapshot?.goals ?? []).filter((goal) => new Date(`${goal.periodEnd}T23:59:59`) >= new Date() && (!ownerId || goal.userId === ownerId)), [ownerId, snapshot?.goals])
@@ -175,6 +178,7 @@ export function MetricsPage() {
           <button type="button" className={tab === 'overview' ? 'is-active' : ''} aria-current={tab === 'overview' ? 'page' : undefined} onClick={() => showTab('overview')}><BarChart3 size={16} /> Visão executiva</button>
           <button type="button" className={tab === 'funnel' ? 'is-active' : ''} aria-current={tab === 'funnel' ? 'page' : undefined} onClick={() => showTab('funnel')}><Funnel size={16} /> Funil</button>
           <button type="button" className={tab === 'losses' ? 'is-active' : ''} aria-current={tab === 'losses' ? 'page' : undefined} onClick={() => showTab('losses')}><TrendingDown size={16} /> Perdas</button>
+          <button type="button" className={tab === 'wins' ? 'is-active' : ''} aria-current={tab === 'wins' ? 'page' : undefined} onClick={() => showTab('wins')}><Trophy size={16}/> Vendas ganhas</button>
           <button type="button" className={tab === 'activities' ? 'is-active' : ''} aria-current={tab === 'activities' ? 'page' : undefined} onClick={() => showTab('activities')}><Activity size={16} /> Atividades</button>
           <button type="button" className={tab === 'forecast' ? 'is-active' : ''} aria-current={tab === 'forecast' ? 'page' : undefined} onClick={() => showTab('forecast')}><Target size={16} /> Previsão</button>
         </nav>
@@ -202,6 +206,11 @@ export function MetricsPage() {
       </div>
       {activeFilterCount ? <div className="metrics-v3__active-filters"><WorkspaceFilterChips fields={universalMetricsFilters} onChange={changeMetricsQuickFilter} onClearAll={clearFilters} /></div> : null}
       <main className="metrics-v3__body">
+      {tab==='wins'?<WonSalesDashboard workspaceId={snapshot?.workspace.id??''}
+        leads={funnelLeads.filter(lead=>canTeamAccessRecord('pipeline',lead.ownerId))}
+        closedWonDates={closedWonDates} canEdit={canTeamAccess('edit','pipeline')}
+        onOpenLead={lead=>navigate('pipeline',{leadId:lead.id})}
+        heading="Won Sales Analysis · Eventos-gatilho"/>:null}
       {filtersOpen ? <WorkspaceAdvancedFilterDrawer title="Filtros do relatório" eyebrow="Métricas" description="O mesmo Filter Engine controla indicadores, gráficos, funil e exportações." onClose={() => setFiltersOpen(false)} onClear={clearFilters}>
         <div className="metrics-advanced-filter-grid-v10171">
           {universalMetricsFilters.map((field) => <label className="field" key={field.key}><span>{field.label}</span><NativeSelectionSelect value={field.value} onChange={(event) => changeMetricsQuickFilter(field.key, event.target.value)}><option value={field.allValue ?? 'all'}>{field.allLabel ?? 'Qualquer'}</option>{field.options.map((option) => <option key={`${field.key}-${option.value}`} value={option.value}>{option.label}</option>)}</NativeSelectionSelect></label>)}

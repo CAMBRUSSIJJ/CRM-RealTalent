@@ -37,6 +37,9 @@ import { calculateRevenueIntelligence } from '../../services/revenue-intelligenc
 import { DealPortfolioPanel } from '../deal-intelligence/deal-portfolio-panel'
 import { DealInspectorModal } from '../deal-intelligence/deal-inspector-modal'
 import {WonSalesDashboard} from '../won-sales/won-sales-dashboard'
+import {readProspectingState} from '../../services/prospecting-workspace'
+import {readTriggerReviewsG4,triggerLabelsG4} from '../../services/prospecting-triggers-g4'
+import {isTriggerCloudModeG43,loadApprovedPipelineTriggersG43,loadLocalApprovedPipelineTriggersG43,type TriggerPipelineSignalG43} from '../../services/prospecting-triggers-g43-remote'
 import './sales-pipeline-v3.css'
 
 const INITIAL_CARDS = 30
@@ -78,10 +81,42 @@ export function PipelinePage() {
     }
   }, [canPipelineView, canTeamAccessRecord, rawSnapshot])
   const workspaceId = snapshot?.workspace.id ?? rawSnapshot?.workspace.id ?? ''
+  useEffect(()=>{
+    if(!workspaceId||!canPipelineView||!snapshot?.leads.length){
+      setTriggerSignals([])
+      return
+    }
+    let cancelled=false
+    if(isTriggerCloudModeG43()){
+      // Approved, linked signals only. The DB enforces CRM lead visibility.
+      void loadApprovedPipelineTriggersG43(workspaceId,snapshot.leads).then(rows=>{
+        if(!cancelled)setTriggerSignals(rows)
+      }).catch(()=>{
+        if(!cancelled)setTriggerSignals([])
+      })
+    }else{
+      const refresh=()=>{
+        try{
+          const prospects=readProspectingState(workspaceId).prospects
+          const reviews=readTriggerReviewsG4(workspaceId,window.localStorage)
+          if(!cancelled)setTriggerSignals(loadLocalApprovedPipelineTriggersG43(snapshot.leads,prospects,reviews))
+        }catch{if(!cancelled)setTriggerSignals([])}
+      }
+      refresh()
+      const onChange=(event:Event)=>{
+        if((event as CustomEvent<{workspaceId:string}>).detail?.workspaceId===workspaceId)refresh()
+      }
+      window.addEventListener('realtalent:garimpo:g4:change',onChange)
+      return ()=>{cancelled=true;window.removeEventListener('realtalent:garimpo:g4:change',onChange)}
+    }
+    return ()=>{cancelled=true}
+  },[workspaceId,canPipelineView,snapshot?.leads])
   const [filters, setFilters] = useState<PipelineFiltersState>(DEFAULT_FILTERS)
   const [filtersOpen, setFiltersOpen] = useState(false)
   const [intelligenceOpen, setIntelligenceOpen] = useState(false)
   const [wonSalesPanelOpen,setWonSalesPanelOpen]=useState(false)
+  const [triggerSignals,setTriggerSignals]=useState<TriggerPipelineSignalG43[]>([])
+  const [triggerInspectLeadId,setTriggerInspectLeadId]=useState<string|null>(null)
   const [compact, setCompact] = useState(false)
   const [viewMode, setViewMode] = useState<PipelineViewMode>('board')
   const [sort, setSort] = useState<PipelineSort>('updated_desc')

@@ -65,6 +65,28 @@ test('investigation without a registered website searches and reads a matching p
   assert.equal(result.readUrl,'https://noticias.example.org/aurora')
 })
 
+test('only literal cited events from a read source become pending G4 signals',async()=>{
+  const url='https://noticias.example.org/aurora'
+  const quote='A Barbearia Aurora anunciou nova unidade em Rio Grande'
+  const event={sourceUrl:url,category:'transition',event:'Abertura de unidade',
+    quote,dateQuote:'',hypothesis:'Possível reforço da equipe.',
+    rationale:'Expansão citada exige investigação.',suggestedQuestion:'Planejam ampliar o quadro?'}
+  const result=await investigateProspectG1({company:'Barbearia Aurora',city:'Rio Grande'},{
+    searcher:async()=>[{title:'Barbearia Aurora',url,snippet:'Expansão em Rio Grande'}],
+    readPage:async()=>({ok:true,url,title:'Barbearia Aurora em Rio Grande',text:
+      (quote+' com inauguração planejada. ').repeat(8)}),
+    fetcher:async()=>({ok:true,json:async()=>({message:{content:JSON.stringify({
+      ...analysis,events:[event,{...event,quote:'Citação inventada sobre compra imediata',
+        event:'Compra já confirmada'}],
+    })}})}),
+  })
+  assert.equal(result.candidateEvents.length,1)
+  assert.equal(result.candidateEvents[0].reviewStatus,undefined)
+  assert.equal(result.candidateEvents[0].status,'needs_review')
+  assert.equal(result.candidateEvents[0].sourceCheck,'not_verified')
+  assert.equal(result.candidateEvents[0].quote,quote)
+})
+
 test('unrelated search results must not enter the analysis or become source evidence',async()=>{
   let read=0
   let model=0

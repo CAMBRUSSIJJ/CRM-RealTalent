@@ -35,11 +35,22 @@ if ! curl --noproxy '*' -fsS --max-time 4 http://127.0.0.1:11434/api/tags | \
 fi
 RUNTIME="$ROOT/runtime-host/RealTalent-Agent-Runtime-V3.1.2"
 [[ -f "$RUNTIME/gateway-ollama.mjs" ]] || { echo "Agent G4 ausente neste checkout."; exit 5; }
-echo "Iniciando o Agent G4 local em 8791..."
+INNER_PORT=""
+for candidate in 8792 8892 8893 8894 8895; do
+  if ! ss -H -ltn "( sport = :$candidate )" 2>/dev/null | grep -q .; then
+    INNER_PORT="$candidate"
+    break
+  fi
+done
+if [[ -z "$INNER_PORT" ]]; then
+  echo "AVISO: portas internas do Agent ocupadas; nenhum processo foi encerrado."
+  exit 7
+fi
+echo "Iniciando Agent G4 em 8791 com runtime interno em $INNER_PORT..."
 (
   cd "$RUNTIME"
   nohup env REALTALENT_AGENT_HOST=127.0.0.1 REALTALENT_AGENT_PORT=8791 \
-    REALTALENT_AGENT_INNER_PORT=8792 REALTALENT_OLLAMA_MODEL="$MODEL" \
+    REALTALENT_AGENT_INNER_PORT="$INNER_PORT" REALTALENT_OLLAMA_MODEL="$MODEL" \
     REALTALENT_AI_PROVIDER=ollama OLLAMA_URL=http://127.0.0.1:11434 \
     node gateway-ollama.mjs >>"$DATA/agent.log" 2>&1 </dev/null &
   echo "$!" > "$DATA/agent.pid"

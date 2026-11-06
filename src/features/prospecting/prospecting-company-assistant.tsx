@@ -3,6 +3,7 @@ import {ArrowUpRight,BookOpen,Building2,ExternalLink,AtSign,LoaderCircle,Message
 import type {ProspectRecord} from '../../services/prospecting-workspace'
 import {env} from '../../lib/env'
 import {runtimeFetch} from '../../services/realtalent-runtime-transport'
+import {ProspectingCommercialExecutiveG49,type CommercialExecutiveG49,type SourceComparisonG49} from './prospecting-commercial-executive-g49'
 import './prospecting-company-assistant.css'
 
 interface PublicSource {
@@ -36,9 +37,10 @@ interface Answer {
   pagesRead?:number;metadataRead?:number;
   postAnalyses?:PostAnalysis[];postAnalysisStatus?:string;postAnalysisMessage?:string;
   postAnalysisCoverage?:InstagramBatchCoverage;
+  executive?:CommercialExecutiveG49;
   visibleObservations?:string[];commercialHypotheses?:string[];limitations?:string[];model?:string
 }
-interface Exchange {id:string;question:string;result:Answer}
+interface Exchange {id:string;question:string;result:Answer;comparison?:SourceComparisonG49}
 const safeUrl=(value:string|null|undefined)=>{
   try{
     if(!value)return null
@@ -110,7 +112,15 @@ export function ProspectingCompanyAssistant({prospect}:{prospect:ProspectRecord}
       }
       const result=payload as Answer
       if(!result.ok||typeof result.answer!=='string')throw Error('Resposta incompleta da pesquisa.')
-      if(!ctrl.signal.aborted)setExchanges(old=>[...old,{id:crypto.randomUUID(),question:value,result}].slice(-6))
+      if(!ctrl.signal.aborted)setExchanges(old=>{
+        const previous=[...old].reverse().find(item=>item.result.kind==='instagram'&&item.result.executive)?.result.executive
+        const current=result.executive?.sourceUrls||[]
+        const earlier=previous?.sourceUrls||[]
+        const comparison:SourceComparisonG49|undefined=result.kind==='instagram'&&previous
+          ?{added:current.filter(url=>!earlier.includes(url)).length,
+            removed:earlier.filter(url=>!current.includes(url)).length}:undefined
+        return [...old,{id:crypto.randomUUID(),question:value,result,comparison}].slice(-6)
+      })
     }catch(e){
       if(!ctrl.signal.aborted)setError(e instanceof Error?e.message:'Não foi possível consultar as fontes.')
     }finally{
@@ -192,40 +202,24 @@ export function ProspectingCompanyAssistant({prospect}:{prospect:ProspectRecord}
       {exchanges.map(exchange=><article key={exchange.id}>
         <p className="prospecting-company-assistant__question">{exchange.question}</p>
         <div className="prospecting-company-assistant__answer">
-          <p>{exchange.result.answer}</p>
-          {exchange.result.kind==='screenshot'?<div className="prospecting-company-assistant__coverage">
-            <strong>Imagem fornecida por você · analisada localmente no Ollama</strong>
-            <small>A captura não confirma a identidade ou atualidade da conta. O RealTalent não acessou o feed por sua conta.</small>
-            {exchange.result.visibleObservations?.length?<div><b>Observações visíveis</b>
-              <ul>{exchange.result.visibleObservations.map((value,i)=><li key={i}>{value}</li>)}</ul></div>:null}
-            {exchange.result.commercialHypotheses?.length?<div><b>Hipóteses a confirmar</b>
-              <ul>{exchange.result.commercialHypotheses.map((value,i)=><li key={i}>{value}</li>)}</ul></div>:null}
-            {exchange.result.limitations?.length?<small>{exchange.result.limitations.join(' · ')}</small>:null}
-          </div>:null}
-          {exchange.result.kind==='instagram'?<div className="prospecting-company-assistant__coverage">
+          {exchange.result.kind!=='instagram'||!exchange.result.executive
+            ?<p>{exchange.result.answer}</p>:null}
+          {exchange.result.kind==='instagram'&&exchange.result.executive
+            ?<ProspectingCommercialExecutiveG49 report={exchange.result.executive}
+              comparison={exchange.comparison}/>:null}
+          {exchange.result.kind==='instagram'&&safeUrl(exchange.result.profileUrl)
+            ?<a className="prospecting-company-assistant__profile" href={safeUrl(exchange.result.profileUrl)!}
+              target="_blank" rel="noopener noreferrer"><AtSign size={16}/> Abrir Instagram público <ArrowUpRight size={13}/></a>:null}
+          {exchange.result.kind==='instagram'?<>
+            <details className="prospecting-company-assistant__disclosure">
+              <summary><BookOpen size={15}/> Análise estratégica e publicações individuais <span>Ver detalhes</span></summary>
+              <div className="prospecting-company-assistant__disclosure-body">
+{exchange.result.kind==='instagram'?<div className="prospecting-company-assistant__coverage">
             <strong>Leitura pública nesta pesquisa</strong>
             <span>{exchange.result.pagesRead||0} página(s) lida(s) · {exchange.result.metadataRead||0} metadado(s) acessível(is)</span>
             <small>Snippets de buscadores não são páginas lidas. A leitura do Instagram não inclui fotos, vídeos, Stories nem o feed completo.</small>
           </div>:null}
-          {exchange.result.kind==='instagram'&&safeUrl(exchange.result.profileUrl)
-            ?<a className="prospecting-company-assistant__profile" href={safeUrl(exchange.result.profileUrl)!}
-              target="_blank" rel="noopener noreferrer"><AtSign size={16}/> Abrir perfil público no Instagram <ArrowUpRight size={13}/></a>:null}
-          {exchange.result.cnpjFindings?.length?<div className="prospecting-company-assistant__cnpjs">
-            {exchange.result.cnpjFindings.map(record=><div key={record.cnpj}>
-              <div><strong>{record.cnpj.replace(/^(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})$/,'$1.$2.$3/$4-$5')}</strong>
-                <small className={'is-'+record.association}>{tone(record.association)}</small></div>
-              <p><b>Razão social:</b> {record.legalName||'Não informada'}</p>
-              {record.tradeName?<p><b>Nome fantasia:</b> {record.tradeName}</p>:null}
-              <p><b>Município:</b> {[record.city,record.state].filter(Boolean).join(' / ')||'Não informado'}</p>
-              <p><b>Situação:</b> {record.registrationStatus||'Não informada'}</p>
-              {record.primaryActivity?<p><b>Atividade:</b> {record.primaryActivity}</p>:null}
-              {safeUrl(record.referenceUrl)?<a target="_blank" rel="noopener noreferrer" href={safeUrl(record.referenceUrl)!}>
-                <ExternalLink size={12}/> Conferir fonte da associação
-              </a>:null}
-              <small>Cadastro consultado na BrasilAPI. Revise o vínculo com este estabelecimento.</small>
-            </div>)}
-          </div>:null}
-          {exchange.result.kind==='instagram'?<div className="prospecting-company-assistant__post-analysis">
+{exchange.result.kind==='instagram'?<div className="prospecting-company-assistant__post-analysis">
             <div className="prospecting-company-assistant__post-analysis-head">
               <strong>Análise das publicações com Ollama</strong>
               <small>{exchange.result.postAnalysisCoverage?.batches||0} lote(s) processado(s)</small>
@@ -260,13 +254,19 @@ export function ProspectingCompanyAssistant({prospect}:{prospect:ProspectRecord}
                 {exchange.result.postAnalysisMessage||'Nenhuma publicação possui conteúdo suficiente para análise individual fundamentada.'}
               </p>}
           </div>:null}
-          {exchange.result.posts?.length?<div className="prospecting-company-assistant__posts">
+              </div>
+            </details>
+            <details className="prospecting-company-assistant__disclosure">
+              <summary><ExternalLink size={15}/> Fontes, prévias e investigação completa
+                <span>{exchange.result.sources?.length||0} referências</span></summary>
+              <div className="prospecting-company-assistant__disclosure-body">
+{exchange.result.posts?.length?<div className="prospecting-company-assistant__posts">
             <strong>Publicações indexadas encontradas</strong>
             {exchange.result.posts.map(post=><a key={post.url} href={safeUrl(post.url)||undefined} target="_blank" rel="noopener noreferrer">
               <ExternalLink size={13}/>{post.title||'Abrir publicação'} <small>{post.snippet||'Prévia indisponível'}</small>
             </a>)}
           </div>:null}
-          {exchange.result.sources?.length?<div className="prospecting-company-assistant__sources">
+{exchange.result.sources?.length?<div className="prospecting-company-assistant__sources">
             <strong>Fontes públicas ({exchange.result.sources.length})</strong>
             {exchange.result.sources.map((source,index)=><div key={source.url}>
               <a href={safeUrl(source.url)||undefined} target="_blank" rel="noopener noreferrer">
@@ -286,9 +286,61 @@ export function ProspectingCompanyAssistant({prospect}:{prospect:ProspectRecord}
                       :'Resultado indexado · página não lida integralmente'}</small>
             </div>)}
           </div>:null}
-          {exchange.result.limitation?<small className="prospecting-company-assistant__limitation">{exchange.result.limitation}</small>:null}
-          {exchange.result.searchStatus&&exchange.result.searchStatus!=='done'
+{exchange.result.limitation?<small className="prospecting-company-assistant__limitation">{exchange.result.limitation}</small>:null}
+{exchange.result.searchStatus&&exchange.result.searchStatus!=='done'
             ?<small className="prospecting-company-assistant__limitation">Pesquisa incompleta: {exchange.result.searchStatus}</small>:null}
+              </div>
+            </details>
+          </>:null}
+          {exchange.result.kind!=='instagram'?<>
+{exchange.result.kind==='screenshot'?<div className="prospecting-company-assistant__coverage">
+            <strong>Imagem fornecida por você · analisada localmente no Ollama</strong>
+            <small>A captura não confirma a identidade ou atualidade da conta. O RealTalent não acessou o feed por sua conta.</small>
+            {exchange.result.visibleObservations?.length?<div><b>Observações visíveis</b>
+              <ul>{exchange.result.visibleObservations.map((value,i)=><li key={i}>{value}</li>)}</ul></div>:null}
+            {exchange.result.commercialHypotheses?.length?<div><b>Hipóteses a confirmar</b>
+              <ul>{exchange.result.commercialHypotheses.map((value,i)=><li key={i}>{value}</li>)}</ul></div>:null}
+            {exchange.result.limitations?.length?<small>{exchange.result.limitations.join(' · ')}</small>:null}
+          </div>:null}
+{exchange.result.cnpjFindings?.length?<div className="prospecting-company-assistant__cnpjs">
+            {exchange.result.cnpjFindings.map(record=><div key={record.cnpj}>
+              <div><strong>{record.cnpj.replace(/^(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})$/,'$1.$2.$3/$4-$5')}</strong>
+                <small className={'is-'+record.association}>{tone(record.association)}</small></div>
+              <p><b>Razão social:</b> {record.legalName||'Não informada'}</p>
+              {record.tradeName?<p><b>Nome fantasia:</b> {record.tradeName}</p>:null}
+              <p><b>Município:</b> {[record.city,record.state].filter(Boolean).join(' / ')||'Não informado'}</p>
+              <p><b>Situação:</b> {record.registrationStatus||'Não informada'}</p>
+              {record.primaryActivity?<p><b>Atividade:</b> {record.primaryActivity}</p>:null}
+              {safeUrl(record.referenceUrl)?<a target="_blank" rel="noopener noreferrer" href={safeUrl(record.referenceUrl)!}>
+                <ExternalLink size={12}/> Conferir fonte da associação
+              </a>:null}
+              <small>Cadastro consultado na BrasilAPI. Revise o vínculo com este estabelecimento.</small>
+            </div>)}
+          </div>:null}
+{exchange.result.sources?.length?<div className="prospecting-company-assistant__sources">
+            <strong>Fontes públicas ({exchange.result.sources.length})</strong>
+            {exchange.result.sources.map((source,index)=><div key={source.url}>
+              <a href={safeUrl(source.url)||undefined} target="_blank" rel="noopener noreferrer">
+                [{index+1}] {source.title||source.url} <ExternalLink size={12}/>
+              </a>
+              {source.snippet?<p>{source.snippet}</p>:null}
+              {source.excerpt&&source.reading!=='snippet'
+                ?<blockquote className="prospecting-company-assistant__excerpt">{source.excerpt}</blockquote>:null}
+              <small>{source.reading==='page'
+                ?'Trecho limitado de página pública efetivamente lida'
+                :source.reading==='metadata'
+                  ?'Metadados públicos encontrados (não é leitura integral)'
+                  :source.readStatus==='restricted_or_non_html'||source.readStatus==='unavailable'
+                    ?'Leitura pública indisponível; somente resultado indexado'
+                    :source.readStatus==='identity_not_confirmed'
+                      ?'A identidade da página não foi confirmada; somente resultado indexado'
+                      :'Resultado indexado · página não lida integralmente'}</small>
+            </div>)}
+          </div>:null}
+{exchange.result.limitation?<small className="prospecting-company-assistant__limitation">{exchange.result.limitation}</small>:null}
+{exchange.result.searchStatus&&exchange.result.searchStatus!=='done'
+            ?<small className="prospecting-company-assistant__limitation">Pesquisa incompleta: {exchange.result.searchStatus}</small>:null}
+          </>:null}
         </div>
       </article>)}
     </div>:null}

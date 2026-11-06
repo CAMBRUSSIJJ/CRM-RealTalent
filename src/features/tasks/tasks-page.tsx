@@ -44,6 +44,8 @@ export function TasksPage() {
   const [taskHandoff,setTaskHandoff]=useState<WahaTaskHandoff|null>(null)
   const [saving, setSaving] = useState(false)
   const [showNotifications, setShowNotifications] = useState(false)
+  const [savedViews,setSavedViews] = useState<TaskSavedView[]>([])
+  const [newViewName,setNewViewName] = useState('')
   const [notificationDiagnostics, setNotificationDiagnostics] = useState<Record<string,LocalTaskAutoDiagnostic>>({})
   const [notificationsReachable, setNotificationsReachable] = useState(false)
 

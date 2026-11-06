@@ -27,7 +27,7 @@ ok('task relations cover CRM contexts',types.includes("'contact' | 'company' | '
 ok('tasks UI provides list board today overdue completed',['Lista','Quadro','Hoje','Atrasadas','Concluídas'].every(x=>tasks.includes(x)))
 ok('tasks UI filters owner team priority',tasks.includes('Todos os responsáveis')&&tasks.includes('Todas as equipes')&&tasks.includes('Todas as prioridades'))
 ok('task modal captures assignee team due relation checklist',taskModal.includes('Responsável')&&taskModal.includes('Equipe')&&taskModal.includes('Prazo')&&taskModal.includes('Relacionar ao CRM')&&taskModal.includes('Checklist'))
-ok('teams UI exposes workload',teams.includes('Carga de trabalho')&&teams.includes('capacity')&&teams.includes('Sobrecarregado'))
+ok('teams UI exposes transparent workload estimates',teams.includes('Carga de trabalho')&&teams.includes('capacity')&&teams.includes('points')&&teams.includes('Índice aproximado de carga'))
 ok('teams UI summarizes team tasks',teams.includes('Tarefas da equipe')&&teams.includes('teamOpenTasks'))
 ok('team modal controls leader and members',teamModal.includes('Líder')&&teamModal.includes('Membros')&&teamModal.includes('memberIds'))
 ok('migration creates all work-management tables',['teams','team_members','work_tasks','task_relations','task_checklist_items','task_comments'].every(t=>migration.includes(`public.${t}`)))

@@ -1,0 +1,106 @@
+
+/* Equipes — operational workspace, no advanced permission UI in the main navigation. */
+.teams-page-v101112{--team-accent:#2563b8;--team-stroke:#e1e8f3;--team-muted:#647b98;min-width:0;}
+.teams-page-v101112 .teams-layout{grid-template-columns:minmax(205px,245px) minmax(0,1fr);gap:13px;min-height:0;align-items:start}
+.teams-page-v101112 .teams-directory{position:sticky;top:10px;max-height:min(78dvh,880px);overflow-y:auto;border-radius:12px;border-color:var(--team-stroke);box-shadow:0 3px 13px rgb(29 57 104 / 4%)}
+.teams-page-v101112 .teams-directory>header{padding:16px 14px 13px;background:linear-gradient(115deg,#f5f9ff,#fff)}
+.teams-page-v101112 .teams-directory>header strong{font-size:13px;color:#2a4b78}
+.teams-page-v101112 .teams-directory>header small{font-size:11px;line-height:1.45}
+.teams-page-v101112 .teams-directory>div{gap:3px}
+.teams-page-v101112 .teams-directory>div>button{min-width:0;min-height:60px;border:1px solid transparent;background:#fff;transition:background .14s,border-color .14s}
+.teams-page-v101112 .teams-directory>div>button.is-active{border-color:#b9d5f3;background:#edf5ff}
+.teams-page-v101112 .teams-directory>div>button:hover{background:#f1f6fe}
+.teams-page-v101112 .teams-directory button strong{font-size:12px;color:#2e4c70}
+.teams-page-v101112 .teams-directory button small{font-size:11px}
+.teams-page-v101112 .team-detail{min-width:0;min-height:0;border-radius:12px;border-color:var(--team-stroke);padding:16px;gap:17px;box-shadow:0 3px 13px rgb(29 57 104 / 4%)}
+.teams-page-v101112 .team-hero{align-items:center;gap:14px;padding-bottom:14px}
+.teams-page-v101112 .team-hero__identity{align-items:center;min-width:0}
+.teams-page-v101112 .team-hero__identity>span{flex:0 0 46px;border-radius:12px}
+.teams-page-v101112 .team-hero__identity h2{font-size:20px;line-height:1.3;color:#2a486c}
+.teams-page-v101112 .team-hero__identity p{font-size:12px;line-height:1.5}
+.teams-page-v101112 .team-hero__actions{align-items:center;justify-content:flex-end;flex-wrap:wrap}
+.teams-operation__nav-btn{display:inline-flex;align-items:center;gap:7px;min-height:36px;border:1px solid #bfd3f0;border-radius:9px;background:#eff6ff;color:#285ba9;padding:8px 11px;font-size:11px;font-weight:740;white-space:nowrap;text-decoration:none}
+.teams-operation__nav-btn:hover{background:#e3f0ff}
+.teams-page-v101112 .team-metric-grid{grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}
+.teams-page-v101112 .team-metric-grid>article{min-width:0;border-radius:11px;padding:13px;box-shadow:none;border:1px solid #e3ebf5;background:linear-gradient(125deg,#fff,#fbfdff)}
+.teams-page-v101112 .team-metric-grid>article>span{color:#3062b7}
+.teams-page-v101112 .team-metric-grid>article strong{color:#28538c}
+.teams-page-v101112 .work-section{border-color:#e0e9f4;min-width:0;border-radius:12px;padding:17px}
+.teams-page-v101112 .work-section>header{flex-wrap:wrap;align-items:center;gap:9px}
+.teams-page-v101112 .work-section>header h3{font-size:16px;color:#2c4c71}
+.teams-page-v101112 .work-section>header p{font-size:12px;line-height:1.5;margin:5px 0 0;color:#71849c;max-width:760px}
+.teams-operation__workload-note{font-size:11px!important;max-width:680px;line-height:1.4}
+.teams-operation__section-actions{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.teams-operation__section-actions>span{font-size:11px;color:#7488a1}
+.teams-operation__section-actions button,
+.teams-operation__empty button{display:inline-flex;align-items:center;gap:6px;border:1px solid #d6e3f3;border-radius:8px;background:#f4f8ff;color:#2d5ca2;cursor:pointer;padding:8px 10px;font-size:11px;font-weight:700}
+.teams-operation__section-link,.teams-operation__section-footer a,
+.teams-operation__notifications-footer a{display:inline-flex;align-items:center;gap:6px;font-size:11px;color:#2b63b4;font-weight:750;text-decoration:none}
+.teams-operation__section-link:hover,.teams-operation__section-footer a:hover,
+.teams-operation__notifications-footer a:hover{text-decoration:underline}
+.teams-operation__section-footer{border-top:1px solid #edf2f8;margin-top:12px;padding-top:12px;display:flex;justify-content:flex-end}
+.teams-operation__people-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+.teams-operation__person-card{display:grid;gap:12px;min-width:0;padding:15px;border:1px solid #e0e9f5;border-radius:11px;background:#fbfdff}
+.teams-operation__person-head{display:flex;align-items:center;gap:9px;min-width:0}
+.teams-operation__person-avatar{flex:0 0 39px;width:39px;height:39px;border-radius:11px;background:#e7f0ff;color:#386bb5;display:grid;place-items:center}
+.teams-operation__person-head>div{display:grid;gap:3px;min-width:0}
+.teams-operation__person-head strong{font-size:13px;overflow-wrap:anywhere;color:#2b4d77}
+.teams-operation__person-head small{font-size:10px;color:#7d90a9}
+.teams-operation__person-email{margin:0;font-size:11px;color:#72869f;overflow-wrap:anywhere}
+.teams-operation__person-kpis{display:flex;flex-wrap:wrap;gap:5px}
+.teams-operation__person-kpis>span{display:inline-flex;align-items:center;gap:5px;padding:6px 8px;font-size:10px;color:#55728f;background:#eef4fc;border-radius:7px}
+.teams-operation__person-kpis>span.is-late{color:#aa473b;background:#fff0ef}
+.teams-operation__empty{display:grid;justify-items:start;gap:9px;border:1px dashed #d6e2f0;background:#f8fbff;padding:18px;border-radius:10px;color:#607c9f}
+.teams-operation__empty p{margin:0;font-size:12px;color:#6d809b;line-height:1.5}
+.teams-operation__notice{display:flex;gap:10px;padding:12px 13px;border-radius:10px;border:1px solid #cfe1f5;background:#f0f6ff;color:#3562a3;margin-bottom:12px;align-items:flex-start}
+.teams-operation__notice>svg{flex:0 0 18px;margin-top:1px}
+.teams-operation__notice strong{font-size:12px}
+.teams-operation__notice p{font-size:11px;line-height:1.55;margin:3px 0 0;color:#5c7595}
+.teams-operation__mode-note{font-size:11px;line-height:1.55;color:#71839a;margin:0 0 12px}
+.teams-operation__recipient-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+.teams-operation__recipient{min-width:0;border:1px solid #dce7f3;background:#fbfdff;border-radius:11px;padding:13px}
+.teams-operation__recipient-name{display:flex;align-items:center;gap:8px;flex-wrap:wrap;border-bottom:1px solid #e7edf6;padding-bottom:12px;margin-bottom:11px}
+.teams-operation__recipient-name>div{min-width:0;display:grid;gap:3px;flex:1 1 100px}
+.teams-operation__recipient-name strong{font-size:12px;color:#345579}
+.teams-operation__recipient-name small{font-size:10px;color:#7b8fa8}
+.teams-operation__channel-state{display:inline-flex;align-items:center;gap:4px;padding:5px 8px;background:#edf3fb;border-radius:6px;color:#6b829d;font-size:10px}
+.teams-operation__recipient .local-member-wa{min-width:0}
+.teams-operation__notifications .team-notification-directory{border:0;padding:0;box-shadow:none}
+.teams-operation__notifications-footer{display:flex;justify-content:flex-end;flex-wrap:wrap;gap:14px;margin-top:16px;padding-top:14px;border-top:1px solid #eaf0f8}
+.teams-page-v101112 .team-task-summary>article{min-width:0}
+.teams-page-v101112 .workload-list article{grid-template-columns:minmax(150px,1.3fr) minmax(125px,1fr) auto;gap:10px}
+@media(max-width:1250px){
+  .teams-page-v101112 .teams-layout{grid-template-columns:minmax(185px,215px) minmax(0,1fr)}
+  .teams-page-v101112 .team-metric-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .teams-operation__recipient-grid{grid-template-columns:1fr}
+}
+@media(max-width:940px){
+  .teams-page-v101112 .teams-layout{grid-template-columns:1fr}
+  .teams-page-v101112 .teams-directory{position:static;max-height:none}
+  .teams-page-v101112 .teams-directory>div{display:flex;gap:8px;overflow-x:auto}
+  .teams-page-v101112 .teams-directory>div>button{flex:0 0 200px}
+}
+@media(max-width:650px){
+  .teams-page-v101112 .team-detail{padding:12px}
+  .teams-page-v101112 .team-hero{align-items:flex-start;flex-direction:column}
+  .teams-operation__people-grid{grid-template-columns:1fr}
+  .teams-page-v101112 .workload-list article{grid-template-columns:1fr}
+  .teams-page-v101112 .team-hero__actions{justify-content:flex-start}
+}
+html[data-theme="dark"] .teams-page-v101112 .team-detail,
+html[data-theme="dark"] .teams-page-v101112 .teams-directory,
+html[data-theme="dark"] .teams-operation__person-card,
+html[data-theme="dark"] .teams-operation__recipient,
+html[data-theme="dark"] .teams-page-v101112 .team-metric-grid>article,
+html[data-theme="dark"] .teams-operation__notifications .work-section{background:#1b2b43;border-color:#38506a}
+html[data-theme="dark"] .teams-operation__person-head strong,
+html[data-theme="dark"] .teams-page-v101112 .team-hero__identity h2,
+html[data-theme="dark"] .teams-page-v101112 .work-section h3,
+html[data-theme="dark"] .teams-operation__recipient-name strong{color:#deebfd}
+html[data-theme="dark"] .teams-page-v101112 .teams-directory>header,
+html[data-theme="dark"] .teams-operation__notice,
+html[data-theme="dark"] .teams-operation__empty{background:#233953;border-color:#395a7b}
+html[data-theme="dark"] .teams-page-v101112 .teams-directory>div>button{background:#1b2b43;color:#d3e2fa}
+html[data-theme="dark"] .teams-page-v101112 .teams-directory>div>button.is-active{background:#2a4566;border-color:#4776ac}
+html[data-theme="dark"] .teams-operation__person-kpis>span,
+html[data-theme="dark"] .teams-operation__channel-state{background:#2a4261;color:#d4e5fb}

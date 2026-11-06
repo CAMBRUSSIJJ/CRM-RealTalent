@@ -67,6 +67,16 @@ fi
 
 cd "$APP"
 
+echo "===== CONFIRMANDO VERSAO G4.4 ====="
+echo "Branch: $(git branch --show-current)"
+echo "Commit: $(git rev-parse --short HEAD)"
+if ! grep -Fq 'Pesquisa e evidências públicas' src/features/prospecting/prospecting-g1g2-panel.tsx || \
+   ! grep -Fq 'company/research' scripts/realtalent-prospecting-agent.mjs; then
+  echo "ERRO: arquivos G4.4 ausentes. Recusei abrir uma prévia antiga."
+  exit 1
+fi
+echo "✓ Código G4.4 encontrado no checkout."
+
 if [[ ! -x "$HOME/.local/share/realtalent-whisper/venv/bin/python" ]]; then
   echo "Instalando transcrição Whisper local..."
   bash deploy/waha-direct/instalar-transcricao-local-linux.sh

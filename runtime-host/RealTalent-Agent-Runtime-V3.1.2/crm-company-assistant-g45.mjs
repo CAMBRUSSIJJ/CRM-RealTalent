@@ -270,6 +270,6 @@ export async function answerCompanyQuestionG45(payload,{
   return {ok:true,kind:'overview',company:input.company,
     answer,answerSourceIds:referencedIdsG410(answer),
     directAnswer:concise,
-    sources:sources.slice(0,8),searchStatus:result.ok?'done':result.error,
+    sources:sources.slice(0,16),searchStatus:result.ok?'done':result.error,
     limitation:'Respostas usam apenas trechos indexados em resultados públicos. Fatos e hipóteses devem ser verificados antes de ações comerciais.'}
 }

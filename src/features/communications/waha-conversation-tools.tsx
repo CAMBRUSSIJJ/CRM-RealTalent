@@ -33,7 +33,7 @@ export function WahaToolsDrawer({mode,token,chats,selected,messages,prefs,onClos
   const [aiTask,setAiTask]=useState<WahaAiConversationTask>('summary')
 
   useEffect(()=>{setLabels((selected&&prefs.labels[selected.id]||[]).join(', '))},[selected?.id,prefs.labels])
-  useEffect(()=>{requestEpoch.current+=1;setAiResult('');setCommercial(null);setMessagesRead(0);setError('')},[selected?.id,mode])
+  useEffect(()=>{requestEpoch.current+=1;setAiResult('');setCommercial(null);setQuestion('');setMessagesRead(0);setError('')},[selected?.id,mode])
   useEffect(()=>{
     if(mode!=='ai')return
     let active=true

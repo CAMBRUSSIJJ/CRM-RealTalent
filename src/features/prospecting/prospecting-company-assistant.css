@@ -100,3 +100,20 @@ html[data-theme="dark"] .prospecting-company-assistant__patterns>div span{backgr
 html[data-theme="dark"] .prospecting-company-assistant__disclosure{background:#203550;border-color:#426084}
 html[data-theme="dark"] .prospecting-company-assistant__disclosure>summary:hover{background:#294565}
 html[data-theme="dark"] .prospecting-company-assistant__disclosure>summary>span{background:#345475;color:#d5e9fa}
+
+/* G4.10 — question-first answers; evidence and conversation history on demand. */
+.prospecting-company-assistant__history{border:1px solid #deebf6;border-radius:9px;overflow:hidden;background:var(--rt-color-surface,#fff)}
+.prospecting-company-assistant__history>summary{font-size:11px;font-weight:750;color:var(--text-secondary,#567795);padding:10px 12px;cursor:pointer}
+.prospecting-company-assistant__history>div{display:grid;gap:5px;padding:8px 10px;border-top:1px solid #e6eef7}
+.prospecting-company-assistant__history button{font-size:11px;font-family:inherit;padding:9px 10px;line-height:1.4;cursor:pointer;text-align:left;white-space:normal;border:1px solid #dfebf7;border-radius:7px;background:var(--rt-color-surface,#fff);color:var(--text-primary,#365776)}
+.prospecting-company-assistant__history button[aria-pressed="true"]{background:#eef6ff;border-color:#a8c7ea;color:#1d5c9f}
+.prospecting-company-assistant__inline-citations{display:flex;gap:7px;align-items:center;flex-wrap:wrap;font-size:10px;color:var(--text-secondary,#657e9b);line-height:1.5}
+.prospecting-company-assistant__inline-citations>a{display:inline-flex;gap:5px;align-items:center;color:#2b68a9;font-size:10px;text-decoration:none;padding:5px 8px;max-width:min(420px,100%);border:1px solid #d8e6f4;border-radius:7px;overflow-wrap:anywhere;background:var(--rt-color-surface,#fff)}
+.prospecting-company-assistant__inline-citations>a:hover{text-decoration:underline}
+.prospecting-company-assistant__inline-citations svg{flex:none}
+.prospecting-company-assistant__conversation{max-height:none;overflow:visible}
+.prospecting-company-assistant__answer>p:first-child{font-size:12px;line-height:1.65;font-weight:500}
+html[data-theme="dark"] .prospecting-company-assistant__history,
+html[data-theme="dark"] .prospecting-company-assistant__history button,
+html[data-theme="dark"] .prospecting-company-assistant__inline-citations>a{background:#203750;border-color:#44627f;color:#d0e4fd}
+html[data-theme="dark"] .prospecting-company-assistant__history button[aria-pressed="true"]{background:#2d4f75;border-color:#668bb9}

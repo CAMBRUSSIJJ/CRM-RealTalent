@@ -2,7 +2,7 @@
 set -euo pipefail
 
 REPO="https://github.com/CAMBRUSSIJJ/CRM-RealTalent.git"
-BRANCH="feat/waha-h1-h2-h3-communication-experience-20261106"
+BRANCH="feat/waha-ai-reply-optin-20261106"
 APP="$HOME/Downloads/RealTalent-CRM-V101-WAHA"
 
 echo "==============================================="
@@ -38,7 +38,7 @@ if curl --noproxy '*' -fsS --max-time 2 http://127.0.0.1:4392/health >/dev/null 
   FEATURE_INFO=$(curl --noproxy '*' -fsS --max-time 5 \
     -H "Authorization: Bearer $(cat "$TOKEN_FILE")" \
     http://127.0.0.1:4392/v1/features || true)
-  if [[ "$FEATURE_INFO" != *'communication-experience-v3'* ]]; then
+  if [[ "$FEATURE_INFO" != *'ai-reply-optin-v4'* ]]; then
     echo "A ponte antiga está em execução na porta 4392."
     echo "Encerre a ponte antiga com Ctrl+C. NÃO desligue o Docker WAHA."
     exit 1

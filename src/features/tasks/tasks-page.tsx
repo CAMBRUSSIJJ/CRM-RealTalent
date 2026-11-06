@@ -325,7 +325,7 @@ export function TasksPage() {
         : <div className="tasks-page-v4__empty-list"><ListChecks size={25}/><strong>Nenhuma tarefa encontrada</strong><span>Altere os filtros ou crie uma tarefa.</span>{canTaskCreate ? <button type="button" onClick={showTaskCreate}><Plus size={14}/> Criar tarefa</button> : null}</div>}
       </section>}
 
-    <TaskModal open={canTaskCreate || canTaskEdit ? modalOpen : false} task={editing} initialDraft={taskHandoff} relation={relationForEditing} checklist={checklistForEditing} teams={data.teams} memberships={data.memberships} members={members} snapshot={snapshot} workspaceId={workspaceId} repositoryMode={repositoryMode} loading={saving} onClose={()=>{setModalOpen(false);setEditing(null);setTaskHandoff(null)}} onSubmit={save}/>
+    <TaskModal presentation={editing?'drawer':'dialog'} open={canTaskCreate || canTaskEdit ? modalOpen : false} task={editing} initialDraft={taskHandoff} relation={relationForEditing} checklist={checklistForEditing} teams={data.teams} memberships={data.memberships} members={members} snapshot={snapshot} workspaceId={workspaceId} repositoryMode={repositoryMode} loading={saving} onClose={()=>{setModalOpen(false);setEditing(null);setTaskHandoff(null)}} onSubmit={save}/>
   </div>
 }
 

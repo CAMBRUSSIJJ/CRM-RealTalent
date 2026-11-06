@@ -63,7 +63,7 @@ async function handler(req,res){
   if(!authenticated(req.headers.authorization)){output(res,401,{error:'invalid_bridge_token'});return}
   try{
     if(url.pathname==='/v1/features'&&req.method==='GET'){
-      output(res,200,{version:'voice-transcription-v2',features:['waha-chat','commercial-analysis','ask-about-chat','reply-draft','local-audio-transcription'],autoSend:false});return
+      output(res,200,{version:'voice-transcription-v2.1-media',features:['waha-chat','commercial-analysis','ask-about-chat','reply-draft','local-audio-transcription'],autoSend:false});return
     }
     if(url.pathname==='/v1/session'&&req.method==='GET'){
       const v=await upstream('/api/sessions/'+session);output(res,200,{status:v.status||'UNKNOWN',session});return

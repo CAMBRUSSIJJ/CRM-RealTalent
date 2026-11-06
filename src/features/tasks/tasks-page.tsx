@@ -300,7 +300,9 @@ export function TasksPage() {
 
     {layout === 'board' ? <TaskBoard tasks={filtered} teamById={teamById} relationByTask={relationByTask} checklistItems={data.checklistItems}
       diagnostics={notificationDiagnostics} notificationsReachable={notificationsReachable} repositoryMode={repositoryMode}
-      readOnly={!canTaskEdit} canCreate={canTaskCreate} onCreate={showTaskCreate} onEdit={openEdit} onStatus={changeStatus} />
+      readOnly={!canTaskEdit} canCreate={canTaskCreate} onCreate={showTaskCreate} onEdit={openEdit} onStatus={changeStatus}
+      canDelete={canTaskDelete} onDelete={remove} onNotifications={()=>setShowNotifications(true)}
+      onQuickCreate={(title,status)=>save({title,status,priority:'normal',reminderEnabled:true,reminderOnAssignment:true,reminderChannels:['in_app']})} />
       : <section className="tasks-page-v4__list" aria-label="Lista de tarefas">{filtered.length
         ? filtered.map((task) => <TaskRow key={task.id} task={task} diagnostic={notificationDiagnostics[task.id]??null}
           notificationsReachable={notificationsReachable} repositoryMode={repositoryMode} team={task.teamId ? teamById.get(task.teamId) ?? null : null}

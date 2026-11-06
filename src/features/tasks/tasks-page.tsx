@@ -410,31 +410,59 @@ function TaskBoard({ tasks, teamById, relationByTask, checklistItems, diagnostic
             const isOverdue=Boolean(task.dueAt && OPEN_STATUSES.includes(task.status) && new Date(task.dueAt).getTime()<Date.now())
             const taskChecklist=checklistItems.filter((item)=>item.taskId===task.id)
             const done=taskChecklist.filter((item)=>item.completed).length
-            return <article key={task.id} className={`tasks-page-v4__card ${isOverdue?'is-overdue':''}`} draggable={!readOnly}
-              onDragStart={(event)=>{if(readOnly)return;event.dataTransfer.setData('application/x-realtalent-task-id',task.id);event.dataTransfer.effectAllowed='move'}}
-              onDragEnd={()=>setDropTarget(null)}>
+            return <article key={task.id} data-priority={task.priority}
+              className={`tasks-page-v4__card ${isOverdue?'is-overdue':''}`}>
               <div className="tasks-page-v4__card-head">
                 <StatusPill tone={priorityTone(task.priority)}>{taskPriorityLabel[task.priority]}</StatusPill>
-                <span className={isOverdue ? 'is-overdue' : ''}><Clock3 size={12}/>{dueLabel(task.dueAt)}</span>
+                {!readOnly?<div className="tasks-page-v4__card-tools">
+                  <button type="button" draggable onDragStart={event=>{event.dataTransfer.setData('application/x-realtalent-task-id',task.id);event.dataTransfer.effectAllowed='move'}}
+                    onDragEnd={()=>setDropTarget(null)} className="tasks-page-v4__card-drag" aria-label={'Arrastar '+task.title}
+                    title="Arraste para mudar a etapa"><GripVertical size={16}/></button>
+                  <details className="tasks-page-v4__card-menu">
+                    <summary aria-label={'Ações de '+task.title}><MoreHorizontal size={17}/></summary>
+                    <div>
+                      <button type="button" onClick={()=>onEdit(task)}>Abrir detalhes</button>
+                      <label>Etapa
+                        <NativeSelectionSelect value={task.status} aria-label={'Alterar etapa de '+task.title}
+                          onChange={event=>onStatus(task,event.target.value as TaskStatus)}>
+                          <option value="todo">A fazer</option><option value="in_progress">Em andamento</option>
+                          <option value="blocked">Bloqueada</option><option value="completed">Concluída</option>
+                        </NativeSelectionSelect>
+                      </label>
+                      {task.status!=='completed'?<button type="button" onClick={()=>onStatus(task,'completed')}>Marcar como concluída</button>:null}
+                      {canDelete?<button type="button" className="is-danger" onClick={()=>onDelete(task)}>Excluir tarefa</button>:null}
+                    </div>
+                  </details>
+                </div>:null}
               </div>
               <button className="tasks-page-v4__card-title" type="button" onClick={()=>onEdit(task)} disabled={readOnly}>{task.title}</button>
-              {task.description ? <p>{task.description}</p> : null}
+              {task.description?<p>{task.description}</p>:null}
               <div className="tasks-page-v4__card-meta">
-                <span><UserRound size={13}/>{task.assigneeName || 'Sem responsável'}</span>
-                {task.teamId ? <span><UsersRound size={13}/>{teamById.get(task.teamId)?.name ?? 'Equipe'}</span> : null}
-                {relationByTask.get(task.id) ? <span title="Vínculo com o CRM">↗ {relationByTask.get(task.id)?.entityLabel}</span> : null}
-                {taskChecklist.length ? <span><CheckCircle2 size={13}/>{done}/{taskChecklist.length}</span> : null}
-                {repositoryMode==='local'
-                  ? <TaskCommunicationState configured={Boolean(task.assigneeId)} available={notificationsReachable} status={diagnostics[task.id]??null} />
-                  : task.reminderEnabled!==false && task.assigneeId && (task.reminderChannels??[]).length
-                    ? <span title="Regra configurada; entrega não confirmada"><Bell size={13}/> Lembrete</span> : null}
+                <span className="tasks-page-v4__assignee" title={task.assigneeName||'Sem responsável'}>
+                  <i aria-hidden="true">{(task.assigneeName?.trim()?.[0]||'?').toUpperCase()}</i>
+                  <span>{task.assigneeName||'Sem responsável'}</span>
+                </span>
+                <span className={isOverdue?'tasks-page-v4__due is-overdue':'tasks-page-v4__due'}>
+                  <Clock3 size={13}/>{dueLabel(task.dueAt)}
+                </span>
+                {task.teamId?<span className="tasks-page-v4__team"><UsersRound size={13}/>{teamById.get(task.teamId)?.name||'Equipe'}</span>:null}
+                {relationByTask.get(task.id)?<span title="Registro vinculado ao CRM">↗ {relationByTask.get(task.id)?.entityLabel}</span>:null}
+                {taskChecklist.length?<div className="tasks-page-v4__card-progress" aria-label={done+' de '+taskChecklist.length+' itens concluídos'}>
+                  <span><CheckCircle2 size={13}/>{done}/{taskChecklist.length}</span>
+                  <div><i style={{width:(done/taskChecklist.length*100)+'%'}}/></div>
+                </div>:null}
+                {task.assigneeId?<details className="tasks-page-v4__card-notification">
+                  <summary aria-label={'Situação da notificação de '+task.title} title="Ver status da notificação"><Bell size={14}/></summary>
+                  <div className="tasks-page-v4__notification-popover">
+                    <strong>Notificação de tarefa</strong>
+                    {repositoryMode==='local'
+                      ?<TaskCommunicationState configured available={notificationsReachable} status={diagnostics[task.id]??null}/>
+                      :<small>Regra cadastrada. Entrega não verificada.</small>}
+                    <small>O aceite pelo WAHA não confirma entrega nem leitura.</small>
+                    {repositoryMode==='local'?<button type="button" onClick={onNotifications}>Abrir histórico</button>:null}
+                  </div>
+                </details>:null}
               </div>
-              {!readOnly ? <div className="tasks-page-v4__card-actions">
-                <NativeSelectionSelect value={task.status} aria-label={`Alterar status de ${task.title}`} onChange={(event)=>onStatus(task,event.target.value as TaskStatus)}>
-                  <option value="todo">A fazer</option><option value="in_progress">Em andamento</option><option value="blocked">Bloqueada</option><option value="completed">Concluída</option><option value="cancelled">Cancelada</option>
-                </NativeSelectionSelect>
-                <button type="button" onClick={()=>onEdit(task)} aria-label={`Editar ${task.title}`}><Pencil size={14}/></button>
-              </div> : null}
             </article>
           }) : <div className="tasks-page-v4__empty-column">
             <ListChecks size={19}/>

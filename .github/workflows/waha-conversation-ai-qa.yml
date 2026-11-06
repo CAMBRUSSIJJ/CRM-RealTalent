@@ -22,6 +22,8 @@ jobs:
       - run: npm ci --include=dev
       - name: Validate WAHA and conversation AI
         run: node --test deploy/waha-direct/server.test.mjs deploy/waha-direct/tools.test.mjs deploy/waha-direct/conversation-intelligence.test.mjs
+      - name: Verify Linux CRM preview launcher syntax
+        run: bash -n deploy/waha-direct/abrir-crm-v101-waha-linux.sh
       - name: TypeScript check
         run: npm run typecheck
       - name: Build CRM V101.11.3

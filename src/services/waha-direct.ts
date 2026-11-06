@@ -29,12 +29,16 @@ async function request<T>(route:string,token:string,method='GET',payload?:unknow
     res=await fetch(LOCAL+route,{
       method,mode:'cors',cache:'no-store',headers:{Authorization:'Bearer '+token,...(payload?{'Content-Type':'application/json'}:{})},
       body:payload?JSON.stringify(payload):undefined,
-      signal:AbortSignal.timeout(route==='/v1/ai/analyze'?120000:route==='/v1/send'?60000:16000),
+      signal:AbortSignal.timeout(route.startsWith('/v1/ai/')&&route!=='/v1/ai/status'?130000:route==='/v1/send'?60000:16000),
     })
-  }catch{throw new Error('A ponte WAHA não está acessível neste computador. Inicie o conector Linux na porta 4390.')}
+  }catch{throw new Error('A ponte WAHA não está acessível neste computador. Inicie o conector Linux na porta 4392.')}
   if(!res.ok){
     if(res.status===401)throw new Error('Chave local inválida. Copie a chave novamente do conector.')
     if(res.status===409)throw new Error('Esse envio já foi solicitado. Confira a conversa antes de tentar novamente.')
+    if(route==='/v1/ai/conversation'){
+      const problem=await res.json().catch(()=>null) as {detail?:string}|null
+      throw new Error(problem?.detail||'Falha ao analisar conversa (HTTP '+res.status+').')
+    }
     throw new Error('WAHA indisponível (HTTP '+res.status+'). Confira o painel e os logs. Não reenvie automaticamente.')
   }
   return res.json() as Promise<T>
@@ -100,3 +104,20 @@ export async function wahaSendFile(token:string,chatId:string,file:File,caption:
   for(let i=0;i<bytes.length;i+=8192)binary+=String.fromCharCode(...bytes.subarray(i,i+8192))
   return request<{accepted:boolean;id:string|null}>('/v1/send',token,'POST',{chatId,idempotencyKey,file:{filename:file.name,mimetype:file.type||'application/octet-stream',data:btoa(binary)},caption:caption.slice(0,1200)})
 }
+
+export type WahaAiConversationTask='summary'|'reply'|'commercial'|'ask'
+export interface WahaAiEvidence {id:string;text:string;fromMe:boolean}
+export interface WahaAiFinding {description:string;evidence:WahaAiEvidence[]}
+export interface WahaCommercialReport {
+  summary:string;confidence:'alta'|'média'|'baixa';limitations:string;
+  needs:WahaAiFinding[];objections:WahaAiFinding[];
+  opportunities:WahaAiFinding[];nextSteps:WahaAiFinding[];
+}
+export interface WahaConversationAiResult {
+  task:WahaAiConversationTask;chatId:string;model:string;
+  source:'waha-local';messagesRead:number;readOnly:true;sent:false;
+  text?:string;analysis?:WahaCommercialReport
+}
+/** Always loads the selected chat from WAHA server-side; no user-supplied message transcript. */
+export const wahaAnalyzeSelectedConversation=(token:string,chatId:string,task:WahaAiConversationTask,question='')=>
+  request<WahaConversationAiResult>('/v1/ai/conversation',token,'POST',{chatId,task,question})

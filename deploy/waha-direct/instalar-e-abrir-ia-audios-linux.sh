@@ -2,7 +2,7 @@
 set -euo pipefail
 
 REPO="https://github.com/CAMBRUSSIJJ/CRM-RealTalent.git"
-BRANCH="feat/won-sales-trigger-analysis-20261106"
+BRANCH="feat/garimpo-trigger-intelligence-g4-20261106"
 APP="$HOME/Downloads/RealTalent-CRM-V101-WAHA"
 
 echo "==============================================="

@@ -63,8 +63,12 @@ export function WahaInlineAiReply({
     }
   }
   // A single click on "Sugerir resposta" opens and generates the first draft.
-  useEffect(()=>{void generate('objetiva',initialIntent)
-    // The component is keyed by chatId and intent. Re-runs are explicit user actions.
+  useEffect(()=>{
+    // Delay the first call until after StrictMode's development effect cleanup:
+    // avoid sending duplicate heavy Qwen requests on mount.
+    const timer=window.setTimeout(()=>{void generate('objetiva',initialIntent)},0)
+    return()=>window.clearTimeout(timer)
+    // The component is keyed by chatId and intent. Re-runs are explicit.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   },[])
   const outOfDate=Boolean(suggestion)&&usedMessageId!==latestMessageId

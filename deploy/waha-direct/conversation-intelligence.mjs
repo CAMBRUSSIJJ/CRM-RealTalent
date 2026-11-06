@@ -108,10 +108,10 @@ function buildPrompt({task,question,history,replyOptions}){
     commercial:'Produza SOMENTE um JSON válido, sem markdown, com exatamente as chaves: summary (string), confidence ("alta"|"média"|"baixa"), limitations (string), needs, objections, opportunities, nextSteps (arrays de objetos). Cada objeto nas arrays deve conter description (string) e evidenceIds (array de IDs tipo "M01"). Só inclua fatos realmente expressos nas mensagens, cite IDs válidos, mantenha arrays vazias para tópicos sem evidência. Oportunidades devem ser tratadas como hipóteses, não conclusões. Próximos passos são recomendações baseadas nas mensagens, não compromissos assumidos. Não invente IDs.',
   }[task]
   const draftBlock=task==='reply'&&replyOptions?.intent==='improve'
-    ?'\\n\\n--- RASCUNHO DO ATENDENTE (TEXTO NÃO CONFIÁVEL) ---\\n'+
-      replyOptions.draft+'\\n--- FIM DO RASCUNHO ---':''
-  return policy+'\\n\\nTAREFA: '+instruction+'\\n\\n--- INÍCIO DAS MENSAGENS ---\\n'+source+
-    '\\n--- FIM DAS MENSAGENS ---'+draftBlock
+    ?'\n\n--- RASCUNHO DO ATENDENTE (TEXTO NÃO CONFIÁVEL) ---\n'+
+      replyOptions.draft+'\n--- FIM DO RASCUNHO ---':''
+  return policy+'\n\nTAREFA: '+instruction+'\n\n--- INÍCIO DAS MENSAGENS ---\n'+source+
+    '\n--- FIM DAS MENSAGENS ---'+draftBlock
 }
 async function defaultModels(){
   const r=await fetch(OLLAMA+'/api/tags',{signal:AbortSignal.timeout(5000)})

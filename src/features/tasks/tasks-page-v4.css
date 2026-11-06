@@ -853,3 +853,31 @@ html[data-theme="dark"] .tasks-page-v4__empty-column > svg { background: #23374f
 .tasks-page-v4__saved-views-panel label{font-size:11px;color:#55708f;font-weight:730}
 .tasks-page-v4__saved-views-panel input{width:100%;min-width:0;border:1px solid #dce7f4;border-radius:8px;padding:9px;font-size:12px}
 .tasks-page-v4__saved-views-panel form>button{border:0;background:#245fb8;color:white;border-radius:8px;padding:9px 10px;font-weight:750;font-size:11px;cursor:pointer}
+
+
+/* Month calendar with explicit undated-task list. */
+.tasks-page-v4__calendar{padding:15px 16px 19px;min-width:0;background:#f8fafd}
+.tasks-page-v4__calendar-toolbar{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:12px}
+.tasks-page-v4__calendar-toolbar>div{display:flex;gap:10px;align-items:center}
+.tasks-page-v4__calendar-toolbar h2{font-size:17px;text-transform:capitalize;color:#2b4c78;margin:0}
+.tasks-page-v4__calendar-toolbar>div>svg{color:#4071b5}
+.tasks-page-v4__calendar-toolbar button{display:inline-grid;place-items:center;min-height:32px;padding:6px 9px;border:1px solid #dce6f2;border-radius:8px;background:#fff;color:#43648b;cursor:pointer;font-size:11px}
+.tasks-page-v4__calendar-scroll{max-width:100%;overflow-x:auto;scrollbar-width:thin;border:1px solid #e1e8f2;border-radius:11px;background:#fff}
+.tasks-page-v4__calendar-grid{min-width:710px;display:grid;grid-template-columns:repeat(7,minmax(0,1fr))}
+.tasks-page-v4__calendar-weekday{padding:10px;border-bottom:1px solid #e4eaf3;background:#f1f6fd;text-align:center;font-size:11px;color:#5d7493}
+.tasks-page-v4__calendar-day{min-height:103px;padding:8px;border-right:1px solid #eef2f7;border-bottom:1px solid #eef2f7;display:flex;flex-direction:column;gap:4px;min-width:0}
+.tasks-page-v4__calendar-day:nth-child(7n){border-right:0}
+.tasks-page-v4__calendar-day.is-adjacent{background:#fbfcfe;color:#a6b3c4}
+.tasks-page-v4__calendar-date{display:grid;place-items:center;width:23px;height:23px;font-size:11px;font-weight:700}
+.tasks-page-v4__calendar-day.is-today .tasks-page-v4__calendar-date{border-radius:50%;background:#285fba;color:#fff}
+.tasks-page-v4__calendar-task{width:100%;text-align:left;border:0;border-left:3px solid #7eabe3;background:#f0f6ff;border-radius:5px;color:#29538b;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;padding:5px 6px;font-size:10px;cursor:pointer}
+.tasks-page-v4__calendar-task.priority-urgent{border-left-color:#e45f63;background:#fff0f1}
+.tasks-page-v4__calendar-task.priority-high{border-left-color:#e4a143;background:#fff8e9}
+.tasks-page-v4__calendar-task:disabled{cursor:default}
+.tasks-page-v4__calendar-day>small{font-size:10px;color:#758ca8}
+.tasks-page-v4__calendar-undated{margin-top:15px;padding:12px 14px;background:#fff;border:1px solid #e0e9f4;border-radius:11px}
+.tasks-page-v4__calendar-undated h3{display:flex;gap:8px;align-items:center;color:#47658b;font-size:12px;margin:0 0 11px}
+.tasks-page-v4__calendar-undated h3 span{border-radius:99px;background:#eaf1fb;padding:3px 8px}
+.tasks-page-v4__calendar-undated>div{display:flex;flex-wrap:wrap;gap:8px}
+.tasks-page-v4__calendar-undated>div button{border:1px solid #dce7f4;border-radius:8px;background:#f7faff;padding:9px 12px;color:#305991;font-size:11px;cursor:pointer}
+@media(max-width:520px){.tasks-page-v4__calendar-toolbar{align-items:flex-start;flex-direction:column}}

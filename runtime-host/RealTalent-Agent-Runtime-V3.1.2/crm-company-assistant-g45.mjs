@@ -144,6 +144,10 @@ export async function answerCompanyQuestionG45(payload,{
   if(input.kind==='cnpj'){
     const candidates=new Set()
     if(validNumericCnpj(input.cnpj))candidates.add(input.cnpj)
+    for(const match of input.question.matchAll(/\b\d{2}[.\s]?\d{3}[.\s]?\d{3}[\/\s]?\d{4}[-\s]?\d{2}\b/g)){
+      const parsed=match[0].replace(/\D/g,'')
+      if(validNumericCnpj(parsed))candidates.add(parsed)
+    }
     for(const source of sources.slice(0,8))for(const value of cnpjCandidates(source))candidates.add(value)
     const findings=[]
     for(const cnpj of [...candidates].slice(0,3)){

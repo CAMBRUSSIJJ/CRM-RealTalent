@@ -97,7 +97,7 @@ export async function tryLocalAiBrowserRequest(input:string,init:RequestInit={})
   // A Vite preview e o Agent estao no mesmo computador. A consulta somente leitura
   // pode falar diretamente com o Agent local, sem depender da ponte pareada 8798
   // (que pode apontar para um runtime antigo). Nunca aplica a URLs hospedadas.
-  if(suffix.split('?')[0]==='/tools/company-ask'){
+  if(['/tools/company-ask','/tools/company-image'].includes(suffix.split('?')[0])){
     try{
       const target=new URL(env.agentGatewayUrl)
       const origin=window.location?.origin

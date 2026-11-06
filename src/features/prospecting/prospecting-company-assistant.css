@@ -87,3 +87,16 @@ html[data-theme="dark"] .prospecting-company-assistant__post-heading span{backgr
 html[data-theme="dark"] .prospecting-company-assistant__batch-metrics span,html[data-theme="dark"] .prospecting-company-assistant__patterns{background:#20344d;border-color:#45617e}
 html[data-theme="dark"] .prospecting-company-assistant__patterns>div span{background:#2d4c6f;border-color:#49688a;color:#d1e5fd}
 @media(max-width:540px){.prospecting-company-assistant__batch-metrics{grid-template-columns:repeat(2,minmax(0,1fr))}}
+
+/* G4.9 — strategic details and full index are progressive disclosures. */
+.prospecting-company-assistant__disclosure{min-width:0;border:1px solid #dce7f5;background:var(--rt-color-surface,#fff);border-radius:10px;overflow:hidden}
+.prospecting-company-assistant__disclosure>summary{display:flex;align-items:center;gap:8px;padding:12px 13px;cursor:pointer;list-style:none;color:var(--text-primary,#355b80);font-size:11px;font-weight:800}
+.prospecting-company-assistant__disclosure>summary::-webkit-details-marker{display:none}
+.prospecting-company-assistant__disclosure>summary>span{margin-left:auto;border-radius:99px;background:#edf4fd;color:#3268a1;padding:4px 8px;font-size:10px;font-weight:750}
+.prospecting-company-assistant__disclosure[open]>summary{border-bottom:1px solid #e5edf7}
+.prospecting-company-assistant__disclosure>summary:hover{background:#f6faff}
+.prospecting-company-assistant__disclosure-body{display:grid;gap:12px;padding:12px;min-width:0}
+.prospecting-company-assistant__disclosure-body>.prospecting-company-assistant__post-analysis{border:0;padding:0;background:transparent}
+html[data-theme="dark"] .prospecting-company-assistant__disclosure{background:#203550;border-color:#426084}
+html[data-theme="dark"] .prospecting-company-assistant__disclosure>summary:hover{background:#294565}
+html[data-theme="dark"] .prospecting-company-assistant__disclosure>summary>span{background:#345475;color:#d5e9fa}

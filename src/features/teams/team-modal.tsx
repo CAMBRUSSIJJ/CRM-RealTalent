@@ -6,24 +6,7 @@ import type { Team, TeamMembership, WorkTask, WorkspaceMember } from '../../doma
 import type { TeamInput } from '../../services/work-management'
 import { routeToHash } from '../../app/route-state'
 import '../../styles/team-editor-drawer.css'
-
-const DEFAULT_COLOR = '#356AE6'
-const COLORS = ['#356AE6','#237DB7','#169C83','#4F9F52','#8256D0','#C06A98','#E98A36','#66788A']
-type Draft = { name:string;description:string;leaderId:string;color:string;selected:string[] }
-
-function initialDraft(team:Team|null,memberships:TeamMembership[]):Draft {
-  return {
-    name:team?.name??'',description:team?.description??'',leaderId:team?.leaderId??'',
-    color:team?.color??DEFAULT_COLOR,
-    selected:team? [...new Set(memberships.filter(m=>m.teamId===team.id).map(m=>m.userId))]:[],
-  }
-}
-function serialize(d:Draft):string {
-  return JSON.stringify({
-    name:d.name.trim(),description:d.description.trim(),leaderId:d.leaderId,
-    color:d.color.toLowerCase(),selected:[...d.selected].sort()
-  })
-}
+import { DEFAULT_TEAM_COLOR, TEAM_COLORS, addTeamMember, initialTeamDraft, removeTeamMember, teamDraftKey, toggleTeamLeader, validTeamDraft, type TeamDraft } from './team-editor-state'
 
 interface Props {
   open:boolean
@@ -37,23 +20,22 @@ interface Props {
 }
 
 export function TeamModal({open,team,memberships,members,tasks=[],loading=false,onClose,onSubmit}:Props){
-  const [draft,setDraft]=useState<Draft>(()=>initialDraft(team,memberships))
-  const baseline=useRef(serialize(initialDraft(team,memberships)))
+  const [draft,setDraft]=useState<TeamDraft>(()=>initialTeamDraft(team,memberships))
+  const baseline=useRef(teamDraftKey(initialTeamDraft(team,memberships)))
   const [search,setSearch]=useState('')
   const [adding,setAdding]=useState(false)
   const [error,setError]=useState('')
   useEffect(()=>{
     if(!open)return
-    const initial=initialDraft(team,memberships)
-    setDraft(initial);baseline.current=serialize(initial)
+    const initial=initialTeamDraft(team,memberships)
+    setDraft(initial);baseline.current=teamDraftKey(initial)
     setSearch('');setAdding(false);setError('')
     // Deliberately reset only when a form is opened for another team.
     // Async membership refresh must not discard unsaved edits.
   },[open,team?.id])
 
-  const dirty=serialize(draft)!==baseline.current
-  const canSave=dirty && Boolean(draft.name.trim()) && !loading
-    && (!draft.leaderId||draft.selected.includes(draft.leaderId))
+  const dirty=teamDraftKey(draft)!==baseline.current
+  const canSave=dirty && validTeamDraft(draft) && !loading
   const selectedMembers=useMemo(()=>{
     const byId=new Map(members.map(member=>[member.userId,member]))
     return draft.selected.map(id=>byId.get(id)).filter((m):m is WorkspaceMember=>Boolean(m))
@@ -69,15 +51,10 @@ export function TeamModal({open,team,memberships,members,tasks=[],loading=false,
     new Date(t.dueAt).getTime()<Date.now()).length
   const completed=tasks.filter(t=>t.status==='completed').length
 
-  const patch=(value:Partial<Draft>)=>setDraft(d=>({...d,...value}))
-  const chooseLeader=(userId:string)=>patch({leaderId:draft.leaderId===userId?'':userId})
-  const removeMember=(userId:string)=>setDraft(d=>({
-    ...d,selected:d.selected.filter(id=>id!==userId),
-    leaderId:d.leaderId===userId?'':d.leaderId
-  }))
-  const addMember=(userId:string)=>setDraft(d=>({
-    ...d,selected:d.selected.includes(userId)?d.selected:[...d.selected,userId]
-  }))
+  const patch=(value:Partial<TeamDraft>)=>setDraft(d=>({...d,...value}))
+  const chooseLeader=(userId:string)=>setDraft(d=>toggleTeamLeader(d,userId))
+  const removeMember=(userId:string)=>setDraft(d=>removeTeamMember(d,userId))
+  const addMember=(userId:string)=>setDraft(d=>addTeamMember(d,userId))
   const close=()=>{
     if(loading)return
     if(dirty&&!window.confirm('Existem alterações não salvas nesta equipe. Deseja descartá-las?'))return
@@ -127,14 +104,14 @@ export function TeamModal({open,team,memberships,members,tasks=[],loading=false,
         </label>
         <div className="team-editor__palette" role="group" aria-label="Cor de identificação da equipe">
           <span>Cor de identificação</span>
-          <div>{COLORS.map(c=><button type="button" key={c} aria-label={'Cor '+c}
+          <div>{TEAM_COLORS.map(c=><button type="button" key={c} aria-label={'Cor '+c}
             aria-pressed={draft.color.toLowerCase()===c.toLowerCase()}
             className={draft.color.toLowerCase()===c.toLowerCase()?'is-selected':''}
             style={{backgroundColor:c}} onClick={()=>patch({color:c})}>
             {draft.color.toLowerCase()===c.toLowerCase()?<Check size={15}/>:null}
           </button>)}
           <label className="team-editor__custom-color" title="Escolher cor personalizada">
-            <span>Personalizar cor</span><input type="color" value={/^#[\da-f]{6}$/i.test(draft.color)?draft.color:DEFAULT_COLOR}
+            <span>Personalizar cor</span><input type="color" value={/^#[\da-f]{6}$/i.test(draft.color)?draft.color:DEFAULT_TEAM_COLOR}
               onChange={e=>patch({color:e.target.value})}/>
           </label></div>
         </div>

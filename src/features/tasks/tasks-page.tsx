@@ -367,6 +367,7 @@ export function TasksPage() {
       readOnly={!canTaskEdit} canCreate={canTaskCreate} onCreate={showTaskCreate} onEdit={openEdit} onStatus={changeStatus}
       canDelete={canTaskDelete} onDelete={remove} onNotifications={()=>setShowNotifications(true)}
       onQuickCreate={createQuick} />
+      : layout==='calendar'?<TaskCalendar tasks={filtered} readOnly={!canTaskEdit} onEdit={openEdit}/>
       : <section className="tasks-page-v4__list" aria-label="Lista de tarefas">{filtered.length
         ? filtered.map((task) => <TaskRow key={task.id} task={task} diagnostic={notificationDiagnostics[task.id]??null}
           notificationsReachable={notificationsReachable} repositoryMode={repositoryMode} team={task.teamId ? teamById.get(task.teamId) ?? null : null}

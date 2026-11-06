@@ -856,7 +856,7 @@ const routerServer = http.createServer((req, res) => {
   applyLocalBrowserCors(req, res)
   if (req.method === 'OPTIONS') { res.statusCode = 204; res.end(); return }
   if (req.method === 'GET' && String(req.url || '').split('?')[0] === '/tools/company-ask/status') {
-    sendJson(res,200,{ok:true,feature:'company-assistant-g47',readOnly:true,instagram:'public-html-metadata-and-indexed-only',vision:'optional-local-screenshot',cnpj:'public-registry'});return
+    sendJson(res,200,{ok:true,feature:'company-assistant-g48',readOnly:true,instagram:'public-html-metadata-and-indexed-only',vision:'optional-local-screenshot',cnpj:'public-registry'});return
   }
   if (req.method === 'GET' && String(req.url || '').split('?')[0] === '/tools/prospect-investigate/status') {
     sendJson(res,200,{ok:true,feature:'company-research-v1',provider:'local-garimpo',publicSources:true}); return

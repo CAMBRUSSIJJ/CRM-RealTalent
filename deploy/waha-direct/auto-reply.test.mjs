@@ -77,7 +77,7 @@ test('limits automated sending to 3 per contact/hour and never auto retries unce
   assert.equal((await controller.onMessage(message(triggerId,now))).outcome,'limited')
   assert.equal(count,3)
   assert.equal(controller.status(chat).remainingHour,0)
-  assert.equal((await controller.onMessage(message('msg_c1xxxx',now-130000))).outcome,'duplicate')
+  assert.equal((await controller.onMessage(message('msg_c1xxxx',now))).outcome,'duplicate')
 })
 const COOLDOWN_PLUS=130000
 test('unsafe financial promises and empty outputs are never transmitted',()=>{

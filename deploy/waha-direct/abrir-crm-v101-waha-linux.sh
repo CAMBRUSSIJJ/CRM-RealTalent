@@ -9,7 +9,7 @@ command -v npm >/dev/null || { echo "Node/npm indisponíveis."; exit 1; }
 node -e 'if(Number(process.versions.node.split(".")[0])!==22)process.exit(1)' || { echo "É necessário Node.js 22."; exit 1; }
 APP="$HOME/Downloads/RealTalent-CRM-V101-WAHA"
 REPO="https://github.com/CAMBRUSSIJJ/CRM-RealTalent.git"
-BRANCH="feat/won-sales-trigger-analysis-20261106"
+BRANCH="feat/garimpo-trigger-intelligence-g4-20261106"
 WAHA_ENV="$HOME/.local/share/realtalent-waha-gows/.env"
 [[ -f "$WAHA_ENV" ]] || { echo "WAHA local não encontrado. Nenhuma sessão foi alterada."; exit 1; }
 KEY=$(sed -n 's/^WAHA_API_KEY=//p' "$WAHA_ENV")

@@ -4,6 +4,7 @@ import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
 import { randomBytes, timingSafeEqual } from 'node:crypto'
+import { createLocalTools, proxyWahaMedia, ollamaModels, analyzeConversation, wahaAllowedMime } from './tools.mjs'
 
 // Local-only authenticated companion: WAHA credentials never enter the browser.
 const home=os.homedir()
@@ -25,6 +26,7 @@ if(!/^[a-f0-9]{64}$/.test(token)){
 const origins=new Set(['https://crm-real-talent.vercel.app','http://127.0.0.1:5173','http://localhost:5173','http://127.0.0.1:5174','http://localhost:5174','http://127.0.0.1:4173','http://localhost:4173',...String(process.env.REALTALENT_WAHA_ALLOWED_ORIGINS||'').split(',').map(x=>x.trim()).filter(Boolean)])
 const wahaBase='http://127.0.0.1:4385'
 const watchers=new Set(), sent=new Map()
+const tools=createLocalTools(dataDir)
 const chatValid=v=>typeof v==='string'&&/^[a-zA-Z0-9_-]{5,70}@(c\.us|lid|g\.us)$/.test(v)
 const authenticated=v=>{
   if(typeof v!=='string'||!v.startsWith('Bearer '))return false
@@ -33,13 +35,13 @@ const authenticated=v=>{
 }
 function output(res,code,body){res.writeHead(code,{'Content-Type':'application/json; charset=utf-8','Cache-Control':'no-store'});res.end(JSON.stringify(body))}
 async function upstream(route,method='GET',body){
-  const r=await fetch(wahaBase+route,{method,headers:{'X-Api-Key':key,...(body?{'Content-Type':'application/json'}:{})},body:body?JSON.stringify(body):undefined,signal:AbortSignal.timeout(12000)})
+  const r=await fetch(wahaBase+route,{method,headers:{'X-Api-Key':key,...(body?{'Content-Type':'application/json'}:{})},body:body?JSON.stringify(body):undefined,signal:AbortSignal.timeout(method==='POST'?50000:12000)})
   if(!r.ok){const e=new Error('WAHA HTTP '+r.status);e.status=r.status;throw e}
   return r.status===204?{}:r.json()
 }
-async function readBody(req){
+async function readBody(req,maxBytes=12000){
   const parts=[];let size=0
-  for await(const part of req){size+=part.length;if(size>12000)throw Error('too_large');parts.push(part)}
+  for await(const part of req){size+=part.length;if(size>maxBytes){const err=new Error('too_large');err.status=413;throw err};parts.push(part)}
   return JSON.parse(Buffer.concat(parts).toString('utf8'))
 }
 async function handler(req,res){
@@ -68,7 +70,7 @@ async function handler(req,res){
     }
     if(url.pathname==='/v1/messages'&&req.method==='GET'){
       const chatId=url.searchParams.get('chatId');if(!chatValid(chatId)){output(res,400,{error:'invalid_chat'});return}
-      const v=await upstream('/api/'+session+'/chats/'+encodeURIComponent(chatId)+'/messages?limit=50&downloadMedia=false')
+      const v=await upstream('/api/'+session+'/chats/'+encodeURIComponent(chatId)+'/messages?limit=50&downloadMedia=true')
       output(res,200,Array.isArray(v)?v:[]);return
     }
     if(url.pathname==='/v1/resolve'&&req.method==='GET'){
@@ -76,24 +78,55 @@ async function handler(req,res){
       const v=await upstream('/api/contacts/check-exists?phone='+phone+'&session='+session)
       output(res,200,{numberExists:v.numberExists===true,chatId:chatValid(v.chatId)?v.chatId:null});return
     }
+    if(url.pathname==='/v1/preferences'&&req.method==='GET'){
+      output(res,200,tools.read());return
+    }
+    if(url.pathname==='/v1/preferences'&&req.method==='POST'){
+      const v=await readBody(req,15000)
+      output(res,200,tools.update(v));return
+    }
+    if(url.pathname==='/v1/media'&&req.method==='GET'){
+      await proxyWahaMedia(url.searchParams.get('src')||'',{'X-Api-Key':key},res);return
+    }
+    if(url.pathname==='/v1/ai/status'&&req.method==='GET'){
+      try{
+        const models=await ollamaModels()
+        output(res,200,{available:models.length>0,models,description:models.length?'Ollama local disponível. Uso apenas sob comando.':'Instale um modelo local no Ollama.'})
+      }catch{output(res,200,{available:false,models:[],description:'Ollama local não está disponível neste computador.'})}
+      return
+    }
+    if(url.pathname==='/v1/ai/analyze'&&req.method==='POST'){
+      const v=await readBody(req,30000)
+      output(res,200,await analyzeConversation(v));return
+    }
     if(url.pathname==='/v1/events'&&req.method==='GET'){
       res.writeHead(200,{'Content-Type':'text/event-stream','Cache-Control':'no-store','Connection':'keep-alive','X-Accel-Buffering':'no'})
       res.write(': connected\n\n');watchers.add(res);req.on('close',()=>watchers.delete(res));return
     }
     if(url.pathname==='/v1/send'&&req.method==='POST'){
-      const v=await readBody(req)
-      if(!chatValid(v.chatId)||typeof v.text!=='string'||!v.text.trim()||v.text.length>4096||typeof v.idempotencyKey!=='string'||!/^[a-f0-9-]{36}$/i.test(v.idempotencyKey)){
+      const v=await readBody(req,12_000_000)
+      if(!chatValid(v.chatId)||typeof v.idempotencyKey!=='string'||!/^[a-f0-9-]{36}$/i.test(v.idempotencyKey)){
         output(res,400,{error:'invalid_message'});return
+      }
+      let endpoint,payload
+      if(typeof v.text==='string'&&v.text.trim()&&v.text.length<=4096&&!v.file){
+        endpoint='/api/sendText'
+        payload={session,chatId:v.chatId,text:v.text}
+      }else if(v.file&&typeof v.file.data==='string'&&v.file.data.length<=11_200_000&&/^[A-Za-z0-9+/]+={0,2}$/.test(v.file.data)&&typeof v.file.filename==='string'&&v.file.filename.length<=150&&typeof v.file.mimetype==='string'&&wahaAllowedMime.has(v.file.mimetype)&&(!v.caption||typeof v.caption==='string'&&v.caption.length<=1200)){
+        endpoint=v.file.mimetype.startsWith('image/')?'/api/sendImage':'/api/sendFile'
+        payload={session,chatId:v.chatId,caption:v.caption||'',file:v.file}
+      }else{
+        output(res,400,{error:'invalid_message_or_attachment'});return
       }
       if(sent.has(v.idempotencyKey)){output(res,409,{error:'already_attempted'});return}
       sent.set(v.idempotencyKey,Date.now());setTimeout(()=>sent.delete(v.idempotencyKey),24*3600*1000).unref()
-      // Failed or timed-out attempts are NOT automatically resent.
-      const result=await upstream('/api/sendText','POST',{session,chatId:v.chatId,text:v.text})
+      // Never auto-retry; even HTTP 500/timeout may have sent the message.
+      const result=await upstream(endpoint,'POST',payload)
       output(res,200,{accepted:true,id:result.id||null});return
     }
     output(res,404,{error:'not_found'})
   }catch(error){
-    output(res,error.status===404?404:502,{error:'waha_upstream_error',detail:'Verifique o WAHA local. Nenhum envio será repetido automaticamente.'})
+    output(res,[400,404,413].includes(error.status)?error.status:502,{error:'bridge_operation_failed',detail:'Confira a solicitação, a disponibilidade local e os logs. Nenhum envio será repetido automaticamente.'})
   }
 }
 const server=http.createServer((req,res)=>handler(req,res).catch(()=>{if(!res.headersSent)output(res,500,{error:'internal'});else res.destroy()}))

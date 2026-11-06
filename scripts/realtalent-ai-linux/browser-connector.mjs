@@ -26,6 +26,8 @@ const allowedOrigins=()=>new Set([
   'http://127.0.0.1:4189','http://localhost:4189',
   'http://127.0.0.1:4196','http://localhost:4196',
   'http://127.0.0.1:4197','http://localhost:4197',
+  // WAHA/CRM V101.11.3 preview (Vite). Keep this explicit, never use a wildcard.
+  'http://127.0.0.1:5174','http://localhost:5174',
   ...String(process.env.REALTALENT_BROWSER_ALLOWED_ORIGINS||'').split(',').map(x=>x.trim())
     .filter(x=>{try{const u=new URL(x);return u.origin===x&&u.protocol==='https:'}catch{return false}})
 ])

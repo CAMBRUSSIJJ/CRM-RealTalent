@@ -1,11 +1,13 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { CheckCheck, CircleAlert, LoaderCircle, MessageCircle, Plus, RefreshCw, Search, Send, ShieldCheck, Wifi, WifiOff } from 'lucide-react'
+import { BarChart3, BrainCircuit, CheckCheck, CircleAlert, LoaderCircle, MessageCircle, Paperclip, Plus, RefreshCw, Search, Send, ShieldCheck, Star, Tag, Wifi, WifiOff, Zap } from 'lucide-react'
 import {
   clearWahaToken, saveWahaToken, storedWahaToken, watchWaha,
-  wahaChats, wahaMessages, wahaResolve, wahaSend, wahaStatus,
-  type WahaChat, type WahaMessage, type WahaStatus,
+  emptyWahaPreferences, wahaChats, wahaMessages, wahaPreferences, wahaResolve, wahaSend, wahaSendFile, wahaStatus, wahaUpdatePreferences,
+  type WahaChat, type WahaMessage, type WahaPreferences, type WahaStatus,
 } from '../../services/waha-direct'
+import { WahaMessageMedia, WahaToolsDrawer, type WahaToolMode } from './waha-conversation-tools'
 import '../../styles/waha-direct.css'
+import '../../styles/waha-conversation-tools.css'
 
 const localUrl='http://127.0.0.1:4392'
 function messageTime(timestamp:number|undefined){
@@ -23,6 +25,10 @@ export function WahaConversationsPage(){
   const [selected,setSelected]=useState<WahaChat|null>(null)
   const [messages,setMessages]=useState<WahaMessage[]>([])
   const [query,setQuery]=useState('')
+  const [filter,setFilter]=useState<'all'|'unread'|'favorites'|'groups'>('all')
+  const [prefs,setPrefs]=useState<WahaPreferences>(emptyWahaPreferences)
+  const [toolMode,setToolMode]=useState<WahaToolMode|null>(null)
+  const [attachment,setAttachment]=useState<File|null>(null)
   const [draft,setDraft]=useState('')
   const [phone,setPhone]=useState('')
   const [adding,setAdding]=useState(false)
@@ -33,6 +39,7 @@ export function WahaConversationsPage(){
   const [requiresReview,setRequiresReview]=useState(false)
   const [revision,setRevision]=useState(0)
   const bottom=useRef<HTMLDivElement>(null)
+  const attachRef=useRef<HTMLInputElement>(null)
   const selectedId=selected?.id||''
 
   async function connect(){
@@ -42,7 +49,8 @@ export function WahaConversationsPage(){
       if(!/^[a-f0-9]{64}$/.test(key))throw new Error('Cole a chave local com 64 caracteres.')
       const current=await wahaStatus(key)
       if(current.status!=='WORKING')throw new Error('O WAHA está em '+current.status+'. Confirme a sessão realtalent no painel.')
-      saveWahaToken(key);setToken(key);setStatus(current);setKeyDraft('')
+      const p=await wahaPreferences(key)
+      saveWahaToken(key);setToken(key);setPrefs(p);setStatus(current);setKeyDraft('')
     }catch(e){setError(e instanceof Error?e.message:'Não foi possível conectar.')}
     finally{setRefreshing(false)}
   }
@@ -58,6 +66,7 @@ export function WahaConversationsPage(){
       }catch(e){if(active)setError(e instanceof Error?e.message:'WAHA não respondeu.')}
     }
     void refresh()
+    void wahaPreferences(token).then(p=>{if(active)setPrefs(p)}).catch(()=>{})
     const interval=window.setInterval(()=>{void refresh()},15000)
     const abort=new AbortController()
     void watchWaha(token,()=>setRevision(v=>v+1),abort.signal)
@@ -83,9 +92,13 @@ export function WahaConversationsPage(){
   useEffect(()=>{bottom.current?.scrollIntoView({behavior:'smooth',block:'end'})},[selectedId,messages.length])
 
   const filtered=useMemo(()=>chats.filter(c=>{
-    const text=((c.name||'')+' '+c.id).toLocaleLowerCase('pt-BR')
-    return text.includes(query.toLocaleLowerCase('pt-BR'))
-  }),[chats,query])
+    const text=((c.name||'')+' '+c.id+' '+(prefs.labels[c.id]||[]).join(' ')).toLocaleLowerCase('pt-BR')
+    const favorite=prefs.favorites.includes(c.id)
+    const unread=Number(c.unreadCount||0)>0
+    return text.includes(query.toLocaleLowerCase('pt-BR')) && (
+      filter==='all'||filter==='favorites'&&favorite||filter==='unread'&&unread||filter==='groups'&&c.id.endsWith('@g.us')
+    )
+  }).sort((a,b)=>Number(prefs.favorites.includes(b.id))-Number(prefs.favorites.includes(a.id)) || Number(b.lastMessage?.timestamp||0)-Number(a.lastMessage?.timestamp||0)),[chats,query,filter,prefs])
   const connected=status?.status==='WORKING'
 
   async function refreshAll(){
@@ -98,6 +111,17 @@ export function WahaConversationsPage(){
       setError('')
     }catch(e){setError(e instanceof Error?e.message:'Falha na atualização.')}
     finally{setRefreshing(false)}
+  }
+
+  async function onPreference(patch:unknown){
+    if(!token)return
+    const next=await wahaUpdatePreferences(token,patch)
+    setPrefs(next)
+  }
+
+  async function toggleFavorite(chatId:string){
+    try{await onPreference({type:'favorite',chatId,enabled:!prefs.favorites.includes(chatId)})}
+    catch(e){setError(e instanceof Error?e.message:'Falha ao salvar favorito.')}
   }
 
   async function newChat(){
@@ -113,12 +137,14 @@ export function WahaConversationsPage(){
   }
 
   async function send(){
-    if(!token||!selectedId||!connected||sending||requiresReview||!draft.trim())return
+    if(!token||!selectedId||!connected||sending||requiresReview||(!draft.trim()&&!attachment))return
     const body=draft.trim()
     setSending(true);setSendError('')
     try{
-      await wahaSend(token,selectedId,body,crypto.randomUUID())
-      setDraft('');setRequiresReview(false)
+      if(attachment)await wahaSendFile(token,selectedId,attachment,body,crypto.randomUUID())
+      else await wahaSend(token,selectedId,body,crypto.randomUUID())
+      setDraft('');setRequiresReview(false);setAttachment(null)
+      if(attachRef.current)attachRef.current.value=''
       const next=await wahaMessages(token,selectedId)
       setMessages([...next].sort((a,b)=>(a.timestamp||0)-(b.timestamp||0)))
     }catch(e){
@@ -148,27 +174,38 @@ export function WahaConversationsPage(){
         <button onClick={()=>{clearWahaToken();setToken('');setSelected(null);setMessages([])}} title="Desvincular esta aba sem sair do WhatsApp">Sair da ponte</button>
       </div>
     </header>
+    <nav className="waha-tools-bar" aria-label="Ferramentas de comunicação">
+      <button type="button" className={toolMode==='overview'?'active':''} onClick={()=>setToolMode(toolMode==='overview'?null:'overview')}><BarChart3 size={15}/> Visão geral</button>
+      <button type="button" className={toolMode==='labels'?'active':''} onClick={()=>setToolMode(toolMode==='labels'?null:'labels')}><Tag size={15}/> Etiquetas</button>
+      <button type="button" className={toolMode==='replies'?'active':''} onClick={()=>setToolMode(toolMode==='replies'?null:'replies')}><Zap size={15}/> Respostas rápidas</button>
+      <button type="button" className={toolMode==='ai'?'active':''} onClick={()=>setToolMode(toolMode==='ai'?null:'ai')}><BrainCircuit size={15}/> IA local</button>
+    </nav>
+    {toolMode?<WahaToolsDrawer mode={toolMode} token={token} chats={chats} selected={selected} messages={messages} prefs={prefs} onClose={()=>setToolMode(null)} onInsert={text=>setDraft(text)} onPreference={onPreference}/>:null}
     {error?<div className="waha-error" role="alert"><CircleAlert size={15}/>{error}</div>:null}
     <div className="waha-layout">
       <aside className="waha-list">
         <div className="waha-list-head"><strong>Conversas</strong><button aria-label="Nova conversa" onClick={()=>setAdding(v=>!v)}><Plus size={18}/></button></div>
         {adding?<div className="waha-new"><label htmlFor="waha-phone">Número com DDI e DDD</label><div><input id="waha-phone" placeholder="55 51 99999 9999" value={phone} onChange={e=>setPhone(e.target.value)} onKeyDown={e=>{if(e.key==='Enter')void newChat()}}/><button onClick={()=>void newChat()}>Buscar</button></div></div>:null}
-        <div className="waha-search"><Search size={17}/><input aria-label="Buscar conversas" placeholder="Buscar conversa" value={query} onChange={e=>setQuery(e.target.value)}/></div>
+        <div className="waha-search"><Search size={17}/><input aria-label="Buscar conversas" placeholder="Buscar nome, número ou etiqueta" value={query} onChange={e=>setQuery(e.target.value)}/></div>
+        <div className="waha-filters">{(['all','unread','favorites','groups'] as const).map((key)=><button type="button" key={key} className={filter===key?'active':''} onClick={()=>setFilter(key)}>{({all:'Todas',unread:'Não lidas',favorites:'Favoritas',groups:'Grupos'})[key]}</button>)}</div>
         <div className="waha-list-items">
           {filtered.map(c=><button key={c.id} className={'waha-chat '+(selectedId===c.id?'active':'')} onClick={()=>{setSelected(c);setSendError('');setRequiresReview(false);setMessages([])}}>
             <span className="waha-avatar">{(c.name||c.id).slice(0,1).toUpperCase()}</span>
-            <span className="waha-chat-info"><strong>{c.name||c.id.split('@')[0]}</strong><small>{c.lastMessage?.hasMedia?mediaLabel(c.lastMessage):c.lastMessage?.body||'Sem mensagens recentes'}</small></span>
+            <span className="waha-chat-info"><strong>{prefs.favorites.includes(c.id)?'★ ':''}{c.name||c.id.split('@')[0]}</strong><small>{c.lastMessage?.hasMedia?mediaLabel(c.lastMessage):c.lastMessage?.body||'Sem mensagens recentes'}</small>
+              {(prefs.labels[c.id]||[]).length?<span className="waha-inline-labels">{(prefs.labels[c.id]||[]).slice(0,2).map(l=><em key={l}>{l}</em>)}</span>:null}</span>
             <span className="waha-chat-time">{messageTime(c.lastMessage?.timestamp)}</span>
           </button>)}
           {!filtered.length?<p className="waha-empty">Nenhuma conversa encontrada.</p>:null}
         </div>
       </aside>
       <div className="waha-thread">
-        {selected?<><div className="waha-thread-head"><span className="waha-avatar">{(selected.name||selected.id).slice(0,1).toUpperCase()}</span><div><strong>{selected.name||selected.id.split('@')[0]}</strong><small>{selected.id.endsWith('@g.us')?'Grupo':'Conversa WhatsApp'}</small></div></div>
+        {selected?<><div className="waha-thread-head"><span className="waha-avatar">{(selected.name||selected.id).slice(0,1).toUpperCase()}</span><div><strong>{selected.name||selected.id.split('@')[0]}</strong><small>{selected.id.endsWith('@g.us')?'Grupo':'Conversa WhatsApp'}</small></div>
+          <div className="waha-thread-actions"><button type="button" title="Marcar como favorito" aria-label="Marcar como favorito" onClick={()=>void toggleFavorite(selected.id)}><Star size={18} fill={prefs.favorites.includes(selected.id)?'currentColor':'none'}/></button><button type="button" onClick={()=>setToolMode('labels')}><Tag size={16}/> Etiquetas</button></div>
+        </div>
           <div className="waha-messages" role="log" aria-live="polite">
             {messages.map(m=><div key={m.id} className={'waha-bubble '+(m.fromMe?'out':'in')}>
               {m.body?<p>{m.body}</p>:null}
-              {m.hasMedia?<p className="waha-media">{mediaLabel(m)} — mídia disponível no WAHA; pré-visualização será integrada na próxima etapa.</p>:null}
+              {m.hasMedia?<WahaMessageMedia message={m} token={token}/>:null}
               <small>{messageTime(m.timestamp)} {m.fromMe&&m.ackName?<CheckCheck size={12} aria-label={m.ackName}/>:null}</small>
             </div>)}
             {!messages.length?<p className="waha-empty">Nenhuma mensagem carregada nesta conversa.</p>:null}
@@ -176,8 +213,10 @@ export function WahaConversationsPage(){
           </div>
           {sendError?<div className="waha-error" role="alert">{sendError}{requiresReview?<button type="button" onClick={()=>{setRequiresReview(false);setSendError('')}}>Verifiquei a conversa; liberar novo envio</button>:null}</div>:null}
           <form className="waha-compose" onSubmit={e=>{e.preventDefault();void send()}}>
-            <textarea aria-label="Mensagem WhatsApp" placeholder={connected?'Escreva uma mensagem...':'WAHA desconectado'} value={draft} onChange={e=>setDraft(e.target.value)} onKeyDown={e=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();void send()}}} disabled={!connected||sending||requiresReview} rows={2}/>
-            <button type="submit" className="waha-primary" disabled={!connected||sending||requiresReview||!draft.trim()}>{sending?<LoaderCircle className="spin" size={17}/>:<Send size={17}/>} Enviar</button>
+            <label className="waha-attach-button" title="Anexar arquivo" aria-label="Anexar arquivo"><Paperclip size={18}/><input ref={attachRef} type="file" accept="image/png,image/jpeg,image/webp,image/gif,audio/mpeg,audio/ogg,audio/mp4,video/mp4,application/pdf,text/plain" onChange={e=>{const f=e.target.files?.[0]||null;if(f&&f.size>8*1024*1024){setSendError('Arquivo acima do limite de 8 MB.');setAttachment(null)}else{setAttachment(f);setSendError('')}}} disabled={sending||requiresReview}/></label>
+            <div className="waha-compose-input">{attachment?<div className="waha-attachment-chip"><Paperclip size={12}/>{attachment.name} ({(attachment.size/1024/1024).toFixed(1)} MB)<button type="button" onClick={()=>{setAttachment(null);if(attachRef.current)attachRef.current.value=''}}>×</button></div>:null}
+              <textarea aria-label="Mensagem WhatsApp" placeholder={connected?'Escreva uma mensagem...':'WAHA desconectado'} value={draft} onChange={e=>setDraft(e.target.value)} onKeyDown={e=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();void send()}}} disabled={!connected||sending||requiresReview} rows={2}/></div>
+            <button type="submit" className="waha-primary" disabled={!connected||sending||requiresReview||(!draft.trim()&&!attachment)}>{sending?<LoaderCircle className="spin" size={17}/>:<Send size={17}/>} Enviar</button>
           </form>
         </>:<div className="waha-blank"><MessageCircle size={38}/><h3>Selecione uma conversa</h3><p>Mensagens consultadas diretamente no WAHA local, sem armazenamento adicional.</p></div>}
       </div>

@@ -1,5 +1,6 @@
 // Only talks to localhost companion. Never put WAHA_API_KEY or Supabase service keys in frontend.
-const LOCAL='http://127.0.0.1:4392'
+export const WAHA_BRIDGE_URL='http://127.0.0.1:4392'
+const LOCAL=WAHA_BRIDGE_URL
 const STORAGE='realtalent.waha.direct.token.v1'
 
 export type WahaStatus={session:string;status:string}
@@ -28,7 +29,7 @@ async function request<T>(route:string,token:string,method='GET',payload?:unknow
     res=await fetch(LOCAL+route,{
       method,mode:'cors',cache:'no-store',headers:{Authorization:'Bearer '+token,...(payload?{'Content-Type':'application/json'}:{})},
       body:payload?JSON.stringify(payload):undefined,
-      signal:AbortSignal.timeout(16000),
+      signal:AbortSignal.timeout(route==='/v1/ai/analyze'?120000:route==='/v1/send'?60000:16000),
     })
   }catch{throw new Error('A ponte WAHA não está acessível neste computador. Inicie o conector Linux na porta 4390.')}
   if(!res.ok){
@@ -71,4 +72,31 @@ export async function watchWaha(
     }catch{ /* Reconnect. Periodic polling still works if the socket is unavailable. */ }
     if(!signal.aborted)await new Promise(resolve=>setTimeout(resolve,4000))
   }
+}
+
+export interface WahaQuickReply {id:string;title:string;text:string}
+export interface WahaPreferences {
+  labels:Record<string,string[]>
+  favorites:string[]
+  quickReplies:WahaQuickReply[]
+}
+export const emptyWahaPreferences=():WahaPreferences=>({labels:{},favorites:[],quickReplies:[]})
+export const wahaPreferences=(token:string)=>request<WahaPreferences>('/v1/preferences',token)
+export const wahaUpdatePreferences=(token:string,patch:unknown)=>request<WahaPreferences>('/v1/preferences',token,'POST',patch)
+export const wahaAiStatus=(token:string)=>request<{available:boolean;models:string[];description:string}>('/v1/ai/status',token)
+export const wahaAnalyze=(token:string,task:'summary'|'suggest',messages:WahaMessage[])=>
+  request<{model:string;text:string}>('/v1/ai/analyze',token,'POST',{task,messages:messages.slice(-35).filter(m=>typeof m.body==='string').map(m=>({body:m.body,fromMe:!!m.fromMe}))})
+export async function wahaMediaBlob(token:string,src:string):Promise<Blob>{
+  if(!src)throw Error('Mídia indisponível.')
+  const res=await fetch(LOCAL+'/v1/media?src='+encodeURIComponent(src),{headers:{Authorization:'Bearer '+token},cache:'no-store',signal:AbortSignal.timeout(25000)})
+  if(!res.ok)throw Error('Arquivo indisponível no WAHA (HTTP '+res.status+').')
+  return res.blob()
+}
+export async function wahaSendFile(token:string,chatId:string,file:File,caption:string,idempotencyKey:string):Promise<{accepted:boolean;id:string|null}>{
+  if(file.size>8*1024*1024)throw Error('Arquivo acima de 8 MB.')
+  const data=await file.arrayBuffer()
+  const bytes=new Uint8Array(data)
+  let binary=''
+  for(let i=0;i<bytes.length;i+=8192)binary+=String.fromCharCode(...bytes.subarray(i,i+8192))
+  return request<{accepted:boolean;id:string|null}>('/v1/send',token,'POST',{chatId,idempotencyKey,file:{filename:file.name,mimetype:file.type||'application/octet-stream',data:btoa(binary)},caption:caption.slice(0,1200)})
 }

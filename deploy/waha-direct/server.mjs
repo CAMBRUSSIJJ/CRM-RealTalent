@@ -6,6 +6,7 @@ import path from 'node:path'
 import { randomBytes, timingSafeEqual } from 'node:crypto'
 import { createLocalTools, proxyWahaMedia, ollamaModels, analyzeConversation, wahaAllowedMime } from './tools.mjs'
 import { analyzeWahaConversation } from './conversation-intelligence.mjs'
+import { createAudioTranscriber } from './audio-transcription.mjs'
 
 // Local-only authenticated companion: WAHA credentials never enter the browser.
 const home=os.homedir()
@@ -28,6 +29,7 @@ const origins=new Set(['https://crm-real-talent.vercel.app','http://127.0.0.1:51
 const wahaBase='http://127.0.0.1:4385'
 const watchers=new Set(), sent=new Map()
 const tools=createLocalTools(dataDir)
+const transcribeMessages=createAudioTranscriber({apiKey:key})
 const chatValid=v=>typeof v==='string'&&/^[a-zA-Z0-9_-]{5,70}@(c\.us|lid|g\.us)$/.test(v)
 const authenticated=v=>{
   if(typeof v!=='string'||!v.startsWith('Bearer '))return false
@@ -36,7 +38,7 @@ const authenticated=v=>{
 }
 function output(res,code,body){res.writeHead(code,{'Content-Type':'application/json; charset=utf-8','Cache-Control':'no-store'});res.end(JSON.stringify(body))}
 async function upstream(route,method='GET',body){
-  const r=await fetch(wahaBase+route,{method,headers:{'X-Api-Key':key,...(body?{'Content-Type':'application/json'}:{})},body:body?JSON.stringify(body):undefined,signal:AbortSignal.timeout(method==='POST'?50000:12000)})
+  const r=await fetch(wahaBase+route,{method,headers:{'X-Api-Key':key,...(body?{'Content-Type':'application/json'}:{})},body:body?JSON.stringify(body):undefined,signal:AbortSignal.timeout(method==='POST'?50000:route.includes('/messages?')?35000:12000)})
   if(!r.ok){const e=new Error('WAHA HTTP '+r.status);e.status=r.status;throw e}
   return r.status===204?{}:r.json()
 }
@@ -61,7 +63,7 @@ async function handler(req,res){
   if(!authenticated(req.headers.authorization)){output(res,401,{error:'invalid_bridge_token'});return}
   try{
     if(url.pathname==='/v1/features'&&req.method==='GET'){
-      output(res,200,{version:'conversation-intelligence-v1',features:['waha-chat','commercial-analysis','ask-about-chat','reply-draft'],autoSend:false});return
+      output(res,200,{version:'voice-transcription-v2',features:['waha-chat','commercial-analysis','ask-about-chat','reply-draft','local-audio-transcription'],autoSend:false});return
     }
     if(url.pathname==='/v1/session'&&req.method==='GET'){
       const v=await upstream('/api/sessions/'+session);output(res,200,{status:v.status||'UNKNOWN',session});return
@@ -102,7 +104,8 @@ async function handler(req,res){
     if(url.pathname==='/v1/ai/conversation'&&req.method==='POST'){
       const input=await readBody(req,1500)
       const result=await analyzeWahaConversation(input,{
-        readMessages:chatId=>upstream('/api/'+session+'/chats/'+encodeURIComponent(chatId)+'/messages?limit=60&downloadMedia=false')
+        readMessages:chatId=>upstream('/api/'+session+'/chats/'+encodeURIComponent(chatId)+'/messages?limit=60&downloadMedia=true'),
+        transcribeMessages
       })
       output(res,200,result);return
     }

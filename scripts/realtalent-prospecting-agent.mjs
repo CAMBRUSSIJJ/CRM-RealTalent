@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 import http from 'node:http'
+import {buildCompanySearchQueries,parseSearchHtmlResults,parseBingRssResults,isSearchChallenge} from './realtalent-company-search.mjs'
 import { promises as fs } from 'node:fs'
 import path from 'node:path'
 import os from 'node:os'
@@ -1391,7 +1392,9 @@ async function searchWeb(segment, region, limit = 18) {
       const response = await fetchWithTimeout(endpoint.toString(), { headers: { accept: 'text/html,application/xhtml+xml' } }, 18000)
       if (!response.ok) throw new Error(`Busca web HTTP ${response.status}`)
       const page = await readLimitedText(response, 900_000)
-      return parseWebSearchResults(page, endpoint.toString(), limit)
+      if (isSearchChallenge(page)) throw new Error('DuckDuckGo exigiu verificação de acesso; pesquisa não concluída.')
+        const parsed=parseSearchHtmlResults(page, endpoint.toString(), limit)
+        return parsed.length?parsed:parseWebSearchResults(page, endpoint.toString(), limit)
     })
     markProvider('webSearch', true)
     return results
@@ -2575,29 +2578,65 @@ const server = http.createServer(async (req, res) => {
     if (req.method === 'GET' && pathname === '/') return html(res, agentDashboardHtml())
     if (req.method === 'GET' && pathname === '/favicon.ico') { res.statusCode = 204; return res.end() }
     if (req.method === 'POST' && pathname === '/api/prospecting-agent/company/research') {
-      // Company name and city are intentionally the only CRM fields sent to public search.
-      // No contacts, notes, workspace IDs, or pipeline information leave this process.
-      const body = await readBody(req)
-      const company = clean(body.company).slice(0, 120)
-      const city = clean(body.city).slice(0, 100)
-      if (company.length < 3 || !/[^\\d\\W]/u.test(company) || !WEB_SEARCH_ENABLED)
-        return json(res, { ok: false, error: WEB_SEARCH_ENABLED ? 'invalid_company' : 'web_search_disabled' }, 400)
-      try {
-        const results = await searchWeb('"' + company.replace(/["<>\\r\\n]/g, ' ') + '"', city, 8)
-        return json(res, {
-          ok: true, provider: 'web_publica', results: results.map(item => ({
-            title: clean(item.title).slice(0, 170),
-            url: clean(item.url).slice(0, 550),
-            snippet: clean(item.snippet).slice(0, 500),
-          })),
-          checkedAt: now(),
-        })
-      } catch (error) {
-        return json(res, {
-          ok: false, error: 'public_search_unavailable',
-          message: error instanceof Error ? error.message.slice(0, 200) : 'Pesquisa pública indisponível.',
-        }, 502)
+      // Public-search input contains the business name and city only, no private CRM information.
+      const body=await readBody(req)
+      const company=clean(body.company).slice(0,120)
+      const city=clean(body.city).slice(0,100)
+      if(company.length<3||!/\p{L}/u.test(company))
+        return json(res,{ok:false,error:'invalid_company'},400)
+      if(!WEB_SEARCH_ENABLED)
+        return json(res,{ok:false,error:'web_search_disabled'},503)
+      const queries=buildCompanySearchQueries(company,city)
+      const results=[],seen=new Set(),attempts=[]
+      const addResults=(items,provider,query)=>{
+        let accepted=0
+        for(const result of items){
+          const key=String(result.url||'').replace(/\/$/,'').toLowerCase()
+          if(!key||seen.has(key))continue
+          seen.add(key)
+          results.push({title:clean(result.title).slice(0,170),url:String(result.url).slice(0,550),
+            snippet:clean(result.snippet).slice(0,500),provider})
+          accepted++
+          if(results.length>=12)break
+        }
+        attempts.push({query,provider,status:items.length?'results':'no_results',found:items.length,accepted})
       }
+      for(const query of queries){
+        try{
+          const found=await searchWeb(query,'',8)
+          addResults(found,'duckduckgo',query)
+        }catch(error){
+          attempts.push({query,provider:'duckduckgo',status:'error',reason:clean(error instanceof Error?error.message:error).slice(0,140)})
+        }
+        if(results.length>=8)break
+      }
+      // Optional public fallback with no credentials. Only use if HTML search yielded nothing.
+      if(!results.length){
+        for(const query of queries.slice(0,2)){
+          const endpoint=new URL('https://www.bing.com/search')
+          endpoint.searchParams.set('format','rss')
+          endpoint.searchParams.set('q',query)
+          try{
+            const response=await fetchWithTimeout(endpoint.toString(),{
+              headers:{accept:'application/rss+xml,application/xml,text/xml;q=0.8'},
+            },11000)
+            if(!response.ok)throw new Error('Bing RSS HTTP '+response.status)
+            const xml=await readLimitedText(response,450_000)
+            if(!/<rss\b|<channel\b/i.test(xml))throw new Error('Formato RSS inesperado ou bloqueio do buscador.')
+            const items=parseBingRssResults(xml,8)
+            addResults(items,'bing_rss',query)
+          }catch(error){
+            attempts.push({query,provider:'bing_rss',status:'error',reason:clean(error instanceof Error?error.message:error).slice(0,140)})
+          }
+          if(results.length>=5)break
+        }
+      }
+      const successes=attempts.filter(item=>item.status!=='error').length
+      if(!successes&&attempts.length)
+        return json(res,{ok:false,error:'public_search_unavailable',
+          message:'Buscadores indisponíveis; nenhuma conclusão sobre a existência da empresa foi produzida.',
+          attempts,checkedAt:now()},502)
+      return json(res,{ok:true,provider:results[0]?.provider||'web_publica',results,attempts,checkedAt:now()})
     }
     if (req.method === 'GET' && pathname === '/api/prospecting-agent/health') {
       return json(res, {

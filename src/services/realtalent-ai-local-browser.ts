@@ -25,7 +25,7 @@ export const LOCAL_AI_BROWSER_URL='http://127.0.0.1:8798/browser'
 const allowedGet=new Set(['/tools/health'])
 const allowedPost=new Set(['/tools/chat','/tools/chat-stream','/tools/research','/tools/route-intent',
   '/tools/plan-readonly','/tools/workflow-plan','/tools/workflow-synthesize',
-  '/tools/prospect-investigate','/tools/garimpo-conversation','/tools/generate-script',
+  '/tools/prospect-investigate','/tools/garimpo-conversation','/tools/company-ask','/tools/generate-script',
   '/tools/research-script','/tools/classify-work','/tools/revise-work'])
 
 export const localAiPairingPresent=()=>{

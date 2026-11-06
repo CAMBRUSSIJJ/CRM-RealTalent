@@ -204,8 +204,10 @@ export function WahaConversationsPage(){
         </div>
           <div className="waha-messages" role="log" aria-live="polite">
             {messages.map(m=><div key={m.id} className={'waha-bubble '+(m.fromMe?'out':'in')}>
+              {selectedId.endsWith('@g.us')&&!m.fromMe?
+                <strong className="waha-sender-name">{m.senderName||'Participante não identificado'}</strong>:null}
               {m.body?<p>{m.body}</p>:null}
-              {m.hasMedia?<WahaMessageMedia message={m} token={token}/>:null}
+              {m.hasMedia?<WahaMessageMedia message={m} token={token} chatId={selectedId}/>:null}
               <small>{messageTime(m.timestamp)} {m.fromMe&&m.ackName?<CheckCheck size={12} aria-label={m.ackName}/>:null}</small>
             </div>)}
             {!messages.length?<p className="waha-empty">Nenhuma mensagem carregada nesta conversa.</p>:null}

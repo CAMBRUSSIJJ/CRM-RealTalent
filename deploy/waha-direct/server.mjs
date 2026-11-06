@@ -186,7 +186,7 @@ async function handler(req,res){
       output(res,200,result);return
     }
     if(url.pathname==='/v1/ai/conversation'&&req.method==='POST'){
-      const input=await readBody(req,1500)
+      const input=await readBody(req,2400)
       const result=await analyzeWahaConversation(input,{
         readMessages:async chatId=>enrichGroupSenders(normalizeWahaMediaMessages(await upstream('/api/'+session+'/chats/'+encodeURIComponent(chatId)+'/messages?limit=60&downloadMedia=true')),chatId),
         transcribeMessages

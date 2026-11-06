@@ -89,6 +89,7 @@ export function TeamsPage() {
         <section className="work-section"><header><div><span className="eyebrow"><Activity size={14}/> Execução</span><h3>Tarefas da equipe</h3></div><a className="teams-operation__section-link" href={routeToHash('tasks',{filter:'team:'+selected.id})}>{teamOpenTasks.length} abertas <ArrowUpRight size={14}/></a></header>{teamOpenTasks.length?<div className="team-task-summary">{teamOpenTasks.slice(0,8).map((task)=><article key={task.id}><span className={`team-task-priority is-${task.priority}`}/><div><strong>{task.title}</strong><small>{task.assigneeName||'Sem responsável'} · {task.dueAt?new Date(task.dueAt).toLocaleDateString('pt-BR'):'Sem prazo'}</small></div><StatusPill tone={task.status==='blocked'?'danger':task.status==='in_progress'?'info':'warning'}>{task.status==='blocked'?'Bloqueada':task.status==='in_progress'?'Em andamento':'A fazer'}</StatusPill></article>)}</div>:<EmptyState icon={CheckCircle2} title="Sem tarefas abertas" description="Esta equipe está sem pendências atribuídas no momento."/>}</section></>:null}
       </>:<EmptyState icon={UsersRound} title="Crie uma equipe para começar" description="Depois você poderá acompanhar liderança, membros, carga de trabalho e tarefas relacionadas."/>}</main>
     </section>
-    <TeamModal open={canManage&&modalOpen} team={editing} memberships={data.memberships} members={members} loading={saving} onClose={()=>{setModalOpen(false);setEditing(null)}} onSubmit={save}/>
+    <TeamModal open={canManage&&modalOpen} team={editing} memberships={data.memberships} members={members}
+      tasks={editing?data.tasks.filter(task=>task.teamId===editing.id):[]} loading={saving} onClose={()=>{setModalOpen(false);setEditing(null)}} onSubmit={save}/>
   </div>
 }

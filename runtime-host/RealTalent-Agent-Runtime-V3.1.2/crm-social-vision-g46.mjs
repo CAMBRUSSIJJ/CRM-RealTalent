@@ -45,7 +45,7 @@ export async function analyzeLocalScreenshotG46(payload,{
     const response=await fetcher(ollamaUrl+'/api/chat',{
       method:'POST',signal:ctrl.signal,headers:{'content-type':'application/json'},
       body:JSON.stringify({
-        model,stream:false,format:schema,
+        model,stream:false,format:schema,keep_alive:0, // release vision model VRAM after each analysis
         messages:[{role:'system',content:[
           'Você analisa uma captura de tela fornecida pelo usuário, sem acesso ao Instagram.',
           'Identifique somente texto e conteúdo realmente visíveis na imagem. Responda em português.',

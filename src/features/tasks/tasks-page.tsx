@@ -339,6 +339,23 @@ export function TasksPage() {
           <button type="button" className="tasks-page-v4__reset" onClick={()=>{setOwner('all');setTeamId('all');setPriority('all');setView(layout);setQuery('')}}><X size={14}/> Limpar filtros</button>
         </div>
       </details>
+      <details className="tasks-page-v4__saved-views">
+        <summary>Visões salvas {savedViews.length?<b>{savedViews.length}</b>:null}</summary>
+        <div className="tasks-page-v4__saved-views-panel">
+          <strong>Visões deste workspace</strong>
+          {savedViews.length?savedViews.map(item=><div key={item.id} className="tasks-page-v4__saved-view-row">
+            <button type="button" onClick={()=>applySavedView(item)}>{item.name}</button>
+            <button type="button" aria-label={'Excluir visão '+item.name} title="Excluir visão" onClick={()=>removeSavedView(item.id)}><X size={14}/></button>
+          </div>):<small>Nenhuma visão salva ainda.</small>}
+          <form onSubmit={event=>{event.preventDefault();saveCurrentView()}}>
+            <label htmlFor="tasks-new-view">Salvar os filtros atuais</label>
+            <input id="tasks-new-view" maxLength={45} value={newViewName} onChange={event=>setNewViewName(event.target.value)}
+              placeholder="Ex.: Prioridades da equipe"/>
+            <button type="submit">Salvar visão</button>
+          </form>
+          <small>As visões ficam neste navegador, separadas por workspace.</small>
+        </div>
+      </details>
     </section>
 
     {filterActive ? <div className="tasks-page-v4__filter-status"><span>{totalFiltered} tarefa(s) {taskViewLabel}</span><button type="button" onClick={()=>setView(layout)}><X size={13}/> Mostrar todas</button></div> : null}

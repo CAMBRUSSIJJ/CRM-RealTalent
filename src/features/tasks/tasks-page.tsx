@@ -276,10 +276,11 @@ export function TasksPage() {
       </div>
       <span className="tasks-page-v4__divider" aria-hidden="true"/>
       <label className="tasks-page-v4__search"><Search size={16}/><input value={query} onChange={(event)=>setQuery(event.target.value)} aria-label="Buscar tarefas" placeholder="Buscar tarefas..." /></label>
-      <div className="tasks-page-v4__quick-filters" role="group" aria-label="Filtros rápidos">
-        <button type="button" className={view === 'today' ? 'is-active' : ''} onClick={()=>toggleTaskFilter('today')} aria-pressed={view === 'today'}><CalendarDays size={13} /><span>Hoje</span><b>{metrics.today}</b></button>
-        <button type="button" className={view === 'overdue' ? 'is-active is-overdue' : 'is-overdue'} onClick={()=>toggleTaskFilter('overdue')} aria-pressed={view === 'overdue'}><Clock3 size={13}/><span>Atrasadas</span><b>{metrics.overdue}</b></button>
-        <button type="button" className={view === 'blocked' ? 'is-active is-blocked' : 'is-blocked'} onClick={()=>toggleTaskFilter('blocked')} aria-pressed={view === 'blocked'}><AlertTriangle size={13}/><span>Bloqueadas</span><b>{metrics.blocked}</b></button>
+      <div className="tasks-page-v4__quick-filters" role="group" aria-label="Atalhos">
+        <button type="button" className={owner==='mine'?'is-active':''} aria-pressed={owner==='mine'}
+          onClick={()=>setOwner(current=>current==='mine'?'all':'mine')}><UserRound size={14}/> Minhas tarefas</button>
+        <button type="button" className={view==='blocked'?'is-active is-blocked':'is-blocked'} aria-pressed={view==='blocked'}
+          onClick={()=>toggleTaskFilter('blocked')}><AlertTriangle size={14}/> Bloqueadas <b>{metrics.blocked}</b></button>
       </div>
       <span className="tasks-page-v4__divider" aria-hidden="true"/>
       <details className="tasks-page-v4__filters">

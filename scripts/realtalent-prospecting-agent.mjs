@@ -2574,6 +2574,31 @@ const server = http.createServer(async (req, res) => {
   try {
     if (req.method === 'GET' && pathname === '/') return html(res, agentDashboardHtml())
     if (req.method === 'GET' && pathname === '/favicon.ico') { res.statusCode = 204; return res.end() }
+    if (req.method === 'POST' && pathname === '/api/prospecting-agent/company/research') {
+      // Company name and city are intentionally the only CRM fields sent to public search.
+      // No contacts, notes, workspace IDs, or pipeline information leave this process.
+      const body = await readBody(req)
+      const company = clean(body.company).slice(0, 120)
+      const city = clean(body.city).slice(0, 100)
+      if (company.length < 3 || !/[^\\d\\W]/u.test(company) || !WEB_SEARCH_ENABLED)
+        return json(res, { ok: false, error: WEB_SEARCH_ENABLED ? 'invalid_company' : 'web_search_disabled' }, 400)
+      try {
+        const results = await searchWeb('"' + company.replace(/["<>\\r\\n]/g, ' ') + '"', city, 8)
+        return json(res, {
+          ok: true, provider: 'web_publica', results: results.map(item => ({
+            title: clean(item.title).slice(0, 170),
+            url: clean(item.url).slice(0, 550),
+            snippet: clean(item.snippet).slice(0, 500),
+          })),
+          checkedAt: now(),
+        })
+      } catch (error) {
+        return json(res, {
+          ok: false, error: 'public_search_unavailable',
+          message: error instanceof Error ? error.message.slice(0, 200) : 'Pesquisa pública indisponível.',
+        }, 502)
+      }
+    }
     if (req.method === 'GET' && pathname === '/api/prospecting-agent/health') {
       return json(res, {
         ok: true, version: VERSION, pid: process.pid, host: HOST, port: PORT,

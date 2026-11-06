@@ -1704,6 +1704,15 @@ function ProcessingWorkspace({ readOnly, queue, active, leads, snapshot, onSelec
 }) {
   const [reviewFocus,setReviewFocus]=useState<'overview'|'investigation'|'intelligence'|'decision'>('investigation')
   useEffect(()=>{setReviewFocus('investigation')},[active?.id])
+  useEffect(()=>{
+    const onSource=(event:Event)=>{
+      const detail=(event as CustomEvent<{workspaceId?:string;prospectId?:string}>).detail
+      if(detail?.prospectId!==active?.id||detail?.workspaceId!==active?.workspaceId)return
+      setReviewFocus('intelligence')
+    }
+    window.addEventListener('realtalent:garimpo:g4:source-from-investigation',onSource)
+    return ()=>window.removeEventListener('realtalent:garimpo:g4:source-from-investigation',onSource)
+  },[active?.id,active?.workspaceId])
   useEffect(() => {
     const handler = (event: KeyboardEvent) => {
       if (readOnly || !active || event.metaKey || event.ctrlKey || event.altKey) return

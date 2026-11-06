@@ -273,7 +273,7 @@ export function TasksPage() {
       <button type="button" className={!filterActive?'is-active':''} aria-pressed={!filterActive}
         onClick={()=>setView(layout)}><span>Todas</span><strong>{metrics.all}</strong><small>Visão geral</small></button>
       <button type="button" className={view==='today'?'is-active':''} aria-pressed={view==='today'}
-        onClick={()=>toggleTaskFilter('today')}><span>Para hoje</span><strong>{metrics.today}</strong><small>Prazo de hoje</small></button>
+        onClick={()=>toggleTaskFilter('today')}><span>Hoje</span><strong>{metrics.today}</strong><small>Prazo de hoje</small></button>
       <button type="button" className={view==='overdue'?'is-active is-alert':''} aria-pressed={view==='overdue'}
         onClick={()=>toggleTaskFilter('overdue')}><span>Atrasadas</span><strong>{metrics.overdue}</strong><small>Exigem atenção</small></button>
       <button type="button" className={view==='in_progress'?'is-active':''} aria-pressed={view==='in_progress'}

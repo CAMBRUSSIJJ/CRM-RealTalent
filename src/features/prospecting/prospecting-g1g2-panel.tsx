@@ -122,6 +122,10 @@ export function ProspectingG1G2Panel({prospect,snapshot,readOnly}:Props){
     ['Confiança das evidências',score.evidenceConfidence],
   ]
   return <section className="prospecting-g1g2" aria-label="Investigação e qualificação explicável">
+    <ProspectingCompanyAssistant prospect={prospect}/>
+    <details className="prospecting-g1g2__score-disclosure">
+      <summary><span><ShieldCheck size={15}/> Indicadores, pendências e origem dos dados</span>
+        <span>ICP {score.fit}/100 · evidências {score.evidenceConfidence}/100</span></summary>
     <header className="prospecting-g1g2__header">
       <div><span className="eyebrow"><Sparkles size={14}/> Garimpo Inteligente · G1 + G2</span>
         <h4>Por que investigar esta empresa?</h4>
@@ -142,6 +146,7 @@ export function ProspectingG1G2Panel({prospect,snapshot,readOnly}:Props){
     <details className="prospecting-g1g2__evidence"><summary>Ver origem das evidências ({score.evidence.length})</summary>
       <ul>{score.evidence.map((e,i)=><li key={i}><strong>{e.type==='gap'?'Pendente':e.type==='inference'?'Inferência':'Informado'}</strong> · {e.label} <small>({e.source})</small></li>)}</ul>
     </details>
+    </details>
     <div className="prospecting-g1g2__investigate">
       <div><strong>Investigação com Qwen3 8B</strong>
       <small>Pesquisa o nome e a cidade em fontes públicas, lê páginas compatíveis e analisa as evidências. Não aprova nem envia empresas.</small></div>
@@ -150,7 +155,6 @@ export function ProspectingG1G2Panel({prospect,snapshot,readOnly}:Props){
         {busy?'Investigando…':result?'Investigar novamente':'Investigar com IA'}
       </Button>
     </div>
-    <ProspectingCompanyAssistant prospect={prospect}/>
     {error?<p className="prospecting-g1g2__error" role="alert">{error}</p>:null}
     {signalNotice?<p className="prospecting-g1g2__signal-notice" role="status">{signalNotice}</p>:null}
     {result?<div className="prospecting-g1g2__report" aria-live="polite">

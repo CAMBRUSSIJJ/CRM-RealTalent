@@ -6,6 +6,7 @@ import path from 'node:path'
 import { randomBytes, timingSafeEqual } from 'node:crypto'
 import { createLocalTools, proxyWahaMedia, ollamaModels, analyzeConversation, wahaAllowedMime, normalizeWahaMediaMessages, normalizeWahaMediaUrl } from './tools.mjs'
 import { createGroupSenderEnricher } from './group-senders.mjs'
+import { transcribeOneReceivedMessage } from './inline-voice.mjs'
 import { analyzeWahaConversation } from './conversation-intelligence.mjs'
 import { createAudioTranscriber } from './audio-transcription.mjs'
 
@@ -70,7 +71,7 @@ async function handler(req,res){
   if(!authenticated(req.headers.authorization)){output(res,401,{error:'invalid_bridge_token'});return}
   try{
     if(url.pathname==='/v1/features'&&req.method==='GET'){
-      output(res,200,{version:'group-media-v2.3',features:['waha-chat','commercial-analysis','ask-about-chat','reply-draft','local-audio-transcription'],autoSend:false});return
+      output(res,200,{version:'communication-experience-v3',features:['waha-chat','commercial-analysis','ask-about-chat','reply-draft','local-audio-transcription','inline-voice','group-identity','media-recovery'],autoSend:false});return
     }
     if(url.pathname==='/v1/session'&&req.method==='GET'){
       const v=await upstream('/api/sessions/'+session);output(res,200,{status:v.status||'UNKNOWN',session});return
@@ -124,6 +125,15 @@ async function handler(req,res){
         output(res,200,{available:models.length>0,models,description:models.length?'Ollama local disponível. Uso apenas sob comando.':'Instale um modelo local no Ollama.'})
       }catch{output(res,200,{available:false,models:[],description:'Ollama local não está disponível neste computador.'})}
       return
+    }
+    if(url.pathname==='/v1/ai/transcribe'&&req.method==='POST'){
+      const input=await readBody(req,900)
+      const result=await transcribeOneReceivedMessage(input,{
+        readMessages:async chatId=>normalizeWahaMediaMessages(await upstream(
+          '/api/'+session+'/chats/'+encodeURIComponent(chatId)+'/messages?limit=60&downloadMedia=true')),
+        transcribeMessages,
+      })
+      output(res,200,result);return
     }
     if(url.pathname==='/v1/ai/conversation'&&req.method==='POST'){
       const input=await readBody(req,1500)

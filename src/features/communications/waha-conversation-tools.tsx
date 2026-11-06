@@ -1,7 +1,9 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { BrainCircuit, Check, Clipboard, FileText, LoaderCircle, Paperclip, Star, Tag, X } from 'lucide-react'
+import { stageWahaTaskHandoff } from '../../services/waha-task-handoff'
+import { routeToHash } from '../../app/route-state'
 import {
-  wahaAiStatus, wahaAnalyzeSelectedConversation, wahaMediaBlob,
+  wahaAiStatus, wahaAnalyzeSelectedConversation, wahaMediaBlob, wahaTranscribeMessage,
   type WahaCommercialReport, type WahaAiConversationTask,
   type WahaChat, type WahaMessage, type WahaPreferences,
   type WahaQuickReply,
@@ -44,6 +46,19 @@ export function WahaToolsDrawer({mode,token,chats,selected,messages,prefs,onClos
     return()=>{active=false}
   },[mode,token])
 
+  function openNativeTask(description:string,evidenceText=''){
+    if(!selected)return
+    try{
+      stageWahaTaskHandoff({
+        title:description.slice(0,180),
+        description:'Sugestão comercial para revisão • conversa WAHA: '+chatName(selected)+
+          (evidenceText?'\nEvidência: '+evidenceText.slice(0,450):'')+
+          '\nConfira a conversa antes de assumir qualquer compromisso.',
+      })
+      onClose()
+      window.location.hash=routeToHash('tasks')
+    }catch(e){setError(e instanceof Error?e.message:'Não foi possível preparar a tarefa.')}
+  }
   async function change(patch:unknown){
     setError('');setSaving(true)
     try{await onPreference(patch)}
@@ -147,6 +162,10 @@ export function WahaToolsDrawer({mode,token,chats,selected,messages,prefs,onClos
               <details><summary>Ver evidências ({finding.evidence.length})</summary>
                 {finding.evidence.map(e=><blockquote key={e.id}><b>{e.id} · {e.fromMe?'Atendente':'Contato'}{e.source==='audio'?' · áudio transcrito':''}:</b> {e.text}</blockquote>)}
               </details>
+              {section.key==='nextSteps'?<button type="button" className="waha-handoff-button"
+                onClick={()=>openNativeTask(finding.description,finding.evidence[0]?.text||'')}>
+                <Clipboard size={14}/> Preparar tarefa no CRM
+              </button>:null}
             </article>)}
           </section>)}
           <p className="waha-panel-description"><strong>Limitações:</strong> {commercial.limitations}</p>
@@ -168,6 +187,19 @@ export function WahaToolsDrawer({mode,token,chats,selected,messages,prefs,onClos
           </details>:null}
         </div>:null}
       </>}
+      <section className="waha-crm-handoff" aria-label="Continuar no CRM">
+        <h4>Continuar o atendimento no CRM</h4>
+        <div className="waha-crm-links">
+          <a href={routeToHash('leads')}>Contatos</a>
+          <a href={routeToHash('pipeline')}>Pipeline</a>
+          <a href={routeToHash('followups')}>Follow-ups</a>
+          <a href={routeToHash('agenda')}>Agenda</a>
+          <a href={routeToHash('tasks')}>Tarefas</a>
+        </div>
+        <p className="waha-panel-description">
+          Preparar tarefa apenas abre o formulário preenchido. Revise e salve manualmente; a IA não envia mensagens nem cria negócios automaticamente.
+        </p>
+      </section>
       <p className="waha-panel-description">Análises são sugestões, não fatos garantidos. Confira as mensagens citadas e revise qualquer texto antes de enviá-lo ao contato.</p>
     </>
   }
@@ -181,23 +213,62 @@ export function WahaMessageMedia({message,token,chatId}:{message:WahaMessage;tok
   const [url,setUrl]=useState('')
   const [error,setError]=useState('')
   const [retry,setRetry]=useState(0)
+  const [transcript,setTranscript]=useState('')
+  const [voiceError,setVoiceError]=useState('')
+  const [transcribing,setTranscribing]=useState(false)
   const src=message.media?.url||message.mediaUrl||''
+  const mime=message.media?.mimetype||''
+  const filename=message.media?.filename||'Arquivo'
+  const incomingVoice=mime.startsWith('audio/')&&!message.fromMe
   useEffect(()=>{
     if(!message.hasMedia||(!src&&!message.id))return
     let active=true,objectUrl=''
     setUrl('');setError('')
-    void wahaMediaBlob(token,src,chatId,message.id).then(blob=>{if(!active)return;objectUrl=URL.createObjectURL(blob);setUrl(objectUrl)}).catch(e=>{if(active)setError(e instanceof Error?e.message:'Mídia indisponível.')})
+    void wahaMediaBlob(token,src,chatId,message.id).then(blob=>{
+      if(!active)return
+      objectUrl=URL.createObjectURL(blob)
+      setUrl(objectUrl)
+    }).catch(e=>{if(active)setError(e instanceof Error?e.message:'Mídia indisponível.')})
     return()=>{active=false;if(objectUrl)URL.revokeObjectURL(objectUrl)}
   },[message.id,src,message.hasMedia,token,chatId,retry])
+  useEffect(()=>{setTranscript('');setVoiceError('');setTranscribing(false)},[chatId,message.id])
+  async function transcribe(){
+    if(transcribing)return
+    setTranscribing(true);setVoiceError('')
+    try{
+      const response=await wahaTranscribeMessage(token,chatId,message.id)
+      if(response.chatId===chatId&&response.messageId===message.id)setTranscript(response.text)
+    }catch(e){
+      setVoiceError(e instanceof Error?e.message:'Falha ao transcrever o áudio.')
+    }finally{setTranscribing(false)}
+  }
   if(!message.hasMedia)return null
-  const mime=message.media?.mimetype||''
-  const filename=message.media?.filename||'Arquivo'
-  if(error)return <p className="waha-media"><Paperclip size={15}/> {filename}: {error}{' '}
-    <button type="button" onClick={()=>setRetry(x=>x+1)}>Tentar novamente</button>
-  </p>
-  if(!url)return <p className="waha-media"><LoaderCircle className="spin" size={15}/> Carregando mídia...</p>
-  if(mime.startsWith('image/'))return <a href={url} target="_blank" rel="noopener noreferrer"><img className="waha-chat-image" src={url} alt="Imagem da conversa"/></a>
-  if(mime.startsWith('audio/'))return <audio controls preload="none" src={url} className="waha-chat-audio"/>
-  if(mime.startsWith('video/'))return <video controls preload="none" src={url} className="waha-chat-video"/>
-  return <a href={url} download={filename} className="waha-media-download"><Paperclip size={15}/>{filename}</a>
+  let media:ReactNode
+  if(error){
+    media=<p className="waha-media"><Paperclip size={15}/> {filename}: {error}{' '}
+      <button type="button" onClick={()=>setRetry(x=>x+1)}>Tentar novamente</button>
+    </p>
+  }else if(!url){
+    media=<p className="waha-media"><LoaderCircle className="spin" size={15}/> Carregando mídia...</p>
+  }else if(mime.startsWith('image/')){
+    media=<a href={url} target="_blank" rel="noopener noreferrer"><img className="waha-chat-image" src={url} alt="Imagem recebida"/></a>
+  }else if(mime.startsWith('audio/')){
+    media=<audio controls preload="none" src={url} className="waha-chat-audio"/>
+  }else if(mime.startsWith('video/')){
+    media=<video controls preload="none" src={url} className="waha-chat-video"/>
+  }else{
+    media=<a href={url} download={filename} className="waha-media-download"><Paperclip size={15}/>{filename}</a>
+  }
+  return <div className="waha-message-media">
+    {media}
+    {incomingVoice?<div className="waha-voice-transcription">
+      <button type="button" className="waha-transcribe-btn" disabled={transcribing}
+        onClick={()=>void transcribe()}>
+        {transcribing?<LoaderCircle className="spin" size={14}/>:<BrainCircuit size={14}/>}
+        {transcribing?'Transcrevendo no Linux...':transcript?'Transcrever novamente':'Transcrever áudio'}
+      </button>
+      {transcript?<div className="waha-voice-text"><strong>Transcrição local · confira o conteúdo</strong><p>{transcript}</p></div>:null}
+      {voiceError?<p className="waha-voice-error" role="alert">{voiceError}</p>:null}
+    </div>:null}
+  </div>
 }

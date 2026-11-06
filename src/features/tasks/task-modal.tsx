@@ -13,6 +13,7 @@ import './task-board-v3.css'
 interface Props {
   open: boolean
   task: WorkTask | null
+  initialDraft?:{title:string;description:string}|null
   relation: TaskRelation | null
   checklist: TaskChecklistItem[]
   teams: Team[]
@@ -37,7 +38,7 @@ const toLocalInput = (value: string | null | undefined) => {
 }
 const toIso = (value: string) => value ? new Date(value).toISOString() : null
 
-export function TaskModal({ open, task, relation, checklist, teams, memberships, members, snapshot, workspaceId, repositoryMode, loading = false, onClose, onSubmit }: Props) {
+export function TaskModal({ open, task, initialDraft, relation, checklist, teams, memberships, members, snapshot, workspaceId, repositoryMode, loading = false, onClose, onSubmit }: Props) {
   const [title, setTitle] = useState('')
   const [description, setDescription] = useState('')
   const [status, setStatus] = useState<TaskStatus>('todo')
@@ -57,8 +58,8 @@ export function TaskModal({ open, task, relation, checklist, teams, memberships,
 
   useEffect(() => {
     if (!open) return
-    setTitle(task?.title ?? '')
-    setDescription(task?.description ?? '')
+    setTitle(task?.title ?? initialDraft?.title ?? '')
+    setDescription(task?.description ?? initialDraft?.description ?? '')
     setStatus(task?.status ?? 'todo')
     setPriority(task?.priority ?? 'normal')
     setDueAt(toLocalInput(task?.dueAt))
@@ -72,7 +73,7 @@ export function TaskModal({ open, task, relation, checklist, teams, memberships,
     setChecklistDraft([...checklist].sort((a, b) => a.position - b.position).map((item) => ({ id: item.id, title: item.title, completed: item.completed })))
     setNewChecklistTitle('')
     setHideCompleted(false)
-  }, [checklist, open, relation, task])
+  }, [checklist, open, relation, task, initialDraft])
 
   const activeTeams = useMemo(() => teams.filter((team) => team.active), [teams])
   const selectedTeam = useMemo(() => activeTeams.find((team) => team.id === teamId) ?? null, [activeTeams, teamId])
@@ -160,6 +161,9 @@ export function TaskModal({ open, task, relation, checklist, teams, memberships,
     </div>}
   >
     <div className="task-board-v3">
+      {!task&&initialDraft?<p role="status" style={{padding:'10px 12px',background:'#eef5ff',color:'#285298',borderRadius:10,fontSize:12}}>
+        Rascunho trazido da análise comercial do WhatsApp. Revise título, descrição e responsável antes de criar a tarefa. Nenhuma mensagem será enviada.
+      </p>:null}
       <label className="task-board-v3__title">
         <span className="task-board-v3__title-label">Título</span>
         <input autoFocus data-autofocus value={title} onChange={(event) => setTitle(event.target.value)} placeholder="Ex.: Revisar proposta para o cliente" aria-label="Título da tarefa" maxLength={250} />

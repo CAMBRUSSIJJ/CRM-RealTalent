@@ -17,7 +17,7 @@ curl --noproxy '*' -fsS --max-time 10 -H "X-Api-Key: $KEY" http://127.0.0.1:4385
 unset KEY
 BASE="https://raw.githubusercontent.com/CAMBRUSSIJJ/CRM-RealTalent/feat/waha-local-audio-transcription-20261106/deploy/waha-direct"
 echo "Atualizando ponte e dependências do mesmo commit/branch..."
-for name in server.mjs tools.mjs conversation-intelligence.mjs audio-transcription.mjs group-senders.mjs transcribe-audio.py instalar-transcricao-local-linux.sh;do
+for name in server.mjs tools.mjs conversation-intelligence.mjs audio-transcription.mjs group-senders.mjs inline-voice.mjs transcribe-audio.py instalar-transcricao-local-linux.sh;do
   curl -fL --retry 2 --max-time 40 "$BASE/$name" -o "$APP/$name"
   chmod 600 "$APP/$name"
 done

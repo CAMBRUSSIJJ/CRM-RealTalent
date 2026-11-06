@@ -35,3 +35,17 @@ html[data-theme="dark"] .prospecting-executive-g49__finding{background:#233a58;b
 html[data-theme="dark"] .prospecting-executive-g49__coverage span,html[data-theme="dark"] .prospecting-executive-g49__actions{background:#253e5c;border-color:#426285}
 html[data-theme="dark"] .prospecting-executive-g49__empty{background:#423b30;border-color:#685740;color:#f2d7a6}
 @media(max-width:640px){.prospecting-executive-g49{padding:11px}.prospecting-executive-g49__coverage{gap:5px}}
+
+/* G4.9.1: useful business facts are not automatically sales opportunities. */
+.prospecting-executive-g49__context{display:grid;gap:8px}
+.prospecting-executive-g49__context>article{display:grid;gap:7px;padding:11px 12px;border:1px solid #dce8f4;background:var(--rt-color-surface,#fff);border-radius:9px}
+.prospecting-executive-g49__context>article>div{display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap}
+.prospecting-executive-g49__context>article strong{font-size:11px;color:var(--text-primary,#31567e)}
+.prospecting-executive-g49__context>article>div small{font-size:10px;color:var(--text-secondary,#6c839c)}
+.prospecting-executive-g49__context>article p{margin:0;overflow-wrap:anywhere;font-size:11px;line-height:1.55;color:var(--text-primary,#47617a);border-left:2px solid #94b7d9;padding-left:9px}
+.prospecting-executive-g49__context>article footer{display:flex;align-items:center;gap:9px;justify-content:space-between;flex-wrap:wrap}
+.prospecting-executive-g49__context>article footer small{color:#85714e;font-size:10px;line-height:1.45}
+.prospecting-executive-g49__context>article footer a{display:inline-flex;gap:4px;align-items:center;font-size:10px;color:#246ab1;font-weight:750;text-decoration:none}
+.prospecting-executive-g49__context-next{margin:2px 0 0;padding:10px 12px;border-radius:8px;background:#f3f8ff;border:1px solid #deebf8;font-size:11px;line-height:1.55;color:var(--text-primary,#435e7f)}
+html[data-theme="dark"] .prospecting-executive-g49__context>article{background:#233a58;border-color:#415e80}
+html[data-theme="dark"] .prospecting-executive-g49__context-next{background:#243e5c;border-color:#436180}

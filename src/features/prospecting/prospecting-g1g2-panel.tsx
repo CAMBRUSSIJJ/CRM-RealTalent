@@ -7,6 +7,8 @@ import {explainProspectScore,prospectDecisionLabel} from '../../services/prospec
 import {scoreProspectWithIcp} from '../../services/prospecting-intelligence'
 import {env} from '../../lib/env'
 import {runtimeFetch} from '../../services/realtalent-runtime-transport'
+import {appendTriggerCandidatesG4,type TriggerCandidateG4,type TriggerSourceG4} from '../../services/prospecting-triggers-g4'
+import {appendRemoteTriggersG43,isTriggerCloudModeG43} from '../../services/prospecting-triggers-g43-remote'
 
 interface InvestigationSource {
   title:string;url:string;reading:'page'|'snippet';
@@ -19,6 +21,7 @@ interface Investigation {
   readTitle:string|null;quality:string;
   searchStatus?:'done'|'no_results'|'unavailable';
   sources?:InvestigationSource[]
+  candidateEvents?:TriggerCandidateG4[]
 }
 interface Props {prospect:ProspectRecord;snapshot:WorkspaceSnapshot}
 const safeSite=(url:string|null)=>{
@@ -34,10 +37,11 @@ export function ProspectingG1G2Panel({prospect,snapshot}:Props){
   const [busy,setBusy]=useState(false)
   const [result,setResult]=useState<Investigation|null>(null)
   const [error,setError]=useState('')
+  const [signalNotice,setSignalNotice]=useState('')
   const abortRef=useRef<AbortController|null>(null)
   useEffect(()=>{
     abortRef.current?.abort();abortRef.current=null
-    setResult(null);setError('');setBusy(false)
+    setResult(null);setError('');setSignalNotice('');setBusy(false)
     return ()=>{abortRef.current?.abort()}
   },[prospect.id,prospect.updatedAt])
   const run=async()=>{
@@ -45,7 +49,7 @@ export function ProspectingG1G2Panel({prospect,snapshot}:Props){
     const ctrl=new AbortController()
     abortRef.current=ctrl
     const timer=setTimeout(()=>ctrl.abort(),125000)
-    setBusy(true);setError('');setResult(null)
+    setBusy(true);setError('');setSignalNotice('');setResult(null)
     try{
       const response=await runtimeFetch(env.agentGatewayUrl+'/tools/prospect-investigate',{
         method:'POST',signal:ctrl.signal,
@@ -60,7 +64,41 @@ export function ProspectingG1G2Panel({prospect,snapshot}:Props){
       if(!response.ok)throw Error(response.status===429?'Ollama ocupado. Tente novamente.':'A investigação local não respondeu.')
       const data=await response.json() as Investigation
       if(!data.ok)throw Error('O modelo não conseguiu verificar esta empresa.')
-      if(!ctrl.signal.aborted)setResult(data)
+      let created=0
+      const issues:string[]=[]
+      if(Array.isArray(data.candidateEvents)&&data.candidateEvents.length){
+        const cloud=isTriggerCloudModeG43()
+        for(const item of data.sources||[]){
+          const relevant=data.candidateEvents.filter(candidate=>candidate.sourceUrl===item.url)
+          if(!relevant.length||item.reading!=='page'||item.identity==='unconfirmed'||item.excerpt.length<35)continue
+          const source:TriggerSourceG4={
+            company:prospect.company||prospect.name,city:prospect.city,
+            sector:String(prospect.rawData?.category||'').slice(0,100),
+            sourceUrl:item.url,excerpt:item.excerpt,
+          }
+          try{
+            const added=cloud
+              ?await appendRemoteTriggersG43(prospect.workspaceId,prospect,relevant,source)
+              :appendTriggerCandidatesG4(prospect.workspaceId,prospect,relevant,source,window.localStorage)
+            created+=added.length
+          }catch(e){
+            issues.push(e instanceof Error?e.message:'Falha ao gravar sinal em revisão.')
+          }
+        }
+        if(created)window.dispatchEvent(new CustomEvent('realtalent:garimpo:g4:change',{
+          detail:{workspaceId:prospect.workspaceId,prospectId:prospect.id},
+        }))
+      }
+      if(!ctrl.signal.aborted){
+        setResult(data)
+        setSignalNotice(issues.length
+          ?'A análise foi concluída, mas houve falha ao sincronizar os sinais no G4: '+issues.slice(0,2).join(' · ')
+          :created
+            ?created+' sinal(is) criado(s) como PENDENTE no G4. Verifique a fonte antes de aprovar.'
+            :Array.isArray(data.candidateEvents)&&data.candidateEvents.length
+              ?'Os acontecimentos já estavam cadastrados ou não passaram na validação de evidências.'
+              :'Nenhum acontecimento explícito e verificável foi classificado nesta investigação.')
+      }
     }catch(e){
       if(!ctrl.signal.aborted)setError(e instanceof Error?e.message:'Não foi possível analisar.')
     }finally{
@@ -110,6 +148,7 @@ export function ProspectingG1G2Panel({prospect,snapshot}:Props){
       </Button>
     </div>
     {error?<p className="prospecting-g1g2__error" role="alert">{error}</p>:null}
+    {signalNotice?<p className="prospecting-g1g2__signal-notice" role="status">{signalNotice}</p>:null}
     {result?<div className="prospecting-g1g2__report" aria-live="polite">
       <div className="prospecting-g1g2__report-source">
         <span>{result.pageRead?'Fonte pública compatível lida':'Sem leitura externa compatível confirmada'}</span>

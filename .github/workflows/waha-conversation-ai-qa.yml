@@ -1,7 +1,7 @@
 name: WAHA Conversation Intelligence - QA
 on:
   push:
-    branches: [feat/waha-conversation-intelligence-20261106]
+    branches: [feat/waha-conversation-intelligence-20261106, feat/waha-local-audio-transcription-20261106]
   pull_request:
     paths:
       - 'deploy/waha-direct/**'
@@ -21,9 +21,9 @@ jobs:
           cache: npm
       - run: npm ci --include=dev
       - name: Validate WAHA and conversation AI
-        run: node --test deploy/waha-direct/server.test.mjs deploy/waha-direct/tools.test.mjs deploy/waha-direct/conversation-intelligence.test.mjs
+        run: node --test deploy/waha-direct/server.test.mjs deploy/waha-direct/tools.test.mjs deploy/waha-direct/conversation-intelligence.test.mjs deploy/waha-direct/audio-transcription.test.mjs
       - name: Verify Linux CRM preview launcher syntax
-        run: bash -n deploy/waha-direct/abrir-crm-v101-waha-linux.sh
+        run: bash -n deploy/waha-direct/abrir-crm-v101-waha-linux.sh deploy/waha-direct/instalar-transcricao-local-linux.sh
       - name: TypeScript check
         run: npm run typecheck
       - name: Build CRM V101.11.3

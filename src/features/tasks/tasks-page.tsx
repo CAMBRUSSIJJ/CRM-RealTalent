@@ -401,8 +401,9 @@ function TaskBoard({ tasks, teamById, relationByTask, checklistItems, diagnostic
         onDragLeave={(event)=>{ if(!event.currentTarget.contains(event.relatedTarget as Node|null))setDropTarget(null) }}
         onDrop={(event)=>moveTask(event,column.status)}>
         <header className="tasks-page-v4__column-heading">
-          <strong>{column.label}</strong>
-          <span>{entries.length}</span>
+          <div className="tasks-page-v4__column-title"><strong>{column.label}</strong><span>{entries.length}</span></div>
+          {canCreate?<button type="button" className="tasks-page-v4__column-add" aria-label={'Criar tarefa em '+column.label}
+            title={'Nova tarefa em '+column.label} onClick={()=>{setQuickColumn(column.status);setQuickTitle('');setQuickError('')}}><Plus size={16}/></button>:null}
         </header>
         <div className="tasks-page-v4__column-body">
           {entries.length ? entries.map((task)=>{
@@ -438,8 +439,17 @@ function TaskBoard({ tasks, teamById, relationByTask, checklistItems, diagnostic
           }) : <div className="tasks-page-v4__empty-column">
             <ListChecks size={19}/>
             <span>{column.status==='todo' ? 'Nenhuma tarefa pendente' : 'Nenhuma tarefa nesta etapa'}</span>
-            {column.status==='todo' && canCreate ? <button type="button" onClick={onCreate}><Plus size={13}/> Criar tarefa rápida</button> : null}
+            {canCreate ? <button type="button" onClick={()=>{setQuickColumn(column.status);setQuickTitle('');setQuickError('')}}><Plus size={13}/> Adicionar tarefa</button>:null}
           </div>}
+          {quickColumn===column.status&&canCreate?<form className="tasks-page-v4__quick-create"
+            onSubmit={event=>{event.preventDefault();void createInline(column.status)}}>
+            <label htmlFor={'quick-task-'+column.status}>Nova tarefa em {column.label}</label>
+            <input id={'quick-task-'+column.status} autoFocus maxLength={250} value={quickTitle}
+              onChange={event=>setQuickTitle(event.target.value)} placeholder="Digite o nome da tarefa..." />
+            {quickError?<small role="alert">{quickError}</small>:null}
+            <div><button type="button" onClick={()=>{setQuickColumn(null);setQuickTitle('')}}>Cancelar</button>
+              <button type="submit" disabled={!quickTitle.trim()||quickSaving}>{quickSaving?'Salvando...':'Criar tarefa'}</button></div>
+          </form>:null}
         </div>
       </section>
     })}

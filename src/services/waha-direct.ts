@@ -29,7 +29,7 @@ async function request<T>(route:string,token:string,method='GET',payload?:unknow
     res=await fetch(LOCAL+route,{
       method,mode:'cors',cache:'no-store',headers:{Authorization:'Bearer '+token,...(payload?{'Content-Type':'application/json'}:{})},
       body:payload?JSON.stringify(payload):undefined,
-      signal:AbortSignal.timeout(16000),
+      signal:AbortSignal.timeout(route==='/v1/ai/analyze'?120000:16000),
     })
   }catch{throw new Error('A ponte WAHA não está acessível neste computador. Inicie o conector Linux na porta 4390.')}
   if(!res.ok){

@@ -1,5 +1,5 @@
 import path from 'node:path'
-import {createLocalTaskWhatsAppScheduler} from '../../scripts/local-task-whatsapp-scheduler.mjs'
+import {createLocalTaskWhatsAppScheduler} from './local-task-whatsapp-scheduler.mjs'
 
 // Reuse the durable, opt-in, idempotent task scheduler with WAHA GOWS as sole
 // transport. No separate QR login. No consent inferred from task snapshots.

@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 echo "==========================================="
-echo " RealTalent V101.11.3 + WAHA GOWS"
+echo " RealTalent V101.11.3 + WAHA Ferramentas"
 echo " Preserva a Central Pure Chat e o WhatsApp"
 echo "==========================================="
 command -v git >/dev/null || { echo "Instale git: sudo apt install git"; exit 1; }
@@ -9,7 +9,7 @@ command -v npm >/dev/null || { echo "Node/npm indisponíveis."; exit 1; }
 node -e 'if(Number(process.versions.node.split(".")[0])!==22)process.exit(1)' || { echo "É necessário Node.js 22."; exit 1; }
 APP="$HOME/Downloads/RealTalent-CRM-V101-WAHA"
 REPO="https://github.com/CAMBRUSSIJJ/CRM-RealTalent.git"
-BRANCH="feat/waha-on-crm-v101-20261105"
+BRANCH="feat/waha-tools-in-crm-v101-20261106"
 WAHA_ENV="$HOME/.local/share/realtalent-waha-gows/.env"
 [[ -f "$WAHA_ENV" ]] || { echo "WAHA local não encontrado. Nenhuma sessão foi alterada."; exit 1; }
 KEY=$(sed -n 's/^WAHA_API_KEY=//p' "$WAHA_ENV")
@@ -22,6 +22,27 @@ if [[ "$RESPONSE" != *'"WORKING"'* ]]; then
   exit 1
 fi
 unset RESPONSE
+# Avoid replacing running services or conflicting with old preview.
+if curl --noproxy '*' -fsS --max-time 2 http://127.0.0.1:5174/ >/dev/null 2>&1; then
+  echo "O CRM V101 está aberto na porta 5174."
+  echo "Feche o terminal da prévia anterior com Ctrl+C e execute este instalador novamente."
+  exit 1
+fi
+if curl --noproxy '*' -fsS --max-time 2 http://127.0.0.1:4392/health >/dev/null 2>&1; then
+  TOKEN_FILE="$HOME/.local/share/realtalent-waha-direct/access-token"
+  if [[ ! -f "$TOKEN_FILE" ]]; then
+    echo "Ponte 4392 ativa, mas token local não encontrado. Encerre a ponte antiga antes de continuar."
+    exit 1
+  fi
+  BRIDGE_TOKEN=$(cat "$TOKEN_FILE")
+  TOOLS_STATUS=$(curl --noproxy '*' -s -o /dev/null -w '%{http_code}' --max-time 5 -H "Authorization: Bearer $BRIDGE_TOKEN" http://127.0.0.1:4392/v1/preferences || true)
+  unset BRIDGE_TOKEN
+  if [[ "$TOOLS_STATUS" != "200" ]]; then
+    echo "A ponte WAHA da versão anterior ainda está ativa (porta 4392)."
+    echo "Feche o terminal da ponte antiga com Ctrl+C e tente novamente. Nenhuma sessão do WhatsApp será afetada."
+    exit 1
+  fi
+fi
 if [[ -e "$APP" && ! -d "$APP/.git" ]]; then
   echo "O destino já existe e não contém o repositório: $APP"
   echo "Nada foi sobrescrito. Renomeie a pasta ou mova os seus arquivos antes."
@@ -75,8 +96,8 @@ echo "===== VERSÃO CORRETA ====="
 node -p '"CRM V" + require("./package.json").version + " — Central Pure Chat preservada"'
 echo "CRM V101.11.3: http://127.0.0.1:5174/"
 echo "Chave da ponte: http://127.0.0.1:4392/"
-echo "Entre na aba Comunicação > WAHA GOWS local."
-echo "A outra prévia antiga em 5173 não será alterada."
+echo "Entre na aba Comunicação > WAHA GOWS local > Ferramentas."
+echo "WAHA Docker e a prévia antiga em 5173 permanecem intactos."
 echo "Ctrl+C para sair; WAHA Docker e o WhatsApp permanecem conectados."
 echo
 (sleep 3; xdg-open http://127.0.0.1:5174/ >/dev/null 2>&1 || true) &

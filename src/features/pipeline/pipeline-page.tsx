@@ -571,6 +571,11 @@ export function PipelinePage() {
           <time className={overdue ? 'is-overdue' : !lead.nextActionAt ? 'is-missing' : ''} dateTime={lead.nextActionAt ?? undefined}><Clock3 size={12} />{nextActionLabel}</time>
         </span>
       </button>
+      {triggerSignals.some(item=>item.leadId===lead.id)?<button
+        type="button" className="sales-pipeline-v3__trigger-badge"
+        onClick={()=>setTriggerInspectLeadId(lead.id)}>
+        <Sparkles size={13}/> {triggerSignals.filter(item=>item.leadId===lead.id).length} sinal(is) revisado(s)
+      </button>:null}
       <div className="sales-pipeline-v3__quick-actions">{renderQuickActions(lead, 'card')}</div>
     </article>
   }

@@ -18,7 +18,18 @@ const fakeWaha=http.createServer((req,res)=>{
   if(url.pathname==='/api/sessions/realtalent')reply={status:'WORKING'}
   else if(url.pathname==='/api/realtalent/chats/overview')reply=[{id:'12345678901@lid',name:'Contato teste',lastMessage:{body:'Olá',timestamp:1793890000}}]
   else if(url.pathname==='/api/contacts/check-exists')reply={numberExists:true,chatId:'12345678901@lid'}
-  else if(url.pathname==='/api/realtalent/chats/12345678901%40lid/messages')reply=[{id:'msg1',body:'Precisamos de treinamento, mas orçamento é limitado.',fromMe:false,timestamp:1793890000}]
+  else if(url.pathname==='/api/realtalent/chats/12345678901%40lid/messages')reply=[{
+    id:'msg1',body:'Precisamos de treinamento, mas orçamento é limitado.',
+    fromMe:false,timestamp:1793890000,
+    ...(url.searchParams.get('limit')==='50'?{hasMedia:true,media:{
+      mimetype:'audio/ogg',url:'http://localhost:3000/api/files/true_12345678901@lid_voice.ogg'
+    }}:{})
+  }]
+  else if(url.pathname==='/api/files/true_12345678901@lid_voice.ogg'){
+    res.writeHead(200,{'Content-Type':'audio/ogg'})
+    res.end(Buffer.from('mock-audio-bytes'))
+    return
+  }
   else if(url.pathname==='/api/sendText'){count++;reply={id:'test-message-id'}}
   else {res.writeHead(404);res.end();return}
   res.writeHead(200,{'Content-Type':'application/json'});res.end(JSON.stringify(reply))
@@ -65,6 +76,14 @@ test('WAHA local bridge: authentication, conversations, resolve, send without du
     assert.equal((await pre.json()).status,'WORKING')
     const chats=await (await fetch(base+'/v1/chats',{headers})).json()
     assert.equal(chats[0].id,'12345678901@lid')
+    const inbound=await (await fetch(base+'/v1/messages?chatId=12345678901%40lid',{headers})).json()
+    assert.equal(inbound[0].media.url,'/api/files/true_12345678901@lid_voice.ogg')
+    const clip=await fetch(base+'/v1/media?src='+encodeURIComponent(inbound[0].media.url),{headers})
+    assert.equal(clip.status,200,'WAHA media is served by loopback proxy, not Docker hostname')
+    assert.equal(await clip.text(),'mock-audio-bytes')
+    const originalDockerUrl='http://localhost:3000/api/files/true_12345678901@lid_voice.ogg'
+    assert.equal((await fetch(base+'/v1/media?src='+encodeURIComponent(originalDockerUrl),{headers})).status,400,
+      'the browser cannot submit arbitrary non-loopback origins')
     const checked=await (await fetch(base+'/v1/resolve?phone=5551999999999',{headers})).json()
     assert.equal(checked.chatId,'12345678901@lid')
     const id='00000000-0000-4000-a000-000000000001'

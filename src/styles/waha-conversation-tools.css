@@ -67,3 +67,33 @@
 .waha-commercial-finding details summary{cursor:pointer;color:#2554a8;font-weight:650;padding:3px 0}
 .waha-commercial-finding blockquote{margin:8px 0;border-left:2px solid #b2c7e8;padding:5px 8px;background:#f6f9fe;line-height:1.5;white-space:pre-wrap}
 .waha-commercial-finding blockquote b{color:#31496d}
+
+
+/* 3-column CRM communication desk; context pane is no longer a floating modal. */
+.waha-layout.with-panel{grid-template-columns:minmax(230px,280px) minmax(330px,1fr) minmax(285px,335px)}
+.waha-layout>.waha-tools-drawer{position:static;inset:auto;width:auto;min-width:0;min-height:0;height:100%;
+  z-index:auto;box-shadow:none;border:0;border-left:1px solid #dce5f2;border-radius:0;background:#fff}
+.waha-layout>.waha-tools-drawer .waha-tools-drawer-content{padding:15px;scrollbar-width:thin}
+.waha-message-media{display:grid;gap:7px;max-width:100%}
+.waha-voice-transcription{display:grid;gap:6px;max-width:360px}
+.waha-transcribe-btn{display:inline-flex;align-items:center;gap:7px;justify-self:start;background:#f1f6ff;
+  border:1px solid #cbdcf6;border-radius:8px;color:#2458ad;font-size:11px;padding:7px 9px}
+.waha-transcribe-btn:disabled{opacity:.65;cursor:progress}
+.waha-voice-text{background:#f5f9ff;border:1px solid #dbe7f8;border-radius:9px;padding:10px 11px;max-width:340px}
+.waha-voice-text strong{font-size:10px;color:#2c58a2}
+.waha-voice-text p{font-size:12px;margin:5px 0 0;white-space:pre-wrap;line-height:1.5}
+.waha-voice-error{font-size:11px;color:#a34426}
+.waha-crm-handoff{border-top:1px solid #e3eaf5;margin-top:10px;padding-top:12px;display:grid;gap:8px}
+.waha-crm-handoff button,.waha-crm-handoff a{border:1px solid #d4dff0;border-radius:9px;background:#fff;padding:9px;color:#2752a5;
+  font-size:12px;text-decoration:none;display:flex;align-items:center;gap:7px;cursor:pointer}
+.waha-crm-handoff button:disabled{cursor:not-allowed;opacity:.5}
+.waha-crm-links{display:flex;gap:6px;flex-wrap:wrap}
+@media(max-width:1250px){
+  .waha-layout.with-panel{grid-template-columns:minmax(240px,300px) minmax(0,1fr);position:relative}
+  .waha-layout.with-panel>.waha-tools-drawer{position:absolute;top:0;bottom:0;right:0;width:min(365px,65%);
+    box-shadow:-16px 0 38px #182f511e;z-index:5}
+}
+@media(max-width:650px){
+  .waha-layout.with-panel{display:flex;flex-direction:column}
+  .waha-layout.with-panel>.waha-tools-drawer{position:absolute;top:0;bottom:0;right:0;width:100%}
+}

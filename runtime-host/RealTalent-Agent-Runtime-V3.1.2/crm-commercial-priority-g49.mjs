@@ -72,7 +72,7 @@ const sanitizedPost=(p)=>{
 }
 // Informational context may be valuable even when no defensible buying signal
 // exists. Require a specific phrase in the quoted source and avoid empty slogans.
-const substantive=/\b(?:servi[cç]os?|produto[s]?|cortes?|barbas?|pr[oó]tese|agendamento|consultoria|treinamento|cursos?|aulas?|tratamentos?|atendimento|unidades?|filiais?|parceria[s]?|equipe|evento[s]?|lan[cç]amento|promo[cç][aã]o|desconto|pacotes?|novidades?|entregas?|inscri[cç][aã]o)\b/i
+const substantive=/\b(?:servi[cç]os?|produto[s]?|cortes?|barbas?|riscos nas laterais|t[eé]cnicas?|especialidades?|pr[oó]tese|agendamento|consultoria|treinamento|cursos?|aulas?|tratamentos?|atendimento|unidades?|filiais?|parceria[s]?|equipe|evento[s]?|lan[cç]amento|promo[cç][aã]o|desconto|pacotes?|novidades?|entregas?|inscri[cç][aã]o)\b/i
 const slogan=/^(?:aqui [eé] assim|bem.vindos?|bom dia|boa tarde|vem renovar|siga|curta|compartilhe|marque seu amigo|chegou o grande dia)\b/i
 const contextWorthShowing=p=>p.quote.length>=24&&p.topic!=='other'&&
   !p.oldHistorical&&p.score>=1&&substantive.test(p.quote)&&
@@ -158,7 +158,7 @@ export function createCommercialExecutiveG49({
     'Nenhuma oportunidade, necessidade ou evento foi confirmado automaticamente.',
   ]
   return {
-    version:'g49',status,company:clean(company,120),checkedAt:clean(checkedAt,40),
+    version:'g491',status,company:clean(company,120),checkedAt:clean(checkedAt,40),
     executive,discoveries,contextHighlights,actions,
     coverage:{indexed,analyzed,selected:discoveries.length+contextHighlights.length,
       commercial:discoveries.length,context:contextHighlights.length},

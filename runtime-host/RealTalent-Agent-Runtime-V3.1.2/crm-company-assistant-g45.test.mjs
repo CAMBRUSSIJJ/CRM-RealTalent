@@ -107,24 +107,39 @@ test('public search contains name/city/focus only and never private CRM data',as
 })
 
 test('Instagram public HTML and metadata reading are labeled, never treated as the full feed',async()=>{
-  let prompt=''
+  let analyzerPayload=null
   const result=await answerCompanyQuestionG45(company,{
     searcher:async()=>({ok:true,sources:instagram}),
     enricher:async sources=>sources.map((source,i)=>({...source,
       reading:i===0?'metadata':'snippet',excerpt:i===0?'Salento Barbearia em Rio Grande, prótese capilar.':'',
       readStatus:i===0?'metadata_only':'no_accessible_text'})),
-    fetcher:async(url,options)=>{
-      const body=JSON.parse(options.body)
-      prompt=body.messages[1].content
-      return {ok:true,json:async()=>({message:{content:JSON.stringify({
-        answer:'Fontes públicas indicam serviços de barbearia [1]. A necessidade de treinamento ainda precisa ser investigada.'
-      })}})}
-    },
+    postAnalyzer:async payload=>{analyzerPayload=payload;return {status:'insufficient_evidence',posts:[],message:'Sem evidências suficientes.'}},
+    fetcher:async()=>{throw Error('No secondary model call is required when posts are indexed.')},
   })
   assert.equal(result.pagesRead,0)
   assert.equal(result.metadataRead,1)
   assert.equal(result.sources[0].reading,'metadata')
-  assert.match(prompt,/metadata/)
-  assert.match(prompt,/prótese capilar/)
-  assert.match(result.answer,/precisa ser investigada/)
+  assert.equal(analyzerPayload.sources.length,1)
+  assert.equal(analyzerPayload.sources[0].reading,'snippet')
+  assert.equal(result.postAnalyses.length,0)
+  assert.match(result.answer,/não consegui confirmar uma análise individual/)
+})
+test('a real post analysis is returned with a review-only status',async()=>{
+  const result=await answerCompanyQuestionG45(company,{
+    searcher:async()=>({ok:true,sources:instagram}),
+    enricher:async sources=>sources,
+    postAnalyzer:async()=>({status:'analyzed',posts:[{
+      id:1,url:'https://www.instagram.com/reel/DFIyayaxCM7/',
+      title:'Salento Barbearia - reel',quote:'Salento Barbearia em Rio Grande RS.',
+      observation:'Post menciona a cidade.',topic:'positioning',
+      strategicReading:'Há foco em presença local.',commercialHypothesis:'Hipótese a verificar.',
+      diagnosticQuestion:'Como vocês acompanham clientes locais?',reviewStatus:'analysis_only',
+      evidenceLevel:'snippet',
+    }],message:'Análise limitada ao snippet.'}),
+    fetcher:async()=>{throw Error('No extra calls expected')},
+  })
+  assert.equal(result.postAnalyses.length,1)
+  assert.equal(result.postAnalyses[0].reviewStatus,'analysis_only')
+  assert.equal(result.postAnalysisStatus,'analyzed')
+  assert.match(result.answer,/analisei 1/)
 })

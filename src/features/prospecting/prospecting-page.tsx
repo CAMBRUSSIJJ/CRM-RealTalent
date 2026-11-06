@@ -47,6 +47,7 @@ import { buildProspectingIcp, prospectingIcpSummary, rankProspects } from '../..
 import { ProspectingRedesignSearch, ProspectingRedesignShell } from './prospecting-redesign'
 import { ProspectingG1G2Panel } from './prospecting-g1g2-panel'
 import type { GarimpoSearchProposal } from './garimpo-conversation-g3'
+import {WonSalesProspectingSignals} from '../won-sales/won-sales-prospecting-signals'
 import {buildProspectingHandoffMetrics,isProspectTransferable,transferableProspectIds,
   linkedCrmLeadId,linkedCrmCompanyId,summarizeHandoffReceipt,type ProspectingBatchReceipt,type ProspectingHandoffReceipt
 } from '../../services/prospecting-handoff-r1'
@@ -1052,7 +1053,15 @@ export function ProspectingPage() {
             'Quero encontrar empresas reais no Garimpo.'
           )}>Conversar <ArrowRight size={15}/></Button>
         </section> : null}
-        {tab === 'search' || tab === 'local' ? <>
+        {tab === 'search' || tab === 'local' ? <WonSalesProspectingSignals
+        workspaceId={workspaceId}
+        wins={(snapshot?.leads??[]).filter(lead=>lead.status==='won' && canTeamAccessRecord('pipeline',lead.ownerId))}
+        onInvestigate={prompt=>openMainAgent(
+          prompt+' Contexto fornecido pelo usuário: cidade/região: '+(city||'não definida')+
+          '; segmento: '+(segment||'não definido')+'. Não presuma localização nem segmento ausentes.'
+        )}
+      />:null}
+      {tab === 'search' || tab === 'local' ? <>
           <ProspectingRedesignSearch
             segment={segment}
             city={city}

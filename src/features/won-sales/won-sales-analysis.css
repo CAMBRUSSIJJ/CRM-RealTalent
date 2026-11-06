@@ -1,0 +1,77 @@
+.won-sales{--won-blue:#275fb6;display:grid;gap:16px;min-width:0;color:var(--rt-color-text,#2b4566)}
+.won-sales__header{display:flex;align-items:flex-start;justify-content:space-between;gap:12px}
+.won-sales__header h2{font-size:19px;margin:4px 0 4px;letter-spacing:-.02em;color:var(--rt-color-text,#274467)}
+.won-sales__header p{font-size:12px;line-height:1.5;margin:0;color:#7788a0}
+.won-sales__eyebrow{display:inline-flex;align-items:center;gap:6px;color:var(--won-blue);font-size:11px;font-weight:750}
+.won-sales__export{display:flex;align-items:center;gap:6px;white-space:nowrap;flex:0 0 auto;border:1px solid #cedff2;border-radius:9px;background:#fff;color:#2b5aa4;padding:8px 11px;font-size:11px;cursor:pointer}
+.won-sales__export:disabled{opacity:.55;cursor:not-allowed}
+.won-sales__notice{display:flex;align-items:flex-start;gap:7px;padding:10px 12px;border:1px solid #d8e7f7;border-radius:9px;background:#f2f7fe;font-size:11px;line-height:1.55;color:#516e95;margin:0}
+.won-sales__notice svg{flex:0 0 15px;margin-top:1px}
+.won-sales__kpis{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:11px}
+.won-sales__kpis article{display:grid;gap:6px;border:1px solid #dfe8f4;border-radius:12px;padding:14px;background:#fff}
+.won-sales__kpis span{font-size:11px;color:#6e819b}
+.won-sales__kpis strong{font-size:25px;color:#2a528a;line-height:1}
+.won-sales__sections{display:grid;grid-template-columns:minmax(0,1.05fr) minmax(0,1fr);gap:13px;min-width:0}
+.won-sales__sections>section{padding:16px;border:1px solid #dfe8f3;border-radius:12px;background:var(--rt-color-surface,#fff);min-width:0}
+.won-sales__section-head{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:14px}
+.won-sales__section-head h3{font-size:14px;margin:0;color:#30537d}
+.won-sales__section-head small{font-size:10px;color:#8194ac}
+.won-sales__pattern-list,.won-sales__win-list{display:grid;gap:8px;min-width:0;max-height:410px;overflow-y:auto;scrollbar-width:thin}
+.won-sales__pattern-list article{padding:11px;border:1px solid #e0e9f5;border-radius:10px;display:grid;gap:7px;background:#fafcff}
+.won-sales__pattern-list article>div:first-child{display:grid;gap:3px}
+.won-sales__pattern-list article strong{font-size:12px;color:#2c517e}
+.won-sales__pattern-list article small{font-size:10px;line-height:1.5;color:#7b8ea7}
+.won-sales__pattern-list article span{font-size:10px;color:#436c9e}
+.won-sales__pattern-bar{height:6px;border-radius:99px;background:#e6eef8;overflow:hidden}
+.won-sales__pattern-bar i{display:block;height:100%;border-radius:inherit;background:#3c7bca}
+.won-sales__search{display:flex;align-items:center;gap:8px;min-height:36px;border:1px solid #dce7f4;border-radius:8px;padding:0 10px;margin-bottom:10px;color:#6988b1}
+.won-sales__search input{flex:1;min-width:0;border:0;outline:none;background:transparent;font-size:11px;color:inherit}
+.won-sales__win-list article{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:10px;border:1px solid #e1eaf5;border-radius:10px}
+.won-sales__win-list article>div:first-child{flex:1;display:grid;gap:4px;min-width:0}
+.won-sales__win-list article strong{font-size:12px;color:#2b4d76;overflow-wrap:anywhere}
+.won-sales__win-list article small{font-size:10px;color:#8293a8}
+.won-sales__win-actions{display:flex;gap:5px;flex:0 0 auto;align-items:center}
+.won-sales__win-actions button{border:1px solid #d5e3f4;border-radius:8px;display:inline-flex;gap:4px;align-items:center;justify-content:center;padding:7px;background:#f5f9ff;color:#2c63aa;cursor:pointer;font-size:11px}
+.won-sales__win-actions button:hover{background:#e6f1fe}
+.won-sales__empty{padding:35px 18px;display:grid;justify-items:center;gap:9px;text-align:center;color:#7891ae}
+.won-sales__empty strong{font-size:12px;color:#456c9c}
+.won-sales__empty p,.won-sales__empty-inline{font-size:11px;line-height:1.5;color:#8194aa;text-align:center}
+.won-sales__footer{display:flex;align-items:flex-start;gap:8px;padding:11px;border-top:1px solid #e4ebf5;font-size:10px;color:#8496ad;line-height:1.5}
+.won-sales__footer>svg{flex:0 0 15px}
+.won-sales__form{display:grid;gap:13px}
+.won-sales__form-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+.won-sales__form-grid label{display:grid;align-content:start;gap:7px;font-size:11px;color:#526b8b;font-weight:700}
+.won-sales__form-grid label.is-wide{grid-column:1/-1}
+.won-sales__form-grid label small{color:#8296b1;font-size:10px;font-weight:450}
+.won-sales__form-grid input,.won-sales__form-grid select,.won-sales__form-grid textarea{box-sizing:border-box;width:100%;min-width:0;padding:10px;border:1px solid #d5e3f1;border-radius:8px;font:500 12px system-ui;outline:0;background:var(--rt-color-surface,#fff);color:var(--rt-color-text,#294766)}
+.won-sales__form-grid textarea{resize:vertical;min-height:68px}
+.won-sales__form-grid :is(input,textarea,select):focus{border-color:#85aae1;box-shadow:0 0 0 3px rgb(42 105 184 / 12%)}
+.won-sales__warning{padding:10px 12px;border-radius:9px;border:1px solid #f2d8a4;background:#fff6e5;color:#955f24;font-size:11px;line-height:1.5;margin:0}
+.won-sales--compact .won-sales__header h2{font-size:17px}
+@media(max-width:1050px){.won-sales__sections{grid-template-columns:1fr}}
+@media(max-width:650px){.won-sales__kpis{grid-template-columns:repeat(2,minmax(0,1fr))}.won-sales__form-grid{grid-template-columns:1fr}.won-sales__header{flex-wrap:wrap}.won-sales__sections>section{padding:12px}}
+html[data-theme="dark"] .won-sales__kpis article,html[data-theme="dark"] .won-sales__sections>section,
+html[data-theme="dark"] .won-sales__pattern-list article,html[data-theme="dark"] .won-sales__win-list article{background:#1c2d46;border-color:#3a506e}
+html[data-theme="dark"] .won-sales__header h2,html[data-theme="dark"] .won-sales__section-head h3,
+html[data-theme="dark"] .won-sales__pattern-list strong,html[data-theme="dark"] .won-sales__win-list strong{color:#dceaff}
+html[data-theme="dark"] .won-sales__notice{background:#213b5b;border-color:#42658a;color:#cbddf7}
+html[data-theme="dark"] .won-sales__form-grid :is(input,textarea,select){background:#233953;color:#e8f1ff;border-color:#476180}
+html[data-theme="dark"] .won-sales__export,html[data-theme="dark"] .won-sales__win-actions button{background:#263d5b;color:#dbeaff;border-color:#405d7f}
+
+
+.won-sales-signals{display:grid;gap:12px;padding:15px 16px;border:1px solid #dce8f6;border-radius:12px;background:#f8fbff;margin:13px 0}
+.won-sales-signals>span,.won-sales-signals>header span{display:flex;align-items:center;gap:7px;font-size:12px;font-weight:780;color:#285a9a}
+.won-sales-signals>header{display:flex;justify-content:space-between;gap:10px}
+.won-sales-signals>header>svg{flex:0 0 18px;color:#5486bd}
+.won-sales-signals p{font-size:11px;line-height:1.6;color:#6e839f;margin:4px 0 0}
+.won-sales-signals__cards{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+.won-sales-signals__cards article{border:1px solid #dce7f5;border-radius:10px;background:#fff;padding:12px;display:grid;gap:12px;min-width:0}
+.won-sales-signals__cards article>div{display:grid;gap:5px}
+.won-sales-signals__cards article strong{font-size:12px;color:#295387}
+.won-sales-signals__cards article small,.won-sales-signals>small{font-size:10px;color:#778fac;line-height:1.5}
+.won-sales-signals__cards button{justify-self:start;display:flex;gap:6px;align-items:center;border:0;background:#edf5ff;color:#2d63a9;font-weight:720;font-size:11px;border-radius:7px;padding:8px 9px;cursor:pointer}
+.won-sales-signals__cards button:hover{background:#dcecff}
+html[data-theme="dark"] .won-sales-signals{background:#1d304a;border-color:#38587b}
+html[data-theme="dark"] .won-sales-signals__cards article{background:#243b57;border-color:#3c5a7d}
+html[data-theme="dark"] .won-sales-signals__cards strong{color:#d7e8ff}
+@media(max-width:790px){.won-sales-signals__cards{grid-template-columns:1fr}}

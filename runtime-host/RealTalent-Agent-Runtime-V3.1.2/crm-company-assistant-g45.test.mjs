@@ -29,6 +29,7 @@ test('rejects malformed and invalid numeric CNPJ',()=>{
 test('Instagram lookup gives public profile and indexed posts without claiming the entire feed',async()=>{
   const result=await answerCompanyQuestionG45(company,{
     searcher:async()=>({ok:true,sources:instagram}),
+    enricher:async sources=>sources,
     fetcher:async()=>({ok:false}),
   })
   assert.equal(result.ok,true)
@@ -43,6 +44,7 @@ test('does not recommend an Instagram profile from another company',async()=>{
     searcher:async()=>({ok:true,sources:[source(
       'https://www.instagram.com/outrabarbearia/',
       'Outra Barbearia em Rio Grande RS','Sem relação com a empresa pesquisada.')] }),
+    enricher:async sources=>sources,
     fetcher:async()=>({ok:false}),
   })
   assert.equal(result.profileUrl,null)
@@ -102,4 +104,27 @@ test('public search contains name/city/focus only and never private CRM data',as
   })
   assert.equal(response.kind,'instagram')
   assert.deepEqual(body,{company:'Salento Barbearia',city:'Rio Grande, RS',focus:'instagram'})
+})
+
+test('Instagram public HTML and metadata reading are labeled, never treated as the full feed',async()=>{
+  let prompt=''
+  const result=await answerCompanyQuestionG45(company,{
+    searcher:async()=>({ok:true,sources:instagram}),
+    enricher:async sources=>sources.map((source,i)=>({...source,
+      reading:i===0?'metadata':'snippet',excerpt:i===0?'Salento Barbearia em Rio Grande, prótese capilar.':'',
+      readStatus:i===0?'metadata_only':'no_accessible_text'})),
+    fetcher:async(url,options)=>{
+      const body=JSON.parse(options.body)
+      prompt=body.messages[1].content
+      return {ok:true,json:async()=>({message:{content:JSON.stringify({
+        answer:'Fontes públicas indicam serviços de barbearia [1]. A necessidade de treinamento ainda precisa ser investigada.'
+      })}})}
+    },
+  })
+  assert.equal(result.pagesRead,0)
+  assert.equal(result.metadataRead,1)
+  assert.equal(result.sources[0].reading,'metadata')
+  assert.match(prompt,/metadata/)
+  assert.match(prompt,/prótese capilar/)
+  assert.match(result.answer,/precisa ser investigada/)
 })

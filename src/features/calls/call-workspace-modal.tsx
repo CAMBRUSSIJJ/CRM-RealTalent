@@ -338,6 +338,7 @@ export function CallWorkspaceModal({ open, config, onClose }: { open: boolean; c
   const activeVoiceIdentity = voiceSettings.outboundIdentities.find((item) => item.id === voiceCallerId) ?? null
   const voiceCanStart = voiceProviderId === 'external_tel' || (activeVoiceProvider?.state === 'available' && Boolean(activeVoiceDevice?.available))
   const voiceLaunchAvailable = voiceCanStart || voiceProviderId === 'realtalent_connect'
+  const fastDialReady = voiceProviderId === 'realtalent_connect' && voiceCanStart
   const activeRuntimeProviderId = voiceCall?.providerId ?? voiceProviderId
   const voiceState = voiceCall?.state ?? (session === 'idle' ? 'ready' : session === 'dialing' ? 'ringing' : session === 'running' ? 'connected' : session === 'paused' ? 'held' : session === 'finished' ? 'ended' : 'ready')
   const speechConstructor = (window as unknown as { SpeechRecognition?: SpeechRecognitionConstructor; webkitSpeechRecognition?: SpeechRecognitionConstructor }).SpeechRecognition
@@ -849,14 +850,14 @@ export function CallWorkspaceModal({ open, config, onClose }: { open: boolean; c
     if (!open || !autoDialPending || !config?.fastDial || session !== 'idle' || !leadId || !callTargetPhone || voiceBusy) return
     // Discovery must complete before automatic dialing; never auto-call an offline device.
     if (!voiceProviders.length || !voiceDevices.length) return
-    if (!voiceCanStart) { setAutoDialPending(false); return }
+    if (voiceProviderId !== 'realtalent_connect' || !voiceCanStart) { setAutoDialPending(false); return }
     const delay = Math.max(0, Math.min(5, config.autoDispatchDelaySeconds ?? 1)) * 1000
     const timer = window.setTimeout(() => {
       setAutoDialPending(false)
       void openDialerRef.current(true)
     }, delay)
     return () => window.clearTimeout(timer)
-  }, [autoDialPending, callTargetPhone, config?.autoDispatchDelaySeconds, config?.fastDial, leadId, open, session, voiceBusy, voiceCanStart, voiceProviders.length, voiceDevices.length])
+  }, [autoDialPending, callTargetPhone, config?.autoDispatchDelaySeconds, config?.fastDial, leadId, open, session, voiceBusy, voiceCanStart, voiceProviderId, voiceProviders.length, voiceDevices.length])
 
   useEffect(() => {
     if (!open) return
@@ -985,7 +986,7 @@ export function CallWorkspaceModal({ open, config, onClose }: { open: boolean; c
           <div className="calling-v982__channel call-session-device call-session-channel"><PhoneCall size={17}/><div><small>Canal</small><strong>{providerLabel(activeRuntimeProviderId)}</strong><span>{voiceCall?.providerId === 'external_tel' && voiceProviderId === 'realtalent_connect' ? 'Fallback do dispositivo · contexto preservado' : voiceCanStart ? activeVoiceDevice?.label ?? 'Pronto' : `${voiceProviderStateLabel(activeVoiceProvider?.state ?? 'not_configured')} · fallback disponível`}</span></div></div>
           <div className="calling-v982__timer"><span className={`calling-v982__live-dot ${session === 'running' ? 'is-live' : ''}`}/><div><strong>{formattedTime}</strong><small>{session === 'running' ? 'Em conversa' : session === 'paused' ? 'Em espera' : session === 'dialing' ? 'Conectando' : session === 'finished' ? 'Registrar resultado' : 'Pronto'}</small></div></div>
           <div className="calling-v982__primary-actions">
-            {config?.fastDial ? <div className={`calling-fast-dial-status-v10182 ${voiceCanStart ? '' : 'is-paused'}`}><Sparkles size={14}/><span>{voiceCanStart ? 'Fast Dial' : 'Fast Dial pausado'}</span></div> : null}
+            {config?.fastDial ? <div className={`calling-fast-dial-status-v10182 ${fastDialReady ? '' : 'is-paused'}`}><Sparkles size={14}/><span>{fastDialReady ? 'Fast Dial' : 'Fast Dial pausado'}</span></div> : null}
             {session === 'idle' ? <Button loading={voiceBusy} onClick={() => void openDialer()} disabled={!callTargetPhone || !voiceLaunchAvailable}><PhoneCall size={16}/> Ligar agora</Button> : null}
             {session === 'dialing' ? (activeRuntimeProviderId === 'realtalent_connect'
               ? <Button variant="danger" loading={voiceBusy} onClick={() => void cancelDialing()}><CircleStop size={16}/> Cancelar</Button>

@@ -29,14 +29,18 @@ export function computeUiSourceFingerprint(root) {
   const files = []
   for (const directory of TRACKED_ROOTS) includeFiles(root, directory, files)
   for (const file of TRACKED_FILES) includeFiles(root, file, files)
-  // Vite can embed VITE_* variables during compilation. Track changes without
-  // putting the plaintext of .env files into the public build manifest.
+  // Vite can embed VITE_* variables. Track their *content* rather than file
+  // timestamps: the launcher rewrites .env.local on every start, even unchanged.
   for (const envName of ['.env.local', '.env.production', '.env.production.local']) {
     const p = path.join(root, envName)
-    if (fs.existsSync(p) && fs.statSync(p).isFile()) {
-      const stat = fs.statSync(p)
-      hash.update('env:' + envName + ':' + stat.size + ':' + stat.mtimeMs + '\n')
-    }
+    if (!fs.existsSync(p) || !fs.statSync(p).isFile()) continue
+    const values = fs.readFileSync(p, 'utf8').split(/\r?\n/)
+      .map((line) => line.trim())
+      .filter((line) => /^VITE_[A-Za-z0-9_]+=/.test(line))
+      .sort()
+    hash.update('env:' + envName + '\0')
+    hash.update(values.join('\n'))
+    hash.update('\0')
   }
   for (const relative of [...new Set(files)].sort()) {
     hash.update(relative.replace(/\\/g, '/') + '\0')

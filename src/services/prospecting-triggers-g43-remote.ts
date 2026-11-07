@@ -25,8 +25,11 @@ export function isTriggerCloudModeG43():boolean{return effectiveDataMode==='supa
  * Until then hide its cloud UI and skip requests for non-existent tables.
  * Local G4 continues to work without a cloud connection or schema changes.
  */
+export function allowTriggerCloudReleaseG43(
+  mode:'local'|'supabase',flag:string|undefined,
+):boolean{return mode==='local'||flag==='true'}
 export function isTriggerCloudEnabledG43():boolean{
-  return !isTriggerCloudModeG43()||import.meta.env.VITE_G43_CLOUD_ENABLED==='true'
+  return allowTriggerCloudReleaseG43(effectiveDataMode,import.meta.env.VITE_G43_CLOUD_ENABLED)
 }
 
 export function isMissingG43Migration(error:unknown):boolean{

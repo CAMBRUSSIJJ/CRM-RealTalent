@@ -39,7 +39,7 @@ import { readCallDisplayPreferences, saveCallDisplayPreferences, type CallDispla
 import { CALL_SESSION_OBJECTIVES, callModeDescription, inferCallSessionObjective, type CallSessionMode, type CallSessionObjective } from '../../services/call-session-intelligence'
 import { resolveLeadCallTarget } from '../../services/call-workspace'
 import { buildCallHealth } from '../../services/calling-intelligence-workspace'
-import { providerLabel, readVoiceSettings, type VoiceSettings } from '../../services/voice-dialer'
+import { discoverVoiceDevices, probeVoiceProviders, providerLabel, readVoiceSettings, type VoiceSettings } from '../../services/voice-dialer'
 import { recommendPlaybooks } from '../../services/coaching-engine'
 import { readCallingStrategyPreferences, type CallingStrategyPreferences } from '../../services/calling-strategy'
 import { getGoalInsight, localDateKey } from '../../services/goals-workspace'
@@ -113,7 +113,25 @@ export function CallSessionPreparationModal({ open, leadIds, initialLeadId, onCl
   const [displayOpen, setDisplayOpen] = useState(false)
   const [voiceSettings, setVoiceSettings] = useState<VoiceSettings>(() => readVoiceSettings(workspaceId))
   const [voiceOpen, setVoiceOpen] = useState(false)
+  const [voiceReadiness, setVoiceReadiness] = useState<'idle' | 'checking' | 'ready' | 'offline'>('idle')
   const [playbookPickerOpen, setPlaybookPickerOpen] = useState(false)
+  useEffect(() => {
+    if (!open || activeTab !== 'review' || !fastDial) { setVoiceReadiness('idle'); return }
+    let active = true
+    setVoiceReadiness('checking')
+    void (async () => {
+      try {
+        const providers = await probeVoiceProviders(voiceSettings)
+        const connect = providers.find((item) => item.id === 'realtalent_connect')
+        const devices = await discoverVoiceDevices(providers, voiceSettings, workspaceId)
+        const selected = devices.find((item) => item.id === voiceSettings.selectedDeviceId)
+        if (active) setVoiceReadiness(connect?.state === 'available' && Boolean(selected?.available) ? 'ready' : 'offline')
+      } catch {
+        if (active) setVoiceReadiness('offline')
+      }
+    })()
+    return () => { active = false }
+  }, [activeTab, fastDial, open, voiceSettings, workspaceId])
   const [strategy, setStrategy] = useState<CallingStrategyPreferences>(() => readCallingStrategyPreferences(workspaceId))
   const activeGoalInsights = useMemo(() => activeGoals.map((item) => getGoalInsight(snapshot!, item)), [activeGoals, snapshot])
   const linkedGoalInsight = useMemo(() => activeGoalInsights.find((item) => item.goal.id === linkedGoalId) ?? null, [activeGoalInsights, linkedGoalId])
@@ -551,11 +569,17 @@ export function CallSessionPreparationModal({ open, leadIds, initialLeadId, onCl
             {(validation.missingPhone || validation.blocked || validation.duplicates || validation.contactedToday || validation.meetings) ? <section className="call-preparation-v70__summary-card">
               <div className="call-preparation-v70__summary-title"><AlertTriangle size={16} /><strong>Revisar fila</strong></div>
               <div className="call-preparation-v1012__warnings">{validation.missingPhone ? <span><b>{validation.missingPhone}</b> sem telefone</span> : null}{validation.blocked ? <span><b>{validation.blocked}</b> não contatar</span> : null}{validation.duplicates ? <span><b>{validation.duplicates}</b> duplicados</span> : null}{validation.contactedToday ? <span><b>{validation.contactedToday}</b> contatados hoje</span> : null}{validation.meetings ? <span><b>{validation.meetings}</b> com reunião futura</span> : null}</div>
-            </section> : <section className="call-preparation-v70__summary-card call-preparation-v1012__ready"><Check size={18}/><div><strong>Fila pronta para ligar</strong><span>Nenhum bloqueio operacional detectado.</span></div></section>}
+            </section> : <section className="call-preparation-v70__summary-card call-preparation-v1012__ready"><Check size={18}/><div><strong>Fila pronta para ligar</strong><span>Contatos elegíveis validados. A conexão do telefone é verificada separadamente.</span></div></section>}
 
             {(healthSummary.attention || healthSummary.restricted) ? <section className="call-preparation-v70__summary-card">
               <div className="call-preparation-v70__summary-title"><Gauge size={16} /><strong>Call Health</strong></div>
               <div className="call-preparation-v72__health-summary"><div className="is-good"><strong>{healthSummary.good}</strong><span>prontos</span></div><div className="is-attention"><strong>{healthSummary.attention}</strong><span>revisar</span></div><div className="is-restricted"><strong>{healthSummary.restricted}</strong><span>restritos</span></div></div>
+            </section> : null}
+
+            {fastDial ? <section className={`call-preparation-v70__summary-card call-preparation-flow__connection is-${voiceReadiness}`} role="status">
+              <div className="call-preparation-v70__summary-title"><PhoneCall size={17}/><strong>RealTalent Connect · One-Tap</strong></div>
+              <p>{voiceReadiness === 'ready' ? 'Celular pareado e disponível. O One-Tap poderá iniciar as chamadas desta sessão.' : voiceReadiness === 'checking' ? 'Verificando conexão do celular e do RealTalent Connect…' : 'Não há confirmação de celular online. Você pode iniciar a sessão, mas a discagem automática ficará pausada até reconectar o RealTalent Phone.'}</p>
+              {voiceReadiness === 'offline' ? <Button type="button" size="sm" variant="secondary" onClick={() => { setActiveTab('settings'); setVoiceOpen(true) }}><Settings2 size={15}/> Configurar ligação</Button> : null}
             </section> : null}
 
             {orderedSessionLeads.length > 1 ? <section className="call-preparation-v70__summary-card">

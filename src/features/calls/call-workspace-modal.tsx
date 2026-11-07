@@ -83,6 +83,7 @@ import { usePreferences } from '../settings/preferences-context'
 import { useAuth } from '../auth/auth-context'
 import type { CallDisplayPreferences } from '../../services/call-display-preferences'
 import type { CallSessionConfig } from './call-session-config'
+import { callingHistoryPreview } from './calling-history-preview'
 
 interface SpeechRecognitionEventLike extends Event {
   resultIndex: number
@@ -278,9 +279,9 @@ export function CallWorkspaceModal({ open, config, onClose }: { open: boolean; c
   const pinnedLeadNotes = useMemo(() => leadActivities.filter((activity) => activity.type === 'note' && activity.title.startsWith('📌')).slice(0, 3), [leadActivities])
   const recentHistory = useMemo(() => {
     const items = [
-      ...leadCalls.map((call) => ({ id: `call:${call.id}`, at: call.startedAt, label: `Ligação · ${outcomeLabel(call.outcome)}`, detail: call.notes || `${call.durationSeconds}s`, kind: 'call' as const })),
-      ...leadActivities.map((activity) => ({ id: `activity:${activity.id}`, at: activity.completedAt || activity.dueAt || activity.createdAt, label: activity.title, detail: activity.description, kind: 'activity' as const })),
-      ...leadEvents.map((event) => ({ id: `event:${event.id}`, at: event.startsAt, label: `Reunião · ${event.title}`, detail: event.description || event.location, kind: 'event' as const })),
+      ...leadCalls.map((call) => ({ id: `call:${call.id}`, at: call.startedAt, label: `Ligação · ${outcomeLabel(call.outcome)}`, detail: callingHistoryPreview(call.notes || `${call.durationSeconds}s`), kind: 'call' as const })),
+      ...leadActivities.map((activity) => ({ id: `activity:${activity.id}`, at: activity.completedAt || activity.dueAt || activity.createdAt, label: callingHistoryPreview(activity.title, 120), detail: callingHistoryPreview(activity.description), kind: 'activity' as const })),
+      ...leadEvents.map((event) => ({ id: `event:${event.id}`, at: event.startsAt, label: `Reunião · ${callingHistoryPreview(event.title, 120)}`, detail: callingHistoryPreview(event.description || event.location), kind: 'event' as const })),
     ]
     return items.sort((a, b) => new Date(b.at).getTime() - new Date(a.at).getTime()).slice(0, 10)
   }, [leadActivities, leadCalls, leadEvents])
@@ -465,7 +466,7 @@ export function CallWorkspaceModal({ open, config, onClose }: { open: boolean; c
     const initialTarget = initialLead ? resolveLeadCallTarget(initialLead, snapshot?.contacts ?? []) : null
     setActiveContactId(initialTarget?.contactId ?? '')
     setAttemptContactId('')
-    setAttemptSaved(false); setCompletedInSession(0); setSessionOutcomes([]); setAdvanceTarget(null); setAdvanceCountdown(0); setAutoDialPending(Boolean(config.fastDial)); setVoiceCall(null); setVoiceMuted(false); setVoiceHeld(false); setCallAttemptId(''); setVoiceTransport('healthy'); setVoiceTransportDetail('')
+    setAttemptSaved(false); setCompletedInSession(0); setSessionOutcomes([]); setAdvanceTarget(null); setAdvanceCountdown(0); setAutoDialPending(Boolean(config.fastDial)); setVoiceProviders([]); setVoiceDevices([]); setVoiceCall(null); setVoiceMuted(false); setVoiceHeld(false); setCallAttemptId(''); setVoiceTransport('healthy'); setVoiceTransportDetail('')
     if (recordingUrl) URL.revokeObjectURL(recordingUrl); setRecordingUrl(null)
     // Privacy migration: never recover the old global session/draft keys across workspaces.
     LEGACY_STORAGE_KEYS.forEach((key) => safeStorageRemove(key))
@@ -846,13 +847,16 @@ export function CallWorkspaceModal({ open, config, onClose }: { open: boolean; c
 
   useEffect(() => {
     if (!open || !autoDialPending || !config?.fastDial || session !== 'idle' || !leadId || !callTargetPhone || voiceBusy) return
+    // Discovery must complete before automatic dialing; never auto-call an offline device.
+    if (!voiceProviders.length || !voiceDevices.length) return
+    if (!voiceCanStart) { setAutoDialPending(false); return }
     const delay = Math.max(0, Math.min(5, config.autoDispatchDelaySeconds ?? 1)) * 1000
     const timer = window.setTimeout(() => {
       setAutoDialPending(false)
       void openDialerRef.current(true)
     }, delay)
     return () => window.clearTimeout(timer)
-  }, [autoDialPending, callTargetPhone, config?.autoDispatchDelaySeconds, config?.fastDial, leadId, open, session, voiceBusy])
+  }, [autoDialPending, callTargetPhone, config?.autoDispatchDelaySeconds, config?.fastDial, leadId, open, session, voiceBusy, voiceCanStart, voiceProviders.length, voiceDevices.length])
 
   useEffect(() => {
     if (!open) return
@@ -980,7 +984,8 @@ export function CallWorkspaceModal({ open, config, onClose }: { open: boolean; c
           <div className="calling-v982__identity"><span className="lead-cell__avatar">{callTargetName.slice(0, 2).toUpperCase() || '--'}</span><div><small>Contato em foco</small><strong>{callTargetName || 'Selecione um contato'}</strong><span>{selectedLead?.company || 'Empresa não informada'} · {selectedLead ? `prioridade ${priorityLabel[selectedLead.priority]}` : 'sem prioridade'}</span></div></div>
           <div className="calling-v982__channel call-session-device call-session-channel"><PhoneCall size={17}/><div><small>Canal</small><strong>{providerLabel(activeRuntimeProviderId)}</strong><span>{voiceCall?.providerId === 'external_tel' && voiceProviderId === 'realtalent_connect' ? 'Fallback do dispositivo · contexto preservado' : voiceCanStart ? activeVoiceDevice?.label ?? 'Pronto' : `${voiceProviderStateLabel(activeVoiceProvider?.state ?? 'not_configured')} · fallback disponível`}</span></div></div>
           <div className="calling-v982__timer"><span className={`calling-v982__live-dot ${session === 'running' ? 'is-live' : ''}`}/><div><strong>{formattedTime}</strong><small>{session === 'running' ? 'Em conversa' : session === 'paused' ? 'Em espera' : session === 'dialing' ? 'Conectando' : session === 'finished' ? 'Registrar resultado' : 'Pronto'}</small></div></div>
-          {config?.fastDial ? <div className="calling-fast-dial-status-v10182"><Sparkles size={14}/><span>Fast Dial</span></div> : null}<div className="calling-v982__primary-actions">
+          <div className="calling-v982__primary-actions">
+            {config?.fastDial ? <div className={`calling-fast-dial-status-v10182 ${voiceCanStart ? '' : 'is-paused'}`}><Sparkles size={14}/><span>{voiceCanStart ? 'Fast Dial' : 'Fast Dial pausado'}</span></div> : null}
             {session === 'idle' ? <Button loading={voiceBusy} onClick={() => void openDialer()} disabled={!callTargetPhone || !voiceLaunchAvailable}><PhoneCall size={16}/> Ligar agora</Button> : null}
             {session === 'dialing' ? (activeRuntimeProviderId === 'realtalent_connect'
               ? <Button variant="danger" loading={voiceBusy} onClick={() => void cancelDialing()}><CircleStop size={16}/> Cancelar</Button>
@@ -988,6 +993,11 @@ export function CallWorkspaceModal({ open, config, onClose }: { open: boolean; c
             {session === 'running' || session === 'paused' ? <Button variant="danger" loading={voiceBusy} onClick={() => void finishSession()}><CircleStop size={16}/> {activeVoiceDevice?.id.startsWith('connect:phone:') ? 'Registrar término' : 'Encerrar'}</Button> : null}
           </div>
         </section>
+        {session === 'idle' && voiceProviderId === 'realtalent_connect' && voiceProviders.length > 0 && !voiceCanStart ? <section className="calling-connect-readiness" role="status">
+          <AlertCircle size={19}/>
+          <div><strong>RealTalent Connect indisponível para discagem</strong><p>Abra o RealTalent Phone no celular, confira o pareamento em Configurações → Ligações e mantenha o dispositivo online. A discagem automática permanece pausada; “Ligar agora” permite escolher o discador do sistema.</p></div>
+          <Button type="button" size="sm" variant="secondary" onClick={() => void refreshVoiceLayer(voiceSettings)}><RotateCcw size={15}/> Verificar conexão</Button>
+        </section> : null}
 
         {(session === 'running' || session === 'paused') && activeVoiceProvider && (activeVoiceProvider.capabilities.mute || activeVoiceProvider.capabilities.hold || activeVoiceProvider.capabilities.transfer || activeVoiceProvider.capabilities.voicemailDrop || activeVoiceProvider.capabilities.keypad) ? <section className="voice-control-v73 calling-v982__voice-controls" aria-label="Controles avançados da chamada">
           {activeVoiceProvider.capabilities.mute ? <Button size="sm" variant="secondary" disabled={voiceBusy} onClick={() => void voiceCommand(voiceMuted ? 'unmute' : 'mute')}>{voiceMuted ? <Volume2 size={15}/> : <MicOff size={15}/>} {voiceMuted ? 'Ativar áudio' : 'Mudo'}</Button> : null}

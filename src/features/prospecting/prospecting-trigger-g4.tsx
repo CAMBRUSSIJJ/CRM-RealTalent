@@ -9,7 +9,7 @@ import {
   triggerLabelsG4,type TriggerCandidateG4,type TriggerReviewRecordG4,type TriggerSourceG4,
 } from '../../services/prospecting-triggers-g4'
 import './prospecting-trigger-g4.css'
-import {appendRemoteTriggersG43,isTriggerCloudModeG43,linkRemoteTriggerLeadG43,readRemoteTriggerReviewsG43,reviewRemoteTriggerG43} from '../../services/prospecting-triggers-g43-remote'
+import {appendRemoteTriggersG43,isTriggerCloudModeG43,isTriggerCloudEnabledG43,linkRemoteTriggerLeadG43,readRemoteTriggerReviewsG43,reviewRemoteTriggerG43} from '../../services/prospecting-triggers-g43-remote'
 
 interface Props{prospect:ProspectRecord;readOnly:boolean}
 type G4Response={ok:boolean;events?:TriggerCandidateG4[];error?:string;caveat?:string;model?:string}
@@ -22,6 +22,7 @@ const sourceUrl=(value:string)=>{
 export function ProspectingTriggerIntelligenceG4({prospect,readOnly}:Props){
   const workspaceId=prospect.workspaceId
   const cloud=isTriggerCloudModeG43()
+  const cloudReleaseReady=isTriggerCloudEnabledG43()
   const preset=useMemo(()=>getTriggerSourceFromProspectG4(prospect),[prospect.id,prospect.updatedAt,prospect.workspaceId])
   const [source,setSource]=useState<TriggerSourceG4>(preset)
   const [items,setItems]=useState<TriggerReviewRecordG4[]>([])
@@ -36,6 +37,7 @@ export function ProspectingTriggerIntelligenceG4({prospect,readOnly}:Props){
     setSource(preset);setBusy(false);setError('');setMessage('');setConfirmed({});setReviewNotes({})
     if(cloud){
       setItems([])
+      if(!cloudReleaseReady)return ()=>{cancelled=true}
       void readRemoteTriggerReviewsG43(workspaceId,prospect.id).then(rows=>{
         if(!cancelled)setItems(rows)
       }).catch(err=>{if(!cancelled)setError(err instanceof Error?err.message:'Erro de sincronização G4.3')})
@@ -49,7 +51,7 @@ export function ProspectingTriggerIntelligenceG4({prospect,readOnly}:Props){
       },{}))
     }catch{setItems([]);setWinningPatterns({})}
     return ()=>{cancelled=true}
-  },[workspaceId,prospect.id,preset,cloud])
+  },[workspaceId,prospect.id,preset,cloud,cloudReleaseReady])
   useEffect(()=>{
     const onSource=(event:Event)=>{
       const value=(event as CustomEvent<{
@@ -83,7 +85,7 @@ export function ProspectingTriggerIntelligenceG4({prospect,readOnly}:Props){
     return ()=>window.removeEventListener('realtalent:garimpo:g4:change',onChanged)
   },[workspaceId,prospect.id,cloud])
   async function analyze(){
-    if(readOnly||busy)return
+    if(readOnly||busy||!cloudReleaseReady)return
     if(!sourceUrl(source.sourceUrl)||source.excerpt.trim().length<35){
       setError('Informe a URL HTTPS e um trecho real da página (mínimo de 35 caracteres).')
       return
@@ -144,6 +146,12 @@ export function ProspectingTriggerIntelligenceG4({prospect,readOnly}:Props){
     }catch(e){setError(e instanceof Error?e.message:'Vínculo com o Pipeline não permitido.')}
     finally{setBusy(false)}
   }
+  if(cloud&&!cloudReleaseReady)return <section className="prospecting-trigger-g4" aria-label="Eventos-gatilho indisponíveis">
+    <div className="prospecting-trigger-g4__notice" role="status"><ShieldCheck size={17}/>
+      <span><strong>G4.3 em preparação para Production.</strong> O cadastro e a investigação da empresa continuam funcionando.
+      A sincronização de eventos-gatilho será ativada após a migração RLS ser validada em homologação e liberada no ambiente cloud.</span>
+    </div>
+  </section>
   return <section className="prospecting-trigger-g4" aria-label="Eventos-gatilho e evidências">
     <header className="prospecting-trigger-g4__head">
       <div><span><Sparkles size={15}/> G4 · Trigger Intelligence</span>

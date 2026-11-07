@@ -1,0 +1,214 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="referrer" content="no-referrer">
+  <title>RealTalent Connect · Laboratório VoIP SIP.js</title>
+  <style>
+    :root{font-family:Inter,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;color:#15304d;background:#f3f6fa}
+    *{box-sizing:border-box}body{margin:0;min-height:100vh}header{background:#082c50;color:#fff;padding:24px max(22px,calc((100vw - 1080px)/2))}
+    header small{color:#9fc6e9;letter-spacing:.12em;text-transform:uppercase}header h1{font-size:24px;margin:7px 0 5px}header p{color:#c2d5e7;margin:0;max-width:750px}
+    main{max-width:1120px;margin:26px auto;padding:0 22px;display:grid;grid-template-columns:minmax(300px,1fr) minmax(320px,1.1fr);gap:20px}
+    article{background:white;border:1px solid #dce5ef;border-radius:14px;padding:24px;box-shadow:0 8px 35px #1936530b}
+    h2{font-size:18px;margin:0 0 8px}p,small{line-height:1.5}.hint{color:#60778c;font-size:13px}.hint strong{color:#284d70}
+    label{display:block;font-size:13px;font-weight:650;color:#274866;margin:16px 0 6px}
+    input{width:100%;border:1px solid #c5d2e0;border-radius:8px;background:white;padding:11px 12px;color:#152d44;font:inherit}
+    input:focus{outline:3px solid #a8cee8;border-color:#3477ad}
+    button{cursor:pointer;border:1px solid #b9ccdd;border-radius:8px;background:#fff;color:#174368;padding:11px 16px;font:inherit;font-weight:650}
+    button:hover:not(:disabled){background:#e8f1fa}button:disabled{opacity:.45;cursor:not-allowed}
+    .primary{background:#0872b7;border-color:#0872b7;color:#fff}.primary:hover:not(:disabled){background:#075d95}
+    .danger{border-color:#dba4a4;color:#9e2c35}.row{display:flex;flex-wrap:wrap;gap:10px;margin-top:18px}
+    .badge{display:inline-block;background:#e8f0f7;color:#244f73;border-radius:20px;padding:7px 11px;font-weight:700;font-size:12px}
+    .badge.online{background:#e1f6e9;color:#156b41}.badge.active{background:#dbeeff;color:#075c94}
+    .divider{border-top:1px solid #e5eaf0;margin:22px 0}.warning{background:#fff5db;border:1px solid #f5dda1;border-radius:9px;padding:12px;color:#66521b}
+    #events{height:165px;overflow:auto;font-size:12px;color:#617789;white-space:pre-wrap;word-break:break-word;border:1px solid #e1e9f0;border-radius:8px;padding:12px;background:#f9fbfd}
+    .actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:14px}#remoteAudio{width:100%;margin-top:15px}
+    @media(max-width:790px){main{grid-template-columns:1fr}header{padding:22px}article{padding:18px}}
+  </style>
+</head>
+<body>
+  <header><small>RealTalent CRM / Connect</small><h1>Laboratório de telefonia VoIP</h1>
+    <p>Piloto independente com SIP.js. O modo celular/One-Tap permanece inalterado. Nenhuma chamada real será iniciada sem sua ação.</p>
+  </header>
+  <main>
+    <article>
+      <h2>1. Conectar uma conta SIP</h2>
+      <p class="hint">É necessário um PBX compatível com SIP sobre WebSocket e WebRTC (como Asterisk/MikoPBX) e um ramal válido.</p>
+      <label for="server">Servidor SIP WebSocket seguro (WSS)</label>
+      <input id="server" type="url" placeholder="wss://pbx.exemplo.com:8089/ws" autocomplete="off">
+      <label for="aor">Identidade SIP (AOR)</label>
+      <input id="aor" type="text" placeholder="sip:200@pbx.exemplo.com" autocomplete="off">
+      <label for="username">Usuário de autenticação</label>
+      <input id="username" type="text" placeholder="200" autocomplete="off">
+      <label for="password">Senha SIP — utilizada somente nesta sessão</label>
+      <input id="password" type="password" placeholder="Senha do ramal" autocomplete="off">
+      <div class="row">
+        <button id="connect" class="primary">Conectar e registrar</button>
+        <button id="disconnect" disabled>Desconectar</button>
+      </div>
+      <div class="divider"></div>
+      <p class="hint"><strong>Privacidade:</strong> os campos e a senha não são salvos no navegador nem enviados ao RealTalent CRM. A conexão SIP é feita diretamente com o PBX escolhido. O carregamento inicial do SIP.js exige internet neste piloto.</p>
+      <p class="warning">Este laboratório não utiliza seu chip do iPhone. Chamadas para telefones externos exigem um tronco de telefonia e regras de discagem no PBX.</p>
+    </article>
+    <article>
+      <h2>2. Fazer e receber chamadas</h2>
+      <p><span class="badge" id="status" role="status" aria-live="polite">Desconectado</span></p>
+      <label for="destination">Destino — ramal, número ou URI SIP</label>
+      <input id="destination" type="text" placeholder="201 ou sip:201@pbx.exemplo.com" autocomplete="off" inputmode="tel">
+      <div class="actions">
+        <button id="call" class="primary" disabled>Ligar</button>
+        <button id="answer" disabled>Atender</button>
+        <button id="decline" disabled>Recusar</button>
+        <button id="hangup" class="danger" disabled>Encerrar</button>
+      </div>
+      <div class="divider"></div>
+      <h2>Controles da chamada</h2>
+      <div class="actions">
+        <button id="mute" disabled>Silenciar</button>
+        <button id="hold" disabled>Colocar em espera</button>
+        <input id="digit" style="width:100px" placeholder="DTMF" aria-label="Dígito DTMF" maxlength="1" inputmode="tel">
+        <button id="sendDtmf" disabled>Enviar tom</button>
+      </div>
+      <audio id="remoteAudio" autoplay controls></audio>
+      <p class="hint">Se o som não iniciar automaticamente, clique em reproduzir no controle de áudio. Permita o microfone quando solicitado.</p>
+      <div class="divider"></div>
+      <h2>Eventos da sessão</h2>
+      <div id="events" role="log" aria-live="polite">Aguardando conexão SIP.</div>
+    </article>
+  </main>
+  <script type="module">
+    const el = (id) => document.getElementById(id);
+    const events = el('events');
+    let phone = null;
+    let connection = 'disconnected';
+    let callState = 'idle';
+    let connecting = false;
+    let currentUri = '';
+    let sdk = null;
+    function message(text) {
+      const line = document.createElement('div');
+      line.textContent = '[' + new Date().toLocaleTimeString('pt-BR') + '] ' + text;
+      events.prepend(line);
+      while (events.childElementCount > 80) events.lastElementChild?.remove();
+    }
+    function status(text, state = '') {
+      el('status').textContent = text;
+      el('status').className = 'badge ' + state;
+    }
+    function controls() {
+      const ready = connection === 'registered';
+      const busy = callState !== 'idle';
+      el('connect').disabled = connecting || Boolean(phone);
+      el('disconnect').disabled = !phone || connecting;
+      el('call').disabled = !ready || busy || connecting;
+      el('answer').disabled = callState !== 'incoming';
+      el('decline').disabled = callState !== 'incoming';
+      el('hangup').disabled = !busy || callState === 'incoming';
+      for (const id of ['mute','hold','sendDtmf']) el(id).disabled = callState !== 'active';
+    }
+    function validateServer(value) {
+      const parsed = new URL(value.trim());
+      const isDev = ['localhost','127.0.0.1'].includes(parsed.hostname) && ['localhost','127.0.0.1'].includes(location.hostname);
+      if (parsed.protocol !== 'wss:' && !(isDev && parsed.protocol === 'ws:')) throw new Error('Use um servidor wss:// (ws:// apenas no localhost de desenvolvimento).');
+      if (parsed.username || parsed.password || parsed.hash) throw new Error('Não inclua credenciais ou fragmentos na URL do servidor.');
+      return parsed.href;
+    }
+    function validateUri(value) {
+      const text = value.trim();
+      if (!/^sip:[a-zA-Z0-9+_.!%~-]+@[a-zA-Z0-9.-]+(?::[0-9]{1,5})?$/.test(text)) throw new Error('Informe uma URI SIP como sip:200@pbx.exemplo.com.');
+      return text;
+    }
+    function destinationUri(text, aor) {
+      const target = text.trim();
+      if (target.startsWith('sip:')) return validateUri(target);
+      if (!/^[+0-9*#]{1,24}$/.test(target)) throw new Error('Destino inválido. Use ramal, número ou URI SIP.');
+      return validateUri('sip:' + target + '@' + aor.split('@')[1]);
+    }
+    const failed = (error) => {
+      message('Erro: ' + (error instanceof Error ? error.message : String(error)));
+      status('Falha: verifique o PBX, as credenciais e o console');
+      controls();
+    };
+    el('connect').addEventListener('click', async () => {
+      if (phone || connecting) return;
+      connecting = true; controls(); status('Conectando...');
+      try {
+        if (!window.isSecureContext) throw new Error('Microfone requer HTTPS ou localhost.');
+        const server = validateServer(el('server').value);
+        const aor = validateUri(el('aor').value);
+        const authorizationUsername = el('username').value.trim();
+        const authorizationPassword = el('password').value;
+        if (!authorizationUsername || !authorizationPassword) throw new Error('Preencha o usuário e a senha SIP.');
+        if (!sdk) sdk = await import('https://cdn.jsdelivr.net/npm/sip.js@0.21.2/+esm');
+        const SimpleUser = sdk.Web?.SimpleUser;
+        if (!SimpleUser) throw new Error('Não foi possível carregar SIP.js do CDN.');
+        const candidate = new SimpleUser(server, {
+          aor,
+          media: { constraints: { audio: true, video: false }, remote: { audio: el('remoteAudio') } },
+          userAgentOptions: { authorizationUsername, authorizationPassword },
+          reconnectionAttempts: 2
+        });
+        candidate.delegate = {
+          onRegistered: () => { connection = 'registered'; status('Ramal SIP registrado', 'online'); message('Registrado no PBX.'); controls(); },
+          onUnregistered: () => { connection = 'connected'; status('Conectado sem registro'); controls(); },
+          onCallCreated: () => { callState = 'ringing'; status('Chamada em andamento', 'active'); message('Sessão de chamada criada.'); controls(); },
+          onCallAnswered: () => { callState = 'active'; status('Chamada atendida', 'online'); message('Áudio da chamada ativo.'); controls(); },
+          onCallHangup: () => { callState = 'idle'; currentUri = ''; status(connection === 'registered' ? 'Ramal SIP registrado' : 'Conectado', connection === 'registered' ? 'online' : ''); message('Chamada encerrada.'); controls(); },
+          onCallReceived: () => { callState = 'incoming'; status('Chamada recebida', 'active'); message('Chamada recebida — atender ou recusar.'); controls(); },
+          onServerDisconnect: () => { connection = 'disconnected'; status('Conexão com PBX perdida'); message('Servidor SIP desconectou.'); controls(); }
+        };
+        await candidate.connect();
+        phone = candidate;
+        connection = 'connected'; controls();
+        await candidate.register();
+        el('password').value = '';
+        connection = 'registered'; status('Ramal SIP registrado', 'online'); message('Pronto para ligações.'); controls();
+      } catch (error) {
+        if (phone) { try { await phone.disconnect(); } catch {} }
+        phone = null; connection = 'disconnected'; failed(error);
+      } finally { connecting = false; controls(); }
+    });
+    el('disconnect').addEventListener('click', async () => {
+      if (!phone) return;
+      const current = phone; connecting = true; controls();
+      try { if (callState !== 'idle') await current.hangup(); } catch {}
+      try { await current.unregister(); } catch {}
+      try { await current.disconnect(); } catch {}
+      phone = null; connection = 'disconnected'; callState = 'idle'; currentUri = '';
+      el('password').value = '';
+      status('Desconectado'); message('Sessão SIP encerrada.'); connecting = false; controls();
+    });
+    el('call').addEventListener('click', async () => {
+      if (!phone || connection !== 'registered' || callState !== 'idle') return;
+      try {
+        const target = destinationUri(el('destination').value, validateUri(el('aor').value));
+        currentUri = target; callState = 'dialing'; controls(); status('Discando...', 'active');
+        await phone.call(target);
+        message('Discagem solicitada ao PBX.');
+      } catch (error) { callState = 'idle'; currentUri = ''; failed(error); }
+      finally { controls(); }
+    });
+    el('answer').addEventListener('click', async () => { try { await phone?.answer(); } catch (error) { failed(error); } });
+    el('decline').addEventListener('click', async () => { try { await phone?.decline(); } catch (error) { failed(error); } });
+    el('hangup').addEventListener('click', async () => { try { await phone?.hangup(); } catch (error) { failed(error); } });
+    el('mute').addEventListener('click', () => {
+      if (!phone || callState !== 'active') return;
+      if (phone.isMuted()) phone.unmute(); else phone.mute();
+      el('mute').textContent = phone.isMuted() ? 'Ativar microfone' : 'Silenciar';
+    });
+    el('hold').addEventListener('click', async () => {
+      if (!phone || callState !== 'active') return;
+      try { if (phone.isHeld()) await phone.unhold(); else await phone.hold(); el('hold').textContent = phone.isHeld() ? 'Retomar' : 'Colocar em espera'; }
+      catch (error) { failed(error); }
+    });
+    el('sendDtmf').addEventListener('click', async () => {
+      if (!phone || callState !== 'active') return;
+      const digit = el('digit').value.trim();
+      if (!/^[0-9*#]$/.test(digit)) { message('Informe um dígito DTMF de 0 a 9, * ou #.'); return; }
+      try { await phone.sendDTMF(digit); message('Tom DTMF enviado.'); } catch (error) { failed(error); }
+    });
+    controls();
+  </script>
+</body>
+</html>

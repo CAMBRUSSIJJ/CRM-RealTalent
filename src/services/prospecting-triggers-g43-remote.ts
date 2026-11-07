@@ -20,6 +20,15 @@ const isHttps=(value:string)=>{
   }catch{return false}
 }
 export function isTriggerCloudModeG43():boolean{return effectiveDataMode==='supabase'}
+/**
+ * Production G4.3 requires a verified migration and explicit release opt-in.
+ * Until then hide its cloud UI and skip requests for non-existent tables.
+ * Local G4 continues to work without a cloud connection or schema changes.
+ */
+export function isTriggerCloudEnabledG43():boolean{
+  return !isTriggerCloudModeG43()||import.meta.env.VITE_G43_CLOUD_ENABLED==='true'
+}
+
 export function isMissingG43Migration(error:unknown):boolean{
   const e=error as {code?:string;message?:string}
   return e?.code==='42P01'||e?.code==='PGRST205'||

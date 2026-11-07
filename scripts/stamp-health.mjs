@@ -15,8 +15,11 @@ export function stampHealth({root=process.cwd(),environment=process.env,now=new 
     catch{commit='unavailable'}
   }
   if(!/^[a-f0-9]{40}$/i.test(commit))commit='unavailable'
-  const channel=environment.VERCEL_ENV==='production'||environment.VITE_APP_ENV==='production'
-    ?'production':environment.VERCEL_ENV==='preview'?'preview':'local'
+  // VERCEL_ENV is authoritative: preview builds may inherit APP_ENV=production
+  // from project-level Vite configuration. Never label preview as Production.
+  const channel=environment.VERCEL_ENV==='production'?'production':
+    environment.VERCEL_ENV==='preview'?'preview':
+    environment.VITE_APP_ENV==='production'?'production':'local'
   const info={
     ...source,
     version:String(pkg.version||source.version),

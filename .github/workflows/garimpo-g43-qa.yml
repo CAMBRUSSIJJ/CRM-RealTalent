@@ -24,6 +24,10 @@ jobs:
           node-version: '22'
           cache: npm
       - run: npm ci --include=dev
+      - name: Block high severity runtime dependency advisories
+        run: npm audit --omit=dev --audit-level=high
+      - name: Verify deployment identity stamping
+        run: node --test scripts/stamp-health.test.mjs
       - name: Verify the migration checksum lock
         run: node scripts/verify-migrations.mjs
       - name: G4.3 client and local compatibility

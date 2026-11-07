@@ -321,24 +321,37 @@ function hasDistMarker() {
 }
 
 function verifyCommunicationSourceLineage() {
+  // A Central de Comunicação V3 substituiu as classes e os banners da H19.7/H19.8.
+  // Verificamos as funções reais, em vez de exigir marcadores textuais obsoletos.
   const page = fs.readFileSync(abs('src/features/communications/communications-page.tsx'), 'utf8')
   const chat = fs.readFileSync(abs('src/features/communications/whatsapp-chat-panel.tsx'), 'utf8')
-  const required = [
-    'V101.11.3-H19.7 — WhatsApp Pure Chat',
-    'V101.11.3-H19.8 — WhatsApp Continuous Chat & Settings Control Center',
-    'WhatsAppChatPanel',
-    'communication-channel-switch',
+  const requiredPage = [
+    ['central de comunicações V3', 'communications-central-v3__shell'],
+    ['lista de conversas', 'communications-central-v3__inbox'],
+    ['navegação por canal', 'setWorkspaceView(item.id)'],
+    ['criação de contatos e grupos', 'communications-central-v3__create-tools'],
+    ['ação novo contato', 'setNewWhatsAppContactOpen(true)'],
+    ['ação novo grupo', 'setCreateWhatsAppGroupOpen(true)'],
+    ['gerenciamento de contatos', 'setWhatsAppContactsOpen(true)'],
+    ['filtros da caixa de entrada', 'communications-central-v3__inbox-tabs'],
+    ['chat WhatsApp incorporado', '<WhatsAppChatPanel'],
+    ['barra de trabalho separada do chat', 'workToolbar={<WhatsAppWorkToolbar'],
   ]
-  for (const marker of required) if (!page.includes(marker)) fail(`source de Comunicação regrediu; marker ausente: ${marker}`)
-  const inboxActionMarkers = [
-    'whatsapp-inbox-create-actions is-h1911',
-    'whatsapp-inbox-create-actions is-h207h2',
-  ]
-  if (!inboxActionMarkers.some((marker) => page.includes(marker))) {
-    fail(`source de Comunicação regrediu; marker de ações da inbox ausente: ${inboxActionMarkers.join(' ou ')}`)
+  for (const [feature, marker] of requiredPage) {
+    if (!page.includes(marker)) fail(`source de Comunicação regrediu; recurso ausente: ${feature}`)
   }
-  if (!chat.includes('whatsapp-chat__composer--pure')) fail('source de WhatsApp regrediu: Pure Chat ausente.')
-  if (chat.includes('Respostas rápidas') || chat.includes('Criar follow-up') || chat.includes('Salvar como nota')) fail('source de WhatsApp regrediu: controles comerciais antigos voltaram ao corpo do chat.')
+  const requiredChat = [
+    ['cabeçalho de chat puro', 'whatsapp-chat__header--pure'],
+    ['corpo da conversa', 'whatsapp-chat__messages'],
+    ['composer de chat puro', 'whatsapp-chat__composer--pure'],
+    ['envio integrado', 'sendOfficialWhatsApp('],
+  ]
+  for (const [feature, marker] of requiredChat) {
+    if (!chat.includes(marker)) fail(`source de WhatsApp regrediu; recurso ausente: ${feature}`)
+  }
+  if (['Respostas rápidas', 'Criar follow-up', 'Salvar como nota'].some((marker) => chat.includes(marker))) {
+    fail('source de WhatsApp regrediu: controles comerciais antigos voltaram ao corpo do chat.')
+  }
 }
 
 function previewProcessInfo(pid) {

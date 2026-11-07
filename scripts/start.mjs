@@ -7,6 +7,7 @@ import { fileURLToPath } from 'node:url'
 import { spawn, spawnSync } from 'node:child_process'
 import { inspectPort, listCommunicationsProcesses, stopStaleCommunicationsProcesses, tailFile } from './runtime-communications-recovery.mjs'
 import { isTrustedRealTalentViteProcess } from './runtime-preview-process-trust.mjs'
+import { inspectUiBuild, writeUiBuildStamp } from './runtime-ui-build-integrity.mjs'
 import { listConnectProcesses, stopStaleConnectProcesses, connectDiagnostics } from './runtime-connect-recovery.mjs'
 import { communicationsRuntimeDependenciesPresent } from './communications-runtime-deps.mjs'
 
@@ -902,6 +903,7 @@ async function main() {
     log('→ npm audit (produção; high+)')
     npm(['audit', '--omit=dev', '--audit-level=high'], { allowFailure: true })
     npm(['run', 'release:verify'])
+    if (hasDistMarker()) writeUiBuildStamp(ROOT)
     log('✓ Auditoria completa concluída.')
   } else if (mode === 'rebuild') {
     log('1/4 — Rebuild controlado...')
@@ -942,6 +944,7 @@ async function main() {
     npm(['run', 'qa:v101.11.3:h15'])
     npm(['run', 'qa:v101.11.3:h19.2'])
     npm(['run', 'build'])
+    writeUiBuildStamp(ROOT)
     log(`✓ Rebuild V${RELEASE}-${HOTFIX} concluído.`)
   } else if (mode === 'garimpo') {
     // The Garimpo launcher has already checked the lockfile and installed
@@ -983,6 +986,7 @@ async function main() {
     npm(['run', 'qa:v101.11.3:h15'])
   } else if (mode === 'preview-only') {
     if (!hasDistMarker()) fail(`build V${RELEASE}-${HOTFIX} ausente; use npm run rebuild.`)
+    if (!inspectUiBuild(ROOT).fresh) fail('Build desatualizado em relação a React/CSS. Execute ./start-linux.sh ou npm run rebuild.')
   } else {
     log('1/4 — Abertura rápida...')
     npm(['run', 'qa:v101.10.7'])
@@ -1017,10 +1021,14 @@ async function main() {
     npm(['run', 'qa:v101.11.3:h14'])
     npm(['run', 'qa:v101.11.3:h14:ui1'])
     npm(['run', 'qa:v101.11.3:h15'])
-    if (!hasDistMarker()) {
-      log(`Build V${RELEASE} ainda não existe: compilando uma vez...`)
+    const buildState = inspectUiBuild(ROOT)
+    if (!hasDistMarker() || !buildState.fresh) {
+      const cause = !hasDistMarker() ? 'build ausente ou sem lineage' : 'arquivos React/CSS diferentes da compilação existente'
+      log(`↻ Interface desatualizada (${cause}). Compilando a versão atual...`)
       npm(['run', 'build'])
-    } else log(`✓ Build V${RELEASE} existente reutilizado.`)
+      writeUiBuildStamp(ROOT)
+      log('✓ Build atualizado, com impressão digital das fontes.')
+    } else log(`✓ Build V${RELEASE} conferido: corresponde ao código React/CSS atual.`)
   }
 
   if (mode !== 'dev' && mode !== 'garimpo') verifyDistLineage()
@@ -1037,7 +1045,9 @@ async function main() {
   startCommunicationsWatchdog(token)
   log('4/4 — Iniciando interface...')
   const url = `http://127.0.0.1:${CRM_PORT}/?rt_release=101.11.3-h2-runtime-service-recovery&rt_ui=101.11.3-h19-13-whatsapp-work-management&rt_cohesion=101.11.3-h20-7-global-ui-final-pass&rt_hotfix=101.11.3-h20-7-h1-appearance-sidebar-truth&rt_hotfix2=101.11.3-h20-7-h2-whatsapp-conversation-inbox&rt_garimpo=101.11.3-h21-1-coverage-runtime-truth&rt_launcher_fix=101.11.3-h21-1-h1-communication-lineage-guard&rt_access=101.11.3-h22-1-team-profiles-access-control&rt_access2=101.11.3-h22-2-cross-module-access-control&rt_governance=101.11.3-h22-3-field-approvals-audit&rt_closure=101.11.3-h22-3-h1-stability-security-closure&rt_cr1=101.11.3-cr1-build-dependency-closure&rt_cr2=101.11.3-cr2-supabase-auth-rls-validation&rt_cr3=101.11.3-cr3-e2e-commercial-workflow&rt_cr4=101.11.3-cr4-commercial-ux-failure-recovery&rt_cr5=101.11.3-cr5-performance-observability&rt_cr6=101.11.3-cr6-performance-payload-reduction&rt_cr7=101.11.3-cr7-production-operational-readiness&rt_cr8=101.11.3-cr8-commercial-launch-gate&rt_cr9=101.11.3-cr9-launch-hard-stop-closure&rt_readiness=101.11.3-cr10-supabase-staging-bootstrap&rt_cr10_h1=101.11.3-cr10-h1-css-cascade-governance`
-  log(`CRM: ${url}`)
+  const uiStamp = mode === 'dev' || mode === 'garimpo' ? { sourceFingerprint: 'dev' } : inspectUiBuild(ROOT)
+  const launchUrl = `${url}&rt_build=${uiStamp.sourceFingerprint.slice(0, 16)}`
+  log(`CRM: ${launchUrl}`)
   log(`UI Cohesion: V${RELEASE}-${UI_COHESION} — ${UI_COHESION_NAME}`)
   log(`UI Hotfix: V${RELEASE}-${UI_HOTFIX} — ${UI_HOTFIX_NAME}`)
   log(`RealTalent Connect: http://127.0.0.1:${CONNECT_PORT}`)
@@ -1054,7 +1064,7 @@ async function main() {
   ui.__rtName = 'vite'
   children.add(ui)
   ui.on('exit', code => { children.delete(ui); shutdown(code || 0) })
-  setTimeout(() => openBrowser(url), 1400)
+  setTimeout(() => openBrowser(launchUrl), 1400)
 }
 
 main().catch(error => { console.error(error); shutdown(1) })

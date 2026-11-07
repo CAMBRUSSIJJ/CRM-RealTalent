@@ -4,7 +4,7 @@ import type {ProspectRecord} from './prospecting-workspace'
 import type {TriggerReviewRecordG4} from './prospecting-triggers-g4'
 import type {Database} from '../lib/supabase.types'
 import {
-  isMissingG43Migration,loadLocalApprovedPipelineTriggersG43,mapRemoteTriggerG43
+  isMissingG43Migration,allowTriggerCloudReleaseG43,loadLocalApprovedPipelineTriggersG43,mapRemoteTriggerG43
 } from './prospecting-triggers-g43-remote'
 
 const lead={id:'crm-1',workspaceId:'ws-a'} as Lead
@@ -56,4 +56,12 @@ describe('G4.3 — sinais no Pipeline',()=>{
     expect(isMissingG43Migration({code:'PGRST205'})).toBe(true)
     expect(isMissingG43Migration({code:'42501',message:'permission denied'})).toBe(false)
   })
+  it('mantém a migração G4.3 bloqueada na nuvem sem ativação explícita',()=>{
+    expect(allowTriggerCloudReleaseG43('supabase',undefined)).toBe(false)
+    expect(allowTriggerCloudReleaseG43('supabase','')).toBe(false)
+    expect(allowTriggerCloudReleaseG43('supabase','false')).toBe(false)
+    expect(allowTriggerCloudReleaseG43('supabase','true')).toBe(true)
+    expect(allowTriggerCloudReleaseG43('local',undefined)).toBe(true)
+  })
+
 })

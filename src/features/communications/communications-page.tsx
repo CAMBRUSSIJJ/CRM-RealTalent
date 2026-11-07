@@ -1011,19 +1011,22 @@ function OriginalCommunicationsPage() {
  * No legacy navigation, sidebar, task or lead modules are replaced.
  */
 export function CommunicationsPage() {
+  // v101 could retain an outdated choice of the legacy Communications UI.
+  // Prefer local WAHA for new sessions, respecting only explicit v102 choices.
   const [useWaha, setUseWaha] = useState(() => {
     try {
-      const saved = sessionStorage.getItem('realtalent.communications.transport.v101')
+      const saved = sessionStorage.getItem('realtalent.communications.transport.v102')
       if (saved === 'waha') return true
       if (saved === 'original') return false
     } catch { /* storage unavailable */ }
-    return import.meta.env.VITE_WAHA_DIRECT_PREVIEW === '1'
+    const host = typeof window === 'undefined' ? '' : window.location.hostname
+    return ['localhost', '127.0.0.1'].includes(host) || import.meta.env.VITE_WAHA_DIRECT_PREVIEW === '1'
   })
   function change(value: boolean) {
     setUseWaha(value)
-    try { sessionStorage.setItem('realtalent.communications.transport.v101', value ? 'waha' : 'original') } catch { /* optional */ }
+    try { sessionStorage.setItem('realtalent.communications.transport.v102', value ? 'waha' : 'original') } catch { /* optional */ }
   }
-  return <div className="page-stack">
+  return <div className="page-stack" data-realtalent-communications-ui={useWaha ? 'waha-v102' : 'central-original'}>
     <nav aria-label="Motor de comunicação" style={{display:'flex',flexWrap:'wrap',alignItems:'center',gap:8,padding:'9px 12px',borderRadius:11,border:'1px solid var(--border, #e1e7f0)',background:'var(--surface, #fff)'}}>
       <span style={{fontSize:12,marginRight:6,fontWeight:650,color:'var(--text-muted, #64748b)'}}>Conexão WhatsApp:</span>
       <button type="button" onClick={() => change(true)} aria-pressed={useWaha} style={{padding:'8px 12px',fontSize:12,borderRadius:8,border:'1px solid #c8d7f2',background:useWaha?'#e7efff':'transparent',color:'#264c9b',fontWeight:useWaha?700:500}}>
@@ -1032,7 +1035,7 @@ export function CommunicationsPage() {
       <button type="button" onClick={() => change(false)} aria-pressed={!useWaha} style={{padding:'8px 12px',fontSize:12,borderRadius:8,border:'1px solid #c8d7f2',background:!useWaha?'#e7efff':'transparent',color:'#264c9b',fontWeight:!useWaha?700:500}}>
         Central original
       </button>
-      <span style={{fontSize:11,color:'#78849a'}}>A conexão WAHA não utiliza o Supabase para mensagens.</span>
+      <span style={{fontSize:11,color:'#78849a'}}>{useWaha ? 'Nova interface WAHA ativa · mensagens sem Supabase.' : 'Central anterior selecionada manualmente · selecione WAHA para a interface atual.'}</span>
     </nav>
     {useWaha ? <WahaConversationsPage /> : <OriginalCommunicationsPage />}
   </div>

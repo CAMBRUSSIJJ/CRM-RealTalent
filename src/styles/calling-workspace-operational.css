@@ -639,3 +639,84 @@ button.rt-mindmap__leaf:hover{border-color:#b5c2da;background:#fbfcff;transform:
 .calling-connect-readiness strong{display:block;font-size:13px;color:#1b416e}
 .calling-connect-readiness p{font-size:12px;line-height:1.45;margin:3px 0 0;color:#536983}
 @media(max-width:850px){.calling-connect-readiness{grid-template-columns:auto minmax(0,1fr)}.calling-connect-readiness>button{grid-column:1/-1;justify-self:start}}
+
+
+/* RealTalent Flow Reference — Foco: visual hierarchy from the uploaded prototype, real CRM data/actions retained. */
+.calling-flow__hero{
+  box-sizing:border-box;
+  width:min(1200px,100%);
+  max-width:1200px;
+  margin-inline:auto;
+  padding:22px 26px;
+  display:grid;
+  grid-template-columns:minmax(230px,1.6fr) minmax(185px,.85fr) minmax(86px,.35fr) minmax(170px,.62fr);
+  gap:20px;
+  align-items:center;
+  border-radius:16px;
+  background:var(--surface,#fff);
+  box-shadow:0 8px 28px rgba(25,51,89,.065);
+}
+.calling-flow__contact{gap:16px}
+.calling-flow__contact .lead-cell__avatar{
+  width:60px;height:60px;min-width:60px;
+  display:flex;align-items:center;justify-content:center;
+  font-size:19px;font-weight:800;color:var(--accent,#3156c8);
+  border-radius:18px;background:color-mix(in srgb,var(--accent,#3156c8) 10%,#fff);
+}
+.calling-flow__contact small{font-size:11px!important;text-transform:uppercase;font-weight:800;letter-spacing:.045em}
+.calling-flow__contact strong{font-size:21px;line-height:1.25;white-space:normal;overflow-wrap:anywhere}
+.calling-flow__contact span:not(.lead-cell__avatar){font-size:12px;line-height:1.45}
+.calling-flow__channel strong{font-size:13px;white-space:normal}
+.calling-flow__channel span{font-size:11px;line-height:1.35}
+.calling-flow__timer strong{font-size:19px;font-variant-numeric:tabular-nums}
+.calling-flow__primary-actions{
+  display:flex;flex-direction:column;align-items:stretch;
+  gap:8px;min-width:0;justify-content:center;
+}
+.calling-flow__primary-actions>button{
+  min-height:52px;min-width:160px;width:100%;
+  border-radius:12px;font-size:14px;font-weight:800;
+}
+.calling-flow__primary-actions .calling-fast-dial-status-v10182{
+  order:2;justify-content:center;max-width:100%;font-size:11px;
+}
+.calling-flow__precall{background:transparent;border:none!important;padding:8px 0!important;box-shadow:none!important}
+.calling-flow__precall .calling-h5__precall-heading{padding:0 2px 4px}
+.calling-flow__precall .calling-h5__precall-heading h3{font-size:19px}
+.calling-flow__brief{grid-template-columns:repeat(2,minmax(0,1fr));gap:13px}
+.calling-flow__brief .calling-h5__essential-card{padding:20px 21px;min-height:0;border-radius:13px;box-shadow:0 2px 8px rgba(25,51,89,.035)}
+.calling-flow__brief .calling-h5__essential-card--objective{order:1;border-left:4px solid var(--accent,#3156c8);background:color-mix(in srgb,var(--accent,#3156c8) 4%,#fff)}
+.calling-flow__brief .calling-h5__essential-card--important{order:2;border-left:4px solid #6b93ce;background:color-mix(in srgb,var(--accent,#3156c8) 2%,#fff)}
+.calling-flow__brief .calling-h5__essential-card--interaction{order:3;grid-column:1 / -1;min-height:0;border-left:1px solid #dce6f2}
+.calling-flow__brief .calling-h5__essential-card--history{order:4;grid-column:1 / -1}
+.calling-flow__brief .calling-h5__essential-card>small,
+.calling-flow__brief .calling-h5__essential-card>header small{display:flex;align-items:center;gap:6px;font-size:11px}
+.calling-flow__brief .calling-h5__essential-card--objective>strong{font-size:18px;margin-top:10px}
+.calling-flow__brief .calling-h5__essential-card--objective>span{font-size:12px;line-height:1.65}
+.calling-flow__brief .calling-h5__essential-card--important .calling-h5__important-list p{
+  padding:11px 12px;background:var(--surface,#fff);font-size:12px;line-height:1.6;
+}
+.calling-flow__brief .calling-h5__essential-card--interaction{display:grid;grid-template-columns:minmax(170px,.45fr) minmax(0,1fr);column-gap:15px;align-items:center}
+.calling-flow__brief .calling-h5__essential-card--interaction>small{grid-column:1;grid-row:1}
+.calling-flow__brief .calling-h5__essential-card--interaction>strong{grid-column:1;grid-row:2;margin:0}
+.calling-flow__brief .calling-h5__essential-card--interaction>span{grid-column:1;grid-row:3}
+.calling-flow__brief .calling-h5__essential-card--interaction>p{grid-column:2;grid-row:1/span 3;margin:0;max-width:100%}
+.calling-flow__brief .calling-h5__history{grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
+.calling-flow__brief .calling-h5__history>div{border:1px solid #edf0f5;border-radius:10px;padding:12px 14px}
+@media(max-width:1080px){
+  .calling-flow__hero{grid-template-columns:minmax(220px,1.4fr) minmax(170px,1fr) 100px;gap:12px}
+  .calling-flow__primary-actions{grid-column:1 / -1;flex-direction:row;align-items:center;justify-content:flex-start}
+  .calling-flow__primary-actions>button{width:auto;min-width:170px}
+}
+@media(max-width:720px){
+  .calling-flow__hero{padding:18px;grid-template-columns:minmax(0,1fr) auto;gap:14px}
+  .calling-flow__contact{grid-column:1 / -1}
+  .calling-flow__primary-actions{grid-column:1 / -1}
+  .calling-flow__primary-actions>button{flex:1}
+  .calling-flow__brief{grid-template-columns:1fr}
+  .calling-flow__brief .calling-h5__essential-card--interaction,
+  .calling-flow__brief .calling-h5__essential-card--history{grid-column:1}
+  .calling-flow__brief .calling-h5__essential-card--interaction{display:block}
+  .calling-flow__brief .calling-h5__essential-card--interaction>p{margin-top:8px}
+  .calling-flow__brief .calling-h5__history{grid-template-columns:1fr}
+}

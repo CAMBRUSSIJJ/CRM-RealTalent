@@ -49,10 +49,12 @@ import { ProspectingG1G2Panel } from './prospecting-g1g2-panel'
 import {ProspectingTriggerIntelligenceG4} from './prospecting-trigger-g4'
 import type { GarimpoSearchProposal } from './garimpo-conversation-g3'
 import {WonSalesProspectingSignals} from '../won-sales/won-sales-prospecting-signals'
+import {isTriggerCloudModeG43,linkRemoteTriggerLeadG43} from '../../services/prospecting-triggers-g43-remote'
 import {buildProspectingHandoffMetrics,isProspectTransferable,transferableProspectIds,
   linkedCrmLeadId,linkedCrmCompanyId,summarizeHandoffReceipt,type ProspectingBatchReceipt,type ProspectingHandoffReceipt
 } from '../../services/prospecting-handoff-r1'
 import '../../styles/prospecting-r1.css'
+import './prospecting-review-workspace-v2.css'
 import {GARIMPO_REVIEW_REQUEST,garimpoReviewStorageKey} from '../../services/realtalent-agent-garimpo-bridge'
 
  type ProspectingTab = 'search' | 'local' | 'results' | 'history'
@@ -856,7 +858,7 @@ export function ProspectingPage() {
     if (!snapshot) return
     const prospects = state.prospects.filter((item) => sendIds.includes(item.id))
     setSending(true)
-    let companiesCreated = 0; let companiesUpdated = 0; let contactsCreated = 0; let contactsUpdated = 0; let opportunitiesCreated = 0; let skipped = 0; let failed = 0; let activityWarnings = 0
+    let companiesCreated = 0; let companiesUpdated = 0; let contactsCreated = 0; let contactsUpdated = 0; let opportunitiesCreated = 0; let skipped = 0; let failed = 0; let activityWarnings = 0; let triggerLinkWarnings = 0
     const sentIds: string[] = []
     const receipts:ProspectingHandoffReceipt[]=[]
     const batchId = `garimpo-${Date.now().toString(36)}`
@@ -992,6 +994,10 @@ export function ProspectingPage() {
             status:'transferred',crmCompanyId:company.id,
             ...(contactId?{crmContactId:contactId}:{}),...(leadId?{crmLeadId:leadId}:{}),
             note:options.createOpportunity?'Empresa processada e oportunidade solicitada.':'Empresa cadastrada sem criar oportunidade.'})
+          if(leadId&&isTriggerCloudModeG43()){
+            try{await linkRemoteTriggerLeadG43(workspaceId,prospect.id,leadId)}
+            catch{triggerLinkWarnings+=1}
+          }
           const now = new Date().toISOString()
           commit((current) => ({ ...current, prospects: current.prospects.map((item) => item.id === prospect.id ? { ...item, status: 'sent' as const, sentAt: now, updatedAt: now, rawData: { ...item.rawData, crmCompanyId: company.id, ...(contactId ? { crmContactId: contactId } : {}), ...(leadId ? { crmLeadId: leadId } : {}) } } : item) }))
         } catch(error) {
@@ -1003,7 +1009,7 @@ export function ProspectingPage() {
       setHandoffReceipt({id:batchId,createdAt:new Date().toISOString(),rows:receipts,activityWarnings})
       commit((current) => appendHistory(current, workspaceId, { action: companiesUpdated || contactsUpdated ? 'merge' : 'send', title: `Lote ${batchId} enviado ao CRM`, description: `${companiesCreated} empresa(s) criada(s) · ${companiesUpdated} atualizada(s) · ${contactsCreated} contato(s) criado(s) · ${contactsUpdated} atualizado(s) · ${opportunitiesCreated} oportunidade(s) criada(s) · ${skipped} ignorada(s) · ${failed} falha(s)${activityWarnings ? ` · ${activityWarnings} atividade(s) pendente(s)` : ''}`, count: sentIds.length }))
       setSendIds((current) => current.filter((id) => !sentIds.includes(id))); setSelectedIds(new Set())
-      if (failed || activityWarnings) notify('info', `${sentIds.length} empresa(s) processada(s); ${failed} falha(s) e ${activityWarnings} atividade(s) precisam de revisão.`)
+      if (failed || activityWarnings || triggerLinkWarnings) notify('info', `${sentIds.length} empresa(s) processada(s); ${failed} falha(s), ${activityWarnings} atividade(s) e ${triggerLinkWarnings} vínculo(s) G4.3 pendente(s).`)
       else notify('success', `${sentIds.length} empresa(s) enviada(s) ao CRM canônico.`)
     } finally { setSending(false) }
   }
@@ -1696,11 +1702,22 @@ function ProcessingWorkspace({ readOnly, queue, active, leads, snapshot, onSelec
   readOnly: boolean; queue: ProspectRecord[]; active: ProspectRecord | null; leads: Array<{ id: string; name: string; company: string }>; snapshot: import('../../domain/types').WorkspaceSnapshot; onSelect(id: string): void
   onChange(id: string, patch: Partial<ProspectRecord>): void; onAnalyze(id: string): void; onApprove(id: string): void; onDiscard(id: string): void; onSend(id: string): void; onAnalyzeAll(): void
 }) {
+  const [reviewFocus,setReviewFocus]=useState<'overview'|'investigation'|'intelligence'|'decision'>('investigation')
+  useEffect(()=>{setReviewFocus('investigation')},[active?.id])
+  useEffect(()=>{
+    const onSource=(event:Event)=>{
+      const detail=(event as CustomEvent<{workspaceId?:string;prospectId?:string}>).detail
+      if(detail?.prospectId!==active?.id||detail?.workspaceId!==active?.workspaceId)return
+      setReviewFocus('intelligence')
+    }
+    window.addEventListener('realtalent:garimpo:g4:source-from-investigation',onSource)
+    return ()=>window.removeEventListener('realtalent:garimpo:g4:source-from-investigation',onSource)
+  },[active?.id,active?.workspaceId])
   useEffect(() => {
     const handler = (event: KeyboardEvent) => {
       if (readOnly || !active || event.metaKey || event.ctrlKey || event.altKey) return
       const target = event.target as HTMLElement | null
-      if (target && ['INPUT','TEXTAREA','SELECT'].includes(target.tagName)) return
+      if (target && (['INPUT','TEXTAREA','SELECT','BUTTON','A'].includes(target.tagName)||target.isContentEditable)) return
       const currentIndex = queue.findIndex((item) => item.id === active.id)
       if (event.key.toLowerCase() === 'a') { event.preventDefault(); onApprove(active.id); return }
       if (event.key.toLowerCase() === 'd') { event.preventDefault(); onDiscard(active.id); return }
@@ -1717,14 +1734,36 @@ function ProcessingWorkspace({ readOnly, queue, active, leads, snapshot, onSelec
   const quality = prospectDataQuality(active)
   const attentionReasons = prospectAttentionReasons(active)
   const autoValidatable = prospectIsAutoValidatable(active)
-  return <div className="prospecting-processing-layout prospecting-processing-layout-v101106">
+  return <div className="prospecting-processing-layout prospecting-processing-layout-v101106 prospecting-review-workspace-v2">
     <aside className="panel prospecting-queue">
       <header><div><span className="eyebrow">Fila de análise</span><strong>{queue.length} empresa(s)</strong></div>{!readOnly ? <button type="button" className="icon-button" onClick={onAnalyzeAll} title="Analisar todos"><Sparkles size={16} /></button> : null}</header>
       <div>{queue.map((prospect) => <button type="button" key={prospect.id} className={prospect.id === active.id ? 'is-active' : ''} onClick={() => onSelect(prospect.id)}><span className={`prospect-confidence is-${prospectDataQuality(prospect).readiness === 'ready' ? 'high' : prospectDataQuality(prospect).readiness === 'blocked' ? 'low' : 'medium'}`}>{prospectDataQuality(prospect).score}</span><div><strong>{prospect.company}</strong><small>{prospectDataQuality(prospect).label} · {prospectOriginLabel(prospect)}</small></div>{prospectDataQuality(prospect).readiness === 'blocked' ? <AlertTriangle size={14} /> : <ChevronRight size={14} />}</button>)}</div>
     </aside>
 
     <section className="panel prospecting-review-card">
-      <header className="prospecting-review-header"><div><span className="eyebrow"><ClipboardCheck size={14} /> {autoValidatable ? 'Validação rápida' : 'Revisão de exceção'}</span><h3>{active.company}</h3><p>{autoValidatable ? 'Os sinais principais estão confirmados. Faça uma leitura rápida antes de aprovar.' : 'Veja primeiro o que precisa da sua decisão; os detalhes técnicos ficam recolhidos.'}</p></div><div><StatusPill tone={autoValidatable ? 'success' : 'warning'}>{autoValidatable ? 'Pronta' : 'Precisa atenção'}</StatusPill><span className="prospecting-counter">{index + 1} de {queue.length}</span></div></header>
+      <header className="prospecting-review-header prospecting-review-workspace-v2__header">
+        <div><span className="eyebrow"><ClipboardCheck size={14}/> Revisão empresarial · {index+1} de {queue.length}</span>
+          <h3>{active.company}</h3>
+          <p>{[active.city,active.address].filter(Boolean).join(' · ')||'Localidade pendente'} · {prospectOriginLabel(active)}</p>
+        </div>
+        <div className="prospecting-review-workspace-v2__header-actions">
+          <StatusPill tone={autoValidatable ? 'success':'warning'}>{autoValidatable?'Pronta':'Precisa atenção'}</StatusPill>
+          <span className="prospecting-review-workspace-v2__quality">Qualidade {quality.score}/100</span>
+        </div>
+      </header>
+      <nav className="prospecting-review-workspace-v2__tabs" role="tablist" aria-label="Etapas de investigação da empresa">
+        {([
+          ['overview','Resumo',ClipboardCheck],
+          ['investigation','Investigação com IA',Sparkles],
+          ['intelligence','Inteligência comercial',Target],
+          ['decision','Decisão e cadastro',CheckCircle2],
+        ] as const).map(([key,label,Icon])=><button type="button" key={key}
+          role="tab" aria-controls={'garimpo-review-'+key}
+          aria-selected={reviewFocus===key} className={reviewFocus===key?'is-active':''}
+          onClick={()=>setReviewFocus(key)}><Icon size={15}/>{label}</button>)}
+      </nav>
+      <div id="garimpo-review-overview" role="tabpanel" aria-label="Resumo e validação" hidden={reviewFocus!=='overview'}>
+      <p className="prospecting-review-workspace-v2__section-intro">Confira identidade, segmento, território e contato. Os detalhes técnicos ficam recolhidos.</p>
       <div className="prospecting-review-decisions-v101104">
         <article className={active.company ? 'is-ok' : 'is-warning'}><span>1</span><div><strong>É uma empresa real?</strong><small>{prospectPlaceType(active) === 'content' || prospectPlaceType(active) === 'directory' ? 'Resultado parece conteúdo/diretório' : `Local classificado como ${prospectPlaceType(active).replace('_', ' ')}`}</small></div>{active.company ? <CheckCircle2 size={17}/> : <AlertTriangle size={17}/>}</article>
         <article className={active.description || rawText(active.rawData, 'intentId', 'category') ? 'is-ok' : 'is-warning'}><span>2</span><div><strong>É do segmento correto?</strong><small>{active.description || rawText(active.rawData, 'intentLabel', 'category') || 'Categoria ainda precisa de confirmação'}</small></div>{active.description || rawText(active.rawData, 'intentId', 'category') ? <CheckCircle2 size={17}/> : <AlertTriangle size={17}/>}</article>
@@ -1733,8 +1772,18 @@ function ProcessingWorkspace({ readOnly, queue, active, leads, snapshot, onSelec
         <article className={quality.readiness === 'ready' && active.duplicateLevel === 'none' ? 'is-ok' : 'is-warning'}><span>5</span><div><strong>Está pronta para sua base?</strong><small>{quality.readiness === 'ready' && active.duplicateLevel === 'none' ? 'Sem bloqueios conhecidos' : [...quality.blockers, ...active.duplicateReasons].slice(0, 2).join(' · ') || 'Requer decisão humana'}</small></div>{quality.readiness === 'ready' && active.duplicateLevel === 'none' ? <CheckCircle2 size={17}/> : <AlertTriangle size={17}/>}</article>
       </div>
       {attentionReasons.length ? <section className="prospecting-review-attention-v101106"><AlertTriangle size={16}/><div><strong>O que precisa da sua atenção</strong><div>{attentionReasons.map((reason) => <span key={reason}>{reason}</span>)}</div></div></section> : <section className="prospecting-review-attention-v101106 is-clear"><CheckCircle2 size={16}/><div><strong>Sem divergências importantes</strong><small>Identidade, local, contato e duplicidade atendem às regras atuais.</small></div></section>}
-      <ProspectingG1G2Panel prospect={active} snapshot={snapshot}/>
-      <ProspectingTriggerIntelligenceG4 prospect={active} readOnly={readOnly}/>
+      </div>
+      <div id="garimpo-review-investigation" role="tabpanel" aria-label="Investigação com inteligência artificial" hidden={reviewFocus!=='investigation'}>
+        <p className="prospecting-review-workspace-v2__section-intro">Converse com o Ollama sobre esta empresa, investigue publicações públicas em lote e confira cada evidência.</p>
+        <ProspectingG1G2Panel prospect={active} snapshot={snapshot} readOnly={readOnly}/>
+      </div>
+      <div id="garimpo-review-intelligence" role="tabpanel" aria-label="Inteligência comercial e eventos" hidden={reviewFocus!=='intelligence'}>
+        <p className="prospecting-review-workspace-v2__section-intro">Examine acontecimentos sustentados por fontes, hipóteses e a revisão humana do G4.</p>
+        <ProspectingTriggerIntelligenceG4 prospect={active} readOnly={readOnly}/>
+      </div>
+      <div id="garimpo-review-decision" role="tabpanel" aria-label="Decisão e edição cadastral" hidden={reviewFocus!=='decision'}>
+        <p className="prospecting-review-workspace-v2__section-intro">Corrija o cadastro, avalie os bloqueios e decida o que segue para o CRM.</p>
+        {quality.blockers.length ? <div className="prospecting-review-workspace-v2__blockers"><AlertTriangle size={15}/><span>{quality.blockers.slice(0,4).join(' · ')}</span></div>:null}
       <details className="prospecting-review-edit-v101106">
         <summary><div><span><SlidersHorizontal size={15}/> Editar dados</span><small>Abra somente se precisar corrigir alguma informação.</small></div><ChevronRight size={15}/></summary>
         <div className="prospecting-review-form">
@@ -1752,11 +1801,12 @@ function ProcessingWorkspace({ readOnly, queue, active, leads, snapshot, onSelec
         <label className="is-wide"><span>Observações da revisão</span><textarea readOnly={readOnly} value={active.notes} onChange={(event) => onChange(active.id, { notes: event.target.value })} /></label>
         </div>
       </details>
-      {!readOnly ? <footer className="prospecting-review-actions prospecting-review-actions-v101106"><div><Button variant="ghost" onClick={() => onDiscard(active.id)}><Ban size={16} /> Descartar</Button><Button variant="secondary" onClick={() => onAnalyze(active.id)}><RefreshCw size={16} /> Reanalisar</Button></div><div><Button variant="secondary" disabled={quality.readiness === 'blocked'} title={quality.readiness === 'blocked' ? quality.blockers.join(' · ') : 'Aprovar registro revisado'} onClick={() => onApprove(active.id)}><Check size={16} /> Aprovar</Button><Button disabled={active.status !== 'approved' || quality.readiness === 'blocked'} title={active.status !== 'approved' ? 'Aprove o registro antes do envio' : quality.blockers.join(' · ')} onClick={() => onSend(active.id)}><Send size={16} /> Enviar ao CRM</Button></div><small className="prospecting-review-shortcuts-v101104">Atalhos: A aprovar · D descartar · ← → navegar</small></footer> : null}
+      </div>
+      {!readOnly ? <footer className="prospecting-review-actions prospecting-review-actions-v101106 prospecting-review-workspace-v2__footer"><div><Button variant="ghost" onClick={() => onDiscard(active.id)}><Ban size={16} /> Descartar</Button><Button variant="secondary" onClick={() => onAnalyze(active.id)}><RefreshCw size={16} /> Reanalisar</Button></div><div><Button variant="secondary" disabled={quality.readiness === 'blocked'} title={quality.readiness === 'blocked' ? quality.blockers.join(' · ') : 'Aprovar registro revisado'} onClick={() => onApprove(active.id)}><Check size={16} /> Aprovar</Button><Button disabled={active.status !== 'approved' || quality.readiness === 'blocked'} title={active.status !== 'approved' ? 'Aprove o registro antes do envio' : quality.blockers.join(' · ')} onClick={() => onSend(active.id)}><Send size={16} /> Enviar ao CRM</Button></div><small className="prospecting-review-shortcuts-v101104">Atalhos: A aprovar · D descartar · ← → navegar</small></footer> : null}
     </section>
 
-    <aside className="prospecting-analysis-sidebar prospecting-analysis-sidebar-v101106">
-      <ProspectMiniMap prospect={active} />
+    <aside className="prospecting-analysis-sidebar prospecting-analysis-sidebar-v101106 prospecting-review-workspace-v2__aside" hidden={reviewFocus!=='overview'&&reviewFocus!=='decision'}>
+      <details className="prospecting-review-workspace-v2__map"><summary><MapPinned size={15}/> Localização e território <ChevronRight size={15}/></summary><ProspectMiniMap prospect={active} /></details>
       <details className="panel prospecting-review-evidence-v101106">
         <summary><div><Database size={15}/><span><strong>Qualidade e evidências</strong><small>Score, duplicidade, origem e rastreabilidade</small></span></div><ChevronRight size={15}/></summary>
         <div className="prospecting-review-evidence-v101106__body">

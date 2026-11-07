@@ -25,7 +25,7 @@ export const LOCAL_AI_BROWSER_URL='http://127.0.0.1:8798/browser'
 const allowedGet=new Set(['/tools/health'])
 const allowedPost=new Set(['/tools/chat','/tools/chat-stream','/tools/research','/tools/route-intent',
   '/tools/plan-readonly','/tools/workflow-plan','/tools/workflow-synthesize',
-  '/tools/prospect-investigate','/tools/garimpo-conversation','/tools/generate-script',
+  '/tools/prospect-investigate','/tools/garimpo-conversation','/tools/company-ask','/tools/generate-script',
   '/tools/research-script','/tools/classify-work','/tools/revise-work'])
 
 export const localAiPairingPresent=()=>{
@@ -94,6 +94,17 @@ const agentSuffix=(input:string)=>{
 export async function tryLocalAiBrowserRequest(input:string,init:RequestInit={}):Promise<Response|null>{
   const suffix=agentSuffix(input)
   if(!suffix)return null
+  // A Vite preview e o Agent estao no mesmo computador. A consulta somente leitura
+  // pode falar diretamente com o Agent local, sem depender da ponte pareada 8798
+  // (que pode apontar para um runtime antigo). Nunca aplica a URLs hospedadas.
+  if(['/tools/company-ask','/tools/company-image'].includes(suffix.split('?')[0])){
+    try{
+      const target=new URL(env.agentGatewayUrl)
+      const origin=window.location?.origin
+      if(target.protocol==='http:'&&target.hostname==='127.0.0.1'&&target.port==='8791'&&
+        (origin==='http://127.0.0.1:5174'||origin==='http://localhost:5174'))return null
+    }catch{/* endpoint remoto segue a ponte autenticada */}
+  }
   const localOnly=localAiOnlyEnabled()
   const token=currentToken()
   if(!/^[a-f0-9]{64}$/i.test(token))return localOnly?offlineLocalAiResponse():null

@@ -72,6 +72,13 @@ test('browser pair: origin, preflight, authentication, read-only and streaming',
     assert.equal(health.headers.get('access-control-allow-origin'),validOrigin)
     const denied=await fetch(url+'/browser/capabilities/execute',{method:'POST',headers})
     assert.equal(denied.status,404)
+    const companyAsk=await fetch(url+'/browser/tools/company-ask',{
+      method:'POST',headers:{...headers,'Content-Type':'application/json'},
+      body:JSON.stringify({company:'Salento Barbearia',city:'Rio Grande, RS',
+        question:'Mostre o Instagram público da empresa'}),
+    })
+    assert.equal(companyAsk.status,200,'company assistant must be allowed as read-only route')
+    assert.equal((await companyAsk.json()).path,'/tools/company-ask')
     const streamed=await fetch(url+'/browser/tools/chat-stream',{method:'POST',headers:{
       ...headers,'Content-Type':'application/json'},body:JSON.stringify({prompt:'Olá'})})
     assert.equal(streamed.status,200)

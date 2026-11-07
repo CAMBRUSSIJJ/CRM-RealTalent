@@ -54,3 +54,27 @@ html[data-theme="dark"] .prospecting-trigger-g4__card blockquote{background:#273
 html[data-theme="dark"] .prospecting-trigger-g4__head h3,html[data-theme="dark"] .prospecting-trigger-g4__card h5{color:#dbe9ff}
 html[data-theme="dark"] .prospecting-trigger-g4__source input,html[data-theme="dark"] .prospecting-trigger-g4__source textarea,
 html[data-theme="dark"] .prospecting-trigger-g4__review input:not([type=checkbox]){background:#1a2d48;color:#e2edff;border-color:#47617f}
+
+
+.prospecting-trigger-g4__cloud-link{justify-self:start;display:inline-flex;align-items:center;gap:7px;
+ border:1px solid #b9d4f2;background:#eaf4ff;color:#265fa6;border-radius:8px;
+ padding:9px 12px;font-size:11px;font-weight:750;cursor:pointer}
+.prospecting-trigger-g4__cloud-link:disabled{opacity:.55;cursor:not-allowed}
+html[data-theme="dark"] .prospecting-trigger-g4__cloud-link{background:#244568;color:#cfe5ff;border-color:#406d9b}
+
+/* Fontes publicas consultadas no G1/G2: hierarquia consistente com G4. */
+.prospecting-g1g2__public-sources{display:grid;gap:8px;padding:11px 12px;margin:8px 0 10px;background:var(--rt-color-surface,#fff);border:1px solid #dce7f5;border-radius:9px;min-width:0}
+.prospecting-g1g2__public-sources>strong{font-size:12px;color:var(--text-primary,#2a476c)}
+.prospecting-g1g2__public-sources>small,.prospecting-g1g2__public-sources>p{color:var(--text-secondary,#6d839d);font-size:11px;line-height:1.5;margin:0}
+.prospecting-g1g2__public-sources ul{padding:0;margin:0;list-style:none;display:grid;gap:7px}
+.prospecting-g1g2__public-sources li{display:flex;gap:5px 10px;align-items:center;flex-wrap:wrap;padding:9px;border:1px solid #e5edf7;border-radius:8px;min-width:0}
+.prospecting-g1g2__public-sources li>a{display:inline-flex;align-items:center;gap:5px;color:#2865ac;font-size:11px;font-weight:650;text-decoration:none;overflow-wrap:anywhere;min-width:0}
+.prospecting-g1g2__public-sources li>small{color:var(--text-secondary,#64758f);font-size:10px}
+.prospecting-g1g2__public-sources li>button{padding:5px 9px;border-radius:7px;background:#eef6ff;border:1px solid #cfe2fb;color:#215a9e;font-size:10px;font-weight:750;cursor:pointer;margin-left:auto}
+.prospecting-g1g2__public-sources li>button:hover{background:#dbeeff}
+html[data-theme="dark"] .prospecting-g1g2__public-sources{background:#1e3049;border-color:#405975}
+html[data-theme="dark"] .prospecting-g1g2__public-sources li{border-color:#405975}
+html[data-theme="dark"] .prospecting-g1g2__public-sources li>button{background:#244568;color:#cfe5ff;border-color:#406d9b}
+
+.prospecting-g1g2__signal-notice{padding:9px 11px;margin:8px 0;color:#285e75;background:#eaf7ff;border:1px solid #c7e7f5;border-radius:8px;font-size:11px;line-height:1.5}
+html[data-theme="dark"] .prospecting-g1g2__signal-notice{background:#253d53;color:#d1eafa;border-color:#46637a}

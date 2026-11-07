@@ -9,7 +9,7 @@ command -v npm >/dev/null || { echo "Node/npm indisponíveis."; exit 1; }
 node -e 'if(Number(process.versions.node.split(".")[0])!==22)process.exit(1)' || { echo "É necessário Node.js 22."; exit 1; }
 APP="$HOME/Downloads/RealTalent-CRM-V101-WAHA"
 REPO="https://github.com/CAMBRUSSIJJ/CRM-RealTalent.git"
-BRANCH="feat/garimpo-trigger-intelligence-g4-20261106"
+BRANCH="feat/garimpo-trigger-intelligence-g43-supabase-20261106"
 WAHA_ENV="$HOME/.local/share/realtalent-waha-gows/.env"
 [[ -f "$WAHA_ENV" ]] || { echo "WAHA local não encontrado. Nenhuma sessão foi alterada."; exit 1; }
 KEY=$(sed -n 's/^WAHA_API_KEY=//p' "$WAHA_ENV")
@@ -43,7 +43,7 @@ if curl --noproxy '*' -fsS --max-time 2 http://127.0.0.1:4392/health >/dev/null 
   FEATURE_STATUS=$(curl --noproxy '*' -s -H "Authorization: Bearer $BRIDGE_TOKEN" --max-time 5 http://127.0.0.1:4392/v1/features || true)
   # A chave local nunca deve ser exibida ou enviada para o chat.
   unset BRIDGE_TOKEN
-  if [[ "$FEATURE_STATUS" != *'"task-notifications-waha-v5"'* ]];then
+  if [[ "$FEATURE_STATUS" != *'"task-notifications-waha-v5"'* || "$FEATURE_STATUS" != *'inline-reply-g411'* ]];then
     echo "A ponte WAHA antiga ainda está na porta 4392. Feche a prévia anterior (Ctrl+C) e execute novamente."
     exit 1
   fi
@@ -80,6 +80,10 @@ npm ci --include=dev --no-fund
 if [[ "$(node -p 'require("./package.json").version')" != "101.11.3" ]]; then
   echo "ERRO: versão de CRM inesperada. Instalação interrompida."
   exit 1
+fi
+echo "=== Garimpo: conferindo busca pública por empresa (preservando WAHA) ==="
+if ! bash scripts/garimpo-g4/ativar-garimpo-local.sh; then
+  echo "A prévia CRM continuará. A investigação automática pode ficar indisponível; confira os avisos acima."
 fi
 echo "=== G4: conferindo a IA Qwen3 local (sem alterar agentes já ativos) ==="
 if ! bash scripts/garimpo-g4/ativar-agente-local.sh;then

@@ -37,6 +37,9 @@ import { calculateRevenueIntelligence } from '../../services/revenue-intelligenc
 import { DealPortfolioPanel } from '../deal-intelligence/deal-portfolio-panel'
 import { DealInspectorModal } from '../deal-intelligence/deal-inspector-modal'
 import {WonSalesDashboard} from '../won-sales/won-sales-dashboard'
+import {readProspectingState} from '../../services/prospecting-workspace'
+import {readTriggerReviewsG4,triggerLabelsG4} from '../../services/prospecting-triggers-g4'
+import {isTriggerCloudModeG43,isTriggerCloudEnabledG43,loadApprovedPipelineTriggersG43,loadLocalApprovedPipelineTriggersG43,type TriggerPipelineSignalG43} from '../../services/prospecting-triggers-g43-remote'
 import './sales-pipeline-v3.css'
 
 const INITIAL_CARDS = 30
@@ -78,10 +81,47 @@ export function PipelinePage() {
     }
   }, [canPipelineView, canTeamAccessRecord, rawSnapshot])
   const workspaceId = snapshot?.workspace.id ?? rawSnapshot?.workspace.id ?? ''
+  useEffect(()=>{
+    if(!workspaceId||!canPipelineView||!snapshot?.leads.length){
+      setTriggerSignals([])
+      return
+    }
+    let cancelled=false
+    if(isTriggerCloudModeG43()&&!isTriggerCloudEnabledG43()){
+      // Cloud schema G4.3 is not yet deployed. Avoid 404s while keeping Pipeline usable.
+      setTriggerSignals([])
+      return
+    }
+    if(isTriggerCloudModeG43()){
+      // Approved, linked signals only. The DB enforces CRM lead visibility.
+      void loadApprovedPipelineTriggersG43(workspaceId,snapshot.leads).then(rows=>{
+        if(!cancelled)setTriggerSignals(rows)
+      }).catch(()=>{
+        if(!cancelled)setTriggerSignals([])
+      })
+    }else{
+      const refresh=()=>{
+        try{
+          const prospects=readProspectingState(workspaceId).prospects
+          const reviews=readTriggerReviewsG4(workspaceId,window.localStorage)
+          if(!cancelled)setTriggerSignals(loadLocalApprovedPipelineTriggersG43(workspaceId,snapshot.leads,prospects,reviews))
+        }catch{if(!cancelled)setTriggerSignals([])}
+      }
+      refresh()
+      const onChange=(event:Event)=>{
+        if((event as CustomEvent<{workspaceId:string}>).detail?.workspaceId===workspaceId)refresh()
+      }
+      window.addEventListener('realtalent:garimpo:g4:change',onChange)
+      return ()=>{cancelled=true;window.removeEventListener('realtalent:garimpo:g4:change',onChange)}
+    }
+    return ()=>{cancelled=true}
+  },[workspaceId,canPipelineView,snapshot?.leads])
   const [filters, setFilters] = useState<PipelineFiltersState>(DEFAULT_FILTERS)
   const [filtersOpen, setFiltersOpen] = useState(false)
   const [intelligenceOpen, setIntelligenceOpen] = useState(false)
   const [wonSalesPanelOpen,setWonSalesPanelOpen]=useState(false)
+  const [triggerSignals,setTriggerSignals]=useState<TriggerPipelineSignalG43[]>([])
+  const [triggerInspectLeadId,setTriggerInspectLeadId]=useState<string|null>(null)
   const [compact, setCompact] = useState(false)
   const [viewMode, setViewMode] = useState<PipelineViewMode>('board')
   const [sort, setSort] = useState<PipelineSort>('updated_desc')
@@ -536,6 +576,11 @@ export function PipelinePage() {
           <time className={overdue ? 'is-overdue' : !lead.nextActionAt ? 'is-missing' : ''} dateTime={lead.nextActionAt ?? undefined}><Clock3 size={12} />{nextActionLabel}</time>
         </span>
       </button>
+      {triggerSignals.some(item=>item.leadId===lead.id)?<button
+        type="button" className="sales-pipeline-v3__trigger-badge"
+        onClick={()=>setTriggerInspectLeadId(lead.id)}>
+        <Sparkles size={13}/> {triggerSignals.filter(item=>item.leadId===lead.id).length} sinal(is) revisado(s)
+      </button>:null}
       <div className="sales-pipeline-v3__quick-actions">{renderQuickActions(lead, 'card')}</div>
     </article>
   }
@@ -596,7 +641,16 @@ export function PipelinePage() {
       const value = commercialValue(lead)
       return <tr key={lead.id} className={selectedIds.includes(lead.id) ? 'is-selected' : ''}>
         <td><button type="button" className={`pipeline-select ${selectedIds.includes(lead.id) ? 'is-selected' : ''}`} onClick={() => toggleSelected(lead.id)}>{selectedIds.includes(lead.id) ? <Check size={13} /> : null}</button></td>
-        <td><button type="button" className="pipeline-table__lead" onClick={() => setViewing(lead)}><strong>{lead.name}</strong><small>{lead.company || lead.city || 'Sem empresa'}</small></button></td>
+        <td>
+          <button type="button" className="pipeline-table__lead" onClick={() => setViewing(lead)}>
+            <strong>{lead.name}</strong><small>{lead.company || lead.city || 'Sem empresa'}</small>
+          </button>
+          {triggerSignals.some(item=>item.leadId===lead.id)?<button type="button"
+            className="sales-pipeline-v3__trigger-badge" onClick={()=>setTriggerInspectLeadId(lead.id)}
+            aria-label={'Ver '+triggerSignals.filter(item=>item.leadId===lead.id).length+' evento(s)-gatilho aprovado(s) de '+lead.name}>
+            <Sparkles size={12}/> {triggerSignals.filter(item=>item.leadId===lead.id).length} sinal(is) revisado(s)
+          </button>:null}
+        </td>
         <td><span className="pipeline-stage-chip"><i style={{ background: stage?.color }} />{stage?.name ?? 'Sem etapa'}</span></td>
         <td>{proposal ? <span className="pipeline-proposal-cell"><strong>{proposal.proposalNumber} · v{proposal.version}</strong><small>{proposal.status === 'accepted' ? 'Aceite registrado' : proposal.status === 'sent' ? 'Enviada' : proposal.status === 'viewed' ? 'Visualizada' : 'Em elaboração'}</small></span> : <span className="pipeline-table-muted">Sem proposta oficial</span>}</td>
         <td>{deal ? <button type="button" className={`pipeline-health pipeline-health--${deal.healthLevel === 'strong' ? 'healthy' : deal.healthLevel}`} onClick={() => setInspectingLeadId(lead.id)}>{deal.healthScore} · {deal.healthLabel}</button> : signal ? <span className={`pipeline-health pipeline-health--${signal.health}`}>{healthLabels[signal.health]}</span> : null}</td>
@@ -789,6 +843,22 @@ export function PipelinePage() {
     {viewMode === 'calendar' ? renderCalendar() : null}
     {viewMode === 'funnel' ? renderFunnel() : null}
 
+    <Modal open={Boolean(triggerInspectLeadId)} title="Sinais comerciais revisados"
+      subtitle="Acontecimentos documentados no Garimpo. Necessidades inferidas não confirmam intenção de compra."
+      size="lg" onClose={()=>setTriggerInspectLeadId(null)}
+      footer={<Button variant="secondary" onClick={()=>setTriggerInspectLeadId(null)}>Fechar</Button>}>
+      <div className="sales-pipeline-v3__trigger-list">
+        {triggerSignals.filter(item=>item.leadId===triggerInspectLeadId).map(signal=><article key={signal.id}>
+          <span>{triggerLabelsG4[signal.category]} · Revisão humana</span>
+          <strong>{signal.event}</strong>
+          <blockquote>“{signal.quote}”</blockquote>
+          <p><b>Possível necessidade (hipótese):</b> {signal.hypothesis}</p>
+          <a href={signal.sourceUrl} target="_blank" rel="noopener noreferrer">
+            Conferir publicação original <ArrowRight size={13}/>
+          </a>
+        </article>)}
+      </div>
+    </Modal>
     <DealInspectorModal open={Boolean(inspectingDeal)} insight={inspectingDeal} snapshot={snapshot} readOnly={!canPipelineEdit} onClose={() => setInspectingLeadId(null)} onExecute={runDealAction} onOpenAccount={(deal) => { setInspectingLeadId(null); navigate('leads', { leadId: deal.lead.id, action: 'account360' }) }} onOpenLead={(deal) => { setInspectingLeadId(null); setViewing(deal.lead) }} />
     <CreateLeadModal
       mode="opportunity"

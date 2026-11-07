@@ -6,6 +6,7 @@ import {
   type WahaChat, type WahaMessage, type WahaPreferences, type WahaStatus,
 } from '../../services/waha-direct'
 import { WahaMessageMedia, WahaToolsDrawer, type WahaToolMode } from './waha-conversation-tools'
+import { WahaInlineAiReply } from './waha-inline-ai-reply'
 import '../../styles/waha-direct.css'
 import '../../styles/waha-conversation-tools.css'
 
@@ -47,6 +48,7 @@ export function WahaConversationsPage(){
   const [filter,setFilter]=useState<'all'|'unread'|'favorites'|'groups'>('all')
   const [prefs,setPrefs]=useState<WahaPreferences>(emptyWahaPreferences)
   const [toolMode,setToolMode]=useState<WahaToolMode|null>(null)
+  const [inlineAiIntent,setInlineAiIntent]=useState<'suggest'|'improve'|null>(null)
   const [attachment,setAttachment]=useState<File|null>(null)
   const [draft,setDraft]=useState('')
   const [phone,setPhone]=useState('')
@@ -68,6 +70,7 @@ export function WahaConversationsPage(){
   function selectConversation(chat:WahaChat){
     if(selectedId)drafts.current.set(selectedId,draft)
     setSelected(chat)
+    setInlineAiIntent(null)
     setDraft(drafts.current.get(chat.id)||'')
     setAttachment(null)
     if(attachRef.current)attachRef.current.value=''
@@ -206,6 +209,7 @@ export function WahaConversationsPage(){
       else await wahaSend(token,chatId,body,crypto.randomUUID())
       drafts.current.delete(chatId)
       if(selectedIdRef.current===chatId){
+        setInlineAiIntent(null)
         setDraft('');setRequiresReview(false);setAttachment(null)
         if(attachRef.current)attachRef.current.value=''
       }
@@ -239,7 +243,7 @@ export function WahaConversationsPage(){
       <div className="waha-toolbar-actions">
         <span className={'waha-state '+(connected?'is-up':'is-down')}>{connected?<Wifi size={14}/>:<WifiOff size={14}/>} {connected?'Conectado':status?.status||'Reconectando'}</span>
         <button onClick={()=>void refreshAll()} disabled={refreshing} title="Atualizar"><RefreshCw size={17}/></button>
-        <button onClick={()=>{clearWahaToken();setToken('');setSelected(null);setMessages([])}} title="Desvincular esta aba sem sair do WhatsApp">Sair da ponte</button>
+        <button onClick={()=>{clearWahaToken();setToken('');setSelected(null);setMessages([]);setInlineAiIntent(null)}} title="Desvincular esta aba sem sair do WhatsApp">Sair da ponte</button>
       </div>
     </header>
     <nav className="waha-tools-bar" aria-label="Ferramentas de comunicação">
@@ -291,6 +295,26 @@ export function WahaConversationsPage(){
             ↓ Ver mensagens recentes
           </button>:null}
           {sendError?<div className="waha-error" role="alert">{sendError}{requiresReview?<button type="button" onClick={()=>{setRequiresReview(false);setSendError('')}}>Verifiquei a conversa; liberar novo envio</button>:null}</div>:null}
+          <div className="waha-compose-ai-actions">
+            <button type="button" disabled={!connected||sending||requiresReview||selectedId.endsWith('@g.us')}
+              title={selectedId.endsWith('@g.us')?'Sugestão inline disponível para conversas individuais':'Preparar uma resposta usando o histórico do WhatsApp'}
+              onClick={()=>setInlineAiIntent('suggest')}><BrainCircuit size={15}/> Sugerir resposta</button>
+            {draft.trim().length>=3?<button type="button"
+              disabled={!connected||sending||requiresReview||selectedId.endsWith('@g.us')}
+              onClick={()=>setInlineAiIntent('improve')}><BrainCircuit size={15}/> Melhorar meu texto</button>:null}
+          </div>
+          {inlineAiIntent&&!selectedId.endsWith('@g.us')?<WahaInlineAiReply
+            key={selectedId+'-'+inlineAiIntent} token={token} chatId={selectedId}
+            latestMessageId={messages[messages.length-1]?.id||''}
+            originalDraft={draft} initialIntent={inlineAiIntent}
+            onClose={()=>setInlineAiIntent(null)}
+            onInsert={text=>{
+              if(draft.trim()&&draft.trim()!==text.trim()&&
+                !window.confirm('Substituir o texto que você já escreveu por esta sugestão?'))return
+              setDraft(text)
+              drafts.current.set(selectedId,text)
+              setInlineAiIntent(null)
+            }}/>:null}
           <form className="waha-compose" onSubmit={e=>{e.preventDefault();void send()}}>
             <label className="waha-attach-button" title="Anexar arquivo" aria-label="Anexar arquivo"><Paperclip size={18}/><input ref={attachRef} type="file" accept="image/png,image/jpeg,image/webp,image/gif,audio/mpeg,audio/ogg,audio/mp4,video/mp4,application/pdf,text/plain" onChange={e=>{const f=e.target.files?.[0]||null;if(f&&f.size>8*1024*1024){setSendError('Arquivo acima do limite de 8 MB.');setAttachment(null)}else{setAttachment(f);setSendError('')}}} disabled={sending||requiresReview}/></label>
             <div className="waha-compose-input">{attachment?<div className="waha-attachment-chip"><Paperclip size={12}/>{attachment.name} ({(attachment.size/1024/1024).toFixed(1)} MB)<button type="button" onClick={()=>{setAttachment(null);if(attachRef.current)attachRef.current.value=''}}>×</button></div>:null}

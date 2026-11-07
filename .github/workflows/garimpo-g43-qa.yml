@@ -1,0 +1,85 @@
+name: Garimpo G4.3 - Supabase Sync and RLS QA
+on:
+  push:
+    branches:
+      - feat/garimpo-trigger-intelligence-g43-supabase-20261106
+  pull_request:
+    paths:
+      - 'supabase/migrations/202611060001_g43_trigger_events_review_audit.sql'
+      - 'supabase/migrations.lock.json'
+      - 'supabase/tests/g43_trigger_rls.sql'
+      - 'src/services/prospecting-triggers-g43-remote*'
+      - 'src/features/prospecting/prospecting-trigger-g4.tsx'
+      - 'src/features/pipeline/**'
+      - '.github/workflows/garimpo-g43-qa.yml'
+  workflow_dispatch:
+jobs:
+  frontend:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci --include=dev
+      - name: Block high severity runtime dependency advisories
+        run: npm audit --omit=dev --audit-level=high
+      - name: Verify deployment identity stamping
+        run: node --test scripts/stamp-health.test.mjs
+      - name: Verify the migration checksum lock
+        run: node scripts/verify-migrations.mjs
+      - name: G4.3 client and local compatibility
+        run: npm exec -- vitest run src/services/prospecting-triggers-g43-remote.test.ts src/services/prospecting-triggers-g4.test.ts
+      - name: G4.4 company research - public evidence and safety
+        run: |
+          node --test runtime-host/RealTalent-Agent-Runtime-V3.1.2/crm-prospect-investigation-g1.test.mjs
+          node --test runtime-host/RealTalent-Agent-Runtime-V3.1.2/crm-company-assistant-g45.test.mjs
+          node --test runtime-host/RealTalent-Agent-Runtime-V3.1.2/crm-public-social-evidence-g46.test.mjs
+          node --test runtime-host/RealTalent-Agent-Runtime-V3.1.2/crm-social-vision-g46.test.mjs
+          node --test runtime-host/RealTalent-Agent-Runtime-V3.1.2/crm-instagram-post-analysis-g47.test.mjs
+          node --test runtime-host/RealTalent-Agent-Runtime-V3.1.2/crm-instagram-batch-g48.test.mjs
+          node --test runtime-host/RealTalent-Agent-Runtime-V3.1.2/crm-commercial-priority-g49.test.mjs
+          node --check runtime-host/RealTalent-Agent-Runtime-V3.1.2/crm-commercial-priority-g49.mjs
+          node --check runtime-host/RealTalent-Agent-Runtime-V3.1.2/crm-instagram-batch-g48.mjs
+          node --check runtime-host/RealTalent-Agent-Runtime-V3.1.2/crm-instagram-post-analysis-g47.mjs
+          node --check runtime-host/RealTalent-Agent-Runtime-V3.1.2/crm-social-vision-g46.mjs
+          node --check runtime-host/RealTalent-Agent-Runtime-V3.1.2/crm-public-social-evidence-g46.mjs
+          node --test scripts/realtalent-ai-linux/browser-connector.test.mjs
+          npm exec -- vitest run src/services/realtalent-ai-local-browser.test.ts
+          node --check runtime-host/RealTalent-Agent-Runtime-V3.1.2/crm-company-assistant-g45.mjs
+          node --test scripts/realtalent-company-search.test.mjs
+          node --check scripts/realtalent-company-search.mjs
+          node --check runtime-host/RealTalent-Agent-Runtime-V3.1.2/crm-prospect-investigation-g1.mjs
+          node --check scripts/realtalent-prospecting-agent.mjs
+          bash -n scripts/garimpo-g4/ativar-garimpo-local.sh
+          bash -n scripts/garimpo-g4/ativar-agente-local.sh
+          bash -n deploy/waha-direct/abrir-crm-v101-waha-linux.sh
+      - name: TypeScript
+        run: npm run typecheck
+      - name: Build
+        run: npm run build
+  postgres_rls:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_PASSWORD: g43_test_only
+          POSTGRES_USER: postgres
+          POSTGRES_DB: g43_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d g43_test"
+          --health-interval 3s
+          --health-timeout 3s
+          --health-retries 15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Isolated PostgreSQL schema, RLS and audit checks
+        env:
+          PGPASSWORD: g43_test_only
+        run: psql -h 127.0.0.1 -p 5432 -U postgres -d g43_test -v ON_ERROR_STOP=1 -f supabase/tests/g43_trigger_rls.sql

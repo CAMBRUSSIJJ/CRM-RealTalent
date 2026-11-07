@@ -11,6 +11,8 @@ import { buildResearchedScript } from './crm-script-research-v52.mjs'
 import { researchQuestionV56 } from './crm-research-v56.mjs'
 import { deepResearchV60 } from './crm-deep-research-v60.mjs'
 import { investigateProspectG1 } from './crm-prospect-investigation-g1.mjs'
+import { answerCompanyQuestionG45 } from './crm-company-assistant-g45.mjs'
+import { analyzeLocalScreenshotG46 } from './crm-social-vision-g46.mjs'
 import { planGarimpoG3 } from './crm-garimpo-conversation-g3.mjs'
 import { classifyTriggerEventsG4 } from './crm-trigger-events-g4.mjs'
 
@@ -265,7 +267,7 @@ const handleCapabilityPlan = async (req, res) => {
   }
 }
 
-const LOCAL_BROWSER_ORIGINS = new Set(['http://127.0.0.1:4188', 'http://localhost:4188', 'http://127.0.0.1:4189', 'http://localhost:4189', 'http://127.0.0.1:4192', 'http://localhost:4192', 'http://127.0.0.1:4193', 'http://localhost:4193', 'http://127.0.0.1:4194', 'http://localhost:4194', 'http://127.0.0.1:4195', 'http://localhost:4195', 'http://127.0.0.1:4196', 'http://localhost:4196', 'http://127.0.0.1:4197', 'http://localhost:4197'])
+const LOCAL_BROWSER_ORIGINS = new Set(['http://127.0.0.1:4188', 'http://localhost:4188', 'http://127.0.0.1:4189', 'http://localhost:4189', 'http://127.0.0.1:4192', 'http://localhost:4192', 'http://127.0.0.1:4193', 'http://localhost:4193', 'http://127.0.0.1:4194', 'http://localhost:4194', 'http://127.0.0.1:4195', 'http://localhost:4195', 'http://127.0.0.1:4196', 'http://localhost:4196', 'http://127.0.0.1:4197', 'http://localhost:4197', 'http://127.0.0.1:5174', 'http://localhost:5174'])
 const applyLocalBrowserCors = (req, res) => {
   const origin = String(req.headers.origin || '')
   if (!LOCAL_BROWSER_ORIGINS.has(origin)) return false
@@ -785,7 +787,41 @@ const handleProspectInvestigationG1=async(req,res)=>{
   finally{prospectInvestigationInflight--}
 }
 
-// G3 is planning-only. Data mutations and search execution remain in the
+// G4.5 company-scoped, read-only research. No writes, sends or account access.
+let companyAssistantInflight=0
+const handleCompanyQuestionG45=async(req,res)=>{
+  if(!['127.0.0.1','localhost','::1'].includes(OUTER_HOST))return sendJson(res,403,{ok:false,error:'local_only'})
+  if(companyAssistantInflight>=1)return sendJson(res,429,{ok:false,error:'model_busy'})
+  companyAssistantInflight++
+  try{
+    const input=await readJsonBody(req,2400)
+    const result=await answerCompanyQuestionG45(input,{ollamaUrl:OLLAMA_URL,model:CRM_OLLAMA_MODEL})
+    return sendJson(res,result.ok?200:400,result)
+  }catch{return sendJson(res,503,{ok:false,error:'company_research_unavailable'})}
+  finally{companyAssistantInflight--}
+}
+
+// Optional multimodal screenshot analysis through a locally installed Ollama
+// vision model. Strictly local, read-only, no persistence or external image APIs.
+let socialScreenshotInflight=0
+const handleSocialScreenshotG46=async(req,res)=>{
+  if(!['127.0.0.1','localhost','::1'].includes(OUTER_HOST))return sendJson(res,403,{ok:false,error:'local_only'})
+  const origin=String(req.headers.origin||'')
+  if(origin&&origin!=='http://127.0.0.1:5174'&&origin!=='http://localhost:5174')
+    return sendJson(res,403,{ok:false,error:'origin_forbidden'})
+  if(socialScreenshotInflight>=1)return sendJson(res,429,{ok:false,error:'vision_busy'})
+  socialScreenshotInflight++
+  try{
+    const input=await readJsonBody(req,3000000)
+    const result=await analyzeLocalScreenshotG46(input,{ollamaUrl:OLLAMA_URL})
+    const code=result.ok?200:result.error==='vision_model_missing'?412:
+      result.error==='invalid_image'||result.error==='invalid_company'?400:503
+    return sendJson(res,code,result)
+  }catch{return sendJson(res,400,{ok:false,error:'image_payload_invalid_or_large'})}
+  finally{socialScreenshotInflight--}
+}
+
+ // G3 is planning-only. Data mutations and search execution remain in the
 // existing permission-gated UI; the model cannot call native CRM tools here.
 let garimpoConversationInflight=0
 const handleGarimpoConversationG3=async(req,res)=>{
@@ -819,6 +855,12 @@ const handleTriggerG4=async(req,res)=>{
 const routerServer = http.createServer((req, res) => {
   applyLocalBrowserCors(req, res)
   if (req.method === 'OPTIONS') { res.statusCode = 204; res.end(); return }
+  if (req.method === 'GET' && String(req.url || '').split('?')[0] === '/tools/company-ask/status') {
+    sendJson(res,200,{ok:true,feature:'company-assistant-g410',readOnly:true,instagram:'public-html-metadata-and-indexed-only',vision:'optional-local-screenshot',cnpj:'public-registry'});return
+  }
+  if (req.method === 'GET' && String(req.url || '').split('?')[0] === '/tools/prospect-investigate/status') {
+    sendJson(res,200,{ok:true,feature:'company-research-v1',provider:'local-garimpo',publicSources:true}); return
+  }
   if (req.method === 'GET' && String(req.url || '').split('?')[0] === '/tools/health') { void localOllamaStatusV56(req,res); return }
   if (req.method === 'POST' && String(req.url || '').split('?')[0] === '/tools/research') { void handleResearchV56(req,res); return }
   if (req.method === 'POST' && String(req.url || '').split('?')[0] === '/tools/route-intent') { void handleResearchIntentV60(req,res); return }
@@ -826,6 +868,8 @@ const routerServer = http.createServer((req, res) => {
   if (req.method === 'POST' && String(req.url || '').split('?')[0] === '/tools/workflow-plan') { void handleContextualWorkflowV63(req,res,'plan'); return }
   if (req.method === 'POST' && String(req.url || '').split('?')[0] === '/tools/workflow-synthesize') { void handleContextualWorkflowV63(req,res,'synthesize'); return }
   if (req.method === 'POST' && String(req.url || '').split('?')[0] === '/tools/prospect-investigate') { void handleProspectInvestigationG1(req,res); return }
+  if (req.method === 'POST' && String(req.url || '').split('?')[0] === '/tools/company-ask') { void handleCompanyQuestionG45(req,res); return }
+  if (req.method === 'POST' && String(req.url || '').split('?')[0] === '/tools/company-image') { void handleSocialScreenshotG46(req,res); return }
   if (req.method === 'POST' && String(req.url || '').split('?')[0] === '/tools/garimpo-conversation') { void handleGarimpoConversationG3(req,res); return }
   if (req.method === 'POST' && String(req.url || '').split('?')[0] === '/tools/trigger-events') { void handleTriggerG4(req,res); return }
   if (req.method === 'POST' && String(req.url || '').split('?')[0] === '/tools/chat-stream') { void handleConversationStreamV61(req,res); return }

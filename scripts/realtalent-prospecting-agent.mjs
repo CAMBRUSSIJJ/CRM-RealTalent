@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 import http from 'node:http'
+import {buildCompanySearchQueries,parseSearchHtmlResults,parseBingRssResults,isSearchChallenge} from './realtalent-company-search.mjs'
 import { promises as fs } from 'node:fs'
 import path from 'node:path'
 import os from 'node:os'
@@ -1382,17 +1383,19 @@ async function webPlaceDraft(result, region, job) {
   return { draft: base, classification: { ...classification, category, location } }
 }
 
-async function searchWeb(segment, region, limit = 18) {
+async function searchWeb(segment, region, limit = 18, options = {}) {
   if (!WEB_SEARCH_ENABLED) return []
   const endpoint = new URL(WEB_SEARCH)
   endpoint.searchParams.set('q', `${segment} ${region}`)
   try {
     const results = await withRetries('Busca web', async () => {
-      const response = await fetchWithTimeout(endpoint.toString(), { headers: { accept: 'text/html,application/xhtml+xml' } }, 18000)
+      const response = await fetchWithTimeout(endpoint.toString(), { headers: { accept: 'text/html,application/xhtml+xml' } }, options.timeoutMs ?? 18000)
       if (!response.ok) throw new Error(`Busca web HTTP ${response.status}`)
       const page = await readLimitedText(response, 900_000)
-      return parseWebSearchResults(page, endpoint.toString(), limit)
-    })
+      if (isSearchChallenge(page)) throw new Error('DuckDuckGo exigiu verificação de acesso; pesquisa não concluída.')
+        const parsed=parseSearchHtmlResults(page, endpoint.toString(), limit)
+        return parsed.length?parsed:parseWebSearchResults(page, endpoint.toString(), limit)
+    }, options.retries ?? PROVIDER_RETRIES)
     markProvider('webSearch', true)
     return results
   } catch (error) {
@@ -2574,9 +2577,81 @@ const server = http.createServer(async (req, res) => {
   try {
     if (req.method === 'GET' && pathname === '/') return html(res, agentDashboardHtml())
     if (req.method === 'GET' && pathname === '/favicon.ico') { res.statusCode = 204; return res.end() }
+    if (req.method === 'POST' && pathname === '/api/prospecting-agent/company/research') {
+      // Public-search input contains the business name and city only, no private CRM information.
+      const body=await readBody(req)
+      const company=clean(body.company).slice(0,120)
+      const city=clean(body.city).slice(0,100)
+      if(company.length<3||!/\p{L}/u.test(company))
+        return json(res,{ok:false,error:'invalid_company'},400)
+      if(!WEB_SEARCH_ENABLED)
+        return json(res,{ok:false,error:'web_search_disabled'},503)
+      const focus=['instagram','cnpj','general'].includes(body.focus)?body.focus:'general'
+      const baseQueries=buildCompanySearchQueries(company,city)
+      const focused=focus==='instagram'
+        ?[company+' '+city+' instagram',
+            'site:instagram.com/p/ "'+company+'" '+city,
+            'site:instagram.com/reel/ "'+company+'" '+city,
+            company+' instagram perfil',...baseQueries]
+        :focus==='cnpj'
+          ?[company+' '+city+' CNPJ',company+' CNPJ razão social',...baseQueries]
+          :baseQueries
+      const queries=[...new Set(focused.map(value=>value.trim()).filter(Boolean))].slice(0,focus==='instagram'?4:4)
+      const results=[],seen=new Set(),attempts=[]
+      const addResults=(items,provider,query)=>{
+        let accepted=0
+        for(const result of items){
+          const key=String(result.url||'').replace(/\/$/,'').toLowerCase()
+          if(!key||seen.has(key))continue
+          seen.add(key)
+          results.push({title:clean(result.title).slice(0,170),url:String(result.url).slice(0,550),
+            snippet:clean(result.snippet).slice(0,500),provider})
+          accepted++
+          if(results.length>=(focus==='instagram'?16:12))break
+        }
+        attempts.push({query,provider,status:items.length?'results':'no_results',found:items.length,accepted})
+      }
+      for(const query of queries){
+        try{
+          const found=await searchWeb(query,'',8,{timeoutMs:6500,retries:1})
+          addResults(found,'duckduckgo',query)
+        }catch(error){
+          attempts.push({query,provider:'duckduckgo',status:'error',reason:clean(error instanceof Error?error.message:error).slice(0,140)})
+        }
+        if(results.length>=(focus==='instagram'?16:8))break
+      }
+      // Optional public fallback with no credentials. Only use if HTML search yielded nothing.
+      if(!results.length){
+        for(const query of queries.slice(0,2)){
+          const endpoint=new URL('https://www.bing.com/search')
+          endpoint.searchParams.set('format','rss')
+          endpoint.searchParams.set('q',query)
+          try{
+            const response=await fetchWithTimeout(endpoint.toString(),{
+              headers:{accept:'application/rss+xml,application/xml,text/xml;q=0.8'},
+            },7500)
+            if(!response.ok)throw new Error('Bing RSS HTTP '+response.status)
+            const xml=await readLimitedText(response,450_000)
+            if(!/<rss\b|<channel\b/i.test(xml))throw new Error('Formato RSS inesperado ou bloqueio do buscador.')
+            const items=parseBingRssResults(xml,8)
+            addResults(items,'bing_rss',query)
+          }catch(error){
+            attempts.push({query,provider:'bing_rss',status:'error',reason:clean(error instanceof Error?error.message:error).slice(0,140)})
+          }
+          if(results.length>=5)break
+        }
+      }
+      const successes=attempts.filter(item=>item.status!=='error').length
+      if(!successes&&attempts.length)
+        return json(res,{ok:false,error:'public_search_unavailable',
+          message:'Buscadores indisponíveis; nenhuma conclusão sobre a existência da empresa foi produzida.',
+          attempts,checkedAt:now()},502)
+      return json(res,{ok:true,provider:results[0]?.provider||'web_publica',results,attempts,checkedAt:now()})
+    }
     if (req.method === 'GET' && pathname === '/api/prospecting-agent/health') {
       return json(res, {
         ok: true, version: VERSION, pid: process.pid, host: HOST, port: PORT,
+        companyResearchVersion: 'g48-instagram-batch-v1',
         stateFile: STATE_FILE, chromium: Boolean(CHROMIUM), chromiumBinary: CHROMIUM,
         providers: { placeFirstSearch: true, searchOntology: true, strictScope: true, territoryEngine2: true, coverageExpansion: true, runtimeTruth: true, openstreetmap: true, webDiscovery: WEB_SEARCH_ENABLED, websiteCrawler: true, websiteDiscovery: WEB_SEARCH_ENABLED, contactDiscovery: true, cnpjEnrichment: true, cnpjDiscovery: true, socialDiscovery: true, chromiumHeadless: Boolean(CHROMIUM) },
         featureVersion: H21_RUNTIME_VERSION,

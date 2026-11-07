@@ -2,7 +2,7 @@
 set -euo pipefail
 
 REPO="https://github.com/CAMBRUSSIJJ/CRM-RealTalent.git"
-BRANCH="feat/garimpo-trigger-intelligence-g4-20261106"
+BRANCH="feat/garimpo-trigger-intelligence-g43-supabase-20261106"
 APP="$HOME/Downloads/RealTalent-CRM-V101-WAHA"
 
 echo "==============================================="
@@ -38,7 +38,7 @@ if curl --noproxy '*' -fsS --max-time 2 http://127.0.0.1:4392/health >/dev/null 
   FEATURE_INFO=$(curl --noproxy '*' -fsS --max-time 5 \
     -H "Authorization: Bearer $(cat "$TOKEN_FILE")" \
     http://127.0.0.1:4392/v1/features || true)
-  if [[ "$FEATURE_INFO" != *'task-notifications-waha-v5'* ]]; then
+  if [[ "$FEATURE_INFO" != *'task-notifications-waha-v5'* || "$FEATURE_INFO" != *'inline-reply-g411'* ]]; then
     echo "A ponte antiga está em execução na porta 4392."
     echo "Encerre a ponte antiga com Ctrl+C. NÃO desligue o Docker WAHA."
     exit 1
@@ -66,6 +66,16 @@ else
 fi
 
 cd "$APP"
+
+echo "===== CONFIRMANDO VERSAO G4.4 ====="
+echo "Branch: $(git branch --show-current)"
+echo "Commit: $(git rev-parse --short HEAD)"
+if ! grep -Fq 'Pesquisa e evidências públicas' src/features/prospecting/prospecting-g1g2-panel.tsx || \
+   ! grep -Fq 'company/research' scripts/realtalent-prospecting-agent.mjs; then
+  echo "ERRO: arquivos G4.4 ausentes. Recusei abrir uma prévia antiga."
+  exit 1
+fi
+echo "✓ Código G4.4 encontrado no checkout."
 
 if [[ ! -x "$HOME/.local/share/realtalent-whisper/venv/bin/python" ]]; then
   echo "Instalando transcrição Whisper local..."

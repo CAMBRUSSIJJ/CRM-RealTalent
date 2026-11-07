@@ -100,7 +100,7 @@ async function handler(req,res){
   if(!authenticated(req.headers.authorization)){output(res,401,{error:'invalid_bridge_token'});return}
   try{
     if(url.pathname==='/v1/features'&&req.method==='GET'){
-      output(res,200,{version:'task-notifications-waha-v5',features:['waha-chat','commercial-analysis','ask-about-chat','reply-draft','local-audio-transcription','inline-voice','group-identity','media-recovery','per-chat-auto-reply','task-assignment-notifications'],autoSend:false,autoReplyOptIn:true});return
+      output(res,200,{version:'task-notifications-waha-v5',features:['waha-chat','commercial-analysis','ask-about-chat','reply-draft','local-audio-transcription','inline-voice','group-identity','media-recovery','per-chat-auto-reply','task-assignment-notifications','inline-reply-g411'],autoSend:false,autoReplyOptIn:true});return
     }
     if(url.pathname.startsWith('/v1/task-reminders/')){
       const action=url.pathname.slice('/v1/task-reminders/'.length)
@@ -186,7 +186,7 @@ async function handler(req,res){
       output(res,200,result);return
     }
     if(url.pathname==='/v1/ai/conversation'&&req.method==='POST'){
-      const input=await readBody(req,1500)
+      const input=await readBody(req,2400)
       const result=await analyzeWahaConversation(input,{
         readMessages:async chatId=>enrichGroupSenders(normalizeWahaMediaMessages(await upstream('/api/'+session+'/chats/'+encodeURIComponent(chatId)+'/messages?limit=60&downloadMedia=true')),chatId),
         transcribeMessages

@@ -51,3 +51,6 @@ Thumbs.db
 
 # Ignore the ephemeral gateway wrapper created by local Ollama runtime.
 runtime-host/RealTalent-Agent-Runtime-V3.1.2/.gateway-ollama-runtime.generated.mjs
+
+# Runtime local do Garimpo (estado e historico de pesquisas)
+/.realtalent-prospecting-agent/

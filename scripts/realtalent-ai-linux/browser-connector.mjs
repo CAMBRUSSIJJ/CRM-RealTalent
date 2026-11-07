@@ -34,7 +34,7 @@ const allowedOrigins=()=>new Set([
 const getPaths=new Set(['/tools/health'])
 const postPaths=new Set(['/tools/chat','/tools/chat-stream','/tools/research',
   '/tools/route-intent','/tools/plan-readonly','/tools/workflow-plan',
-  '/tools/workflow-synthesize','/tools/prospect-investigate',
+  '/tools/workflow-synthesize','/tools/prospect-investigate','/tools/company-ask',
   '/tools/garimpo-conversation','/tools/generate-script',
   '/tools/research-script','/tools/classify-work','/tools/revise-work'])
 const json=(res,status,data)=>{

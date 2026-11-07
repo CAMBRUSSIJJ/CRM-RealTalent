@@ -1,0 +1,119 @@
+.prospecting-company-assistant{display:grid;gap:12px;padding:14px;border:1px solid #dbe6f4;background:var(--rt-color-surface,#fff);border-radius:12px;margin:12px 0;min-width:0}
+.prospecting-company-assistant>header{display:flex;align-items:flex-start;gap:10px;min-width:0}
+.prospecting-company-assistant__icon{display:grid;place-items:center;width:32px;height:32px;flex:none;border-radius:8px;background:#ebf3ff;color:#2662ae}
+.prospecting-company-assistant>header>div{flex:1;min-width:0}
+.prospecting-company-assistant>header strong{font-size:13px;color:var(--text-primary,#2c4c72)}
+.prospecting-company-assistant>header p{margin:3px 0 0;font-size:11px;color:var(--text-secondary,#73859b);line-height:1.5}
+.prospecting-company-assistant__read-only{display:inline-flex;align-items:center;gap:4px;border:1px solid #d9e6f5;padding:5px 7px;border-radius:999px;font-size:10px;color:#4879ad;white-space:nowrap}
+.prospecting-company-assistant__prompts{display:flex;gap:6px;flex-wrap:wrap}
+.prospecting-company-assistant__prompts button{display:flex;align-items:center;gap:6px;border-radius:8px;background:#f7fbff;border:1px solid #d8e6f5;color:#376d9f;font-size:11px;font-weight:700;padding:8px 10px;cursor:pointer}
+.prospecting-company-assistant button:disabled{opacity:.55;cursor:not-allowed}
+.prospecting-company-assistant__conversation{display:grid;gap:14px;max-height:650px;overflow-y:auto;overscroll-behavior:contain}
+.prospecting-company-assistant__conversation article{display:grid;gap:7px}
+.prospecting-company-assistant__question{justify-self:end;max-width:85%;padding:8px 12px;margin:0;border:1px solid #d6e7fa;border-radius:10px;background:#eff6ff;color:#2c527c;font-size:11px;line-height:1.5}
+.prospecting-company-assistant__answer{display:grid;gap:10px;border:1px solid #e2eaf4;padding:12px;border-radius:9px;background:#fafcff;overflow-wrap:anywhere;min-width:0}
+.prospecting-company-assistant__answer>p{margin:0;color:var(--text-primary,#334d70);font-size:12px;line-height:1.6;white-space:pre-line}
+.prospecting-company-assistant__profile{display:inline-flex;align-items:center;gap:7px;justify-self:start;background:#eaf3ff;border:1px solid #cfe1f7;border-radius:7px;padding:9px 11px;color:#215caa;text-decoration:none;font-size:11px;font-weight:750}
+.prospecting-company-assistant__cnpjs,.prospecting-company-assistant__posts,.prospecting-company-assistant__sources{display:grid;gap:7px}
+.prospecting-company-assistant__cnpjs>div,.prospecting-company-assistant__sources>div,.prospecting-company-assistant__posts>a{display:grid;gap:5px;border:1px solid #e2eaf4;background:#fff;border-radius:8px;padding:10px;font-size:11px;min-width:0}
+.prospecting-company-assistant__cnpjs>div>div{display:flex;align-items:center;gap:9px;flex-wrap:wrap}
+.prospecting-company-assistant__cnpjs>div>div strong{font-size:13px}
+.prospecting-company-assistant__cnpjs>div>div small{font-size:10px;border-radius:16px;padding:3px 6px;background:#fff2e4;color:#916019}
+.prospecting-company-assistant__cnpjs>div>div .is-compatible{background:#e6f6ec;color:#247349}
+.prospecting-company-assistant__cnpjs p{margin:0;line-height:1.4}
+.prospecting-company-assistant__cnpjs>div>small{color:var(--text-secondary,#778aa5);font-size:10px}
+.prospecting-company-assistant__cnpjs a,.prospecting-company-assistant__sources a,.prospecting-company-assistant__posts>a{color:#2865ac;text-decoration:none;font-size:11px}
+.prospecting-company-assistant__sources>strong,.prospecting-company-assistant__posts>strong{font-size:11px;color:var(--text-primary,#37597f)}
+.prospecting-company-assistant__sources p{margin:0;font-size:11px;color:var(--text-secondary,#61758e);line-height:1.5}
+.prospecting-company-assistant__sources small,.prospecting-company-assistant__posts small{color:var(--text-secondary,#7f92a9);font-size:10px;line-height:1.4}
+.prospecting-company-assistant__limitation{font-size:10px;color:#815c31;line-height:1.5}
+.prospecting-company-assistant>form{display:grid;gap:8px}
+.prospecting-company-assistant>form>label{font-size:11px;font-weight:760;color:var(--text-primary,#406087)}
+.prospecting-company-assistant>form>div{display:flex;gap:8px;align-items:stretch}
+.prospecting-company-assistant>form textarea{flex:1;min-width:0;box-sizing:border-box;resize:vertical;min-height:53px;border:1px solid #d8e5f4;border-radius:9px;padding:10px;color:var(--text-primary,#2d5078);background:var(--rt-color-surface,#fff);font:500 12px system-ui}
+.prospecting-company-assistant>form button{display:inline-flex;align-items:center;justify-content:center;gap:7px;padding:9px 12px;border-radius:9px;border:1px solid #2657d5;background:#2657d5;color:white;font-size:11px;font-weight:700;cursor:pointer}
+.prospecting-company-assistant>form>small{font-size:10px;color:var(--text-secondary,#7f90a6)}
+.prospecting-company-assistant__error{background:#fff2f2;border:1px solid #f0c8c8;color:#a33b3b;border-radius:8px;padding:10px;font-size:11px;margin:0}
+html[data-theme="dark"] .prospecting-company-assistant,html[data-theme="dark"] .prospecting-company-assistant__cnpjs>div,html[data-theme="dark"] .prospecting-company-assistant__sources>div{background:#1e3049;border-color:#405975}
+html[data-theme="dark"] .prospecting-company-assistant__answer{background:#223750;border-color:#405975}
+html[data-theme="dark"] .prospecting-company-assistant__prompts button,html[data-theme="dark"] .prospecting-company-assistant__question{background:#294464;color:#d2e5ff;border-color:#466a92}
+html[data-theme="dark"] .prospecting-company-assistant>form textarea{background:#1b2f4c;border-color:#48617f;color:#e4edfb}
+@media(max-width:680px){.prospecting-company-assistant>header{flex-wrap:wrap}.prospecting-company-assistant>form>div{flex-direction:column}.prospecting-company-assistant>form button{align-self:flex-end}.prospecting-company-assistant__conversation{max-height:500px}}
+
+.prospecting-company-assistant__coverage{display:grid;gap:3px;padding:9px 10px;border:1px solid #d7e8f7;border-radius:8px;background:#f0f7ff;font-size:11px;color:#255f9c}
+.prospecting-company-assistant__coverage strong{font-size:11px}
+.prospecting-company-assistant__coverage small{font-size:10px;line-height:1.5;color:#617b9a}
+.prospecting-company-assistant__excerpt{margin:2px 0;padding:8px 10px;max-height:135px;overflow:auto;background:#f3f8ff;border-left:2px solid #71a4db;border-radius:5px;font-size:11px;color:#436384;white-space:pre-wrap;line-height:1.5;overflow-wrap:anywhere}
+html[data-theme="dark"] .prospecting-company-assistant__coverage{background:#253e57;border-color:#425d79;color:#cde4ff}
+html[data-theme="dark"] .prospecting-company-assistant__excerpt{background:#263f59;border-color:#648ab4;color:#d5e6f7}
+
+.prospecting-company-assistant__visual{display:grid;gap:6px;padding:10px;border:1px dashed #b8d4ef;border-radius:9px;background:#f7fbff}
+.prospecting-company-assistant__visual label{font-size:11px;font-weight:760;color:#42698e}
+.prospecting-company-assistant__visual input{font-size:11px;max-width:100%;color:#44678d}
+.prospecting-company-assistant__visual small{font-size:10px;line-height:1.5;color:#718aa5}
+.prospecting-company-assistant__coverage>div{display:grid;gap:4px;font-size:11px}
+.prospecting-company-assistant__coverage ul{padding-left:20px;margin:4px 0}
+.prospecting-company-assistant__coverage li{margin:3px 0;line-height:1.5}
+html[data-theme="dark"] .prospecting-company-assistant__visual{background:#253e57;border-color:#42658a}
+html[data-theme="dark"] .prospecting-company-assistant__visual input{color:#d0e4fa}
+html[data-theme="dark"] .prospecting-company-assistant__visual label{color:#d0e4fa}
+
+.prospecting-company-assistant__post-analysis{display:grid;gap:9px;padding:10px;background:#f7fbff;border:1px solid #d7e6f5;border-radius:9px;min-width:0}
+.prospecting-company-assistant__post-analysis-head{display:flex;align-items:center;gap:10px;justify-content:space-between;flex-wrap:wrap}
+.prospecting-company-assistant__post-analysis-head strong{font-size:12px;color:#285e96}
+.prospecting-company-assistant__post-analysis-head small{font-size:10px;color:#647f9d}
+.prospecting-company-assistant__post-card{padding:11px;border:1px solid #dce6f3;border-radius:9px;background:var(--rt-color-surface,#fff);display:grid;gap:7px;min-width:0}
+.prospecting-company-assistant__post-heading{display:flex;gap:8px;align-items:flex-start;justify-content:space-between;flex-wrap:wrap}
+.prospecting-company-assistant__post-heading a{display:inline-flex;align-items:center;gap:5px;flex:1;min-width:0;font-size:11px;color:#2466a8;overflow-wrap:anywhere;text-decoration:none;font-weight:750}
+.prospecting-company-assistant__post-heading span{font-size:10px;border-radius:999px;background:#e9f2ff;color:#2c66a6;padding:3px 7px;white-space:nowrap}
+.prospecting-company-assistant__post-evidence{font-size:10px;color:#6781a2}
+.prospecting-company-assistant__post-card blockquote{margin:0;padding:8px 10px;border-left:3px solid #7aa7d7;border-radius:5px;background:#f0f7ff;color:#3d658e;line-height:1.55;font-size:11px}
+.prospecting-company-assistant__post-card p{margin:0;font-size:11px;line-height:1.6;color:var(--text-primary,#3f5771)}
+.prospecting-company-assistant__post-card>small{font-size:10px;color:#8a744f;line-height:1.5}
+.prospecting-company-assistant__post-empty{margin:0;font-size:11px;line-height:1.5;color:#647f9d}
+html[data-theme="dark"] .prospecting-company-assistant__post-analysis{background:#233851;border-color:#425b79}
+html[data-theme="dark"] .prospecting-company-assistant__post-card{background:#1d304b;border-color:#465f80}
+html[data-theme="dark"] .prospecting-company-assistant__post-card blockquote{background:#294565;color:#d3e5fa;border-color:#759cc9}
+html[data-theme="dark"] .prospecting-company-assistant__post-heading span{background:#345477;color:#d5e8fc}
+
+.prospecting-company-assistant__batch-metrics{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px}
+.prospecting-company-assistant__batch-metrics span{display:grid;gap:3px;border:1px solid #dce8f5;border-radius:8px;background:var(--rt-color-surface,#fff);padding:9px 10px;color:var(--text-secondary,#657a94);font-size:10px;line-height:1.4}
+.prospecting-company-assistant__batch-metrics b{font-size:17px;color:var(--text-primary,#2c5382)}
+.prospecting-company-assistant__patterns{display:grid;gap:8px;border:1px solid #d9e7f6;border-radius:9px;padding:10px;background:var(--rt-color-surface,#fff)}
+.prospecting-company-assistant__patterns>strong{font-size:11px;color:var(--text-primary,#31577e)}
+.prospecting-company-assistant__patterns>div{display:flex;flex-wrap:wrap;gap:5px}
+.prospecting-company-assistant__patterns>div span{font-size:10px;background:#ebf3ff;color:#2865a9;border:1px solid #d5e5f8;border-radius:99px;padding:4px 8px}
+.prospecting-company-assistant__patterns>small{font-size:10px;color:var(--text-secondary,#71849b);line-height:1.45}
+html[data-theme="dark"] .prospecting-company-assistant__batch-metrics span,html[data-theme="dark"] .prospecting-company-assistant__patterns{background:#20344d;border-color:#45617e}
+html[data-theme="dark"] .prospecting-company-assistant__patterns>div span{background:#2d4c6f;border-color:#49688a;color:#d1e5fd}
+@media(max-width:540px){.prospecting-company-assistant__batch-metrics{grid-template-columns:repeat(2,minmax(0,1fr))}}
+
+/* G4.9 — strategic details and full index are progressive disclosures. */
+.prospecting-company-assistant__disclosure{min-width:0;border:1px solid #dce7f5;background:var(--rt-color-surface,#fff);border-radius:10px;overflow:hidden}
+.prospecting-company-assistant__disclosure>summary{display:flex;align-items:center;gap:8px;padding:12px 13px;cursor:pointer;list-style:none;color:var(--text-primary,#355b80);font-size:11px;font-weight:800}
+.prospecting-company-assistant__disclosure>summary::-webkit-details-marker{display:none}
+.prospecting-company-assistant__disclosure>summary>span{margin-left:auto;border-radius:99px;background:#edf4fd;color:#3268a1;padding:4px 8px;font-size:10px;font-weight:750}
+.prospecting-company-assistant__disclosure[open]>summary{border-bottom:1px solid #e5edf7}
+.prospecting-company-assistant__disclosure>summary:hover{background:#f6faff}
+.prospecting-company-assistant__disclosure-body{display:grid;gap:12px;padding:12px;min-width:0}
+.prospecting-company-assistant__disclosure-body>.prospecting-company-assistant__post-analysis{border:0;padding:0;background:transparent}
+html[data-theme="dark"] .prospecting-company-assistant__disclosure{background:#203550;border-color:#426084}
+html[data-theme="dark"] .prospecting-company-assistant__disclosure>summary:hover{background:#294565}
+html[data-theme="dark"] .prospecting-company-assistant__disclosure>summary>span{background:#345475;color:#d5e9fa}
+
+/* G4.10 — question-first answers; evidence and conversation history on demand. */
+.prospecting-company-assistant__history{border:1px solid #deebf6;border-radius:9px;overflow:hidden;background:var(--rt-color-surface,#fff)}
+.prospecting-company-assistant__history>summary{font-size:11px;font-weight:750;color:var(--text-secondary,#567795);padding:10px 12px;cursor:pointer}
+.prospecting-company-assistant__history>div{display:grid;gap:5px;padding:8px 10px;border-top:1px solid #e6eef7}
+.prospecting-company-assistant__history button{font-size:11px;font-family:inherit;padding:9px 10px;line-height:1.4;cursor:pointer;text-align:left;white-space:normal;border:1px solid #dfebf7;border-radius:7px;background:var(--rt-color-surface,#fff);color:var(--text-primary,#365776)}
+.prospecting-company-assistant__history button[aria-pressed="true"]{background:#eef6ff;border-color:#a8c7ea;color:#1d5c9f}
+.prospecting-company-assistant__inline-citations{display:flex;gap:7px;align-items:center;flex-wrap:wrap;font-size:10px;color:var(--text-secondary,#657e9b);line-height:1.5}
+.prospecting-company-assistant__inline-citations>a{display:inline-flex;gap:5px;align-items:center;color:#2b68a9;font-size:10px;text-decoration:none;padding:5px 8px;max-width:min(420px,100%);border:1px solid #d8e6f4;border-radius:7px;overflow-wrap:anywhere;background:var(--rt-color-surface,#fff)}
+.prospecting-company-assistant__inline-citations>a:hover{text-decoration:underline}
+.prospecting-company-assistant__inline-citations svg{flex:none}
+.prospecting-company-assistant__conversation{max-height:none;overflow:visible}
+.prospecting-company-assistant__answer>p:first-child{font-size:12px;line-height:1.65;font-weight:500}
+html[data-theme="dark"] .prospecting-company-assistant__history,
+html[data-theme="dark"] .prospecting-company-assistant__history button,
+html[data-theme="dark"] .prospecting-company-assistant__inline-citations>a{background:#203750;border-color:#44627f;color:#d0e4fd}
+html[data-theme="dark"] .prospecting-company-assistant__history button[aria-pressed="true"]{background:#2d4f75;border-color:#668bb9}

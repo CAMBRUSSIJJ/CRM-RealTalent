@@ -720,3 +720,13 @@ button.rt-mindmap__leaf:hover{border-color:#b5c2da;background:#fbfcff;transform:
   .calling-flow__brief .calling-h5__essential-card--interaction>p{margin-top:8px}
   .calling-flow__brief .calling-h5__history{grid-template-columns:1fr}
 }
+
+
+/* Four-step preparation: don't confuse CRM queue eligibility with online phone presence. */
+.call-preparation-flow__connection{border-color:#d8e2ee;background:var(--surface,#fff)}
+.call-preparation-flow__connection p{margin:10px 0 0;font-size:12px;line-height:1.55;color:var(--text-muted,#607087)}
+.call-preparation-flow__connection.is-ready{border-color:#b9dec9;background:#f6fcf8}
+.call-preparation-flow__connection.is-ready p{color:#216347}
+.call-preparation-flow__connection.is-offline{border-color:#dfc9a7;background:#fffaf1}
+.call-preparation-flow__connection.is-offline p{color:#805a23}
+.call-preparation-flow__connection>button{margin-top:11px}

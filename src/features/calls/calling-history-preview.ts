@@ -7,7 +7,7 @@ export function callingHistoryPreview(value: string | null | undefined, maxLengt
   const cleaned = withoutMetadata
     .replace(/\btask-[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}\b/gi, '')
     .replace(/[\s\u00a0]+/g, ' ')
-    .replace(/[·•—:;\s]+$/g, '')
+    .replace(/[-·•—:;\s]+$/g, '')
     .trim()
   if (!cleaned) return ''
   const friendly = /^Tarefa do CRM$/i.test(cleaned) ? 'Tarefa registrada no CRM' : cleaned

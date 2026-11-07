@@ -31,7 +31,7 @@ test('stamps production identity while keeping liveness semantics',()=>withFixtu
 }))
 test('stamps preview with its own sha and does not mislabel it as production',()=>withFixture(root=>{
   const sha='b'.repeat(40)
-  stampHealth({root,environment:{VERCEL_ENV:'preview',VERCEL_GIT_COMMIT_SHA:sha}})
+  stampHealth({root,environment:{VERCEL_ENV:'preview',VITE_APP_ENV:'production',VERCEL_GIT_COMMIT_SHA:sha}})
   const doc=JSON.parse(fs.readFileSync(path.join(root,'dist','health.json')))
   assert.equal(doc.channel,'preview')
   assert.equal(doc.commit,sha)

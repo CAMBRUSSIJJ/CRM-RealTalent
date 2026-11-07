@@ -39,7 +39,7 @@ import { DealInspectorModal } from '../deal-intelligence/deal-inspector-modal'
 import {WonSalesDashboard} from '../won-sales/won-sales-dashboard'
 import {readProspectingState} from '../../services/prospecting-workspace'
 import {readTriggerReviewsG4,triggerLabelsG4} from '../../services/prospecting-triggers-g4'
-import {isTriggerCloudModeG43,loadApprovedPipelineTriggersG43,loadLocalApprovedPipelineTriggersG43,type TriggerPipelineSignalG43} from '../../services/prospecting-triggers-g43-remote'
+import {isTriggerCloudModeG43,isTriggerCloudEnabledG43,loadApprovedPipelineTriggersG43,loadLocalApprovedPipelineTriggersG43,type TriggerPipelineSignalG43} from '../../services/prospecting-triggers-g43-remote'
 import './sales-pipeline-v3.css'
 
 const INITIAL_CARDS = 30
@@ -87,6 +87,11 @@ export function PipelinePage() {
       return
     }
     let cancelled=false
+    if(isTriggerCloudModeG43()&&!isTriggerCloudEnabledG43()){
+      // Cloud schema G4.3 is not yet deployed. Avoid 404s while keeping Pipeline usable.
+      setTriggerSignals([])
+      return
+    }
     if(isTriggerCloudModeG43()){
       // Approved, linked signals only. The DB enforces CRM lead visibility.
       void loadApprovedPipelineTriggersG43(workspaceId,snapshot.leads).then(rows=>{

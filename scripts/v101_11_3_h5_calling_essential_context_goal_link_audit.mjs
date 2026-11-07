@@ -27,7 +27,21 @@ ok('precall shows important information',workspace.includes('calling-h5__essenti
 ok('precall shows call objective',workspace.includes('calling-h5__essential-card--objective')&&workspace.includes('Objetivo da ligação'))
 ok('old pre-call commercial facts removed',!workspace.includes('<article><small>Situação comercial</small>')&&!workspace.includes('<article><small>Próxima ação</small>')&&!workspace.includes('<article><small>Pessoas da conta</small>'))
 ok('old pre-call route and opening cards removed',!workspace.includes('<small>Roteiro da sessão</small>')&&!workspace.includes('<small>Abertura recomendada</small>'))
-ok('precall CSS is constrained and hierarchical',css.includes('.calling-h5__precall{max-width:860px')&&css.includes('.calling-h5__precall-essential'))
+// H5 originally constrained the pre-call brief to 860px. The later RealTalent Flow
+// refresh deliberately expands it to a bounded 1200px while retaining hierarchy
+// and a single-column responsive layout. Accept either fully validated layout.
+const h5CompactPrecall = css.includes('.calling-h5__precall{max-width:860px') &&
+  css.includes('.calling-h5__precall-essential{display:grid')
+const realTalentFlowPrecall = css.includes('.calling-h5__precall{width:min(1200px,100%)!important;max-width:1200px!important') &&
+  css.includes('.calling-flow__brief{grid-template-columns:repeat(2,minmax(0,1fr))') &&
+  css.includes('.calling-flow__brief .calling-h5__essential-card--objective{order:1') &&
+  css.includes('.calling-flow__brief .calling-h5__essential-card--important{order:2') &&
+  css.includes('.calling-flow__brief .calling-h5__essential-card--interaction{order:3;grid-column:1 / -1') &&
+  css.includes('.calling-flow__brief .calling-h5__essential-card--history{order:4;grid-column:1 / -1') &&
+  css.includes('@media(max-width:720px)') &&
+  css.includes('  .calling-flow__brief{grid-template-columns:1fr}')
+ok('precall CSS is constrained and hierarchical',
+  css.includes('.calling-h5__precall-essential') && (h5CompactPrecall || realTalentFlowPrecall))
 ok('active tiles use standard blue',css.includes('--call-h5-blue:#3156c8')&&css.includes('.call-display-option.is-active')&&css.includes('.call-execution-toggle.is-active'))
 ok('amber objection selection is superseded by blue',css.includes('.calling-h3__objection-status button.is-active')&&css.includes('background:#eef3ff!important'))
 ok('goal panel uses standard blue progress',css.includes('.calling-h5__goal-track i')&&css.includes('background:#3156c8'))

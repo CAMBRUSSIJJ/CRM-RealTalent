@@ -3,7 +3,7 @@ export function callingHistoryPreview(value: string | null | undefined, maxLengt
   const source = (value ?? '').trim()
   if (!source) return ''
   // Agenda metadata is generated for integrations, not for the salesperson.
-  const withoutMetadata = source.split(/\[CRM_[A-Z_]*META\]/i)[0] ?? ''
+  const withoutMetadata = source.split(/\[CRM_[A-Z_]*META(?:\s*[:=]|\])/i)[0] ?? ''
   const cleaned = withoutMetadata
     .replace(/\btask-[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}\b/gi, '')
     .replace(/[\s\u00a0]+/g, ' ')

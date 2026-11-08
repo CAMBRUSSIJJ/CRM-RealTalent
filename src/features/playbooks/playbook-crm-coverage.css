@@ -1,0 +1,11 @@
+/* Explainable CRM coverage, not fabricated playbook attribution. */
+.rt-playbook-coverage{display:grid;gap:15px;padding:19px 22px;margin-bottom:18px}
+.rt-playbook-coverage h3{font-size:18px;margin:5px 0 6px;color:var(--text,#172033)}
+.rt-playbook-coverage p{font-size:12px;color:var(--text-muted,#64748b);line-height:1.55;margin:0}
+.rt-playbook-coverage__stats{display:flex;flex-wrap:wrap;gap:9px}
+.rt-playbook-coverage__stats>span{border:1px solid var(--border,#dce5ee);padding:11px 12px;border-radius:9px;font-size:11px;color:var(--text-muted,#64748b);background:var(--surface-subtle,#f8fafc)}
+.rt-playbook-coverage__stats strong{font-size:19px;font-weight:850;margin-right:6px;color:var(--accent,#3156c8)}
+.rt-playbook-coverage__top{display:flex;flex-wrap:wrap;gap:7px}
+.rt-playbook-coverage__top>button{display:flex;gap:10px;align-items:center;border:1px solid var(--border,#dbe3ee);border-radius:8px;padding:8px 12px;background:var(--surface,#fff);cursor:pointer;color:var(--text,#172033);font-size:11px}
+.rt-playbook-coverage__top>button:hover{border-color:var(--accent,#3156c8)}
+.rt-playbook-coverage__top>button strong{color:var(--accent,#3156c8)}

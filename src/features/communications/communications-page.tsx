@@ -1011,6 +1011,13 @@ function OriginalCommunicationsPage() {
  * No legacy navigation, sidebar, task or lead modules are replaced.
  */
 export function CommunicationsPage() {
+  const { routeContext } = useAppNavigation()
+  // A deep-link from the lead's playbook should open the local WAHA thread,
+  // even when the operator previously chose the older central.
+  useEffect(() => {
+    if (!routeContext.leadId || typeof window === 'undefined') return
+    if (['127.0.0.1','localhost'].includes(window.location.hostname)) setUseWaha(true)
+  }, [routeContext.leadId])
   // v101 could retain an outdated choice of the legacy Communications UI.
   // Prefer local WAHA for new sessions, respecting only explicit v102 choices.
   const [useWaha, setUseWaha] = useState(() => {

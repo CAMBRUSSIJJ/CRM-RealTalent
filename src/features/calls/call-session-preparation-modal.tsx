@@ -4,8 +4,13 @@ import '../../styles/calls-ui-standard-v10071.css'
 import '../../styles/calls-intelligence-workspace-v10072.css'
 import '../../styles/calls-focus-simplification-v100731.css'
 import '../../styles/calling-workspace-operational.css'
+import './call-setup-reference.css'
 import {
   AlertTriangle,
+  ChevronLeft,
+  ChevronRight,
+  FileText,
+  X,
   BookmarkPlus,
   BookOpenText,
   CalendarCheck2,
@@ -41,6 +46,7 @@ import { resolveLeadCallTarget } from '../../services/call-workspace'
 import { buildCallHealth } from '../../services/calling-intelligence-workspace'
 import { discoverVoiceDevices, probeVoiceProviders, providerLabel, readVoiceSettings, type VoiceSettings } from '../../services/voice-dialer'
 import { recommendPlaybooks } from '../../services/coaching-engine'
+import { CALL_APPROACHES, callApproachEntries, classifyCallApproach, recommendApproachPlaybook, type CallApproachType } from './call-session-approaches'
 import { readCallingStrategyPreferences, type CallingStrategyPreferences } from '../../services/calling-strategy'
 import { getGoalInsight, localDateKey } from '../../services/goals-workspace'
 import { goalMetricLabels } from '../../services/metrics'
@@ -111,6 +117,8 @@ export function CallSessionPreparationModal({ open, leadIds, initialLeadId, onCl
   const [sessionObjective, setSessionObjective] = useState<CallSessionObjective>('first_meeting')
   const [display, setDisplay] = useState<CallDisplayPreferences>(() => readCallDisplayPreferences(workspaceId))
   const [displayOpen, setDisplayOpen] = useState(false)
+  const [approachOverrides, setApproachOverrides] = useState<Record<string, CallApproachType>>({})
+  const [advancedSettingsOpen, setAdvancedSettingsOpen] = useState(false)
   const [voiceSettings, setVoiceSettings] = useState<VoiceSettings>(() => readVoiceSettings(workspaceId))
   const [voiceOpen, setVoiceOpen] = useState(false)
   const [voiceReadiness, setVoiceReadiness] = useState<'idle' | 'checking' | 'ready' | 'offline'>('idle')
@@ -286,6 +294,32 @@ export function CallSessionPreparationModal({ open, leadIds, initialLeadId, onCl
   const effectiveSessionPlaybookId = playbookId || (strategy.autoSelectPlaybook ? automaticPlaybookRecommendation?.playbook.id : strategy.defaultPlaybookId) || ''
   const effectiveSessionPlaybook = activeSessionPlaybooks.find((item) => item.id === effectiveSessionPlaybookId) ?? null
 
+  const approachFor = (lead: Lead): CallApproachType => {
+    const manual = approachOverrides[lead.id]
+    if (manual) return manual
+    const activities = (snapshot?.activities ?? []).filter((item) => item.leadId === lead.id)
+    const events = (snapshot?.events ?? []).filter((item) => item.leadId === lead.id)
+    return classifyCallApproach({
+      lead,
+      calls: snapshot?.calls ?? [],
+      activityDates: [...activities.map((item) => item.completedAt || item.createdAt), ...events.map((item) => item.startsAt)],
+      proposalExists: (snapshot?.proposals ?? []).some((item) => item.leadId === lead.id),
+    })
+  }
+  const playbookFor = (lead: Lead) => {
+    const latest = (snapshot?.calls ?? []).filter((call) => call.leadId === lead.id).sort((a, b) => b.startedAt.localeCompare(a.startedAt))[0]
+    const recommended = recommendApproachPlaybook({ lead, approach: approachFor(lead), objective: sessionObjective, playbooks: snapshot?.playbooks ?? [], lastOutcome: latest?.outcome ?? null })
+    // Explicit session playbook choice has precedence, otherwise recommend individually.
+    return (playbookId ? activeSessionPlaybooks.find((item) => item.id === playbookId) : null) ?? recommended ?? effectiveSessionPlaybook
+  }
+  const setLeadApproach = (leadId: string, approach: CallApproachType) => {
+    setApproachOverrides((current) => {
+      const next = { ...current, [leadId]: approach }
+      try { localStorage.setItem(`realtalent:call-approaches:${workspaceId}`, JSON.stringify(next)) } catch { /* optional workspace preference */ }
+      return next
+    })
+  }
+
   const estimatedMinutes = Math.max(0, Math.round(orderedSessionLeads.length * 2.5))
   const suggestedGoal = Math.max(1, Math.min(orderedSessionLeads.length || 1, Math.ceil(orderedSessionLeads.length * .4)))
   const effectiveGoal = Math.max(1, Math.min(goal, orderedSessionLeads.length || 1))
@@ -306,6 +340,8 @@ export function CallSessionPreparationModal({ open, leadIds, initialLeadId, onCl
     if (!open) return
     setActiveTab('queue')
     setDisplay(readCallDisplayPreferences(workspaceId))
+    try { setApproachOverrides(JSON.parse(localStorage.getItem(`realtalent:call-approaches:${workspaceId}`) || '{}') as Record<string, CallApproachType>) } catch { setApproachOverrides({}) }
+    setAdvancedSettingsOpen(false)
     setSavedLists(readSavedLists(workspaceId))
     setQuery('')
     setSourceFilter('all')
@@ -393,6 +429,7 @@ export function CallSessionPreparationModal({ open, leadIds, initialLeadId, onCl
       leadIds: orderedSessionLeads.map((lead) => lead.id),
       initialLeadId: preferred,
       playbookId: effectiveSessionPlaybookId,
+      playbookByLeadId: Object.fromEntries(orderedSessionLeads.map((lead) => [lead.id, playbookFor(lead)?.id || effectiveSessionPlaybookId])),
       sessionGoal: effectiveGoal,
       linkedGoalId,
       sessionMode,

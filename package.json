@@ -13,6 +13,7 @@
     "qa:calling:flow": "node scripts/realtalent_crm_flow_reference_audit.mjs",
     "qa:calling:focus-v2": "node scripts/calling_focus_redesign_v2_audit.mjs",
     "qa:calling:lifecycle-v3": "node scripts/calling_focus_lifecycle_v3_audit.mjs",
+    "qa:calling:setup-reference": "node scripts/calling_setup_reference_audit.mjs",
     "qa:calling:queue-v2": "node scripts/calling_queue_reference_v2_audit.mjs",
     "qa:ui:runtime": "node --test scripts/runtime-ui-build-integrity.test.mjs && node scripts/communications_current_ui_audit.mjs",
     "diagnose:ui": "node scripts/diagnose-served-ui.mjs",

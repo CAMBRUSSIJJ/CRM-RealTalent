@@ -387,3 +387,55 @@
 .rt-call-timer-hidden .calling-v982__timer,
 .rt-call-timer-hidden .rt-call-focus-v2__session-metrics>span:has(.lucide-timer),
 .rt-call-timer-hidden .calling-v982__wrap>header .status-pill {display:none!important}
+
+
+/* Borderless focus mode: fill viewport and use side gutters for responsive content. */
+.modal-backdrop:has(> .rt-call-focus-fullbleed){
+  inset:0!important;
+  margin:0!important;
+  padding:0!important;
+  display:block!important;
+  background:var(--surface,#fff)!important;
+  backdrop-filter:none!important;
+}
+.rt-dialog.rt-call-focus-fullbleed.modal--full {
+  position:relative!important;
+  inset:auto!important;
+  width:100vw!important;
+  max-width:100vw!important;
+  height:100dvh!important;
+  max-height:100dvh!important;
+  margin:0!important;
+  border:0!important;
+  border-radius:0!important;
+  box-shadow:none!important;
+}
+.rt-call-focus-fullbleed>.modal__header,
+.rt-call-focus-fullbleed>.modal__footer{
+  padding-inline:clamp(18px,3.2vw,76px)!important;
+}
+.rt-call-focus-fullbleed>.modal__body{
+  padding:14px clamp(18px,3.2vw,76px) 22px!important;
+  overflow-y:auto!important;
+  min-height:0!important;
+  scrollbar-gutter:stable;
+}
+.rt-call-focus-fullbleed .rt-call-focus-lifecycle-v3{
+  max-width:1600px;
+  margin-inline:auto;
+}
+.rt-call-focus-fullbleed .rt-call-focus-v2__hero,
+.rt-call-focus-fullbleed .rt-call-focus-v2__brief,
+.rt-call-focus-fullbleed .rt-call-focus-v3__steps,
+.rt-call-focus-fullbleed .rt-call-focus-v3__dialing,
+.rt-call-focus-fullbleed .rt-call-focus-v3__wrap {
+  width:100%!important;
+  max-width:1400px!important;
+}
+.rt-call-focus-fullbleed .rt-call-focus-v3__conversation{
+  width:100%!important;
+  max-width:1480px!important;
+}
+@media(max-width:700px){
+  .rt-dialog.rt-call-focus-fullbleed.modal--full{width:100vw!important;height:100dvh!important;max-height:100dvh!important}
+}

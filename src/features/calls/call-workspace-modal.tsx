@@ -988,7 +988,7 @@ export function CallWorkspaceModal({ open, config, onClose }: { open: boolean; c
             <div className="rt-call-focus-v2__session-metrics">
               <span><PhoneCall size={15} aria-hidden="true" /> {providerLabel(activeRuntimeProviderId)}</span>
               <span><Timer size={15} aria-hidden="true" /> {formattedTime}</span>
-              <span>Meta da sessão <strong>{completedInSession}/{config?.sessionGoal ?? routineIds.length || 1}</strong></span>
+              <span>Meta da sessão <strong>{completedInSession}/{(config?.sessionGoal ?? routineIds.length) || 1}</strong></span>
               {config?.fastDial ? <span className={`rt-call-focus-v2__fast-status ${fastDialReady ? 'is-online' : 'is-offline'}`}><Sparkles size={13} aria-hidden="true" />{fastDialReady ? 'Fast Dial pronto' : 'Fast Dial pausado'}</span> : null}
             </div>
           </div>

@@ -975,6 +975,7 @@ export function CallWorkspaceModal({ open, config, onClose }: { open: boolean; c
       title="Modo Foco — Ligações"
       subtitle={`${routineIds.length ? `${queueIndex + 1} de ${routineIds.length} na fila` : 'Ligação rápida'} · Roteiro: ${sessionPlaybookLabel}`}
       size={fullScreen ? 'full' : 'xl'}
+      className={fullScreen ? 'rt-call-focus-fullbleed' : undefined}
       headerActions={<div className="call-session-header-actions call-action-group"><Button variant="secondary" size="sm" onClick={() => setFullScreen((value) => !value)}>{fullScreen ? <Minimize2 size={16} /> : <Maximize2 size={16} />}{fullScreen ? 'Restaurar' : 'Expandir'}</Button></div>}
       footer={<>{attemptSaved ? <><Button variant="secondary" onClick={requestClose}>Encerrar sessão</Button><span className="modal__footer-spacer" /><Button disabled={!hasNext || Boolean(advanceTarget)} onClick={continueAfterSaved}><ArrowRight size={16} /> Próximo lead</Button></> : <><Button variant="ghost" disabled={!hasPrevious || busy} onClick={() => void moveInQueue(-1)}><ArrowLeft size={16} /> Anterior</Button><span className="modal__footer-spacer" />{session === 'finished' ? <><Button variant="secondary" loading={busy} onClick={() => void save(false)}><Save size={16} /> Salvar e encerrar</Button><Button loading={busy} disabled={!hasNext} onClick={() => void save(true)}><ArrowRight size={16} /> Salvar e próximo</Button></> : <Button variant="secondary" disabled={!hasNext || busy} onClick={() => void moveInQueue(1)}><SkipForward size={16} /> Pular lead</Button>}</>}</>}
     >

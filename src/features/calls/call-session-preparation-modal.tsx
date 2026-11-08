@@ -24,6 +24,7 @@ import {
   PhoneCall,
   Play,
   Search,
+  SlidersHorizontal,
   Settings2,
   Sparkles,
   Square,
@@ -588,7 +589,11 @@ export function CallSessionPreparationModal({ open, leadIds, initialLeadId, onCl
                 <div className="rt-setup-voice-info"><strong>Roteiro da sessão</strong><span>{playbookId ? effectiveSessionPlaybook?.title || 'Roteiro padrão' : 'Seleção individual automática'}</span><Button size="sm" variant="secondary" onClick={() => setPlaybookPickerOpen(true)}>Trocar roteiro</Button></div>
                 <label>Máximo da sessão <input type="number" min={1} max={100} value={maxSession} onChange={(event) => setMaxSession(Math.max(1, Math.min(100, Number(event.target.value) || 1)))}/></label>
                 <label>Meta do CRM vinculada <select value={linkedGoalId} onChange={(event) => setLinkedGoalId(event.target.value)}><option value="">Sem meta vinculada</option>{activeGoals.map((item) => <option key={item.id} value={item.id}>{goalMetricLabels[item.metric]} · {item.userName || 'Equipe'}</option>)}</select></label>
-                {linkedGoalInsight ? <p>{goalMetricLabels[linkedGoalInsight.goal.metric]}: {Math.round(linkedGoalInsight.value)} / {linkedGoalInsight.goal.targetValue} ({linkedGoalInsight.percentage}%)</p> : null}
+                {linkedGoalInsight ? <div className="rt-setup-goal-progress">
+                  <div><strong>{goalMetricLabels[linkedGoalInsight.goal.metric]}</strong><span>{Math.round(linkedGoalInsight.value)} / {linkedGoalInsight.goal.targetValue} ({linkedGoalInsight.percentage}%)</span></div>
+                  <progress max={100} value={Math.min(100, Math.max(0, linkedGoalInsight.percentage))} />
+                  <small>Faltam {Math.round(linkedGoalInsight.remaining)} · ritmo necessário: {linkedGoalInsight.dailyRequired.toFixed(1)} por dia</small>
+                </div> : null}
               </div>
             </details>
           </section> : null}

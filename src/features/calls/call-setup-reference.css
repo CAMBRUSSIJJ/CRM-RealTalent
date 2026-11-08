@@ -234,3 +234,40 @@
   .rt-dialog.rt-setup-modal.modal--full {width:100vw!important;height:100dvh!important;max-height:100dvh!important;}
   .rt-dialog.rt-setup-modal .rt-setup-wizard__body {padding-inline:17px!important;}
 }
+
+
+/* Explainable, editable playbooks in the real queue, not static mock labels. */
+.rt-setup-playbook-cell {display:grid;gap:6px;min-width:230px;max-width:100%}
+.rt-setup-playbook-cell>.rt-setup-playbook{font-weight:800;color:#243555;font-size:12px;line-height:1.4}
+.rt-setup-playbook-cell>small{font-size:10px!important;line-height:1.5;max-width:410px}
+.rt-setup-playbook-cell>small.is-specific{color:#276749}
+.rt-setup-playbook-cell>small.is-general{color:#967020}
+.rt-setup-playbook-cell__tools{display:flex;align-items:center;flex-wrap:wrap;gap:7px;margin-top:4px}
+.rt-setup-playbook-cell__tools>select{
+  max-width:250px;
+  min-width:0;
+  padding:6px 8px;
+  font-size:11px;
+  background:#fff;
+  color:#34445c;
+  border:1px solid #ced9e7;
+  border-radius:7px;
+}
+.rt-setup-playbook-cell__tools>button{
+  background:transparent;
+  color:var(--accent,#3156c8);
+  border:0;
+  font-size:11px;
+  font-weight:800;
+  cursor:pointer;
+  text-decoration:underline;
+  text-underline-offset:2px;
+}
+.rt-setup-playbook-evidence{font-size:11px;color:#6c7b8f}
+.rt-setup-playbook-evidence summary{cursor:pointer;font-weight:750}
+.rt-setup-playbook-evidence p{margin:5px 0;line-height:1.5}
+.rt-setup-table td:nth-child(4){width:37%}
+@media(max-width:820px){
+  .rt-setup-playbook-cell{min-width:175px}
+  .rt-setup-playbook-cell__tools>select{max-width:170px}
+}

@@ -69,6 +69,18 @@ describe('CRM sourced playbook context', () => {
     expect(result.recommended).toBe(null)
     expect(result.context.some((item)=>/WhatsApp/i.test(item))).toBe(false)
   })
+  it('surfaces an explicitly reviewed WAHA/Ollama note without treating it as a pending task', () => {
+    const s = snapshot({
+      activities:[{
+        leadId:lead.id,type:'note',createdAt:'2026-11-07T18:00:00.000Z',completedAt:null,
+        resolutionReason:'pinned_call_note',
+        description:'[WAHA_CONTEXT_V1] Fonte: WAHA\\nResumo: cliente pediu revisão da proposta',
+      }],
+    })
+    const advice=buildLeadPlaybookAdvice({lead,snapshot:s,objective:'proposal_followup',now})
+    expect(advice.related.pendingActivities).toBe(0)
+    expect(advice.context.some((line)=>line.includes('cliente pediu revisão da proposta'))).toBe(true)
+  })
   it('distinguishes a general script from a specialized one', () => {
     const s=snapshot({playbooks:[script('general','Outbound consultivo')]})
     const result=buildLeadPlaybookAdvice({lead,snapshot:s,objective:'proposal_followup',manualApproach:'proposal',now})

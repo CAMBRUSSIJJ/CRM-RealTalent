@@ -11,6 +11,7 @@
     "test": "vitest run",
     "qa:connect:sip-pilot": "node scripts/realtalent_connect_sip_pilot_audit.mjs",
     "qa:calling:flow": "node scripts/realtalent_crm_flow_reference_audit.mjs",
+    "qa:calling:focus-v2": "node scripts/calling_focus_redesign_v2_audit.mjs",
     "qa:ui:runtime": "node --test scripts/runtime-ui-build-integrity.test.mjs && node scripts/communications_current_ui_audit.mjs",
     "diagnose:ui": "node scripts/diagnose-served-ui.mjs",
     "validate:env": "node scripts/validate-env.mjs",

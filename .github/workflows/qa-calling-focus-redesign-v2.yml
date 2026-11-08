@@ -1,0 +1,30 @@
+name: Calling Focus Redesign v2 QA
+on:
+  pull_request:
+    paths:
+      - 'src/features/calls/call-workspace-modal.tsx'
+      - 'src/features/calls/call-focus-redesign.css'
+      - 'scripts/calling_focus_redesign_v2_audit.mjs'
+      - 'package.json'
+      - '.github/workflows/qa-calling-focus-redesign-v2.yml'
+  workflow_dispatch:
+jobs:
+  contracts:
+    runs-on: ubuntu-latest
+    timeout-minutes: 14
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - name: Install
+        run: npm ci --no-fund --no-audit
+      - name: Real focus v2 structure
+        run: npm run qa:calling:focus-v2
+      - name: Existing flow contract
+        run: npm run qa:calling:flow
+      - name: TypeScript typecheck
+        run: npm run typecheck
+      - name: Build current UI
+        run: npm run build

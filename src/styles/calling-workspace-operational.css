@@ -462,7 +462,7 @@ button.rt-mindmap__leaf:hover{border-color:#b5c2da;background:#fbfcff;transform:
 .calling-h3__session-goals-grid article.is-linked small{color:#3156c8;font-weight:800}
 
 /* Pre-call: only four pieces of information. */
-.calling-h5__precall{max-width:860px!important;margin-left:auto!important;margin-right:auto!important;display:grid!important;gap:11px!important}
+.calling-h5__precall{width:min(1200px,100%)!important;max-width:1200px!important;box-sizing:border-box;margin-left:auto!important;margin-right:auto!important;display:grid!important;gap:14px!important}
 .calling-h5__precall-heading{display:flex;align-items:flex-start;justify-content:space-between;gap:14px;padding:0 2px}
 .calling-h5__precall-heading>div{display:grid;gap:2px}
 .calling-h5__precall-heading h3{margin:0;font-size:18px;line-height:1.25;color:#172033}
@@ -616,3 +616,117 @@ button.rt-mindmap__leaf:hover{border-color:#b5c2da;background:#fbfcff;transform:
 
 /* V101.11.3-H14 — Commercial Management Foundation */
 .goal-metric-groups{display:grid;gap:14px}.goal-metric-groups>div>span{display:block;font-size:11px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--text-muted);margin-bottom:7px}.goal-metric-groups>div>div{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}.goal-metric-groups button,.goal-scope-choice button{border:1px solid var(--border-subtle);background:var(--surface-primary);border-radius:10px;padding:12px;text-align:left;color:var(--text-primary);cursor:pointer}.goal-metric-groups button strong,.goal-metric-groups button small{display:block}.goal-metric-groups button small{margin-top:4px;color:var(--text-muted);font-size:11px}.goal-metric-groups button.is-active,.goal-scope-choice button.is-active{border-color:var(--accent-primary);background:var(--accent-subtle);box-shadow:0 0 0 1px color-mix(in srgb,var(--accent-primary) 18%,transparent)}.goal-scope-choice{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}.goal-scope-choice button{display:flex;gap:8px;align-items:flex-start}.goal-scope-choice strong,.goal-scope-choice small{display:block}.goal-scope-choice small{margin-top:3px;color:var(--text-muted)}.team-360-tabs{display:flex;gap:4px;border-bottom:1px solid var(--border-subtle);margin:0 0 14px}.team-360-tabs button{border:0;background:transparent;padding:10px 12px;color:var(--text-muted);font-weight:700;cursor:pointer;border-bottom:2px solid transparent}.team-360-tabs button.is-active{color:var(--accent-primary);border-bottom-color:var(--accent-primary)}.team-commercial-grid{margin-bottom:14px}.team-goal-cards-h14{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}.team-goal-cards-h14 article,.team-people-grid-h14 article,.team-performance-grid-h14 article{border:1px solid var(--border-subtle);border-radius:10px;padding:13px;background:var(--surface-primary)}.team-goal-progress-h14{display:flex;align-items:center;gap:10px;margin:12px 0}.team-goal-progress-h14>span{height:7px;border-radius:99px;background:var(--surface-tertiary);overflow:hidden;flex:1}.team-goal-progress-h14 i{display:block;height:100%;background:var(--accent-primary);border-radius:inherit}.team-goal-cards-h14 footer{display:flex;justify-content:space-between;color:var(--text-muted);font-size:12px}.team-people-grid-h14{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}.team-people-grid-h14 article{display:flex;align-items:center;gap:10px}.team-people-grid-h14 article>div{flex:1}.team-people-grid-h14 small{display:block;color:var(--text-muted)}.team-people-grid-h14 article>span:last-child{font-size:11px;font-weight:800;color:var(--accent-primary)}.team-performance-grid-h14{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px}.team-performance-grid-h14 small,.team-performance-grid-h14 strong{display:block}.team-performance-grid-h14 strong{font-size:20px;margin-top:5px}@media(max-width:900px){.goal-metric-groups>div>div,.team-goal-cards-h14,.team-people-grid-h14{grid-template-columns:1fr}.goal-scope-choice,.team-performance-grid-h14{grid-template-columns:1fr 1fr}}
+
+/* Calling focus: fit four header controls in one row; do not push the dial button down. */
+@media(min-width:1120px){
+  .calling-v982__topbar{grid-template-columns:minmax(240px,1.35fr) minmax(190px,.9fr) 110px minmax(220px,auto)}
+  .calling-v982__primary-actions{align-items:center;justify-content:flex-end;flex-wrap:wrap}
+}
+.calling-fast-dial-status-v10182.is-paused{border-color:#d9e2ed;background:#f5f7fa;color:#68778c}
+.calling-h5__precall-heading p{font-size:12px}
+.calling-h5__essential-card>small,.calling-h5__essential-card>header small{font-size:11px}
+.calling-h5__essential-card>strong{font-size:14px}
+.calling-h5__essential-card>span,.calling-h5__essential-card>p{font-size:12px}
+.calling-h5__essential-card>p,.calling-h5__important-list p{overflow-wrap:anywhere;word-break:break-word;line-height:1.45}
+.calling-h5__essential-card--interaction>p{display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:3;overflow:hidden}
+.calling-h5__history strong{font-size:12px}
+.calling-h5__history p{font-size:11px;overflow-wrap:anywhere}
+.calling-h5__history time{font-size:10px}
+.calling-h5__essential-card>header span{font-size:11px}
+.calling-h5__important-list p{font-size:12px}
+.calling-connect-readiness{width:min(1200px,100%);box-sizing:border-box;margin-inline:auto;padding:13px 16px;border:1px solid #c9d9f1;border-radius:12px;background:#f4f8ff;display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:12px;align-items:center;color:#315174}
+.calling-connect-readiness>svg{flex-shrink:0;color:#3765a7}
+.calling-connect-readiness strong{display:block;font-size:13px;color:#1b416e}
+.calling-connect-readiness p{font-size:12px;line-height:1.45;margin:3px 0 0;color:#536983}
+@media(max-width:850px){.calling-connect-readiness{grid-template-columns:auto minmax(0,1fr)}.calling-connect-readiness>button{grid-column:1/-1;justify-self:start}}
+
+
+/* RealTalent Flow Reference — Foco: visual hierarchy from the uploaded prototype, real CRM data/actions retained. */
+.calling-flow__hero{
+  box-sizing:border-box;
+  width:min(1200px,100%);
+  max-width:1200px;
+  margin-inline:auto;
+  padding:22px 26px;
+  display:grid;
+  grid-template-columns:minmax(230px,1.6fr) minmax(185px,.85fr) minmax(86px,.35fr) minmax(170px,.62fr);
+  gap:20px;
+  align-items:center;
+  border-radius:16px;
+  background:var(--surface,#fff);
+  box-shadow:0 8px 28px rgba(25,51,89,.065);
+}
+.calling-flow__contact{gap:16px}
+.calling-flow__contact .lead-cell__avatar{
+  width:60px;height:60px;min-width:60px;
+  display:flex;align-items:center;justify-content:center;
+  font-size:19px;font-weight:800;color:var(--accent,#3156c8);
+  border-radius:18px;background:color-mix(in srgb,var(--accent,#3156c8) 10%,#fff);
+}
+.calling-flow__contact small{font-size:11px!important;text-transform:uppercase;font-weight:800;letter-spacing:.045em}
+.calling-flow__contact strong{font-size:21px;line-height:1.25;white-space:normal;overflow-wrap:anywhere}
+.calling-flow__contact span:not(.lead-cell__avatar){font-size:12px;line-height:1.45}
+.calling-flow__channel strong{font-size:13px;white-space:normal}
+.calling-flow__channel span{font-size:11px;line-height:1.35}
+.calling-flow__timer strong{font-size:19px;font-variant-numeric:tabular-nums}
+.calling-flow__primary-actions{
+  display:flex;flex-direction:column;align-items:stretch;
+  gap:8px;min-width:0;justify-content:center;
+}
+.calling-flow__primary-actions>button{
+  min-height:52px;min-width:160px;width:100%;
+  border-radius:12px;font-size:14px;font-weight:800;
+}
+.calling-flow__primary-actions .calling-fast-dial-status-v10182{
+  order:2;justify-content:center;max-width:100%;font-size:11px;
+}
+.calling-flow__precall{background:transparent;border:none!important;padding:8px 0!important;box-shadow:none!important}
+.calling-flow__precall .calling-h5__precall-heading{padding:0 2px 4px}
+.calling-flow__precall .calling-h5__precall-heading h3{font-size:19px}
+.calling-flow__brief{grid-template-columns:repeat(2,minmax(0,1fr));gap:13px}
+.calling-flow__brief .calling-h5__essential-card{padding:20px 21px;min-height:0;border-radius:13px;box-shadow:0 2px 8px rgba(25,51,89,.035)}
+.calling-flow__brief .calling-h5__essential-card--objective{order:1;border-left:4px solid var(--accent,#3156c8);background:color-mix(in srgb,var(--accent,#3156c8) 4%,#fff)}
+.calling-flow__brief .calling-h5__essential-card--important{order:2;border-left:4px solid #6b93ce;background:color-mix(in srgb,var(--accent,#3156c8) 2%,#fff)}
+.calling-flow__brief .calling-h5__essential-card--interaction{order:3;grid-column:1 / -1;min-height:0;border-left:1px solid #dce6f2}
+.calling-flow__brief .calling-h5__essential-card--history{order:4;grid-column:1 / -1}
+.calling-flow__brief .calling-h5__essential-card>small,
+.calling-flow__brief .calling-h5__essential-card>header small{display:flex;align-items:center;gap:6px;font-size:11px}
+.calling-flow__brief .calling-h5__essential-card--objective>strong{font-size:18px;margin-top:10px}
+.calling-flow__brief .calling-h5__essential-card--objective>span{font-size:12px;line-height:1.65}
+.calling-flow__brief .calling-h5__essential-card--important .calling-h5__important-list p{
+  padding:11px 12px;background:var(--surface,#fff);font-size:12px;line-height:1.6;
+}
+.calling-flow__brief .calling-h5__essential-card--interaction{display:grid;grid-template-columns:minmax(170px,.45fr) minmax(0,1fr);column-gap:15px;align-items:center}
+.calling-flow__brief .calling-h5__essential-card--interaction>small{grid-column:1;grid-row:1}
+.calling-flow__brief .calling-h5__essential-card--interaction>strong{grid-column:1;grid-row:2;margin:0}
+.calling-flow__brief .calling-h5__essential-card--interaction>span{grid-column:1;grid-row:3}
+.calling-flow__brief .calling-h5__essential-card--interaction>p{grid-column:2;grid-row:1/span 3;margin:0;max-width:100%}
+.calling-flow__brief .calling-h5__history{grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
+.calling-flow__brief .calling-h5__history>div{border:1px solid #edf0f5;border-radius:10px;padding:12px 14px}
+@media(max-width:1080px){
+  .calling-flow__hero{grid-template-columns:minmax(220px,1.4fr) minmax(170px,1fr) 100px;gap:12px}
+  .calling-flow__primary-actions{grid-column:1 / -1;flex-direction:row;align-items:center;justify-content:flex-start}
+  .calling-flow__primary-actions>button{width:auto;min-width:170px}
+}
+@media(max-width:720px){
+  .calling-flow__hero{padding:18px;grid-template-columns:minmax(0,1fr) auto;gap:14px}
+  .calling-flow__contact{grid-column:1 / -1}
+  .calling-flow__primary-actions{grid-column:1 / -1}
+  .calling-flow__primary-actions>button{flex:1}
+  .calling-flow__brief{grid-template-columns:1fr}
+  .calling-flow__brief .calling-h5__essential-card--interaction,
+  .calling-flow__brief .calling-h5__essential-card--history{grid-column:1}
+  .calling-flow__brief .calling-h5__essential-card--interaction{display:block}
+  .calling-flow__brief .calling-h5__essential-card--interaction>p{margin-top:8px}
+  .calling-flow__brief .calling-h5__history{grid-template-columns:1fr}
+}
+
+
+/* Four-step preparation: don't confuse CRM queue eligibility with online phone presence. */
+.call-preparation-flow__connection{border-color:#d8e2ee;background:var(--surface,#fff)}
+.call-preparation-flow__connection p{margin:10px 0 0;font-size:12px;line-height:1.55;color:var(--text-muted,#607087)}
+.call-preparation-flow__connection.is-ready{border-color:#b9dec9;background:#f6fcf8}
+.call-preparation-flow__connection.is-ready p{color:#216347}
+.call-preparation-flow__connection.is-offline{border-color:#dfc9a7;background:#fffaf1}
+.call-preparation-flow__connection.is-offline p{color:#805a23}
+.call-preparation-flow__connection>button{margin-top:11px}

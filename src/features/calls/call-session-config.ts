@@ -9,6 +9,8 @@ export interface CallSessionConfig {
   leadIds: string[]
   initialLeadId: string
   playbookId: string
+  /** Optional per-contact scripts from the session wizard; fallback to playbookId. */
+  playbookByLeadId?: Record<string, string>
   sessionGoal: number
   linkedGoalId: string
   sessionMode: CallSessionMode

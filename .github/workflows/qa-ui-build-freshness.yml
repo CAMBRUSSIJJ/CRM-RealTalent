@@ -1,0 +1,27 @@
+name: CRM UI build freshness and WAHA default
+on:
+  pull_request:
+    paths:
+      - 'scripts/runtime-ui-build-integrity.mjs'
+      - 'scripts/runtime-ui-build-integrity.test.mjs'
+      - 'scripts/communications_current_ui_audit.mjs'
+      - 'scripts/start.mjs'
+      - 'scripts/diagnose-served-ui.mjs'
+      - 'src/features/communications/communications-page.tsx'
+      - 'src/features/communications/waha-conversations-page.tsx'
+      - 'package.json'
+      - '.github/workflows/qa-ui-build-freshness.yml'
+  workflow_dispatch:
+jobs:
+  ui-runtime:
+    runs-on: ubuntu-latest
+    timeout-minutes: 7
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Validate source-fingerprint invalidation
+        run: node --test scripts/runtime-ui-build-integrity.test.mjs
+      - name: Validate WAHA as local default and stale-build protections
+        run: node scripts/communications_current_ui_audit.mjs

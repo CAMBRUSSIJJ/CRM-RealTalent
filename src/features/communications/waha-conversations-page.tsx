@@ -6,6 +6,7 @@ import {
   type WahaChat, type WahaMessage, type WahaPreferences, type WahaStatus,
 } from '../../services/waha-direct'
 import { WahaMessageMedia, WahaToolsDrawer, type WahaToolMode } from './waha-conversation-tools'
+import { useAppNavigation, useAppWorkspace } from '../../app/app-context'
 import '../../styles/waha-direct.css'
 import '../../styles/waha-conversation-tools.css'
 
@@ -35,11 +36,16 @@ function deliveryLabel(m:WahaMessage){
 }
 
 export function WahaConversationsPage(){
+  const { routeContext, clearRouteContext } = useAppNavigation()
+  const { snapshot } = useAppWorkspace()
+  const navigatedLeadRef = useRef('')
   const [token,setToken]=useState(storedWahaToken)
   const [keyDraft,setKeyDraft]=useState('')
   const [status,setStatus]=useState<WahaStatus|null>(null)
   const [chats,setChats]=useState<WahaChat[]>([])
   const [selected,setSelected]=useState<WahaChat|null>(null)
+  const [linkedLeadId,setLinkedLeadId]=useState<string|null>(null)
+  const [linkedChatId,setLinkedChatId]=useState<string|null>(null)
   const [messages,setMessages]=useState<WahaMessage[]>([])
   const [query,setQuery]=useState('')
   const [messageQuery,setMessageQuery]=useState('')
@@ -68,6 +74,8 @@ export function WahaConversationsPage(){
   function selectConversation(chat:WahaChat){
     if(selectedId)drafts.current.set(selectedId,draft)
     setSelected(chat)
+    setLinkedLeadId(null)
+    setLinkedChatId(null)
     setDraft(drafts.current.get(chat.id)||'')
     setAttachment(null)
     if(attachRef.current)attachRef.current.value=''
@@ -76,6 +84,38 @@ export function WahaConversationsPage(){
     atBottom.current=true
     setSendError('');setRequiresReview(false);setMessages([])
   }
+
+  // CRM deep-link: open the existing WAHA thread for the selected lead.
+  // No message is sent automatically; resolve only the actual phone available in CRM.
+  useEffect(() => {
+    const id = routeContext.leadId
+    if (!id || !snapshot || navigatedLeadRef.current === id) return
+    const lead = snapshot.leads.find((item) => item.id === id)
+    if (!lead) return
+    navigatedLeadRef.current = id
+    const contact = snapshot.contacts.find((item) => item.id === lead.primaryContactId)
+    const digits = (contact?.phone || lead.phone || '').replace(/\D/g, '')
+    setFilter('all')
+    if (!/^\d{10,15}$/.test(digits)) {
+      setError('Este contato não possui telefone válido para localizar a conversa WAHA.')
+      clearRouteContext()
+      return
+    }
+    setQuery(digits.slice(-11))
+    const match = chats.find((item) => item.id.replace(/\D/g, '').endsWith(digits.slice(-11)))
+    if (match) { selectConversation(match); setLinkedLeadId(lead.id); setLinkedChatId(match.id) }
+    else if (token) {
+      void wahaResolve(token, digits).then((result) => {
+        if (result.numberExists && result.chatId) {
+          selectConversation(chats.find((item) => item.id === result.chatId) ?? { id:result.chatId, name:contact?.name || lead.name })
+          setLinkedLeadId(lead.id)
+          setLinkedChatId(result.chatId)
+          setQuery('')
+        }
+      }).catch(() => { /* Keep the filter as a fallback if the local WAHA is offline. */ })
+    }
+    clearRouteContext()
+  }, [chats, clearRouteContext, routeContext.leadId, snapshot, token])
 
   async function connect(){
     const key=keyDraft.trim()
@@ -299,7 +339,7 @@ export function WahaConversationsPage(){
           </form>
         </>:<div className="waha-blank"><MessageCircle size={38}/><h3>Selecione uma conversa</h3><p>Mensagens consultadas diretamente no WAHA local, sem armazenamento adicional.</p></div>}
       </div>
-      {toolMode?<WahaToolsDrawer mode={toolMode} token={token} chats={chats} selected={selected} messages={messages} prefs={prefs}
+      {toolMode?<WahaToolsDrawer mode={toolMode} token={token} chats={chats} selected={selected} messages={messages} prefs={prefs} linkedLeadId={linkedChatId===selectedId ? linkedLeadId : null}
         onClose={()=>setToolMode(null)}
         onInsert={text=>{setDraft(text);if(selectedId)drafts.current.set(selectedId,text)}}
         onPreference={onPreference}/>:null}

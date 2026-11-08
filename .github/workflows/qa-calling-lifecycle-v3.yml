@@ -1,0 +1,32 @@
+name: Calling Focus Lifecycle v3 QA
+on:
+  pull_request:
+    paths:
+      - 'src/features/calls/call-workspace-modal.tsx'
+      - 'src/features/calls/call-focus-lifecycle-v3.css'
+      - 'scripts/calling_focus_lifecycle_v3_audit.mjs'
+      - 'package.json'
+      - '.github/workflows/qa-calling-lifecycle-v3.yml'
+  workflow_dispatch:
+jobs:
+  focus:
+    runs-on: ubuntu-latest
+    timeout-minutes: 18
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - name: Install dependencies
+        run: npm ci --no-audit --no-fund
+      - name: Real focus state lifecycle and integrations
+        run: npm run qa:calling:lifecycle-v3
+      - name: Prior queue/focus flow contracts
+        run: npm run qa:calling:queue-v2 && npm run qa:calling:focus-v2 && npm run qa:calling:flow
+      - name: H4 and H5 compatibility
+        run: npm run qa:v101.11.3:h4 && npm run qa:v101.11.3:h5
+      - name: TypeScript
+        run: npm run typecheck
+      - name: Build CRM
+        run: npm run build

@@ -29,7 +29,19 @@ ok('tasks UI filters owner team priority',tasks.includes('Todos os responsáveis
 ok('task modal captures assignee team due relation checklist',taskModal.includes('Responsável')&&taskModal.includes('Equipe')&&taskModal.includes('Prazo')&&taskModal.includes('Relacionar ao CRM')&&taskModal.includes('Checklist'))
 ok('teams UI exposes transparent workload estimates',teams.includes('Carga de trabalho')&&teams.includes('capacity')&&teams.includes('points')&&teams.includes('Índice aproximado de carga'))
 ok('teams UI summarizes team tasks',teams.includes('Tarefas da equipe')&&teams.includes('teamOpenTasks'))
-ok('team modal controls leader and members',teamModal.includes('Líder')&&teamModal.includes('Membros')&&teamModal.includes('memberIds'))
+ok('team modal controls leader and members',
+  teamModal.includes('Integrantes') &&
+  teamModal.includes('Liderança:') &&
+  teamModal.includes('chooseLeader(member.userId)') &&
+  teamModal.includes('removeMember(member.userId)') &&
+  teamModal.includes('addMember(member.userId)') &&
+  teamModal.includes('leaderId:draft.leaderId||null') &&
+  teamModal.includes('memberIds:draft.selected') &&
+  teamModal.includes("import { DEFAULT_TEAM_COLOR, TEAM_COLORS, addTeamMember, initialTeamDraft, removeTeamMember, teamDraftKey, toggleTeamLeader, validTeamDraft, type TeamDraft } from './team-editor-state'") &&
+  exists('src/features/teams/team-editor-state.ts') &&
+  read('src/features/teams/team-editor-state.ts').includes('export function toggleTeamLeader') &&
+  read('src/features/teams/team-editor-state.ts').includes('export function removeTeamMember') &&
+  read('src/features/teams/team-editor-state.ts').includes('export function addTeamMember'))
 ok('migration creates all work-management tables',['teams','team_members','work_tasks','task_relations','task_checklist_items','task_comments'].every(t=>migration.includes(`public.${t}`)))
 ok('migration enables RLS for all work-management tables',['teams','team_members','work_tasks','task_relations','task_checklist_items','task_comments'].every(t=>migration.includes(`alter table public.${t} enable row level security`)))
 ok('team writes require admin',migration.includes('teams_write')&&migration.includes('is_organization_admin'))

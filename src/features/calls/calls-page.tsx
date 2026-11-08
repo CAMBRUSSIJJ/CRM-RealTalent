@@ -23,6 +23,7 @@ import { LazyCallWorkspaceModal } from './lazy-call-workspace-modal'
 import { CallHistoryDetailModal } from './call-history-detail-modal'
 import { CallsIntelligencePanel } from './calls-intelligence-panel'
 import { CallsSettingsPanel } from './calls-settings-panel'
+import './calls-queue-reference-v2.css'
 
 const formatDuration = (seconds: number) => `${Math.floor(seconds / 60)}m ${String(seconds % 60).padStart(2, '0')}s`
 const priorityLabel: Record<LeadPriority, string> = { urgent: 'Urgente', high: 'Alta', medium: 'Média', low: 'Baixa' }
@@ -159,7 +160,6 @@ export function CallsPage() {
   }
 
   const nextEntry = filteredQueue[0] ?? null
-  const nextSuggestion = nextEntry ? actionSuggestions.get(nextEntry.lead.id) : null
   const historyPeriods: Array<[HistoryPeriod, string]> = [['today', 'Hoje'], ['7d', '7 dias'], ['30d', '30 dias'], ['all', 'Tudo']]
   const availableOutcomes = Object.values(snapshot?.calls.reduce((acc, call) => ({ ...acc, [call.outcome]: call.outcome }), {} as Record<string, CallOutcome>) ?? {})
   const activeOperationFilters = [bucket !== 'all', priority !== 'all', stageFilter !== 'all', temperatureFilter !== 'all', attemptsFilter !== 'all', lastOutcomeFilter !== 'all'].filter(Boolean).length
@@ -192,6 +192,7 @@ export function CallsPage() {
   return <div className={`page-stack calls-page calls-page--professional calls-page--v69 calls-page-v10167 calls-page-v10171-structural calls-page-h20 ${moreFiltersOpen ? 'calls-page-v10167--filters-open' : ''}`}>
     <WorkspacePageHeader className="calls-page-header-h20" eyebrow="Execução por telefone" icon={PhoneCall} title="Ligações" description="Priorize, execute e aprenda com cada conversa sem trocar de contexto." actions={canWrite ? <><Button variant="secondary" size="sm" onClick={() => nextEntry && requestSession(nextEntry.lead.id, [nextEntry.lead.id])} disabled={!nextEntry}><PhoneCall size={16} /> Ligação avulsa</Button><Button size="sm" onClick={() => requestSession('', selectedQueueIds.length ? selectedQueueIds : filteredQueue.map((entry) => entry.lead.id))} disabled={!filteredQueue.length}><Play size={16} /> Começar ligações</Button></> : null} />
 
+    {view !== 'operation' ? <>
     <WorkspaceSummaryStrip className="calls-summary-strip-h20">
       <WorkspaceSummaryMetric label="Hoje" value={queueStats.due} meta="programadas ou vencidas" icon={CalendarClock} tone={queueStats.due ? 'brand' : 'neutral'} onClick={() => { setView('operation'); applyQueueView('today') }} />
       <WorkspaceSummaryMetric label="Atrasadas" value={queueStats.overdue} meta="precisam de atenção" icon={RotateCcw} tone={queueStats.overdue ? 'danger' : 'neutral'} onClick={() => { setView('operation'); applyQueueView('overdue') }} />
@@ -199,13 +200,7 @@ export function CallsPage() {
       <WorkspaceSummaryMetric label="Conexão" value={`${stats.answerRate}%`} meta={`${stats.today} realizadas hoje`} icon={Target} tone="success" />
     </WorkspaceSummaryStrip>
 
-    {view === 'operation' ? <section className="panel calls-command-center-v10171">
-      <div className="calls-command-center-v10171__next">
-        <div className="calls-command-center-v10171__heading"><div><span className="eyebrow">Próximo da fila</span><h3>{nextEntry ? nextEntry.targetName : 'Fila concluída'}</h3><p>{nextEntry ? `${nextEntry.lead.company || nextEntry.lead.name} · ${nextEntry.reason}` : 'Não há contatos elegíveis na visualização atual.'}</p></div>{nextEntry ? <span className={`priority-chip priority-chip--${nextEntry.lead.priority}`}>{priorityLabel[nextEntry.lead.priority]}</span> : null}</div>
-        {nextEntry ? <><div className="calls-command-center-v10171__meta"><span><PhoneCall size={14} /> {nextEntry.targetPhone}</span><span><Target size={14} /> {nextEntry.stage?.name ?? 'Sem etapa'}</span><span><RotateCcw size={14} /> {nextEntry.attempts} tentativa{nextEntry.attempts === 1 ? '' : 's'}</span></div>{nextSuggestion ? <div className={`calls-command-center-v10171__suggestion is-${nextSuggestion.urgency}`}><Sparkles size={14}/><span><small>Próxima melhor ação</small><strong>{nextSuggestion.label}</strong></span></div> : null}{canWrite ? <div className="calls-command-center-v10171__actions"><Button size="sm" onClick={() => requestSession(nextEntry.lead.id, [nextEntry.lead.id])}><PhoneCall size={15} /> Ligar agora</Button><Button size="sm" variant="secondary" onClick={() => navigate('leads', { leadId: nextEntry.lead.id })}><ArrowUpRight size={15} /> Abrir contato</Button></div> : null}</> : <EmptyState icon={PhoneCall} title="Nenhum contato aguardando" description="Ajuste os filtros ou cadastre uma próxima ação." />}
-      </div>
-      <div className="calls-command-center-v10171__kpis"><article><small>Hoje</small><strong>{queueStats.due}</strong><span>programadas ou vencidas</span></article><article><small>Atrasadas</small><strong>{queueStats.overdue}</strong><span>precisam de atenção</span></article><article><small>Retornos</small><strong>{queueStats.callbacks}</strong><span>pedidos pelo prospect</span></article><article><small>Conexão</small><strong>{stats.answerRate}%</strong><span>{stats.today} realizadas hoje</span></article></div>
-    </section> : null}
+    </> : null}
 
     <WorkspaceViewStrip className="calls-area-view-strip-h20" value={view} onChange={setView} ariaLabel="Áreas de Ligações" items={[
       { id: 'operation', label: 'Operação', icon: Play },
@@ -214,7 +209,16 @@ export function CallsPage() {
       { id: 'settings', label: 'Configurações', icon: Settings2 },
     ] as const} />
 
-    {view === 'operation' ? <>
+    {view === 'operation' ? <section className="rt-calls-queue-v2" data-realtalent-calls-queue-ui="reference-v2">
+      <header className="rt-calls-queue-v2__heading">
+        <div><span className="rt-calls-queue-v2__eyebrow">GESTÃO DE LIGAÇÕES</span><h2>Fila operacional</h2><p>{filteredQueue.length} {filteredQueue.length === 1 ? 'contato' : 'contatos'} nesta visualização · {queue.length} no total</p></div>
+        <div className="rt-calls-queue-v2__overview" aria-label="Situação da fila">
+          <button type="button" onClick={() => applyQueueView('today')}><CalendarClock size={15}/><strong>{queueStats.due}</strong> hoje</button>
+          <button type="button" onClick={() => applyQueueView('overdue')}><RotateCcw size={15}/><strong>{queueStats.overdue}</strong> atrasadas</button>
+          <button type="button" onClick={() => applyQueueView('all', 'callback_requested')}><PhoneCall size={15}/><strong>{queueStats.callbacks}</strong> retornos</button>
+        </div>
+      </header>
+      <div className="rt-calls-queue-v2__filters">
       <FilterWorkspaceViewStrip items={[
         { id: 'all', label: 'Toda fila', active: queueViewId === 'all', count: queue.length, icon: <PhoneCall size={14}/>, onClick: () => applyQueueView('all') },
         { id: 'today', label: 'Hoje', active: queueViewId === 'today', count: queueStats.due, icon: <CalendarClock size={14}/>, accent: 'blue', onClick: () => applyQueueView('today') },
@@ -231,8 +235,41 @@ export function CallsPage() {
       <WorkspaceFilterChips fields={universalOperationFilters} onChange={changeOperationFilter} onClearAll={clearOperationFilters} />
       {moreFiltersOpen ? <aside className="workspace-settings-drawer-v10167 calls-filter-drawer-v10167" aria-label="Filtros de ligações"><header><div><span>Ligações</span><strong>Filtros da fila</strong></div><button type="button" onClick={() => setMoreFiltersOpen(false)} aria-label="Fechar filtros">×</button></header><div className="workspace-settings-drawer-v10167__body"><section><div className="workspace-settings-section-title-v10167"><strong>Fila operacional</strong><span>O mesmo motor de filtros controla views, seleção e sessão.</span></div>{universalOperationFilters.map((field) => <label className="field" key={field.key}><span>{field.label}</span><NativeSelectionSelect value={field.value} onChange={(event) => changeOperationFilter(field.key, event.target.value)}><option value={field.allValue ?? 'all'}>{field.allLabel ?? 'Qualquer'}</option>{field.options.map((option) => <option key={`${field.key}-${option.value}`} value={option.value}>{option.label}</option>)}</NativeSelectionSelect></label>)}</section></div><footer><Button variant="secondary" onClick={clearOperationFilters}>Limpar</Button><Button onClick={() => setMoreFiltersOpen(false)}>Aplicar</Button></footer></aside> : null}
 
-      <section className="calls-operations-layout calls-operations-layout--single"><div className="panel call-queue-panel call-queue-panel--professional"><div className="panel__heading"><div><span className="eyebrow">Prioridade RealTalent</span><h3>Fila operacional</h3><p>{filteredQueue.length === 1 ? '1 contato nesta visualização' : `${filteredQueue.length} contatos nesta visualização`}</p></div>{canWrite && selectedQueueIds.length ? <Button size="sm" onClick={() => requestSession(selectedQueueIds[0], selectedQueueIds)}><Play size={15} /> Preparar selecionados</Button> : null}</div>{filteredQueue.length ? <div className={`call-queue call-queue--professional call-queue--${display.queueDensity}`}>{filteredQueue.map((entry, index) => { const selected = selectedQueueIds.includes(entry.lead.id); const suggestion = actionSuggestions.get(entry.lead.id); return <article className={`call-queue-card ${selected ? 'is-selected' : ''}`} key={entry.lead.id}>{canWrite ? <button className="call-queue-card__check" type="button" onClick={() => toggleQueueLead(entry.lead.id)} aria-label={selected ? 'Remover da seleção' : 'Selecionar lead'}>{selected ? <CheckSquare size={17} /> : <Square size={17} />}</button> : null}<div className="call-queue-card__rank">{index + 1}</div><div className="call-queue-card__main"><div className="call-queue-card__headline"><div className="lead-cell"><span className="lead-cell__avatar">{entry.targetName.slice(0, 2).toUpperCase()}</span><div><strong>{entry.targetName}</strong><small>{entry.lead.company || entry.lead.name || 'Empresa não informada'} · {entry.lead.city || 'Cidade não informada'}</small></div></div><div className="call-queue-card__badges">{display.showQueueReason ? entry.attempts >= preferences.commercial.maxCallAttempts ? <StatusPill tone="danger">Limite de tentativas</StatusPill> : <StatusPill tone={entry.bucket === 'overdue' ? 'danger' : entry.lead.temperature === 'hot' ? 'warning' : 'info'}>{entry.reason}</StatusPill> : null}<span className={`priority-chip priority-chip--${entry.lead.priority}`}>{priorityLabel[entry.lead.priority]}</span></div></div><div className="call-queue-card__meta"><span><PhoneCall size={14} /> {entry.targetPhone}</span><span><RotateCcw size={14} /> {entry.attempts} {entry.attempts === 1 ? 'tentativa' : 'tentativas'}</span><span><CalendarClock size={14} /> {entry.dueAt ? formatDateTime(entry.dueAt) : 'Sem agendamento'}</span><span><Target size={14} /> {entry.stage?.name ?? 'Sem etapa'}</span></div>{suggestion ? <div className={`call-next-best-action call-next-best-action--${suggestion.urgency}`}><span><Sparkles size={14} /> Próxima melhor ação</span><strong>{suggestion.label}</strong><small>{suggestion.reason}</small></div> : null}{display.showLastCall ? entry.lastCall ? <p>Última ligação: <strong>{outcomeLabel(entry.lastCall.outcome)}</strong> · {formatDateTime(entry.lastCall.startedAt)}{entry.lastCall.notes ? ` — ${entry.lastCall.notes}` : ''}</p> : <p>Primeira tentativa registrada para este contato.</p> : null}</div>{canWrite ? <div className="call-queue-card__actions"><Button size="sm" onClick={() => suggestion ? executeSuggestedAction(entry.lead.id, suggestion.kind) : requestSession(entry.lead.id, [entry.lead.id])}>{suggestion?.kind === 'call_now' || suggestion?.kind === 'callback' || suggestion?.kind === 'reactivate' ? <PhoneCall size={15} /> : <ArrowUpRight size={15} />} {suggestion?.shortLabel ?? 'Ligar'}</Button></div> : null}</article> })}</div> : <EmptyState icon={PhoneCall} title="Nenhum contato nesta fila" description="Ajuste os filtros ou cadastre uma próxima ação para os contatos ativos." />}</div></section>
-    </> : null}
+      </div>
+      <section className="rt-calls-queue-v2__list" aria-label="Contatos para ligação">
+        <div className="rt-calls-queue-v2__list-heading">
+          <div><strong>Contatos priorizados</strong><span>Selecione contatos ou inicie uma ligação pela fila.</span></div>
+          {canWrite && selectedQueueIds.length ? <Button size="sm" onClick={() => requestSession(selectedQueueIds[0], selectedQueueIds)}><Play size={15}/> Preparar {selectedQueueIds.length} {selectedQueueIds.length === 1 ? 'contato' : 'contatos'}</Button> : null}
+        </div>
+        {filteredQueue.length ? <div className={'rt-calls-queue-v2__rows rt-calls-queue-v2__rows--' + display.queueDensity}>
+          {filteredQueue.map((entry, index) => {
+            const selected = selectedQueueIds.includes(entry.lead.id)
+            const suggestion = actionSuggestions.get(entry.lead.id)
+            const callRelated = suggestion?.kind === 'call_now' || suggestion?.kind === 'callback' || suggestion?.kind === 'reactivate'
+            return <article className={'rt-calls-queue-v2__row' + (selected ? ' is-selected' : '') + (index === 0 ? ' is-next' : '')} key={entry.lead.id}>
+              {canWrite ? <button type="button" className="rt-calls-queue-v2__checkbox" onClick={() => toggleQueueLead(entry.lead.id)} aria-label={selected ? 'Remover contato da sessão' : 'Selecionar contato para a sessão'} aria-pressed={selected}>{selected ? <CheckSquare size={20}/> : <Square size={20}/>}</button> : null}
+              <div className="rt-calls-queue-v2__avatar" aria-hidden="true">{entry.targetName.slice(0, 2).toUpperCase()}</div>
+              <div className="rt-calls-queue-v2__identity">
+                <div className="rt-calls-queue-v2__lead-name"><strong>{entry.targetName}</strong>{index === 0 ? <span className="rt-calls-queue-v2__next-badge">Próximo da fila</span> : null}</div>
+                <p>{entry.lead.company || entry.lead.name || 'Empresa não informada'} · {entry.lead.city || 'Cidade não informada'}</p>
+                <div className="rt-calls-queue-v2__metadata">
+                  <span><PhoneCall size={14}/>{entry.targetPhone}</span><span><RotateCcw size={14}/>{entry.attempts} {entry.attempts === 1 ? 'tentativa' : 'tentativas'}</span><span><Target size={14}/>{entry.stage?.name ?? 'Sem etapa'}</span><span><CalendarClock size={14}/>{entry.dueAt ? formatDateTime(entry.dueAt) : 'Sem agendamento'}</span>
+                </div>
+                {suggestion ? <div className="rt-calls-queue-v2__suggestion"><Sparkles size={14}/><span><strong>Próxima ação:</strong> {suggestion.label}</span>{!callRelated && canWrite ? <button type="button" onClick={() => executeSuggestedAction(entry.lead.id, suggestion.kind)}>Executar <ArrowUpRight size={13}/></button> : null}</div> : null}
+                {display.showLastCall ? <p className="rt-calls-queue-v2__last-call">{entry.lastCall ? <>Última ligação: {outcomeLabel(entry.lastCall.outcome)} · {formatDateTime(entry.lastCall.startedAt)}{entry.lastCall.notes ? ' — ' + entry.lastCall.notes : ''}</> : 'Primeira tentativa deste contato.'}</p> : null}
+              </div>
+              <div className="rt-calls-queue-v2__right">
+                <div className="rt-calls-queue-v2__badges">
+                  {display.showQueueReason ? <StatusPill tone={entry.attempts >= preferences.commercial.maxCallAttempts || entry.bucket === 'overdue' ? 'danger' : 'info'}>{entry.attempts >= preferences.commercial.maxCallAttempts ? 'Limite de tentativas' : entry.reason}</StatusPill> : null}
+                  <span className={'priority-chip priority-chip--' + entry.lead.priority}>{priorityLabel[entry.lead.priority]}</span>
+                </div>
+                {canWrite ? <div className="rt-calls-queue-v2__actions"><Button size="sm" onClick={() => requestSession(entry.lead.id, [entry.lead.id])}><PhoneCall size={15}/>{entry.bucket === 'overdue' ? 'Retornar agora' : 'Ligar'}</Button><Button size="sm" variant="secondary" onClick={() => navigate('leads', { leadId: entry.lead.id })}><ArrowUpRight size={14}/> Contato</Button></div> : null}
+              </div>
+            </article>
+          })}
+        </div> : <EmptyState icon={PhoneCall} title="Nenhum contato nesta fila" description="Ajuste os filtros ou cadastre uma próxima ação para os contatos ativos." />}
+      </section>
+    </section> : null}
 
     {view === 'history' ? <>
       <WorkspaceCommandBar className="calls-history-command-h20"><WorkspaceCommandGroup className="calls-search-group-h20"><label className="search-field workspace-search-v10167"><Search size={17} /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Buscar no histórico..." /></label></WorkspaceCommandGroup><WorkspaceCommandGroup align="end"><WorkspaceFilterMenu workspaceKey={`calls-history:${workspaceId}`} fields={universalHistoryFilters} activeCount={activeHistoryFilters} onOpenAdvanced={() => setMoreFiltersOpen(true)} onClearAll={clearHistoryFilters} onChange={(key, value) => key === 'outcome' ? setOutcomeFilter(value as 'all' | CallOutcome) : setHistoryPeriod(value as HistoryPeriod)} /></WorkspaceCommandGroup></WorkspaceCommandBar>

@@ -47,8 +47,9 @@ import { resolveLeadCallTarget } from '../../services/call-workspace'
 import { buildCallHealth } from '../../services/calling-intelligence-workspace'
 import { discoverVoiceDevices, probeVoiceProviders, providerLabel, readVoiceSettings, type VoiceSettings } from '../../services/voice-dialer'
 import { recommendPlaybooks } from '../../services/coaching-engine'
-import { CALL_APPROACHES, callApproachEntries, classifyCallApproach, recommendApproachPlaybook, type CallApproachType } from './call-session-approaches'
+import { CALL_APPROACHES, callApproachEntries, buildLeadPlaybookAdvice, classifyCallApproach, recommendApproachPlaybook, type CallApproachType } from './call-session-approaches'
 import { readCallingStrategyPreferences, type CallingStrategyPreferences } from '../../services/calling-strategy'
+import { readLeadSalesStrategyPreference, saveLeadSalesStrategyPreference } from '../../services/unified-sales-workspace'
 import { getGoalInsight, localDateKey } from '../../services/goals-workspace'
 import { goalMetricLabels } from '../../services/metrics'
 import type { CallSessionConfig } from './call-session-config'
@@ -119,6 +120,7 @@ export function CallSessionPreparationModal({ open, leadIds, initialLeadId, onCl
   const [display, setDisplay] = useState<CallDisplayPreferences>(() => readCallDisplayPreferences(workspaceId))
   const [displayOpen, setDisplayOpen] = useState(false)
   const [approachOverrides, setApproachOverrides] = useState<Record<string, CallApproachType>>({})
+  const [perLeadPlaybookOverrides, setPerLeadPlaybookOverrides] = useState<Record<string,string>>({})
   const [advancedSettingsOpen, setAdvancedSettingsOpen] = useState(false)
   const [voiceSettings, setVoiceSettings] = useState<VoiceSettings>(() => readVoiceSettings(workspaceId))
   const [voiceOpen, setVoiceOpen] = useState(false)
@@ -307,11 +309,25 @@ export function CallSessionPreparationModal({ open, leadIds, initialLeadId, onCl
       proposalExists: (snapshot?.proposals ?? []).some((item) => item.leadId === lead.id),
     })
   }
+  const adviceFor = (lead: Lead) => snapshot ? buildLeadPlaybookAdvice({
+    lead, snapshot, objective: sessionObjective, manualApproach: approachFor(lead),
+  }) : null
   const playbookFor = (lead: Lead) => {
-    const latest = (snapshot?.calls ?? []).filter((call) => call.leadId === lead.id).sort((a, b) => b.startedAt.localeCompare(a.startedAt))[0]
-    const recommended = recommendApproachPlaybook({ lead, approach: approachFor(lead), objective: sessionObjective, playbooks: snapshot?.playbooks ?? [], lastOutcome: latest?.outcome ?? null })
-    // Explicit session playbook choice has precedence, otherwise recommend individually.
-    return (playbookId ? activeSessionPlaybooks.find((item) => item.id === playbookId) : null) ?? recommended ?? effectiveSessionPlaybook
+    const advice = adviceFor(lead)
+    const stored = snapshot ? readLeadSalesStrategyPreference(workspaceId, lead, snapshot).playbookId : ''
+    // Per-contact selection overrides the session default; 'Automatic' clears the override.
+    const picked = perLeadPlaybookOverrides[lead.id] !== undefined
+      ? perLeadPlaybookOverrides[lead.id]
+      : (stored || playbookId)
+    return (picked ? activeSessionPlaybooks.find((item) => item.id === picked) : null)
+      ?? advice?.recommended ?? effectiveSessionPlaybook
+  }
+  const changeLeadPlaybook = (lead: Lead, id: string) => {
+    setPerLeadPlaybookOverrides((current) => ({ ...current, [lead.id]: id }))
+    const currentPreference = readLeadSalesStrategyPreference(workspaceId, lead, snapshot)
+    saveLeadSalesStrategyPreference(workspaceId, lead.id, {
+      objective: currentPreference.objective, playbookId: id,
+    })
   }
   const setLeadApproach = (leadId: string, approach: CallApproachType) => {
     setApproachOverrides((current) => {
@@ -343,6 +359,7 @@ export function CallSessionPreparationModal({ open, leadIds, initialLeadId, onCl
     setDisplay(readCallDisplayPreferences(workspaceId))
     try { setApproachOverrides(JSON.parse(localStorage.getItem(`realtalent:call-approaches:${workspaceId}`) || '{}') as Record<string, CallApproachType>) } catch { setApproachOverrides({}) }
     setAdvancedSettingsOpen(false)
+    setPerLeadPlaybookOverrides({})
     setSavedLists(readSavedLists(workspaceId))
     setQuery('')
     setSourceFilter('all')
@@ -507,7 +524,29 @@ export function CallSessionPreparationModal({ open, leadIds, initialLeadId, onCl
                       <td><select className={'rt-setup-approach is-' + approach} value={approach} aria-label={'Tipo de abordagem de ' + lead.name} onChange={(event) => setLeadApproach(lead.id, event.target.value as CallApproachType)}>
                         {callApproachEntries.map(([id, definition]) => <option key={id} value={id}>{definition.label}</option>)}
                       </select></td>
-                      <td><span className="rt-setup-playbook"><FileText size={16}/>{recommended?.title || 'Nenhum roteiro disponível'}</span></td>
+                      <td>
+                        <div className="rt-setup-playbook-cell">
+                          <span className="rt-setup-playbook"><FileText size={16}/>{recommended?.title || 'Nenhum roteiro disponível'}</span>
+                          <small className={adviceFor(lead)?.isSpecific ? 'is-specific' : 'is-general'}>{adviceFor(lead)?.explanation}</small>
+                          <div className="rt-setup-playbook-cell__tools">
+                            <select
+                              aria-label={'Playbook de ' + (target?.name || lead.name)}
+                              value={perLeadPlaybookOverrides[lead.id] !== undefined
+                                ? perLeadPlaybookOverrides[lead.id]
+                                : readLeadSalesStrategyPreference(workspaceId, lead, snapshot).playbookId}
+                              onChange={(event) => changeLeadPlaybook(lead, event.target.value)}
+                            >
+                              <option value="">Automático por lead</option>
+                              {activeSessionPlaybooks.map((item) => <option key={item.id} value={item.id}>{item.title}</option>)}
+                            </select>
+                            <button type="button" onClick={() => {
+                              onClose()
+                              navigate('playbooks', recommended ? { playbookId: recommended.id } : { filter: 'strategy' })
+                            }}>{recommended ? 'Ver roteiro' : 'Criar roteiro'}</button>
+                          </div>
+                          {adviceFor(lead)?.context.length ? <details className="rt-setup-playbook-evidence"><summary>Contexto do CRM</summary><p>{adviceFor(lead)?.context.join(' · ')}</p></details> : null}
+                        </div>
+                      </td>
                     </tr>
                   })}</tbody>
                 </table>

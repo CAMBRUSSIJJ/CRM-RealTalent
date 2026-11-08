@@ -152,9 +152,9 @@ export function WahaToolsDrawer({mode,token,chats,selected,messages,prefs,linked
         'Não é fato confirmado. Consulte a conversa original antes de agir.',
       ].filter(Boolean).join('\\n').slice(0,3500)
       await createActivity({
-        workspaceId:snapshot.workspace.id,leadId:linkedLead.id,type:'note',
+        leadId:linkedLead.id,type:'note',
         title:'📌 WhatsApp · contexto comercial revisado',description:body,
-        dueAt:null,completedAt:null,assignedTo:null,sourceType:'manual',sourceId:null,
+        dueAt:null,completedAt:null,assignedTo:null,
         resolutionReason:'pinned_call_note',purpose:'waha_commercial_context',
       })
       setCrmContextSaved(true)

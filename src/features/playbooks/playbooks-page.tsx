@@ -141,6 +141,14 @@ export function PlaybooksPage() {
     setView('strategy')
     clearRouteContext()
   }, [clearRouteContext, routeContext.filter])
+  // Open the exact playbook requested by the lead drawer or calling wizard.
+  useEffect(() => {
+    const target = routeContext.playbookId
+    if (!target || !allPlaybooks.some((item) => item.id === target)) return
+    setSelectedId(target)
+    setView('execution')
+    clearRouteContext()
+  }, [allPlaybooks, clearRouteContext, routeContext.playbookId])
   useEffect(() => {
     if (!selected) return
     const allowed = selected.guidance?.executionModes?.length ? selected.guidance.executionModes : [recommendedExecutionMode(selected)]

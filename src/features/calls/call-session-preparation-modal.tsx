@@ -623,7 +623,7 @@ export function CallSessionPreparationModal({ open, leadIds, initialLeadId, onCl
                   ]
                   return <div className={'rt-setup-validation' + (issues.length ? ' is-warning' : ' is-good')}>
                     <h4>{issues.length ? <AlertTriangle size={17}/> : <Check size={17}/>} {issues.length ? 'Atenção Requerida' : 'Pronto para iniciar'}</h4>
-                    {issues.length ? issues.slice(0, 4).map((issue, idx) => <p key={idx}>{issue}</p>) : <p>Os contatos selecionados possuem telefone disponível. A conexão do provedor é verificada separadamente.</p>}
+                    {issues.length ? issues.slice(0, 4).map((issue, idx) => <p key={idx}>{issue}</p>) : <p>Os contatos selecionados possuem telefone disponível. A conexão do telefone é verificada separadamente.</p>}
                   </div>
                 })()}
                 {orderedSessionLeads[0] ? <div className="rt-setup-next"><strong>Primeiro contato</strong><span>{leadTargets.get(orderedSessionLeads[0].id)?.name || orderedSessionLeads[0].name}</span></div> : null}

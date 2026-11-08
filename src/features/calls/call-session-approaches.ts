@@ -127,8 +127,14 @@ export function buildLeadPlaybookAdvice(input: {
   const stage = snapshot.stages.find((item) => item.id === lead.stageId)?.name ?? null
   const contacts = snapshot.contacts.filter((item) =>
     item.leadIds.includes(lead.id) || (lead.companyId && item.companyId === lead.companyId)).length
-  const pendingActivities = activities.filter((item) => !item.completedAt &&
+  const pendingActivities = activities.filter((item) => item.type !== 'note' && !item.completedAt &&
     !['cancelled','canceled'].includes(String(item.resolutionStatus).toLowerCase())).length
+  const reviewedWahaNote = activities
+    .filter((item) => item.type === 'note' &&
+      item.description.includes('[WAHA_CONTEXT_V1]') &&
+      item.resolutionReason === 'pinned_call_note')
+    .sort((a,b) => b.createdAt.localeCompare(a.createdAt))[0] ?? null
+  const wahaSummary = reviewedWahaNote?.description.match(/Resumo:\s*([^\n]+)/i)?.[1]?.trim().slice(0,220) ?? ''
   const upcomingMeetings = meetings.filter((item) => Date.parse(item.startsAt) > now.getTime()).length
   const context = [
     stage ? `Pipeline: ${stage}` : null,
@@ -137,6 +143,7 @@ export function buildLeadPlaybookAdvice(input: {
     pendingActivities ? `${pendingActivities} tarefa(s) pendente(s)` : null,
     upcomingMeetings ? `${upcomingMeetings} reunião(ões) agendada(s)` : null,
     contacts ? `${contacts} contato(s) vinculado(s)` : null,
+    wahaSummary ? `WhatsApp revisado no CRM: ${wahaSummary}` : null,
   ].filter((value): value is string => Boolean(value))
   const explanation = !recommended
     ? 'Não existe playbook de ligação ativo na biblioteca. Crie ou ative um roteiro.'

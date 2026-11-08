@@ -382,3 +382,8 @@
 @media(prefers-reduced-motion:reduce){
   .rt-call-focus-v3__dialing-icon:before{animation:none}
 }
+
+/* Display preview preference: hide the rendered timer only, never the call clock or saved duration. */
+.rt-call-timer-hidden .calling-v982__timer,
+.rt-call-timer-hidden .rt-call-focus-v2__session-metrics>span:has(.lucide-timer),
+.rt-call-timer-hidden .calling-v982__wrap>header .status-pill {display:none!important}

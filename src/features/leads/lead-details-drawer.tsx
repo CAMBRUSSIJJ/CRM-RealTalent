@@ -370,7 +370,7 @@ export function LeadDetailsDrawer({ readOnly = false, openAccountOnMount = false
                     {approachAdvice?.related.proposalId ? <button type="button" onClick={() => { navigate('proposals', { leadId:lead.id, proposalId:approachAdvice.related.proposalId! }); onClose() }}>Proposta vinculada</button> : null}
                     {!readOnly ? <button type="button" onClick={() => onActivity(lead, 'followup')}>Criar follow-up</button> : null}
                     {!readOnly ? <button type="button" onClick={() => onEvent(lead)}>Agendar reunião</button> : null}
-                    {canViewPhone && resolvedContactTarget.phone ? <button type="button" onClick={() => openMessage('whatsapp')}>WhatsApp</button> : null}
+                    {canViewPhone && resolvedContactTarget.phone ? <button type="button" onClick={() => { navigate('communications', { leadId:lead.id }); onClose() }}>Abrir conversa WAHA</button> : null}
                     <button type="button" onClick={() => { navigate('metrics'); onClose() }}>Métricas</button>
                   </div>
                 </div>

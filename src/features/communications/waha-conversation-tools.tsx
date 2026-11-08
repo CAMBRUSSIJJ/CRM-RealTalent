@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { BrainCircuit, Check, Clipboard, FileText, LoaderCircle, Paperclip, Star, Tag, X } from 'lucide-react'
 import { stageWahaTaskHandoff } from '../../services/waha-task-handoff'
+import { useAppActions, useAppWorkspace } from '../../app/app-context'
 import { routeToHash } from '../../app/route-state'
 import {
   wahaAiStatus, wahaAnalyzeSelectedConversation, wahaMediaBlob, wahaTranscribeMessage,
@@ -12,14 +13,19 @@ import {
 
 export type WahaToolMode='overview'|'labels'|'replies'|'ai'
 type Props={
-  mode:WahaToolMode;token:string;chats:WahaChat[];selected:WahaChat|null;messages:WahaMessage[];prefs:WahaPreferences
+  mode:WahaToolMode;token:string;chats:WahaChat[];selected:WahaChat|null;messages:WahaMessage[];prefs:WahaPreferences;linkedLeadId?:string|null
   onClose():void;onInsert(text:string):void
   onPreference(patch:unknown):Promise<void>
 }
 const unreadCount=(c:WahaChat)=>Number(c.unreadCount||0)
 const chatName=(c:WahaChat)=>c.name||c.id.split('@')[0]
 
-export function WahaToolsDrawer({mode,token,chats,selected,messages,prefs,onClose,onInsert,onPreference}:Props){
+export function WahaToolsDrawer({mode,token,chats,selected,messages,prefs,linkedLeadId,onClose,onInsert,onPreference}:Props){
+  const { snapshot,canWrite }=useAppWorkspace()
+  const { createActivity }=useAppActions()
+  const linkedLead=linkedLeadId ? snapshot?.leads.find((lead)=>lead.id===linkedLeadId) ?? null : null
+  const [savingCrmContext,setSavingCrmContext]=useState(false)
+  const [crmContextSaved,setCrmContextSaved]=useState(false)
   const [labels,setLabels]=useState('')
   const [replyTitle,setReplyTitle]=useState('')
   const [replyText,setReplyText]=useState('')
@@ -43,7 +49,7 @@ export function WahaToolsDrawer({mode,token,chats,selected,messages,prefs,onClos
   const [replySent,setReplySent]=useState(false)
 
   useEffect(()=>{setLabels((selected&&prefs.labels[selected.id]||[]).join(', '))},[selected?.id,prefs.labels])
-  useEffect(()=>{requestEpoch.current+=1;setAiResult('');setCommercial(null);setQuestion('');setMessagesRead(0);setVoiceInfo(null);setError('');setReplySent(false);setAutoReply(null)},[selected?.id,mode])
+  useEffect(()=>{requestEpoch.current+=1;setAiResult('');setCommercial(null);setQuestion('');setMessagesRead(0);setVoiceInfo(null);setError('');setReplySent(false);setAutoReply(null);setCrmContextSaved(false)},[selected?.id,mode])
   useEffect(()=>{
     if(mode!=='ai')return
     let active=true
@@ -121,10 +127,45 @@ export function WahaToolsDrawer({mode,token,chats,selected,messages,prefs,onClos
     catch(e){setError(e instanceof Error?e.message:'Não foi possível salvar.')}
     finally{setSaving(false)}
   }
+  async function saveApprovedCommercialContext(){
+    if(!selected||!commercial||!linkedLead||!snapshot||!canWrite||savingCrmContext||crmContextSaved)return
+    const summary=commercial.summary.trim()
+    if(!summary)return
+    const preview=summary.slice(0,380)
+    if(!window.confirm('Salvar este resumo de IA na ficha comercial de '+linkedLead.name+'?'+
+      '\\n\\n'+preview+'\\n\\nConfira as evidências. A IA pode estar incorreta e nenhuma mensagem será enviada.'))return
+    setSavingCrmContext(true);setError('')
+    try{
+      const format=(name:string,items:{description:string;evidence:{text:string}[]}[])=>items.length
+        ? name+': '+items.slice(0,3).map(x=>x.description.slice(0,180)).join(' | ')
+        : ''
+      const body=[
+        '[WAHA_CONTEXT_V1] Contexto comercial revisado pelo usuário',
+        'Fonte: conversa WAHA '+chatName(selected)+' · '+messagesRead+' mensagens consideradas · IA local '+(aiModel||'Ollama'),
+        'Confiança declarada pela IA: '+commercial.confidence,
+        'Resumo: '+summary.slice(0,900),
+        format('Necessidades',commercial.needs),
+        format('Objeções',commercial.objections),
+        format('Oportunidades',commercial.opportunities),
+        format('Próximos passos sugeridos',commercial.nextSteps),
+        'Limitações: '+commercial.limitations.slice(0,430),
+        'Não é fato confirmado. Consulte a conversa original antes de agir.',
+      ].filter(Boolean).join('\\n').slice(0,3500)
+      await createActivity({
+        workspaceId:snapshot.workspace.id,leadId:linkedLead.id,type:'note',
+        title:'📌 WhatsApp · contexto comercial revisado',description:body,
+        dueAt:null,completedAt:null,assignedTo:null,sourceType:'manual',sourceId:null,
+        resolutionReason:'pinned_call_note',purpose:'waha_commercial_context',
+      })
+      setCrmContextSaved(true)
+    }catch(e){setError(e instanceof Error?e.message:'Não foi possível registrar a análise no CRM.')}
+    finally{setSavingCrmContext(false)}
+  }
+
   async function runAi(task:WahaAiConversationTask){
     if(!selected||!aiAvailable)return
     const epoch=++requestEpoch.current
-    setError('');setAiResult('');setCommercial(null);setVoiceInfo(null);setReplySent(false);setAiTask(task);setSaving(true)
+    setError('');setAiResult('');setCommercial(null);setVoiceInfo(null);setReplySent(false);setCrmContextSaved(false);setAiTask(task);setSaving(true)
     try{
       // The local bridge reads actual messages directly from selected WAHA chat.
       // Generated content remains read-only until manually inserted and sent.
@@ -228,6 +269,10 @@ export function WahaToolsDrawer({mode,token,chats,selected,messages,prefs,onClos
         {commercial?<div className="waha-ai-result waha-commercial-result" aria-live="polite">
           <h4>Análise comercial <small>Confiança indicada: {commercial.confidence}</small></h4>
           <p className="waha-commercial-summary">{commercial.summary}</p>
+          {linkedLead && canWrite ? <button className="waha-handoff-button" type="button"
+            disabled={savingCrmContext||crmContextSaved} onClick={()=>void saveApprovedCommercialContext()}>
+            <Clipboard size={15}/>{crmContextSaved ? 'Análise registrada na ficha do lead' : savingCrmContext ? 'Registrando no CRM…' : 'Revisar e salvar contexto no CRM · '+linkedLead.name}
+          </button> : null}
           {sections.map(section=><section className="waha-commercial-section" key={section.key}>
             <h5>{section.title}</h5>
             {commercial[section.key].length===0?<p className="waha-panel-description">Não identificadas nas mensagens consultadas.</p>:null}

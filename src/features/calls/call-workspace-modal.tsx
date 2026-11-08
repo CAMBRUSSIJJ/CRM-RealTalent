@@ -8,6 +8,7 @@ import '../../styles/calling-workspace.css'
 import '../../styles/calls-v1014.css'
 import '../../styles/calling-workspace-operational.css'
 import './call-focus-redesign.css'
+import './call-focus-lifecycle-v3.css'
 import {
   AlertCircle,
   ArrowLeft,
@@ -977,11 +978,26 @@ export function CallWorkspaceModal({ open, config, onClose }: { open: boolean; c
       headerActions={<div className="call-session-header-actions call-action-group"><Button variant="secondary" size="sm" onClick={() => setFullScreen((value) => !value)}>{fullScreen ? <Minimize2 size={16} /> : <Maximize2 size={16} />}{fullScreen ? 'Restaurar' : 'Expandir'}</Button></div>}
       footer={<>{attemptSaved ? <><Button variant="secondary" onClick={requestClose}>Encerrar sessão</Button><span className="modal__footer-spacer" /><Button disabled={!hasNext || Boolean(advanceTarget)} onClick={continueAfterSaved}><ArrowRight size={16} /> Próximo lead</Button></> : <><Button variant="ghost" disabled={!hasPrevious || busy} onClick={() => void moveInQueue(-1)}><ArrowLeft size={16} /> Anterior</Button><span className="modal__footer-spacer" />{session === 'finished' ? <><Button variant="secondary" loading={busy} onClick={() => void save(false)}><Save size={16} /> Salvar e encerrar</Button><Button loading={busy} disabled={!hasNext} onClick={() => void save(true)}><ArrowRight size={16} /> Salvar e próximo</Button></> : <Button variant="secondary" disabled={!hasNext || busy} onClick={() => void moveInQueue(1)}><SkipForward size={16} /> Pular lead</Button>}</>}</>}
     >
-      <div className={`calling-v982 calling-v10171 calling-v10171--${session}`}>
+      <div className={`calling-v982 calling-v10171 calling-v10171--${session} rt-call-focus-lifecycle-v3`} data-realtalent-call-lifecycle={session === 'idle' ? 'pre-call' : session === 'dialing' ? 'dialing' : session === 'finished' ? 'wrap-up' : 'active-call'}>
         {showRecovery ? <section className="call-recovery-banner"><RotateCcw size={20} /><div><strong>Há uma tentativa interrompida</strong><span>Recupere o progresso, as notas e o tempo antes de continuar.</span></div><Button size="sm" onClick={recoverSession}>Recuperar</Button><Button size="sm" variant="ghost" onClick={discardRecovery}>Descartar</Button></section> : null}
         {advanceTarget ? <section className="call-auto-advance-banner"><CheckCircle2 size={20} /><div><strong>Resultado salvo. Próximo contato em {advanceCountdown}s</strong><span>{config?.fastDial && config?.autoDispatchNext ? 'O próximo contato será carregado e enviado automaticamente ao RealTalent Phone.' : 'O próximo contato será preparado sem iniciar a chamada.'}</span></div><Button size="sm" onClick={advanceNow}>Avançar agora</Button><Button size="sm" variant="ghost" onClick={pauseAutoAdvance}>Pausar</Button></section> : null}
         {voiceCall?.providerId === 'realtalent_connect' && voiceTransport !== 'healthy' ? <section className={`calling-v1014__transport is-${voiceTransport}`}>{voiceTransport === 'recovered' ? <CheckCircle2 size={20}/> : <AlertCircle size={20}/>}<div><strong>{voiceTransport === 'recovered' ? 'Conexão restabelecida' : 'Connect temporariamente sem confirmação'}</strong><span>{voiceTransportDetail || 'O CRM preservou a sessão e continuará tentando recuperar os estados da chamada.'}</span></div>{voiceTransport === 'degraded' ? <Button size="sm" variant="secondary" loading={voiceBusy} onClick={() => void reconnectVoiceLayer()}>Tentar reconectar</Button> : null}</section> : null}
 
+        <nav className="rt-call-focus-v3__steps" aria-label="Etapas da ligação">
+          {([
+            { label: 'Preparação', id: 'idle' },
+            { label: 'Discagem', id: 'dialing' },
+            { label: 'Em conversa', id: 'running' },
+            { label: 'Resultado', id: 'finished' },
+          ] as const).map((step, index) => {
+            const order = ['idle', 'dialing', 'running', 'finished']
+            const activeStep = session === 'paused' ? 'running' : session
+            const activeIndex = order.indexOf(activeStep)
+            return <span key={step.id} className={index === activeIndex ? 'is-current' : index < activeIndex ? 'is-complete' : ''} aria-current={index === activeIndex ? 'step' : undefined}>
+              <b>{index < activeIndex ? <Check size={13} aria-hidden="true"/> : index + 1}</b>{step.label}
+            </span>
+          })}
+        </nav>
         {session === 'idle' ? <section className="rt-call-focus-v2__hero" aria-label="Contato e discagem" data-realtalent-calling-ui="focus-redesign-v2">
           <div className="rt-call-focus-v2__session-line">
             <div className="rt-call-focus-v2__session-label"><span>REAL TALENT · LIGAÇÕES</span><strong>Preparado para o próximo contato</strong></div>
@@ -1007,7 +1023,7 @@ export function CallWorkspaceModal({ open, config, onClose }: { open: boolean; c
               <span>{voiceCanStart ? (activeVoiceDevice?.label ?? 'Conexão pronta') : 'Discador alternativo disponível se configurado'}</span>
             </div>
           </div>
-        </section> : <section className="calling-v982__topbar calling-flow__hero" aria-label="Contato e comandos de ligação">
+        </section> : <section className="calling-v982__topbar calling-flow__hero rt-call-focus-v3__statusbar" aria-label="Contato e comandos de ligação">
           <div className="calling-v982__identity calling-flow__contact"><span className="lead-cell__avatar">{callTargetName.slice(0, 2).toUpperCase() || '--'}</span><div><small>Contato em foco</small><strong>{callTargetName || 'Selecione um contato'}</strong><span>{selectedLead?.company || 'Empresa não informada'} · {selectedLead ? `prioridade ${priorityLabel[selectedLead.priority]}` : 'sem prioridade'}</span></div></div>
           <div className="calling-v982__channel call-session-device call-session-channel calling-flow__channel"><PhoneCall size={17}/><div><small>Canal</small><strong>{providerLabel(activeRuntimeProviderId)}</strong><span>{voiceCall?.providerId === 'external_tel' && voiceProviderId === 'realtalent_connect' ? 'Fallback do dispositivo · contexto preservado' : voiceCanStart ? activeVoiceDevice?.label ?? 'Pronto' : `${voiceProviderStateLabel(activeVoiceProvider?.state ?? 'not_configured')} · fallback disponível`}</span></div></div>
           <div className="calling-v982__timer calling-flow__timer"><span className={`calling-v982__live-dot ${session === 'running' ? 'is-live' : ''}`}/><div><strong>{formattedTime}</strong><small>{session === 'running' ? 'Em conversa' : session === 'paused' ? 'Em espera' : session === 'dialing' ? 'Conectando' : session === 'finished' ? 'Registrar resultado' : 'Pronto'}</small></div></div>
@@ -1015,7 +1031,7 @@ export function CallWorkspaceModal({ open, config, onClose }: { open: boolean; c
             {config?.fastDial ? <div className={`calling-fast-dial-status-v10182 ${fastDialReady ? '' : 'is-paused'}`}><Sparkles size={14}/><span>{fastDialReady ? 'Fast Dial' : 'Fast Dial pausado'}</span></div> : null}
             {session === 'dialing' ? (activeRuntimeProviderId === 'realtalent_connect'
               ? <Button variant="danger" loading={voiceBusy} onClick={() => void cancelDialing()}><CircleStop size={16}/> Cancelar</Button>
-              : <><Button onClick={markAnswered}><CheckCircle2 size={16}/> Atendeu</Button><Button variant="secondary" onClick={markNoAnswer}>Não atendeu</Button></>) : null}
+              : <span className="rt-call-focus-v3__dialing-hint">Confirme o atendimento no painel central.</span>) : null}
             {session === 'running' || session === 'paused' ? <Button variant="danger" loading={voiceBusy} onClick={() => void finishSession()}><CircleStop size={16}/> {activeVoiceDevice?.id.startsWith('connect:phone:') ? 'Registrar término' : 'Encerrar'}</Button> : null}
           </div>
         </section>}
@@ -1059,11 +1075,11 @@ export function CallWorkspaceModal({ open, config, onClose }: { open: boolean; c
 
         {session === 'dialing' ? <section className="calling-v982__dialing calling-v10171__dialing"><div className="calling-v10171__dialing-status"><PhoneCall size={28}/><div><span className="eyebrow">Conectando chamada</span><h3>{activeRuntimeProviderId === 'realtalent_connect' ? (activeVoiceDevice?.id.startsWith('connect:phone:') ? 'Chamada enviada ao RealTalent Phone' : 'Atenda seu telefone para conectar o lead') : 'Aguardando confirmação'}</h3><p>{activeRuntimeProviderId === 'realtalent_connect' ? (activeVoiceDevice?.id.startsWith('connect:phone:') ? 'No celular, toque em Abrir discador. Ao voltar ao app, informe se o contato atendeu.' : 'O RealTalent Connect cria uma ponte segura: agente primeiro, lead depois.') : voiceProviderId === 'realtalent_connect' ? 'O Connect ficou indisponível e o CRM abriu o discador do dispositivo como fallback. Confirme o resultado aqui.' : 'Confirme quando o contato atender ou quando não houver resposta.'}</p></div></div><div className="calling-v10171__dialing-context"><article><small>Objetivo</small><strong>{objectiveDefinition.shortLabel}</strong><span>{objectiveDefinition.successSignal}</span></article><article><small>Último contexto</small><strong>{preCallBrief?.lastInteraction || recentHistory[0]?.label || 'Primeiro contato registrado'}</strong><span>{preCallBrief?.recommendedApproach || selectedStage?.name || 'Sem etapa'}</span></article><article><small>Roteiro</small><strong>{sessionPlaybookLabel}</strong><span>{selectedPlaybook?.guidance?.coachingFocus || currentStep.objective}</span></article></div></section> : null}
 
-        {session === 'running' || session === 'paused' ? <div className={`calling-v982__conversation ${strategy.showAssistantDuringCall ? '' : 'calling-v1012__conversation--no-assistant'}`}>
-          <main className="calling-v982__script">
-            <div className="calling-v982__progress"><div><small>{currentMacroLabel}</small><strong>Etapa {currentStep.order} de {OUTBOUND_CALL_STEPS.length}</strong></div><span>{progressPercent}%</span></div>
+        {session === 'running' || session === 'paused' ? <div className={`calling-v982__conversation rt-call-focus-v3__conversation ${strategy.showAssistantDuringCall ? '' : 'calling-v1012__conversation--no-assistant'}`}>
+          <main className="calling-v982__script rt-call-focus-v3__script">
+            <div className="calling-v982__progress rt-call-focus-v3__progress"><div><small>{currentMacroLabel}</small><strong>Etapa {currentStep.order} de {OUTBOUND_CALL_STEPS.length}</strong></div><span>{progressPercent}%</span></div>
             <div className="calling-h3__script-toolbar"><div><small>Visualização do roteiro</small><strong>{scriptView === 'guided' ? 'Guiado · uma etapa por vez' : scriptView === 'full' ? 'Roteiro completo · leitura contínua' : 'Mapa da conversa · navegação por fase'}</strong></div><div className="calling-h3__view-switch" role="group" aria-label="Visualização do roteiro"><button type="button" className={scriptView === 'guided' ? 'is-active' : ''} onClick={() => setScriptView('guided')}>Guiado</button><button type="button" className={scriptView === 'full' ? 'is-active' : ''} onClick={() => setScriptView('full')}>Completo</button><button type="button" className={scriptView === 'map' ? 'is-active' : ''} onClick={() => setScriptView('map')}>Mapa</button></div></div>
-            {scriptView === 'guided' ? <section className="calling-v982__script-card calling-focus-script-v10171">
+            {scriptView === 'guided' ? <section className="calling-v982__script-card calling-focus-script-v10171 rt-call-focus-v3__script-card">
               <header><div><span className="eyebrow">{currentStep.phase}</span><h2>{currentStep.title}</h2><p>{currentStep.objective}</p></div><Button size="sm" variant="ghost" onClick={() => void copyCurrentStep()}><Copy size={15}/> Copiar</Button></header>
               {renderedStep.ask ? <div className="calling-focus-script-v10171__prompt"><MessageCircleQuestion size={20}/><div><small>Pergunta recomendada</small><strong>{renderedStep.ask}</strong></div></div> : <div className="calling-focus-script-v10171__prompt"><MessageCircleQuestion size={20}/><div><small>Fala recomendada</small><strong>{renderedStep.say}</strong></div></div>}
               <div className="calling-v982__responses calling-focus-script-v10171__responses">{currentStep.actions.map((action) => <Button key={action.id} size="sm" variant={action.tone === 'primary' || action.tone === 'success' ? 'primary' : action.tone === 'danger' ? 'danger' : 'secondary'} onClick={() => applyScriptAction(action)}>{action.label}</Button>)}</div>
@@ -1115,7 +1131,7 @@ export function CallWorkspaceModal({ open, config, onClose }: { open: boolean; c
               <section className="calling-v982__advanced-intelligence"><div><small>Next Best Question</small><strong>{nextBestQuestion.question}</strong></div><div><small>Live Conversation Signals</small><div>{liveSignals.map((signal) => <span key={signal.id} className={`is-${signal.tone}`}>{signal.label}</span>)}</div></div></section>
             </div></details>
           </main>
-          {strategy.showAssistantDuringCall ? <aside className="calling-v982__copilot">
+          {strategy.showAssistantDuringCall ? <aside className="calling-v982__copilot rt-call-focus-v3__assistant">
             <div className="calling-v982__copilot-head"><Sparkles size={18}/><div><small>RealTalent Assistant</small><strong>Somente o próximo sinal útil</strong></div></div>
             <article><small>Próxima pergunta</small><strong>{nextBestQuestion.question}</strong><p>{nextBestQuestion.reason}</p></article>
             {liveSignals[0] ? <article className={`is-${liveSignals[0].tone}`}><small>Sinal detectado</small><strong>{liveSignals[0].label}</strong><p>{liveSignals[0].excerpt}</p></article> : null}
@@ -1124,10 +1140,10 @@ export function CallWorkspaceModal({ open, config, onClose }: { open: boolean; c
           </aside> : null}
         </div> : null}
 
-        {session === 'finished' ? <section className="calling-v982__wrap">
+        {session === 'finished' ? <section className="calling-v982__wrap rt-call-focus-v3__wrap" aria-label="Registrar resultado da ligação">
           <header><div><span className="eyebrow">Depois da ligação</span><h2>Registre o resultado e a próxima ação</h2><p>O CRM guarda somente o necessário para o próximo contato.</p></div><StatusPill tone="info">{formattedTime}</StatusPill></header>
           <article className="calling-v1014__wrap-recommendation"><div><small>Wrap-up assistido</small><strong>{wrapRecommendation.title}</strong><p>{wrapRecommendation.description}</p></div><div className="calling-v1014__wrap-checklist">{wrapRecommendation.checklist.slice(0,3).map((item) => <span key={item}><Check size={13}/>{item}</span>)}</div><StatusPill tone={wrapRecommendation.closesLead ? 'warning' : wrapRecommendation.scheduleRecommended ? 'info' : 'neutral'}>{wrapRecommendation.closesLead ? 'Encerramento' : wrapRecommendation.scheduleRecommended ? 'Próxima ação recomendada' : 'Revisar e salvar'}</StatusPill></article>
-          <div className="calling-v982__wrap-layout">
+          <div className="calling-v982__wrap-layout rt-call-focus-v3__wrap-layout">
             <div className="calling-v982__outcomes">
               <div className="calling-h3__wrap-primary"><small>1. Resultado principal</small><div className="calling-h3__wrap-primary-grid">{WRAP_GROUPS.map((group) => <button type="button" key={group.id} className={wrapGroup === group.id ? 'is-active' : ''} title={group.description} onClick={() => { setWrapGroup(group.id); const first = group.outcomes[0]; if (first) setOutcome(first) }}>{group.label}</button>)}</div></div>
               <div className="calling-h3__wrap-secondary"><small>2. Resultado específico</small><div className="calling-v982__outcome-options">{wrapOptions.map((value) => <button type="button" key={value} className={outcome === value ? 'is-active' : ''} onClick={() => selectOutcome(value)}>{outcomeLabel(value)}</button>)}</div></div>

@@ -3,6 +3,7 @@ import {
   ChevronDown, ChevronUp, Clock3, Edit3, ExternalLink, FileText, Globe2, History, Mail, MapPin, MessageCircle, Network, NotebookPen, PhoneCall,
   RefreshCw, RotateCcw, Save, ShieldCheck, Sparkles, Tag, Target, UserRound, UsersRound, X,
 } from 'lucide-react'
+import './lead-playbook-context.css'
 import { useEffect, useMemo, useState, type KeyboardEvent as ReactKeyboardEvent } from 'react'
 import { createPortal } from 'react-dom'
 import { useAppActions, useAppNavigation, useAppUi, useAppWorkspace } from '../../app/app-context'

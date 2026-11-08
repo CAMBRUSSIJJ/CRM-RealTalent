@@ -1013,7 +1013,6 @@ export function CallWorkspaceModal({ open, config, onClose }: { open: boolean; c
           <div className="calling-v982__timer calling-flow__timer"><span className={`calling-v982__live-dot ${session === 'running' ? 'is-live' : ''}`}/><div><strong>{formattedTime}</strong><small>{session === 'running' ? 'Em conversa' : session === 'paused' ? 'Em espera' : session === 'dialing' ? 'Conectando' : session === 'finished' ? 'Registrar resultado' : 'Pronto'}</small></div></div>
           <div className="calling-v982__primary-actions calling-flow__primary-actions">
             {config?.fastDial ? <div className={`calling-fast-dial-status-v10182 ${fastDialReady ? '' : 'is-paused'}`}><Sparkles size={14}/><span>{fastDialReady ? 'Fast Dial' : 'Fast Dial pausado'}</span></div> : null}
-            {session === 'idle' ? <Button loading={voiceBusy} onClick={() => void openDialer()} disabled={!callTargetPhone || !voiceLaunchAvailable}><PhoneCall size={16}/> Ligar agora</Button> : null}
             {session === 'dialing' ? (activeRuntimeProviderId === 'realtalent_connect'
               ? <Button variant="danger" loading={voiceBusy} onClick={() => void cancelDialing()}><CircleStop size={16}/> Cancelar</Button>
               : <><Button onClick={markAnswered}><CheckCircle2 size={16}/> Atendeu</Button><Button variant="secondary" onClick={markNoAnswer}>Não atendeu</Button></>) : null}

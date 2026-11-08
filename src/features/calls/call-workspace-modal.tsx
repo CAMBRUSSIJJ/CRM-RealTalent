@@ -1073,7 +1073,27 @@ export function CallWorkspaceModal({ open, config, onClose }: { open: boolean; c
           {callHealth && (!strategy.healthAlertsOnly || callHealth.status !== 'good') ? <div className={`calling-h5__health-exception is-${callHealth.status}`}><strong>Call Health {callHealth.score}</strong><span>{callHealth.status === 'restricted' ? 'Há uma restrição que precisa ser resolvida antes de ligar.' : 'Revise este contato antes da chamada.'}</span></div> : null}
         </section> : null}
 
-        {session === 'dialing' ? <section className="calling-v982__dialing calling-v10171__dialing"><div className="calling-v10171__dialing-status"><PhoneCall size={28}/><div><span className="eyebrow">Conectando chamada</span><h3>{activeRuntimeProviderId === 'realtalent_connect' ? (activeVoiceDevice?.id.startsWith('connect:phone:') ? 'Chamada enviada ao RealTalent Phone' : 'Atenda seu telefone para conectar o lead') : 'Aguardando confirmação'}</h3><p>{activeRuntimeProviderId === 'realtalent_connect' ? (activeVoiceDevice?.id.startsWith('connect:phone:') ? 'No celular, toque em Abrir discador. Ao voltar ao app, informe se o contato atendeu.' : 'O RealTalent Connect cria uma ponte segura: agente primeiro, lead depois.') : voiceProviderId === 'realtalent_connect' ? 'O Connect ficou indisponível e o CRM abriu o discador do dispositivo como fallback. Confirme o resultado aqui.' : 'Confirme quando o contato atender ou quando não houver resposta.'}</p></div></div><div className="calling-v10171__dialing-context"><article><small>Objetivo</small><strong>{objectiveDefinition.shortLabel}</strong><span>{objectiveDefinition.successSignal}</span></article><article><small>Último contexto</small><strong>{preCallBrief?.lastInteraction || recentHistory[0]?.label || 'Primeiro contato registrado'}</strong><span>{preCallBrief?.recommendedApproach || selectedStage?.name || 'Sem etapa'}</span></article><article><small>Roteiro</small><strong>{sessionPlaybookLabel}</strong><span>{selectedPlaybook?.guidance?.coachingFocus || currentStep.objective}</span></article></div></section> : null}
+        {session === 'dialing' ? <section className="calling-v982__dialing calling-v10171__dialing rt-call-focus-v3__dialing" aria-label="Discagem em andamento">
+          <div className="rt-call-focus-v3__dialing-icon"><PhoneCall size={34} aria-hidden="true" /></div>
+          <span className="eyebrow">Conectando chamada</span>
+          <h2>{activeRuntimeProviderId === 'realtalent_connect'
+            ? (activeVoiceDevice?.id.startsWith('connect:phone:') ? 'Chamada enviada ao RealTalent Phone' : 'Aguardando conexão pelo RealTalent Connect')
+            : 'Aguardando confirmação'}</h2>
+          <p className="rt-call-focus-v3__dialing-guidance">{activeRuntimeProviderId === 'realtalent_connect'
+            ? (activeVoiceDevice?.id.startsWith('connect:phone:')
+              ? 'No celular, abra o discador e aguarde o estado da chamada. A tentativa continuará vinculada a este contato.'
+              : 'Aguarde a chamada no telefone. O CRM acompanhará os estados confirmados pelo Connect.')
+            : 'Confirme se o contato atendeu ou se a tentativa não foi concluída.'}</p>
+          {activeRuntimeProviderId !== 'realtalent_connect' ? <div className="rt-call-focus-v3__dialing-actions">
+            <Button size="lg" onClick={markAnswered}><CheckCircle2 size={19}/> Atendeu</Button>
+            <Button size="lg" variant="secondary" onClick={markNoAnswer}><PhoneCall size={18}/> Não atendeu</Button>
+          </div> : <div className="rt-call-focus-v3__connect-notice" role="status"><PhoneCall size={17}/> A confirmação da chamada depende do dispositivo conectado.</div>}
+          <div className="calling-v10171__dialing-context rt-call-focus-v3__dialing-context">
+            <article><small>Objetivo</small><strong>{objectiveDefinition.shortLabel}</strong><span>{objectiveDefinition.successSignal}</span></article>
+            <article><small>Último contexto</small><strong>{preCallBrief?.lastInteraction || recentHistory[0]?.label || 'Primeiro contato registrado'}</strong><span>{preCallBrief?.recommendedApproach || selectedStage?.name || 'Sem etapa'}</span></article>
+            <article><small>Roteiro</small><strong>{sessionPlaybookLabel}</strong><span>{selectedPlaybook?.guidance?.coachingFocus || currentStep.objective}</span></article>
+          </div>
+        </section> : null}
 
         {session === 'running' || session === 'paused' ? <div className={`calling-v982__conversation rt-call-focus-v3__conversation ${strategy.showAssistantDuringCall ? '' : 'calling-v1012__conversation--no-assistant'}`}>
           <main className="calling-v982__script rt-call-focus-v3__script">

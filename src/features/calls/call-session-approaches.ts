@@ -131,7 +131,7 @@ export function buildLeadPlaybookAdvice(input: {
     !['cancelled','canceled'].includes(String(item.resolutionStatus).toLowerCase())).length
   const reviewedWahaNote = activities
     .filter((item) => item.type === 'note' &&
-      item.description.includes('[WAHA_CONTEXT_V1]') &&
+      item.description?.includes('[WAHA_CONTEXT_V1]') &&
       item.resolutionReason === 'pinned_call_note')
     .sort((a,b) => b.createdAt.localeCompare(a.createdAt))[0] ?? null
   const wahaSummary = reviewedWahaNote?.description.match(/Resumo:\s*([^\n]+)/i)?.[1]?.trim().slice(0,220) ?? ''

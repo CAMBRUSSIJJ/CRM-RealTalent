@@ -23,7 +23,7 @@ export const APP_ROUTES: readonly AppRoute[] = [
 
 const APP_ROUTE_SET = new Set<AppRoute>(APP_ROUTES)
 
-export interface RouteContext { leadId?: string; proposalId?: string; eventId?: string; activityId?: string; action?: string; filter?: string; capture?: string }
+export interface RouteContext { leadId?: string; proposalId?: string; playbookId?: string; eventId?: string; activityId?: string; action?: string; filter?: string; capture?: string }
 
 export const routeToHash = (route: AppRoute, context: RouteContext = {}): string => {
   const params = new URLSearchParams()
@@ -36,7 +36,7 @@ export const routeToHash = (route: AppRoute, context: RouteContext = {}): string
 export const routeContextFromHash = (hash: string): RouteContext => {
   const query = hash.includes('?') ? hash.slice(hash.indexOf('?') + 1) : ''
   const params = new URLSearchParams(query)
-  return { leadId: params.get('leadId') ?? undefined, proposalId: params.get('proposalId') ?? undefined, eventId: params.get('eventId') ?? undefined, activityId: params.get('activityId') ?? undefined, action: params.get('action') ?? undefined, filter: params.get('filter') ?? undefined, capture: params.get('capture') ?? undefined }
+  return { leadId: params.get('leadId') ?? undefined, proposalId: params.get('proposalId') ?? undefined, playbookId: params.get('playbookId') ?? undefined, eventId: params.get('eventId') ?? undefined, activityId: params.get('activityId') ?? undefined, action: params.get('action') ?? undefined, filter: params.get('filter') ?? undefined, capture: params.get('capture') ?? undefined }
 }
 
 export const routeFromHash = (hash: string): AppRoute => {

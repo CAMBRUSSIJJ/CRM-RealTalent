@@ -16,7 +16,7 @@ ok('H2 recovery preserved',health.runtimeServiceRecovery==='v101.11.3-h2'&&healt
 const h5Tiles = !prefs.includes('type="checkbox"') && prefs.includes('aria-pressed={active}') && prefs.includes('call-display-option ${active')
 const referenceLiveCheckboxes = prefs.includes('type="checkbox"') && prefs.includes('checked={draft[item.key]}') && prefs.includes('onChange={() => toggle(item.key)}') && prefs.includes('data-realtalent-display-preview="live-v1"')
 ok('preferences use either accessible H5 tiles or live reference checkboxes',h5Tiles || referenceLiveCheckboxes)
-ok('preference control exposes active state',prefs.includes("active ? 'Ativo' : 'Oculto'") || (prefs.includes('checked={draft[item.key]}') && prefs.includes('draft.showScriptProgress') && prefs.includes('onSave(normalizeCallDisplayPreferences(draft))'))
+ok('preference control exposes active state',prefs.includes("active ? 'Ativo' : 'Oculto'") || (prefs.includes('checked={draft[item.key]}') && prefs.includes('draft.showScriptProgress') && prefs.includes('onSave(normalizeCallDisplayPreferences(draft))')))
 ok('execution controls are tile buttons',prep.includes('aria-pressed={smartWrap}')&&prep.includes('aria-pressed={fastDial}')&&prep.includes('aria-pressed={autoDispatchNext}'))
 ok('goal link is explicit in session config',config.includes('linkedGoalId: string')&&prep.includes('linkedGoalId,'))
 ok('quick call also derives a linked goal',config.includes("const linkedGoal = input.snapshot?.goals.find")&&config.includes("linkedGoalId: linkedGoal?.id ?? ''"))

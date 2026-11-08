@@ -44,6 +44,8 @@ export function WahaConversationsPage(){
   const [status,setStatus]=useState<WahaStatus|null>(null)
   const [chats,setChats]=useState<WahaChat[]>([])
   const [selected,setSelected]=useState<WahaChat|null>(null)
+  const [linkedLeadId,setLinkedLeadId]=useState<string|null>(null)
+  const [linkedChatId,setLinkedChatId]=useState<string|null>(null)
   const [messages,setMessages]=useState<WahaMessage[]>([])
   const [query,setQuery]=useState('')
   const [messageQuery,setMessageQuery]=useState('')
@@ -72,6 +74,8 @@ export function WahaConversationsPage(){
   function selectConversation(chat:WahaChat){
     if(selectedId)drafts.current.set(selectedId,draft)
     setSelected(chat)
+    setLinkedLeadId(null)
+    setLinkedChatId(null)
     setDraft(drafts.current.get(chat.id)||'')
     setAttachment(null)
     if(attachRef.current)attachRef.current.value=''
@@ -99,11 +103,13 @@ export function WahaConversationsPage(){
     }
     setQuery(digits.slice(-11))
     const match = chats.find((item) => item.id.replace(/\D/g, '').endsWith(digits.slice(-11)))
-    if (match) selectConversation(match)
+    if (match) { selectConversation(match); setLinkedLeadId(lead.id); setLinkedChatId(match.id) }
     else if (token) {
       void wahaResolve(token, digits).then((result) => {
         if (result.numberExists && result.chatId) {
           selectConversation(chats.find((item) => item.id === result.chatId) ?? { id:result.chatId, name:contact?.name || lead.name })
+          setLinkedLeadId(lead.id)
+          setLinkedChatId(result.chatId)
           setQuery('')
         }
       }).catch(() => { /* Keep the filter as a fallback if the local WAHA is offline. */ })
@@ -333,7 +339,7 @@ export function WahaConversationsPage(){
           </form>
         </>:<div className="waha-blank"><MessageCircle size={38}/><h3>Selecione uma conversa</h3><p>Mensagens consultadas diretamente no WAHA local, sem armazenamento adicional.</p></div>}
       </div>
-      {toolMode?<WahaToolsDrawer mode={toolMode} token={token} chats={chats} selected={selected} messages={messages} prefs={prefs}
+      {toolMode?<WahaToolsDrawer mode={toolMode} token={token} chats={chats} selected={selected} messages={messages} prefs={prefs} linkedLeadId={linkedChatId===selectedId ? linkedLeadId : null}
         onClose={()=>setToolMode(null)}
         onInsert={text=>{setDraft(text);if(selectedId)drafts.current.set(selectedId,text)}}
         onPreference={onPreference}/>:null}

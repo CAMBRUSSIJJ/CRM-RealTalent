@@ -26,6 +26,8 @@ jobs:
       - run: npm ci --no-fund --no-audit
       - name: Exact wizard reference contracts
         run: npm run qa:calling:setup-reference
+      - name: Per-lead approach recommendations
+        run: npx vitest run src/features/calls/call-session-approaches.test.ts
       - name: Existing workflow and focus regressions
         run: npm run qa:calling:flow && npm run qa:calling:focus-v2 && npm run qa:calling:lifecycle-v3
       - name: TypeScript

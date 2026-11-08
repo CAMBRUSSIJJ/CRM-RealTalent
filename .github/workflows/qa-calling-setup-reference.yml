@@ -1,0 +1,34 @@
+name: CRM Setup Wizard exact reference QA
+on:
+  pull_request:
+    paths:
+      - 'src/features/calls/call-session-preparation-modal.tsx'
+      - 'src/features/calls/call-setup-reference.css'
+      - 'src/features/calls/call-session-approaches.ts'
+      - 'src/features/calls/call-session-config.ts'
+      - 'src/features/calls/call-display-preferences-modal.tsx'
+      - 'src/features/calls/call-display-reference.css'
+      - 'src/services/call-display-preferences.ts'
+      - 'scripts/calling_setup_reference_audit.mjs'
+      - 'package.json'
+      - '.github/workflows/qa-calling-setup-reference.yml'
+  workflow_dispatch:
+jobs:
+  setup:
+    runs-on: ubuntu-latest
+    timeout-minutes: 18
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci --no-fund --no-audit
+      - name: Exact wizard reference contracts
+        run: npm run qa:calling:setup-reference
+      - name: Existing workflow and focus regressions
+        run: npm run qa:calling:flow && npm run qa:calling:focus-v2 && npm run qa:calling:lifecycle-v3
+      - name: TypeScript
+        run: npm run typecheck
+      - name: Build
+        run: npm run build

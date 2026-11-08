@@ -16,6 +16,7 @@ export interface CallDisplayPreferences {
   showNotes: boolean
   showLeadContext: boolean
   showHistory: boolean
+  showTimer: boolean
   showRecording: boolean
   showTranscript: boolean
   showTeamPlaybook: boolean
@@ -35,6 +36,7 @@ export const DEFAULT_CALL_DISPLAY_PREFERENCES: CallDisplayPreferences = {
   showNotes: true,
   showLeadContext: true,
   showHistory: true,
+  showTimer: true,
   showRecording: false,
   showTranscript: false,
   showTeamPlaybook: false,
@@ -96,6 +98,7 @@ export const callDisplayPreferenceGroups: Array<{ title: string; items: Array<{ 
   {
     title: 'Ferramentas opcionais',
     items: [
+      { key: 'showTimer', label: 'Cronômetro', description: 'Tempo de chamada visível na sessão.' },
       { key: 'showRecording', label: 'Gravação', description: 'Controles de gravação com consentimento.' },
       { key: 'showTranscript', label: 'Transcrição', description: 'Campo de transcrição no encerramento.' },
       { key: 'showTeamPlaybook', label: 'Material complementar', description: 'Playbooks adicionais da equipe.' },

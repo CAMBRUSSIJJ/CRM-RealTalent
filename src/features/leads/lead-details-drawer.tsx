@@ -368,6 +368,9 @@ export function LeadDetailsDrawer({ readOnly = false, openAccountOnMount = false
                     <button type="button" onClick={() => { navigate('playbooks', selectedPlaybook ? { playbookId: selectedPlaybook.id } : { filter:'strategy' }); onClose() }}>{selectedPlaybook ? 'Visualizar playbook' : 'Criar playbook'}</button>
                     <button type="button" onClick={() => { navigate('pipeline', {leadId:lead.id}); onClose() }}>Pipeline</button>
                     {approachAdvice?.related.proposalId ? <button type="button" onClick={() => { navigate('proposals', { leadId:lead.id, proposalId:approachAdvice.related.proposalId! }); onClose() }}>Proposta vinculada</button> : null}
+                    {!readOnly ? <button type="button" onClick={() => onActivity(lead, 'followup')}>Criar follow-up</button> : null}
+                    {!readOnly ? <button type="button" onClick={() => onEvent(lead)}>Agendar reunião</button> : null}
+                    {canViewPhone && resolvedContactTarget.phone ? <button type="button" onClick={() => openMessage('whatsapp')}>WhatsApp</button> : null}
                     <button type="button" onClick={() => { navigate('metrics'); onClose() }}>Métricas</button>
                   </div>
                 </div>

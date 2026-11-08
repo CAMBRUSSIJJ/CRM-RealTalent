@@ -442,7 +442,7 @@ export function CallWorkspaceModal({ open, config, onClose }: { open: boolean; c
   const resetAttempt = useCallback((nextLeadId: string, nextIndex: number, autoDispatch = false) => {
     cleanupMedia()
     setLeadId(nextLeadId); setQueueIndex(nextIndex); setSession('idle'); setStartedAt(null); setSeconds(0); setOutcome('answered'); setWrapGroup('conversation')
-    setPlaybookId(config?.playbookId || '')
+    setPlaybookId(config?.playbookByLeadId?.[nextLeadId] || config?.playbookId || '')
     setNotes(readCallNoteDraft(workspaceId, nextLeadId)); setTranscript(''); setInterim(''); setConsent(false); setRecording(false); setRecordingBlob(null); recordingBlobRef.current = null; setListening(false)
     setScheduleNext(true); setNextAt(nextHourInput()); setCurrentStepId('opening'); setVisitedStepIds(['opening']); setDiscovery(EMPTY_DISCOVERY); setActiveObjectionId(''); setWorkTab('script'); setCapturedSignals([]); setScriptView('guided'); setCapturedObjections([]); setOutcomeDetail('')
     setAttemptSaved(false); setAttemptContactId(''); setAdvanceTarget(null); setAdvanceCountdown(0); setAutoDialPending(Boolean(autoDispatch && config?.fastDial && config?.autoDispatchNext)); setContextTab('summary'); setVoiceCall(null); setCallAttemptId(''); setVoiceTransport('healthy'); setVoiceTransportDetail('')
@@ -453,7 +453,7 @@ export function CallWorkspaceModal({ open, config, onClose }: { open: boolean; c
     if (recordingUrl) URL.revokeObjectURL(recordingUrl)
     setRecordingUrl(null)
     void clearDraftRecording()
-  }, [activeGuidanceTabs, cleanupMedia, clearDraftRecording, config?.autoDispatchNext, config?.fastDial, config?.playbookId, recordingUrl, snapshot?.contacts, snapshot?.leads, workspaceId])
+  }, [activeGuidanceTabs, cleanupMedia, clearDraftRecording, config?.autoDispatchNext, config?.fastDial, config?.playbookByLeadId, config?.playbookId, recordingUrl, snapshot?.contacts, snapshot?.leads, workspaceId])
 
   useEffect(() => {
     if (!open || !config) return
@@ -463,7 +463,7 @@ export function CallWorkspaceModal({ open, config, onClose }: { open: boolean; c
     setRoutineIds(validQueue)
     setLeadId(startingId); setQueueIndex(startingIndex); setSession('idle'); setStartedAt(null); setSeconds(0); setOutcome('answered'); setWrapGroup('conversation'); setNotes(readCallNoteDraft(workspaceId, startingId)); setTranscript(''); setInterim('')
     setConsent(false); setRecording(false); setRecordingBlob(null); recordingBlobRef.current = null; setListening(false); setScheduleNext(true); setNextAt(nextHourInput())
-    setPlaybookId(config.playbookId || '')
+    setPlaybookId(config.playbookByLeadId?.[startingId] || config.playbookId || '')
     setLocalDisplay(config.display); setFullScreen(true); setCurrentStepId('opening'); setVisitedStepIds(['opening']); setDiscovery(EMPTY_DISCOVERY); setActiveObjectionId(''); setGuidanceTab('assistant'); setWorkTab('script'); setCapturedSignals([]); setScriptView('guided'); setCapturedObjections([]); setOutcomeDetail(''); setContextTab('summary'); setStrategy(readCallingStrategyPreferences(workspaceId))
     const initialLead = snapshot?.leads.find((lead) => lead.id === startingId)
     const initialTarget = initialLead ? resolveLeadCallTarget(initialLead, snapshot?.contacts ?? []) : null

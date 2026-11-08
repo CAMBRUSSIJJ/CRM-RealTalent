@@ -119,7 +119,11 @@ export function buildLeadPlaybookAdvice(input: {
   const tags = recommended
     ? [recommended.title,recommended.category,...recommended.tags].join(' ').toLocaleLowerCase('pt-BR')
     : ''
-  const isSpecific = Boolean(recommended && CALL_APPROACHES[approach].keywords.some((word) => tags.includes(word)))
+  const isSpecific = Boolean(recommended && (
+    CALL_APPROACHES[approach].keywords.some((word) => tags.includes(word))
+    || recommended.guidance?.stageIds?.includes(lead.stageId)
+    || recommended.guidance?.objectives?.includes(input.objective)
+  ))
   const stage = snapshot.stages.find((item) => item.id === lead.stageId)?.name ?? null
   const contacts = snapshot.contacts.filter((item) =>
     item.leadIds.includes(lead.id) || (lead.companyId && item.companyId === lead.companyId)).length

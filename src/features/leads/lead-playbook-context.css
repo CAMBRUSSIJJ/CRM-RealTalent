@@ -1,0 +1,33 @@
+/* Contact / Pipeline common playbook context: actionable, compact, evidence-first. */
+.rt-lead-playbook-advice{
+  margin:8px 0 0!important;
+  font-size:11px!important;
+  line-height:1.55!important;
+  color:var(--text-muted,#64748b);
+}
+.rt-lead-playbook-context{
+  display:flex;
+  flex-wrap:wrap;
+  gap:6px;
+  margin-top:10px;
+}
+.rt-lead-playbook-context>span{
+  border:1px solid var(--border,#dfe6ef);
+  padding:5px 8px;
+  border-radius:6px;
+  font-size:10px;
+  color:var(--text-muted,#64748b);
+  background:var(--surface-subtle,#f8fafc);
+  overflow-wrap:anywhere;
+}
+.rt-lead-playbook-links{display:flex;flex-wrap:wrap;align-items:center;gap:9px;margin-top:11px}
+.rt-lead-playbook-links>button{
+  border:0;
+  background:transparent;
+  padding:5px 1px;
+  color:var(--accent,#3156c8);
+  font-size:11px;
+  font-weight:800;
+  cursor:pointer;
+}
+.rt-lead-playbook-links>button:hover{text-decoration:underline}

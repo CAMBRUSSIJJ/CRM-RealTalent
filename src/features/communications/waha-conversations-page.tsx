@@ -6,6 +6,7 @@ import {
   type WahaChat, type WahaMessage, type WahaPreferences, type WahaStatus,
 } from '../../services/waha-direct'
 import { WahaMessageMedia, WahaToolsDrawer, type WahaToolMode } from './waha-conversation-tools'
+import { useAppNavigation, useAppWorkspace } from '../../app/app-context'
 import '../../styles/waha-direct.css'
 import '../../styles/waha-conversation-tools.css'
 
@@ -35,6 +36,9 @@ function deliveryLabel(m:WahaMessage){
 }
 
 export function WahaConversationsPage(){
+  const { routeContext, clearRouteContext } = useAppNavigation()
+  const { snapshot } = useAppWorkspace()
+  const navigatedLeadRef = useRef('')
   const [token,setToken]=useState(storedWahaToken)
   const [keyDraft,setKeyDraft]=useState('')
   const [status,setStatus]=useState<WahaStatus|null>(null)
@@ -76,6 +80,36 @@ export function WahaConversationsPage(){
     atBottom.current=true
     setSendError('');setRequiresReview(false);setMessages([])
   }
+
+  // CRM deep-link: open the existing WAHA thread for the selected lead.
+  // No message is sent automatically; resolve only the actual phone available in CRM.
+  useEffect(() => {
+    const id = routeContext.leadId
+    if (!id || !snapshot || navigatedLeadRef.current === id) return
+    const lead = snapshot.leads.find((item) => item.id === id)
+    if (!lead) return
+    navigatedLeadRef.current = id
+    const contact = snapshot.contacts.find((item) => item.id === lead.primaryContactId)
+    const digits = (contact?.phone || lead.phone || '').replace(/\D/g, '')
+    setFilter('all')
+    if (!/^\d{10,15}$/.test(digits)) {
+      setError('Este contato não possui telefone válido para localizar a conversa WAHA.')
+      clearRouteContext()
+      return
+    }
+    setQuery(digits.slice(-11))
+    const match = chats.find((item) => item.id.replace(/\D/g, '').endsWith(digits.slice(-11)))
+    if (match) selectConversation(match)
+    else if (token) {
+      void wahaResolve(token, digits).then((result) => {
+        if (result.numberExists && result.chatId) {
+          selectConversation(chats.find((item) => item.id === result.chatId) ?? { id:result.chatId, name:contact?.name || lead.name })
+          setQuery('')
+        }
+      }).catch(() => { /* Keep the filter as a fallback if the local WAHA is offline. */ })
+    }
+    clearRouteContext()
+  }, [chats, clearRouteContext, routeContext.leadId, snapshot, token])
 
   async function connect(){
     const key=keyDraft.trim()

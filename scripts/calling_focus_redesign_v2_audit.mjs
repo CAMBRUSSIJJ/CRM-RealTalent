@@ -6,7 +6,7 @@ const page = fs.readFileSync('src/features/calls/calls-page.tsx', 'utf8')
 const checks = [
   ['the actual React call modal imports the new stylesheet', focus.includes("import './call-focus-redesign.css'")],
   ['the idle workspace is a new semantic hero, not old four-column header', focus.includes('data-realtalent-calling-ui="focus-redesign-v2"') && focus.includes("session === 'idle' ? <section className=\"rt-call-focus-v2__hero\"")],
-  ['live call keeps original toolbar, controls and state machine', focus.includes(': <section className="calling-v982__topbar calling-flow__hero"') && focus.includes("session === 'running' || session === 'paused'")],
+  ['live call keeps original toolbar, controls and state machine', focus.includes(': <section className="calling-v982__topbar calling-flow__hero rt-call-focus-v3__statusbar"') && focus.includes("session === 'running' || session === 'paused'") && focus.includes('onClick={() => void finishSession()}') && focus.includes('onClick={() => void voiceCommand(') && focus.includes('onClick={() => applyScriptAction(action)}')],
   ['contact hero uses actual CRM lead and company', focus.includes('rt-call-focus-v2__contact-panel') && focus.includes('{callTargetName ||') && focus.includes('selectedLead?.company')],
   ['main dial button executes the original phone action', focus.includes('className="rt-call-focus-v2__dial-button" loading={voiceBusy} onClick={() => void openDialer()} disabled={!callTargetPhone || !voiceLaunchAvailable}')],
   ['two-column objective and important notes are independent cards', focus.includes('rt-call-focus-v2__context-grid') && focus.includes('rt-call-focus-v2__objective') && focus.includes('rt-call-focus-v2__important')],

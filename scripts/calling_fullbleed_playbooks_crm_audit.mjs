@@ -11,6 +11,7 @@ const route=read('src/app/route-state.ts')
 const playbooks=read('src/features/playbooks/playbooks-page.tsx')
 const wa=read('src/features/communications/waha-conversations-page.tsx')
 const communications=read('src/features/communications/communications-page.tsx')
+const wahaAi=read('src/features/communications/waha-conversation-tools.tsx')
 const tests=[
  ['preparation fills the viewport with no modal edges', prepCss.includes('.modal-backdrop:has(> .rt-setup-modal)') && prepCss.includes('width:100vw!important') && prepCss.includes('height:100dvh!important') && prepCss.includes('border-radius:0!important')],
  ['focus fills the viewport with existing call controls intact', focus.includes("className={fullScreen ? 'rt-call-focus-fullbleed' : undefined}") && focusCss.includes('.modal-backdrop:has(> .rt-call-focus-fullbleed)') && focus.includes('onClick={() => void openDialer()}')],
@@ -22,6 +23,14 @@ const tests=[
  ['playbook deep links are typed and route to exact active playbook', route.includes('playbookId?: string') && route.includes("params.get('playbookId')") && playbooks.includes("setSelectedId(target)")],
  ['WAHA deep link only resolves actual lead phone and does not send',wa.includes('routeContext.leadId') && wa.includes('wahaResolve(token, digits)') && wa.includes('No message is sent automatically') && communications.includes('setUseWaha(true)')],
  ['coaching uses evidence-based lead coverage not fake conversion attribution',playbooks.includes('leadPlaybookCoverage') && playbooks.includes('Estes números não representam conversões atribuídas a roteiros.')],
+ ['Ollama conversation context requires explicit linked-lead confirmation before CRM persistence',
+   wahaAi.includes('linkedLeadId?:string|null') && wahaAi.includes('window.confirm(') &&
+   wahaAi.includes('saveApprovedCommercialContext()') && wahaAi.includes("await createActivity({") &&
+   wahaAi.includes("resolutionReason:'pinned_call_note'")],
+ ['only reviewed WAHA context is fed into calling playbook evidence',
+   advice.includes("'[WAHA_CONTEXT_V1]'") && advice.includes("item.resolutionReason === 'pinned_call_note'") &&
+   advice.includes('WhatsApp revisado no CRM')],
+
  ['all previous call modes and handlers still exist',focus.includes("session === 'running' || session === 'paused'") && focus.includes('onClick={markAnswered}') && focus.includes('onClick={() => void save(true)}')],
 ]
 for(const [label,passed] of tests){console.log((passed?'OK':'FAIL')+'  '+label);assert.ok(passed,label)}

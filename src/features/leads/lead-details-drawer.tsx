@@ -24,6 +24,7 @@ import { useOverlayDialog } from '../../app/use-overlay-dialog'
 import { normalizeExternalUrl } from '../../lib/browser-actions'
 import { CALL_SESSION_OBJECTIVES, callSessionObjective, type CallSessionObjective } from '../../services/call-session-intelligence'
 import { recommendPlaybooks } from '../../services/coaching-engine'
+import { buildLeadPlaybookAdvice, CALL_APPROACHES } from '../calls/call-session-approaches'
 import {
   buildUnifiedSalesWorkspace,
   clearLeadSalesStrategyPreference,
@@ -140,8 +141,11 @@ export function LeadDetailsDrawer({ readOnly = false, openAccountOnMount = false
     })
   }, [lead, salesWorkspace?.lastCall?.outcome, snapshot, strategyObjective])
 
+  const approachAdvice = useMemo(() => lead && snapshot
+    ? buildLeadPlaybookAdvice({ lead, snapshot, objective: strategyObjective })
+    : null, [lead, snapshot, strategyObjective])
   const activeScripts = useMemo(() => snapshot?.playbooks.filter((item) => item.active && item.kind === 'script') ?? [], [snapshot?.playbooks])
-  const selectedPlaybook = activeScripts.find((item) => item.id === selectedPlaybookId) ?? routeRecommendations[0]?.playbook ?? activeScripts[0] ?? null
+  const selectedPlaybook = activeScripts.find((item) => item.id === selectedPlaybookId) ?? approachAdvice?.recommended ?? routeRecommendations[0]?.playbook ?? activeScripts[0] ?? null
   const selectedRecommendation = routeRecommendations.find((item) => item.playbook.id === selectedPlaybook?.id) ?? null
 
   const timeline = useMemo(() => {
@@ -339,7 +343,7 @@ export function LeadDetailsDrawer({ readOnly = false, openAccountOnMount = false
               <div>
                 <span className="eyebrow">Preparação da abordagem</span>
                 <strong>{selectedPlaybook?.title ?? 'Sem roteiro configurado'}</strong>
-                <p>{objectiveDefinition.label} · {selectedRecommendation ? `${selectedRecommendation.score}% aderência` : 'seleção manual'}</p>
+                <p>{objectiveDefinition.label} · {approachAdvice ? CALL_APPROACHES[approachAdvice.approach].label : 'Abordagem geral'} · {selectedRecommendation ? `${selectedRecommendation.score}% aderência` : 'seleção manual'}</p>
               </div>
               <div className="sales-workspace-v1015__strategy-summary-actions">
                 {!readOnly ? <Button size="sm" disabled={!resolvedContactTarget.phone || lead.doNotContact} onClick={launchPreparedCall}><PhoneCall size={15}/> Ligar com roteiro</Button> : null}
@@ -352,7 +356,20 @@ export function LeadDetailsDrawer({ readOnly = false, openAccountOnMount = false
                 <label className="field"><span>Roteiro / Playbook</span><SelectionSelect value={selectedPlaybook?.id ?? ''} disabled={readOnly || !activeScripts.length} onValueChange={(next) => { setSelectedPlaybookId(next); saveStrategy(strategyObjective, next) }} searchable options={[...routeRecommendations.map((item) => ({ value: item.playbook.id, label: item.playbook.title, description: `${item.score}% aderência` })), ...activeScripts.filter((item) => !routeRecommendations.some((recommendation) => recommendation.playbook.id === item.id)).map((item) => ({ value: item.id, label: item.title }))]} /><small>{selectedRecommendation ? `Recomendado por ${selectedRecommendation.reasons.join(', ') || 'uso geral'}.` : activeScripts.length ? 'Roteiro selecionado manualmente.' : 'Crie um roteiro ativo em Estratégia.'}</small></label>
               </div>
               <div className="sales-workspace-v1013__strategy-preview">
-                <div><strong>{selectedPlaybook?.title ?? 'Nenhum roteiro disponível'}</strong><p>{selectedPlaybook?.guidance?.coachingFocus || selectedPlaybook?.content.slice(0, 220) || 'Configure um roteiro para padronizar a preparação da equipe.'}</p></div>
+                <div>
+                  <strong>{selectedPlaybook?.title ?? 'Nenhum roteiro disponível'}</strong>
+                  <p>{selectedPlaybook?.guidance?.coachingFocus || selectedPlaybook?.content.slice(0, 220) || 'Configure um roteiro para padronizar a preparação da equipe.'}</p>
+                  <p className="rt-lead-playbook-advice">{approachAdvice?.explanation}</p>
+                  {approachAdvice?.context.length ? <div className="rt-lead-playbook-context">
+                    {approachAdvice.context.slice(0, 4).map((item) => <span key={item}>{item}</span>)}
+                  </div> : null}
+                  <div className="rt-lead-playbook-links">
+                    <button type="button" onClick={() => { navigate('playbooks', selectedPlaybook ? { playbookId: selectedPlaybook.id } : { filter:'strategy' }); onClose() }}>{selectedPlaybook ? 'Visualizar playbook' : 'Criar playbook'}</button>
+                    <button type="button" onClick={() => { navigate('pipeline', {leadId:lead.id}); onClose() }}>Pipeline</button>
+                    {approachAdvice?.related.proposalId ? <button type="button" onClick={() => { navigate('proposals', { leadId:lead.id, proposalId:approachAdvice.related.proposalId! }); onClose() }}>Proposta vinculada</button> : null}
+                    <button type="button" onClick={() => { navigate('metrics'); onClose() }}>Métricas</button>
+                  </div>
+                </div>
                 {!readOnly ? <div className="sales-workspace-v1013__strategy-actions"><Button variant="ghost" size="sm" onClick={() => { clearLeadSalesStrategyPreference(snapshot.workspace.id, lead.id); const inferred = salesWorkspace.objective; setStrategyObjective(inferred); setSelectedPlaybookId('') }}><RotateCcw size={14}/> Usar recomendação</Button></div> : null}
               </div>
             </div> : null}

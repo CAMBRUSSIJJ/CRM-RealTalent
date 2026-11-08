@@ -12,7 +12,8 @@ import { WorkspaceDisplayMenu, WorkspaceFilterMenu, WorkspaceViewStrip, type Wor
 import type { Playbook, PlaybookExecutionMode, PlaybookKind, PlaybookObjective } from '../../domain/types'
 import { copyTextToClipboard } from '../../lib/browser-actions'
 import { buildTeamCoachingSummary, playbookCoverage } from '../../services/coaching-engine'
-import { CALL_SESSION_OBJECTIVES } from '../../services/call-session-intelligence'
+import { buildLeadPlaybookAdvice } from '../calls/call-session-approaches'
+import { CALL_SESSION_OBJECTIVES, inferCallSessionObjective } from '../../services/call-session-intelligence'
 import { readCallingStrategyPreferences, saveCallingStrategyPreferences, type CallingStrategyPreferences } from '../../services/calling-strategy'
 import { derivePlaybookSteps, executionModeLabels, playbookExecutionCoverage, recommendedExecutionMode } from '../../services/playbook-execution'
 import { PlaybookModal } from './playbook-modal'
@@ -113,6 +114,29 @@ export function PlaybooksPage() {
   }, [allPlaybooks, contextFilter, executionFilter, kind, objectiveFilter, personaFilter, query, segmentFilter, stageFilter, statusFilter, temperatureFilter])
   const coaching = useMemo(() => buildTeamCoachingSummary({ calls: snapshot?.calls ?? [], leads: snapshot?.leads ?? [], contacts: snapshot?.contacts ?? [], playbooks: allPlaybooks }), [allPlaybooks, snapshot?.calls, snapshot?.contacts, snapshot?.leads])
   const coverage = useMemo(() => playbookCoverage(allPlaybooks, snapshot?.stages ?? []), [allPlaybooks, snapshot?.stages])
+  const leadPlaybookCoverage = useMemo(() => {
+    const totals = { leads:0, specific:0, generic:0, missing:0 }
+    const byPlaybook = new Map<string,{ id:string; title:string; count:number }>()
+    if (!snapshot || view !== 'coaching') return { ...totals, top:[] as Array<{ id:string; title:string; count:number }> }
+    for (const lead of snapshot.leads.filter((item) => item.status === 'active')) {
+      const advice = buildLeadPlaybookAdvice({
+        lead, snapshot, objective:inferCallSessionObjective(lead,snapshot),
+      })
+      totals.leads += 1
+      if (!advice.recommended) totals.missing += 1
+      else {
+        if (advice.isSpecific) totals.specific += 1
+        else totals.generic += 1
+        const record = byPlaybook.get(advice.recommended.id) ?? {
+          id:advice.recommended.id,title:advice.recommended.title,count:0,
+        }
+        record.count += 1
+        byPlaybook.set(record.id,record)
+      }
+    }
+    return { ...totals, top:[...byPlaybook.values()].sort((a,b)=>b.count-a.count).slice(0,5) }
+  }, [snapshot, view])
+
   const executionReady = useMemo(() => activePlaybooks.filter((item) => playbookExecutionCoverage(item).ready).length, [activePlaybooks])
   const selected = useMemo(() => activePlaybooks.find((item) => item.id === selectedId) ?? activePlaybooks[0] ?? null, [activePlaybooks, selectedId])
   const steps = useMemo(() => selected ? derivePlaybookSteps(selected) : [], [selected])
@@ -477,6 +501,13 @@ export function PlaybooksPage() {
     </section> : <EmptyState icon={PlayCircle} title="Nenhum roteiro ativo" description="Ative um roteiro para usar os modos Passo a passo, Checklist, Ligação e Reunião." />) : null}
 
     {view === 'coaching' ? <>
+      <section className="panel rt-playbook-coverage">
+        <div><span className="eyebrow">Cobertura comercial · CRM</span><h3>Onde os playbooks podem ajudar agora</h3><p>Leads ativos classificados por recomendações possíveis. Estes números não representam conversões atribuídas a roteiros.</p></div>
+        <div className="rt-playbook-coverage__stats"><span><strong>{leadPlaybookCoverage.leads}</strong> leads ativos</span><span><strong>{leadPlaybookCoverage.specific}</strong> com roteiro específico</span><span><strong>{leadPlaybookCoverage.generic}</strong> com roteiro geral</span><span><strong>{leadPlaybookCoverage.missing}</strong> sem roteiro ativo</span></div>
+        {leadPlaybookCoverage.top.length ? <div className="rt-playbook-coverage__top">
+          {leadPlaybookCoverage.top.map((item)=><button type="button" key={item.id} onClick={()=>{setSelectedId(item.id);setView('execution')}}>{item.title}<strong>{item.count} lead(s)</strong></button>)}
+        </div> : null}
+      </section>
       <section className="coaching-kpi-grid">
         <article className="panel"><span>Score médio</span><strong>{coaching.averageScore || '—'}</strong><small>/100</small></article>
         <article className="panel"><span>Próximo passo</span><strong>{coaching.nextStepRate}%</strong><small>das ligações</small></article>

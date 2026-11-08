@@ -449,184 +449,196 @@ export function CallSessionPreparationModal({ open, leadIds, initialLeadId, onCl
 
 
   return <>
-    <Modal
-      open={open}
-      onClose={onClose}
-      title="Preparar ligações"
-      subtitle="Defina quem ligar, como ligar, qual roteiro usar e revise a sessão antes de começar."
-      size="full"
-      footer={<div className="call-preparation-wizard-footer-v10171">
-        <div className="call-preparation-wizard-footer-v10171__left"><Button variant="ghost" onClick={onClose}>Cancelar</Button><span>{activeStepIndex + 1} de {PREPARATION_STEPS.length}</span></div>
-        <span className="call-preparation-footer-summary">{orderedSessionLeads.length} contatos · {effectiveSessionPlaybook?.title || "Roteiro padrão"} · ~{estimatedMinutes} min</span>
-        <div className="call-preparation-wizard-footer-v10171__actions">{activeStepIndex > 0 ? <Button variant="secondary" onClick={previousStep}>Voltar</Button> : null}{activeTab === 'review' ? <Button onClick={start} disabled={!orderedSessionLeads.length}><Play size={17} /> Começar ligações</Button> : <Button onClick={nextStep} disabled={activeTab === 'queue' && !orderedSessionLeads.length}>Continuar</Button>}</div>
-      </div>}
-    >
-      <div className="call-preparation-v70 call-preparation-wizard-v10171">
-        <header className="call-preparation-v70__hero call-preparation-wizard-v10171__hero">
-          <div>
-            <span className="eyebrow">RealTalent Calling</span>
-            <h3>Prepare a sessão</h3>
-            <p>Um passo por vez: escolha a fila, configure a ligação, defina o roteiro e revise antes de começar.</p>
+    <Modal open={open} onClose={onClose} title="Preparar Sessão" className="rt-setup-modal" size="full">
+      <div className="rt-setup-wizard" data-realtalent-setup-ui="reference-exact-v1">
+        <header className="rt-setup-wizard__header">
+          <div className="rt-setup-wizard__header-row">
+            <h1>Preparar Sessão</h1>
+            <div className="rt-setup-wizard__header-right"><span>Etapa {activeStepIndex + 1} de 4</span><button type="button" aria-label="Fechar preparação" onClick={onClose}><X size={19}/></button></div>
           </div>
-          <div className="call-preparation-v70__hero-kpis">
-            <span><strong>{candidateLeads.length}</strong><small>recebidos</small></span>
-            <span><strong>{callableCandidates.length}</strong><small>discáveis</small></span>
-            <span><strong>{orderedSessionLeads.length}</strong><small>na sessão</small></span>
-          </div>
+          <nav className="rt-setup-wizard__steps" aria-label="Etapas de preparação">
+            {PREPARATION_STEPS.map((step, idx) => {
+              const StepIcon = [UsersRound, Settings2, Target, Check][idx]
+              return <div className="rt-setup-wizard__step-group" key={step}>
+                <button type="button" onClick={() => setActiveTab(step)} className={'rt-setup-wizard__step' + (idx === activeStepIndex ? ' is-active' : idx < activeStepIndex ? ' is-done' : '')} aria-current={idx === activeStepIndex ? 'step' : undefined}>
+                  <StepIcon size={16}/>{['Quem ligar', 'Como ligar', 'Roteiro e objetivo', 'Revisar'][idx]}
+                </button>
+                {idx < PREPARATION_STEPS.length - 1 ? <i className={idx < activeStepIndex ? 'is-done' : ''} /> : null}
+              </div>
+            })}
+          </nav>
         </header>
 
-        <nav className="call-preparation-v70__tabs call-preparation-steps-v10171 call-tabs call-tabs--sub" role="tablist" aria-label="Preparação da sessão">
-          <button type="button" role="tab" aria-selected={activeTab === 'queue'} className={`call-tab ${activeTab === 'queue' ? 'is-active' : ''}`} onClick={() => setActiveTab('queue')}><span className="call-preparation-step-number-v10171">1</span><ListOrdered size={16} /><span className="call-tab__label">Quem ligar</span><b className="call-tab__badge">{orderedSessionLeads.length}</b></button>
-          <button type="button" role="tab" aria-selected={activeTab === 'settings'} className={`call-tab ${activeTab === 'settings' ? 'is-active' : ''}`} onClick={() => setActiveTab('settings')}><span className="call-preparation-step-number-v10171">2</span><Settings2 size={16} /><span className="call-tab__label">Como ligar</span></button>
-          <button type="button" role="tab" aria-selected={activeTab === 'strategy'} className={`call-tab ${activeTab === 'strategy' ? 'is-active' : ''}`} onClick={() => setActiveTab('strategy')}><span className="call-preparation-step-number-v10171">3</span><Target size={16} /><span className="call-tab__label">Roteiro e objetivo</span></button>
-          <button type="button" role="tab" aria-selected={activeTab === 'review'} className={`call-tab ${activeTab === 'review' ? 'is-active' : ''}`} onClick={() => setActiveTab('review')}><span className="call-preparation-step-number-v10171">4</span><Check size={16} /><span className="call-tab__label">Revisar</span></button>
-        </nav>
-
-        <div className={`call-preparation-v70__layout ${activeTab === 'review' ? 'call-preparation-v10171__layout--review' : ''}`}>
-          <main className="call-preparation-v70__main">
-            {activeTab === 'queue' ? <>
-              <section className="call-preparation-v70__section call-preparation-v70__filters call-preparation-filter-engine-v10173">
-                <div className="call-preparation-v70__section-head">
-                  <div><span className="eyebrow">Construção da fila</span><h4>Quem entra nesta sessão</h4><p>Busque, filtre e selecione. Os critérios avançados ficam no mesmo Filter Engine do restante do CRM.</p></div>
-                </div>
-                <div className="call-preparation-filter-toolbar-v10173 workspace-command-bar-v10169">
-                  <label className="call-preparation-v70__search workspace-command-search-v10169"><Search size={16} /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Buscar lead, empresa, contato ou telefone..." /></label>
-                  <div className="workspace-command-bar-v10169__actions">
-                    <WorkspaceFilterMenu workspaceKey={`call-preparation:${workspaceId}`} fields={preparationFilterFields} activeCount={activePreparationFilters} onChange={changePreparationFilter} onClearAll={clearPreparationFilters} />
-                    <WorkspaceSortMenu value={order} onChange={(value) => setOrder(value as QueueOrder)} options={[{ value: 'smart', label: 'Ordem inteligente', description: 'Prioriza urgência, atraso e temperatura.' }, { value: 'next_action', label: 'Próxima ação', description: 'Quem precisa de contato primeiro.' }, { value: 'name', label: 'Nome A–Z' }]} />
-                    <Button variant="secondary" size="sm" onClick={toggleVisible}>{allVisibleSelected ? <Square size={15} /> : <CheckSquare size={15} />}{allVisibleSelected ? 'Remover visíveis' : 'Selecionar visíveis'}</Button>
+        <div className="rt-setup-wizard__body" key={activeTab}>
+          {activeTab === 'queue' ? <section className="rt-setup-step">
+            <div className="rt-setup-step__heading">
+              <h2>Quem entra nesta sessão</h2>
+              <p>O CRM classificou os contatos e sugeriu a melhor abordagem individual.</p>
+            </div>
+            <div className="rt-setup-table-shell">
+              <div className="rt-setup-queue-toolbar">
+                <label className="rt-setup-search"><Search size={17}/><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Buscar lead, empresa..." /></label>
+                <details className="rt-setup-queue-filters">
+                  <summary><SlidersHorizontal size={17}/> Filtros</summary>
+                  <div className="rt-setup-queue-filters__menu">
+                    <WorkspaceFilterMenu workspaceKey={'call-setup:' + workspaceId} fields={preparationFilterFields} activeCount={activePreparationFilters} onChange={changePreparationFilter} onClearAll={clearPreparationFilters}/>
+                    <WorkspaceSortMenu value={order} onChange={(value) => setOrder(value as QueueOrder)} options={[{value:'smart',label:'Prioridade inteligente'},{value:'next_action',label:'Próxima ação'},{value:'name',label:'Nome A–Z'}]}/>
+                    <WorkspaceFilterChips fields={preparationFilterFields} onChange={changePreparationFilter} onClearAll={clearPreparationFilters}/>
                   </div>
-                </div>
-                <WorkspaceFilterChips fields={preparationFilterFields} onChange={changePreparationFilter} onClearAll={clearPreparationFilters} />
-              </section>
-
-              {(savedLists.length || saveListOpen) ? <section className="call-preparation-v70__saved">
-                <div className="call-preparation-v70__saved-head"><span><BookmarkPlus size={15} /> Listas salvas</span>{!saveListOpen ? <Button variant="ghost" size="sm" onClick={() => setSaveListOpen(true)}><BookmarkPlus size={14} /> Salvar seleção atual</Button> : null}</div>
-                {saveListOpen ? <div className="call-preparation-v70__save-form"><input value={saveListName} onChange={(event) => setSaveListName(event.target.value)} placeholder="Ex.: Retornos de hoje" autoFocus /><Button size="sm" onClick={saveCurrentList}><Check size={15} /> Salvar</Button><Button size="sm" variant="ghost" onClick={() => { setSaveListOpen(false); setSaveListName('') }}>Cancelar</Button></div> : null}
-                {savedLists.length ? <div className="call-preparation-v70__saved-list">{savedLists.slice(0, 6).map((list) => <div key={list.id}><button type="button" onClick={() => applySavedList(list)}><strong>{list.name}</strong><small>{list.leadIds.length} contatos</small></button><button type="button" className="call-preparation-v70__saved-delete" onClick={() => removeSavedList(list.id)} aria-label={`Excluir lista ${list.name}`}><Trash2 size={14} /></button></div>)}</div> : null}
-              </section> : <button type="button" className="call-preparation-v70__save-empty call-inline-action" onClick={() => setSaveListOpen(true)}><BookmarkPlus size={16} /> Salvar esta seleção como lista reutilizável</button>}
-
-              <section className="call-preparation-v70__section call-preparation-v70__queue-section">
-                <div className="call-preparation-v70__section-head">
-                  <div><span className="eyebrow">Prévia operacional</span><h4>Fila de ligações</h4><p>{visibleLeads.length === 1 ? '1 contato encontrado' : `${visibleLeads.length} contatos encontrados`} · {selectedCallableLeads.length} selecionados</p></div>
-                  <span className="call-preparation-v70__order-chip"><ListFilter size={14} /> {selectedCallableLeads.length} selecionado{selectedCallableLeads.length === 1 ? '' : 's'}</span>
-                </div>
-                <div className="call-preparation-v70__queue">
-                  {visibleLeads.length ? visibleLeads.map((lead) => {
-                    const target = leadTargets.get(lead.id)!
-                    const contact = snapshot?.contacts.find((item) => item.id === target.contactId)
+                </details>
+              </div>
+              <div className="rt-setup-table-scroll">
+                <table className="rt-setup-table">
+                  <thead><tr>
+                    <th className="is-check"><input type="checkbox" aria-label={allVisibleSelected ? 'Remover visíveis' : 'Selecionar visíveis'} checked={allVisibleSelected} onChange={toggleVisible}/></th>
+                    <th>Contato e Empresa</th><th>Tipo de Abordagem</th><th>Playbook Recomendado</th>
+                  </tr></thead>
+                  <tbody>{visibleLeads.map((lead) => {
+                    const target = leadTargets.get(lead.id)
                     const health = callHealthByLead.get(lead.id)
-                    const callable = Boolean(target.phone) && health?.status !== 'restricted'
+                    const callable = Boolean(target?.phone) && health?.status !== 'restricted'
                     const selected = selectedIds.includes(lead.id)
-                    const flags = rowFlags(lead)
-                    return <article key={lead.id} className={`call-preparation-v70__row ${selected ? 'is-selected' : ''} ${!callable ? 'is-disabled' : ''}`}>
-                      <button type="button" className="call-preparation-v70__check call-selection-button" disabled={!callable} onClick={() => toggleLead(lead.id)} aria-label={selected ? 'Remover da sessão' : 'Adicionar à sessão'}>{selected ? <CheckSquare size={18} /> : <Square size={18} />}</button>
-                      <div className="call-preparation-v70__identity"><span>{(target.name || lead.name).slice(0, 2).toUpperCase()}</span><div><strong>{target.name || lead.name}</strong><small>{lead.company || lead.name} · {lead.city || 'Cidade não informada'}{contact ? ` · ${decisionRoleLabels[contact.decisionRole]}` : ''}</small></div></div>
-                      <div className="call-preparation-v70__row-context"><span className={`priority-chip priority-chip--${lead.priority}`}>{priorityLabel[lead.priority]}</span><span className={`call-preparation-v70__temperature is-${lead.temperature}`}>{temperatureLabel[lead.temperature]}</span><em>{reasonFor(lead)}</em></div>
-                      <div className="call-preparation-v70__row-phone"><PhoneCall size={14} /><strong>{target.phone || (lead.doNotContact ? 'Bloqueado' : 'Sem telefone')}</strong>{health?.status === 'restricted' ? <small className="is-warning">Call Health: restrito</small> : health?.status === 'attention' ? <small>Call Health: revisar</small> : null}{flags.duplicate ? <small className="is-warning">Duplicado</small> : null}{flags.contactedToday ? <small>Contatado hoje</small> : null}{flags.meeting ? <small className="is-success">Reunião agendada</small> : null}</div>
-                    </article>
-                  }) : <div className="call-preparation-v70__empty"><Search size={20} /><strong>Nenhum contato com estes filtros</strong><span>Altere os filtros; sua seleção atual não será perdida.</span></div>}
+                    const approach = approachFor(lead)
+                    const recommended = playbookFor(lead)
+                    return <tr key={lead.id} className={selected ? 'is-selected' : ''}>
+                      <td><input type="checkbox" checked={selected} disabled={!callable} onChange={() => toggleLead(lead.id)} aria-label={'Selecionar ' + (target?.name || lead.name)}/></td>
+                      <td><strong>{target?.name || lead.name}</strong><small>{lead.company || lead.name}{!callable ? ' · Telefone indisponível' : ''}</small></td>
+                      <td><select className={'rt-setup-approach is-' + approach} value={approach} aria-label={'Tipo de abordagem de ' + lead.name} onChange={(event) => setLeadApproach(lead.id, event.target.value as CallApproachType)}>
+                        {callApproachEntries.map(([id, definition]) => <option key={id} value={id}>{definition.label}</option>)}
+                      </select></td>
+                      <td><span className="rt-setup-playbook"><FileText size={16}/>{recommended?.title || 'Nenhum roteiro disponível'}</span></td>
+                    </tr>
+                  })}</tbody>
+                </table>
+              </div>
+              {!visibleLeads.length ? <p className="rt-setup-empty">Nenhum contato encontrado. Ajuste os filtros.</p> : null}
+            </div>
+            <div className="rt-setup-queue-meta">
+              <span>{orderedSessionLeads.length} contato(s) selecionado(s) · {callableCandidates.length} discáveis</span>
+              <details>
+                <summary><BookmarkPlus size={15}/> Listas salvas e seleção</summary>
+                <div className="rt-setup-saved">
+                  {savedLists.map((list) => <div key={list.id}><button type="button" onClick={() => applySavedList(list)}>{list.name} · {list.leadIds.length} contatos</button><button type="button" aria-label={'Excluir ' + list.name} onClick={() => removeSavedList(list.id)}><Trash2 size={14}/></button></div>)}
+                  {saveListOpen ? <div><input aria-label="Nome da lista" placeholder="Nome da lista" value={saveListName} onChange={(event) => setSaveListName(event.target.value)}/><button type="button" onClick={saveCurrentList}>Salvar lista</button></div> : <button type="button" onClick={() => setSaveListOpen(true)}>Salvar seleção atual</button>}
                 </div>
-              </section>
-            </> : null}
+              </details>
+            </div>
+          </section> : null}
 
-            {activeTab === 'strategy' ? <div className="call-preparation-v70__strategy-grid">
-              <section className="call-preparation-v70__section">
-                <div className="call-preparation-v70__section-head"><div><span className="eyebrow">Resultado desejado</span><h4>Objetivo comercial</h4><p>O Modo Foco adapta descoberta, coaching e próximo passo ao objetivo escolhido.</p></div></div>
-                <label className="call-preparation-v70__field"><span>Objetivo da sessão</span><NativeSelectionSelect value={sessionObjective} onChange={(event) => setSessionObjective(event.target.value as CallSessionObjective)}>{CALL_SESSION_OBJECTIVES.map((item) => <option key={item.id} value={item.id}>{item.label}</option>)}</NativeSelectionSelect></label>
-                <div className="call-preparation-v70__objective"><Sparkles size={18} /><div><strong>{objective.shortLabel}</strong><span>{objective.description}</span><small>Sinal de sucesso: {objective.successSignal}</small></div></div>
-              </section>
+          {activeTab === 'settings' ? <section className="rt-setup-step">
+            <div className="rt-setup-step__heading"><h2>Comportamento entre ligações</h2><p>Automatize o trabalho manual e configure sua interface de foco.</p></div>
+            <div className="rt-setup-settings-grid">
+              <div className="rt-setup-switches">
+                <button type="button" className="rt-setup-switch-card" aria-pressed={smartWrap} onClick={() => setSmartWrap(!smartWrap)}>
+                  <span><strong>Wrap-up inteligente</strong><small>Sugere o próximo passo de acordo com o resultado da ligação.</small></span><i className={smartWrap ? 'is-on' : ''}/>
+                </button>
+                <button type="button" className="rt-setup-switch-card" aria-pressed={fastDial} disabled={voiceSettings.defaultProviderId !== 'realtalent_connect' || !voiceSettings.selectedDeviceId.startsWith('connect:phone:')} onClick={() => { setFastDial(!fastDial); if (fastDial) setAutoDispatchNext(false) }}>
+                  <span><strong>One-Tap via RealTalent Connect</strong><small>{voiceSettings.defaultProviderId === 'realtalent_connect' && voiceSettings.selectedDeviceId.startsWith('connect:phone:') ? 'Aciona a chamada no celular sem clicar em “Ligar agora”.' : 'Conecte um RealTalent Phone para habilitar One-Tap.'}</small></span><i className={fastDial ? 'is-on' : ''}/>
+                </button>
+              </div>
+              <aside className="rt-setup-focus-card">
+                <Focus size={42}/><h3>Modo Foco</h3>
+                <p>Ajuste os painéis visíveis durante a sua ligação para evitar distrações.</p>
+                <button type="button" onClick={() => setDisplayOpen(true)}>Personalizar tela da conversa</button>
+              </aside>
+            </div>
+            <details className="rt-setup-advanced">
+              <summary><Settings2 size={16}/> Configurações adicionais de telefonia e cadência</summary>
+              <div className="rt-setup-advanced__inner">
+                <div className="rt-setup-voice-info"><strong>RealTalent Voice</strong><span>Provedor: {providerLabel(voiceSettings.defaultProviderId)}</span><span>Dispositivo: {voiceSettings.selectedDeviceId === 'external:system-dialer' ? 'Discador do sistema' : voiceSettings.selectedDeviceId || 'Padrão do provedor'}</span><Button size="sm" variant="secondary" onClick={() => setVoiceOpen(true)}>Configurar RealTalent Voice</Button></div>
+                <button type="button" className="rt-setup-switch-card" aria-pressed={sessionMode === 'power' || autoAdvance} disabled={sessionMode === 'power'} onClick={() => setAutoAdvance(!autoAdvance)}><span><strong>Preparar próximo contato</strong><small>Carrega o lead seguinte após registrar o resultado.</small></span><i className={(sessionMode === 'power' || autoAdvance) ? 'is-on' : ''}/></button>
+                {(sessionMode === 'power' || autoAdvance) ? <label>Intervalo da preparação <select value={autoAdvanceSeconds} onChange={(event) => setAutoAdvanceSeconds(Number(event.target.value))}><option value={3}>3 segundos</option><option value={5}>5 segundos</option><option value={8}>8 segundos</option></select></label> : null}
+                {fastDial ? <button type="button" className="rt-setup-switch-card" aria-pressed={autoDispatchNext} onClick={() => setAutoDispatchNext(!autoDispatchNext)}><span><strong>Enviar próximo contato automaticamente</strong><small>Exige RealTalent Phone disponível e conectado.</small></span><i className={autoDispatchNext ? 'is-on' : ''}/></button> : null}
+                {fastDial && autoDispatchNext ? <label>Intervalo de envio <select value={autoDispatchDelaySeconds} onChange={(event) => setAutoDispatchDelaySeconds(Number(event.target.value))}><option value={0}>Imediatamente</option><option value={1}>1 segundo</option><option value={2}>2 segundos</option></select></label> : null}
+              </div>
+            </details>
+          </section> : null}
 
-              <section className="call-preparation-v70__section">
-                <div className="call-preparation-v70__section-head"><div><span className="eyebrow">Ritmo da sessão</span><h4>Modo de execução</h4><p>Escolha entre contexto máximo por conversa ou velocidade assistida.</p></div></div>
-                <div className="call-mode-picker call-mode-picker--v70" role="group" aria-label="Modo da sessão">
-                  <button type="button" className={`call-choice-card ${sessionMode === 'focus' ? 'is-active' : ''}`} aria-pressed={sessionMode === 'focus'} onClick={() => setSessionMode('focus')}><Focus size={19} /><span><strong>Focus</strong><small>Máximo contexto antes de cada conversa.</small></span></button>
-                  <button type="button" className={`call-choice-card ${sessionMode === 'power' ? 'is-active' : ''}`} aria-pressed={sessionMode === 'power'} onClick={() => setSessionMode('power')}><Gauge size={19} /><span><strong>Power assistido</strong><small>Prepara o próximo contato após o wrap-up.</small></span></button>
+          {activeTab === 'strategy' ? <section className="rt-setup-step rt-setup-step--strategy">
+            <div className="rt-setup-step__heading"><h2>Estratégia da Sessão</h2><p>Defina o objetivo macro e como o sistema deve conduzir a cadência.</p></div>
+            <div className="rt-setup-objective">
+              <label htmlFor="rt-setup-objective">1. Objetivo Comercial</label>
+              <select id="rt-setup-objective" value={sessionObjective} onChange={(event) => setSessionObjective(event.target.value as CallSessionObjective)}>
+                {CALL_SESSION_OBJECTIVES.map((item) => <option key={item.id} value={item.id}>{item.label}</option>)}
+              </select>
+              <p>O CRM priorizará os playbooks recomendados no Passo 1 baseados neste objetivo macro.</p>
+            </div>
+            <div className="rt-setup-mode">
+              <h3>2. Estratégia de Execução (Modo)</h3>
+              <div className="rt-setup-mode-grid">
+                <button type="button" className={sessionMode === 'focus' ? 'is-active' : ''} aria-pressed={sessionMode === 'focus'} onClick={() => setSessionMode('focus')}>
+                  {sessionMode === 'focus' ? <span className="rt-setup-mode-check"><Check size={13}/></span> : null}
+                  <Focus size={25}/><strong>Focus</strong><small>Máximo contexto antes de cada conversa. Um lead por vez. Ideal para vendas complexas.</small>
+                </button>
+                <button type="button" className={sessionMode === 'power' ? 'is-active' : ''} aria-pressed={sessionMode === 'power'} onClick={() => setSessionMode('power')}>
+                  {sessionMode === 'power' ? <span className="rt-setup-mode-check"><Check size={13}/></span> : null}
+                  <Gauge size={25}/><strong>Power assistido</strong><small>Prepara o próximo contato imediatamente após o wrap-up. Foco em volume.</small>
+                </button>
+              </div>
+            </div>
+            <div className="rt-setup-strategy-bottom">
+              <label>Organização da Fila <select value={order} onChange={(event) => setOrder(event.target.value as QueueOrder)}><option value="smart">Prioridade inteligente</option><option value="next_action">Próxima ação</option><option value="name">Ordem alfabética</option></select></label>
+              <i/>
+              <div><span>Meta da Sessão (Conversas)</span><div className="rt-setup-goal-buttons"><button type="button" onClick={() => setGoal(Math.max(1, effectiveGoal - 1))} aria-label="Diminuir meta">−</button><strong>{effectiveGoal}</strong><button type="button" onClick={() => setGoal(Math.min(Math.max(1, orderedSessionLeads.length), effectiveGoal + 1))} aria-label="Aumentar meta">+</button></div></div>
+            </div>
+            <details className="rt-setup-advanced">
+              <summary><BookOpenText size={16}/> Roteiro padrão, limite e meta vinculada</summary>
+              <div className="rt-setup-advanced__inner">
+                <p>Os roteiros são sugeridos por contato. Use a seleção manual apenas quando quiser um único roteiro para a sessão.</p>
+                <div className="rt-setup-voice-info"><strong>Roteiro da sessão</strong><span>{playbookId ? effectiveSessionPlaybook?.title || 'Roteiro padrão' : 'Seleção individual automática'}</span><Button size="sm" variant="secondary" onClick={() => setPlaybookPickerOpen(true)}>Trocar roteiro</Button></div>
+                <label>Máximo da sessão <input type="number" min={1} max={100} value={maxSession} onChange={(event) => setMaxSession(Math.max(1, Math.min(100, Number(event.target.value) || 1)))}/></label>
+                <label>Meta do CRM vinculada <select value={linkedGoalId} onChange={(event) => setLinkedGoalId(event.target.value)}><option value="">Sem meta vinculada</option>{activeGoals.map((item) => <option key={item.id} value={item.id}>{goalMetricLabels[item.metric]} · {item.userName || 'Equipe'}</option>)}</select></label>
+                {linkedGoalInsight ? <p>{goalMetricLabels[linkedGoalInsight.goal.metric]}: {Math.round(linkedGoalInsight.value)} / {linkedGoalInsight.goal.targetValue} ({linkedGoalInsight.percentage}%)</p> : null}
+              </div>
+            </details>
+          </section> : null}
+
+          {activeTab === 'review' ? <section className="rt-setup-step">
+            <div className="rt-setup-step__heading"><h2>Revisão Operacional</h2><p>Confirme a estratégia individual antes de entrar no Modo Foco.</p></div>
+            <div className="rt-setup-review-grid">
+              <div className="rt-setup-review-left">
+                <div className="rt-setup-prepared">
+                  <div><h3>Sessão Preparada</h3><p>{orderedSessionLeads.length} contatos selecionados</p></div>
+                  <div><span>Meta: {effectiveGoal} conversas</span><strong><Clock3 size={16}/> Est. {estimatedMinutes} min</strong></div>
                 </div>
-                <p className="call-mode-description">{callModeDescription(sessionMode)}</p>
-              </section>
-
-              <section className="call-preparation-v70__section call-preparation-v70__strategy-wide">
-                <div className="call-preparation-v70__section-head"><div><span className="eyebrow">Parâmetros comerciais</span><h4>Roteiro, ordem e meta</h4><p>Defina o padrão da sessão sem poluir a tela de ligação.</p></div></div>
-                <div className="call-preparation-v70__strategy-fields">
-                  <div className="call-preparation-v1012__route-card"><span>Roteiro da sessão</span><div><BookOpenText size={18}/><div><strong>{effectiveSessionPlaybook?.title || 'Roteiro padrão RealTalent'}</strong><small>{playbookId ? 'Escolha manual para esta sessão' : strategy.autoSelectPlaybook ? (automaticPlaybookRecommendation?.reasons?.join(' · ') || 'Selecionado automaticamente pelo contexto') : 'Padrão definido no Strategy Hub'}</small></div></div><div className="call-preparation-v1012__route-actions"><Button size="sm" variant="secondary" onClick={() => setPlaybookPickerOpen(true)}>Trocar roteiro</Button><Button size="sm" variant="ghost" onClick={() => { onClose(); navigate('playbooks', { filter: 'strategy' }) }}>Abrir estratégia</Button></div></div>
-                  <label className="call-preparation-v70__field"><span>Ordem da fila</span><NativeSelectionSelect value={order} onChange={(event) => setOrder(event.target.value as QueueOrder)}><option value="smart">Prioridade inteligente</option><option value="next_action">Próxima ação</option><option value="name">Nome</option></NativeSelectionSelect></label>
-                  <label className="call-preparation-v70__field"><span>Máximo da sessão</span><input type="number" min={1} max={100} value={maxSession} onChange={(event) => setMaxSession(Math.max(1, Math.min(100, Number(event.target.value) || 1)))} /></label>
-                  <section className="calling-h5__goal-panel">
-                    <header><div><small>Meta da sessão</small><strong>Transforme a fila em um objetivo operacional claro</strong></div><Button size="sm" variant="secondary" onClick={() => { onClose(); navigate('goals') }}><Target size={15}/> Abrir Metas</Button></header>
-                    <div className="calling-h5__goal-layout">
-                      <div className="calling-h5__session-target"><span>Conversas nesta sessão</span><div><button type="button" onClick={() => setGoal(Math.max(1, effectiveGoal - 1))} aria-label="Diminuir meta">−</button><strong>{effectiveGoal}</strong><button type="button" onClick={() => setGoal(Math.min(Math.max(1, orderedSessionLeads.length), effectiveGoal + 1))} aria-label="Aumentar meta">+</button></div><small>de {orderedSessionLeads.length || 0} contatos na fila</small></div>
-                      <div className="calling-h5__crm-goal"><label><span>Meta do CRM vinculada</span><NativeSelectionSelect value={linkedGoalId} onChange={(event) => setLinkedGoalId(event.target.value)}><option value="">Sem meta vinculada</option>{activeGoals.map((item) => <option key={item.id} value={item.id}>{goalMetricLabels[item.metric]} · {item.userName || 'Equipe'}</option>)}</NativeSelectionSelect></label>{linkedGoalInsight ? <div className="calling-h5__crm-goal-progress"><div><span>{goalMetricLabels[linkedGoalInsight.goal.metric]}</span><strong>{Math.round(linkedGoalInsight.value)} / {linkedGoalInsight.goal.targetValue}</strong><em>{linkedGoalInsight.percentage}%</em></div><div className="calling-h5__goal-track"><i style={{ width: `${Math.min(100, linkedGoalInsight.percentage)}%` }}/></div><small>Faltam {Math.round(linkedGoalInsight.remaining)} · ritmo necessário {linkedGoalInsight.dailyRequired.toFixed(1)}/dia · esta sessão atualiza essa meta automaticamente.</small></div> : <div className="calling-h5__goal-empty"><strong>Nenhuma meta comercial vinculada</strong><span>A sessão continua medindo conversas. Crie ou escolha uma meta na aba Metas para acompanhar o impacto no objetivo do período.</span></div>}</div>
-                    </div>
-                  </section>
+                <div className="rt-setup-review-table-shell"><table className="rt-setup-table rt-setup-review-table">
+                  <thead><tr><th>Contato</th><th>Tipo</th><th>Roteiro Atribuído</th></tr></thead>
+                  <tbody>{orderedSessionLeads.map((lead) => <tr key={lead.id}>
+                    <td><strong>{leadTargets.get(lead.id)?.name || lead.name}</strong></td>
+                    <td><span className={'rt-setup-type-chip is-' + approachFor(lead)}>{CALL_APPROACHES[approachFor(lead)].label}</span></td>
+                    <td>{playbookFor(lead)?.title || 'Sem playbook configurado'}</td>
+                  </tr>)}</tbody>
+                </table></div>
+              </div>
+              <aside className="rt-setup-review-right">
+                <div className="rt-setup-config-summary">
+                  <h4>Configurações</h4>
+                  <dl><div><dt>Objetivo</dt><dd>{objective.shortLabel}</dd></div><div><dt>Modo</dt><dd>{sessionMode === 'focus' ? 'Focus' : 'Power assistido'}</dd></div><div><dt>Canal</dt><dd>{providerLabel(voiceSettings.defaultProviderId)}</dd></div></dl>
                 </div>
-              </section>
-            </div> : null}
-
-            {activeTab === 'settings' ? <div className="call-preparation-v70__settings-grid">
-              <section className="call-preparation-v70__section">
-                <div className="call-preparation-v70__section-head"><div><span className="eyebrow">Automação controlada</span><h4>Comportamento entre ligações</h4><p>Automatize preparação e wrap-up, nunca o início da chamada.</p></div></div>
-                <div className="call-execution-options call-execution-options--v70">
-                  <button type="button" className={`call-execution-toggle ${smartWrap ? 'is-active' : ''}`} aria-pressed={smartWrap} onClick={() => setSmartWrap((value) => !value)}><span><strong>Wrap-up inteligente</strong><small>Sugere próximo passo de acordo com o resultado.</small></span><em>{smartWrap ? 'Ativo' : 'Desativado'}</em></button>
-                  <button type="button" className={`call-execution-toggle fast-dial-toggle-v10182 ${fastDial ? 'is-active' : ''} ${voiceSettings.defaultProviderId === 'realtalent_connect' && voiceSettings.selectedDeviceId.startsWith('connect:phone:') ? '' : 'is-unavailable'}`} aria-pressed={fastDial} disabled={voiceSettings.defaultProviderId !== 'realtalent_connect' || !voiceSettings.selectedDeviceId.startsWith('connect:phone:')} onClick={() => { const next = !fastDial; setFastDial(next); if (!next) setAutoDispatchNext(false) }}><span><strong>One-Tap via RealTalent Connect</strong><small>Ao entrar no Modo Foco, envia a chamada imediatamente ao iPhone. Com o RealTalent Phone visível, o companion tenta abrir o discador sem botão intermediário; o iOS mantém apenas a confirmação final.</small></span><em>{fastDial ? 'Ativo' : 'Desativado'}</em></button>
-                  {fastDial ? <button type="button" className={`call-execution-toggle ${autoDispatchNext ? 'is-active' : ''}`} aria-pressed={autoDispatchNext} onClick={() => setAutoDispatchNext((value) => !value)}><span><strong>Enviar o próximo contato automaticamente</strong><small>Depois de “Salvar e próximo”, carrega o lead seguinte e envia a chamada ao celular sem clicar em “Ligar agora”.</small></span><em>{autoDispatchNext ? 'Ativo' : 'Desativado'}</em></button> : null}
-                  {fastDial && autoDispatchNext ? <label className="call-preparation-v70__field"><span>Intervalo antes de enviar ao celular</span><NativeSelectionSelect value={autoDispatchDelaySeconds} onChange={(event) => setAutoDispatchDelaySeconds(Number(event.target.value))}><option value={0}>Imediatamente</option><option value={1}>1 segundo</option><option value={2}>2 segundos</option><option value={3}>3 segundos</option></NativeSelectionSelect></label> : null}
-                  <button type="button" className={`call-execution-toggle ${(sessionMode === 'power' || autoAdvance) ? 'is-active' : ''}`} aria-pressed={sessionMode === 'power' || autoAdvance} disabled={sessionMode === 'power'} onClick={() => setAutoAdvance((value) => !value)}><span><strong>Preparar próximo contato</strong><small>{fastDial && autoDispatchNext ? 'Carrega o próximo lead e prepara o envio automático ao RealTalent Phone.' : 'Carrega o próximo lead sem iniciar a chamada.'}</small></span><em>{(sessionMode === 'power' || autoAdvance) ? 'Ativo' : 'Desativado'}</em></button>
-                  {(sessionMode === 'power' || autoAdvance) ? <label className="call-preparation-v70__field"><span>Intervalo de preparação</span><NativeSelectionSelect value={autoAdvanceSeconds} onChange={(event) => setAutoAdvanceSeconds(Number(event.target.value))}><option value={3}>3 segundos</option><option value={5}>5 segundos</option><option value={8}>8 segundos</option></NativeSelectionSelect></label> : null}
-                </div>
-              </section>
-
-              <section className="call-preparation-v70__section call-preparation-v731__voice-settings">
-                <div className="call-preparation-v70__section-head"><div><span className="eyebrow">RealTalent Voice</span><h4>Como as ligações serão realizadas</h4><p>Defina provedor, dispositivo e número de saída antes de entrar no Modo Foco.</p></div></div>
-                <div className="call-preparation-v731__voice-summary"><div><small>Provedor</small><strong>{providerLabel(voiceSettings.defaultProviderId)}</strong></div><div><small>Dispositivo</small><strong>{voiceSettings.selectedDeviceId === 'external:system-dialer' ? 'Discador do sistema' : voiceSettings.selectedDeviceId || 'Padrão do provedor'}</strong></div><div><small>Número de saída</small><strong>{voiceSettings.outboundIdentities.find((item) => item.id === voiceSettings.selectedCallerId)?.label ?? 'Padrão do provedor'}</strong></div></div>
-                <Button variant="secondary" onClick={() => setVoiceOpen(true)}><PhoneCall size={16}/> Configurar RealTalent Voice</Button>
-              </section>
-
-              <section className="call-preparation-v70__section">
-                <div className="call-preparation-v70__section-head"><div><span className="eyebrow">Modo Foco</span><h4>O que aparece durante a conversa</h4><p>Modo Foco mostra somente o que ajuda a avançar. Ajuste o que fica visível durante a conversa.</p></div></div>
-                <div className="call-display-summary call-display-summary--v70"><span>{display.showQueueSidebar ? 'Fila lateral' : 'Fila oculta'}</span><span>{display.showObjections ? 'Objeções' : 'Sem objeções'}</span><span>{display.showNotes ? 'Notas' : 'Sem notas'}</span><span>{display.showRecording ? 'Gravação' : 'Sem gravação'}</span></div>
-                <Button variant="secondary" onClick={() => setDisplayOpen(true)}><Settings2 size={16} /> Personalizar tela da conversa</Button>
-              </section>
-            </div> : null}
-          </main>
-
-          {activeTab === 'review' ? <aside className="call-preparation-v70__summary call-preparation-v10171__review">
-            <section className="call-preparation-v70__summary-card call-preparation-v70__summary-card--primary">
-              <span className="eyebrow">Resumo da sessão</span>
-              <div className="call-preparation-v70__summary-number"><strong>{orderedSessionLeads.length}</strong><span>contatos prontos</span></div>
-              {(sessionStats.callbacks || sessionStats.overdue || sessionStats.hot || orderedSessionLeads.length > 3) ? <div className="call-preparation-v70__summary-grid">
-                {orderedSessionLeads.length > 3 && sessionStats.newLeads ? <div><strong>{sessionStats.newLeads}</strong><span>novos</span></div> : null}
-                {sessionStats.callbacks ? <div><strong>{sessionStats.callbacks}</strong><span>retornos</span></div> : null}
-                {sessionStats.overdue ? <div><strong>{sessionStats.overdue}</strong><span>atrasados</span></div> : null}
-                {sessionStats.hot ? <div><strong>{sessionStats.hot}</strong><span>quentes</span></div> : null}
-              </div> : null}
-              <div className="call-preparation-v70__time"><Clock3 size={16} /><span><strong>~{estimatedMinutes} min</strong><small>estimativa da sessão</small></span></div>
-            </section>
-
-            {(validation.missingPhone || validation.blocked || validation.duplicates || validation.contactedToday || validation.meetings) ? <section className="call-preparation-v70__summary-card">
-              <div className="call-preparation-v70__summary-title"><AlertTriangle size={16} /><strong>Revisar fila</strong></div>
-              <div className="call-preparation-v1012__warnings">{validation.missingPhone ? <span><b>{validation.missingPhone}</b> sem telefone</span> : null}{validation.blocked ? <span><b>{validation.blocked}</b> não contatar</span> : null}{validation.duplicates ? <span><b>{validation.duplicates}</b> duplicados</span> : null}{validation.contactedToday ? <span><b>{validation.contactedToday}</b> contatados hoje</span> : null}{validation.meetings ? <span><b>{validation.meetings}</b> com reunião futura</span> : null}</div>
-            </section> : <section className="call-preparation-v70__summary-card call-preparation-v1012__ready"><Check size={18}/><div><strong>Fila pronta para ligar</strong><span>Contatos elegíveis validados. A conexão do telefone é verificada separadamente.</span></div></section>}
-
-            {(healthSummary.attention || healthSummary.restricted) ? <section className="call-preparation-v70__summary-card">
-              <div className="call-preparation-v70__summary-title"><Gauge size={16} /><strong>Call Health</strong></div>
-              <div className="call-preparation-v72__health-summary"><div className="is-good"><strong>{healthSummary.good}</strong><span>prontos</span></div><div className="is-attention"><strong>{healthSummary.attention}</strong><span>revisar</span></div><div className="is-restricted"><strong>{healthSummary.restricted}</strong><span>restritos</span></div></div>
-            </section> : null}
-
-            {fastDial ? <section className={`call-preparation-v70__summary-card call-preparation-flow__connection is-${voiceReadiness}`} role="status">
-              <div className="call-preparation-v70__summary-title"><PhoneCall size={17}/><strong>RealTalent Connect · One-Tap</strong></div>
-              <p>{voiceReadiness === 'ready' ? 'Celular pareado e disponível. O One-Tap poderá iniciar as chamadas desta sessão.' : voiceReadiness === 'checking' ? 'Verificando conexão do celular e do RealTalent Connect…' : 'Não há confirmação de celular online. Você pode iniciar a sessão, mas a discagem automática ficará pausada até reconectar o RealTalent Phone.'}</p>
-              {voiceReadiness === 'offline' ? <Button type="button" size="sm" variant="secondary" onClick={() => { setActiveTab('settings'); setVoiceOpen(true) }}><Settings2 size={15}/> Configurar ligação</Button> : null}
-            </section> : null}
-
-            {orderedSessionLeads.length > 1 ? <section className="call-preparation-v70__summary-card">
-              <div className="call-preparation-v70__summary-title"><UsersRound size={16} /><strong>Próximo da fila</strong></div>
-              {orderedSessionLeads[0] ? <div className="call-preparation-v70__next"><strong>{leadTargets.get(orderedSessionLeads[0].id)?.name || orderedSessionLeads[0].name}</strong><span>{orderedSessionLeads[0].company || 'Empresa não informada'}</span><small>{reasonFor(orderedSessionLeads[0])}</small></div> : null}
-            </section> : null}
-
-            <section className="call-preparation-v70__summary-card call-preparation-v10171__review-route"><div className="call-preparation-v70__summary-title"><BookOpenText size={16}/><strong>Roteiro e execução</strong></div><div><small>Roteiro</small><strong>{effectiveSessionPlaybook?.title || 'Roteiro padrão RealTalent'}</strong></div><div><small>Objetivo</small><strong>{objective.shortLabel}</strong></div><div><small>Modo</small><strong>{sessionMode === 'focus' ? 'Focus' : 'Power assistido'}</strong></div><div><small>Discagem</small><strong>{fastDial ? (autoDispatchNext ? 'One-Tap · fila automática' : 'One-Tap') : 'Assistida'}</strong></div></section>
-          </aside> : null}
+                {(() => {
+                  const issues = [
+                    ...orderedSessionLeads.filter((lead) => rowFlags(lead).contactedToday).map((lead) => (leadTargets.get(lead.id)?.name || lead.name) + ' já foi contatado hoje.'),
+                    ...orderedSessionLeads.filter((lead) => rowFlags(lead).duplicate).map((lead) => (leadTargets.get(lead.id)?.name || lead.name) + ' possui telefone duplicado.'),
+                    ...(fastDial && voiceReadiness !== 'ready' ? ['RealTalent Phone ainda não está confirmado como online. O One-Tap permanecerá pausado.'] : []),
+                  ]
+                  return <div className={'rt-setup-validation' + (issues.length ? ' is-warning' : ' is-good')}>
+                    <h4>{issues.length ? <AlertTriangle size={17}/> : <Check size={17}/>} {issues.length ? 'Atenção Requerida' : 'Pronto para iniciar'}</h4>
+                    {issues.length ? issues.slice(0, 4).map((issue, idx) => <p key={idx}>{issue}</p>) : <p>Os contatos selecionados possuem telefone disponível. A conexão do provedor é verificada separadamente.</p>}
+                  </div>
+                })()}
+                {orderedSessionLeads[0] ? <div className="rt-setup-next"><strong>Primeiro contato</strong><span>{leadTargets.get(orderedSessionLeads[0].id)?.name || orderedSessionLeads[0].name}</span></div> : null}
+              </aside>
+            </div>
+          </section> : null}
         </div>
+
+        <footer className="rt-setup-wizard__footer">
+          <button type="button" className="rt-setup-link" onClick={onClose}>Cancelar</button>
+          <div>
+            {activeStepIndex > 0 ? <button type="button" className="rt-setup-back" onClick={previousStep}><ChevronLeft size={17}/> Voltar</button> : null}
+            {activeTab !== 'review' ? <button type="button" className="rt-setup-primary" disabled={activeTab === 'queue' && !orderedSessionLeads.length} onClick={nextStep}>Continuar <ChevronRight size={17}/></button> : <button type="button" className="rt-setup-primary" disabled={!orderedSessionLeads.length} onClick={start}><PhoneCall size={17}/> Começar ligações</button>}
+          </div>
+        </footer>
       </div>
     </Modal>
     <Modal open={playbookPickerOpen} title="Escolher roteiro da prospecção" subtitle="Troque somente esta sessão ou volte para a seleção automática do Strategy Hub." size="lg" onClose={() => setPlaybookPickerOpen(false)} footer={<><Button variant="ghost" onClick={() => setPlaybookPickerOpen(false)}>Fechar</Button><span className="modal__footer-spacer"/><Button variant="secondary" onClick={() => { setPlaybookPickerOpen(false); onClose(); navigate('playbooks', { filter: 'strategy' }) }}><WandSparkles size={16}/> Configurar estratégia</Button></>}>

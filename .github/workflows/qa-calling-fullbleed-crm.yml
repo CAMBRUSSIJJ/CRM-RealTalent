@@ -1,0 +1,35 @@
+name: Calling Fullscreen & Playbooks CRM Integrations
+on:
+  pull_request:
+    paths:
+      - 'src/features/calls/**'
+      - 'src/features/leads/lead-details-drawer.tsx'
+      - 'src/features/leads/lead-playbook-context.css'
+      - 'src/features/playbooks/playbooks-page.tsx'
+      - 'src/features/playbooks/playbook-crm-coverage.css'
+      - 'src/features/communications/waha-conversations-page.tsx'
+      - 'src/features/communications/communications-page.tsx'
+      - 'src/app/route-state.ts'
+      - 'scripts/calling_fullbleed_playbooks_crm_audit.mjs'
+      - '.github/workflows/qa-calling-fullbleed-crm.yml'
+  workflow_dispatch:
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 18
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - name: Install
+        run: npm ci --no-fund --no-audit
+      - name: Cross-module integration contracts
+        run: node scripts/calling_fullbleed_playbooks_crm_audit.mjs
+      - name: Evidence-based playbook recommendations
+        run: npx vitest run src/features/calls/call-session-approaches.test.ts
+      - name: Calling UX regressions
+        run: npm run qa:calling:setup-reference && npm run qa:calling:focus-v2 && npm run qa:calling:lifecycle-v3
+      - name: TypeScript and production build
+        run: npm run typecheck && npm run build

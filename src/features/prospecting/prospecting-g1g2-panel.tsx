@@ -50,7 +50,8 @@ export function ProspectingG1G2Panel({prospect,snapshot,readOnly}:Props){
     abortRef.current?.abort()
     const ctrl=new AbortController()
     abortRef.current=ctrl
-    const timer=setTimeout(()=>ctrl.abort(),125000)
+    // Discovery (up to 30s) + public-page reading + local Qwen (up to 90s).
+    const timer=setTimeout(()=>ctrl.abort(),175000)
     setBusy(true);setError('');setSignalNotice('');setResult(null)
     try{
       const response=await runtimeFetch(env.agentGatewayUrl+'/tools/prospect-investigate',{

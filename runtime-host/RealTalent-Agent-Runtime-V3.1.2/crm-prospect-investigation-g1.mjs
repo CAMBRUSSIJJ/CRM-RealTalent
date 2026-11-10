@@ -1,4 +1,5 @@
-import {readPublicPageV60,validResearchUrlV60} from './crm-web-reader-v60.mjs'
+import {validResearchUrlV60} from './crm-web-reader-v60.mjs'
+import {readPublicPageOpenSourceG50} from './crm-open-source-reader-g50.mjs'
 import {searchResearchSources} from './crm-script-research-v52.mjs'
 import {validateTriggerModelResponse} from './crm-trigger-events-g4.mjs'
 
@@ -67,9 +68,10 @@ const fallback=(message,sources,searchStatus,caveats=[])=>({
 const boundedSources=results=>results.slice(0,6).map(item=>({
   title:item.title,url:item.url,reading:item.reading,identity:item.identity,
   excerpt:item.reading==='page'&&item.identity!=='unconfirmed'?item.excerpt:'',origin:item.origin,
+  extractedFacts:item.reading==='page'&&item.identity!=='unconfirmed'?item.extractedFacts||[]:[],
 }))
 export async function investigateProspectG1(input,{
-  readPage=readPublicPageV60,searcher=searchCompanySourcesG1,fetcher=fetch,
+  readPage=readPublicPageOpenSourceG50,searcher=searchCompanySourcesG1,fetcher=fetch,
   ollamaUrl='http://127.0.0.1:11434',model='qwen3:8b',
 }={}){
   const company=sanitizeProspectForInvestigation(input)
@@ -110,6 +112,7 @@ export async function investigateProspectG1(input,{
       title:sanitizeText(page?.title||source.title,150),url:source.url,
       origin:source.origin,identity,reading:page?'page':'snippet',
       excerpt:page&&matches?sanitizeText(page.text,3500):'',
+      extractedFacts:page&&matches&&Array.isArray(page.extractedFacts)?page.extractedFacts.slice(0,3):[],
     }
   }))
   // A URL being readable does not prove which company it describes.
@@ -118,7 +121,8 @@ export async function investigateProspectG1(input,{
     company.description?{source:'cadastro_origem',fact:company.description}:null,
     company.segment?{source:'cadastro_origem',fact:company.segment}:null,
     ...supported.slice(0,3).map(source=>({source:'pagina_publica_lida',
-      identity:source.identity,url:source.url,title:source.title,text:source.excerpt})),
+      identity:source.identity,url:source.url,title:source.title,text:source.excerpt,
+       extractedFacts:source.extractedFacts||[]})),
   ].filter(Boolean)
   if(!available.length){
     const detail=searchStatus==='unavailable'

@@ -12,6 +12,7 @@ on:
       - 'runtime-host/RealTalent-Agent-Runtime-V3.1.2/crm-web-reader-v60-dns.test.mjs'
       - '.github/workflows/garimpo-g50-qa.yml'
       - 'src/services/prospecting-g53-evidence*'
+      - 'src/services/prospecting-g55-presentation*'
       - 'src/features/prospecting/prospecting-g1g2-panel.tsx'
       - 'src/styles/prospecting-workspace.css'
 jobs:
@@ -54,6 +55,6 @@ jobs:
       - name: Install dependencies
         run: npm ci
       - name: G5.4 source grouping regression tests
-        run: npx vitest run src/services/prospecting-g53-evidence.test.ts
+        run: npx vitest run src/services/prospecting-g53-evidence.test.ts src/services/prospecting-g55-presentation.test.ts
       - name: TypeScript typecheck
         run: npm run typecheck

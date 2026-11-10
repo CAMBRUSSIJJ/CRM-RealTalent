@@ -860,7 +860,7 @@ const routerServer = http.createServer((req, res) => {
   }
   if (req.method === 'GET' && String(req.url || '').split('?')[0] === '/tools/prospect-investigate/status') {
     sendJson(res,200,{ok:true,feature:'company-research-v1',provider:'local-garimpo',publicSources:true,
-      openSourceReader:'g50',investigationReaderBuild:'g51-identity-diagnostics',
+      openSourceReader:'g50',investigationReaderBuild:'g52-dns-content-cleanup',
       openSourceEnabled:process.env.REALTALENT_GARIMPO_OPEN_SOURCE==='1',
       scrapegraphEnabled:process.env.REALTALENT_GARIMPO_SCRAPEGRAPH==='1'}); return
   }

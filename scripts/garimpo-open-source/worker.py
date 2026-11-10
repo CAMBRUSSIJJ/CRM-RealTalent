@@ -24,8 +24,11 @@ ALLOWED = frozenset(("html", "head", "title", "body", "main", "article", "sectio
                      "div", "span", "p", "br", "h1", "h2", "h3", "h4", "h5", "h6",
                      "ul", "ol", "li", "table", "thead", "tbody", "tr", "td", "th",
                      "blockquote", "strong", "em", "b", "i", "a", "time"))
+# Navigation chrome is not evidence. Drop both the element and its text,
+# so Qwen receives news, article and page content ahead of menus and footers.
 BLOCKED = frozenset(("script", "style", "svg", "iframe", "object", "embed", "form",
-                     "noscript", "template"))
+                     "noscript", "template", "nav", "header", "footer", "aside",
+                     "button", "select", "option"))
 VOID = frozenset(("br",))
 
 class OfflineHTML(HTMLParser):

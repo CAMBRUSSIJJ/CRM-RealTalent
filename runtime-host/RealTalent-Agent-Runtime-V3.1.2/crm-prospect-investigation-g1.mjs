@@ -111,7 +111,7 @@ const boundedSources=results=>results.slice(0,6).map(item=>({
   title:item.title,url:item.url,reading:item.reading,identity:item.identity,
   excerpt:item.reading==='page'&&item.identity!=='unconfirmed'?item.excerpt:'',origin:item.origin,
   extractedFacts:item.reading==='page'&&item.identity!=='unconfirmed'?item.extractedFacts||[]:[],
-  engine:item.engine||'legacy',
+  engine:item.engine||'legacy',sourceKind:item.sourceKind||'website',
   readError:item.readError||null,
 }))
 export async function investigateProspectG1(input,{
@@ -131,32 +131,48 @@ export async function investigateProspectG1(input,{
   }
   const candidates=[]
   if(company.website)candidates.push({url:company.website,title:'Website informado no cadastro',snippet:'',
-    origin:'cadastro'})
+    origin:'cadastro',sourceKind:publicBusinessSourceKindG56(company.website)})
+  if(company.publicSourceUrl&&company.publicSourceUrl!==company.website)
+    candidates.push({url:company.publicSourceUrl,title:'Fonte pública informada manualmente',snippet:'',
+      origin:'manual',sourceKind:publicBusinessSourceKindG56(company.publicSourceUrl)})
   for(const item of searchResults.slice(0,8)){
     const source=sourceFromResult(item,item.origin||'pesquisa')
     if(source)candidates.push(source)
   }
   const seen=new Set()
-  const unique=candidates.filter(source=>{
-    if(seen.has(source.url))return false
+  const eligible=candidates.filter(source=>{
+    if(seen.has(source.url)||source.sourceKind==='social_post')return false
     seen.add(source.url)
-    // Search hits must match the company; registered websites can be checked independently.
-    return source.origin==='cadastro'||companyMatch(company.company,source.title+' '+source.snippet)
-  }).slice(0,4)
+    // A manual URL is a lead for verification, never automatic proof.
+    return source.origin==='cadastro'||source.origin==='manual'||
+      companyMatch(company.company,source.title+' '+source.snippet)||
+      businessNameMatchG56(company.company,source.title+' '+source.snippet,company.city)
+  })
+  const websites=rankBusinessSourcesG56(eligible.filter(source=>source.sourceKind==='website'),company.city)
+  const registered=websites.filter(source=>source.origin==='cadastro'||source.origin==='manual')
+  const discovered=websites.filter(source=>source.origin!=='cadastro'&&source.origin!=='manual')
+  const publicProfiles=eligible.filter(source=>source.sourceKind==='social_profile').slice(0,3)
+  // Website evidence is favored. Public social profiles are candidates for
+  // human review, not pages that we try to access through a login wall.
+  const unique=[...registered,...discovered].slice(0,4).concat(publicProfiles)
   const sources=await Promise.all(unique.map(async source=>{
     let page=null,readError=null
-    try{
+    if(source.sourceKind==='social_profile'){
+      readError='public_profile_manual_review'
+    }else try{
       const value=await readPage(source.url)
       if(value?.ok===true&&typeof value.text==='string'&&value.text.length>180)page=value
       else readError=String(value?.error||'insufficient_content').slice(0,80)
     }catch{readError='reader_exception'}
     const sampled=page?(String(page.title||'')+' '+page.text.slice(0,2200)):
       (source.title+' '+source.snippet)
-    const matches=companyMatch(company.company,sampled)
-    const identity=matches?(sameCity(company.city,sampled)?'compatible':'partial'):'unconfirmed'
+    const matches=companyMatch(company.company,sampled)||businessNameMatchG56(company.company,sampled,company.city)
+    const identity=source.sourceKind==='social_profile'?'unconfirmed':
+      matches?(sameCity(company.city,sampled)?'compatible':'partial'):'unconfirmed'
     return {
       title:sanitizeText(page?.title||source.title,150),url:source.url,
       origin:source.origin,identity,reading:page?'page':'snippet',
+      sourceKind:source.sourceKind||'website',
       excerpt:page&&matches?sanitizeText(page.text,3500):'',
       extractedFacts:page&&matches&&Array.isArray(page.extractedFacts)?page.extractedFacts.slice(0,3):[],
       engine:page?.engine||'legacy',
@@ -164,7 +180,7 @@ export async function investigateProspectG1(input,{
     }
   }))
   // A URL being readable does not prove which company it describes.
-  const supported=sources.filter(source=>source.reading==='page'&&source.identity!=='unconfirmed')
+  const supported=sources.filter(source=>source.reading==='page'&&source.identity==='compatible')
   // Prefer independent websites over repeated homepage variants. This also keeps
   // Qwen3 8B's prompt bounded on machines with limited available RAM.
   const modelSources=[],domains=new Set()

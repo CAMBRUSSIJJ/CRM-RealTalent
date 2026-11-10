@@ -53,10 +53,23 @@ export async function searchCompanySourcesG1(company,{
 }={}){
   // SearXNG is optional; the existing local Prospecting Agent provides the default search.
   const query='"'+company.company.replace(/["\r\n]/g,' ')+'" '+company.city
+  const foundSources=[],seen=new Set()
+  const add=(items,origin)=>{
+    for(const item of Array.isArray(items)?items:[]){
+      const source=sourceFromResult(item,origin)
+      if(!source||!companyMatch(company.company,source.title+' '+source.snippet)||seen.has(source.url))continue
+      seen.add(source.url)
+      foundSources.push(source)
+      if(foundSources.length>=8)break
+    }
+  }
   try{
     const found=await searxSearch(query,{queryMode:'public'})
-    if(Array.isArray(found)&&found.length)return found.map(item=>sourceFromResult(item,'searxng')).filter(Boolean)
-  }catch{/* fall through to local Garimpo */}
+    // An unrelated result is not a successful business discovery.
+    // Keep eligible hits and continue to the existing local Garimpo if sparse.
+    add(found,'searxng')
+  }catch{/* the local Garimpo remains available */}
+  if(foundSources.length>=4)return foundSources
   const ctrl=new AbortController(),timer=setTimeout(()=>ctrl.abort(),30000)
   try{
     const response=await fetcher(agentUrl+'/api/prospecting-agent/company/research',{
@@ -66,7 +79,11 @@ export async function searchCompanySourcesG1(company,{
     if(!response.ok)throw Error('garimpo_search_http_'+response.status)
     const data=await response.json()
     if(data?.ok!==true||!Array.isArray(data.results))throw Error('garimpo_search_unavailable')
-    return data.results.map(item=>sourceFromResult(item,'garimpo')).filter(Boolean)
+    add(data.results,'garimpo')
+    return foundSources
+  }catch(error){
+    if(foundSources.length)return foundSources
+    throw error
   }finally{clearTimeout(timer)}
 }
 const fallback=(message,sources,searchStatus,caveats=[])=>({
@@ -148,6 +165,26 @@ export async function investigateProspectG1(input,{
       identity:source.identity,url:source.url,title:source.title,
       text:source.excerpt.slice(0,2100),extractedFacts:(source.extractedFacts||[]).slice(0,2)})),
   ].filter(Boolean)
+  // No public evidence means we cannot infer services, demand, purchases,
+  // or opportunities from a category such as "barbearia".
+  if(!modelSources.length){
+    const detail=searchStatus==='unavailable'
+      ?'A pesquisa pública não respondeu nesta tentativa.'
+      :searchStatus==='no_results'
+        ?'Não foram encontrados links públicos vinculáveis ao nome pesquisado.'
+        :unique.length
+          ?'Os links encontrados não puderam ser lidos ou associados com segurança à empresa.'
+          :'Nenhum resultado pesquisado apresentou identidade empresarial suficiente.'
+    return {
+      ok:true,summary:'Não foi possível confirmar informações públicas sobre '+company.company+'. O cadastro, isoladamente, não permite identificar necessidades ou oportunidades comerciais.',
+      hypotheses:[],questions:[],approach:'',
+      caveats:[detail,'Confira um site ou perfil público oficial da empresa e repita a investigação.'],
+      pageRead:false,readUrl:null,readTitle:null,quality:'insufficient',
+      sources:boundedSources(sources),searchStatus,candidateEvents:[],
+      modelStatus:'skipped_no_public_evidence',modelEvidenceCount:0,
+      searchDiagnostics:{resultsReturned:searchResults.length,eligibleUrls:unique.length,verifiedPages:0},
+    }
+  }
   if(!available.length){
     const detail=searchStatus==='unavailable'
       ?'O serviço de pesquisa pública não respondeu.'

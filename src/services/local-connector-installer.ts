@@ -58,6 +58,7 @@ export function buildGarimpoLinuxInstaller(environment: string): string {
 // The base64 wrapper does not encrypt the workspace token: keep it private.
 export function buildGarimpoLinuxCommand(environment: string): string {
   const installer = buildGarimpoLinuxInstaller(environment)
-  const payload = btoa(installer)
+  const utf8 = new TextEncoder().encode(installer)
+  const payload = btoa(Array.from(utf8, (byte) => String.fromCharCode(byte)).join(''))
   return `bash -c "$(printf '%s' '${payload}' | base64 --decode)"`
 }

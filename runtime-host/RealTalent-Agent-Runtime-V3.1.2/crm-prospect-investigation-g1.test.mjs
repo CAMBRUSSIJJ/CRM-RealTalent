@@ -413,3 +413,96 @@ test('G5.5: SearXNG public candidate remains valid when local search is unavaila
   assert.equal(sources.length,1)
   assert.equal(sources[0].origin,'searxng')
 })
+
+
+test('G5.6: local discovery uses canonical small-business name, not directory SEO label',async()=>{
+  const sent=[]
+  const sources=await searchCompanySourcesG1({
+    company:'Lelo Barbershop Barbearia em Rio Grande',city:'Rio Grande, RS'
+  },{
+    searxSearch:async query=>{
+      sent.push(query)
+      return [{title:'Lelo Barbearia Rio Grande',url:'https://www.instagram.com/lelocortes/',snippet:'Lelo barbearia em Rio Grande'}]
+    },
+    fetcher:async(_url,init)=>{
+      const req=JSON.parse(init.body)
+      assert.deepEqual(req,{company:'Lelo Barbershop',city:'Rio Grande, RS'})
+      return {ok:true,json:async()=>({ok:true,results:[
+        {title:'Lelo Barbershop Rio Grande',url:'https://lelocortes.example.org/',snippet:'Barbearia em Rio Grande'},
+        {title:'Barbearia de Lucas',url:'https://lucas.example.org/',snippet:'Rio Grande'}
+      ]})}
+    },
+  })
+  assert.ok(sent.some(q=>q.includes('site:instagram.com')))
+  assert.ok(sources.some(s=>s.url==='https://lelocortes.example.org/'))
+  assert.ok(sources.some(s=>s.url==='https://www.instagram.com/lelocortes/'))
+  assert.equal(sources[0].sourceKind,'website')
+  assert.equal(sources.filter(s=>s.url.includes('lucas.example.org')).length,0)
+})
+
+test('G5.6: a social profile suggestion is not fetched and cannot become model evidence',async()=>{
+  let crawled=0,modelCalls=0
+  const result=await investigateProspectG1({
+    company:'Lelo Barbershop Barbearia em Rio Grande',city:'Rio Grande, RS',segment:'Barbearia',
+  },{
+    searcher:async()=>[{url:'https://www.instagram.com/lelocortes/',title:'Lelo Barbershop Rio Grande',
+      snippet:'Barbearia Lelo Rio Grande'}],
+    readPage:async()=>{crawled++;throw Error('Social media must not be scraped as verified page')},
+    fetcher:async()=>{modelCalls++;return qwen()},
+  })
+  assert.equal(crawled,0)
+  assert.equal(modelCalls,0)
+  assert.equal(result.pageRead,false)
+  assert.equal(result.modelStatus,'skipped_no_public_evidence')
+  assert.equal(result.searchDiagnostics.socialProfiles,1)
+  assert.equal(result.sources[0].sourceKind,'social_profile')
+  assert.equal(result.sources[0].identity,'unconfirmed')
+  assert.equal(result.sources[0].readError,'public_profile_manual_review')
+  assert.equal(result.sources[0].excerpt,'')
+  assert.deepEqual(result.candidateEvents,[])
+})
+
+test('G5.6: manually supplied public website is re-checked before Qwen receives it',async()=>{
+  let analyzed=0
+  const result=await investigateProspectG1({
+    company:'Lelo Barbershop Barbearia em Rio Grande',city:'Rio Grande, RS',
+    publicSourceUrl:'https://lelocortes.example.org/sobre',
+  },{
+    searcher:async()=>[],
+    readPage:async url=>{
+      assert.equal(url,'https://lelocortes.example.org/sobre')
+      return {ok:true,engine:'crawl4ai',title:'Lelo Barbearia Rio Grande',
+        text:'A Lelo Barbearia está localizada em Rio Grande e apresenta seus serviços publicamente. '.repeat(8)}
+    },
+    fetcher:async()=>{analyzed++;return qwen()},
+  })
+  assert.equal(analyzed,1)
+  assert.equal(result.pageRead,true)
+  assert.equal(result.quality,'page_reviewed')
+  assert.equal(result.sources[0].origin,'manual')
+  assert.equal(result.sources[0].engine,'crawl4ai')
+  assert.equal(result.modelEvidenceCount,1)
+})
+
+test('G5.6: a manual social URL stays an unverified lead without Qwen',async()=>{
+  const result=await investigateProspectG1({
+    company:'Barbearia Matheus',city:'Rio Grande, RS',
+    publicSourceUrl:'https://www.instagram.com/matheusbarbearia/',
+  },{
+    searcher:async()=>[],
+    readPage:async()=>{throw Error('social read not allowed')},
+    fetcher:async()=>{throw Error('model requires public verification')},
+  })
+  assert.equal(result.pageRead,false)
+  assert.equal(result.sources[0].sourceKind,'social_profile')
+  assert.equal(result.modelStatus,'skipped_no_public_evidence')
+  assert.equal(result.modelEvidenceCount,0)
+})
+
+test('G5.6: private manual input cannot enter candidate reading',async()=>{
+  const parsed=sanitizeProspectForInvestigation({
+    company:'Barbearia Matheus',city:'Rio Grande',
+    publicSourceUrl:'http://127.0.0.1:8791/tools/health'
+  })
+  assert.equal(parsed.publicSourceUrl,null)
+})

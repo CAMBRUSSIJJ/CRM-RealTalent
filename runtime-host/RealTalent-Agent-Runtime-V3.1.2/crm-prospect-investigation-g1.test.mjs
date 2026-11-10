@@ -139,8 +139,12 @@ test('description-only analysis is explicitly marked as not externally confirmed
     fetcher:qwen,
   })
   assert.equal(result.pageRead,false)
-  assert.equal(result.quality,'origin_only')
-  assert.ok(result.caveats.some(x=>x.includes('Nenhuma página pública compatível')))
+  assert.equal(result.quality,'insufficient')
+  assert.equal(result.modelStatus,'skipped_no_public_evidence')
+  assert.deepEqual(result.hypotheses,[])
+  assert.deepEqual(result.questions,[])
+  assert.deepEqual(result.candidateEvents,[])
+  assert.ok(result.caveats.some(x=>x.includes('site ou perfil público oficial')))
 })
 
 test('private URLs from public search results are blocked before reading',async()=>{
@@ -291,4 +295,95 @@ test('G5: model timeout reports timeout without discarding read pages',async()=>
   assert.equal(result.modelStatus,'ollama_timeout')
   assert.equal(result.pageRead,true)
   assert.equal(result.candidateEvents.length,0)
+})
+
+
+test('G5.5: irrelevant SearXNG hits cannot suppress eligible Garimpo search hits',async()=>{
+  let localCalls=0
+  const sources=await searchCompanySourcesG1({
+    company:'Barbearia Matheus',city:'Rio Grande, RS'
+  },{
+    searxSearch:async()=>[
+      {url:'https://unrelated.example.org',title:'Barbearia Lucas',snippet:'Corte de cabelo'},
+      {url:'http://not-secure.example.org',title:'Barbearia Matheus',snippet:'Rio Grande'}
+    ],
+    fetcher:async(_url,init)=>{
+      localCalls++
+      assert.deepEqual(JSON.parse(init.body),{company:'Barbearia Matheus',city:'Rio Grande, RS'})
+      return {ok:true,json:async()=>({ok:true,results:[
+        {url:'https://matheus.example.org',title:'Barbearia Matheus em Rio Grande',snippet:'Atendimento local'},
+      ]})}
+    },
+  })
+  assert.equal(localCalls,1)
+  assert.equal(sources.length,1)
+  assert.equal(sources[0].url,'https://matheus.example.org/')
+  assert.equal(sources[0].origin,'garimpo')
+})
+
+test('G5.5: search results with no eligible company identity return no sources',async()=>{
+  const sources=await searchCompanySourcesG1({company:'Barbearia Matheus',city:'Rio Grande'},{
+    searxSearch:async()=>[
+      {url:'https://unrelated.example.org',title:'Barbearia Aurora',snippet:'Profissionais da região'},
+    ],
+    fetcher:async()=>({ok:true,json:async()=>({ok:true,results:[
+      {url:'https://other.example.org',title:'Barbearia Lucas',snippet:'Rio Grande'}
+    ]})}),
+  })
+  assert.deepEqual(sources,[])
+})
+
+test('G5.5: category-only investigation does not call Ollama or generate generic business hypotheses',async()=>{
+  let called=0
+  const result=await investigateProspectG1({
+    company:'Barbearia Matheus',city:'Rio Grande, RS',segment:'Barbearia',
+    description:'Estabelecimento do segmento de estética masculina.'
+  },{
+    searcher:async()=>[],
+    fetcher:async()=>{called++;throw new Error('Ollama must not run without public evidence')},
+  })
+  assert.equal(called,0)
+  assert.equal(result.ok,true)
+  assert.equal(result.modelStatus,'skipped_no_public_evidence')
+  assert.equal(result.quality,'insufficient')
+  assert.equal(result.pageRead,false)
+  assert.equal(result.modelEvidenceCount,0)
+  assert.equal(result.searchDiagnostics.resultsReturned,0)
+  assert.deepEqual(result.hypotheses,[])
+  assert.deepEqual(result.questions,[])
+  assert.deepEqual(result.candidateEvents,[])
+  assert.ok(result.summary.includes('não permite identificar necessidades'))
+})
+
+test('G5.5: inaccessible candidate link preserves diagnostics without using registry-only AI',async()=>{
+  let called=0
+  const result=await investigateProspectG1({
+    company:'Barbearia Matheus',city:'Rio Grande, RS',segment:'Barbearia'
+  },{
+    searcher:async()=>[{url:'https://matheus.example.org',title:'Barbearia Matheus',snippet:'Rio Grande'}],
+    readPage:async()=>({ok:false,error:'page_timeout'}),
+    fetcher:async()=>{called++;return qwen()},
+  })
+  assert.equal(called,0)
+  assert.equal(result.modelStatus,'skipped_no_public_evidence')
+  assert.equal(result.pageRead,false)
+  assert.equal(result.searchDiagnostics.eligibleUrls,1)
+  assert.equal(result.sources[0].readError,'page_timeout')
+  assert.ok(result.caveats.some(x=>x.includes('não puderam ser lidos')))
+})
+
+test('G5.5: valid public source still allows verified analysis',async()=>{
+  let called=0
+  const result=await investigateProspectG1({
+    company:'Barbearia Matheus',city:'Rio Grande',segment:'Barbearia'
+  },{
+    searcher:async()=>[{url:'https://matheus.example.org',title:'Barbearia Matheus Rio Grande',snippet:'Atendimento'}],
+    readPage:async()=>({ok:true,engine:'crawl4ai',url:'https://matheus.example.org/',
+      title:'Barbearia Matheus Rio Grande',text:'A Barbearia Matheus anunciou reforma do espaço em Rio Grande. '.repeat(8)}),
+    fetcher:async()=>{called++;return qwen()},
+  })
+  assert.equal(called,1)
+  assert.equal(result.pageRead,true)
+  assert.equal(result.quality,'page_reviewed')
+  assert.equal(result.modelStatus,'completed')
 })

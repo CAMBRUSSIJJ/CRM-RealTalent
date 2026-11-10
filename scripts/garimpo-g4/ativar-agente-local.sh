@@ -19,6 +19,17 @@ probe_release(){
 }
 RESULT="$(probe)"
 if [[ "$RESULT" == *'"invalid_source_or_excerpt"'* ]] && probe_release; then
+  if [[ "${REALTALENT_GARIMPO_OPEN_SOURCE:-0}" == "1" ]]; then
+    current_pid="$(ss -H -ltnp '( sport = :8791 )' | sed -n 's/.*pid=\([0-9]\+\).*/\1/p' | head -n 1)"
+    current_dir="$(readlink -f "/proc/${current_pid:-0}/cwd" 2>/dev/null || true)"
+    required_dir="$ROOT/runtime-host/RealTalent-Agent-Runtime-V3.1.2"
+    if [[ "$current_dir" != "$required_dir" ]] ||
+       ! tr '\0' '\n' <"/proc/${current_pid:-0}/environ" 2>/dev/null | grep -qx 'REALTALENT_GARIMPO_OPEN_SOURCE=1'; then
+      echo "AVISO: Agent na porta 8791 já está ativo sem a integração G5 deste checkout."
+      echo "Preservei o processo. Encerre apenas o Agent anterior identificado e inicie novamente a prévia G5."
+      exit 8
+    fi
+  fi
   echo "✓ Agent G4.4 pronto com pesquisa pública na porta 8791."
   exit 0
 fi

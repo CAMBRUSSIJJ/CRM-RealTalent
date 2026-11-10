@@ -21,6 +21,8 @@ echo "Configurando Chromium do Playwright (download pode ser grande)..."
 "$VENV/bin/python" -m playwright install chromium
 echo "Conferindo módulos..."
 "$VENV/bin/python" "$ROOT/scripts/garimpo-open-source/worker.py" --health
+echo "Executando teste offline real do Crawl4AI..."
+"$VENV/bin/python" "$ROOT/scripts/garimpo-open-source/smoke.py"
 echo
 echo "✓ Dependências instaladas sem modificar Node, WAHA, banco ou Production."
 echo "Ative APÓS reiniciar o Agent local deste checkout:"

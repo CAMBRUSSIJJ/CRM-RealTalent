@@ -11,6 +11,9 @@ on:
       - 'runtime-host/RealTalent-Agent-Runtime-V3.1.2/crm-web-reader-v60.mjs'
       - 'runtime-host/RealTalent-Agent-Runtime-V3.1.2/crm-web-reader-v60-dns.test.mjs'
       - '.github/workflows/garimpo-g50-qa.yml'
+      - 'src/services/prospecting-g53-evidence*'
+      - 'src/features/prospecting/prospecting-g1g2-panel.tsx'
+      - 'src/styles/prospecting-workspace.css'
 jobs:
   offline-contract:
     runs-on: ubuntu-latest
@@ -36,3 +39,19 @@ jobs:
           python3 -m unittest scripts/garimpo-open-source/test_worker.py
           python3 scripts/garimpo-open-source/worker.py --health
           bash -n scripts/garimpo-open-source/instalar-linux.sh
+
+  frontend-contract:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - name: Install dependencies
+        run: npm ci
+      - name: G5.4 source grouping regression tests
+        run: npx vitest run src/services/prospecting-g53-evidence.test.ts
+      - name: TypeScript typecheck
+        run: npm run typecheck

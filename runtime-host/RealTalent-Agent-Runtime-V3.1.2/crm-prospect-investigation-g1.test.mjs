@@ -207,7 +207,7 @@ test('G5: when public page fails, preserve useful read error in source diagnosti
 
 
 test('G5: model receives at most two independent sites and short excerpts',async()=>{
-  let evidence=[],options={}
+  let evidence=[],options={},prompt=''
   const page=(name,url)=>({ok:true,url,title:'Barbearia Aurora Rio Grande',
     text:('Barbearia Aurora Rio Grande '+name+' divulgou informações públicas sobre a equipe e atendimento. ').repeat(70)})
   const result=await investigateProspectG1({
@@ -221,7 +221,10 @@ test('G5: model receives at most two independent sites and short excerpts',async
     readPage:async url=>page(url,url),
     fetcher:async(_url,init)=>{
       const payload=JSON.parse(init.body)
-      evidence=JSON.parse(payload.messages[1].content).evidence
+      const context=JSON.parse(payload.messages[1].content)
+      evidence=context.evidence
+      assert.equal(context.verifiedPublicPages,2)
+      prompt=payload.messages[0].content
       options=payload.options
       return qwen(_url,init)
     },
@@ -234,6 +237,8 @@ test('G5: model receives at most two independent sites and short excerpts',async
   assert.equal(options.num_ctx,5500)
   assert.equal(result.modelStatus,'completed')
   assert.equal(result.modelEvidenceCount,2)
+  assert.ok(prompt.includes('fatos específicos'))
+  assert.ok(prompt.includes('fonte externa'))
   assert.equal(result.pageRead,true)
 })
 

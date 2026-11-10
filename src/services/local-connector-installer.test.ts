@@ -3,7 +3,7 @@ import { spawnSync } from 'node:child_process'
 import { mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
-import { buildGarimpoLinuxInstaller } from './local-connector-installer'
+import { buildGarimpoLinuxCommand, buildGarimpoLinuxInstaller } from './local-connector-installer'
 
 const config = [
   'SUPABASE_URL=https://example.supabase.co',
@@ -41,4 +41,19 @@ test('Linux: script gerado passa no parser bash sem executar a instalação', ()
     const result = spawnSync('bash', ['-n', filename], { encoding: 'utf8' })
     expect(result.status, result.stderr).toBe(0)
   } finally { rmSync(dir, { recursive: true, force: true }) }
+})
+
+test('Linux: comando de copiar não depende de arquivo e tem sintaxe válida', () => {
+  const command = buildGarimpoLinuxCommand(config)
+  expect(command.startsWith('bash -c "$(printf')).toBe(true)
+  expect(command).not.toContain('GARIMPO_CONNECTOR_TOKEN=')
+  expect(command).not.toContain('a'.repeat(64))
+  const payload = command.match(/^bash -c "\$\(printf '%s' '([A-Za-z0-9+/=]+)' \| base64 --decode\)"$/)?.[1]
+  expect(payload).toBeTruthy()
+  const decoded = Buffer.from(payload!, 'base64').toString('utf8')
+  expect(decoded).toContain('exec bash "$CONNECTOR/CONFIGURAR-LINUX.sh" "$CONFIG"')
+  if (process.platform !== 'win32') {
+    const parsed = spawnSync('bash', ['-n'], { input: decoded, encoding: 'utf8' })
+    expect(parsed.status, parsed.stderr).toBe(0)
+  }
 })

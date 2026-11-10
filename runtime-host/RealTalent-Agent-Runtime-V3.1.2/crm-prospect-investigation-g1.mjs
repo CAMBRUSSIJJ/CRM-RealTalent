@@ -18,7 +18,16 @@ const companyMatch=(name,content)=>{
   const words=companyTokens(name)
   if(!words.length)return false
   const hay=' '+normalize(content)+' '
-  if(words.every(word=>hay.includes(' '+word+' ')))return true
+  if(words.every(word=>hay.includes(' '+word+' '))){
+    // A single distinctive token like "Matheus" cannot identify a generic
+    // business without its category ("Barbearia Matheus"). Require one more
+    // observed business-name token before treating a page as company evidence.
+    const tokens=normalize(name).split(' ').filter(word=>word.length>=3)
+    const category=tokens.filter(word=>commonNames.has(word))
+    if(words.length===1&&category.length&&
+      !category.some(word=>hay.includes(' '+word+' ')))return false
+    return true
+  }
   // Some official registrations append an acronym to the legal name:
   // "Universidade Federal do Rio Grande FURG". A page that spells out
   // the COMPLETE legal name is a stronger match than a generic acronym.

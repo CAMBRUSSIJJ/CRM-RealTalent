@@ -7,6 +7,9 @@ services:
     environment:
       CRAWL_CONCURRENT_REQUESTS: "1"
       BROWSER_POOL_SIZE: "1"
+      # This Firecrawl revision starts 5 NuQ Node.js processes by default.
+      # One is enough for the single-page economic mode (saves hundreds of MiB).
+      NUQ_WORKER_COUNT: "1"
   playwright-service:
     cpus: 1.0
     mem_limit: 768m

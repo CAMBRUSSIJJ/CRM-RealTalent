@@ -61,6 +61,11 @@ export async function pinnedHttpsV60(url,{resolve=dnsLookup,request=httpsGet}={}
         Promise.resolve(resolve(host,{all:true,verbatim:true})).then(addresses=>{
           const allowed=(Array.isArray(addresses)?addresses:[]).find(item=>isPublicIpV60(item.address))
           if(!allowed)return callback(new Error('private_address_blocked'))
+          // Node 22's autoSelectFamily requests lookup({all:true}), which
+          // requires an array of {address,family}. Returning a string here
+          // makes net.connect report "Invalid IP address: undefined".
+          // Keep only the previously validated public IP in either mode.
+          if(opts?.all)return callback(null,[{address:allowed.address,family:allowed.family}])
           callback(null,allowed.address,allowed.family)
         }).catch(callback)
       }

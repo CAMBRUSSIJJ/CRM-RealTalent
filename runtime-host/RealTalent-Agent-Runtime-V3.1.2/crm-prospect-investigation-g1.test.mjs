@@ -506,3 +506,29 @@ test('G5.6: private manual input cannot enter candidate reading',async()=>{
   })
   assert.equal(parsed.publicSourceUrl,null)
 })
+
+
+test('G5.6: Lelo public Instagram URL is returned as an unverified review link',async()=>{
+  let readCalls=0,modelCalls=0
+  const url='https://www.instagram.com/lelo.barbershop/'
+  const result=await investigateProspectG1({
+    company:'Lelo Barbershop Barbearia em Rio Grande',
+    city:'Rio Grande, RS',
+    publicSourceUrl:url,
+  },{
+    searcher:async()=>[],
+    readPage:async()=>{readCalls++;throw Error('Do not read Instagram')},
+    fetcher:async()=>{modelCalls++;throw Error('Do not infer from Instagram link alone')},
+  })
+  assert.equal(readCalls,0)
+  assert.equal(modelCalls,0)
+  assert.equal(result.pageRead,false)
+  assert.equal(result.modelStatus,'skipped_no_public_evidence')
+  assert.equal(result.searchDiagnostics.socialProfiles,1)
+  assert.equal(result.sources.length,1)
+  assert.equal(result.sources[0].url,url)
+  assert.equal(result.sources[0].sourceKind,'social_profile')
+  assert.equal(result.sources[0].readError,'public_profile_manual_review')
+  assert.deepEqual(result.hypotheses,[])
+  assert.deepEqual(result.candidateEvents,[])
+})

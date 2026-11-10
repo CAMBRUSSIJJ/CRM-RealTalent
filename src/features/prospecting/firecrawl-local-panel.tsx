@@ -71,7 +71,7 @@ export function FirecrawlLocalPanel({ workspaceId, readOnly, canConfigure, segme
       <label><span>Segmento</span><input value={segment} disabled={readOnly || busy} onChange={(event) => onSegment?.(event.target.value)} placeholder="Ex.: Barbearias" /></label>
       <label><span>Cidade ou região</span><input value={city} disabled={readOnly || busy} onChange={(event) => onCity?.(event.target.value)} placeholder="Ex.: Canoas, RS" /></label>
       <label className="is-wide"><span>Perfil e critérios adicionais</span><textarea value={query} disabled={readOnly || busy} maxLength={1000} onChange={(event) => setQuery(event.target.value)} placeholder="Ex.: priorizar telefone comercial, site e link de agendamento." /></label>
-      <label><span>Limite por pesquisa</span><select value={limit} disabled={readOnly || busy} onChange={(event) => setLimit(Number(event.target.value))}><option value={5}>5 empresas</option><option value={10}>10 empresas</option></select></label>
+      <label><span>Limite por pesquisa</span><select value={limit} disabled={readOnly || busy} onChange={(event) => setLimit(Number(event.target.value))}><option value={1}>1 empresa — teste inicial</option><option value={3}>3 empresas</option><option value={5}>5 empresas</option><option value={10}>10 empresas</option></select></label>
     </div> : null}
     <p className="firecrawl-local-panel__hint">Empresa, telefone, e-mail, localização, CNPJ, site, Instagram e WhatsApp publicado, quando encontrados. Os dados acompanham fontes; oportunidades e abordagens são sugestões da IA.</p>
     {error ? <p className="firecrawl-local-panel__error" role="alert">{error}</p> : null}

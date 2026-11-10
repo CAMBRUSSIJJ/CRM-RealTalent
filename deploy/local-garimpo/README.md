@@ -15,6 +15,10 @@ bash CONFIGURAR-LINUX.sh
 
 O configurador verifica Docker e Ollama, mostra os modelos instalados para você escolher, instala as dependências e prepara o Firecrawl oficial com SearXNG. Os arquivos privados recebem permissão 600 e os serviços de coleta ficam no próprio computador. A primeira compilação pode levar alguns minutos. Depois, mantenha a janela do conector aberta, confira **Linux conectado** no CRM e use **Buscar leads com Firecrawl**.
 
+Em computadores com até 10 GiB de RAM, o configurador ativa o perfil econômico: modelos menores aparecem primeiro, as imagens são compiladas uma por vez e o coletor visita uma página por vez. O contexto da IA é reduzido preservando identidade e linhas de contato; o modelo local usado pelo conector é liberado ao terminar cada pesquisa. Outros modelos e serviços existentes não são interrompidos. As opções ficam registradas como `GARIMPO_MEMORY_PROFILE=low` e `GARIMPO_OLLAMA_RELEASE=true` no arquivo privado.
+
+Nesse perfil, libere pelo menos **2,5 GiB de memória disponível** antes da primeira compilação. Confira com `free -h`; swap não substitui essa verificação. Se houver menos memória, o configurador para antes de iniciar a instalação. Esse mínimo permite começar a preparação, mas não garante que todo modelo ou site caiba na máquina. Para a primeira pesquisa, escolha **1 empresa — teste inicial**. Na configuração com modelos de 8B, 4B e 3B, comece pelo modelo de 3B já instalado.
+
 Se `garimpo.env` estiver em outra pasta, informe o caminho: `bash CONFIGURAR-LINUX.sh /caminho/garimpo.env`. Para verificar Docker e Ollama sem instalar nem alterar arquivos, execute `bash CONFIGURAR-LINUX.sh --check`. Nenhum modelo é baixado automaticamente; escolha um modelo já instalado que suporte saída estruturada JSON Schema.
 
 Se quiser preparar os componentes manualmente, siga as etapas abaixo.

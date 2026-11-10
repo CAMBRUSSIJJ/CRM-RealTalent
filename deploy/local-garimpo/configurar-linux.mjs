@@ -6,6 +6,7 @@ import os from 'node:os'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { createInterface } from 'node:readline/promises'
+import { availableMemory, hardwareProfile, GiB } from './hardware-profile.mjs'
 
 const directory = path.dirname(fileURLToPath(import.meta.url))
 const revision = '603d3ec4a7f7ef7e0b1c3e5c8ec5a514bca8e1b7'
@@ -22,6 +23,7 @@ async function main() {
   if (process.platform !== 'linux') throw new Error('Este configurador é para Linux. Use o guia correspondente ao seu sistema.')
   if (major < 22 || (major === 22 && minor < 18)) throw new Error('É necessário Node.js 22.18 ou superior.')
   const memoryGb = Math.round(os.totalmem() / 1024 ** 3)
+  const memoryAvailable = availableMemory(await readFile('/proc/meminfo', 'utf8'))
   console.log(`Node ${process.versions.node} · ${memoryGb} GB de memória`)
   const compose = command('docker', ['compose', 'version', '--short'])
   const versions = compose.replace(/^v/, '').split('.').map(Number)
@@ -29,14 +31,19 @@ async function main() {
   command('docker', ['info', '--format', '{{.ServerVersion}}'])
   console.log(`Docker e Compose ${compose} disponíveis.`)
   let models = []
+  let profile
   try {
     const response = await fetch('http://127.0.0.1:11434/api/tags', { signal: AbortSignal.timeout(5000) })
     if (!response.ok) throw new Error('ollama')
     const data = await response.json()
-    models = (data.models || []).map((model) => model.name || model.model).filter((name) => typeof name === 'string' && /^[a-z0-9][a-z0-9:._/\-]{0,199}$/i.test(name))
+    profile = hardwareProfile(os.totalmem(), data.models || [])
+    models = profile.models
   } catch { throw new Error('Inicie o Ollama no Linux e execute este configurador novamente. O endereço esperado é http://127.0.0.1:11434.') }
   console.log(models.length ? `Modelos instalados: ${models.join(', ')}` : 'Ollama está ativo, mas não tem modelos instalados. Instale um modelo compatível com JSON Schema antes de continuar.')
+  if (profile.economy) console.log('Perfil econômico: uma página por vez, contexto reduzido e modelo menor como primeira opção.')
+  if (memoryAvailable !== null) console.log(`Memória disponível agora: ${(memoryAvailable / GiB).toFixed(1)} GiB.`)
   if (checkOnly) { console.log('Verificação concluída. Nenhum serviço ou arquivo foi alterado.'); return }
+  if (profile.economy && memoryAvailable !== null && memoryAvailable < 2.5 * GiB) throw new Error('Antes de compilar o Firecrawl, libere pelo menos 2,5 GiB de memória disponível. Confira ollama ps e docker stats para identificar o consumo. O configurador não interrompe modelos ou serviços existentes.')
   if (!models.length) throw new Error('Instale um modelo no Ollama e execute novamente. Use ollama list para conferir os modelos.')
   command('git', ['--version'])
   const suppliedConfig = process.argv.slice(2).find((value) => !value.startsWith('--'))
@@ -63,6 +70,10 @@ async function main() {
   }
   let configuration = await readFile(configFile, 'utf8')
   configuration = /^PROSPECTING_AI_MODEL=.*$/m.test(configuration) ? configuration.replace(/^PROSPECTING_AI_MODEL=.*$/m, `PROSPECTING_AI_MODEL=${model}`) : configuration + `\nPROSPECTING_AI_MODEL=${model}\n`
+  for (const [key, value] of Object.entries({ GARIMPO_MEMORY_PROFILE: profile.economy ? 'low' : 'normal', GARIMPO_OLLAMA_RELEASE: profile.economy ? 'true' : 'false' })) {
+    const pattern = new RegExp(`^${key}=.*$`, 'm')
+    configuration = pattern.test(configuration) ? configuration.replace(pattern, `${key}=${value}`) : configuration + `\n${key}=${value}\n`
+  }
   await writeFile(configFile, configuration, { mode: 0o600 })
   process.env.PROSPECTING_AI_MODEL = model
   console.log('Instalando as dependências do conector…')
@@ -81,17 +92,20 @@ async function main() {
   if (command('git', ['remote', 'get-url', 'origin'], runtime) !== officialRepository || command('git', ['rev-parse', 'HEAD'], runtime) !== revision) throw new Error('A pasta firecrawl-runtime contém outra origem ou versão. Preserve seus arquivos e escolha uma pasta nova para o conector.')
   const garimpo = path.join(runtime, 'garimpo')
   await mkdir(garimpo, { recursive: true })
-  for (const name of ['compose.override.yaml', 'searxng-settings.yml']) await copyFile(path.join(directory, name), path.join(garimpo, name))
+  for (const name of ['compose.override.yaml', 'compose.low-memory.yaml', 'searxng-settings.yml']) await copyFile(path.join(directory, name), path.join(garimpo, name))
   const runtimeEnv = path.join(runtime, '.env')
   let runtimeConfig = existsSync(runtimeEnv) ? await readFile(runtimeEnv, 'utf8') : ''
   for (const key of ['SEARXNG_SECRET', 'POSTGRES_PASSWORD']) {
     if (!new RegExp(`^${key}=.+$`, 'm').test(runtimeConfig)) runtimeConfig += `\n${key}=${randomBytes(32).toString('hex')}\n`
   }
   await writeFile(runtimeEnv, runtimeConfig, { mode: 0o600 }); await chmod(runtimeEnv, 0o600)
-  const composeArgs = ['compose', '-f', 'docker-compose.yaml', '-f', 'garimpo/compose.override.yaml']
+  const composeArgs = ['compose', '--project-name', 'realtalent-garimpo', '-f', 'docker-compose.yaml', '-f', 'garimpo/compose.override.yaml', ...(profile.economy ? ['-f', 'garimpo/compose.low-memory.yaml'] : [])]
   command('docker', [...composeArgs, 'config', '--quiet'], runtime, true)
   console.log('Iniciando o Firecrawl. A primeira compilação pode levar alguns minutos…')
-  command('docker', [...composeArgs, 'up', '-d', '--build'], runtime, true)
+  if (profile.economy) {
+    for (const service of ['nuq-postgres', 'playwright-service', 'api']) command('docker', [...composeArgs, 'build', service], runtime, true)
+    command('docker', [...composeArgs, 'up', '-d', '--no-build', 'api'], runtime, true)
+  } else command('docker', [...composeArgs, 'up', '-d', '--build', 'api'], runtime, true)
   console.log('Firecrawl iniciado. Abrindo o conector; mantenha esta janela aberta durante as pesquisas.')
   const child = spawn(process.execPath, ['bridge.mjs', configFile], { cwd: directory, stdio: 'inherit' })
   process.exitCode = await new Promise((resolve) => child.on('exit', (code) => resolve(code ?? 1)))

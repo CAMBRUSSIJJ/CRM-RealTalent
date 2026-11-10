@@ -17,7 +17,7 @@ import re
 import sys
 import tempfile
 
-MAX_INPUT = 450_000
+MAX_INPUT = 1_000_000
 MAX_HTML = 380_000
 MAX_TEXT = 6500
 ALLOWED = frozenset(("html", "head", "title", "body", "main", "article", "section",

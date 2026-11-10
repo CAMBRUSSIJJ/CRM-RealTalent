@@ -19,6 +19,7 @@ interface Investigation {
   readTitle:string|null;quality:string;
   searchStatus?:'done'|'no_results'|'unavailable';
   modelStatus?:string;modelEvidenceCount?:number;modelElapsedMs?:number;
+  searchDiagnostics?:{resultsReturned:number;eligibleUrls:number;verifiedPages:number};
   sources?:InvestigationSource[]
   candidateEvents?:TriggerCandidateG4[]
 }
@@ -90,7 +91,9 @@ export function ProspectingG1G2Panel({prospect,snapshot,readOnly}:Props){
       }
       if(!ctrl.signal.aborted){
         setResult(data)
-        setSignalNotice(readOnly
+        setSignalNotice(data.modelStatus==='skipped_no_public_evidence'
+          ?'Pesquisa concluída sem páginas públicas verificáveis. Nenhum sinal foi criado e a IA não inferiu oportunidades a partir do cadastro.'
+          :readOnly
           ?'Investigação concluída em modo de leitura. Nenhum sinal foi gravado no G4.'
           :issues.length
           ?'A análise foi concluída, mas houve falha ao sincronizar os sinais no G4: '+issues.slice(0,2).join(' · ')
@@ -163,12 +166,19 @@ export function ProspectingG1G2Panel({prospect,snapshot,readOnly}:Props){
         {result.pageRead&&safeSite(result.readUrl)?<a href={safeSite(result.readUrl)!} rel="noopener noreferrer" target="_blank"><ExternalLink size={13}/> Conferir fonte</a>:null}
       </div>
       <p>{result.summary}</p>
-      {result.modelStatus&&result.modelStatus!=='completed'
-        ?<p className="prospecting-g1g2__error" role="status">A leitura foi preservada, mas a análise local não foi concluída ({result.modelStatus}).</p>
-        :null}
+      {result.modelStatus==='skipped_no_public_evidence'
+        ?<p className="prospecting-g1g2__evidence-empty" role="status">
+          Sem evidências externas suficientes. Confira o site ou perfil oficial e atualize o cadastro antes de repetir a pesquisa.
+        </p>
+        :result.modelStatus&&result.modelStatus!=='completed'
+          ?<p className="prospecting-g1g2__error" role="status">A leitura foi preservada, mas a análise local não foi concluída ({result.modelStatus}).</p>
+          :null}
       <section className="prospecting-g1g2__public-sources">
         <strong>Pesquisa e evidências públicas</strong>
         <small>{confirmedDomains} domínio(s) com páginas compatíveis · {result.modelEvidenceCount??0} fonte(s) enviada(s) ao Qwen.</small>
+        {result.searchDiagnostics
+          ?<small>{result.searchDiagnostics.resultsReturned} resultado(s) da pesquisa · {result.searchDiagnostics.eligibleUrls} URL(s) analisadas · {result.searchDiagnostics.verifiedPages} página(s) verificadas.</small>
+          :null}
         <small>{result.searchStatus==='unavailable'
           ?'Busca indisponível. Verifique o Garimpo na porta 4319.'
           :result.searchStatus==='no_results'

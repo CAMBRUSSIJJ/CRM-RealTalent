@@ -43,7 +43,8 @@ function invokeWorker(payload,{python=process.env.REALTALENT_GARIMPO_PYTHON||DEF
       cwd:ROOT,stdio:['pipe','pipe','pipe'],
       env:{HOME:process.env.HOME||os.homedir(),PATH:process.env.PATH||'/usr/bin:/bin',
         PYTHONUNBUFFERED:'1',REALTALENT_OLLAMA_MODEL:process.env.REALTALENT_OLLAMA_MODEL||'qwen3:8b',
-        REALTALENT_GARIMPO_SCRAPEGRAPH:process.env.REALTALENT_GARIMPO_SCRAPEGRAPH||'0'},
+        REALTALENT_GARIMPO_SCRAPEGRAPH:process.env.REALTALENT_GARIMPO_SCRAPEGRAPH||'0',
+        SCRAPEGRAPHAI_TELEMETRY_ENABLED:'false'},
     })
     const finish=(error,result)=>{
       if(done)return

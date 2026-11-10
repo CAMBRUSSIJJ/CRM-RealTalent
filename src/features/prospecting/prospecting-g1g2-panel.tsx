@@ -20,7 +20,7 @@ interface Investigation {
   readTitle:string|null;quality:string;
   searchStatus?:'done'|'no_results'|'unavailable';
   modelStatus?:string;modelEvidenceCount?:number;modelElapsedMs?:number;
-  searchDiagnostics?:{resultsReturned:number;eligibleUrls:number;verifiedPages:number};
+  searchDiagnostics?:{resultsReturned:number;eligibleUrls:number;verifiedPages:number;socialProfiles?:number};
   sources?:InvestigationSource[]
   candidateEvents?:TriggerCandidateG4[]
 }
@@ -39,10 +39,11 @@ export function ProspectingG1G2Panel({prospect,snapshot,readOnly}:Props){
   const [result,setResult]=useState<Investigation|null>(null)
   const [error,setError]=useState('')
   const [signalNotice,setSignalNotice]=useState('')
+  const [publicSourceUrl,setPublicSourceUrl]=useState('')
   const abortRef=useRef<AbortController|null>(null)
   useEffect(()=>{
     abortRef.current?.abort();abortRef.current=null
-    setResult(null);setError('');setSignalNotice('');setBusy(false)
+    setResult(null);setError('');setSignalNotice('');setPublicSourceUrl('');setBusy(false)
     return ()=>{abortRef.current?.abort()}
   },[prospect.id,prospect.updatedAt])
   const run=async()=>{
@@ -60,6 +61,7 @@ export function ProspectingG1G2Panel({prospect,snapshot,readOnly}:Props){
           segment:String(prospect.rawData?.category||'').slice(0,100),
           description:prospect.description,
           website:prospect.website,
+          publicSourceUrl:publicSourceUrl.trim(),
         })
       })
       if(!response.ok)throw Error(response.status===429?'Ollama ocupado. Tente novamente.':'A investigação local não respondeu.')
@@ -161,6 +163,14 @@ export function ProspectingG1G2Panel({prospect,snapshot,readOnly}:Props){
         {busy?'Investigando…':result?'Investigar novamente':'Investigar com IA'}
       </Button>
     </div>
+    <details className="prospecting-g1g2__manual-source">
+      <summary>Informar site ou perfil público para conferir (opcional)</summary>
+      <label htmlFor="garimpo-public-source-url">URL pública da empresa</label>
+      <input id="garimpo-public-source-url" type="url" inputMode="url" value={publicSourceUrl}
+        onChange={event=>setPublicSourceUrl(event.target.value)} placeholder="https://exemplo.com.br/empresa"
+        maxLength={1100} autoComplete="off" />
+      <small>Esta URL será verificada durante a próxima investigação. Não altera o cadastro. Perfis sociais podem exigir conferência manual; resultados de busca não são evidências confirmadas.</small>
+    </details>
     {error?<p className="prospecting-g1g2__error" role="alert">{error}</p>:null}
     {signalNotice?<p className="prospecting-g1g2__signal-notice" role="status">{signalNotice}</p>:null}
     {result?<div className="prospecting-g1g2__report" aria-live="polite">
@@ -180,7 +190,7 @@ export function ProspectingG1G2Panel({prospect,snapshot,readOnly}:Props){
         <strong>Pesquisa e evidências públicas</strong>
         <small>{confirmedDomains} domínio(s) com páginas compatíveis · {result.modelEvidenceCount??0} fonte(s) enviada(s) ao Qwen.</small>
         {result.searchDiagnostics
-          ?<small>{result.searchDiagnostics.resultsReturned} resultado(s) da pesquisa · {result.searchDiagnostics.eligibleUrls} URL(s) analisadas · {result.searchDiagnostics.verifiedPages} página(s) verificadas.</small>
+          ?<small>{result.searchDiagnostics.resultsReturned} resultado(s) da pesquisa · {result.searchDiagnostics.eligibleUrls} URL(s) analisadas · {result.searchDiagnostics.verifiedPages} página(s) verificadas · {result.searchDiagnostics.socialProfiles??0} perfil(is) público(s) sugerido(s).</small>
           :null}
         <small>{result.searchStatus==='unavailable'
           ?'Busca indisponível. Verifique o Garimpo na porta 4319.'
@@ -190,7 +200,7 @@ export function ProspectingG1G2Panel({prospect,snapshot,readOnly}:Props){
         {groupedSources.length
           ?<ul>{groupedSources.map(group=><li key={group.domain}>
             <a href={safeSite(group.primary.url)||undefined} target="_blank" rel="noopener noreferrer">{group.primary.title||group.domain} <ExternalLink size={12}/></a>
-            <small>{group.domain} · {group.primary.reading==='page'?'Página lida':'Somente resultado de busca'} · {group.primary.identity==='compatible'
+            <small>{group.domain} · {group.primary.sourceKind==='social_profile'?'Perfil público sugerido (conferir manualmente)':group.primary.reading==='page'?'Página lida':'Somente resultado de busca'} · {group.primary.identity==='compatible'
               ?'Nome e cidade compatíveis':group.primary.identity==='partial'?'Nome compatível; localidade a conferir':'Identidade não confirmada'}
               {group.count>1?' · '+group.count+' URLs deste domínio':''}
               {group.primary.reading==='page'&&group.primary.engine?' · '+group.primary.engine:''}</small>

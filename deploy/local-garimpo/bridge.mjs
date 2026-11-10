@@ -79,7 +79,7 @@ async function main() {
     try { await api('heartbeat') } catch { /* Polling reports connection failures. */ }
     finally { heartbeating = false }
   }, 20_000)
-  console.log('Conector do Garimpo iniciado. Mantenha esta janela aberta e use Buscar leads com IA no CRM.')
+  console.log('Conector do Garimpo iniciado. Mantenha esta janela aberta e use Buscar leads com Firecrawl no CRM.')
   try {
     while (!stopped) {
       try {

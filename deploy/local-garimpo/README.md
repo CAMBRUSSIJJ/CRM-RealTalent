@@ -50,7 +50,7 @@ Instale o Ollama ou outro servidor compatível com OpenAI e JSON Schema. Instale
 ## 3. Conector
 
 1. Instale **Node.js 22.18 ou superior**.
-2. No CRM conectado ao Supabase, entre em **Garimpo → Busca → Gerar arquivo do conector** como administrador.
+2. No CRM conectado ao Supabase, entre em **Garimpo → Busca → Configurar ou verificar meu Linux → Gerar garimpo.env** como administrador.
 3. Salve o arquivo `garimpo.env` nesta pasta, junto de `bridge.mjs`. Ele autoriza somente este workspace; não compartilhe o arquivo.
 4. Abra `garimpo.env` em um editor e preencha `PROSPECTING_AI_MODEL` com o nome exato do modelo instalado. Os endereços padrão já apontam para o computador.
 5. No Windows, abra `INICIAR-WINDOWS.cmd`. No macOS/Linux, execute nesta pasta:
@@ -60,7 +60,7 @@ npm ci
 npm start
 ```
 
-6. Mantenha a janela aberta. No CRM, escolha **Meu computador — Firecrawl e modelo local**, informe o perfil e a região e clique em **Buscar leads com IA**. O conector pode levar alguns segundos para receber o pedido.
+6. Mantenha a janela aberta. No CRM, use a seção **Firecrawl no seu Linux**, informe o perfil e a região e clique em **Buscar leads com Firecrawl**. O conector pode levar alguns segundos para receber o pedido.
 
 O arquivo é gerado uma única vez por conexão. Gerar outro revoga o anterior. Use **Desconectar computador** no CRM para revogar o acesso. Não é usada uma chave `service_role` no seu computador. O token do conector e o conteúdo dos sites não aparecem nos logs.
 

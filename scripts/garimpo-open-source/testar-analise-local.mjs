@@ -4,7 +4,7 @@
 const target='http://127.0.0.1:8791'
 const company=process.argv[2]||'Universidade Federal do Rio Grande FURG'
 const city=process.argv[3]||'Rio Grande, RS'
-const website=process.argv[4]||'https://www.furg.br'
+const website=process.argv.length>4?process.argv[4]:'https://www.furg.br'
 try{
   const statusResponse=await fetch(target+'/tools/prospect-investigate/status',{signal:AbortSignal.timeout(5000)})
   const status=await statusResponse.json()

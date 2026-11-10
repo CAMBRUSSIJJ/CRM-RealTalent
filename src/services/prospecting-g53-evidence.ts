@@ -7,6 +7,7 @@ export interface InvestigationSourceG53 {
   excerpt:string
   engine?:string
   readError?:string|null
+  sourceKind?:'website'|'social_profile'|'social_post'
 }
 
 export interface GroupedInvestigationSourceG53 {
@@ -25,19 +26,21 @@ export function groupInvestigationSourcesG53(sources:InvestigationSourceG53[]=[]
     (item.reading==='page'?4:0)+(item.identity==='compatible'?2:item.identity==='partial'?1:0)
     +(item.engine==='crawl4ai'?1:0)
   for(const source of sources){
-    let domain=''
+    let domain='',key=''
     try{
       const url=new URL(source.url)
       domain=url.protocol==='https:'?url.hostname.toLowerCase().replace(/^www\./,''):''
+      key=source.sourceKind==='social_profile'&&url.pathname.split('/').filter(Boolean).length
+        ?domain+'|'+url.pathname.split('/').filter(Boolean)[0].toLowerCase():domain
     }catch{/* invalid link */}
     if(!domain)continue
-    const existing=groups.get(domain)
+    const existing=groups.get(key)
     if(existing){
       existing.count++
       if(!existing.urls.includes(source.url))existing.urls.push(source.url)
       if(preference(source)>preference(existing.primary))existing.primary=source
     }else{
-      groups.set(domain,{domain,count:1,primary:source,urls:[source.url]})
+      groups.set(key,{domain,count:1,primary:source,urls:[source.url]})
     }
   }
   return [...groups.values()]

@@ -51,6 +51,7 @@ test('Linux: comando de copiar não depende de arquivo e tem sintaxe válida', (
   const payload = command.match(/^bash -c "\$\(printf '%s' '([A-Za-z0-9+/=]+)' \| base64 --decode\)"$/)?.[1]
   expect(payload).toBeTruthy()
   const decoded = Buffer.from(payload!, 'base64').toString('utf8')
+  expect(decoded).toBe(buildGarimpoLinuxInstaller(config))
   expect(decoded).toContain('exec bash "$CONNECTOR/CONFIGURAR-LINUX.sh" "$CONFIG"')
   if (process.platform !== 'win32') {
     const parsed = spawnSync('bash', ['-n'], { input: decoded, encoding: 'utf8' })

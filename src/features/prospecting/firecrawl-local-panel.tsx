@@ -7,10 +7,10 @@ import { disconnectLocalConnector, downloadLocalConnectorInstaller, generateLoca
 import type { ProspectRecord } from '../../services/prospecting-workspace'
 import './firecrawl-local-panel.css'
 
-export function FirecrawlLocalPanel({ workspaceId, readOnly, canConfigure, segment, city, onSegment, onCity, onComplete, prospect }: {
+export function FirecrawlLocalPanel({ workspaceId, readOnly, canConfigure, segment, city, onSegment, onCity, onComplete, prospect, connectionOnly = false }: {
   workspaceId: string; readOnly: boolean; canConfigure: boolean; segment: string; city: string
   onSegment?(value: string): void; onCity?(value: string): void
-  onComplete(result: AiSearchResult): void; prospect?: ProspectRecord
+  onComplete(result: AiSearchResult): void; prospect?: ProspectRecord; connectionOnly?: boolean
 }) {
   const { confirmAction, notify } = useAppUi()
   const [limit, setLimit] = useState(5)
@@ -102,9 +102,8 @@ export function FirecrawlLocalPanel({ workspaceId, readOnly, canConfigure, segme
     finally { if (controller.current === task) { controller.current = null; setBusy(false) } }
   }
 
-  return <section className="panel firecrawl-local-panel" aria-label={prospect ? 'Enriquecimento com Firecrawl' : 'Firecrawl no Linux'}>
-    <header><div><span className="eyebrow"><Sparkles size={14} /> Firecrawl no seu Linux</span><h3>{prospect ? 'Completar dados com IA local' : 'Buscar empresas e trazer os contatos'}</h3><p>{prospect ? 'Preencha os campos que faltam mantendo sua revisão.' : 'Defina o perfil. Seu computador pesquisa os sites e devolve os dados com suas fontes para revisão.'}</p></div><StatusPill tone={online ? 'success' : 'neutral'}>{online ? 'Linux conectado' : 'Conector offline'}</StatusPill></header>
-    {!prospect && !online ? <div className="firecrawl-local-panel__connection">
+
+  const connectionBlock = !prospect && !online ? (<div className="firecrawl-local-panel__connection">
       <div><strong>Conectar seu computador</strong><p>Conecte o Garimpo sem procurar nem baixar arquivos de configuração.</p></div>
       {canConfigure ? <>
         {!generatedCommand ? <Button disabled={configuring} onClick={() => void configure(false, 'command')}>
@@ -120,7 +119,28 @@ export function FirecrawlLocalPanel({ workspaceId, readOnly, canConfigure, segme
           <Button variant="ghost" disabled={configuring} onClick={() => void configure(false, 'file')}><Download size={15} /> Preferir download do instalador</Button>
         </div>
       </> : <small>Um administrador do workspace precisa autorizar este computador.</small>}
-    </div> : null}
+    </div>) : null
+
+  if (connectionOnly) return <div className="firecrawl-connection-integrated" aria-label="Conexão da pesquisa com Firecrawl e Ollama">
+    <div className="firecrawl-connection-integrated__status">
+      <span><Sparkles size={15} /> Pesquisa web + IA local</span>
+      <StatusPill tone={online ? 'success' : 'warning'}>{online ? 'Linux conectado' : 'Linux desconectado'}</StatusPill>
+      <Button variant="ghost" disabled={configuring} onClick={() => void refresh()}><RefreshCw size={14}/> Verificar</Button>
+    </div>
+    {connectionBlock}
+    {error ? <p className="firecrawl-local-panel__error" role="alert">{error}</p> : null}
+    {online ? <small>Firecrawl coleta fontes; Ollama analisa os dados. Uma busca, sem outro formulário.</small> : null}
+    {canConfigure && online ? <details><summary>Gerenciar conexão Linux</summary>
+      <div className="firecrawl-local-panel__setup">
+        <Button variant="secondary" disabled={configuring} onClick={() => void configure(false, 'command')}>Gerar novo comando</Button>
+        <Button variant="ghost" disabled={configuring} onClick={() => void configure(true)}>Desconectar</Button>
+      </div>
+    </details> : null}
+  </div>
+
+  return <section className="panel firecrawl-local-panel" aria-label={prospect ? 'Enriquecimento com Firecrawl' : 'Firecrawl no Linux'}>
+    <header><div><span className="eyebrow"><Sparkles size={14} /> Firecrawl no seu Linux</span><h3>{prospect ? 'Completar dados com IA local' : 'Buscar empresas e trazer os contatos'}</h3><p>{prospect ? 'Preencha os campos que faltam mantendo sua revisão.' : 'Defina o perfil. Seu computador pesquisa os sites e devolve os dados com suas fontes para revisão.'}</p></div><StatusPill tone={online ? 'success' : 'neutral'}>{online ? 'Linux conectado' : 'Conector offline'}</StatusPill></header>
+    {connectionBlock}
     {!prospect ? <div className="prospecting-form-grid">
       <label><span>Segmento</span><input value={segment} disabled={readOnly || busy} onChange={(event) => onSegment?.(event.target.value)} placeholder="Ex.: Barbearias" /></label>
       <label><span>Cidade ou região</span><input value={city} disabled={readOnly || busy} onChange={(event) => onCity?.(event.target.value)} placeholder="Ex.: Canoas, RS" /></label>

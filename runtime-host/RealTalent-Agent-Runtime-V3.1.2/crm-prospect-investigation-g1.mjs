@@ -69,6 +69,7 @@ const boundedSources=results=>results.slice(0,6).map(item=>({
   title:item.title,url:item.url,reading:item.reading,identity:item.identity,
   excerpt:item.reading==='page'&&item.identity!=='unconfirmed'?item.excerpt:'',origin:item.origin,
   extractedFacts:item.reading==='page'&&item.identity!=='unconfirmed'?item.extractedFacts||[]:[],
+  engine:item.engine||'legacy',
 }))
 export async function investigateProspectG1(input,{
   readPage=readPublicPageOpenSourceG50,searcher=searchCompanySourcesG1,fetcher=fetch,
@@ -113,6 +114,7 @@ export async function investigateProspectG1(input,{
       origin:source.origin,identity,reading:page?'page':'snippet',
       excerpt:page&&matches?sanitizeText(page.text,3500):'',
       extractedFacts:page&&matches&&Array.isArray(page.extractedFacts)?page.extractedFacts.slice(0,3):[],
+      engine:page?.engine||'legacy',
     }
   }))
   // A URL being readable does not prove which company it describes.

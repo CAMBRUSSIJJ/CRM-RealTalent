@@ -54,7 +54,8 @@ export function buildBusinessQueriesG56(name,city=''){
   const out=[],seen=new Set()
   for(const value of variants){
     const query=value.replace(/\s+/g,' ').trim().slice(0,160)
-    const key=normalize(query)
+    // Quoted and unquoted searches cover different small-business results.
+    const key=query.toLowerCase()
     if(!query||seen.has(key))continue
     seen.add(key);out.push(query)
   }

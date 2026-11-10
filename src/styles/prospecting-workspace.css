@@ -319,6 +319,9 @@
 .prospecting-g1g2__manual-source input{width:100%;min-width:0;border:1px solid var(--rt-border,#d9e3ee);background:var(--rt-surface,#fff);color:var(--rt-text,#233248);border-radius:7px;padding:9px;font-size:12px}
 .prospecting-g1g2__manual-source input:focus-visible{outline:2px solid var(--rt-color-brand,#245bb5);outline-offset:2px}
 .prospecting-g1g2__manual-source small{font-size:11px;line-height:1.4;color:var(--rt-text-muted,#667085)}
+.prospecting-g1g2__manual-source-action{display:flex;align-items:center;flex-wrap:wrap;gap:8px}
+.prospecting-g1g2__manual-source-pending{display:block;border-radius:7px;border:1px solid #f5d39e;background:#fff8eb;padding:8px 10px;color:#734d15!important}
+.prospecting-g1g2__manual-source-social{display:block;border-radius:7px;border:1px solid var(--rt-border,#d9e3ee);background:var(--rt-surface,#fff);padding:8px 10px}
 .prospecting-g1g2__investigate strong,.prospecting-g1g2__investigate small{display:block}
 .prospecting-g1g2__investigate strong{font-size:13px}
 .prospecting-g1g2__investigate small{font-size:11px;color:var(--rt-text-muted,#667085);margin-top:4px;line-height:1.55}

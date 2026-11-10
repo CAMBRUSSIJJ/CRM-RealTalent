@@ -40,15 +40,17 @@ export function ProspectingG1G2Panel({prospect,snapshot,readOnly}:Props){
   const [error,setError]=useState('')
   const [signalNotice,setSignalNotice]=useState('')
   const [publicSourceUrl,setPublicSourceUrl]=useState('')
+  const [lastInvestigatedSourceUrl,setLastInvestigatedSourceUrl]=useState('')
   const abortRef=useRef<AbortController|null>(null)
   useEffect(()=>{
     abortRef.current?.abort();abortRef.current=null
-    setResult(null);setError('');setSignalNotice('');setPublicSourceUrl('');setBusy(false)
+    setResult(null);setError('');setSignalNotice('');setPublicSourceUrl('');setLastInvestigatedSourceUrl('');setBusy(false)
     return ()=>{abortRef.current?.abort()}
   },[prospect.id,prospect.updatedAt])
   const run=async()=>{
     abortRef.current?.abort()
     const ctrl=new AbortController()
+    const requestedPublicSourceUrl=publicSourceUrl.trim()
     abortRef.current=ctrl
     // Discovery (up to 30s) + public-page reading + local Qwen (up to 90s).
     const timer=setTimeout(()=>ctrl.abort(),175000)
@@ -62,7 +64,7 @@ export function ProspectingG1G2Panel({prospect,snapshot,readOnly}:Props){
           segment:String(prospect.rawData?.category||'').slice(0,100),
           description:prospect.description,
           website:prospect.website,
-          publicSourceUrl:publicSourceUrl.trim(),
+          publicSourceUrl:requestedPublicSourceUrl,
         })
       })
       if(!response.ok)throw Error(response.status===429?'Ollama ocupado. Tente novamente.':'A investigação local não respondeu.')
@@ -96,6 +98,7 @@ export function ProspectingG1G2Panel({prospect,snapshot,readOnly}:Props){
       }
       if(!ctrl.signal.aborted){
         setResult(data)
+        setLastInvestigatedSourceUrl(requestedPublicSourceUrl)
         setSignalNotice(!hasConfirmedInvestigationEvidenceG55(data)
           ?'Pesquisa sem evidências públicas verificáveis. As hipóteses e recomendações sem fontes foram ocultadas.'
           :readOnly
@@ -122,6 +125,8 @@ export function ProspectingG1G2Panel({prospect,snapshot,readOnly}:Props){
     }))
     document.querySelector('.prospecting-trigger-g4')?.scrollIntoView({behavior:'smooth',block:'start'})
   }
+  const manualSourcePending=Boolean(result&&publicSourceUrl.trim()!==lastInvestigatedSourceUrl)
+  const enteredSocialProfile=/^https:\/\/(?:www\.)?(?:instagram\.com|facebook\.com|m\.facebook\.com)\//i.test(publicSourceUrl.trim())
   const groundedReport=Boolean(result&&hasConfirmedInvestigationEvidenceG55(result))
   const groupedSources=useMemo(()=>groupInvestigationSourcesG53(result?.sources||[]),[result])
   const confirmedDomains=groupedSources.filter(group=>group.primary.reading==='page'&&group.primary.identity!=='unconfirmed').length
@@ -170,7 +175,17 @@ export function ProspectingG1G2Panel({prospect,snapshot,readOnly}:Props){
       <input id="garimpo-public-source-url" type="url" inputMode="url" value={publicSourceUrl}
         onChange={event=>setPublicSourceUrl(event.target.value)} placeholder="https://exemplo.com.br/empresa"
         maxLength={1100} autoComplete="off" />
-      <small>Esta URL será verificada durante a próxima investigação. Não altera o cadastro. Perfis sociais podem exigir conferência manual; resultados de busca não são evidências confirmadas.</small>
+      <div className="prospecting-g1g2__manual-source-action">
+        <Button type="button" variant="secondary" disabled={busy||!safeSite(publicSourceUrl.trim())}
+          onClick={()=>void run()}>{busy?'Investigando…':'Investigar com esta URL'}</Button>
+        <small>O endereço será incluído na próxima investigação; não altera o cadastro da empresa.</small>
+      </div>
+      {manualSourcePending?<small className="prospecting-g1g2__manual-source-pending" role="status">
+        Esta URL ainda não foi considerada no resultado abaixo. Clique em “Investigar com esta URL”.
+      </small>:null}
+      {enteredSocialProfile?<small className="prospecting-g1g2__manual-source-social">
+        Instagram/Facebook: este perfil será apresentado como link para conferência. O Garimpo ainda não lê automaticamente publicações dessas plataformas nem considera o perfil uma fonte verificada.
+      </small>:null}
     </details>
     {error?<p className="prospecting-g1g2__error" role="alert">{error}</p>:null}
     {signalNotice?<p className="prospecting-g1g2__signal-notice" role="status">{signalNotice}</p>:null}

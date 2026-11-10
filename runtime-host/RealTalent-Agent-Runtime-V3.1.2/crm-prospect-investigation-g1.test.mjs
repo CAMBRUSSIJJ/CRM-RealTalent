@@ -387,3 +387,29 @@ test('G5.5: valid public source still allows verified analysis',async()=>{
   assert.equal(result.quality,'page_reviewed')
   assert.equal(result.modelStatus,'completed')
 })
+
+
+test('G5.5: a person named Matheus does not verify Barbearia Matheus',async()=>{
+  let modelCalls=0
+  const result=await investigateProspectG1({
+    company:'Barbearia Matheus',city:'Rio Grande, RS',segment:'Barbearia'
+  },{
+    searcher:async()=>[{url:'https://personal.example.org',title:'Matheus professor em Rio Grande',
+      snippet:'Entrevista a Matheus Rio Grande'}],
+    readPage:async()=>{throw new Error('Unrelated site should never be read')},
+    fetcher:async()=>{modelCalls++;return qwen()},
+  })
+  assert.equal(modelCalls,0)
+  assert.equal(result.sources.length,0)
+  assert.equal(result.pageRead,false)
+  assert.equal(result.modelStatus,'skipped_no_public_evidence')
+})
+
+test('G5.5: SearXNG public candidate remains valid when local search is unavailable',async()=>{
+  const sources=await searchCompanySourcesG1({company:'Barbearia Matheus',city:'Rio Grande'},{
+    searxSearch:async()=>[{url:'https://matheus.example.org',title:'Barbearia Matheus',snippet:'Rio Grande'}],
+    fetcher:async()=>{throw new Error('Local Garimpo offline')},
+  })
+  assert.equal(sources.length,1)
+  assert.equal(sources[0].origin,'searxng')
+})

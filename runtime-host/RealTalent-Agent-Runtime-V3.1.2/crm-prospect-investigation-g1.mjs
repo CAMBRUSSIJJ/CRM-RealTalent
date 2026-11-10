@@ -152,9 +152,19 @@ export async function investigateProspectG1(input,{
   const registered=websites.filter(source=>source.origin==='cadastro'||source.origin==='manual')
   const discovered=websites.filter(source=>source.origin!=='cadastro'&&source.origin!=='manual')
   const publicProfiles=eligible.filter(source=>source.sourceKind==='social_profile').slice(0,3)
-  // Website evidence is favored. Public social profiles are candidates for
-  // human review, not pages that we try to access through a login wall.
-  const unique=[...registered,...discovered].slice(0,4).concat(publicProfiles)
+  // Prefer distinct websites and no more than two pages per domain.
+  // Keep registered/manual URLs first for traceability.
+  const selected=[],domainCounts=new Map()
+  for(const source of [...registered,...discovered]){
+    const domain=new URL(source.url).hostname.toLowerCase().replace(/^www\./,'')
+    if((domainCounts.get(domain)||0)>=2)continue
+    domainCounts.set(domain,(domainCounts.get(domain)||0)+1)
+    selected.push(source)
+    if(selected.length>=4)break
+  }
+  // Public social profiles remain links for manual review; never use them
+  // as evidence or access a login wall.
+  const unique=selected.concat(publicProfiles)
   const sources=await Promise.all(unique.map(async source=>{
     let page=null,readError=null
     if(source.sourceKind==='social_profile'){

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Garimpo G5.4 — isolated UI preview only.
+# Garimpo G5.5 — isolated UI preview only.
 # Does NOT run scripts/start.mjs and does NOT start/stop WhatsApp, WAHA,
 # Communications, Supabase, Prospecting Agent, or the Ollama service.
 set -uo pipefail
@@ -7,7 +7,7 @@ ROOT="$(cd -- "$(dirname -- "$0")/../.." && pwd)"
 cd "$ROOT" || exit 2
 
 echo "=========================================================="
-echo " RealTalent Garimpo G5.4 — prévia isolada em 4197"
+echo " RealTalent Garimpo G5.5 — prévia isolada em 4197"
 echo "=========================================================="
 echo "Esta prévia usa os serviços JÁ ATIVOS em 8791 (IA) e 4319 (busca)."
 echo "Não substitui o inicializador oficial do CRM nem sua verificação de Comunicação."
@@ -32,17 +32,17 @@ if ! node --input-type=module -e '
   try{
     const r=await fetch(url,{signal:AbortSignal.timeout(5000)});
     const v=await r.json();
-    if(!r.ok||v.investigationReaderBuild!=="g54-evidence-review"||!v.openSourceEnabled){
-      console.error("Agent G5.4 não confirmado; status:",JSON.stringify(v));
+    if(!r.ok||v.investigationReaderBuild!=="g55-evidence-guard"||!v.openSourceEnabled){
+      console.error("Agent G5.5 não confirmado; status:",JSON.stringify(v));
       process.exit(1);
     }
-    console.log("✓ Agent G5.4 com Crawl4AI ativo na porta 8791.");
+    console.log("✓ Agent G5.5 com Crawl4AI ativo na porta 8791.");
   }catch(e){
     console.error("Agent não acessível em 8791:",e?.cause?.code||e?.message);
     process.exit(1);
   }
 '; then
-  echo "ERRO: ative o Agent G5.4 antes de abrir a prévia." >&2
+  echo "ERRO: ative o Agent G5.5 antes de abrir a prévia." >&2
   exit 6
 fi
 
@@ -61,7 +61,7 @@ export VITE_WAHA_DIRECT_PREVIEW=0
 echo
 echo "Acesse http://127.0.0.1:4197 no navegador."
 echo "Esta prévia NÃO gerencia nem reinicia WhatsApp/WAHA ou serviços do CRM."
-echo "Use apenas Garimpo → Revisar → Guiada para avaliar G5.4."
+echo "Use apenas Garimpo → Revisar → Guiada para avaliar G5.5."
 echo "Para fechar somente a interface desta prévia, pressione Ctrl+C."
 echo
 exec node node_modules/vite/bin/vite.js --host 127.0.0.1 --port 4197 --strictPort

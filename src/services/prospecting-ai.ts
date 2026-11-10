@@ -1,5 +1,5 @@
 import { getSupabaseClient } from '../lib/supabase'
-import { buildGarimpoLinuxInstaller } from './local-connector-installer'
+import { buildGarimpoLinuxCommand, buildGarimpoLinuxInstaller } from './local-connector-installer'
 import { effectiveDataMode, env } from '../lib/env'
 import type { Lead } from '../domain/types'
 import { appendHistory, createProspect, refreshProspectAnalysis, type ProspectRecord, type ProspectingState, type ProspectSource } from './prospecting-workspace'
@@ -72,6 +72,12 @@ export async function downloadLocalConnectorConfig(organizationId: string) {
 export async function downloadLocalConnectorInstaller(organizationId: string) {
   const configuration = await registeredLocalConnectorEnvironment(organizationId)
   downloadPrivateFile('CONECTAR-GARIMPO-LINUX.sh', buildGarimpoLinuxInstaller(configuration), 'text/x-shellscript')
+}
+
+// Generated in the authenticated browser. Never send the command to logs or telemetry.
+export async function generateLocalConnectorCommand(organizationId: string): Promise<string> {
+  const configuration = await registeredLocalConnectorEnvironment(organizationId)
+  return buildGarimpoLinuxCommand(configuration)
 }
 
 export const disconnectLocalConnector = (organizationId: string) => connectorAction(organizationId, 'disconnect')

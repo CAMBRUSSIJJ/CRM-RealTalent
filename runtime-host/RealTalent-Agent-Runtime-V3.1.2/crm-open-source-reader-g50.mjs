@@ -75,14 +75,18 @@ export async function readPublicPageOpenSourceG50(raw,{
 }={}){
   if(!enabled||workerBusy)return fallback(raw)
   workerBusy=true
+  let originalPage=null
   try{
     const fetched=await readPinnedHtml(raw,{requestPage})
     if(!fetched.ok)return fallback(raw)
     const original=extractReadableV60(fetched.html)
     if(original.text.length<180)return {ok:false,error:'insufficient_content'}
+    // Save the validated page before calling Python: worker failures must not
+    // discard evidence or trigger a second network request.
+    originalPage={ok:true,url:fetched.url,...original,engine:'legacy_fallback'}
     const result=await worker({html:fetched.html,mode:'extract'})
     if(result?.ok!==true||typeof result.text!=='string'||result.text.length<180)
-      return {ok:true,url:fetched.url,...original,engine:'legacy_fallback'}
+      return originalPage
     const processed=result.text.slice(0,6500)
     // ScrapeGraphAI output remains a suggestion until it can be matched exactly to a read page.
     const extractedFacts=(Array.isArray(result.facts)?result.facts:[])
@@ -93,6 +97,6 @@ export async function readPublicPageOpenSourceG50(raw,{
     return {ok:true,url:fetched.url,title:original.title,text:processed,engine:'crawl4ai',
       extractedFacts}
   }catch{
-    return fallback(raw)
+    return originalPage??fallback(raw)
   }finally{workerBusy=false}
 }

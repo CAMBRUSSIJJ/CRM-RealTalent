@@ -11,6 +11,7 @@ import {appendTriggerCandidatesG4,type TriggerCandidateG4,type TriggerSourceG4} 
 import {appendRemoteTriggersG43,isTriggerCloudModeG43} from '../../services/prospecting-triggers-g43-remote'
 import {ProspectingCompanyAssistant} from './prospecting-company-assistant'
 import {groupInvestigationSourcesG53,type InvestigationSourceG53} from '../../services/prospecting-g53-evidence'
+import {guardInvestigationPresentationG55,hasConfirmedInvestigationEvidenceG55} from '../../services/prospecting-g55-presentation'
 
 type InvestigationSource=InvestigationSourceG53
 interface Investigation {
@@ -62,8 +63,9 @@ export function ProspectingG1G2Panel({prospect,snapshot,readOnly}:Props){
         })
       })
       if(!response.ok)throw Error(response.status===429?'Ollama ocupado. Tente novamente.':'A investigação local não respondeu.')
-      const data=await response.json() as Investigation
-      if(!data.ok)throw Error('O modelo não conseguiu verificar esta empresa.')
+      const rawData=await response.json() as Investigation
+      if(!rawData.ok)throw Error('O modelo não conseguiu verificar esta empresa.')
+      const data=guardInvestigationPresentationG55(rawData)
       let created=0
       const issues:string[]=[]
       if(!readOnly&&Array.isArray(data.candidateEvents)&&data.candidateEvents.length){
@@ -91,8 +93,8 @@ export function ProspectingG1G2Panel({prospect,snapshot,readOnly}:Props){
       }
       if(!ctrl.signal.aborted){
         setResult(data)
-        setSignalNotice(data.modelStatus==='skipped_no_public_evidence'
-          ?'Pesquisa concluída sem páginas públicas verificáveis. Nenhum sinal foi criado e a IA não inferiu oportunidades a partir do cadastro.'
+        setSignalNotice(!hasConfirmedInvestigationEvidenceG55(data)
+          ?'Pesquisa sem evidências públicas verificáveis. As hipóteses e recomendações sem fontes foram ocultadas.'
           :readOnly
           ?'Investigação concluída em modo de leitura. Nenhum sinal foi gravado no G4.'
           :issues.length
@@ -117,6 +119,7 @@ export function ProspectingG1G2Panel({prospect,snapshot,readOnly}:Props){
     }))
     document.querySelector('.prospecting-trigger-g4')?.scrollIntoView({behavior:'smooth',block:'start'})
   }
+  const groundedReport=Boolean(result&&hasConfirmedInvestigationEvidenceG55(result))
   const groupedSources=useMemo(()=>groupInvestigationSourcesG53(result?.sources||[]),[result])
   const confirmedDomains=groupedSources.filter(group=>group.primary.reading==='page'&&group.primary.identity!=='unconfirmed').length
   const labels:[string,number][]=[
@@ -162,11 +165,11 @@ export function ProspectingG1G2Panel({prospect,snapshot,readOnly}:Props){
     {signalNotice?<p className="prospecting-g1g2__signal-notice" role="status">{signalNotice}</p>:null}
     {result?<div className="prospecting-g1g2__report" aria-live="polite">
       <div className="prospecting-g1g2__report-source">
-        <span>{result.pageRead?'Fonte pública compatível lida':'Sem leitura externa compatível confirmada'}</span>
-        {result.pageRead&&safeSite(result.readUrl)?<a href={safeSite(result.readUrl)!} rel="noopener noreferrer" target="_blank"><ExternalLink size={13}/> Conferir fonte</a>:null}
+        <span>{groundedReport?'Fonte pública compatível lida':'Sem evidência pública compatível confirmada'}</span>
+        {groundedReport&&safeSite(result.readUrl)?<a href={safeSite(result.readUrl)!} rel="noopener noreferrer" target="_blank"><ExternalLink size={13}/> Conferir fonte</a>:null}
       </div>
       <p>{result.summary}</p>
-      {result.modelStatus==='skipped_no_public_evidence'
+      {!groundedReport
         ?<p className="prospecting-g1g2__evidence-empty" role="status">
           Sem evidências externas suficientes. Confira o site ou perfil oficial e atualize o cadastro antes de repetir a pesquisa.
         </p>
@@ -205,9 +208,9 @@ export function ProspectingG1G2Panel({prospect,snapshot,readOnly}:Props){
             </li>)}</ul>
           </details>:null}
       </section>
-      {result.hypotheses.length?<section><strong>Hipóteses para investigar</strong><ul>{result.hypotheses.map((h,i)=><li key={i}>{h}</li>)}</ul></section>:null}
-      {result.questions.length?<section><strong>Perguntas de diagnóstico</strong><ul>{result.questions.map((q,i)=><li key={i}>{q}</li>)}</ul></section>:null}
-      {result.approach?<section><strong>Abordagem sugerida</strong><p>{result.approach}</p></section>:null}
+      {groundedReport&&result.hypotheses.length?<section><strong>Hipóteses para investigar</strong><ul>{result.hypotheses.map((h,i)=><li key={i}>{h}</li>)}</ul></section>:null}
+      {groundedReport&&result.questions.length?<section><strong>Perguntas de diagnóstico</strong><ul>{result.questions.map((q,i)=><li key={i}>{q}</li>)}</ul></section>:null}
+      {groundedReport&&result.approach?<section><strong>Abordagem sugerida</strong><p>{result.approach}</p></section>:null}
       {result.caveats.length?<small>{result.caveats.join(' · ')}</small>:null}
     </div>:null}
   </section>

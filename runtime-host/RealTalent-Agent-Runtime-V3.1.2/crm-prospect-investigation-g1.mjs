@@ -83,6 +83,7 @@ const boundedSources=results=>results.slice(0,6).map(item=>({
 export async function investigateProspectG1(input,{
   readPage=readPublicPageOpenSourceG50,searcher=searchCompanySourcesG1,fetcher=fetch,
   ollamaUrl='http://127.0.0.1:11434',model='qwen3:8b',
+  modelTimeoutMs=90000,
 }={}){
   const company=sanitizeProspectForInvestigation(input)
   if(!company)return {ok:false,error:'invalid_company'}
@@ -130,12 +131,22 @@ export async function investigateProspectG1(input,{
   }))
   // A URL being readable does not prove which company it describes.
   const supported=sources.filter(source=>source.reading==='page'&&source.identity!=='unconfirmed')
+  // Prefer independent websites over repeated homepage variants. This also keeps
+  // Qwen3 8B's prompt bounded on machines with limited available RAM.
+  const modelSources=[],domains=new Set()
+  for(const source of supported){
+    const site=new URL(source.url).hostname.replace(/^www\./,'')
+    if(domains.has(site))continue
+    domains.add(site)
+    modelSources.push(source)
+    if(modelSources.length>=2)break
+  }
   const available=[
     company.description?{source:'cadastro_origem',fact:company.description}:null,
     company.segment?{source:'cadastro_origem',fact:company.segment}:null,
-    ...supported.slice(0,3).map(source=>({source:'pagina_publica_lida',
-      identity:source.identity,url:source.url,title:source.title,text:source.excerpt,
-       extractedFacts:source.extractedFacts||[]})),
+    ...modelSources.map(source=>({source:'pagina_publica_lida',
+      identity:source.identity,url:source.url,title:source.title,
+      text:source.excerpt.slice(0,2100),extractedFacts:(source.extractedFacts||[]).slice(0,2)})),
   ].filter(Boolean)
   if(!available.length){
     const detail=searchStatus==='unavailable'
@@ -146,7 +157,11 @@ export async function investigateProspectG1(input,{
     return fallback('Não encontrei evidências públicas suficientes para analisar esta empresa com segurança.',
       boundedSources(sources),searchStatus,[detail,'Confirme a identidade da empresa antes de iniciar uma abordagem.'])
   }
-  const ctrl=new AbortController(),timer=setTimeout(()=>ctrl.abort(),52000)
+  const ctrl=new AbortController()
+  const elapsedStart=Date.now()
+  const boundedTimeout=Math.max(1500,Math.min(150000,Number(modelTimeoutMs)||90000))
+  const timer=setTimeout(()=>ctrl.abort(),boundedTimeout)
+  let modelHttpStatus=null,modelDoneReason=null,modelError='request_error'
   const schema={type:'object',additionalProperties:false,properties:{
     summary:{type:'string'},hypotheses:{type:'array',maxItems:3,items:{type:'string'}},
     questions:{type:'array',maxItems:3,items:{type:'string'}},
@@ -181,15 +196,31 @@ export async function investigateProspectG1(input,{
             'Responda exclusivamente em JSON conforme o schema.',
           ].join(' ')},
           {role:'user',content:JSON.stringify({company:company.company,city:company.city,evidence:available})},
-        ],options:{temperature:.2,num_predict:1450,num_ctx:6500}
+        ],options:{temperature:.15,num_predict:1050,num_ctx:5500}
       })
     })
-    if(!response.ok)throw Error('ollama_unavailable')
-    const body=await response.json(),result=JSON.parse(String(body.message?.content||'{}'))
-    if(typeof result.summary!=='string'||result.summary.trim().length<25)throw Error('incomplete_analysis')
+    if(!response.ok){
+      modelHttpStatus=response.status
+      modelError='ollama_http_error'
+      throw Error('ollama_http_error')
+    }
+    modelError='ollama_invalid_response'
+    const body=await response.json()
+    modelDoneReason=typeof body?.done_reason==='string'?body.done_reason.slice(0,35):null
+    if(!body?.message?.content) {
+      modelError='ollama_empty_response'
+      throw Error(modelError)
+    }
+    let result
+    try{result=JSON.parse(String(body.message.content))}
+    catch{modelError='ollama_invalid_json';throw Error(modelError)}
+    if(typeof result?.summary!=='string'||result.summary.trim().length<25){
+      modelError=modelDoneReason==='length'?'ollama_truncated_response':'ollama_incomplete_analysis'
+      throw Error(modelError)
+    }
     const smallList=(v,max)=>Array.isArray(v)?v.filter(x=>typeof x==='string').slice(0,max).map(x=>x.slice(0,270)):[]
     const best=supported[0]||null
-    const candidateEvents=supported.flatMap(source=>{
+    const candidateEvents=modelSources.flatMap(source=>{
       const proposed=Array.isArray(result.events)?result.events.filter(event=>event?.sourceUrl===source.url):[]
       return validateTriggerModelResponse({events:proposed},{sourceUrl:source.url,excerpt:source.excerpt})
     }).slice(0,3)
@@ -206,13 +237,27 @@ export async function investigateProspectG1(input,{
       caveats:caveats.slice(0,6),pageRead:Boolean(best),
       readUrl:best?.url||null,readTitle:best?.title||null,
       quality:best?'page_reviewed':'origin_only',searchStatus,sources:boundedSources(sources),
-      candidateEvents}
-  }catch{
+      candidateEvents,modelStatus:'completed',modelDoneReason,modelElapsedMs:Date.now()-elapsedStart,
+      modelEvidenceCount:modelSources.length}
+  }catch(error){
     const best=supported[0]||null
+    const code=ctrl.signal.aborted||error?.name==='AbortError'?'ollama_timeout':modelError
+    const descriptions={
+      ollama_timeout:'O Qwen excedeu o tempo limite. As páginas foram preservadas para revisão.',
+      ollama_http_error:'O Ollama recusou a geração. Confira a memória e os logs do serviço local.',
+      ollama_invalid_response:'O Ollama devolveu uma resposta inválida.',
+      ollama_empty_response:'O Ollama não devolveu conteúdo de análise.',
+      ollama_invalid_json:'O Qwen retornou conteúdo que não é JSON válido.',
+      ollama_truncated_response:'A resposta do Qwen foi interrompida antes de concluir o JSON.',
+      ollama_incomplete_analysis:'O Qwen não concluiu o resumo obrigatório.',
+      request_error:'Não foi possível completar a comunicação com o modelo local.',
+    }
     return {ok:true,summary:best?'Foram lidas fontes públicas compatíveis, mas o Qwen não concluiu a análise. Confira as publicações listadas.':
       'O Qwen não concluiu a análise; nenhuma conclusão comercial foi confirmada.',
-      hypotheses:[],questions:[],approach:'',caveats:['A geração da análise falhou. Nenhuma pontuação foi alterada.'],
+      hypotheses:[],questions:[],approach:'',caveats:[(descriptions[code]||descriptions.request_error)+' Nenhuma pontuação foi alterada.'],
       pageRead:Boolean(best),readUrl:best?.url||null,readTitle:best?.title||null,
-      quality:'insufficient',searchStatus,sources:boundedSources(sources),candidateEvents:[]}
+      quality:'insufficient',searchStatus,sources:boundedSources(sources),candidateEvents:[],
+      modelStatus:code,modelHttpStatus,modelDoneReason,modelElapsedMs:Date.now()-elapsedStart,
+      modelEvidenceCount:modelSources.length}
   }finally{clearTimeout(timer)}
 }

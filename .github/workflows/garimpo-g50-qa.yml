@@ -8,6 +8,7 @@ on:
       - 'runtime-host/RealTalent-Agent-Runtime-V3.1.2/crm-open-source-reader-g50*'
       - 'runtime-host/RealTalent-Agent-Runtime-V3.1.2/crm-prospect-investigation-g1.mjs'
       - 'runtime-host/RealTalent-Agent-Runtime-V3.1.2/crm-prospect-investigation-g1.test.mjs'
+      - 'runtime-host/RealTalent-Agent-Runtime-V3.1.2/crm-business-source-discovery-g56*'
       - 'runtime-host/RealTalent-Agent-Runtime-V3.1.2/crm-web-reader-v60.mjs'
       - 'runtime-host/RealTalent-Agent-Runtime-V3.1.2/crm-web-reader-v60-dns.test.mjs'
       - '.github/workflows/garimpo-g50-qa.yml'
@@ -33,6 +34,7 @@ jobs:
           node --check runtime-host/RealTalent-Agent-Runtime-V3.1.2/crm-prospect-investigation-g1.mjs
           node --test runtime-host/RealTalent-Agent-Runtime-V3.1.2/crm-open-source-reader-g50.test.mjs
           node --test runtime-host/RealTalent-Agent-Runtime-V3.1.2/crm-prospect-investigation-g1.test.mjs
+          node --test runtime-host/RealTalent-Agent-Runtime-V3.1.2/crm-business-source-discovery-g56.test.mjs
           node --test runtime-host/RealTalent-Agent-Runtime-V3.1.2/crm-web-reader-v60-dns.test.mjs
       - name: Python offline HTML sanitization tests (without heavy browsers)
         run: |
@@ -42,6 +44,7 @@ jobs:
           bash -n scripts/garimpo-open-source/instalar-linux.sh
           bash -n scripts/garimpo-open-source/abrir-previa-g54.sh
           bash -n scripts/garimpo-open-source/abrir-previa-g55.sh
+          bash -n scripts/garimpo-open-source/abrir-previa-g56.sh
 
   frontend-contract:
     runs-on: ubuntu-latest

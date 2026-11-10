@@ -159,3 +159,48 @@ test('private URLs from public search results are blocked before reading',async(
 test('invalid company is rejected',async()=>{
   assert.equal((await investigateProspectG1({company:''})).ok,false)
 })
+
+
+test('G5: full official company name is accepted without trailing acronym',async()=>{
+  const url='https://www.furg.br/en/'
+  const result=await investigateProspectG1({
+    company:'Universidade Federal do Rio Grande FURG',city:'Rio Grande, RS',
+    website:'https://www.furg.br'
+  },{
+    searcher:async()=>[],
+    readPage:async()=>({ok:true,url,engine:'crawl4ai',title:'Universidade Federal do Rio Grande',
+      text:'A Universidade Federal do Rio Grande oferece graduação e programas de pesquisa. '.repeat(8)}),
+    fetcher:qwen
+  })
+  assert.equal(result.pageRead,true)
+  assert.equal(result.quality,'page_reviewed')
+  assert.equal(result.sources[0].identity,'compatible')
+  assert.equal(result.sources[0].engine,'crawl4ai')
+})
+
+test('G5: unrelated university cannot pass trailing acronym fallback',async()=>{
+  const result=await investigateProspectG1({
+    company:'Universidade Federal do Rio Grande FURG',city:'Rio Grande',
+    website:'https://www.furg.br'
+  },{
+    searcher:async()=>[],
+    readPage:async()=>({ok:true,title:'Universidade Federal do Paraná',
+      text:'A Universidade Federal do Paraná mantém unidades de ensino na região sul. '.repeat(8)})
+  })
+  assert.equal(result.pageRead,false)
+  assert.equal(result.sources[0].identity,'unconfirmed')
+})
+
+test('G5: when public page fails, preserve useful read error in source diagnostics',async()=>{
+  const result=await investigateProspectG1({
+    company:'Universidade Federal do Rio Grande FURG',city:'Rio Grande',
+    website:'https://www.furg.br'
+  },{
+    searcher:async()=>[],
+    readPage:async()=>({ok:false,error:'page_too_large'})
+  })
+  assert.equal(result.pageRead,false)
+  assert.equal(result.sources[0].readError,'page_too_large')
+  assert.equal(result.sources[0].reading,'snippet')
+  assert.equal(result.sources[0].identity,'unconfirmed')
+})

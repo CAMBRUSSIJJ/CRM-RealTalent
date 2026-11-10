@@ -25,6 +25,14 @@ describe('G5.3 — agrupamento de fontes na revisão',()=>{
     expect(grouped).toHaveLength(1)
     expect(grouped[0].primary.url).toContain('/noticia')
   })
+  it('mantém perfis sociais de usuários distintos separados e não os valida',()=>{
+    const grouped=groupInvestigationSourcesG53([
+      source('https://instagram.com/lelocortes/',{sourceKind:'social_profile',reading:'snippet',identity:'unconfirmed'}),
+      source('https://instagram.com/outraempresa/',{sourceKind:'social_profile',reading:'snippet',identity:'unconfirmed'}),
+    ])
+    expect(grouped).toHaveLength(2)
+    expect(grouped.every(row=>row.primary.identity==='unconfirmed')).toBe(true)
+  })
   it('não aceita links inválidos nem altera a classificação original',()=>{
     const unverified=source('https://example.org/',{identity:'unconfirmed'})
     const grouped=groupInvestigationSourcesG53([unverified,source('http://localhost/')])

@@ -146,3 +146,10 @@ verify_jwt = false
 
 [functions.integration-maintenance-worker]
 verify_jwt = false
+
+[functions.prospecting-search]
+verify_jwt = true
+
+# Worker uses a workspace-scoped token; registration/cancellation validate the user JWT in the handler.
+[functions.prospecting-local-connector]
+verify_jwt = false

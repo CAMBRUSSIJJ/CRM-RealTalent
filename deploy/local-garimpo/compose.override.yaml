@@ -1,0 +1,19 @@
+# Apply on top of the pinned official Firecrawl Compose file. No public API ports.
+services:
+  api:
+    ports: !override
+      - "127.0.0.1:3002:3002"
+    environment:
+      USE_DB_AUTHENTICATION: "false"
+      SEARXNG_ENDPOINT: http://searxng:8080
+    depends_on:
+      searxng:
+        condition: service_started
+  searxng:
+    image: searxng/searxng:latest
+    restart: unless-stopped
+    networks: [backend]
+    environment:
+      SEARXNG_SECRET: ${SEARXNG_SECRET:?Configure SEARXNG_SECRET}
+    volumes:
+      - ./garimpo/searxng-settings.yml:/etc/searxng/settings.yml:ro

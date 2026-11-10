@@ -1,0 +1,6 @@
+use_default_settings: true
+server:
+  limiter: false
+  secret_key: "@SEARXNG_SECRET@"
+search:
+  formats: [html, json]

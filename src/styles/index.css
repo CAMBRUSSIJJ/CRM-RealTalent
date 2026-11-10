@@ -3100,6 +3100,24 @@ body { color: #172033; line-height: 1.45; }
 .prospecting-review-form textarea { min-height: 76px; padding: 10px 11px; resize: vertical; line-height: 1.5; }
 .prospecting-search-actions { padding-top: 3px; display: flex; align-items: center; gap: 12px; }
 .prospecting-search-actions > span { color: #8792a4; font-size: 9px; }
+.prospecting-search-actions { flex-wrap: wrap; }
+.prospecting-form-grid textarea { width: 100%; min-height: 88px; padding: 11px; resize: vertical; border: 1px solid #dce2ea; border-radius: 9px; color: #29354a; background: #fff; font: inherit; font-size: 12px; line-height: 1.6; }
+.prospecting-form-grid textarea:focus-visible { outline: 2px solid #9bb8ee; outline-offset: 2px; }
+.prospecting-ai-fields, .prospecting-ai-research { display: grid; gap: 9px; }
+.prospecting-ai-fields { padding: 14px; border: 1px solid #dce6f8; border-radius: 12px; background: #f3f7ff; color: #526078; font-size: 12px; line-height: 1.6; }
+.prospecting-ai-fields strong { color: #294e90; }
+.prospecting-ai-fields small { color: #68758b; }
+.prospecting-ai-notice { display: flex; align-items: center; gap: 12px; padding: 13px 16px; color: #31558b; border: 1px solid #cddcf5; border-radius: 12px; background: #f3f7ff; font-size: 12px; line-height: 1.6; }
+.prospecting-ai-notice > span { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+.prospecting-ai-notice > svg { flex-shrink: 0; }
+.prospecting-ai-notice.is-error { color: #923f32; border-color: #f0c9c2; background: #fff5f1; }
+.prospecting-ai-enrich { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; padding: 12px; border-radius: 10px; background: #f3f7ff; color: #60718a; font-size: 11px; }
+.prospecting-ai-research { padding: 16px; overflow-wrap: anywhere; font-size: 12px; line-height: 1.6; }
+.prospecting-ai-research header { display: grid; gap: 6px; }
+.prospecting-ai-research p { margin: 4px 0 6px; color: #68758b; }
+.prospecting-ai-research small { display: block; color: #748198; }
+.prospecting-ai-research a { display: flex; align-items: center; gap: 6px; color: #3168d7; text-decoration: underline; text-underline-offset: 3px; }
+.prospecting-ai-summary { padding: 12px; margin: 0; border-radius: 10px; background: #edf8f3; color: #376a58; font-size: 12px; line-height: 1.6; }
 .prospecting-extension-card { display: grid; align-content: start; gap: 14px; background: linear-gradient(145deg,#f7f9ff,#fff); }
 .prospecting-extension-card > header { display: grid; grid-template-columns: 39px minmax(0,1fr) auto; align-items: center; gap: 10px; }
 .prospecting-extension-card > header > span { width: 39px; height: 39px; display: grid; place-items: center; color: #7653c7; border-radius: 12px; background: #eee8ff; }

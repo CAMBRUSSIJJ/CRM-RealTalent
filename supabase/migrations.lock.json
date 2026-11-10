@@ -124,6 +124,10 @@
     {
       "name": "202607290001_v100_50_user_experience_preferences.sql",
       "sha256": "9cbd2245b24790b0fead392f2759c455774a52d89f0423f3b8f1d50fd50da28b"
+    },
+    {
+      "name": "20261110181947_local_prospecting_ai.sql",
+      "sha256": "83156295b8c6404c7c202ebfa815bec8317d960a266b70654ab0587bf06b9f71"
     }
   ]
 }

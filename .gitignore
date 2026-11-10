@@ -8,6 +8,7 @@ coverage/
 .env.local
 .env.production
 .env.staging
+garimpo.env
 .env.*.local
 
 supabase/functions/.env

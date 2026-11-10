@@ -1,0 +1,15 @@
+{$GARIMPO_DOMAIN} {
+  @garimpo {
+    method POST
+    path /v2/search /v2/scrape
+    header Authorization "Bearer {$FIRECRAWL_GATEWAY_TOKEN}"
+  }
+  handle @garimpo {
+    reverse_proxy api:3002 {
+      header_up -Authorization
+    }
+  }
+  handle {
+    respond "Unauthorized" 401
+  }
+}

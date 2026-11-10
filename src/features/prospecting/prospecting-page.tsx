@@ -21,6 +21,8 @@ import {
 } from '../../services/prospecting-workspace'
 import { recordLocalIntegrationEvent } from '../../services/integration-framework'
 import { usePreferences } from '../settings/preferences-context'
+import { aiResearchNotes, applyAiDiscovery, applyAiEnrichment, disconnectLocalConnector, downloadLocalConnectorConfig, prospectIdentityKeys, researchForProspect, searchProspectsWithAi } from '../../services/prospecting-ai'
+import { AiResearchCard } from './ai-research-card'
 
  type ProspectingTab = 'search' | 'processing' | 'results' | 'kanban' | 'history'
  type DuplicateBehavior = 'skip' | 'update' | 'create'
@@ -34,7 +36,7 @@ const statusTones: Record<ProspectStatus, 'neutral' | 'info' | 'warning' | 'succ
 const duplicateTone = (level: ProspectRecord['duplicateLevel']) => level === 'confirmed' ? 'danger' : level === 'possible' ? 'warning' : 'success'
 const duplicateLabel = (level: ProspectRecord['duplicateLevel']) => level === 'confirmed' ? 'Duplicidade confirmada' : level === 'possible' ? 'Possível duplicidade' : 'Sem duplicidade'
 const normalize = (value: string) => value.toLocaleLowerCase('pt-BR').normalize('NFD').replace(/[\u0300-\u036f]/g, '')
-const prospectKey = (prospect: ProspectRecord) => [prospect.phone.replace(/\D/g, ''), prospect.cnpj.replace(/\D/g, ''), prospect.instagram.toLowerCase().replace(/^@/, ''), `${normalize(prospect.company)}:${normalize(prospect.city)}`].filter(Boolean)
+const prospectKey = prospectIdentityKeys
 
 interface SendOptions {
   stageId: string
@@ -59,7 +61,18 @@ export function ProspectingPage() {
   const [segment, setSegment] = useState('Barbearias')
   const [city, setCity] = useState('Canoas')
   const [query, setQuery] = useState('')
-  const [quantity, setQuantity] = useState(25)
+  const [quantity, setQuantity] = useState(5)
+  const [aiBusy, setAiBusy] = useState<string | null>(null)
+  const [aiError, setAiError] = useState('')
+  const [aiSummary, setAiSummary] = useState('')
+  const [aiExecution, setAiExecution] = useState<'local' | 'server'>('local')
+  const [connectorBusy, setConnectorBusy] = useState(false)
+  const aiController = useRef<AbortController | null>(null)
+  const currentScope = useRef({ workspaceId, canWrite })
+  currentScope.current = { workspaceId, canWrite }
+  const stateRef = useRef(state)
+  stateRef.current = state
+  const stateRevision = useRef(0)
   const [quickCapture, setQuickCapture] = useState('')
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState<'all' | ProspectStatus>('all')
@@ -71,26 +84,34 @@ export function ProspectingPage() {
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
+    setAiBusy(null); setAiError(''); setAiSummary('')
+    return () => { aiController.current?.abort(); aiController.current = null }
+  }, [workspaceId, canWrite])
+
+  useEffect(() => {
     if (!workspaceId) { setState(initialState); return }
     const local = readProspectingState(workspaceId)
+    stateRef.current = local
     setState(local)
+    const revision = ++stateRevision.current
     let cancelled = false
     void readRemoteProspectingState(workspaceId).then((remote) => {
-      if (cancelled || !remote || (!remote.prospects.length && !remote.history.length)) return
-      setState({ ...remote, lastExtensionSyncAt: local.lastExtensionSyncAt })
-      if (canWrite) writeProspectingState(workspaceId, { ...remote, lastExtensionSyncAt: local.lastExtensionSyncAt })
+      if (cancelled || revision !== stateRevision.current || !remote || (!remote.prospects.length && !remote.history.length)) return
+      const next = { ...remote, lastExtensionSyncAt: local.lastExtensionSyncAt }
+      stateRef.current = next
+      setState(next)
     })
     setSelectedIds(new Set())
     return () => { cancelled = true }
   }, [canWrite, workspaceId])
 
   const commit = useCallback((updater: (current: ProspectingState) => ProspectingState) => {
-    setState((current) => {
-      if (!canWrite) return current
-      const next = updater(current)
-      if (workspaceId) writeProspectingState(workspaceId, next)
-      return next
-    })
+    if (!canWrite || currentScope.current.workspaceId !== workspaceId || !currentScope.current.canWrite) return
+    const next = updater(stateRef.current)
+    stateRevision.current += 1
+    stateRef.current = next
+    if (workspaceId) writeProspectingState(workspaceId, next)
+    setState(next)
   }, [canWrite, workspaceId])
 
   const importDrafts = useCallback((drafts: CaptureDraft[], fallbackSource: ProspectSource, action: 'capture' | 'import', detail: string, limit = Math.max(1, quantity)) => {
@@ -156,6 +177,62 @@ export function ProspectingPage() {
     const url = buildProspectingSearchUrl(source, segment, city, query)
     window.open(url, '_blank', 'noopener,noreferrer')
     if (canWrite) commit((current) => appendHistory(current, workspaceId, { action: 'search', title: `Busca no ${prospectSourceLabels[source]}`, description: [query || segment, city].filter(Boolean).join(' · '), count: 0 }))
+  }
+
+  const runAiSearch = async (prospect?: ProspectRecord) => {
+    if (!canWrite || !workspaceId || aiController.current) return
+    const controller = new AbortController()
+    aiController.current = controller
+    const scope = workspaceId
+    setAiBusy(prospect?.id ?? 'search'); setAiError(''); setAiSummary('')
+    try {
+      const result = await searchProspectsWithAi({
+        organizationId: workspaceId, segment: prospect?.company || segment, city: prospect?.city || city,
+        query: prospect ? `Encontre exclusivamente esta empresa: ${JSON.stringify({ company: prospect.company, city: prospect.city, phone: prospect.phone, website: prospect.website, cnpj: prospect.cnpj, instagram: prospect.instagram })}. Complete somente dados públicos encontrados.` : query,
+        source: prospect?.source ?? source, limit: prospect ? 1 : quantity,
+        execution: aiExecution,
+        ...(prospect ? { prospectId: prospect.id } : {}),
+      }, controller.signal)
+      if (controller.signal.aborted || currentScope.current.workspaceId !== scope || !currentScope.current.canWrite) return
+      if (prospect) {
+        const latest = stateRef.current.prospects.find((item) => item.id === prospect.id)
+        if (!latest || latest.status === 'sent' || latest.status === 'discarded') return
+        const enriched = applyAiEnrichment(latest, result, snapshot?.leads ?? [])
+        commit((current) => appendHistory({ ...current, prospects: current.prospects.map((item) => item.id === latest.id ? enriched : item) }, scope, {
+          action: 'analyze', title: 'Enriquecimento com IA concluído', description: `${latest.company} · campos preenchidos foram preservados.`, count: 1,
+        }))
+        notify('success', 'Pesquisa concluída. Confira os dados e as fontes do contato.')
+      } else {
+        const next = applyAiDiscovery(stateRef.current, result, scope, source, snapshot?.leads ?? [])
+        const count = next.prospects.length - stateRef.current.prospects.length
+        commit((current) => applyAiDiscovery(current, result, scope, source, snapshot?.leads ?? []))
+        setAiSummary(`${result.leads.length} empresa(s) encontrada(s) · ${count} nova(s). ${result.warnings.join(' ')}`)
+        notify(count ? 'success' : 'info', count ? `${count} lead(s) pesquisado(s) com IA e disponível(is) para revisão.` : 'A busca não trouxe novos leads. Confira o resumo na aba Busca.')
+        if (count) setTab('processing')
+      }
+    } catch (error) {
+      if (controller.signal.aborted || currentScope.current.workspaceId !== scope) return
+      setAiError(error instanceof Error ? error.message : 'Não foi possível concluir a pesquisa com IA.')
+    } finally {
+      if (aiController.current === controller) { aiController.current = null; setAiBusy(null) }
+    }
+  }
+
+  const cancelAiSearch = () => {
+    aiController.current?.abort(); aiController.current = null; setAiBusy(null)
+    setAiSummary('Pesquisa cancelada. Nenhum resultado desta rodada foi importado.')
+  }
+
+  const configureConnector = async (disconnect = false) => {
+    if (!canWrite || connectorBusy) return
+    if (!await confirmAction({ title: disconnect ? 'Desconectar computador?' : 'Gerar acesso do conector local?', description: disconnect ? 'O computador deixará de receber pesquisas deste workspace.' : 'O arquivo baixado autoriza o conector a processar pesquisas deste workspace. Guarde-o no seu computador. Gerar outro arquivo substitui o acesso anterior.', confirmLabel: disconnect ? 'Desconectar' : 'Gerar arquivo' })) return
+    setConnectorBusy(true)
+    try {
+      if (disconnect) await disconnectLocalConnector(workspaceId)
+      else await downloadLocalConnectorConfig(workspaceId)
+      notify('success', disconnect ? 'Computador desconectado.' : 'Arquivo garimpo.env gerado. Salve-o na pasta do conector e informe o modelo local.')
+    } catch (error) { setAiError(error instanceof Error ? error.message : 'Falha ao configurar conector.') }
+    finally { setConnectorBusy(false) }
   }
 
   const captureQuick = () => {
@@ -244,13 +321,15 @@ export function ProspectingPage() {
     const sentIds: string[] = []
     try {
       for (const prospect of prospects) {
+        const research = researchForProspect(prospect)
+        const instagramUrl = prospect.instagram.startsWith('@') ? `https://www.instagram.com/${prospect.instagram.slice(1)}/` : prospect.instagram
         const duplicateLead = prospect.duplicateLeadId ? snapshot.leads.find((lead) => lead.id === prospect.duplicateLeadId) : null
         if (duplicateLead && options.duplicateBehavior === 'skip') { skipped += 1; continue }
         const details = [
           prospect.instagram ? `Instagram: ${prospect.instagram}` : '', prospect.website ? `Site: ${prospect.website}` : '',
           prospect.bookingUrl ? `Agendamento: ${prospect.bookingUrl}` : '', prospect.cnpj ? `CNPJ: ${prospect.cnpj}` : '',
           prospect.address ? `Endereço: ${prospect.address}` : '', prospect.systemName ? `Sistema identificado: ${prospect.systemName}` : '',
-          prospect.description, prospect.notes,
+          prospect.description, prospect.notes, aiResearchNotes(prospect),
         ].filter(Boolean).join('\n')
         let leadId: string
         if (duplicateLead && options.duplicateBehavior === 'update') {
@@ -260,6 +339,9 @@ export function ProspectingPage() {
             source: `Garimpo · ${prospectSourceLabels[prospect.source]}`, priority: options.priority, temperature: options.temperature,
             ownerName: options.ownerName || duplicateLead.ownerName, tags, nextActionAt: options.nextActionAt ? new Date(options.nextActionAt).toISOString() : duplicateLead.nextActionAt,
             notes: [duplicateLead.notes, details].filter(Boolean).join('\n\n'),
+            cnpj: duplicateLead.cnpj || prospect.cnpj, website: duplicateLead.website || prospect.website,
+            instagramUrl: duplicateLead.instagramUrl || instagramUrl, sourceDetail: duplicateLead.sourceDetail || prospect.sourceDetail,
+            sourceUrl: duplicateLead.sourceUrl || research?.sources[0]?.url || '',
           })
           leadId = lead.id; updated += 1
         } else {
@@ -269,6 +351,8 @@ export function ProspectingPage() {
             source: `Garimpo · ${prospectSourceLabels[prospect.source]}`, stageId: options.stageId, status: 'active', temperature: options.temperature,
             priority: options.priority, ownerId: ownerReference?.ownerId ?? null, ownerName: options.ownerName || currentWorkspace?.name || 'Sem responsável',
             value: 0, nextActionAt: options.nextActionAt ? new Date(options.nextActionAt).toISOString() : null, notes: details,
+            cnpj: prospect.cnpj, website: prospect.website, instagramUrl, sourceDetail: prospect.sourceDetail,
+            sourceUrl: research?.sources[0]?.url || '', capturedAt: prospect.createdAt,
             tags: Array.from(new Set([...options.tags.split(',').map((tag) => tag.trim()).filter(Boolean), 'garimpo', prospect.source])),
           })
           leadId = lead.id; created += 1
@@ -318,11 +402,16 @@ export function ProspectingPage() {
         <button className={tab === 'history' ? 'is-active' : ''} onClick={() => setTab('history')}><History size={16} /> Histórico</button>
       </nav>
 
+      {aiError ? <div className="prospecting-ai-notice is-error" role="alert"><AlertTriangle size={18} /><span>{aiError}</span><button className="icon-button" aria-label="Fechar aviso" onClick={() => setAiError('')}><X size={16} /></button></div> : null}
+      {aiBusy ? <div className="prospecting-ai-notice" role="status"><LoaderCircle size={18} className="is-spinning" /><span>{aiExecution === 'local' ? 'Pesquisa enviada ao seu computador. Mantenha o conector aberto enquanto ele coleta e organiza os dados.' : 'Pesquisando fontes e organizando os dados. Isso pode levar até dois minutos.'}</span><Button variant="ghost" size="sm" onClick={cancelAiSearch}>Cancelar</Button></div> : null}
+
       {tab === 'search' ? <SearchWorkspace
         readOnly={!canWrite}
         source={source} segment={segment} city={city} query={query} quantity={quantity} quickCapture={quickCapture} lastSync={state.lastExtensionSyncAt}
         onSource={setSource} onSegment={setSegment} onCity={setCity} onQuery={setQuery} onQuantity={setQuantity} onQuickCapture={setQuickCapture}
         onOpenSearch={openSearch} onCapture={captureQuick} onSyncExtension={syncExtension}
+        aiBusy={Boolean(aiBusy)} aiSummary={aiSummary} onAiSearch={() => void runAiSearch()}
+        execution={aiExecution} onExecution={setAiExecution} connectorBusy={connectorBusy} onConfigureConnector={() => void configureConnector()} onDisconnectConnector={() => void configureConnector(true)}
       /> : null}
 
       {tab === 'processing' ? <ProcessingWorkspace
@@ -330,6 +419,7 @@ export function ProspectingPage() {
         queue={processingQueue} active={activeProspect} leads={snapshot.leads} onSelect={setProcessingId} onChange={updateProspect}
         onAnalyze={(id) => analyze([id])} onApprove={(id) => setStatus([id], 'approved')} onDiscard={(id) => setStatus([id], 'discarded')}
         onSend={(id) => openSend([id])} onAnalyzeAll={() => analyze(processingQueue.filter((item) => item.status !== 'sent').map((item) => item.id))}
+        aiBusy={Boolean(aiBusy)} onEnrich={(prospect) => void runAiSearch(prospect)}
       /> : null}
 
       {tab === 'results' ? <ResultsWorkspace
@@ -356,26 +446,35 @@ function Metric({ icon: Icon, label, value, detail, tone = '' }: { icon: typeof 
 
 function SearchWorkspace(props: {
   readOnly: boolean; source: ProspectSource; segment: string; city: string; query: string; quantity: number; quickCapture: string; lastSync: string | null
+  aiBusy: boolean; aiSummary: string; onAiSearch(): void
+  execution: 'local' | 'server'; onExecution(value: 'local' | 'server'): void; connectorBusy: boolean; onConfigureConnector(): void; onDisconnectConnector(): void
   onSource(value: ProspectSource): void; onSegment(value: string): void; onCity(value: string): void; onQuery(value: string): void; onQuantity(value: number): void; onQuickCapture(value: string): void
   onOpenSearch(): void; onCapture(): void; onSyncExtension(): void
 }) {
   return <div className="prospecting-search-layout">
     <section className="panel prospecting-search-panel">
-      <header className="panel__heading"><div><span className="eyebrow"><Search size={14} /> Configuração da busca</span><h3>Encontrar novas oportunidades</h3><p>Escolha a fonte e abra uma pesquisa preparada com segmento e região.</p></div></header>
+      <header className="panel__heading"><div><span className="eyebrow"><Sparkles size={14} /> Busca automatizada com IA</span><h3>Encontrar novas oportunidades</h3><p>Defina o perfil e a região. A IA pesquisa fontes públicas e organiza os contatos no Garimpo para revisão.</p></div></header>
       <div className="prospecting-source-grid">{(['maps', 'instagram', 'cnpj', 'extension', 'manual'] as ProspectSource[]).map((item) => {
         const Icon = sourceIcons[item]
         return <button key={item} className={props.source === item ? 'is-active' : ''} onClick={() => props.onSource(item)}><span><Icon size={19} /></span><strong>{prospectSourceLabels[item]}</strong><small>{item === 'maps' ? 'Busca local e contatos' : item === 'instagram' ? 'Perfil e presença digital' : item === 'cnpj' ? 'Dados cadastrais' : item === 'extension' ? 'Captura automática' : 'Entrada própria'}</small></button>
       })}</div>
       <div className="prospecting-form-grid">
+        <label className="is-wide"><span>Onde pesquisar</span><select value={props.execution} disabled={props.aiBusy} onChange={(event) => props.onExecution(event.target.value as 'local' | 'server')}><option value="local">Meu computador — Firecrawl e modelo local</option><option value="server">Servidor conectado ao CRM</option></select></label>
         <label><span>Segmento</span><input value={props.segment} onChange={(event) => props.onSegment(event.target.value)} placeholder="Ex.: Barbearias" /></label>
         <label><span>Cidade ou região</span><input value={props.city} onChange={(event) => props.onCity(event.target.value)} placeholder="Ex.: Canoas, RS" /></label>
-        <label className="is-wide"><span>Busca específica</span><input value={props.query} onChange={(event) => props.onQuery(event.target.value)} placeholder="Opcional: nome, bairro ou palavra-chave" /></label>
-        <label><span>Limite por lote</span><select value={props.quantity} onChange={(event) => props.onQuantity(Number(event.target.value))}><option value={10}>10 leads</option><option value={25}>25 leads</option><option value={50}>50 leads</option><option value={100}>100 leads</option></select></label>
+        <label className="is-wide"><span>Perfil ideal e critérios adicionais</span><textarea value={props.query} onChange={(event) => props.onQuery(event.target.value)} placeholder="Ex.: barbearias no centro, com site ou Instagram ativo. Priorizar telefone comercial e link de agendamento." maxLength={1000} /></label>
+        <label><span>Máximo por pesquisa com IA</span><select value={props.quantity} onChange={(event) => props.onQuantity(Number(event.target.value))}><option value={5}>5 leads</option><option value={10}>10 leads</option></select></label>
       </div>
-      <div className="prospecting-search-actions"><Button onClick={props.onOpenSearch}><ExternalLink size={17} /> Abrir busca preparada</Button><span>A pesquisa abre em uma nova guia e o CRM mantém o fluxo salvo.</span></div>
+      <div className="prospecting-ai-fields"><strong>Dados que a pesquisa procura</strong><span>Empresa · telefone · e-mail · cidade e endereço · CNPJ · Instagram · site · agendamento · WhatsApp publicado</span><small>Cada dado encontrado acompanha uma fonte. Campos ausentes ficam em branco; a abordagem comercial é uma sugestão da IA.</small></div>
+      <div className="prospecting-search-actions">{!props.readOnly ? <Button onClick={props.onAiSearch} disabled={props.aiBusy || !props.segment.trim() || !props.city.trim()}><Sparkles size={17} /> Buscar leads com IA</Button> : null}<Button variant="secondary" onClick={props.onOpenSearch}><ExternalLink size={17} /> Busca externa</Button></div>
+      {props.aiSummary ? <p className="prospecting-ai-summary" role="status">{props.aiSummary}</p> : null}
     </section>
 
     <aside className="panel prospecting-extension-card">
+      <header><span><Sparkles size={20} /></span><div><small>Firecrawl próprio</small><strong>Pesquisar no meu computador</strong></div></header>
+      <p>Instale o conector local, inicie o Firecrawl e escolha um modelo. Seu computador recebe as pesquisas do CRM sem abrir portas públicas.</p>
+      {!props.readOnly ? <><Button variant="secondary" disabled={props.connectorBusy} onClick={props.onConfigureConnector}>Gerar arquivo do conector</Button><Button variant="ghost" disabled={props.connectorBusy} onClick={props.onDisconnectConnector}>Desconectar computador</Button></> : null}
+      <p>Mantenha o conector aberto durante as pesquisas. O arquivo de instalação inclui o guia passo a passo.</p>
       <header><span><Zap size={20} /></span><div><small>Integração Chrome</small><strong>Caixa de entrada da extensão</strong></div><StatusPill tone="success">Pronta</StatusPill></header>
       <p>A extensão pode entregar lotes por mensagem do navegador ou pela caixa local compatível com a {APP_VERSION_LABEL}.</p>
       <div className="prospecting-extension-flow"><span>Capturar</span><ArrowRight size={14} /><span>Analisar</span><ArrowRight size={14} /><span>Revisar</span><ArrowRight size={14} /><span>Enviar</span></div>
@@ -391,9 +490,10 @@ function SearchWorkspace(props: {
   </div>
 }
 
-function ProcessingWorkspace({ readOnly, queue, active, leads, onSelect, onChange, onAnalyze, onApprove, onDiscard, onSend, onAnalyzeAll }: {
+function ProcessingWorkspace({ readOnly, queue, active, leads, onSelect, onChange, onAnalyze, onApprove, onDiscard, onSend, onAnalyzeAll, aiBusy, onEnrich }: {
   readOnly: boolean; queue: ProspectRecord[]; active: ProspectRecord | null; leads: Array<{ id: string; name: string; company: string }>; onSelect(id: string): void
   onChange(id: string, patch: Partial<ProspectRecord>): void; onAnalyze(id: string): void; onApprove(id: string): void; onDiscard(id: string): void; onSend(id: string): void; onAnalyzeAll(): void
+  aiBusy: boolean; onEnrich(prospect: ProspectRecord): void
 }) {
   if (!active) return <EmptyState icon={Sparkles} title="Fila de processamento vazia" description="Capture ou importe leads para iniciar a análise comercial." />
   const index = queue.findIndex((item) => item.id === active.id)
@@ -407,6 +507,7 @@ function ProcessingWorkspace({ readOnly, queue, active, leads, onSelect, onChang
 
     <section className="panel prospecting-review-card">
       <header className="prospecting-review-header"><div><span className="eyebrow"><Sparkles size={14} /> Processamento individual</span><h3>{active.company}</h3><p>Revise os dados, valide a duplicidade e defina o destino comercial.</p></div><div><StatusPill tone={statusTones[active.status]}>{prospectStatusLabels[active.status]}</StatusPill><span className="prospecting-counter">{index + 1} de {queue.length}</span></div></header>
+      {!readOnly ? <div className="prospecting-ai-enrich"><span>Pesquise os dados que faltam sem substituir sua revisão.</span><Button variant="secondary" disabled={aiBusy} onClick={() => onEnrich(active)}><Sparkles size={16} /> Enriquecer com IA</Button></div> : null}
       <div className="prospecting-review-form">
         <label><span>Nome do contato/empresa</span><input readOnly={readOnly} value={active.name} onChange={(event) => onChange(active.id, { name: event.target.value, company: event.target.value })} /></label>
         <label><span>Telefone</span><input readOnly={readOnly} value={active.phone} onChange={(event) => onChange(active.id, { phone: event.target.value })} placeholder="(51) 99999-9999" /></label>
@@ -425,7 +526,8 @@ function ProcessingWorkspace({ readOnly, queue, active, leads, onSelect, onChang
     </section>
 
     <aside className="prospecting-analysis-sidebar">
-      <section className="panel prospecting-confidence-card"><header><div><span>Confiança dos dados</span><strong>{active.confidence}%</strong></div><GaugeRing value={active.confidence} /></header><div className="prospecting-confidence-track"><span style={{ width: `${active.confidence}%` }} /></div><div className="prospecting-checklist">{checks.map((check) => <span key={check.label} className={check.ok ? 'is-ok' : ''}>{check.ok ? <CheckCircle2 size={14} /> : <CircleDashed size={14} />}{check.label}</span>)}</div></section>
+      <AiResearchCard prospect={active} />
+      <section className="panel prospecting-confidence-card"><header><div><span>Completude dos dados</span><strong>{active.confidence}%</strong></div><GaugeRing value={active.confidence} /></header><div className="prospecting-confidence-track"><span style={{ width: `${active.confidence}%` }} /></div><div className="prospecting-checklist">{checks.map((check) => <span key={check.label} className={check.ok ? 'is-ok' : ''}>{check.ok ? <CheckCircle2 size={14} /> : <CircleDashed size={14} />}{check.label}</span>)}</div></section>
       <section className={`panel prospecting-duplicate-card is-${active.duplicateLevel}`}><header><span><AlertTriangle size={18} /></span><div><small>Antiduplicação</small><strong>{duplicateLabel(active.duplicateLevel)}</strong></div></header>{active.duplicateReasons.length ? <ul>{active.duplicateReasons.map((reason) => <li key={reason}>{reason}</li>)}</ul> : <p>Nenhum identificador forte coincide com a base atual.</p>}{duplicateLead ? <div className="prospecting-duplicate-match"><UserRoundCheck size={16} /><div><small>Registro encontrado</small><strong>{duplicateLead.company || duplicateLead.name}</strong></div></div> : null}</section>
       <section className="panel prospecting-source-card"><span className="eyebrow">Origem e rastreabilidade</span><div><SourceMark source={active.source} /><div><strong>{prospectSourceLabels[active.source]}</strong><small>{active.sourceDetail || 'Captura sem detalhe adicional'}</small></div></div><dl><div><dt>Criado</dt><dd>{formatDateTime(active.createdAt)}</dd></div><div><dt>Analisado</dt><dd>{active.analyzedAt ? formatDateTime(active.analyzedAt) : 'Pendente'}</dd></div></dl></section>
     </aside>
@@ -446,7 +548,7 @@ function ResultsWorkspace({ readOnly, prospects, selectedIds, search, statusFilt
   return <section className="panel prospecting-results-panel">
     <header className="prospecting-results-toolbar"><label className="search-field"><Search size={16} /><input value={search} onChange={(event) => onSearch(event.target.value)} placeholder="Buscar empresa, cidade, telefone ou CNPJ" /></label><label className="compact-select"><Filter size={15} /><select value={statusFilter} onChange={(event) => onStatusFilter(event.target.value as 'all' | ProspectStatus)}><option value="all">Todos os status</option>{Object.entries(prospectStatusLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label><label className="compact-select"><ListFilter size={15} /><select value={sourceFilter} onChange={(event) => onSourceFilter(event.target.value as 'all' | ProspectSource)}><option value="all">Todas as origens</option>{Object.entries(prospectSourceLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label><Button variant="secondary" onClick={onExport}><Download size={16} /> Exportar</Button></header>
     {!readOnly && selectedIds.size ? <div className="prospecting-bulkbar"><strong>{selectedIds.size} selecionado(s)</strong><div><Button size="sm" variant="ghost" onClick={() => onAnalyze(ids)}><Sparkles size={15} /> Analisar</Button><Button size="sm" variant="ghost" onClick={() => onApprove(ids)}><Check size={15} /> Aprovar</Button><Button size="sm" variant="ghost" onClick={() => onDiscard(ids)}><Ban size={15} /> Descartar</Button><Button size="sm" onClick={() => onSend(ids)}><Send size={15} /> Enviar</Button><Button size="sm" variant="danger" onClick={() => onDelete(ids)}><Trash2 size={15} /></Button></div></div> : null}
-    {prospects.length ? <div className="prospecting-table"><div className="prospecting-table__head"><label><input type="checkbox" disabled={readOnly} checked={allSelected} onChange={() => onSelected(allSelected ? new Set() : new Set(prospects.map((item) => item.id)))} /></label><span>Lead</span><span>Contato</span><span>Origem</span><span>Confiança</span><span>Validação</span><span>Status</span><span>Ações</span></div>{prospects.map((prospect) => <article key={prospect.id}><label><input type="checkbox" disabled={readOnly} checked={selectedIds.has(prospect.id)} onChange={() => toggle(prospect.id)} /></label><div className="prospecting-table__lead"><span>{prospect.company.slice(0, 1).toUpperCase()}</span><div><strong>{prospect.company}</strong><small>{prospect.city || 'Cidade não informada'}</small></div></div><div className="prospecting-table__contact"><strong>{prospect.phone || 'Sem telefone'}</strong><small>{prospect.instagram || prospect.email || prospect.website || 'Sem canal digital'}</small></div><div><SourceMark source={prospect.source} /><small>{prospectSourceLabels[prospect.source]}</small></div><div className="prospecting-table__confidence"><div><span style={{ width: `${prospect.confidence}%` }} /></div><strong>{prospect.confidence}%</strong></div><StatusPill tone={duplicateTone(prospect.duplicateLevel)}>{prospect.duplicateLevel === 'none' ? 'Único' : prospect.duplicateLevel === 'possible' ? 'Revisar' : 'Duplicado'}</StatusPill><StatusPill tone={statusTones[prospect.status]}>{prospectStatusLabels[prospect.status]}</StatusPill><div className="prospecting-table__actions">{!readOnly ? <><button className="icon-button" title="Analisar" onClick={() => onAnalyze([prospect.id])}><Sparkles size={15} /></button>{prospect.status !== 'sent' && prospect.status !== 'discarded' ? <button className="icon-button" title="Enviar ao CRM" onClick={() => onSend([prospect.id])}><Send size={15} /></button> : null}<button className="icon-button icon-button--danger" title="Remover" onClick={() => onDelete([prospect.id])}><Trash2 size={15} /></button></> : null}</div></article>)}</div> : <EmptyState icon={Search} title="Nenhum resultado encontrado" description="Ajuste os filtros ou faça uma nova captura." />}
+    {prospects.length ? <div className="prospecting-table"><div className="prospecting-table__head"><label><input type="checkbox" disabled={readOnly} checked={allSelected} onChange={() => onSelected(allSelected ? new Set() : new Set(prospects.map((item) => item.id)))} /></label><span>Lead</span><span>Contato</span><span>Origem</span><span>Completude</span><span>Validação</span><span>Status</span><span>Ações</span></div>{prospects.map((prospect) => <article key={prospect.id}><label><input type="checkbox" disabled={readOnly} checked={selectedIds.has(prospect.id)} onChange={() => toggle(prospect.id)} /></label><div className="prospecting-table__lead"><span>{prospect.company.slice(0, 1).toUpperCase()}</span><div><strong>{prospect.company}</strong><small>{prospect.city || 'Cidade não informada'}</small></div></div><div className="prospecting-table__contact"><strong>{prospect.phone || 'Sem telefone'}</strong><small>{prospect.instagram || prospect.email || prospect.website || 'Sem canal digital'}</small></div><div><SourceMark source={prospect.source} /><small>{prospectSourceLabels[prospect.source]}</small></div><div className="prospecting-table__confidence"><div><span style={{ width: `${prospect.confidence}%` }} /></div><strong>{prospect.confidence}%</strong></div><StatusPill tone={duplicateTone(prospect.duplicateLevel)}>{prospect.duplicateLevel === 'none' ? 'Único' : prospect.duplicateLevel === 'possible' ? 'Revisar' : 'Duplicado'}</StatusPill><StatusPill tone={statusTones[prospect.status]}>{prospectStatusLabels[prospect.status]}</StatusPill><div className="prospecting-table__actions">{!readOnly ? <><button className="icon-button" title="Analisar" onClick={() => onAnalyze([prospect.id])}><Sparkles size={15} /></button>{prospect.status !== 'sent' && prospect.status !== 'discarded' ? <button className="icon-button" title="Enviar ao CRM" onClick={() => onSend([prospect.id])}><Send size={15} /></button> : null}<button className="icon-button icon-button--danger" title="Remover" onClick={() => onDelete([prospect.id])}><Trash2 size={15} /></button></> : null}</div></article>)}</div> : <EmptyState icon={Search} title="Nenhum resultado encontrado" description="Ajuste os filtros ou faça uma nova captura." />}
   </section>
 }
 

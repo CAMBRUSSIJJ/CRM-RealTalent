@@ -108,6 +108,7 @@ const blankState = (): ProspectingState => ({ prospects: [], history: [], lastEx
 const storageKey = (workspaceId: string) => `${STORAGE_PREFIX}:${workspaceId}`
 const text = (value: unknown) => typeof value === 'string' ? value.trim() : value == null ? '' : String(value).trim()
 const digits = (value: string) => value.replace(/\D/g, '')
+const duplicatePhone = (value: string) => { const number = digits(value); return number.length === 13 && number.startsWith('55') ? number.slice(2) : number }
 const cleanUrl = (value: string) => value.trim().replace(/^https?:\/\//i, '').replace(/^www\./i, '').replace(/\/$/, '').toLocaleLowerCase('pt-BR')
 const cleanInstagram = (value: string) => value.trim().replace(/^https?:\/\/(www\.)?instagram\.com\//i, '').replace(/^@/, '').replace(/[/?#].*$/, '').toLocaleLowerCase('pt-BR')
 const cleanText = (value: string) => value.normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]/gi, ' ').replace(/\s+/g, ' ').trim().toLocaleLowerCase('pt-BR')
@@ -212,7 +213,7 @@ export function calculateProspectConfidence(input: CaptureDraft) {
 }
 
 export function detectProspectDuplicate(input: CaptureDraft, leads: Lead[]): DuplicateResult {
-  const phone = digits(text(input.phone))
+  const phone = duplicatePhone(text(input.phone))
   const cnpj = normalizeCnpj(text(input.cnpj))
   const instagram = cleanInstagram(text(input.instagram))
   const website = cleanUrl(text(input.website)).split('/')[0]
@@ -223,11 +224,11 @@ export function detectProspectDuplicate(input: CaptureDraft, leads: Lead[]): Dup
   for (const lead of leads) {
     let score = 0
     const reasons: string[] = []
-    const leadPhone = digits(lead.phone)
+    const leadPhone = duplicatePhone(lead.phone)
     const notes = `${lead.notes} ${lead.tags.join(' ')}`
-    const leadCnpj = normalizeCnpj(notes.match(/\b\d{2}\.?\d{3}\.?\d{3}[/\-]?\d{4}-?\d{2}\b/)?.[0] ?? '')
-    const leadInstagram = cleanInstagram(notes.match(/(?:instagram\.com\/|@)([a-zA-Z0-9._]+)/)?.[0] ?? '')
-    const leadWebsite = cleanUrl(notes.match(/https?:\/\/[^\s]+/)?.[0] ?? '').split('/')[0]
+    const leadCnpj = normalizeCnpj(lead.cnpj || notes.match(/\b\d{2}\.?\d{3}\.?\d{3}[/\-]?\d{4}-?\d{2}\b/)?.[0] || '')
+    const leadInstagram = cleanInstagram(lead.instagramUrl || notes.match(/(?:instagram\.com\/|@)([a-zA-Z0-9._]+)/)?.[0] || '')
+    const leadWebsite = cleanUrl(lead.website || notes.match(/https?:\/\/[^\s]+/)?.[0] || '').split('/')[0]
     const leadName = cleanText(lead.company || lead.name)
     const leadCity = cleanText(lead.city)
 

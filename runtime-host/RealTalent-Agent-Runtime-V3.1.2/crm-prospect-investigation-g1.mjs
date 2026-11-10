@@ -2,6 +2,8 @@ import {validResearchUrlV60} from './crm-web-reader-v60.mjs'
 import {readPublicPageOpenSourceG50} from './crm-open-source-reader-g50.mjs'
 import {searchResearchSources} from './crm-script-research-v52.mjs'
 import {validateTriggerModelResponse} from './crm-trigger-events-g4.mjs'
+import {canonicalBusinessNameG56,buildBusinessQueriesG56,businessNameMatchG56,
+  publicBusinessSourceKindG56,rankBusinessSourcesG56} from './crm-business-source-discovery-g56.mjs'
 
 // Only public company names and cities may be sent to the public search service.
 // Never transmit customer contacts, pipeline notes or private CRM documents.
@@ -49,50 +51,56 @@ export function sanitizeProspectForInvestigation(input){
   const segment=sanitizeText(input.segment,100)
   const rawSite=String(input.website||'').trim().slice(0,1100)
   const website=validResearchUrlV60(rawSite)?.href||null
-  return {company,city,segment,description,website}
+  const publicSourceUrl=validResearchUrlV60(String(input.publicSourceUrl||'').trim().slice(0,1100))?.href||null
+  return {company,city,segment,description,website,publicSourceUrl}
 }
 const sourceFromResult=(item,origin)=>{
   const url=validResearchUrlV60(item?.url)?.href
   if(!url)return null
   return {title:sanitizeText(item.title||'',150)||new URL(url).hostname,url,
-    snippet:sanitizeText(item.excerpt||item.snippet,400),origin}
+    snippet:sanitizeText(item.excerpt||item.snippet,400),origin,
+    sourceKind:publicBusinessSourceKindG56(url)}
 }
 export async function searchCompanySourcesG1(company,{
   fetcher=fetch,searxSearch=searchResearchSources,agentUrl='http://127.0.0.1:4319',
 }={}){
-  // SearXNG is optional; the existing local Prospecting Agent provides the default search.
-  const query='"'+company.company.replace(/["\r\n]/g,' ')+'" '+company.city
-  const foundSources=[],seen=new Set()
+  // Only business name and city go to public search. No CRM notes, phone,
+  // account details, WhatsApp data or pipeline information are transmitted.
+  const name=canonicalBusinessNameG56(company.company,company.city)
+  const queries=buildBusinessQueriesG56(company.company,company.city)
+  const sources=[],seen=new Set()
   const add=(items,origin)=>{
     for(const item of Array.isArray(items)?items:[]){
       const source=sourceFromResult(item,origin)
-      if(!source||!companyMatch(company.company,source.title+' '+source.snippet)||seen.has(source.url))continue
-      seen.add(source.url)
-      foundSources.push(source)
-      if(foundSources.length>=8)break
+      if(!source||seen.has(source.url)||source.sourceKind==='social_post')continue
+      const label=source.title+' '+source.snippet
+      if(!businessNameMatchG56(name,label,company.city)&&!companyMatch(name,label))continue
+      seen.add(source.url);sources.push(source)
+      if(sources.length>=12)break
     }
   }
+  const controller=new AbortController()
+  const timer=setTimeout(()=>controller.abort(),30000)
+  // Query public index and the already-running Garimpo in parallel so an
+  // unavailable SearXNG doesn't block local discovery for small businesses.
   try{
-    const found=await searxSearch(query,{queryMode:'public'})
-    // An unrelated result is not a successful business discovery.
-    // Keep eligible hits and continue to the existing local Garimpo if sparse.
-    add(found,'searxng')
-  }catch{/* the local Garimpo remains available */}
-  if(foundSources.length>=4)return foundSources
-  const ctrl=new AbortController(),timer=setTimeout(()=>ctrl.abort(),30000)
-  try{
-    const response=await fetcher(agentUrl+'/api/prospecting-agent/company/research',{
-      method:'POST',signal:ctrl.signal,headers:{'content-type':'application/json'},
-      body:JSON.stringify({company:company.company,city:company.city}),
+    const searches=queries.map(query=>Promise.resolve().then(()=>
+      searxSearch(query,{queryMode:'public'})).then(items=>({items,origin:'searxng'})))
+    const local=Promise.resolve().then(async()=>{
+      const response=await fetcher(agentUrl+'/api/prospecting-agent/company/research',{
+        method:'POST',signal:controller.signal,headers:{'content-type':'application/json'},
+        body:JSON.stringify({company:name,city:company.city}),
+      })
+      if(!response.ok)throw Error('garimpo_search_http_'+response.status)
+      const data=await response.json()
+      if(data?.ok!==true||!Array.isArray(data.results))throw Error('garimpo_search_unavailable')
+      return {items:data.results,origin:'garimpo'}
     })
-    if(!response.ok)throw Error('garimpo_search_http_'+response.status)
-    const data=await response.json()
-    if(data?.ok!==true||!Array.isArray(data.results))throw Error('garimpo_search_unavailable')
-    add(data.results,'garimpo')
-    return foundSources
-  }catch(error){
-    if(foundSources.length)return foundSources
-    throw error
+    const settled=await Promise.allSettled([...searches,local])
+    for(const item of settled)if(item.status==='fulfilled')add(item.value.items,item.value.origin)
+    if(!sources.length&&settled.every(item=>item.status==='rejected'))
+      throw Error('public_business_discovery_unavailable')
+    return rankBusinessSourcesG56(sources,company.city).slice(0,8)
   }finally{clearTimeout(timer)}
 }
 const fallback=(message,sources,searchStatus,caveats=[])=>({

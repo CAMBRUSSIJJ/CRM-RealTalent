@@ -18,7 +18,15 @@ const companyMatch=(name,content)=>{
   const words=companyTokens(name)
   if(!words.length)return false
   const hay=' '+normalize(content)+' '
-  return words.every(word=>hay.includes(' '+word+' '))
+  if(words.every(word=>hay.includes(' '+word+' ')))return true
+  // Some official registrations append an acronym to the legal name:
+  // "Universidade Federal do Rio Grande FURG". A page that spells out
+  // the COMPLETE legal name is a stronger match than a generic acronym.
+  const raw=String(name||'').trim()
+  const expanded=raw.match(/^(.{12,}?)\s+([A-Z]{3,8})$/)
+  if(!expanded)return false
+  const fullName=normalize(expanded[1])
+  return fullName.split(' ').length>=3 && hay.includes(' '+fullName+' ')
 }
 const sameCity=(city,content)=>{
   const name=normalize(String(city||'').split(',')[0])
@@ -70,6 +78,7 @@ const boundedSources=results=>results.slice(0,6).map(item=>({
   excerpt:item.reading==='page'&&item.identity!=='unconfirmed'?item.excerpt:'',origin:item.origin,
   extractedFacts:item.reading==='page'&&item.identity!=='unconfirmed'?item.extractedFacts||[]:[],
   engine:item.engine||'legacy',
+  readError:item.readError||null,
 }))
 export async function investigateProspectG1(input,{
   readPage=readPublicPageOpenSourceG50,searcher=searchCompanySourcesG1,fetcher=fetch,
@@ -100,11 +109,12 @@ export async function investigateProspectG1(input,{
     return source.origin==='cadastro'||companyMatch(company.company,source.title+' '+source.snippet)
   }).slice(0,4)
   const sources=await Promise.all(unique.map(async source=>{
-    let page=null
+    let page=null,readError=null
     try{
       const value=await readPage(source.url)
       if(value?.ok===true&&typeof value.text==='string'&&value.text.length>180)page=value
-    }catch{/* not a confirmed page */}
+      else readError=String(value?.error||'insufficient_content').slice(0,80)
+    }catch{readError='reader_exception'}
     const sampled=page?(String(page.title||'')+' '+page.text.slice(0,2200)):
       (source.title+' '+source.snippet)
     const matches=companyMatch(company.company,sampled)
@@ -115,6 +125,7 @@ export async function investigateProspectG1(input,{
       excerpt:page&&matches?sanitizeText(page.text,3500):'',
       extractedFacts:page&&matches&&Array.isArray(page.extractedFacts)?page.extractedFacts.slice(0,3):[],
       engine:page?.engine||'legacy',
+      readError,
     }
   }))
   // A URL being readable does not prove which company it describes.
@@ -185,7 +196,11 @@ export async function investigateProspectG1(input,{
     const caveats=smallList(result.caveats,4)
     if(searchStatus==='unavailable')caveats.push('Busca pública indisponível nesta tentativa.')
     if(best?.identity==='partial')caveats.push('Nome compatível, mas localidade não confirmada na fonte.')
-    if(!best)caveats.push('Nenhuma página pública compatível foi lida; informações são apenas do cadastro.')
+    if(!best){
+      caveats.push('Nenhuma página pública compatível foi lida; informações são apenas do cadastro.')
+      const blocked=sources.filter(s=>s.readError).slice(0,2).map(s=>s.readError)
+      if(blocked.length)caveats.push('Diagnóstico de leitura: '+blocked.join(', ')+'.')
+    }
     return {ok:true,summary:result.summary.slice(0,1100),hypotheses:smallList(result.hypotheses,3),
       questions:smallList(result.questions,3),approach:String(result.approach||'').slice(0,600),
       caveats:caveats.slice(0,6),pageRead:Boolean(best),

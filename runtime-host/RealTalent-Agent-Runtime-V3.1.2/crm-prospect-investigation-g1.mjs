@@ -211,11 +211,14 @@ export async function investigateProspectG1(input,{
     return {
       ok:true,summary:'Não foi possível confirmar informações públicas sobre '+company.company+'. O cadastro, isoladamente, não permite identificar necessidades ou oportunidades comerciais.',
       hypotheses:[],questions:[],approach:'',
-      caveats:[detail,'Confira um site ou perfil público oficial da empresa e repita a investigação.'],
+      caveats:[detail,publicProfiles.length
+        ?'Perfis públicos foram encontrados como candidatos, mas não foram lidos nem confirmados. Confira-os manualmente.'
+        :'Confira um site ou perfil público oficial da empresa e repita a investigação.'],
       pageRead:false,readUrl:null,readTitle:null,quality:'insufficient',
       sources:boundedSources(sources),searchStatus,candidateEvents:[],
       modelStatus:'skipped_no_public_evidence',modelEvidenceCount:0,
-      searchDiagnostics:{resultsReturned:searchResults.length,eligibleUrls:unique.length,verifiedPages:0},
+      searchDiagnostics:{resultsReturned:searchResults.length,eligibleUrls:unique.length,
+        verifiedPages:0,socialProfiles:publicProfiles.length},
     }
   }
   if(!available.length){
@@ -310,7 +313,9 @@ export async function investigateProspectG1(input,{
       readUrl:best?.url||null,readTitle:best?.title||null,
       quality:best?'page_reviewed':'origin_only',searchStatus,sources:boundedSources(sources),
       candidateEvents,modelStatus:'completed',modelDoneReason,modelElapsedMs:Date.now()-elapsedStart,
-      modelEvidenceCount:modelSources.length}
+      modelEvidenceCount:modelSources.length,
+      searchDiagnostics:{resultsReturned:searchResults.length,eligibleUrls:unique.length,
+        verifiedPages:supported.length,socialProfiles:publicProfiles.length}}
   }catch(error){
     const best=supported[0]||null
     const code=ctrl.signal.aborted||error?.name==='AbortError'?'ollama_timeout':modelError
@@ -330,6 +335,8 @@ export async function investigateProspectG1(input,{
       pageRead:Boolean(best),readUrl:best?.url||null,readTitle:best?.title||null,
       quality:'insufficient',searchStatus,sources:boundedSources(sources),candidateEvents:[],
       modelStatus:code,modelHttpStatus,modelDoneReason,modelElapsedMs:Date.now()-elapsedStart,
-      modelEvidenceCount:modelSources.length}
+      modelEvidenceCount:modelSources.length,
+      searchDiagnostics:{resultsReturned:searchResults.length,eligibleUrls:unique.length,
+        verifiedPages:supported.length,socialProfiles:publicProfiles.length}}
   }finally{clearTimeout(timer)}
 }

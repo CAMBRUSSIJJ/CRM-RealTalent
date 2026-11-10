@@ -40,6 +40,7 @@ jobs:
           python3 scripts/garimpo-open-source/worker.py --health
           bash -n scripts/garimpo-open-source/instalar-linux.sh
           bash -n scripts/garimpo-open-source/abrir-previa-g54.sh
+          bash -n scripts/garimpo-open-source/abrir-previa-g55.sh
 
   frontend-contract:
     runs-on: ubuntu-latest

@@ -1,9 +1,9 @@
 import { useEffect, useRef, useState } from 'react'
-import { Download, LoaderCircle, RefreshCw, Sparkles } from 'lucide-react'
+import { Copy, Download, LoaderCircle, RefreshCw, Sparkles } from 'lucide-react'
 import { useAppUi } from '../../app/app-context'
 import { Button } from '../../components/ui/button'
 import { StatusPill } from '../../components/ui/status-pill'
-import { disconnectLocalConnector, downloadLocalConnectorInstaller, getLocalConnectorStatus, searchProspectsWithAi, type AiSearchResult } from '../../services/prospecting-ai'
+import { disconnectLocalConnector, downloadLocalConnectorInstaller, generateLocalConnectorCommand, getLocalConnectorStatus, searchProspectsWithAi, type AiSearchResult } from '../../services/prospecting-ai'
 import type { ProspectRecord } from '../../services/prospecting-workspace'
 import './firecrawl-local-panel.css'
 
@@ -17,6 +17,9 @@ export function FirecrawlLocalPanel({ workspaceId, readOnly, canConfigure, segme
   const [query, setQuery] = useState('')
   const [busy, setBusy] = useState(false)
   const [configuring, setConfiguring] = useState(false)
+  const [generatedCommand, setGeneratedCommand] = useState('')
+  const [copiedCommand, setCopiedCommand] = useState(false)
+  const commandArea = useRef<HTMLTextAreaElement | null>(null)
   const [error, setError] = useState('')
   const [online, setOnline] = useState(false)
   const controller = useRef<AbortController | null>(null)
@@ -32,21 +35,55 @@ export function FirecrawlLocalPanel({ workspaceId, readOnly, canConfigure, segme
     return () => { active = false; window.clearInterval(timer); controller.current?.abort(); controller.current = null }
   }, [workspaceId, readOnly])
 
-  const configure = async (disconnect: boolean) => {
+  const copyConnectionCommand = async (value = generatedCommand) => {
+    if (!value) return
+    try {
+      if (!navigator.clipboard?.writeText) throw new Error('clipboard_unavailable')
+      await navigator.clipboard.writeText(value)
+      setCopiedCommand(true)
+      setError('')
+      notify('success', 'Comando copiado. Cole no terminal Linux e pressione Enter.')
+    } catch {
+      setCopiedCommand(false)
+      commandArea.current?.focus()
+      commandArea.current?.select()
+      setError('O Firefox bloqueou a cópia automática. O comando está selecionado abaixo: pressione Ctrl+C e cole no terminal.')
+    }
+  }
+
+  const configure = async (disconnect: boolean, delivery: 'command' | 'file' = 'command') => {
     if (!canConfigure || configuring) return
-    const confirmed = await confirmAction({ title: disconnect ? 'Desconectar seu Linux?' : 'Gerar acesso para seu Linux?',
-      description: disconnect ? 'O conector deixará de receber pesquisas deste workspace.' : 'Será baixado um instalador pessoal com a credencial deste workspace. Não compartilhe esse arquivo. Uma nova conexão substitui a credencial anterior.',
-      confirmLabel: disconnect ? 'Desconectar' : 'Baixar instalador',
+    const confirmed = await confirmAction({
+      title: disconnect ? 'Desconectar seu Linux?' : 'Autorizar uma conexão com seu Linux?',
+      description: disconnect
+        ? 'O conector deixará de receber pesquisas deste workspace.'
+        : 'Será criada uma nova credencial privada para seu computador. Uma credencial anterior será revogada. Não compartilhe o comando nem o instalador.',
+      confirmLabel: disconnect ? 'Desconectar' : delivery === 'file' ? 'Baixar instalador' : 'Gerar comando',
     })
     if (!confirmed) return
-    setConfiguring(true); setError('')
+    setConfiguring(true)
+    setError('')
+    setCopiedCommand(false)
     try {
-      if (disconnect) await disconnectLocalConnector(workspaceId)
-      else await downloadLocalConnectorInstaller(workspaceId)
-      notify('success', disconnect ? 'Computador desconectado.' : 'Instalador baixado. Execute bash ~/Downloads/CONECTAR-GARIMPO-LINUX.sh no seu computador.')
+      if (disconnect) {
+        await disconnectLocalConnector(workspaceId)
+        setGeneratedCommand('')
+        notify('success', 'Computador desconectado.')
+      } else if (delivery === 'file') {
+        await downloadLocalConnectorInstaller(workspaceId)
+        setGeneratedCommand('')
+        notify('success', 'Instalador solicitado ao navegador. Confira o painel de downloads.')
+      } else {
+        const command = await generateLocalConnectorCommand(workspaceId)
+        setGeneratedCommand(command)
+        await copyConnectionCommand(command)
+      }
       await refresh()
-    } catch (reason) { setError(reason instanceof Error ? reason.message : 'Não foi possível configurar o conector.') }
-    finally { setConfiguring(false) }
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : 'Não foi possível autorizar a conexão. Confira seu acesso de administrador no CRM.')
+    } finally {
+      setConfiguring(false)
+    }
   }
 
   const search = async () => {
@@ -68,12 +105,20 @@ export function FirecrawlLocalPanel({ workspaceId, readOnly, canConfigure, segme
   return <section className="panel firecrawl-local-panel" aria-label={prospect ? 'Enriquecimento com Firecrawl' : 'Firecrawl no Linux'}>
     <header><div><span className="eyebrow"><Sparkles size={14} /> Firecrawl no seu Linux</span><h3>{prospect ? 'Completar dados com IA local' : 'Buscar empresas e trazer os contatos'}</h3><p>{prospect ? 'Preencha os campos que faltam mantendo sua revisão.' : 'Defina o perfil. Seu computador pesquisa os sites e devolve os dados com suas fontes para revisão.'}</p></div><StatusPill tone={online ? 'success' : 'neutral'}>{online ? 'Linux conectado' : 'Conector offline'}</StatusPill></header>
     {!prospect && !online ? <div className="firecrawl-local-panel__connection">
-      <div><strong>Conectar seu computador</strong><p>O instalador já traz o acesso deste CRM. Não precisa criar nem procurar garimpo.env.</p></div>
+      <div><strong>Conectar seu computador</strong><p>Conecte o Garimpo sem procurar nem baixar arquivos de configuração.</p></div>
       {canConfigure ? <>
-        <Button disabled={configuring} onClick={() => void configure(false)}><Download size={16} />{configuring ? 'Preparando instalador…' : 'Conectar meu Linux'}</Button>
-        <span className="firecrawl-local-panel__command-label">Depois de baixar, execute no terminal:</span>
-        <code>bash ~/Downloads/CONECTAR-GARIMPO-LINUX.sh</code>
-        <small>Arquivo pessoal: não compartilhe. O modelo 3B é selecionado automaticamente quando instalado.</small>
+        {!generatedCommand ? <Button disabled={configuring} onClick={() => void configure(false, 'command')}>
+          <Copy size={16} />{configuring ? 'Gerando conexão…' : 'Conectar meu Linux'}
+        </Button> : null}
+        {generatedCommand ? <>
+          <p className="firecrawl-local-panel__command-label">Sua conexão foi gerada. Copie e cole o comando no terminal Linux:</p>
+          <textarea ref={commandArea} className="firecrawl-local-panel__private-command" value={generatedCommand} readOnly onFocus={(event) => event.currentTarget.select()} aria-label="Comando privado para conectar o Garimpo ao Linux" spellCheck={false} />
+          <Button disabled={configuring} onClick={() => void copyConnectionCommand()}><Copy size={16} />{copiedCommand ? 'Copiar novamente' : 'Copiar comando'}</Button>
+          <small>Esse comando contém seu acesso privado ao CRM. Não envie em mensagens nem compartilhe capturas dele.</small>
+        </> : null}
+        <div className="firecrawl-local-panel__connection-alt">
+          <Button variant="ghost" disabled={configuring} onClick={() => void configure(false, 'file')}><Download size={15} /> Preferir download do instalador</Button>
+        </div>
       </> : <small>Um administrador do workspace precisa autorizar este computador.</small>}
     </div> : null}
     {!prospect ? <div className="prospecting-form-grid">
@@ -89,7 +134,7 @@ export function FirecrawlLocalPanel({ workspaceId, readOnly, canConfigure, segme
       <p>O conector trabalha somente enquanto o Linux estiver ligado e o instalador estiver em execução. O status é atualizado automaticamente.</p>
       <div className="firecrawl-local-panel__setup">
         <Button variant="secondary" onClick={() => void refresh()}><RefreshCw size={15} /> Verificar conexão</Button>
-        {canConfigure && online ? <Button variant="secondary" disabled={configuring} onClick={() => void configure(false)}>Gerar novo instalador</Button> : null}
+        {canConfigure && online ? <Button variant="secondary" disabled={configuring} onClick={() => void configure(false, 'command')}>Gerar novo comando</Button> : null}
         {canConfigure ? <Button variant="ghost" disabled={configuring} onClick={() => void configure(true)}>Desconectar Linux</Button> : null}
       </div></details> : null}
   </section>

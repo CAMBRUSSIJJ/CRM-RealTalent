@@ -54,7 +54,7 @@ import '../../styles/prospecting-r1.css'
 import {GARIMPO_REVIEW_REQUEST,garimpoReviewStorageKey} from '../../services/realtalent-agent-garimpo-bridge'
 import { FirecrawlLocalPanel } from './firecrawl-local-panel'
 import { AiResearchCard } from './ai-research-card'
-import { aiResearchNotes, applyAiDiscovery, applyAiEnrichment, type AiSearchResult } from '../../services/prospecting-ai'
+import { aiResearchNotes, applyAiDiscovery, applyAiEnrichment, getLocalConnectorStatus, searchProspectsWithAi, type AiSearchResult } from '../../services/prospecting-ai'
 
  type ProspectingTab = 'search' | 'local' | 'results' | 'history'
  type ReviewMode = 'list' | 'guided' | 'sources'
@@ -146,7 +146,7 @@ export function ProspectingPage() {
   const [segment, setSegment] = useState('')
   const [city, setCity] = useState('')
   const [query, setQuery] = useState('')
-  const [quantity, setQuantity] = useState(40)
+  const [quantity, setQuantity] = useState(5)
   const [quickCapture, setQuickCapture] = useState('')
   const [universalCapture, setUniversalCapture] = useState('')
   const [search, setSearch] = useState('')
@@ -181,6 +181,12 @@ export function ProspectingPage() {
   const [searchCenter, setSearchCenter] = useState<ProspectingGeoPoint | null>(null)
   const [mapPreviewBusy, setMapPreviewBusy] = useState(false)
   const [agentBusy, setAgentBusy] = useState(false)
+  const [localConnected, setLocalConnected] = useState(false)
+  const [localRunning, setLocalRunning] = useState(false)
+  const [localStatus, setLocalStatus] = useState<'idle' | 'running' | 'completed' | 'failed'>('idle')
+  const [localFound, setLocalFound] = useState(0)
+  const [localMessage, setLocalMessage] = useState('')
+  const localAbortRef = useRef<AbortController | null>(null)
   const [providerDiagnostics, setProviderDiagnostics] = useState<ProspectingProviderDiagnostics | null>(null)
   const [workspaceMembers, setWorkspaceMembers] = useState<WorkspaceMember[]>([])
   const fileInputRef = useRef<HTMLInputElement>(null)
@@ -378,11 +384,17 @@ export function ProspectingPage() {
   }, [agentJob?.status, refreshAgent])
 
   const resetProspectingSearch = () => {
+    localAbortRef.current?.abort()
+    localAbortRef.current = null
+    setLocalRunning(false)
+    setLocalStatus('idle')
+    setLocalFound(0)
+    setLocalMessage('')
     setTab('search')
     setSegment('')
     setCity('')
     setQuery('')
-    setQuantity(40)
+    setQuantity(5)
     setAreaMode('radius')
     setRadiusKm(15)
     setSearchMode('fast')
@@ -490,6 +502,115 @@ export function ProspectingPage() {
       return false
     } finally { setAgentBusy(false) }
   }
+
+
+  // One user action coordinates Firecrawl/Ollama, then the territorial engine.
+  // Sequential execution protects low-RAM Linux systems from parallel crawls.
+  const startIntegratedSearch = async () => {
+    if (!canProspectingCreate || !workspaceId || agentBusy || localAbortRef.current ||
+        (agentJob && ['queued', 'running', 'paused'].includes(agentJob.status))) return
+    if (!segment.trim() || !city.trim()) {
+      notify('warning', 'Informe o segmento e a cidade antes de iniciar a busca.')
+      return
+    }
+    if (areaMode === 'map' && mapPolygon.length < 3) {
+      notify('warning', 'Desenhe a área com pelo menos três pontos no mapa antes de pesquisar.')
+      return
+    }
+    const controller = new AbortController()
+    localAbortRef.current = controller
+    setLocalRunning(true)
+    setLocalStatus('running')
+    setLocalMessage('Pesquisando fontes e validando dados no Linux.')
+    setLocalFound(0)
+
+    let localSuccess = false
+    let localResultCount = 0
+    let cancelled = false
+    try {
+      const status = await getLocalConnectorStatus(workspaceId).catch(() => null)
+      const connected = Boolean(status?.online)
+      setLocalConnected(connected)
+      if (connected) {
+        try {
+          // The local web API handles up to ten leads per call.
+          const result = await searchProspectsWithAi({
+            organizationId: workspaceId, segment: segment.trim(), city: city.trim(),
+            query: query.trim(), limit: Math.min(10, Math.max(1, quantity)),
+            source: 'maps', execution: 'local',
+          }, controller.signal)
+          if (controller.signal.aborted) { cancelled = true; return }
+          localSuccess = true
+          localResultCount = result.leads.length
+          setLocalFound(localResultCount)
+          setLocalStatus('completed')
+          const message = localResultCount
+            ? `${localResultCount} empresa(s) com fontes encaminhada(s) à revisão.`
+            : 'A coleta terminou sem empresas comprovadas. Confira os critérios e a etapa territorial.'
+          setLocalMessage(message)
+          if (localResultCount) {
+            commit((current) => applyAiDiscovery(current, result, workspaceId, 'manual', snapshot.leads, currentUserId))
+            notify('success', `Firecrawl + Ollama: ${localResultCount} empresa(s) processada(s). Confira Revisar para validar evidências.`)
+          } else {
+            notify('info', 'Firecrawl + Ollama concluíram sem empresas verificáveis. Nenhum registro fictício foi criado.')
+          }
+        } catch (error) {
+          if (controller.signal.aborted) { cancelled = true; return }
+          const message = error instanceof Error ? error.message : 'Falha na coleta web e análise local.'
+          setLocalStatus('failed')
+          setLocalMessage(message)
+          notify('warning', `A etapa Firecrawl + Ollama não concluiu: ${message}. Tentaremos a cobertura territorial.`)
+        }
+      } else {
+        setLocalStatus('failed')
+        setLocalMessage('Conector Linux offline; somente a cobertura territorial está disponível.')
+      }
+    } finally {
+      if (localAbortRef.current === controller) localAbortRef.current = null
+      setLocalRunning(false)
+    }
+    if (cancelled || controller.signal.aborted) return
+    let territorialAvailable = false
+    try { territorialAvailable = Boolean(await getProspectingAgentHealth()) }
+    catch { /* The browser may not reach the separate territorial runtime. */ }
+    if (territorialAvailable) {
+      const started = await startLinuxAgentSearch()
+      if (started) {
+        notify('info', 'Pesquisa web encerrada. Cobertura territorial iniciada na mesma busca.')
+      } else if (!localSuccess) {
+        notify('warning', 'A pesquisa territorial não iniciou e a coleta web não retornou dados.')
+      }
+    } else if (!localSuccess && !localConnected) {
+      notify('error', 'Nenhum mecanismo disponível: conecte seu Linux ou inicie o Agente Territorial.')
+    } else if (localSuccess && !localResultCount) {
+      notify('info', 'Nenhuma empresa verificável foi encontrada; a cobertura territorial está indisponível nesta sessão.')
+    } else if (localSuccess && localResultCount) {
+      notify('info', 'Resultados disponíveis na aba Revisar. O agente territorial pode ser ativado quando estiver acessível.')
+    }
+  }
+
+  const cancelIntegratedLocalSearch = () => {
+    localAbortRef.current?.abort()
+    localAbortRef.current = null
+    setLocalRunning(false)
+    setLocalStatus('idle')
+    setLocalMessage('Pesquisa web cancelada.')
+    notify('info', 'Pesquisa web cancelada. Nenhum dado parcial foi importado.')
+  }
+
+  useEffect(() => {
+    if (!workspaceId) { setLocalConnected(false); return }
+    let mounted = true
+    const check = async () => {
+      try {
+        const status = await getLocalConnectorStatus(workspaceId)
+        if (mounted) setLocalConnected(Boolean(status?.online))
+      } catch { if (mounted) setLocalConnected(false) }
+    }
+    void check()
+    const timer = window.setInterval(() => void check(), 10_000)
+    return () => { mounted = false; window.clearInterval(timer) }
+  }, [workspaceId])
 
   const controlLinuxAgentSearch = async (action: 'pause' | 'resume' | 'cancel') => {
     if (!agentJob) return
@@ -1056,18 +1177,10 @@ export function ProspectingPage() {
           )}>Conversar <ArrowRight size={15}/></Button>
         </section> : null}
         {tab === 'search' || tab === 'local' ? <>
-          <FirecrawlLocalPanel key={workspaceId} workspaceId={workspaceId} readOnly={!canProspectingCreate}
-            canConfigure={currentWorkspace?.role === 'owner' || currentWorkspace?.role === 'admin'}
-            segment={segment} city={city} onSegment={setSegment} onCity={changeProspectingCity}
-            onComplete={(result) => {
-              commit((current) => applyAiDiscovery(current, result, workspaceId, 'manual', snapshot.leads, currentUserId))
-              setReviewScope('all'); setReviewMode('list'); setTab('results')
-              notify('success', 'Pesquisa com Firecrawl recebida. Confira os dados e as fontes na revisão.')
-            }}
-          />
           <ProspectingRedesignSearch
             segment={segment}
             city={city}
+            query={query}
             quantity={quantity}
             categoryMode={categoryMode}
             areaMode={areaMode}
@@ -1080,6 +1193,14 @@ export function ProspectingPage() {
             sentCount={metrics.sent}
             readyCount={metrics.autoValidatable}
             attentionCount={metrics.attention}
+            localConnected={localConnected}
+            localRunning={localRunning}
+            localStatus={localStatus}
+            localFound={localFound}
+            localMessage={localMessage}
+            connectionPanel={<FirecrawlLocalPanel key={workspaceId} workspaceId={workspaceId}
+              readOnly={!canProspectingCreate} canConfigure={currentWorkspace?.role === 'owner' || currentWorkspace?.role === 'admin'}
+              segment={segment} city={city} connectionOnly onComplete={() => {}} />}
             mapPanel={areaMode === 'map' ? <TerritoryAreaSelector
               preview={mapPreview}
               polygon={mapPolygon}
@@ -1102,11 +1223,13 @@ export function ProspectingPage() {
             />}
             onSegment={setSegment}
             onCity={changeProspectingCity}
+            onQuery={setQuery}
+            onCancelLocal={cancelIntegratedLocalSearch}
             onQuantity={setQuantity}
             onCategoryMode={setCategoryMode}
             onAreaMode={(value) => { setAreaMode(value); if (value !== 'map') setMapPolygon([]) }}
             onRadiusKm={setRadiusKm}
-            onStart={() => void startLinuxAgentSearch()}
+            onStart={() => void startIntegratedSearch()}
             onControl={(action) => void controlLinuxAgentSearch(action)}
             onDetails={() => setShowTechnical((value) => !value)}
             onInspect={(mode) => openReviewWorkspace(mode)}

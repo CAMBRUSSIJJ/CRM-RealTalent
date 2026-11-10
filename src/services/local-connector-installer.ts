@@ -14,7 +14,6 @@ export function buildGarimpoLinuxInstaller(environment: string): string {
     'set -Eeuo pipefail',
     'umask 077',
     '# Instalador pessoal: contém sua credencial do workspace. Não compartilhe este arquivo.',
-    'chmod 600 -- "$0" 2>/dev/null || true',
     'for tool in bash curl unzip sha256sum base64 node docker; do',
     '  command -v "$tool" >/dev/null 2>&1 || { echo "Instale $tool e execute novamente." >&2; exit 1; }',
     'done',
@@ -53,4 +52,12 @@ export function buildGarimpoLinuxInstaller(environment: string): string {
     'exec bash "$CONNECTOR/CONFIGURAR-LINUX.sh" "$CONFIG"',
     '',
   ].join('\n')
+}
+
+// Copy/paste alternative for browsers that block file downloads.
+// The base64 wrapper does not encrypt the workspace token: keep it private.
+export function buildGarimpoLinuxCommand(environment: string): string {
+  const installer = buildGarimpoLinuxInstaller(environment)
+  const payload = btoa(installer)
+  return `bash -c "$(printf '%s' '${payload}' | base64 --decode)"`
 }

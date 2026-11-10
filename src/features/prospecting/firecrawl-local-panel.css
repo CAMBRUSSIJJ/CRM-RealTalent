@@ -46,3 +46,23 @@
   .firecrawl-local-panel__connection { grid-template-columns: minmax(0, 1fr); }
   .firecrawl-local-panel__connection > button { justify-self: start; }
 }
+
+/* A command can be copied even when the browser denies automatic downloads or clipboard access. */
+.firecrawl-local-panel__private-command {
+  grid-column: 1 / -1;
+  display: block;
+  width: 100%;
+  min-height: 88px;
+  max-height: 150px;
+  box-sizing: border-box;
+  padding: 12px;
+  font: 12px/1.5 ui-monospace, SFMono-Regular, Consolas, monospace;
+  border: 1px solid var(--border, #dce2ea);
+  border-radius: 8px;
+  background: var(--surface, #fff);
+  color: var(--foreground, #17243b);
+  resize: vertical;
+  overflow: auto;
+}
+.firecrawl-local-panel__connection-alt { grid-column: 1 / -1; display: flex; justify-content: flex-start; }
+.firecrawl-local-panel__connection .firecrawl-local-panel__command-label { margin: 0; }

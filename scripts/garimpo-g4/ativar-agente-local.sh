@@ -17,7 +17,7 @@ probe_release(){
   assistant="$(curl --noproxy '*' -sS --max-time 4 "$HOST/tools/company-ask/status" 2>/dev/null || true)"
   [[ "$status" == *'"company-research-v1"'* && "$assistant" == *'"company-assistant-g410"'* ]] || return 1
   if [[ "${REALTALENT_GARIMPO_OPEN_SOURCE:-0}" == "1" ]]; then
-    [[ "$status" == *'"openSourceReader":"g50"'* && "$status" == *'"openSourceEnabled":true'* && "$status" == *'"investigationReaderBuild":"g54-evidence-review"'* ]] || return 1
+    [[ "$status" == *'"openSourceReader":"g50"'* && "$status" == *'"openSourceEnabled":true'* && "$status" == *'"investigationReaderBuild":"g55-evidence-guard"'* ]] || return 1
   fi
 }
 RESULT="$(probe)"

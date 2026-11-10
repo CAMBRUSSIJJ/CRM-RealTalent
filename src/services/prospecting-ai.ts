@@ -1,4 +1,5 @@
 import { getSupabaseClient } from '../lib/supabase'
+import { buildGarimpoLinuxInstaller } from './local-connector-installer'
 import { effectiveDataMode, env } from '../lib/env'
 import type { Lead } from '../domain/types'
 import { appendHistory, createProspect, refreshProspectAnalysis, type ProspectRecord, type ProspectingState, type ProspectSource } from './prospecting-workspace'
@@ -44,13 +45,33 @@ async function connectorAction(organizationId: string, action: 'register' | 'dis
   return data
 }
 
-export async function downloadLocalConnectorConfig(organizationId: string) {
+async function registeredLocalConnectorEnvironment(organizationId: string): Promise<string> {
   const data = await connectorAction(organizationId, 'register')
-  if (!data || typeof data.token !== 'string' || !/^[a-f0-9]{64}$/.test(data.token)) throw new Error('Não foi possível gerar o arquivo do conector.')
-  const content = `SUPABASE_URL=${env.supabaseUrl}\nSUPABASE_PUBLISHABLE_KEY=${env.supabasePublishableKey}\nGARIMPO_WORKSPACE_ID=${organizationId}\nGARIMPO_CONNECTOR_TOKEN=${data.token}\nFIRECRAWL_API_URL=http://127.0.0.1:3002\nPROSPECTING_AI_BASE_URL=http://127.0.0.1:11434/v1\nPROSPECTING_AI_MODEL=\n`
-  const url = URL.createObjectURL(new Blob([content], { type: 'text/plain' }))
-  const link = document.createElement('a'); link.href = url; link.download = 'garimpo.env'; link.click()
-  window.setTimeout(() => URL.revokeObjectURL(url), 1000)
+  if (!data || typeof data.token !== 'string' || !/^[a-f0-9]{64}$/.test(data.token)) throw new Error('Não foi possível gerar o acesso do Linux.')
+  return `SUPABASE_URL=${env.supabaseUrl}\nSUPABASE_PUBLISHABLE_KEY=${env.supabasePublishableKey}\nGARIMPO_WORKSPACE_ID=${organizationId}\nGARIMPO_CONNECTOR_TOKEN=${data.token}\nFIRECRAWL_API_URL=http://127.0.0.1:3002\nPROSPECTING_AI_BASE_URL=http://127.0.0.1:11434/v1\nPROSPECTING_AI_MODEL=qwen2.5-coder:3b\n`
+}
+
+function downloadPrivateFile(filename: string, content: string, mimeType: string) {
+  const url = URL.createObjectURL(new Blob([content], { type: mimeType }))
+  const link = document.createElement('a')
+  link.href = url
+  link.download = filename
+  document.body.appendChild(link)
+  link.click()
+  link.remove()
+  window.setTimeout(() => URL.revokeObjectURL(url), 30_000)
+}
+
+// Backward-compatible advanced setup. Each registration revokes the previous connector token.
+export async function downloadLocalConnectorConfig(organizationId: string) {
+  downloadPrivateFile('garimpo.env', await registeredLocalConnectorEnvironment(organizationId), 'text/plain')
+}
+
+// Primary setup: a single personal installer, without manually moving or naming an .env file.
+// The browser constructs this download locally; the private token is never published as a static asset.
+export async function downloadLocalConnectorInstaller(organizationId: string) {
+  const configuration = await registeredLocalConnectorEnvironment(organizationId)
+  downloadPrivateFile('CONECTAR-GARIMPO-LINUX.sh', buildGarimpoLinuxInstaller(configuration), 'text/x-shellscript')
 }
 
 export const disconnectLocalConnector = (organizationId: string) => connectorAction(organizationId, 'disconnect')

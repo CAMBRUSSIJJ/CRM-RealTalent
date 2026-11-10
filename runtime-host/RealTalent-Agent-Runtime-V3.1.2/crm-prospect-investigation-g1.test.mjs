@@ -204,3 +204,86 @@ test('G5: when public page fails, preserve useful read error in source diagnosti
   assert.equal(result.sources[0].reading,'snippet')
   assert.equal(result.sources[0].identity,'unconfirmed')
 })
+
+
+test('G5: model receives at most two independent sites and short excerpts',async()=>{
+  let evidence=[],options={}
+  const page=(name,url)=>({ok:true,url,title:'Barbearia Aurora Rio Grande',
+    text:('Barbearia Aurora Rio Grande '+name+' divulgou informações públicas sobre a equipe e atendimento. ').repeat(70)})
+  const result=await investigateProspectG1({
+    company:'Barbearia Aurora',city:'Rio Grande',website:'https://aurora.example.org'
+  },{
+    searcher:async()=>[
+      {url:'https://aurora.example.org/news',title:'Barbearia Aurora',snippet:'Rio Grande'},
+      {url:'https://news.example.org/story',title:'Barbearia Aurora',snippet:'Rio Grande'},
+      {url:'https://blog.example.org/story',title:'Barbearia Aurora',snippet:'Rio Grande'},
+    ],
+    readPage:async url=>page(url,url),
+    fetcher:async(_url,init)=>{
+      const payload=JSON.parse(init.body)
+      evidence=JSON.parse(payload.messages[1].content).evidence
+      options=payload.options
+      return qwen(_url,init)
+    },
+  })
+  const publicPages=evidence.filter(item=>item.source==='pagina_publica_lida')
+  assert.equal(publicPages.length,2)
+  assert.equal(publicPages[0].url,'https://aurora.example.org/')
+  assert.equal(publicPages[1].url,'https://news.example.org/story')
+  assert.ok(publicPages.every(item=>item.text.length<=2100))
+  assert.equal(options.num_ctx,5500)
+  assert.equal(result.modelStatus,'completed')
+  assert.equal(result.modelEvidenceCount,2)
+  assert.equal(result.pageRead,true)
+})
+
+test('G5: Ollama HTTP failure preserves page evidence and reports a safe error code',async()=>{
+  const result=await investigateProspectG1({
+    company:'Barbearia Aurora',city:'Rio Grande',website:'https://aurora.example.org'
+  },{
+    searcher:async()=>[],
+    readPage:async()=>({ok:true,title:'Barbearia Aurora',
+      text:'A Barbearia Aurora anunciou um evento de negócios em Rio Grande. '.repeat(8)}),
+    fetcher:async()=>({ok:false,status:503}),
+  })
+  assert.equal(result.pageRead,true)
+  assert.equal(result.modelStatus,'ollama_http_error')
+  assert.equal(result.modelHttpStatus,503)
+  assert.equal(result.quality,'insufficient')
+  assert.equal(result.candidateEvents.length,0)
+  assert.equal(result.sources[0].reading,'page')
+})
+
+test('G5: invalid JSON never becomes an approved event or a fabricated summary',async()=>{
+  const result=await investigateProspectG1({
+    company:'Barbearia Aurora',city:'Rio Grande',website:'https://aurora.example.org'
+  },{
+    searcher:async()=>[],
+    readPage:async()=>({ok:true,title:'Barbearia Aurora',
+      text:'Barbearia Aurora tem atendimento em Rio Grande, RS. '.repeat(8)}),
+    fetcher:async()=>({ok:true,json:async()=>({message:{content:'não é JSON'},done_reason:'stop'})}),
+  })
+  assert.equal(result.modelStatus,'ollama_invalid_json')
+  assert.equal(result.pageRead,true)
+  assert.equal(result.hypotheses.length,0)
+  assert.equal(result.candidateEvents.length,0)
+})
+
+test('G5: model timeout reports timeout without discarding read pages',async()=>{
+  const result=await investigateProspectG1({
+    company:'Barbearia Aurora',city:'Rio Grande',website:'https://aurora.example.org'
+  },{
+    searcher:async()=>[],
+    readPage:async()=>({ok:true,title:'Barbearia Aurora',
+      text:'Barbearia Aurora atende clientes na cidade de Rio Grande. '.repeat(8)}),
+    modelTimeoutMs:1,
+    fetcher:async(_url,opts)=>new Promise((resolve,reject)=>{
+      opts.signal.addEventListener('abort',()=>{
+        const error=new Error('aborted');error.name='AbortError';reject(error)
+      },{once:true})
+    }),
+  })
+  assert.equal(result.modelStatus,'ollama_timeout')
+  assert.equal(result.pageRead,true)
+  assert.equal(result.candidateEvents.length,0)
+})

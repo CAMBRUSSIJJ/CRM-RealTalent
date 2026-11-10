@@ -52,6 +52,9 @@ import {buildProspectingHandoffMetrics,isProspectTransferable,transferableProspe
 } from '../../services/prospecting-handoff-r1'
 import '../../styles/prospecting-r1.css'
 import {GARIMPO_REVIEW_REQUEST,garimpoReviewStorageKey} from '../../services/realtalent-agent-garimpo-bridge'
+import { FirecrawlLocalPanel } from './firecrawl-local-panel'
+import { AiResearchCard } from './ai-research-card'
+import { aiResearchNotes, applyAiDiscovery, applyAiEnrichment, type AiSearchResult } from '../../services/prospecting-ai'
 
  type ProspectingTab = 'search' | 'local' | 'results' | 'history'
  type ReviewMode = 'list' | 'guided' | 'sources'
@@ -968,7 +971,7 @@ export function ProspectingPage() {
           let leadId: string | null = null
           if (options.createOpportunity) {
             const importTag = `garimpo-id:${prospect.id}`
-            const details = [`Lote Garimpo: ${batchId}`, `Empresa canônica: ${company.id}`, contactId ? `Contato canônico: ${contactId}` : '', prospect.instagram ? `Instagram: ${prospect.instagram}` : '', prospect.website ? `Site: ${prospect.website}` : '', prospect.bookingUrl ? `Agendamento: ${prospect.bookingUrl}` : '', prospect.cnpj ? `CNPJ: ${prospect.cnpj}` : '', prospect.address ? `Endereço: ${prospect.address}` : '', prospect.description, prospect.notes].filter(Boolean).join('\n')
+            const details = [`Lote Garimpo: ${batchId}`, `Empresa canônica: ${company.id}`, contactId ? `Contato canônico: ${contactId}` : '', prospect.instagram ? `Instagram: ${prospect.instagram}` : '', prospect.website ? `Site: ${prospect.website}` : '', prospect.bookingUrl ? `Agendamento: ${prospect.bookingUrl}` : '', prospect.cnpj ? `CNPJ: ${prospect.cnpj}` : '', prospect.address ? `Endereço: ${prospect.address}` : '', prospect.description, prospect.notes, aiResearchNotes(prospect)].filter(Boolean).join('\n')
             const alreadyImported = snapshot.leads.find((lead) => lead.tags.includes(importTag)||lead.id===importedLeadId)
             if (alreadyImported && options.duplicateBehavior === 'update') {
               const tags = Array.from(new Set([...alreadyImported.tags, ...tagsFromOptions, 'garimpo', importTag]))
@@ -1053,6 +1056,15 @@ export function ProspectingPage() {
           )}>Conversar <ArrowRight size={15}/></Button>
         </section> : null}
         {tab === 'search' || tab === 'local' ? <>
+          <FirecrawlLocalPanel key={workspaceId} workspaceId={workspaceId} readOnly={!canProspectingCreate}
+            canConfigure={currentWorkspace?.role === 'owner' || currentWorkspace?.role === 'admin'}
+            segment={segment} city={city} onSegment={setSegment} onCity={changeProspectingCity}
+            onComplete={(result) => {
+              commit((current) => applyAiDiscovery(current, result, workspaceId, 'manual', snapshot.leads, currentUserId))
+              setReviewScope('all'); setReviewMode('list'); setTab('results')
+              notify('success', 'Pesquisa com Firecrawl recebida. Confira os dados e as fontes na revisão.')
+            }}
+          />
           <ProspectingRedesignSearch
             segment={segment}
             city={city}
@@ -1179,6 +1191,13 @@ export function ProspectingPage() {
           onOpenGuided={(id) => { setProcessingId(id); setReviewMode('guided') }}
         /> : <ProcessingWorkspace
           readOnly={!canProspectingEdit}
+          workspaceId={workspaceId}
+          onEnriched={(result) => {
+            if (!activeProspect) return
+            const updated = applyAiEnrichment(activeProspect, result, snapshot.leads)
+            updateProspect(activeProspect.id, updated)
+            notify('success', 'Dados encontrados pelo Firecrawl disponíveis para revisão. Campos já preenchidos foram preservados.')
+          }}
           queue={guidedQueue} active={activeProspect} leads={snapshot.leads} snapshot={snapshot} onSelect={setProcessingId} onChange={updateProspect}
           onAnalyze={(id) => analyze([id])} onApprove={(id) => approveProspects([id])} onDiscard={(id) => setStatus([id], 'discarded')}
           onSend={(id) => openSend([id])} onAnalyzeAll={() => analyze(guidedQueue.filter((item) => item.status !== 'sent').map((item) => item.id))}
@@ -1682,7 +1701,8 @@ function EngineProcessingWorkspace({ job, busy, onRefresh, onRetry, onOpenReview
   </div>
 }
 
-function ProcessingWorkspace({ readOnly, queue, active, leads, snapshot, onSelect, onChange, onAnalyze, onApprove, onDiscard, onSend, onAnalyzeAll }: {
+function ProcessingWorkspace({ readOnly, queue, active, leads, snapshot, onSelect, onChange, onAnalyze, onApprove, onDiscard, onSend, onAnalyzeAll, workspaceId, onEnriched }: {
+  workspaceId: string; onEnriched(result: AiSearchResult): void
   readOnly: boolean; queue: ProspectRecord[]; active: ProspectRecord | null; leads: Array<{ id: string; name: string; company: string }>; snapshot: import('../../domain/types').WorkspaceSnapshot; onSelect(id: string): void
   onChange(id: string, patch: Partial<ProspectRecord>): void; onAnalyze(id: string): void; onApprove(id: string): void; onDiscard(id: string): void; onSend(id: string): void; onAnalyzeAll(): void
 }) {
@@ -1745,6 +1765,9 @@ function ProcessingWorkspace({ readOnly, queue, active, leads, snapshot, onSelec
     </section>
 
     <aside className="prospecting-analysis-sidebar prospecting-analysis-sidebar-v101106">
+      <AiResearchCard prospect={active} />
+      <FirecrawlLocalPanel key={`${workspaceId}:${active.id}`} workspaceId={workspaceId} readOnly={readOnly} canConfigure={false}
+        segment={active.company} city={active.city} prospect={active} onComplete={onEnriched} />
       <ProspectMiniMap prospect={active} />
       <details className="panel prospecting-review-evidence-v101106">
         <summary><div><Database size={15}/><span><strong>Qualidade e evidências</strong><small>Score, duplicidade, origem e rastreabilidade</small></span></div><ChevronRight size={15}/></summary>

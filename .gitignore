@@ -48,3 +48,7 @@ Thumbs.db
 .realtalent-whatsapp-browser/
 .env.cr10
 .cr10.runtime.env
+
+# Acesso privado do conector local
+garimpo.env
+deploy/local-garimpo/firecrawl-runtime/

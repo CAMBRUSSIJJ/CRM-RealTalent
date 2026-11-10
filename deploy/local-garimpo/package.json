@@ -1,0 +1,8 @@
+{
+  "name": "realtalent-garimpo-local",
+  "private": true,
+  "type": "module",
+  "engines": { "node": ">=22.18.0" },
+  "scripts": { "start": "node bridge.mjs", "test": "node --test bridge-check.mjs configurar-linux-check.mjs" },
+  "dependencies": { "@ai-sdk/openai": "4.0.113", "ai": "7.0.168" }
+}

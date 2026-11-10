@@ -1,0 +1,40 @@
+# Apply on top of the official Firecrawl Compose file. Requires Docker Compose >= 2.24.4.
+services:
+  api:
+    ports: !override
+      - "127.0.0.1:3002:3002"
+    environment:
+      USE_DB_AUTHENTICATION: "false"
+      SEARXNG_ENDPOINT: http://searxng:8080
+    depends_on:
+      searxng:
+        condition: service_started
+
+  searxng:
+    image: searxng/searxng:latest
+    restart: unless-stopped
+    networks: [backend]
+    volumes:
+      - ./garimpo/searxng-settings.yml:/etc/searxng/settings.yml:ro
+    environment:
+      SEARXNG_SECRET: ${SEARXNG_SECRET:?Configure SEARXNG_SECRET}
+
+  garimpo-gateway:
+    image: caddy:2.10.2-alpine
+    restart: unless-stopped
+    networks: [backend]
+    ports: ["80:80", "443:443"]
+    environment:
+      GARIMPO_DOMAIN: ${GARIMPO_DOMAIN:?Configure GARIMPO_DOMAIN}
+      FIRECRAWL_GATEWAY_TOKEN: ${FIRECRAWL_GATEWAY_TOKEN:?Configure FIRECRAWL_GATEWAY_TOKEN}
+    volumes:
+      - ./garimpo/Caddyfile:/etc/caddy/Caddyfile:ro
+      - garimpo-caddy-data:/data
+      - garimpo-caddy-config:/config
+    depends_on:
+      api:
+        condition: service_started
+
+volumes:
+  garimpo-caddy-data:
+  garimpo-caddy-config:

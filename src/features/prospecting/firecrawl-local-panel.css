@@ -1,0 +1,17 @@
+.firecrawl-local-panel { display: grid; gap: 16px; padding: 20px; min-width: 0; }
+.firecrawl-local-panel > header { display: flex; align-items: flex-start; justify-content: space-between; flex-wrap: wrap; gap: 16px; }
+.firecrawl-local-panel h3 { margin: 8px 0; }
+.firecrawl-local-panel p { margin: 0; color: var(--muted, #64748b); font-size: 13px; line-height: 1.65; }
+.firecrawl-local-panel textarea { min-height: 80px; padding: 10px; border: 1px solid var(--border, #dce2ea); border-radius: 9px; font: inherit; resize: vertical; }
+.firecrawl-local-panel__hint { padding: 12px; border-radius: 10px; background: var(--blue-soft, #f3f7ff); }
+.firecrawl-local-panel .firecrawl-local-panel__error { padding: 12px; border-radius: 10px; color: #923f32; background: #fff5f1; overflow-wrap: anywhere; }
+.firecrawl-local-panel__setup, .firecrawl-local-panel__progress { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.firecrawl-local-panel details { padding-top: 12px; border-top: 1px solid var(--border, #e2e8f0); }
+.firecrawl-local-panel summary { cursor: pointer; font-size: 13px; font-weight: 700; margin-bottom: 12px; }
+.firecrawl-local-panel__setup { margin-top: 14px; }
+.prospecting-ai-research { padding: 16px; display: grid; gap: 9px; overflow-wrap: anywhere; font-size: 12px; line-height: 1.6; }
+.prospecting-ai-research header { display: grid; gap: 6px; }
+.prospecting-ai-research p { margin: 4px 0 6px; color: var(--muted, #68758b); }
+.prospecting-ai-research small { display: block; color: var(--muted, #748198); }
+.prospecting-ai-research a { display: flex; gap: 6px; color: var(--blue, #3168d7); text-decoration: underline; }
+@media (max-width: 600px) { .firecrawl-local-panel { padding: 14px; } .firecrawl-local-panel .prospecting-form-grid { grid-template-columns: 1fr; } }

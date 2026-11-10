@@ -164,3 +164,10 @@ verify_jwt = false
 # RealTalent Meet — temporary TURN credentials validated by invitation token
 [functions.meet-turn-credentials]
 verify_jwt = false
+
+[functions.prospecting-ai-search]
+verify_jwt = true
+
+# Workspace-scoped connector token for worker actions; configuration validates user JWT.
+[functions.prospecting-local-connector]
+verify_jwt = false

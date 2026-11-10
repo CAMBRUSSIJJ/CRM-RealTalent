@@ -19,6 +19,28 @@ class OfflineHtmlTests(unittest.TestCase):
         for forbidden in ("onload", "fetch(", "src=", "href=", "localhost", "<script", "<img"):
             self.assertNotIn(forbidden,safe)
 
+    def test_navigation_chrome_is_removed_but_article_evidence_is_preserved(self):
+        source=('<html><head><title>Portal da Escola</title></head><body>'
+                '<header><a href="/">Entrar na secretaria</a></header>'
+                '<nav><ul><li>Home</li><li>Menu de serviços</li></ul></nav>'
+                '<aside><p>Compartilhe esta notícia</p></aside>'
+                '<main><article><h1>Nova unidade em Rio Grande</h1>'
+                '<p>Escola Horizonte anunciou uma nova unidade para o bairro.</p>'
+                '</article></main><footer>Mapa do site e contato</footer></body></html>')
+        safe=mod.offline_html(source)
+        self.assertIn('Nova unidade em Rio Grande',safe)
+        self.assertIn('Escola Horizonte anunciou uma nova unidade',safe)
+        for nav_text in ('Entrar na secretaria','Menu de serviços','Compartilhe esta notícia',
+                         'Mapa do site e contato'):
+            self.assertNotIn(nav_text,safe)
+
+    def test_nested_navigation_does_not_reintroduce_menu_text(self):
+        source='<nav><div><nav>Menu interno</nav><span>Menu externo</span></div></nav><main>Notícia verificável</main>'
+        safe=mod.offline_html(source)
+        self.assertNotIn('Menu interno',safe)
+        self.assertNotIn('Menu externo',safe)
+        self.assertIn('Notícia verificável',safe)
+
     def test_entities_remain_ordinary_text(self):
         safe=mod.offline_html('<p>Pesquisa &amp; ensino &lt;serviços&gt;</p>')
         self.assertIn('Pesquisa &amp; ensino &lt;serviços&gt;',safe)

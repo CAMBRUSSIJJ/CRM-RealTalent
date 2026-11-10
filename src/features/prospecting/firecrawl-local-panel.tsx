@@ -3,7 +3,7 @@ import { Download, LoaderCircle, RefreshCw, Sparkles } from 'lucide-react'
 import { useAppUi } from '../../app/app-context'
 import { Button } from '../../components/ui/button'
 import { StatusPill } from '../../components/ui/status-pill'
-import { disconnectLocalConnector, downloadLocalConnectorConfig, getLocalConnectorStatus, searchProspectsWithAi, type AiSearchResult } from '../../services/prospecting-ai'
+import { disconnectLocalConnector, downloadLocalConnectorInstaller, getLocalConnectorStatus, searchProspectsWithAi, type AiSearchResult } from '../../services/prospecting-ai'
 import type { ProspectRecord } from '../../services/prospecting-workspace'
 import './firecrawl-local-panel.css'
 
@@ -35,15 +35,15 @@ export function FirecrawlLocalPanel({ workspaceId, readOnly, canConfigure, segme
   const configure = async (disconnect: boolean) => {
     if (!canConfigure || configuring) return
     const confirmed = await confirmAction({ title: disconnect ? 'Desconectar seu Linux?' : 'Gerar acesso para seu Linux?',
-      description: disconnect ? 'O conector deixará de receber pesquisas deste workspace.' : 'O arquivo garimpo.env autoriza somente este workspace. Gerar outro arquivo substitui o acesso anterior; guarde-o apenas no seu computador.',
-      confirmLabel: disconnect ? 'Desconectar' : 'Gerar arquivo',
+      description: disconnect ? 'O conector deixará de receber pesquisas deste workspace.' : 'Será baixado um instalador pessoal com a credencial deste workspace. Não compartilhe esse arquivo. Uma nova conexão substitui a credencial anterior.',
+      confirmLabel: disconnect ? 'Desconectar' : 'Baixar instalador',
     })
     if (!confirmed) return
     setConfiguring(true); setError('')
     try {
       if (disconnect) await disconnectLocalConnector(workspaceId)
-      else await downloadLocalConnectorConfig(workspaceId)
-      notify('success', disconnect ? 'Computador desconectado.' : 'Salve garimpo.env junto do conector e execute CONFIGURAR-LINUX.sh.')
+      else await downloadLocalConnectorInstaller(workspaceId)
+      notify('success', disconnect ? 'Computador desconectado.' : 'Instalador baixado. Execute bash ~/Downloads/CONECTAR-GARIMPO-LINUX.sh no seu computador.')
       await refresh()
     } catch (reason) { setError(reason instanceof Error ? reason.message : 'Não foi possível configurar o conector.') }
     finally { setConfiguring(false) }
@@ -67,6 +67,15 @@ export function FirecrawlLocalPanel({ workspaceId, readOnly, canConfigure, segme
 
   return <section className="panel firecrawl-local-panel" aria-label={prospect ? 'Enriquecimento com Firecrawl' : 'Firecrawl no Linux'}>
     <header><div><span className="eyebrow"><Sparkles size={14} /> Firecrawl no seu Linux</span><h3>{prospect ? 'Completar dados com IA local' : 'Buscar empresas e trazer os contatos'}</h3><p>{prospect ? 'Preencha os campos que faltam mantendo sua revisão.' : 'Defina o perfil. Seu computador pesquisa os sites e devolve os dados com suas fontes para revisão.'}</p></div><StatusPill tone={online ? 'success' : 'neutral'}>{online ? 'Linux conectado' : 'Conector offline'}</StatusPill></header>
+    {!prospect && !online ? <div className="firecrawl-local-panel__connection">
+      <div><strong>Conectar seu computador</strong><p>O instalador já traz o acesso deste CRM. Não precisa criar nem procurar garimpo.env.</p></div>
+      {canConfigure ? <>
+        <Button disabled={configuring} onClick={() => void configure(false)}><Download size={16} />{configuring ? 'Preparando instalador…' : 'Conectar meu Linux'}</Button>
+        <span className="firecrawl-local-panel__command-label">Depois de baixar, execute no terminal:</span>
+        <code>bash ~/Downloads/CONECTAR-GARIMPO-LINUX.sh</code>
+        <small>Arquivo pessoal: não compartilhe. O modelo 3B é selecionado automaticamente quando instalado.</small>
+      </> : <small>Um administrador do workspace precisa autorizar este computador.</small>}
+    </div> : null}
     {!prospect ? <div className="prospecting-form-grid">
       <label><span>Segmento</span><input value={segment} disabled={readOnly || busy} onChange={(event) => onSegment?.(event.target.value)} placeholder="Ex.: Barbearias" /></label>
       <label><span>Cidade ou região</span><input value={city} disabled={readOnly || busy} onChange={(event) => onCity?.(event.target.value)} placeholder="Ex.: Canoas, RS" /></label>
@@ -75,11 +84,13 @@ export function FirecrawlLocalPanel({ workspaceId, readOnly, canConfigure, segme
     </div> : null}
     <p className="firecrawl-local-panel__hint">Empresa, telefone, e-mail, localização, CNPJ, site, Instagram e WhatsApp publicado, quando encontrados. Os dados acompanham fontes; oportunidades e abordagens são sugestões da IA.</p>
     {error ? <p className="firecrawl-local-panel__error" role="alert">{error}</p> : null}
-    {busy ? <div className="firecrawl-local-panel__progress" role="status"><LoaderCircle size={17} /><span>Seu Linux está pesquisando. Mantenha o conector aberto.</span><Button variant="ghost" onClick={() => { controller.current?.abort(); controller.current = null; setBusy(false) }}>Cancelar</Button></div> : <Button disabled={readOnly || !(prospect?.company || segment).trim() || !(prospect?.city || city).trim()} onClick={() => void search()}><Sparkles size={17} />{prospect ? 'Enriquecer com Firecrawl' : 'Buscar leads com Firecrawl'}</Button>}
-    {!prospect ? <details><summary>Configurar ou verificar meu Linux</summary><p>Como Docker e Ollama já estão instalados: baixe o pacote, gere garimpo.env e execute o configurador. Ele prepara o Firecrawl e permite escolher um modelo instalado.</p><div className="firecrawl-local-panel__setup">
-      <a className="button button--secondary button--md" href="/downloads/Garimpo-Local.zip" download><Download size={16} /> Baixar conector Linux</a>
-      {canConfigure ? <><Button variant="secondary" disabled={configuring} onClick={() => void configure(false)}>Gerar garimpo.env</Button><Button variant="ghost" disabled={configuring} onClick={() => void configure(true)}>Desconectar Linux</Button></> : <span>Um administrador pode gerar o acesso deste workspace.</span>}
-      <Button variant="ghost" onClick={() => void refresh()}><RefreshCw size={15} /> Verificar conexão</Button>
-    </div></details> : null}
+    {busy ? <div className="firecrawl-local-panel__progress" role="status"><LoaderCircle size={17} /><span>Seu Linux está pesquisando. Mantenha o conector aberto.</span><Button variant="ghost" onClick={() => { controller.current?.abort(); controller.current = null; setBusy(false) }}>Cancelar</Button></div> : <Button disabled={readOnly || !online || !(prospect?.company || segment).trim() || !(prospect?.city || city).trim()} onClick={() => void search()}><Sparkles size={17} />{prospect ? 'Enriquecer com Firecrawl' : 'Buscar leads com Firecrawl'}</Button>}
+    {!prospect ? <details><summary>Verificar conexão ou desconectar</summary>
+      <p>O conector trabalha somente enquanto o Linux estiver ligado e o instalador estiver em execução. O status é atualizado automaticamente.</p>
+      <div className="firecrawl-local-panel__setup">
+        <Button variant="secondary" onClick={() => void refresh()}><RefreshCw size={15} /> Verificar conexão</Button>
+        {canConfigure && online ? <Button variant="secondary" disabled={configuring} onClick={() => void configure(false)}>Gerar novo instalador</Button> : null}
+        {canConfigure ? <Button variant="ghost" disabled={configuring} onClick={() => void configure(true)}>Desconectar Linux</Button> : null}
+      </div></details> : null}
   </section>
 }

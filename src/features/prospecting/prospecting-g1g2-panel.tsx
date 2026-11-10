@@ -10,17 +10,15 @@ import {runtimeFetch} from '../../services/realtalent-runtime-transport'
 import {appendTriggerCandidatesG4,type TriggerCandidateG4,type TriggerSourceG4} from '../../services/prospecting-triggers-g4'
 import {appendRemoteTriggersG43,isTriggerCloudModeG43} from '../../services/prospecting-triggers-g43-remote'
 import {ProspectingCompanyAssistant} from './prospecting-company-assistant'
+import {groupInvestigationSourcesG53,type InvestigationSourceG53} from '../../services/prospecting-g53-evidence'
 
-interface InvestigationSource {
-  title:string;url:string;reading:'page'|'snippet';
-  identity:'compatible'|'partial'|'unconfirmed';
-  origin:string;excerpt:string
-}
+type InvestigationSource=InvestigationSourceG53
 interface Investigation {
   ok:boolean;summary:string;hypotheses:string[];questions:string[];
   approach:string;caveats:string[];pageRead:boolean;readUrl:string|null;
   readTitle:string|null;quality:string;
   searchStatus?:'done'|'no_results'|'unavailable';
+  modelStatus?:string;modelEvidenceCount?:number;modelElapsedMs?:number;
   sources?:InvestigationSource[]
   candidateEvents?:TriggerCandidateG4[]
 }
@@ -116,6 +114,8 @@ export function ProspectingG1G2Panel({prospect,snapshot,readOnly}:Props){
     }))
     document.querySelector('.prospecting-trigger-g4')?.scrollIntoView({behavior:'smooth',block:'start'})
   }
+  const groupedSources=useMemo(()=>groupInvestigationSourcesG53(result?.sources||[]),[result])
+  const confirmedDomains=groupedSources.filter(group=>group.primary.reading==='page'&&group.primary.identity!=='unconfirmed').length
   const labels:[string,number][]=[
     ['Aderência ao ICP',score.fit],
     ['Potencial comercial',score.opportunity],
@@ -162,24 +162,39 @@ export function ProspectingG1G2Panel({prospect,snapshot,readOnly}:Props){
         <span>{result.pageRead?'Fonte pública compatível lida':'Sem leitura externa compatível confirmada'}</span>
         {result.pageRead&&safeSite(result.readUrl)?<a href={safeSite(result.readUrl)!} rel="noopener noreferrer" target="_blank"><ExternalLink size={13}/> Conferir fonte</a>:null}
       </div>
+      <p>{result.summary}</p>
+      {result.modelStatus&&result.modelStatus!=='completed'
+        ?<p className="prospecting-g1g2__error" role="status">A leitura foi preservada, mas a análise local não foi concluída ({result.modelStatus}).</p>
+        :null}
       <section className="prospecting-g1g2__public-sources">
         <strong>Pesquisa e evidências públicas</strong>
+        <small>{confirmedDomains} domínio(s) com páginas compatíveis · {result.modelEvidenceCount??0} fonte(s) enviada(s) ao Qwen.</small>
         <small>{result.searchStatus==='unavailable'
           ?'Busca indisponível. Verifique o Garimpo na porta 4319.'
           :result.searchStatus==='no_results'
             ?'A pesquisa não encontrou resultados; não foram criados fatos artificiais.'
             :'Os links são sugestões para conferência; páginas lidas não equivalem à validação definitiva da empresa.'}</small>
-        {(result.sources||[]).length
-          ?<ul>{(result.sources||[]).map((source,index)=><li key={source.url+'-'+index}>
-            <a href={safeSite(source.url)||undefined} target="_blank" rel="noopener noreferrer">{source.title||source.url} <ExternalLink size={12}/></a>
-            <small>{source.reading==='page'?'Página lida':'Somente resultado de busca'} · {source.identity==='compatible'
-              ?'Nome e cidade compatíveis':source.identity==='partial'?'Nome compatível; localidade a conferir':'Identidade não confirmada'}</small>
-            {!readOnly&&source.reading==='page'&&source.identity!=='unconfirmed'&&source.excerpt.length>=35
-              ?<button type="button" onClick={()=>prepareSourceForG4(source)}>Usar fonte no G4</button>:null}
+        {groupedSources.length
+          ?<ul>{groupedSources.map(group=><li key={group.domain}>
+            <a href={safeSite(group.primary.url)||undefined} target="_blank" rel="noopener noreferrer">{group.primary.title||group.domain} <ExternalLink size={12}/></a>
+            <small>{group.domain} · {group.primary.reading==='page'?'Página lida':'Somente resultado de busca'} · {group.primary.identity==='compatible'
+              ?'Nome e cidade compatíveis':group.primary.identity==='partial'?'Nome compatível; localidade a conferir':'Identidade não confirmada'}
+              {group.count>1?' · '+group.count+' URLs deste domínio':''}
+              {group.primary.reading==='page'&&group.primary.engine?' · '+group.primary.engine:''}</small>
+            {!readOnly&&group.primary.reading==='page'&&group.primary.identity!=='unconfirmed'&&group.primary.excerpt.length>=35
+              ?<button type="button" onClick={()=>prepareSourceForG4(group.primary)}>Usar fonte no G4</button>:null}
           </li>)}</ul>
           :<p>Nenhuma fonte pública compatível disponível nesta investigação.</p>}
+        {(result.sources||[]).length>groupedSources.length
+          ?<details><summary>Conferir todas as URLs ({result.sources?.length})</summary>
+            <ul>{(result.sources||[]).map((source,index)=><li key={source.url+'-'+index}>
+              <a href={safeSite(source.url)||undefined} target="_blank" rel="noopener noreferrer">{source.url}</a>
+              <small>{source.reading==='page'?'Lida':'Não lida'} · {source.identity==='unconfirmed'?'Identidade não confirmada':'Identidade compatível ou parcial'}</small>
+              {!readOnly&&source.reading==='page'&&source.identity!=='unconfirmed'&&source.excerpt.length>=35
+                ?<button type="button" onClick={()=>prepareSourceForG4(source)}>Usar fonte no G4</button>:null}
+            </li>)}</ul>
+          </details>:null}
       </section>
-      <p>{result.summary}</p>
       {result.hypotheses.length?<section><strong>Hipóteses para investigar</strong><ul>{result.hypotheses.map((h,i)=><li key={i}>{h}</li>)}</ul></section>:null}
       {result.questions.length?<section><strong>Perguntas de diagnóstico</strong><ul>{result.questions.map((q,i)=><li key={i}>{q}</li>)}</ul></section>:null}
       {result.approach?<section><strong>Abordagem sugerida</strong><p>{result.approach}</p></section>:null}

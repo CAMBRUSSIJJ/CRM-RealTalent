@@ -24,7 +24,8 @@ async function readPinnedHtml(raw,{requestPage=pinnedHttpsV60}={}){
     let result
     try{result=await requestPage(url)}catch{return {ok:false,error:'read_failed'}}
     if(result.redirect){
-      url=validResearchUrlV60(new URL(result.redirect,url).href)
+      try{url=validResearchUrlV60(new URL(result.redirect,url).href)}
+      catch{return {ok:false,error:'unsafe_redirect'}}
       if(!url)return {ok:false,error:'unsafe_redirect'}
       continue
     }
@@ -72,12 +73,12 @@ export async function readPublicPageOpenSourceG50(raw,{
   worker=invokeWorker,
 }={}){
   if(!enabled||workerBusy)return fallback(raw)
-  const fetched=await readPinnedHtml(raw,{requestPage})
-  if(!fetched.ok)return fallback(raw)
-  const original=extractReadableV60(fetched.html)
-  if(original.text.length<180)return {ok:false,error:'insufficient_content'}
   workerBusy=true
   try{
+    const fetched=await readPinnedHtml(raw,{requestPage})
+    if(!fetched.ok)return fallback(raw)
+    const original=extractReadableV60(fetched.html)
+    if(original.text.length<180)return {ok:false,error:'insufficient_content'}
     const result=await worker({html:fetched.html,mode:'extract'})
     if(result?.ok!==true||typeof result.text!=='string'||result.text.length<180)
       return {ok:true,url:fetched.url,...original,engine:'legacy_fallback'}
@@ -91,6 +92,6 @@ export async function readPublicPageOpenSourceG50(raw,{
     return {ok:true,url:fetched.url,title:original.title,text:processed,engine:'crawl4ai',
       extractedFacts}
   }catch{
-    return {ok:true,url:fetched.url,...original,engine:'legacy_fallback'}
+    return fallback(raw)
   }finally{workerBusy=false}
 }

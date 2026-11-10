@@ -43,7 +43,6 @@ async function main() {
   if (profile.economy) console.log('Perfil econômico: uma página por vez, contexto reduzido e modelo menor como primeira opção.')
   if (memoryAvailable !== null) console.log(`Memória disponível agora: ${(memoryAvailable / GiB).toFixed(1)} GiB.`)
   if (checkOnly) { console.log('Verificação concluída. Nenhum serviço ou arquivo foi alterado.'); return }
-  if (profile.economy && memoryAvailable !== null && memoryAvailable < 2.5 * GiB) throw new Error('Antes de compilar o Firecrawl, libere pelo menos 2,5 GiB de memória disponível. Confira ollama ps e docker stats para identificar o consumo. O configurador não interrompe modelos ou serviços existentes.')
   if (!models.length) throw new Error('Instale um modelo no Ollama e execute novamente. Use ollama list para conferir os modelos.')
   command('git', ['--version'])
   const suppliedConfig = process.argv.slice(2).find((value) => !value.startsWith('--'))

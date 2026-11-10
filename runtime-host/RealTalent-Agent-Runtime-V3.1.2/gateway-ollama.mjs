@@ -859,7 +859,10 @@ const routerServer = http.createServer((req, res) => {
     sendJson(res,200,{ok:true,feature:'company-assistant-g410',readOnly:true,instagram:'public-html-metadata-and-indexed-only',vision:'optional-local-screenshot',cnpj:'public-registry'});return
   }
   if (req.method === 'GET' && String(req.url || '').split('?')[0] === '/tools/prospect-investigate/status') {
-    sendJson(res,200,{ok:true,feature:'company-research-v1',provider:'local-garimpo',publicSources:true}); return
+    sendJson(res,200,{ok:true,feature:'company-research-v1',provider:'local-garimpo',publicSources:true,
+      openSourceReader:'g50',investigationReaderBuild:'g56-public-discovery',
+      openSourceEnabled:process.env.REALTALENT_GARIMPO_OPEN_SOURCE==='1',
+      scrapegraphEnabled:process.env.REALTALENT_GARIMPO_SCRAPEGRAPH==='1'}); return
   }
   if (req.method === 'GET' && String(req.url || '').split('?')[0] === '/tools/health') { void localOllamaStatusV56(req,res); return }
   if (req.method === 'POST' && String(req.url || '').split('?')[0] === '/tools/research') { void handleResearchV56(req,res); return }

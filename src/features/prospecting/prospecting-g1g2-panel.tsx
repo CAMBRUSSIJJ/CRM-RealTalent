@@ -10,17 +10,17 @@ import {runtimeFetch} from '../../services/realtalent-runtime-transport'
 import {appendTriggerCandidatesG4,type TriggerCandidateG4,type TriggerSourceG4} from '../../services/prospecting-triggers-g4'
 import {appendRemoteTriggersG43,isTriggerCloudModeG43} from '../../services/prospecting-triggers-g43-remote'
 import {ProspectingCompanyAssistant} from './prospecting-company-assistant'
+import {groupInvestigationSourcesG53,type InvestigationSourceG53} from '../../services/prospecting-g53-evidence'
+import {guardInvestigationPresentationG55,hasConfirmedInvestigationEvidenceG55} from '../../services/prospecting-g55-presentation'
 
-interface InvestigationSource {
-  title:string;url:string;reading:'page'|'snippet';
-  identity:'compatible'|'partial'|'unconfirmed';
-  origin:string;excerpt:string
-}
+type InvestigationSource=InvestigationSourceG53
 interface Investigation {
   ok:boolean;summary:string;hypotheses:string[];questions:string[];
   approach:string;caveats:string[];pageRead:boolean;readUrl:string|null;
   readTitle:string|null;quality:string;
   searchStatus?:'done'|'no_results'|'unavailable';
+  modelStatus?:string;modelEvidenceCount?:number;modelElapsedMs?:number;
+  searchDiagnostics?:{resultsReturned:number;eligibleUrls:number;verifiedPages:number;socialProfiles?:number};
   sources?:InvestigationSource[]
   candidateEvents?:TriggerCandidateG4[]
 }
@@ -39,17 +39,21 @@ export function ProspectingG1G2Panel({prospect,snapshot,readOnly}:Props){
   const [result,setResult]=useState<Investigation|null>(null)
   const [error,setError]=useState('')
   const [signalNotice,setSignalNotice]=useState('')
+  const [publicSourceUrl,setPublicSourceUrl]=useState('')
+  const [lastInvestigatedSourceUrl,setLastInvestigatedSourceUrl]=useState('')
   const abortRef=useRef<AbortController|null>(null)
   useEffect(()=>{
     abortRef.current?.abort();abortRef.current=null
-    setResult(null);setError('');setSignalNotice('');setBusy(false)
+    setResult(null);setError('');setSignalNotice('');setPublicSourceUrl('');setLastInvestigatedSourceUrl('');setBusy(false)
     return ()=>{abortRef.current?.abort()}
   },[prospect.id,prospect.updatedAt])
   const run=async()=>{
     abortRef.current?.abort()
     const ctrl=new AbortController()
+    const requestedPublicSourceUrl=publicSourceUrl.trim()
     abortRef.current=ctrl
-    const timer=setTimeout(()=>ctrl.abort(),125000)
+    // Discovery (up to 30s) + public-page reading + local Qwen (up to 90s).
+    const timer=setTimeout(()=>ctrl.abort(),175000)
     setBusy(true);setError('');setSignalNotice('');setResult(null)
     try{
       const response=await runtimeFetch(env.agentGatewayUrl+'/tools/prospect-investigate',{
@@ -60,11 +64,13 @@ export function ProspectingG1G2Panel({prospect,snapshot,readOnly}:Props){
           segment:String(prospect.rawData?.category||'').slice(0,100),
           description:prospect.description,
           website:prospect.website,
+          publicSourceUrl:requestedPublicSourceUrl,
         })
       })
       if(!response.ok)throw Error(response.status===429?'Ollama ocupado. Tente novamente.':'A investigação local não respondeu.')
-      const data=await response.json() as Investigation
-      if(!data.ok)throw Error('O modelo não conseguiu verificar esta empresa.')
+      const rawData=await response.json() as Investigation
+      if(!rawData.ok)throw Error('O modelo não conseguiu verificar esta empresa.')
+      const data=guardInvestigationPresentationG55(rawData)
       let created=0
       const issues:string[]=[]
       if(!readOnly&&Array.isArray(data.candidateEvents)&&data.candidateEvents.length){
@@ -92,7 +98,10 @@ export function ProspectingG1G2Panel({prospect,snapshot,readOnly}:Props){
       }
       if(!ctrl.signal.aborted){
         setResult(data)
-        setSignalNotice(readOnly
+        setLastInvestigatedSourceUrl(requestedPublicSourceUrl)
+        setSignalNotice(!hasConfirmedInvestigationEvidenceG55(data)
+          ?'Pesquisa sem evidências públicas verificáveis. As hipóteses e recomendações sem fontes foram ocultadas.'
+          :readOnly
           ?'Investigação concluída em modo de leitura. Nenhum sinal foi gravado no G4.'
           :issues.length
           ?'A análise foi concluída, mas houve falha ao sincronizar os sinais no G4: '+issues.slice(0,2).join(' · ')
@@ -116,6 +125,11 @@ export function ProspectingG1G2Panel({prospect,snapshot,readOnly}:Props){
     }))
     document.querySelector('.prospecting-trigger-g4')?.scrollIntoView({behavior:'smooth',block:'start'})
   }
+  const manualSourcePending=Boolean(result&&publicSourceUrl.trim()!==lastInvestigatedSourceUrl)
+  const enteredSocialProfile=/^https:\/\/(?:www\.)?(?:instagram\.com|facebook\.com|m\.facebook\.com)\//i.test(publicSourceUrl.trim())
+  const groundedReport=Boolean(result&&hasConfirmedInvestigationEvidenceG55(result))
+  const groupedSources=useMemo(()=>groupInvestigationSourcesG53(result?.sources||[]),[result])
+  const confirmedDomains=groupedSources.filter(group=>group.primary.reading==='page'&&group.primary.identity!=='unconfirmed').length
   const labels:[string,number][]=[
     ['Aderência ao ICP',score.fit],
     ['Potencial comercial',score.opportunity],
@@ -155,34 +169,74 @@ export function ProspectingG1G2Panel({prospect,snapshot,readOnly}:Props){
         {busy?'Investigando…':result?'Investigar novamente':'Investigar com IA'}
       </Button>
     </div>
+    <details className="prospecting-g1g2__manual-source">
+      <summary>Informar site ou perfil público para conferir (opcional)</summary>
+      <label htmlFor="garimpo-public-source-url">URL pública da empresa</label>
+      <input id="garimpo-public-source-url" type="url" inputMode="url" value={publicSourceUrl}
+        onChange={event=>setPublicSourceUrl(event.target.value)} placeholder="https://exemplo.com.br/empresa"
+        maxLength={1100} autoComplete="off" />
+      <div className="prospecting-g1g2__manual-source-action">
+        <Button type="button" variant="secondary" disabled={busy||!safeSite(publicSourceUrl.trim())}
+          onClick={()=>void run()}>{busy?'Investigando…':'Investigar com esta URL'}</Button>
+        <small>O endereço será incluído na próxima investigação; não altera o cadastro da empresa.</small>
+      </div>
+      {manualSourcePending?<small className="prospecting-g1g2__manual-source-pending" role="status">
+        Esta URL ainda não foi considerada no resultado abaixo. Clique em “Investigar com esta URL”.
+      </small>:null}
+      {enteredSocialProfile?<small className="prospecting-g1g2__manual-source-social">
+        Instagram/Facebook: este perfil será apresentado como link para conferência. O Garimpo ainda não lê automaticamente publicações dessas plataformas nem considera o perfil uma fonte verificada.
+      </small>:null}
+    </details>
     {error?<p className="prospecting-g1g2__error" role="alert">{error}</p>:null}
     {signalNotice?<p className="prospecting-g1g2__signal-notice" role="status">{signalNotice}</p>:null}
     {result?<div className="prospecting-g1g2__report" aria-live="polite">
       <div className="prospecting-g1g2__report-source">
-        <span>{result.pageRead?'Fonte pública compatível lida':'Sem leitura externa compatível confirmada'}</span>
-        {result.pageRead&&safeSite(result.readUrl)?<a href={safeSite(result.readUrl)!} rel="noopener noreferrer" target="_blank"><ExternalLink size={13}/> Conferir fonte</a>:null}
+        <span>{groundedReport?'Fonte pública compatível lida':'Sem evidência pública compatível confirmada'}</span>
+        {groundedReport&&safeSite(result.readUrl)?<a href={safeSite(result.readUrl)!} rel="noopener noreferrer" target="_blank"><ExternalLink size={13}/> Conferir fonte</a>:null}
       </div>
+      <p>{result.summary}</p>
+      {!groundedReport
+        ?<p className="prospecting-g1g2__evidence-empty" role="status">
+          Sem evidências externas suficientes. Confira o site ou perfil oficial e atualize o cadastro antes de repetir a pesquisa.
+        </p>
+        :result.modelStatus&&result.modelStatus!=='completed'
+          ?<p className="prospecting-g1g2__error" role="status">A leitura foi preservada, mas a análise local não foi concluída ({result.modelStatus}).</p>
+          :null}
       <section className="prospecting-g1g2__public-sources">
         <strong>Pesquisa e evidências públicas</strong>
+        <small>{confirmedDomains} domínio(s) com páginas compatíveis · {result.modelEvidenceCount??0} fonte(s) enviada(s) ao Qwen.</small>
+        {result.searchDiagnostics
+          ?<small>{result.searchDiagnostics.resultsReturned} resultado(s) da pesquisa · {result.searchDiagnostics.eligibleUrls} URL(s) analisadas · {result.searchDiagnostics.verifiedPages} página(s) verificadas · {result.searchDiagnostics.socialProfiles??0} perfil(is) público(s) sugerido(s).</small>
+          :null}
         <small>{result.searchStatus==='unavailable'
           ?'Busca indisponível. Verifique o Garimpo na porta 4319.'
           :result.searchStatus==='no_results'
             ?'A pesquisa não encontrou resultados; não foram criados fatos artificiais.'
             :'Os links são sugestões para conferência; páginas lidas não equivalem à validação definitiva da empresa.'}</small>
-        {(result.sources||[]).length
-          ?<ul>{(result.sources||[]).map((source,index)=><li key={source.url+'-'+index}>
-            <a href={safeSite(source.url)||undefined} target="_blank" rel="noopener noreferrer">{source.title||source.url} <ExternalLink size={12}/></a>
-            <small>{source.reading==='page'?'Página lida':'Somente resultado de busca'} · {source.identity==='compatible'
-              ?'Nome e cidade compatíveis':source.identity==='partial'?'Nome compatível; localidade a conferir':'Identidade não confirmada'}</small>
-            {!readOnly&&source.reading==='page'&&source.identity!=='unconfirmed'&&source.excerpt.length>=35
-              ?<button type="button" onClick={()=>prepareSourceForG4(source)}>Usar fonte no G4</button>:null}
+        {groupedSources.length
+          ?<ul>{groupedSources.map(group=><li key={group.domain}>
+            <a href={safeSite(group.primary.url)||undefined} target="_blank" rel="noopener noreferrer">{group.primary.title||group.domain} <ExternalLink size={12}/></a>
+            <small>{group.domain} · {group.primary.sourceKind==='social_profile'?'Perfil público sugerido (conferir manualmente)':group.primary.reading==='page'?'Página lida':'Somente resultado de busca'} · {group.primary.identity==='compatible'
+              ?'Nome e cidade compatíveis':group.primary.identity==='partial'?'Nome compatível; localidade a conferir':'Identidade não confirmada'}
+              {group.count>1?' · '+group.count+' URLs deste domínio':''}
+              {group.primary.reading==='page'&&group.primary.engine?' · '+group.primary.engine:''}</small>
+            {!readOnly&&group.primary.reading==='page'&&group.primary.identity!=='unconfirmed'&&group.primary.excerpt.length>=35
+              ?<button type="button" onClick={()=>prepareSourceForG4(group.primary)}>Usar fonte no G4</button>:null}
           </li>)}</ul>
           :<p>Nenhuma fonte pública compatível disponível nesta investigação.</p>}
+        {(result.sources||[]).length>groupedSources.length
+          ?<details><summary>Conferir todas as URLs ({result.sources?.length})</summary>
+            <ul>{(result.sources||[]).map((source,index)=><li key={source.url+'-'+index}>
+              <a href={safeSite(source.url)||undefined} target="_blank" rel="noopener noreferrer">{source.url}</a>
+              <small>{source.reading==='page'?'Lida':'Não lida'} · {source.identity==='unconfirmed'?'Identidade não confirmada':'Identidade compatível ou parcial'}</small>
+              {!readOnly&&source.reading==='page'&&source.identity!=='unconfirmed'&&source.excerpt.length>=35
+                ?<button type="button" onClick={()=>prepareSourceForG4(source)}>Usar fonte no G4</button>:null}
+            </li>)}</ul>
+          </details>:null}
       </section>
-      <p>{result.summary}</p>
-      {result.hypotheses.length?<section><strong>Hipóteses para investigar</strong><ul>{result.hypotheses.map((h,i)=><li key={i}>{h}</li>)}</ul></section>:null}
-      {result.questions.length?<section><strong>Perguntas de diagnóstico</strong><ul>{result.questions.map((q,i)=><li key={i}>{q}</li>)}</ul></section>:null}
-      {result.approach?<section><strong>Abordagem sugerida</strong><p>{result.approach}</p></section>:null}
+      {groundedReport&&result.hypotheses.length?<section><strong>Hipóteses para investigar</strong><ul>{result.hypotheses.map((h,i)=><li key={i}>{h}</li>)}</ul></section>:null}
+      {groundedReport&&result.questions.length?<section><strong>Perguntas de diagnóstico</strong><ul>{result.questions.map((q,i)=><li key={i}>{q}</li>)}</ul></section>:null}
+      {groundedReport&&result.approach?<section><strong>Abordagem sugerida</strong><p>{result.approach}</p></section>:null}
       {result.caveats.length?<small>{result.caveats.join(' · ')}</small>:null}
     </div>:null}
   </section>

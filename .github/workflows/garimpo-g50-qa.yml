@@ -1,0 +1,63 @@
+name: Garimpo G5 - Open Source Offline Reader QA
+on:
+  push:
+    branches: [feat/garimpo-open-source-crawl4ai-scrapegraph-20261110]
+  pull_request:
+    paths:
+      - 'scripts/garimpo-open-source/**'
+      - 'runtime-host/RealTalent-Agent-Runtime-V3.1.2/crm-open-source-reader-g50*'
+      - 'runtime-host/RealTalent-Agent-Runtime-V3.1.2/crm-prospect-investigation-g1.mjs'
+      - 'runtime-host/RealTalent-Agent-Runtime-V3.1.2/crm-prospect-investigation-g1.test.mjs'
+      - 'runtime-host/RealTalent-Agent-Runtime-V3.1.2/crm-business-source-discovery-g56*'
+      - 'runtime-host/RealTalent-Agent-Runtime-V3.1.2/crm-web-reader-v60.mjs'
+      - 'runtime-host/RealTalent-Agent-Runtime-V3.1.2/crm-web-reader-v60-dns.test.mjs'
+      - '.github/workflows/garimpo-g50-qa.yml'
+      - 'src/services/prospecting-g53-evidence*'
+      - 'src/services/prospecting-g55-presentation*'
+      - 'src/features/prospecting/prospecting-g1g2-panel.tsx'
+      - 'src/styles/prospecting-workspace.css'
+jobs:
+  offline-contract:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Node syntax and open-source offline integration tests
+        run: |
+          node --check runtime-host/RealTalent-Agent-Runtime-V3.1.2/crm-open-source-reader-g50.mjs
+          node --check runtime-host/RealTalent-Agent-Runtime-V3.1.2/crm-prospect-investigation-g1.mjs
+          node --test runtime-host/RealTalent-Agent-Runtime-V3.1.2/crm-open-source-reader-g50.test.mjs
+          node --test runtime-host/RealTalent-Agent-Runtime-V3.1.2/crm-prospect-investigation-g1.test.mjs
+          node --test runtime-host/RealTalent-Agent-Runtime-V3.1.2/crm-business-source-discovery-g56.test.mjs
+          node --test runtime-host/RealTalent-Agent-Runtime-V3.1.2/crm-web-reader-v60-dns.test.mjs
+      - name: Python offline HTML sanitization tests (without heavy browsers)
+        run: |
+          python3 -m py_compile scripts/garimpo-open-source/worker.py
+          python3 -m unittest scripts/garimpo-open-source/test_worker.py
+          python3 scripts/garimpo-open-source/worker.py --health
+          bash -n scripts/garimpo-open-source/instalar-linux.sh
+          bash -n scripts/garimpo-open-source/abrir-previa-g54.sh
+          bash -n scripts/garimpo-open-source/abrir-previa-g55.sh
+          bash -n scripts/garimpo-open-source/abrir-previa-g56.sh
+
+  frontend-contract:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - name: Install dependencies
+        run: npm ci
+      - name: G5.4 source grouping regression tests
+        run: npx vitest run src/services/prospecting-g53-evidence.test.ts src/services/prospecting-g55-presentation.test.ts
+      - name: TypeScript typecheck
+        run: npm run typecheck

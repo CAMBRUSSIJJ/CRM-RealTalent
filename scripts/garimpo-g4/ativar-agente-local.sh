@@ -12,10 +12,13 @@ probe(){
     -H 'Content-Type: application/json' -d '{}' "$HOST/tools/trigger-events" 2>/dev/null || true
 }
 probe_release(){
-  curl --noproxy '*' -sS --max-time 4 "$HOST/tools/prospect-investigate/status" 2>/dev/null \
-    | grep -q '"company-research-v1"' &&
-  curl --noproxy '*' -sS --max-time 4 "$HOST/tools/company-ask/status" 2>/dev/null |
-    grep -q '"company-assistant-g410"'
+  local status assistant
+  status="$(curl --noproxy '*' -sS --max-time 4 "$HOST/tools/prospect-investigate/status" 2>/dev/null || true)"
+  assistant="$(curl --noproxy '*' -sS --max-time 4 "$HOST/tools/company-ask/status" 2>/dev/null || true)"
+  [[ "$status" == *'"company-research-v1"'* && "$assistant" == *'"company-assistant-g410"'* ]] || return 1
+  if [[ "${REALTALENT_GARIMPO_OPEN_SOURCE:-0}" == "1" ]]; then
+    [[ "$status" == *'"openSourceReader":"g50"'* && "$status" == *'"openSourceEnabled":true'* ]] || return 1
+  fi
 }
 RESULT="$(probe)"
 if [[ "$RESULT" == *'"invalid_source_or_excerpt"'* ]] && probe_release; then

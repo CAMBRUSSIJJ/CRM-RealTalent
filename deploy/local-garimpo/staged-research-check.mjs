@@ -285,7 +285,8 @@ test('finds a candidate profile through Linktree and attributes only readable po
             metadata: { title: body.url === site ? 'Fainer Barber — Rio Grande' : 'Barber Model' },
             markdown: body.url === site
               ? 'Fainer Barber, Rio Grande RS: (53) 99157-9674.'
-              : 'FainerBarber Rio Grande RS · Instagram: ' + instagram,
+              : 'FainerBarber Rio Grande RS · botão Instagram',
+            links: body.url === linktree ? [instagram] : [],
           },
         }))
         if (body.query.includes('linktr.ee')) return new Response(JSON.stringify({

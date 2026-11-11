@@ -1,8 +1,8 @@
 import type { AiField, AiLead, AiSearchResult } from '../../supabase/functions/_shared/prospecting-ai'
 import type { ProspectRecord } from './prospecting-workspace'
 
-// A field must be corroborated by two independent publishers to be confirmed.
-// Multiple URLs from the same publisher count as a single source.
+// A field must be corroborated by two distinct registrable domains to be confirmed.
+// Multiple URLs or subdomains from the same domain count as a single source.
 export type CrossSourceStatus = 'confirmed' | 'divergent' | 'observed' | 'pending'
 export interface CrossSourceCandidate {
   value: string

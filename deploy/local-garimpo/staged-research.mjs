@@ -247,6 +247,100 @@ export function postLinkedToProfile(post, profileUrl) {
     title.startsWith(handle + ' on instagram')
 }
 
+
+/**
+ * Public content ONLY. The caller uses the existing local Firecrawl API:
+ * JS rendering is best-effort and authentication walls are never bypassed.
+ */
+export function publicInstagramPostLinks(page, profileUrl) {
+  if (!instagramProfileUrl(profileUrl)) return []
+  const text = [typeof page?.markdown === 'string' ? page.markdown : '',
+    ...(Array.isArray(page?.links) ? page.links.filter((x) => typeof x === 'string') : [])].join('\n')
+  const candidates = []
+  const add = (raw) => {
+    try {
+      const u = new URL(raw, profileUrl)
+      u.search = ''
+      u.hash = ''
+      if (!/(^|\.)instagram\.com$/i.test(u.hostname) || !/^\/(p|reel)\/[a-z0-9_-]+\/?$/i.test(u.pathname)) return
+      const canonical = 'https://www.instagram.com' + u.pathname.replace(/\/?$/, '/')
+      if (!candidates.includes(canonical)) candidates.push(canonical)
+    } catch { /* malformed links are not evidence */ }
+  }
+  const pattern = /(?:https?:\/\/(?:www\.)?instagram\.com)?\/(?:p|reel)\/[a-z0-9_-]+\/?(?:\?[a-z0-9_=&%-]+)?/gi
+  for (const match of text.matchAll(pattern)) add(match[0])
+  return candidates.slice(0, 8)
+}
+export function instagramReadableText(markdown, { profile = false } = {}) {
+  const raw = String(markdown || '').replace(/<[^>]*>/g, ' ').trim()
+  if (raw.length < (profile ? 45 : 65)) return ''
+  const lowered = raw.toLowerCase()
+  const appearsLoginWall = /(?:log in to instagram|login • instagram|you must log in|inicie sessão para|faça login para|entre para ver|sign up to see)/i.test(raw)
+  // Links and navigation alone are not captions. Avoid sending a login wall
+  // or a list of unrelated recommendations to the model as post content.
+  if (appearsLoginWall && (raw.length < 850 || !/(?:\b\d{1,2}\s+[a-z]{3,}\s+\d{4}\b|@[\w.]{3,})/.test(raw))) return ''
+  if (!profile && /^(?:instagram|log in|sign up|login|home|explore|reels|messages|\s|[-•|])*$/i.test(lowered)) return ''
+  return raw.slice(0, profile ? 3500 : 4200)
+}
+export function instagramPageAccess(page, profileUrl) {
+  const raw = String(page?.markdown || '')
+  const links = publicInstagramPostLinks(page, profileUrl)
+  const readable = instagramReadableText(raw, { profile: true })
+  if (readable) return { status: links.length ? 'readable' : 'bio_only', postUrls: links, content: readable }
+  if (/log\s?in|sign\s?up|faça login|entrar|inicie sessão/i.test(raw)) {
+    return { status: 'blocked', reason: 'login_required', postUrls: [], content: '' }
+  }
+  return { status: 'unavailable', reason: 'no_public_content', postUrls: [], content: '' }
+}
+
+/** Bounded direct profile+post scrape; no cookies, account login or bypass. */
+export async function readPublicInstagram({ profileUrl, call, indexedPosts = [], maxPosts = 3 }) {
+  const outcome = { profileAccess: 'unavailable', accessReason: 'no_public_content',
+    postLinksFound: 0, readablePostUrls: [], postSources: [] }
+  if (!instagramProfileUrl(profileUrl)) return outcome
+  const postUrls = []
+  const register = (url) => {
+    const verified = publicInstagramPostLinks({ links: [url] }, profileUrl)[0]
+    if (verified && !postUrls.includes(verified)) postUrls.push(verified)
+  }
+  try {
+    const profile = await call('/v2/scrape', {
+      url: profileUrl, formats: ['markdown', 'links'], onlyMainContent: false,
+      waitFor: 1200, timeout: 29000,
+    }, 33_000)
+    const access = instagramPageAccess(profile?.data, profileUrl)
+    outcome.profileAccess = access.status
+    outcome.accessReason = access.reason || (access.status === 'bio_only' ? 'posts_unavailable' : undefined)
+    for (const url of access.postUrls) register(url)
+  } catch (error) {
+    const errorText = String(error?.message || '')
+    outcome.profileAccess = /http_401|http_403|http_429/.test(errorText) ? 'blocked' : 'unavailable'
+    outcome.accessReason = outcome.profileAccess === 'blocked' ? 'login_required'
+      : /timeout|abort/i.test(errorText) ? 'timeout' : 'scrape_failed'
+  }
+  // Indexed posts must state the publishing handle in the title; the search
+  // query itself or a third-party mention does not prove post authorship.
+  for (const item of indexedPosts) {
+    if (postLinkedToProfile(item, profileUrl)) register(item.url)
+  }
+  outcome.postLinksFound = postUrls.length
+  for (const url of postUrls.slice(0, Math.max(0, Math.min(3, maxPosts)))) {
+    try {
+      const page = await call('/v2/scrape', {
+        url, formats: ['markdown'], onlyMainContent: false, waitFor: 950, timeout: 24000,
+      }, 27_000)
+      const readable = instagramReadableText(page?.data?.markdown)
+      if (!readable) continue
+      outcome.postSources.push({ url, title: String(page?.data?.metadata?.title || 'Publicação pública do Instagram').slice(0, 200), content: readable })
+      outcome.readablePostUrls.push(url)
+    } catch { /* a failed post must not erase other accessible posts */ }
+  }
+  if (outcome.postLinksFound && !outcome.readablePostUrls.length && outcome.profileAccess !== 'blocked') {
+    outcome.accessReason = 'posts_unavailable'
+  }
+  return outcome
+}
+
 const jsonFilePath = (jobId) => {
   if (!/^[0-9a-f-]{36}$/i.test(jobId)) throw new Error('invalid_job_id')
   return join(homedir(), '.local', 'share', 'realtalent', 'garimpo', 'jobs', jobId + '.json')

@@ -263,6 +263,7 @@ export async function stagedLocalResearch({ input, signal, values, fetcher, mode
   const sourceMap = new Map()
   const warnings = cached?.warnings ? [...cached.warnings] : []
   const trace = cached?.trace ? [...cached.trace] : []
+  let instagramDiscovery = cached?.instagramDiscovery || null
   const maxSources = 12
   let contentUsed = 0
   function accept(items) {
@@ -284,7 +285,7 @@ export async function stagedLocalResearch({ input, signal, values, fetcher, mode
     const info = { stage, phaseStatus, errorCode: failureCode, sourceCount: sourceMap.size,
       leadCount: factsResult?.leads?.length ?? 0 }
     trace.push({ ...info, at: new Date().toISOString() })
-    await journal.save(stage, { sources: sources(), warnings, trace, ...(factsResult ? { facts: factsResult } : {}) })
+    await journal.save(stage, { sources: sources(), warnings, trace, instagramDiscovery, ...(factsResult ? { facts: factsResult } : {}) })
     await onProgress(info)
   }
   const base = new URL(values.FIRECRAWL_API_URL || 'http://127.0.0.1:3002')
@@ -301,7 +302,6 @@ export async function stagedLocalResearch({ input, signal, values, fetcher, mode
     return body
   }
   const knownSite = selectExistingUrl(input)
-  const account = accountName(input)
   let factsResult = cached?.facts || null
   const factsFinished = Boolean(trace.some((item) => item.stage === 'facts' && item.phaseStatus !== 'running'))
   if (!cached || !['facts','signals','completed'].includes(cached.stage)) {
@@ -336,16 +336,73 @@ export async function stagedLocalResearch({ input, signal, values, fetcher, mode
     }
     if (!trace.some((item) => item.stage === 'instagram' && item.phaseStatus !== 'running')) {
       await checkpoint('instagram', 'running')
+      let profileSearchFailed = false
+      let postsSearchFailed = false
       try {
-        const q = account ? 'site:instagram.com/p OR site:instagram.com/reel ' + account
-          : 'site:instagram.com/p OR site:instagram.com/reel ' + input.segment + ' ' + input.city
-        const page = await call('/v2/search', { query: q.slice(0, 220), limit: 4, sources: ['web'],
-          scrapeOptions: { formats: ['markdown'], onlyMainContent: true } }, 38_000)
-        accept((Array.isArray(page?.data?.web) ? page.data.web : []).filter((item) => publicInstagram(item?.url)))
-        await checkpoint('instagram', 'completed')
+        // Step 1: discover a PROFILE, rather than searching anonymous reels and
+        // posts that cannot safely be linked to a company.
+        const profileHits = []
+        instagramDiscovery = identifyInstagramProfile(input, sources())
+        if (instagramDiscovery.status !== 'linked' && instagramDiscovery.status !== 'provided') {
+          const profileQueries = [
+            'site:instagram.com "' + input.segment + '" "' + input.city + '"',
+            '"' + input.segment + '" "' + input.city + '" Instagram',
+          ]
+          for (const q of profileQueries) {
+            try {
+              const data = await call('/v2/search', { query: q.slice(0, 185), limit: 5,
+                sources: ['web'], scrapeOptions: { formats: ['markdown'], onlyMainContent: true } }, 30_000)
+              const hits = Array.isArray(data?.data?.web) ? data.data.web : []
+              profileHits.push(...hits)
+              // Results may include directory pages with business-owned IG links.
+              accept(hits.filter((hit) => !/instagram\.com\/(p|reel)\//i.test(hit?.url || '')))
+              const located = identifyInstagramProfile(input, sources(), profileHits)
+              if (located.status !== 'not_found') { instagramDiscovery = located; break }
+            } catch (error) {
+              if (signal.aborted) throw error
+              profileSearchFailed = true
+            }
+          }
+        }
+        if (!instagramDiscovery || instagramDiscovery.status === 'not_found') {
+          instagramDiscovery = { status: profileSearchFailed ? 'unavailable' : 'not_found', postCount: 0 }
+          warnings.push(profileSearchFailed
+            ? 'A busca pelo perfil público do Instagram não respondeu; outras fontes foram preservadas.'
+            : 'Não foi possível identificar um perfil Instagram da empresa com evidência suficiente. Não foi atribuído um perfil por semelhança de nome.')
+        } else {
+          // Step 2: search only posts whose INDEXED snippet states that the
+          // account published them. Search alone never authorizes attribution.
+          const handle = instagramDiscovery.profileUrl.split('/').filter(Boolean).at(-1)
+          const qList = [
+            'site:instagram.com/p/ "@' + handle + '"',
+            'site:instagram.com/reel/ "@' + handle + '"',
+          ]
+          for (const query of qList) {
+            try {
+              const data = await call('/v2/search', { query: query.slice(0, 160), limit: 4,
+                sources: ['web'], scrapeOptions: { formats: ['markdown'], onlyMainContent: true } }, 30_000)
+              const matched = (Array.isArray(data?.data?.web) ? data.data.web : [])
+                .filter((item) => postLinkedToProfile(item, instagramDiscovery.profileUrl))
+              accept(matched)
+            } catch (error) {
+              if (signal.aborted) throw error
+              postsSearchFailed = true
+            }
+          }
+          instagramDiscovery.postCount = sources().filter((source) =>
+            publicInstagram(source.url) && postLinkedToProfile(source, instagramDiscovery.profileUrl)).length
+          if (!instagramDiscovery.postCount) {
+            warnings.push(postsSearchFailed
+              ? 'Perfil localizado, mas não foi possível acessar publicações públicas indexadas.'
+              : 'Perfil localizado, porém nenhuma publicação com vínculo verificável ficou acessível pelo buscador.')
+          }
+        }
+        await checkpoint('instagram', postsSearchFailed || profileSearchFailed ? 'failed' : 'completed',
+          postsSearchFailed || profileSearchFailed ? 'stage_unavailable' : '')
       } catch (error) {
         if (signal.aborted) throw error
-        warnings.push('Publicações públicas do Instagram indisponíveis; demais fontes preservadas.')
+        warnings.push('A descoberta do Instagram falhou; os dados de outros sites permanecem disponíveis.')
+        instagramDiscovery = instagramDiscovery || { status: 'unavailable', postCount: 0 }
         await checkpoint('instagram', 'failed', codeOf(error))
       }
     }
@@ -354,9 +411,10 @@ export async function stagedLocalResearch({ input, signal, values, fetcher, mode
     await checkpoint('completed', 'completed')
     return { leads: [], warnings: [...warnings, 'Não foram encontradas fontes públicas legíveis.'], researchedAt: new Date().toISOString(),
       researchStatus: trace.some((item) => item.phaseStatus === 'failed') ? 'partial' : 'completed',
+      instagramDiscovery: instagramDiscovery || { status: 'not_found', postCount: 0 },
       stages: trace.filter((item) => item.phaseStatus !== 'running') }
   }
-  if (!sources().some((item) => publicInstagram(item.url))) warnings.push('Nenhuma publicação pública verificável do Instagram foi localizada nesta investigação.')
+  if (!sources().some((item) => publicInstagram(item.url)) && !instagramDiscovery) warnings.push('Nenhuma publicação pública verificável do Instagram foi localizada nesta investigação.')
   const report = () => JSON.stringify(sources().map(({ url, title, content }) => ({ url, title, content })))
   const compact = () => values.GARIMPO_MEMORY_PROFILE === 'low' ? compactLocalSources(sources()) : report()
   const srcRefs = () => sources().map(({ url, title }) => ({ url, title }))
@@ -396,7 +454,7 @@ export async function stagedLocalResearch({ input, signal, values, fetcher, mode
         'As fontes coletadas não forneceram informações verificáveis da empresa. Nenhum contato foi inventado.')
     }
   }
-  const attributablePosts = companySources(input, sources()).filter((source) => publicInstagram(source.url))
+  const attributablePosts = sources().filter((source) => publicInstagram(source.url) && instagramDiscovery?.profileUrl && postLinkedToProfile(source, instagramDiscovery.profileUrl))
   if (sources().some((source) => publicInstagram(source.url)) && !attributablePosts.length) {
     warnings.push('Foram encontrados links do Instagram, mas não foi possível associar o conteúdo público à empresa com segurança.')
   }
@@ -441,6 +499,7 @@ export async function stagedLocalResearch({ input, signal, values, fetcher, mode
   const partial = stages.some((item) => item.phaseStatus === 'failed')
   await checkpoint('completed', 'completed')
   return { ...factsResult, warnings: [...(factsResult.warnings || []), ...warnings],
+    instagramDiscovery: instagramDiscovery || { status: 'not_found', postCount: 0 },
     researchStatus: partial ? 'partial' : 'completed',
     stages: trace.filter((item) => item.phaseStatus !== 'running').slice(-12) }
 }

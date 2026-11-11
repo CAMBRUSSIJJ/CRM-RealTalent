@@ -10,7 +10,7 @@ export function createFirecrawlResearch(baseUrl: string, apiKey = '', fetcher: t
     // Compatibility with the currently deployed queue: metadata hints are
     // forwarded in the existing query string even if its validator is older.
     const hint = (key: string) => {
-      const raw = input.query.match(new RegExp('(?:^|\\s)' + key + '=([^\\s]+)'))?.[1] || ''
+      const raw = (input.query || '').match(new RegExp('(?:^|\\s)' + key + '=([^\\s]+)'))?.[1] || ''
       try { return decodeURIComponent(raw) } catch { return '' }
     }
     const candidateSite = input.website || hint('SITE_URL')

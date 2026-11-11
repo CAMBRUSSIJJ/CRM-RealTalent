@@ -3,7 +3,7 @@ import assert from 'node:assert/strict'
 import { mkdtemp, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { stageJournal, stagedLocalResearch } from './staged-research.mjs'
+import { stageJournal, stagedLocalResearch, classifyStageError, companySources, sourceBackedFallback, extractFactBatches } from './staged-research.mjs'
 
 test('separates collection phases, retains verified company if model fails and resumes from checkpoint', async () => {
   const originalHome = process.env.HOME
@@ -52,4 +52,66 @@ test('separates collection phases, retains verified company if model fails and r
     else process.env.HOME = originalHome
     await rm(home, { recursive: true, force: true })
   }
+})
+
+
+test('classifies model failure without exposing exception text', () => {
+  assert.equal(classifyStageError({ name: 'TimeoutError' }), 'model_timeout')
+  assert.equal(classifyStageError(new Error('CUDA out of memory at private_path')), 'model_out_of_memory')
+  assert.equal(classifyStageError({ name: 'AI_NoObjectGeneratedError', message: 'model returned no object' }), 'model_invalid_output')
+  assert.equal(classifyStageError(new Error('fetch failed ECONNREFUSED 127.0.0.1')), 'model_unavailable')
+  assert.equal(classifyStageError(new Error('unrecognized private details')), 'model_failed')
+})
+
+test('pre-extracts only literal contacts from relevant pages and excludes namesakes elsewhere', () => {
+  const input = { segment: 'Fainer Barber', city: 'Rio Grande, RS', query: '',
+    website: 'https://kortar.com.br/barbearias/rio-grande/fainer-barber' }
+  const selected = {
+    url: input.website, title: 'Fainer Barber em Rio Grande',
+    content: 'Fainer Barber, Rio Grande: (53) 99157-9674. Contato contato@fainer.com.br.',
+  }
+  const unrelated = { url: 'https://barbeariaoutro.com.br', title: 'Fainer Barber Pelotas',
+    content: 'Fainer Barber em Pelotas (53) 98888-8888.' }
+  const relevant = companySources(input, [selected, unrelated])
+  assert.deepEqual(relevant.map((item) => item.url), [selected.url])
+  const result = sourceBackedFallback(input, relevant, JSON.stringify(relevant))
+  assert.equal(result.leads[0].company, 'Fainer Barber')
+  assert.equal(result.leads[0].phone, '(53) 99157-9674')
+  assert.equal(result.leads[0].email, 'contato@fainer.com.br')
+})
+
+test('extracts from small sequential source batches, preserving earlier evidence after model failure', async () => {
+  const urls = [
+    'https://kortar.com.br/barbearias/rio-grande/fainer-barber',
+    'https://diretorio.example.com/rio-grande/fainer-barber',
+    'https://portal.example.net/rio-grande/fainer-barber',
+    'https://extra.example.org/rio-grande/fainer-barber',
+  ]
+  const sources = urls.map((url) => ({
+    url, title: 'Fainer Barber Rio Grande',
+    content: 'Fainer Barber Rio Grande telefone (53) 99157-9674 — dados da empresa.',
+  }))
+  let calls = 0
+  const output = await extractFactBatches({
+    input: { segment: 'Fainer Barber', city: 'Rio Grande', query: '' },
+    sources, model: {}, signal: new AbortController().signal, lowMemory: true,
+    generate: async (args) => {
+      calls++
+      assert.equal(args.prompt.includes(urls[3]), false, 'fourth source must not enter the low-memory model')
+      const batch = JSON.parse(args.prompt).sources
+      assert.equal(batch.length, 1)
+      if (calls === 2) throw new Error('CUDA out of memory (private log)')
+      return { output: { leads: [{
+        facts: [
+          { field: 'company', value: 'Fainer Barber', sourceUrl: batch[0].url },
+          { field: 'phone', value: '(53) 99157-9674', sourceUrl: batch[0].url },
+        ], opportunity: '', suggestedApproach: '', signals: [],
+      }] } }
+    },
+  })
+  assert.equal(calls, 3)
+  assert.equal(output.failed.length, 1)
+  assert.equal(output.failed[0], 'model_out_of_memory')
+  assert.ok(output.extracted.some((fact) => fact.field === 'phone'))
+  assert.ok(output.extracted.every((fact) => urls.slice(0, 3).includes(fact.sourceUrl)))
 })

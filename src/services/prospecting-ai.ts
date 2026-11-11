@@ -111,7 +111,7 @@ export async function recentLocalResearch(organizationId: string, company: strin
   const client = effectiveDataMode === 'local' ? null : getSupabaseClient()
   if (!client) return null
   const { data, error } = await client.from('prospecting_ai_jobs')
-    .select('id,status,result,error_code,created_at,input')
+    .select('id,status,result,error_code,created_at,completed_at,input')
     .eq('organization_id', organizationId).order('created_at', { ascending: false }).limit(30)
   if (error || !data) return null
   const normalizeLabel = (value: string) => value.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/\s+/g, ' ').trim()

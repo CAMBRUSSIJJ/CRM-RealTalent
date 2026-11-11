@@ -1,111 +1,199 @@
-import {useEffect,useMemo,useRef,useState} from 'react'
-import {AlertTriangle,ExternalLink,LoaderCircle,SearchCheck,ShieldCheck,Sparkles} from 'lucide-react'
-import {Button} from '../../components/ui/button'
-import type {WorkspaceSnapshot} from '../../domain/types'
-import type {ProspectRecord} from '../../services/prospecting-workspace'
-import {explainProspectScore,prospectDecisionLabel} from '../../services/prospecting-g1g2-intelligence'
-import {scoreProspectWithIcp} from '../../services/prospecting-intelligence'
-import {env} from '../../lib/env'
-import {runtimeFetch} from '../../services/realtalent-runtime-transport'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import { AlertTriangle, ExternalLink, LoaderCircle, SearchCheck, ShieldCheck, Sparkles } from 'lucide-react'
+import { Button } from '../../components/ui/button'
+import type { WorkspaceSnapshot } from '../../domain/types'
+import type { ProspectRecord } from '../../services/prospecting-workspace'
+import { explainProspectScore, prospectDecisionLabel } from '../../services/prospecting-g1g2-intelligence'
+import { scoreProspectWithIcp } from '../../services/prospecting-intelligence'
+import { getLocalConnectorStatus, searchProspectsWithAi, type AiSearchResult } from '../../services/prospecting-ai'
+import { confirmedEnrichmentResult, crossSourceReview, type CrossSourceField } from '../../services/prospecting-cross-source-review'
+import './prospecting-cross-source-review.css'
 
-interface Investigation {
-  ok:boolean;summary:string;hypotheses:string[];questions:string[];
-  approach:string;caveats:string[];pageRead:boolean;readUrl:string|null;
-  readTitle:string|null;quality:string
+interface Props {
+  prospect: ProspectRecord
+  snapshot: WorkspaceSnapshot
+  workspaceId: string
+  readOnly: boolean
+  onEnriched(result: AiSearchResult): void
 }
-interface Props {prospect:ProspectRecord;snapshot:WorkspaceSnapshot}
-const safeSite=(url:string|null)=>{
-  try{
-    if(!url)return null
-    const parsed=new URL(url)
-    return parsed.protocol==='https:'?parsed.href:null
-  }catch{return null}
+const safeSite = (value: string): string | null => {
+  try {
+    const parsed = new URL(value)
+    return ['https:', 'http:'].includes(parsed.protocol) && !parsed.username && !parsed.password
+      && !['localhost', '127.0.0.1'].includes(parsed.hostname) ? parsed.href : null
+  } catch { return null }
 }
-export function ProspectingG1G2Panel({prospect,snapshot}:Props){
-  const base=useMemo(()=>scoreProspectWithIcp(prospect,snapshot),[prospect,snapshot])
-  const score=useMemo(()=>explainProspectScore(prospect,snapshot,base),[prospect,snapshot,base])
-  const [busy,setBusy]=useState(false)
-  const [result,setResult]=useState<Investigation|null>(null)
-  const [error,setError]=useState('')
-  const abortRef=useRef<AbortController|null>(null)
-  useEffect(()=>{
-    abortRef.current?.abort();abortRef.current=null
-    setResult(null);setError('');setBusy(false)
-    return ()=>{abortRef.current?.abort()}
-  },[prospect.id,prospect.updatedAt])
-  const run=async()=>{
+const groups = [
+  { status: 'divergent', title: 'Divergências — precisam de decisão' },
+  { status: 'confirmed', title: 'Confirmados em fontes independentes' },
+  { status: 'observed', title: 'Encontrados em apenas uma fonte' },
+] as const
+
+function EvidenceRow({ field }: { field: CrossSourceField }) {
+  return <li className={'garimpo-cross-source__field is-' + field.status}>
+    <strong>{field.label}</strong>
+    {field.currentValue ? <small>Cadastro: {field.currentValue}</small> : <small>Não consta no cadastro</small>}
+    {field.candidates.map((candidate) => <div className="garimpo-cross-source__candidate" key={candidate.value}>
+      <span>{candidate.value} <small>· {candidate.independentPublishers} fonte(s) independente(s)</small></span>
+      <span className="garimpo-cross-source__links">
+        {candidate.urls.slice(0, 6).map((url) => safeSite(url) ?
+          <a key={url} href={safeSite(url)!} target="_blank" rel="noopener noreferrer">
+            <ExternalLink size={12} />{new URL(url).hostname}
+          </a> : null)}
+      </span>
+    </div>)}
+  </li>
+}
+
+export function ProspectingG1G2Panel({ prospect, snapshot, workspaceId, readOnly, onEnriched }: Props) {
+  const base = useMemo(() => scoreProspectWithIcp(prospect, snapshot), [prospect, snapshot])
+  const score = useMemo(() => explainProspectScore(prospect, snapshot, base), [prospect, snapshot, base])
+  const [busy, setBusy] = useState(false)
+  const [result, setResult] = useState<AiSearchResult | null>(null)
+  const [error, setError] = useState('')
+  const abortRef = useRef<AbortController | null>(null)
+  const review = useMemo(() => result ? crossSourceReview(prospect, result) : null, [prospect, result])
+  const applicable = useMemo(() => result ? confirmedEnrichmentResult(prospect, result) : null, [prospect, result])
+
+  useEffect(() => {
     abortRef.current?.abort()
-    const ctrl=new AbortController()
-    abortRef.current=ctrl
-    const timer=setTimeout(()=>ctrl.abort(),72000)
-    setBusy(true);setError('');setResult(null)
-    try{
-      const response=await runtimeFetch(env.agentGatewayUrl+'/tools/prospect-investigate',{
-        method:'POST',signal:ctrl.signal,
-        headers:{'Content-Type':'application/json'},
-        body:JSON.stringify({
-          company:prospect.company||prospect.name,city:prospect.city,
-          segment:String(prospect.rawData?.category||'').slice(0,100),
-          description:prospect.description,
-          website:prospect.website,
-        })
-      })
-      if(!response.ok)throw Error(response.status===429?'Ollama ocupado. Tente novamente.':'A investigação local não respondeu.')
-      const data=await response.json() as Investigation
-      if(!data.ok)throw Error('O modelo não conseguiu verificar esta empresa.')
-      if(!ctrl.signal.aborted)setResult(data)
-    }catch(e){
-      if(!ctrl.signal.aborted)setError(e instanceof Error?e.message:'Não foi possível analisar.')
-    }finally{
-      clearTimeout(timer)
-      if(abortRef.current===ctrl){setBusy(false);abortRef.current=null}
+    abortRef.current = null
+    setResult(null)
+    setError('')
+    setBusy(false)
+    return () => { abortRef.current?.abort() }
+  }, [prospect.id, prospect.updatedAt])
+
+  const run = async () => {
+    if (busy || readOnly) return
+    if (!prospect.city.trim()) {
+      setError('Confirme primeiro a cidade da empresa para pesquisar fontes da região correta.')
+      return
+    }
+    const ctrl = new AbortController()
+    abortRef.current = ctrl
+    setBusy(true)
+    setError('')
+    setResult(null)
+    try {
+      const status = await getLocalConnectorStatus(workspaceId)
+      if (!status?.online) throw new Error('Conector Linux indisponível. Inicie o Garimpo local e verifique a conexão na aba Buscar.')
+      // A batch of 5 gives Firecrawl up to 10 distinct web sources.
+      // The output is filtered to the selected company, never to other leads.
+      const name = prospect.company || prospect.name
+      const query = [
+        'Investigar somente esta empresa. Confirmar identidade, endereço, telefone, site, Instagram e CNPJ em outras fontes públicas.',
+        'Procurar fontes independentes: site oficial, diretórios comerciais, redes sociais públicas e cadastros abertos.',
+        'Nome:', name, 'Cidade:', prospect.city,
+        prospect.website ? 'Site do cadastro: ' + prospect.website : '',
+        prospect.cnpj ? 'CNPJ do cadastro: ' + prospect.cnpj : '',
+        prospect.phone ? 'Telefone do cadastro: ' + prospect.phone : '',
+      ].filter(Boolean).join(' ').slice(0, 1000)
+      const response = await searchProspectsWithAi({
+        organizationId: workspaceId,
+        segment: name,
+        city: prospect.city,
+        query,
+        source: 'manual',
+        limit: 5,
+        execution: 'local',
+      }, ctrl.signal)
+      if (!ctrl.signal.aborted) setResult(response)
+    } catch (reason) {
+      if (!ctrl.signal.aborted) {
+        setError(reason instanceof Error ? reason.message : 'Não foi possível pesquisar fontes independentes.')
+      }
+    } finally {
+      if (abortRef.current === ctrl) {
+        abortRef.current = null
+        setBusy(false)
+      }
     }
   }
-  const labels:[string,number][]=[
-    ['Aderência ao ICP',score.fit],
-    ['Potencial comercial',score.opportunity],
-    ['Confiança das evidências',score.evidenceConfidence],
+
+  const apply = () => {
+    if (!applicable || readOnly) return
+    try {
+      onEnriched(applicable)
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : 'Não foi possível registrar os campos confirmados.')
+    }
+  }
+
+  const labels: Array<[string, number]> = [
+    ['Aderência ao ICP', score.fit],
+    ['Potencial comercial', score.opportunity],
+    ['Confiança das evidências', score.evidenceConfidence],
   ]
   return <section className="prospecting-g1g2" aria-label="Investigação e qualificação explicável">
     <header className="prospecting-g1g2__header">
-      <div><span className="eyebrow"><Sparkles size={14}/> Garimpo Inteligente · G1 + G2</span>
+      <div><span className="eyebrow"><Sparkles size={14} /> Garimpo Inteligente · G1 + G2</span>
         <h4>Por que investigar esta empresa?</h4>
-        <p>Uma leitura comercial, sem confundir presença digital com intenção de compra.</p></div>
-      <span className={'prospecting-g1g2__decision is-'+score.decision}>{prospectDecisionLabel(score.decision)}</span>
+        <p>Uma leitura comercial, sem confundir presença digital com intenção de compra.</p>
+      </div>
+      <span className={'prospecting-g1g2__decision is-' + score.decision}>{prospectDecisionLabel(score.decision)}</span>
     </header>
     <div className="prospecting-g1g2__dimensions">
-      {labels.map(([label,value])=><div key={label} className="prospecting-g1g2__dimension">
+      {labels.map(([label, value]) => <div key={label} className="prospecting-g1g2__dimension">
         <span>{label}</span><strong>{value}<small>/100</small></strong>
-        <div className="prospecting-g1g2__meter" aria-label={label+' '+value+' de 100'}><i style={{width:value+'%'}}/></div>
+        <div className="prospecting-g1g2__meter" aria-label={label + ' ' + value + ' de 100'}><i style={{ width: value + '%' }} /></div>
       </div>)}
     </div>
-    <p className="prospecting-g1g2__note">Pontuações determinísticas baseadas no ICP e na qualidade dos dados. Não são probabilidades de compra. Score anterior: {score.existingScore}/100.</p>
-    {score.reasons.length?<div className="prospecting-g1g2__detail"><strong><ShieldCheck size={14}/> Sinais observados</strong>
-      <ul>{score.reasons.map((reason,i)=><li key={i}>{reason}</li>)}</ul></div>:null}
-    {score.uncertainties.length?<div className="prospecting-g1g2__detail is-warning"><strong><AlertTriangle size={14}/> O que ainda não sabemos</strong>
-      <ul>{score.uncertainties.map((reason,i)=><li key={i}>{reason}</li>)}</ul></div>:null}
-    <details className="prospecting-g1g2__evidence"><summary>Ver origem das evidências ({score.evidence.length})</summary>
-      <ul>{score.evidence.map((e,i)=><li key={i}><strong>{e.type==='gap'?'Pendente':e.type==='inference'?'Inferência':'Informado'}</strong> · {e.label} <small>({e.source})</small></li>)}</ul>
+    <p className="prospecting-g1g2__note">Pontuações baseadas no ICP e na qualidade do cadastro; não são probabilidades de compra. Score anterior: {score.existingScore}/100. Não equivalem a confirmação externa.</p>
+    {score.reasons.length ? <div className="prospecting-g1g2__detail"><strong><ShieldCheck size={14}/> Sinais do cadastro</strong>
+      <ul>{score.reasons.map((reason, i) => <li key={i}>{reason}</li>)}</ul>
+    </div> : null}
+    {score.uncertainties.length ? <div className="prospecting-g1g2__detail is-warning"><strong><AlertTriangle size={14}/> O que ainda não sabemos</strong>
+      <ul>{score.uncertainties.map((reason, i) => <li key={i}>{reason}</li>)}</ul>
+    </div> : null}
+    <details className="prospecting-g1g2__evidence"><summary>Ver origem dos dados cadastrados ({score.evidence.length})</summary>
+      <ul>{score.evidence.map((e, i) => <li key={i}><strong>{e.type === 'gap' ? 'Pendente' : e.type === 'inference' ? 'Inferência' : 'Informado'}</strong> · {e.label} <small>({e.source})</small></li>)}</ul>
     </details>
-    <div className="prospecting-g1g2__investigate">
-      <div><strong>Investigação com Qwen3 8B</strong>
-      <small>Opcional. Usa apenas dados comerciais do registro e lê o website público, quando disponível. Não aprova nem envia empresas.</small></div>
-      <Button variant="secondary" disabled={busy} onClick={()=>void run()}>
-        {busy?<LoaderCircle size={15} className="spin"/>:<SearchCheck size={15}/>}
-        {busy?'Investigando…':result?'Investigar novamente':'Investigar com IA'}
+
+    <div className="prospecting-g1g2__investigate garimpo-cross-source__action">
+      <div><strong>Verificação cruzada · Firecrawl + Ollama</strong>
+        <small>Pesquisa outras fontes públicas e compara com o cadastro. Só confirma um campo quando pelo menos dois publicadores independentes concordam. Não aprova nem envia empresas.</small>
+      </div>
+      <Button variant="secondary" disabled={busy || readOnly} onClick={() => void run()}>
+        {busy ? <LoaderCircle size={15} className="spin"/> : <SearchCheck size={15}/>}
+        {busy ? 'Consultando fontes…' : result ? 'Verificar novamente' : 'Verificar em outras fontes'}
       </Button>
     </div>
-    {error?<p className="prospecting-g1g2__error" role="alert">{error}</p>:null}
-    {result?<div className="prospecting-g1g2__report" aria-live="polite">
-      <div className="prospecting-g1g2__report-source">
-        <span>{result.pageRead?'Website público lido':'Sem leitura externa confirmada'}</span>
-        {result.pageRead&&safeSite(result.readUrl)?<a href={safeSite(result.readUrl)!} rel="noopener noreferrer" target="_blank"><ExternalLink size={13}/> Conferir fonte</a>:null}
-      </div>
-      <p>{result.summary}</p>
-      {result.hypotheses.length?<section><strong>Hipóteses para investigar</strong><ul>{result.hypotheses.map((h,i)=><li key={i}>{h}</li>)}</ul></section>:null}
-      {result.questions.length?<section><strong>Perguntas de diagnóstico</strong><ul>{result.questions.map((q,i)=><li key={i}>{q}</li>)}</ul></section>:null}
-      {result.approach?<section><strong>Abordagem sugerida</strong><p>{result.approach}</p></section>:null}
-      {result.caveats.length?<small>{result.caveats.join(' · ')}</small>:null}
-    </div>:null}
+    {busy ? <p className="garimpo-cross-source__progress" role="status">O Firecrawl está pesquisando. O Ollama verificará as informações encontradas. Mantenha o conector Linux aberto.</p> : null}
+    {error ? <p className="prospecting-g1g2__error" role="alert">{error}</p> : null}
+
+    {result && review ? <div className="garimpo-cross-source" aria-live="polite">
+      {review.matched ? <>
+        <div className="garimpo-cross-source__counts">
+          <span className="is-confirmed"><strong>{review.confirmed}</strong> Confirmados</span>
+          <span className="is-divergent"><strong>{review.divergent}</strong> Divergentes</span>
+          <span className="is-observed"><strong>{review.observed}</strong> Uma fonte</span>
+          <span className="is-pending"><strong>{review.pending}</strong> Pendentes</span>
+        </div>
+        <p className="garimpo-cross-source__note">Resultados referentes somente a <strong>{prospect.company}</strong>. Os links permitem conferir as evidências antes de qualquer alteração.</p>
+        {groups.map((group) => {
+          const found = review.fields.filter((field) => field.status === group.status)
+          return found.length ? <section className={'garimpo-cross-source__group is-' + group.status} key={group.status}>
+            <h5>{group.title} ({found.length})</h5>
+            <ul>{found.map((field) => <EvidenceRow key={field.field} field={field}/>)}</ul>
+          </section> : null
+        })}
+        {review.pending ? <details className="garimpo-cross-source__pending"><summary>Dados ainda não verificados ({review.pending})</summary>
+          <p>{review.fields.filter((field) => field.status === 'pending').map((field) => field.label).join(' · ')}</p>
+        </details> : null}
+        {review.sources.length ? <details className="garimpo-cross-source__pending"><summary>Fontes utilizadas como evidência ({review.sources.length})</summary>
+          <ul>{review.sources.map((source) => safeSite(source.url) ? <li key={source.url}><a href={safeSite(source.url)!} target="_blank" rel="noopener noreferrer"><ExternalLink size={12}/>{source.title || new URL(source.url).hostname}</a></li> : null)}</ul>
+        </details> : null}
+        <footer className="garimpo-cross-source__footer">
+          {applicable && !readOnly ? <Button variant="secondary" onClick={apply}>
+            Adicionar {review.importable.length} campo(s) confirmados e ausentes
+          </Button> : <small>Nenhum campo novo possui confirmação independente suficiente para preenchimento automático. Os dados existentes foram preservados.</small>}
+          <small>A aprovação e o envio ao CRM continuam manuais.</small>
+        </footer>
+      </> : <p role="status">A pesquisa terminou, mas não encontrou evidências que identifiquem com segurança <strong>{prospect.company}</strong>. Nenhuma informação foi atribuída a esta empresa.</p>}
+      {review.warnings.length ? <details className="garimpo-cross-source__pending"><summary>Limitações da pesquisa ({review.warnings.length})</summary>
+        <ul>{review.warnings.map((warning, i) => <li key={i}>{warning}</li>)}</ul>
+      </details> : null}
+    </div> : null}
   </section>
 }

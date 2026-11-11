@@ -473,6 +473,7 @@ export async function stagedLocalResearch({ input, signal, values, fetcher, mode
       await checkpoint('instagram', 'running')
       let profileSearchFailed = false
       let postsSearchFailed = false
+      let instagramFailureCode = ''
       try {
         // Step 1: discover a PROFILE, rather than searching anonymous reels and
         // posts that cannot safely be linked to a company.
@@ -567,13 +568,14 @@ export async function stagedLocalResearch({ input, signal, values, fetcher, mode
                   ? 'Apenas o perfil ou bio estava acessível; nenhuma publicação pública foi recuperada.'
                   : 'O Firecrawl não conseguiu ler publicações do Instagram. As outras evidências foram preservadas.')
           }
-          if (result.profileAccess === 'blocked' || result.profileAccess === 'unavailable') {
-            // A successful profile discovery is not the same as a successful read.
-            postsSearchFailed = true
-          }
+          // The status tracks accessible content, not merely a URL returned
+          // by a search engine. An inaccessible profile is a partial result.
+          if (result.profileAccess === 'blocked') instagramFailureCode = 'instagram_login_required'
+          else if (result.profileAccess === 'unavailable') instagramFailureCode = 'instagram_profile_unavailable'
+          else if (!instagramDiscovery.postCount) instagramFailureCode = 'instagram_posts_unavailable'
         }
-        await checkpoint('instagram', postsSearchFailed || profileSearchFailed ? 'failed' : 'completed',
-          postsSearchFailed || profileSearchFailed ? 'stage_unavailable' : '')
+        await checkpoint('instagram', (instagramFailureCode || postsSearchFailed || profileSearchFailed) ? 'failed' : 'completed',
+          instagramFailureCode || (postsSearchFailed || profileSearchFailed ? 'stage_unavailable' : ''))
       } catch (error) {
         if (signal.aborted) throw error
         warnings.push('A descoberta do Instagram falhou; os dados de outros sites permanecem disponíveis.')

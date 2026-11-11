@@ -71,3 +71,8 @@
 .garimpo-cross-source__instagram-access strong,.garimpo-cross-source__instagram-summary strong{font-size:12px}
 .garimpo-cross-source__instagram-excerpt,.garimpo-cross-source__instagram-summary p{font-size:12px;line-height:1.55;white-space:pre-wrap;overflow-wrap:anywhere;margin:5px 0}
 .garimpo-cross-source__instagram details summary{font-size:12px;font-weight:650;cursor:pointer}
+
+.garimpo-cross-source__instagram-excerpts ul{padding:0;list-style:none;display:grid;gap:8px;margin:10px 0 0}
+.garimpo-cross-source__instagram-excerpts li{border:1px solid #dbe3ef;background:#fff;border-radius:8px;padding:9px;min-width:0;overflow-wrap:anywhere}
+.garimpo-cross-source__instagram-excerpts li p{font-size:12px;line-height:1.55;white-space:pre-wrap;margin:0 0 6px}
+.garimpo-cross-source__instagram-excerpts li a{font-size:11px;display:inline-flex;gap:5px;align-items:center;color:#315bd5}

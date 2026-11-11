@@ -124,11 +124,13 @@ export async function recentLocalResearch(organizationId: string, company: strin
   const result = match.result as (AiSearchResult & { progress?: LocalResearchProgress; stages?: LocalResearchProgress[] }) | null
   const stages = Array.isArray(result?.stages) ? result.stages : []
   const finalStage = stages.at(-1)
+  const partiallyCompleted = result?.researchStatus === 'partial'
+    || stages.some((stage) => stage.phaseStatus === 'failed')
   // Completed jobs store their final trace in "stages", not "progress".
   // Do not keep showing a stale "Ollama em andamento" after completion.
   const terminalProgress: LocalResearchProgress | null = match.status === 'completed'
     ? {
-      stage: 'completed', phaseStatus: 'completed',
+      stage: 'completed', phaseStatus: partiallyCompleted ? 'failed' : 'completed',
       sourceCount: finalStage?.sourceCount ?? result?.leads?.[0]?.aiResearch?.sources?.length ?? 0,
       leadCount: result?.leads?.length ?? 0,
       updatedAt: finalStage?.updatedAt ?? match.created_at,

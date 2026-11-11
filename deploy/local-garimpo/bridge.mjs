@@ -81,10 +81,24 @@ export function localResearch(values, fetcher = fetch) {
   const collect = createFirecrawlResearch(values.FIRECRAWL_API_URL || 'http://127.0.0.1:3002', values.FIRECRAWL_API_KEY || '', fetcher, true)
   const provider = createOpenAI({ baseURL: base.href.replace(/\/$/, ''), apiKey: values.PROSPECTING_AI_API_KEY || 'local', fetch: fetcher })
   return async (input, signal, onProgress = async () => {}, jobId = '') => {
-    if (input.source === 'manual' && jobId) return stagedLocalResearch({
-      input, signal, values, fetcher, model: provider.chat(values.PROSPECTING_AI_MODEL),
-      jobId, onProgress,
-    })
+    if (input.source === 'manual' && jobId) {
+      try {
+        return await stagedLocalResearch({
+          input, signal, values, fetcher, model: provider.chat(values.PROSPECTING_AI_MODEL),
+          jobId, onProgress,
+        })
+      } finally {
+        if (values.GARIMPO_OLLAMA_RELEASE === 'true' && loopback && base.port === '11434') {
+          try {
+            await fetcher(new URL('/api/generate', base), {
+              method: 'POST', redirect: 'error', signal: AbortSignal.timeout(5000),
+              headers: { 'content-type': 'application/json' },
+              body: JSON.stringify({ model: values.PROSPECTING_AI_MODEL, keep_alive: 0, stream: false }),
+            })
+          } catch { /* Keep the stage results even if Ollama could not release memory. */ }
+        }
+      }
+    }
     const { report, sources, warnings = [] } = await collect(input, signal)
     if (!sources.length) return { leads: [], warnings: ['Nenhuma fonte pública encontrada. Revise os critérios e o mecanismo de busca.', ...warnings], researchedAt: new Date().toISOString() }
     try {

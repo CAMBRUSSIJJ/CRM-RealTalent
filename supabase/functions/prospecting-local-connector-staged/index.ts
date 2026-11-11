@@ -62,7 +62,7 @@ Deno.serve(async (request) => {
       const failed = body.failed === true
       if (!failed && (!isRecord(body.result) || !Array.isArray(body.result.leads) || body.result.leads.length > 10 || !Array.isArray(body.result.warnings))) throw new ProspectingError('invalid_result')
       const done = await admin.from('prospecting_ai_jobs').update({ status: failed ? 'failed' : 'completed', result: failed ? null : body.result,
-        error_code: failed ? 'local_research_failed' : null, completed_at: new Date().toISOString(), locked_until: null,
+        error_code: failed ? (['local_stage_failed','local_stage_timeout','local_research_failed'].includes(String(body.errorCode)) ? String(body.errorCode) : 'local_research_failed') : null, completed_at: new Date().toISOString(), locked_until: null,
       }).eq('id', body.jobId).eq('organization_id', organizationId).eq('status', 'processing').eq('lease_id', body.leaseId).gt('locked_until', new Date().toISOString()).select('id')
       if (done.error) throw new ProspectingError('local_complete_failed', 500)
       return json({ accepted: Boolean(done.data?.length) })

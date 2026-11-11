@@ -38,7 +38,22 @@ export interface AiSearchInput {
   instagram?: string
   execution?: 'local' | 'server'
 }
-export interface AiSearchResult { leads: AiLead[]; warnings: string[]; researchedAt: string }
+export interface AiResearchStage {
+  stage: 'website' | 'web' | 'instagram' | 'facts' | 'signals' | 'completed'
+  phaseStatus: 'running' | 'completed' | 'failed'
+  errorCode?: string
+  sourceCount: number
+  leadCount: number
+  at?: string
+}
+export interface AiSearchResult {
+  leads: AiLead[]
+  warnings: string[]
+  researchedAt: string
+  /** Local-only execution details. Not required by the public search API. */
+  stages?: AiResearchStage[]
+  researchStatus?: 'completed' | 'partial'
+}
 export class ProspectingError extends Error {
   code: string
   status: number

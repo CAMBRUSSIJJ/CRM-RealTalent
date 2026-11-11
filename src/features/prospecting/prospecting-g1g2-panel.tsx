@@ -118,7 +118,7 @@ export function ProspectingG1G2Panel({ prospect, snapshot, workspaceId, readOnly
   const labels: Array<[string, number]> = [
     ['Aderência ao ICP', score.fit],
     ['Potencial comercial', score.opportunity],
-    ['Confiança das evidências', score.evidenceConfidence],
+    ['Cobertura de dados do cadastro', score.evidenceConfidence],
   ]
   return <section className="prospecting-g1g2" aria-label="Investigação e qualificação explicável">
     <header className="prospecting-g1g2__header">

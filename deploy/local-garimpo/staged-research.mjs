@@ -33,7 +33,7 @@ export function classifyStageError(error) {
 // or a result that explicitly connects the target name with its city/handle.
 export function companySources(input, sources) {
   const company = norm(input.segment || '')
-  const city = norm(input.city || '').replace(/[a-z]{2}$/, '') // do not require UF suffix
+  const city = norm(String(input.city || '').replace(/(?:,|\s)\s*[A-Z]{2}\s*$/i, ''))
   const listed = selectExistingUrl(input)
   const handle = accountName(input)
   const selected = sources.filter((source) => {
@@ -337,8 +337,9 @@ export async function stagedLocalResearch({ input, signal, values, fetcher, mode
         await checkpoint('signals', 'completed')
       } catch (error) {
         if (signal.aborted) throw error
-        warnings.push('Análise das publicações pelo Ollama não concluiu. Os dados do site continuam disponíveis.')
-        await checkpoint('signals', 'failed', codeOf(error))
+        const errorCode = classifyStageError(error)
+        warnings.push('Análise das publicações pelo Ollama não concluiu (' + errorCode + '). Os dados do site continuam disponíveis.')
+        await checkpoint('signals', 'failed', errorCode)
       }
     }
   }

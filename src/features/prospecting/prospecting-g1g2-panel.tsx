@@ -84,7 +84,7 @@ export function ProspectingG1G2Panel({ prospect, snapshot, workspaceId, readOnly
       const job = await recentLocalResearch(workspaceId, prospect.company, prospect.city).catch(() => null)
       if (!mounted || !job) return
       setPersistedStatus(job.status)
-      if (job.progress) setProgress(job.progress)
+      setProgress(job.progress ?? null)
       if (job.result) { setResult(job.result); setError('') }
       if (job.status === 'failed') {
         setError(job.errorCode === 'local_stage_timeout'

@@ -1,5 +1,18 @@
 # Garimpo no seu computador
 
+## Modo Linux local (padrão atual, sem Railway)
+
+O Firecrawl continua no seu próprio Linux, em `http://127.0.0.1:3002`, com o Ollama em `http://127.0.0.1:11434`. Para abrir uma instalação **já configurada** e aproveitar os contêineres existentes, execute:
+
+```bash
+cd ~/Downloads
+curl -fL https://raw.githubusercontent.com/CAMBRUSSIJJ/CRM-RealTalent/ea28b978e94d82cb3cc6a21a3aa4603838bb2bf9/deploy/local-garimpo/INICIAR-GARIMPO-LOCAL.sh -o INICIAR-GARIMPO-LOCAL.sh
+bash -n INICIAR-GARIMPO-LOCAL.sh && bash INICIAR-GARIMPO-LOCAL.sh
+```
+
+O comando **não reinstala o Firecrawl**, não altera o Ollama, não apaga volumes, não cria recursos na nuvem e não inicia dois conectores concorrentes. Se houver uma configuração remota anterior, faz backup privado do `garimpo.env` e restaura o Firecrawl local. Mantenha o conector aberto durante as pesquisas. A inicialização exige que a instalação original já exista.
+
+
 O CRM envia pedidos a uma fila no Supabase. Este conector consulta a fila pela sua conexão de internet, usa o Firecrawl e um modelo no computador e devolve o resultado. Não abre um servidor público nem precisa de túnel ou VPS. O computador precisa ficar ligado, com os serviços e esta janela abertos durante a pesquisa.
 
 ## Linux com Docker e Ollama já instalados

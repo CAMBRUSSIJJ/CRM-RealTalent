@@ -18,9 +18,9 @@ if [[ -z "$ROOT" || ! -f "$ROOT/deploy/local-garimpo/bridge.mjs" ||
   echo "Instalação antiga não encontrada. Nenhuma alteração."
   exit 1
 fi
-REV="9f1de60f5d7fb134bbe322a14ea7559d6169c18b"
+REV="6d1dc06d686892232daa1f7f3ff077faa5217d19"
 FILES=(
-  "deploy/local-garimpo/bridge.mjs|a568690a83783429c28dada74e47ca313376b0a4"
+  "deploy/local-garimpo/bridge.mjs|8af8c2d7cf337b365a8f38262c0929e1cb3b5cdd"
   "deploy/local-garimpo/staged-research.mjs|61b091c09db91b2e079cd9749f66d495c2f8a7be"
   "deploy/local-garimpo/bridge-check.mjs|c9a0ef4031916f756e31c9085766176eadcba5ed"
   "deploy/local-garimpo/staged-research-check.mjs|2c5ecbc787eb70485313b1db2a779a3f3e42c2bb"

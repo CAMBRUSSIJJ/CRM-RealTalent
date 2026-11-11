@@ -294,7 +294,7 @@ export function instagramPageAccess(page, profileUrl) {
 }
 
 /** Bounded direct profile+post scrape; no cookies, account login or bypass. */
-export async function readPublicInstagram({ profileUrl, call, indexedPosts = [], maxPosts = 3 }) {
+export async function readPublicInstagram({ profileUrl, call, indexedPosts = [], searchFallback, maxPosts = 3 }) {
   const outcome = { profileAccess: 'unavailable', accessReason: 'no_public_content',
     postLinksFound: 0, readablePostUrls: [], postSources: [] }
   if (!instagramProfileUrl(profileUrl)) return outcome
@@ -317,6 +317,12 @@ export async function readPublicInstagram({ profileUrl, call, indexedPosts = [],
     outcome.profileAccess = /http_401|http_403|http_429/.test(errorText) ? 'blocked' : 'unavailable'
     outcome.accessReason = outcome.profileAccess === 'blocked' ? 'login_required'
       : /timeout|abort/i.test(errorText) ? 'timeout' : 'scrape_failed'
+  }
+  // Search results are a fallback only after attempting to read the profile.
+  // A missing post list in the profile is not proof that the user has no posts.
+  if (postUrls.length < maxPosts && typeof searchFallback === 'function') {
+    try { indexedPosts = [...indexedPosts, ...(await searchFallback())] }
+    catch { /* the discovery result still shows a failed/partial read */ }
   }
   // Indexed posts must state the publishing handle in the title; the search
   // query itself or a third-party mention does not prove post authorship.
@@ -500,31 +506,51 @@ export async function stagedLocalResearch({ input, signal, values, fetcher, mode
             ? 'A busca pelo perfil público do Instagram não respondeu; outras fontes foram preservadas.'
             : 'Não foi possível identificar um perfil Instagram da empresa com evidência suficiente. Não foi atribuído um perfil por semelhança de nome.')
         } else {
-          // Step 2: search only posts whose INDEXED snippet states that the
-          // account published them. Search alone never authorizes attribution.
-          const handle = instagramDiscovery.profileUrl.split('/').filter(Boolean).at(-1)
-          const qList = [
-            'site:instagram.com/p/ "@' + handle + '"',
-            'site:instagram.com/reel/ "@' + handle + '"',
-          ]
-          for (const query of qList) {
-            try {
-              const data = await call('/v2/search', { query: query.slice(0, 160), limit: 4,
-                sources: ['web'], scrapeOptions: { formats: ['markdown'], onlyMainContent: true } }, 30_000)
-              const matched = (Array.isArray(data?.data?.web) ? data.data.web : [])
-                .filter((item) => postLinkedToProfile(item, instagramDiscovery.profileUrl))
-              accept(matched)
-            } catch (error) {
-              if (signal.aborted) throw error
-              postsSearchFailed = true
-            }
+          const profileUrl = instagramDiscovery.profileUrl
+          const result = await readPublicInstagram({
+            profileUrl, call, maxPosts: 3,
+            searchFallback: async () => {
+              const handle = profileUrl.split('/').filter(Boolean).at(-1)
+              const indexed = []
+              for (const query of [
+                'site:instagram.com/p/ "@' + handle + '"',
+                'site:instagram.com/reel/ "@' + handle + '"',
+              ]) {
+                try {
+                  const data = await call('/v2/search', { query, limit: 4,
+                    sources: ['web'], scrapeOptions: { formats: ['markdown'], onlyMainContent: true } }, 24_000)
+                  indexed.push(...(Array.isArray(data?.data?.web) ? data.data.web : []))
+                } catch (error) {
+                  if (signal.aborted) throw error
+                  postsSearchFailed = true
+                }
+              }
+              return indexed
+            },
+          })
+          accept(result.postSources.map((post) => ({
+            url: post.url, title: post.title, markdown: post.content,
+          })))
+          instagramDiscovery = {
+            ...instagramDiscovery,
+            profileAccess: result.profileAccess,
+            accessReason: result.accessReason,
+            postLinksFound: result.postLinksFound,
+            postCount: result.readablePostUrls.length,
+            readablePostUrls: result.readablePostUrls,
           }
-          instagramDiscovery.postCount = sources().filter((source) =>
-            publicInstagram(source.url) && postLinkedToProfile(source, instagramDiscovery.profileUrl)).length
-          if (!instagramDiscovery.postCount) {
-            warnings.push(postsSearchFailed
-              ? 'Perfil localizado, mas não foi possível acessar publicações públicas indexadas.'
-              : 'Perfil localizado, porém nenhuma publicação com vínculo verificável ficou acessível pelo buscador.')
+          if (!result.readablePostUrls.length) {
+            warnings.push(result.profileAccess === 'blocked'
+              ? 'O perfil foi encontrado, mas exigiu login ou restringiu a leitura pública. Nenhum conteúdo de post foi analisado.'
+              : result.postLinksFound
+                ? 'Foram localizadas URLs de publicações, mas o Firecrawl não conseguiu ler o conteúdo público delas.'
+                : result.profileAccess === 'bio_only'
+                  ? 'Apenas o perfil ou bio estava acessível; nenhuma publicação pública foi recuperada.'
+                  : 'O Firecrawl não conseguiu ler publicações do Instagram. As outras evidências foram preservadas.')
+          }
+          if (result.profileAccess === 'blocked' || result.profileAccess === 'unavailable') {
+            // A successful profile discovery is not the same as a successful read.
+            postsSearchFailed = true
           }
         }
         await checkpoint('instagram', postsSearchFailed || profileSearchFailed ? 'failed' : 'completed',

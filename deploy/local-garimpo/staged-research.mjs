@@ -287,6 +287,10 @@ export function instagramPageAccess(page, profileUrl) {
   const links = publicInstagramPostLinks(page, profileUrl)
   const readable = instagramReadableText(raw, { profile: true })
   if (readable) return { status: links.length ? 'readable' : 'bio_only', postUrls: links, content: readable }
+  if (links.length && !/log\s?in to instagram|faça login para|sign up to see/i.test(raw)) {
+    // Some JS-rendered pages expose post anchors but no readable biography.
+    return { status: 'readable', postUrls: links, content: '' }
+  }
   if (/log\s?in|sign\s?up|faça login|entrar|inicie sessão/i.test(raw)) {
     return { status: 'blocked', reason: 'login_required', postUrls: [], content: '' }
   }

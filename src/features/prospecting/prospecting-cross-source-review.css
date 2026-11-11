@@ -1,0 +1,41 @@
+/* Review-local cross-source audit. Does not change the main CRM layout. */
+.garimpo-cross-source__action {align-items:center;gap:14px;flex-wrap:wrap}
+.garimpo-cross-source__action > div {min-width:210px;flex:1}
+.garimpo-cross-source__action small {display:block;max-width:700px;line-height:1.5}
+.garimpo-cross-source__progress {font-size:12px;color:var(--color-text-muted,#475467);background:var(--color-surface-muted,#f5f8ff);padding:12px;border-radius:10px}
+.garimpo-cross-source {border:1px solid var(--color-border,#e0e5ee);border-radius:12px;padding:14px;min-width:0;display:grid;gap:14px;background:var(--color-surface,#fff)}
+.garimpo-cross-source__counts {display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:7px}
+.garimpo-cross-source__counts > span {border-radius:8px;padding:8px 4px;text-align:center;font-size:11px;color:#344054;background:#f7f8fa}
+.garimpo-cross-source__counts > span strong {display:block;font-size:19px;color:#101828}
+.garimpo-cross-source__counts > .is-confirmed {background:#eaf8f0;color:#17683c}
+.garimpo-cross-source__counts > .is-divergent {background:#fff0ec;color:#a53926}
+.garimpo-cross-source__counts > .is-observed {background:#fff7e8;color:#8b5b13}
+.garimpo-cross-source__counts > .is-pending {background:#f1f5f9;color:#475569}
+.garimpo-cross-source__note {font-size:12px;line-height:1.55;margin:0;color:var(--color-text-muted,#475467)}
+.garimpo-cross-source__group {min-width:0}
+.garimpo-cross-source__group h5 {font-size:12px;font-weight:750;margin:0 0 8px}
+.garimpo-cross-source__group.is-divergent h5 {color:#ac422c}
+.garimpo-cross-source__group.is-confirmed h5 {color:#17683c}
+.garimpo-cross-source__group.is-observed h5 {color:#8b5b13}
+.garimpo-cross-source__group > ul {margin:0;padding:0;list-style:none;display:grid;gap:8px}
+.garimpo-cross-source__field {padding:10px 11px;border:1px solid #e0e5ec;border-radius:9px;min-width:0;overflow-wrap:anywhere;background:var(--color-surface,#fff)}
+.garimpo-cross-source__field > strong {font-size:12px;display:block}
+.garimpo-cross-source__field > small {font-size:11px;color:#667085;display:block}
+.garimpo-cross-source__candidate {margin-top:8px;font-size:12px}
+.garimpo-cross-source__candidate > span:first-child {display:block;line-height:1.45}
+.garimpo-cross-source__candidate small {color:#667085;font-size:10px}
+.garimpo-cross-source__links {display:flex;flex-wrap:wrap;gap:5px;margin-top:4px}
+.garimpo-cross-source__links a,.garimpo-cross-source__pending a {display:inline-flex;align-items:center;gap:5px;font-size:11px;color:#315bd5;overflow-wrap:anywhere;max-width:100%}
+.garimpo-cross-source__field.is-divergent {border-left:3px solid #c75239}
+.garimpo-cross-source__field.is-confirmed {border-left:3px solid #319b64}
+.garimpo-cross-source__field.is-observed {border-left:3px solid #c9922e}
+.garimpo-cross-source__pending {font-size:12px}
+.garimpo-cross-source__pending > summary {cursor:pointer;font-weight:650}
+.garimpo-cross-source__pending p {margin:8px 0 0}
+.garimpo-cross-source__pending ul {padding-left:18px;margin:8px 0 0;display:grid;gap:6px}
+.garimpo-cross-source__footer {border-top:1px solid #e0e5ec;padding-top:12px;display:flex;gap:9px;align-items:flex-start;flex-direction:column}
+.garimpo-cross-source__footer small {font-size:11px;color:#667085;line-height:1.45}
+@media(max-width:500px) {
+ .garimpo-cross-source__counts {grid-template-columns:repeat(2,minmax(0,1fr))}
+ .garimpo-cross-source__action .button {width:100%}
+}

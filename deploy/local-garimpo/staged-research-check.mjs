@@ -115,3 +115,50 @@ test('extracts from small sequential source batches, preserving earlier evidence
   assert.ok(output.extracted.some((fact) => fact.field === 'phone'))
   assert.ok(output.extracted.every((fact) => urls.slice(0, 3).includes(fact.sourceUrl)))
 })
+
+
+test('persists a verifiable contact before Ollama and marks a failed model stage as partial', async () => {
+  const originalHome = process.env.HOME
+  const home = await mkdtemp(join(tmpdir(), 'realtalent-early-facts-'))
+  process.env.HOME = home
+  const jobId = 'aaaaaaaa-0000-4000-8000-000000000321'
+  const input = {
+    organizationId: 'aaaaaaaa-0000-4000-8000-000000000001',
+    segment: 'Fainer Barber', city: 'Rio Grande', source: 'manual', query: '',
+    website: 'https://kortar.com.br/barbearias/rio-grande/fainer-barber', limit: 1,
+  }
+  const fetcher = async (url) => String(url).endsWith('/scrape')
+    ? new Response(JSON.stringify({
+      success: true,
+      data: { metadata: { title: 'Fainer Barber Rio Grande' },
+        markdown: 'Fainer Barber em Rio Grande. Telefone (53) 99157-9674.' },
+    }))
+    : new Response(JSON.stringify({ success: true, data: { web: [] } }))
+  let inspectedBeforeModel = false
+  try {
+    const result = await stagedLocalResearch({
+      input, signal: new AbortController().signal,
+      values: { FIRECRAWL_API_URL: 'http://127.0.0.1:3002', GARIMPO_MEMORY_PROFILE: 'low' },
+      fetcher, model: {}, jobId, onProgress: async () => {},
+      generate: async () => {
+        const interim = await stageJournal(jobId, input).load()
+        assert.equal(interim.stage, 'facts')
+        assert.equal(interim.facts.leads[0].phone, '(53) 99157-9674')
+        inspectedBeforeModel = true
+        throw new Error('CUDA out of memory on secret worker machine')
+      },
+    })
+    assert.equal(inspectedBeforeModel, true)
+    assert.equal(result.leads[0].phone, '(53) 99157-9674')
+    assert.equal(result.researchStatus, 'partial')
+    assert.equal(result.stages.find((item) =>
+      item.stage === 'facts' && item.phaseStatus === 'failed').errorCode, 'model_out_of_memory')
+    assert.equal(result.stages.at(-1).stage, 'completed')
+    assert.equal(result.stages.at(-1).phaseStatus, 'completed')
+    assert.equal(result.warnings.some((warning) => warning.includes('secret worker machine')), false)
+  } finally {
+    if (originalHome === undefined) delete process.env.HOME
+    else process.env.HOME = originalHome
+    await rm(home, { recursive: true, force: true })
+  }
+})

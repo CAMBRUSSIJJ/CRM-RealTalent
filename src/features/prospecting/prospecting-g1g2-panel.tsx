@@ -83,10 +83,7 @@ export function ProspectingG1G2Panel({ prospect, snapshot, workspaceId, readOnly
       const name = prospect.company || prospect.name
       // Search engines receive short keywords, not model instructions or a full
       // company profile. Identity controls remain enforced when reviewing hits.
-      const query = [
-        'endereço telefone site Instagram CNPJ',
-        prospect.website ? 'domínio ' + new URL(prospect.website.startsWith('http') ? prospect.website : 'https://' + prospect.website).hostname : '',
-      ].filter(Boolean).join(' ').slice(0, 240)
+      const query = 'endereço telefone site Instagram CNPJ cadastro empresarial'
       const response = await searchProspectsWithAi({
         organizationId: workspaceId,
         segment: name,

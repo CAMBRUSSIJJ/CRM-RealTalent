@@ -50,7 +50,18 @@ export interface AiInstagramDiscovery {
   status: 'linked' | 'candidate' | 'provided' | 'not_found' | 'unavailable'
   profileUrl?: string
   evidenceUrl?: string
+  /** Count of post URLs that actually returned readable public text. */
   postCount: number
+  /** Count of candidate URLs before attempting a post scrape. */
+  postLinksFound?: number
+  /** Whether the public profile itself was readable through local Firecrawl. */
+  profileAccess?: 'readable' | 'bio_only' | 'blocked' | 'unavailable' | 'not_attempted'
+  /** Specific non-sensitive reason why reading the profile or posts did not work. */
+  accessReason?: 'login_required' | 'no_public_content' | 'scrape_failed' | 'timeout' | 'posts_unavailable'
+  /** Only URLs of post pages whose readable text was actually collected. */
+  readablePostUrls?: string[]
+  /** Summarization of publicly readable posts only, not images or videos. */
+  contentSummary?: string
 }
 export interface AiSearchResult {
   leads: AiLead[]

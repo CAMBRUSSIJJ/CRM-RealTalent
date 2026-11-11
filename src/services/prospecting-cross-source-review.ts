@@ -37,6 +37,7 @@ const fields: Array<[AiField, string]> = [
 const normalize = (value: string) => value.normalize('NFD')
   .replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]/gi, '').toLowerCase()
 const digits = (value: string) => value.replace(/\D/g, '')
+const normalizeCity = (value: string) => normalize(value.replace(/(?:,|\s|-)\s*(AC|AL|AP|AM|BA|CE|DF|ES|GO|MA|MT|MS|MG|PA|PB|PR|PE|PI|RJ|RN|RS|RO|RR|SC|SP|SE|TO)\s*$/i, ''))
 const urlHost = (value: string) => {
   try {
     const url = new URL(value)
@@ -73,12 +74,12 @@ const identityValue = (field: AiField, value: string) => {
 
 export function matchedCrossSourceLead(prospect: ProspectRecord, result: AiSearchResult): AiLead | null {
   const company = normalize(prospect.company || prospect.name)
-  const city = normalize(prospect.city)
+  const city = normalizeCity(prospect.city)
   const cnpj = digits(prospect.cnpj)
   const phone = identityValue('phone', prospect.phone)
   return result.leads.find((lead) => {
     const sameName = Boolean(company && normalize(lead.company) === company)
-    const sameCity = Boolean(city && normalize(lead.city) === city)
+    const sameCity = Boolean(city && normalizeCity(lead.city) === city)
     const strongCnpj = cnpj.length === 14 && digits(lead.cnpj) === cnpj
     const strongPhone = phone.length >= 10 && identityValue('phone', lead.phone) === phone
     // A matching phone alone is not sufficient: shared booking desks may reuse numbers.

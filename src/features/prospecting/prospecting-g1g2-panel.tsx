@@ -252,7 +252,28 @@ export function ProspectingG1G2Panel({ prospect, snapshot, workspaceId, readOnly
       {result.instagramDiscovery.profileUrl && safeSite(result.instagramDiscovery.profileUrl) ? <a href={result.instagramDiscovery.profileUrl} target="_blank" rel="noopener noreferrer">
         <ExternalLink size={13}/> Ver perfil encontrado
       </a> : <small>Você pode informar o endereço do perfil em “Editar dados” e repetir a investigação. É opcional.</small>}
-      <small>{result.instagramDiscovery.postCount} publicação(ões) pública(s) com vínculo encontrado nas fontes acessíveis. Sem posts legíveis, não é possível comprovar eventos-gatilho.</small>
+      <div className="garimpo-cross-source__instagram-access">
+        <strong>{result.instagramDiscovery.profileAccess === 'readable' ? 'Perfil público acessado'
+          : result.instagramDiscovery.profileAccess === 'bio_only' ? 'Bio acessível; posts não recuperados'
+          : result.instagramDiscovery.profileAccess === 'blocked' ? 'Instagram exigiu login ou restringiu o acesso'
+          : result.instagramDiscovery.profileAccess === 'unavailable' ? 'Tentativa de leitura sem conteúdo utilizável'
+          : 'Leitura direta do perfil ainda não verificada'}</strong>
+        <span>{result.instagramDiscovery.postLinksFound ?? 0} link(s) de postagem · {result.instagramDiscovery.postCount} publicação(ões) com texto realmente lido.</span>
+        {result.instagramDiscovery.profileAccess === 'blocked' ? <small>O Garimpo não tenta contornar o login ou restrições de acesso. As outras fontes continuam disponíveis.</small> : null}
+      </div>
+      {result.instagramDiscovery.profileExcerpt ? <details><summary>Ver trecho público do perfil</summary>
+        <p className="garimpo-cross-source__instagram-excerpt">{result.instagramDiscovery.profileExcerpt}</p>
+      </details> : null}
+      {result.instagramDiscovery.contentSummary && result.instagramDiscovery.postCount > 0 ? <div className="garimpo-cross-source__instagram-summary">
+        <strong>Resumo comercial das publicações acessíveis</strong>
+        <p>{result.instagramDiscovery.contentSummary}</p>
+        <small>Síntese textual sugerida pelo Ollama. Imagens e vídeos não foram analisados; confirme o conteúdo nas fontes.</small>
+        <div className="garimpo-cross-source__links">
+          {(result.instagramDiscovery.readablePostUrls || []).filter((url) => safeSite(url)).map((url) =>
+            <a href={url} key={url} target="_blank" rel="noopener noreferrer"><ExternalLink size={13}/> Publicação fonte</a>)}
+        </div>
+      </div> : null}
+      {!result.instagramDiscovery.postCount ? <small>Nenhuma legenda ou texto de publicação pôde ser analisado. Um link encontrado não conta como conteúdo lido.</small> : null}
     </section> : null}
     {error ? <p className="prospecting-g1g2__error" role="alert">{error}</p> : null}
 

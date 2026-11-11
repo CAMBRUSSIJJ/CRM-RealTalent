@@ -7,6 +7,19 @@ export function createFirecrawlResearch(baseUrl: string, apiKey = '', fetcher: t
   const endpoint = new URL(`${base.href.replace(/\/$/, '').replace(/\/v2$/, '')}/v2/search`)
   return async (input: AiSearchInput, signal: AbortSignal): Promise<{ report: string; sources: AiSource[]; warnings: string[] }> => {
     const review = input.source === 'manual'
+    // Compatibility with the currently deployed queue: metadata hints are
+    // forwarded in the existing query string even if its validator is older.
+    const hint = (key: string) => {
+      const raw = input.query.match(new RegExp('(?:^|\\s)' + key + '=([^\\s]+)'))?.[1] || ''
+      try { return decodeURIComponent(raw) } catch { return '' }
+    }
+    const candidateSite = input.website || hint('SITE_URL')
+    const knownSite = candidateSite.startsWith('https://') ? publicWebUrl(candidateSite) : ''
+    const accountHint = input.instagram || hint('INSTAGRAM')
+    const account = /^@?[a-z0-9._]{1,30}$/i.test(accountHint)
+      ? accountHint.replace(/^@/, '')
+      : /^https:\/\/(www\.)?instagram\.com\/[a-z0-9._]{1,30}\/?$/i.test(accountHint)
+        ? accountHint.replace(/^https:\/\/(www\.)?instagram\.com\//i, '').replace(/\/$/, '') : ''
     const focus = input.source === 'instagram' ? 'site:instagram.com' : input.source === 'cnpj' ? 'CNPJ empresa' : ''
     // Use concise search terms: long instructions and a long list of desired
     // fields make SearXNG return zero results, even for genuine businesses.
@@ -47,7 +60,7 @@ export function createFirecrawlResearch(baseUrl: string, apiKey = '', fetcher: t
         documents.push({ url, title, content })
       }
     }
-    if (review && input.website) {
+    if (review && knownSite) {
       // The saved booking/site URL can contain contacts even when no search
       // engine indexes it. Read only a validated public HTTPS URL.
       try {
@@ -55,12 +68,12 @@ export function createFirecrawlResearch(baseUrl: string, apiKey = '', fetcher: t
         const response = await fetcher(scrapeEndpoint, {
           method: 'POST', redirect: 'error', signal,
           headers: { 'content-type': 'application/json', ...(apiKey ? { authorization: 'Bearer ' + apiKey } : {}) },
-          body: JSON.stringify({ url: input.website, formats: ['markdown'], onlyMainContent: true }),
+          body: JSON.stringify({ url: knownSite, formats: ['markdown'], onlyMainContent: true }),
         })
         if (response.ok) {
           const payload: unknown = await response.json()
           const data = isRecord(payload) && isRecord(payload.data) ? payload.data : null
-          if (data) addResults([{ url: input.website,
+          if (data) addResults([{ url: knownSite,
             title: isRecord(data.metadata) ? data.metadata.title : '',
             description: '', markdown: data.markdown }])
           else warnings.push('O site cadastrado não retornou conteúdo utilizável.')
@@ -75,9 +88,6 @@ export function createFirecrawlResearch(baseUrl: string, apiKey = '', fetcher: t
       // A second, focused web-index search may expose public posts/reels. It
       // does not bypass Instagram login, private accounts or rate limits.
       try {
-        const account = input.instagram
-          ? input.instagram.replace(/^https:\/\/(www\.)?instagram\.com\//i, '').replace(/^@/, '').replace(/\/$/, '')
-          : ''
         const instagramQuery = 'site:instagram.com/p OR site:instagram.com/reel ' +
           (account ? account + ' ' + input.segment.slice(0, 70) : input.segment.slice(0, 70) + ' ' + input.city.slice(0, 70))
         addResults(await request(instagramQuery, 5))

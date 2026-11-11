@@ -39,3 +39,18 @@
  .garimpo-cross-source__counts {grid-template-columns:repeat(2,minmax(0,1fr))}
  .garimpo-cross-source__action .button {width:100%}
 }
+
+/* Public-post evidence and commercial trigger events: citations are primary. */
+.garimpo-cross-source__triggers {background:var(--color-surface-muted,#f6f8fc);border:1px solid #e0e6ef;border-radius:10px;padding:12px;min-width:0}
+.garimpo-cross-source__triggers header {display:grid;gap:4px;margin-bottom:8px}
+.garimpo-cross-source__triggers header strong {font-size:12px;color:var(--color-text,#17202f)}
+.garimpo-cross-source__triggers header small {font-size:11px;line-height:1.5;color:var(--color-text-muted,#667085)}
+.garimpo-cross-source__triggers > p {font-size:12px;color:var(--color-text-muted,#475467);line-height:1.5}
+.garimpo-cross-source__triggers ul {margin:0;padding:0;list-style:none;display:grid;gap:9px}
+.garimpo-cross-source__triggers li {padding:10px;background:var(--color-surface,#fff);border:1px solid #e0e5ee;border-radius:9px;overflow-wrap:anywhere}
+.garimpo-cross-source__triggers li > div {display:grid;gap:3px}
+.garimpo-cross-source__triggers li strong {font-size:12px}
+.garimpo-cross-source__triggers li small {font-size:11px;color:var(--color-text-muted,#667085)}
+.garimpo-cross-source__triggers li p {font-size:12px;line-height:1.55;margin:8px 0}
+.garimpo-cross-source__triggers li a {font-size:11px;display:inline-flex;align-items:center;gap:5px;color:#315bd5}
+.garimpo-cross-source__footer .button {max-width:100%;white-space:normal;text-align:left;height:auto;min-height:35px}

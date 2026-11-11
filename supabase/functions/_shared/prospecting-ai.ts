@@ -46,6 +46,12 @@ export interface AiResearchStage {
   leadCount: number
   at?: string
 }
+export interface AiInstagramDiscovery {
+  status: 'linked' | 'candidate' | 'provided' | 'not_found' | 'unavailable'
+  profileUrl?: string
+  evidenceUrl?: string
+  postCount: number
+}
 export interface AiSearchResult {
   leads: AiLead[]
   warnings: string[]
@@ -53,6 +59,7 @@ export interface AiSearchResult {
   /** Local-only execution details. Not required by the public search API. */
   stages?: AiResearchStage[]
   researchStatus?: 'completed' | 'partial'
+  instagramDiscovery?: AiInstagramDiscovery
 }
 export class ProspectingError extends Error {
   code: string

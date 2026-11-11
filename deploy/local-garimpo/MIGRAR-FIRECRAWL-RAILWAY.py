@@ -63,7 +63,7 @@ def run() -> None:
     old = config.read_text(encoding="utf-8")
     if not re.search(r"(?m)^GARIMPO_CONNECTOR_TOKEN=[a-f0-9]{64}$", old):
         fail("O conector existente não possui token válido. Não foi modificado.")
-    if not re.search(r"(?m)^PROSPECTING_AI_BASE_URL=http://127\\.0\\.0\\.1:11434/v1$", old):
+    if not re.search(r"(?m)^PROSPECTING_AI_BASE_URL=http://127\.0\.0\.1:11434/v1$", old):
         fail("O Ollama local não foi identificado na configuração. Pare para revisar antes de migrar.")
 
     value = sys.argv[1] if len(sys.argv) == 2 else input("Endereço HTTPS do Firecrawl no Railway: ")

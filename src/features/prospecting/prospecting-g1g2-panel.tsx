@@ -25,7 +25,7 @@ const safeSite = (value: string): string | null => {
 }
 const groups = [
   { status: 'divergent', title: 'Divergências — precisam de decisão' },
-  { status: 'confirmed', title: 'Confirmados em fontes independentes' },
+  { status: 'confirmed', title: 'Corroborados em domínios distintos' },
   { status: 'observed', title: 'Encontrados em apenas uma fonte' },
 ] as const
 
@@ -34,7 +34,7 @@ function EvidenceRow({ field }: { field: CrossSourceField }) {
     <strong>{field.label}</strong>
     {field.currentValue ? <small>Cadastro: {field.currentValue}</small> : <small>Não consta no cadastro</small>}
     {field.candidates.map((candidate) => <div className="garimpo-cross-source__candidate" key={candidate.value}>
-      <span>{candidate.value} <small>· {candidate.independentPublishers} fonte(s) independente(s)</small></span>
+      <span>{candidate.value} <small>· {candidate.independentPublishers} domínio(s) distinto(s)</small></span>
       <span className="garimpo-cross-source__links">
         {candidate.urls.slice(0, 6).map((url) => safeSite(url) ?
           <a key={url} href={safeSite(url)!} target="_blank" rel="noopener noreferrer">
@@ -96,7 +96,7 @@ export function ProspectingG1G2Panel({ prospect, snapshot, workspaceId, readOnly
       if (!ctrl.signal.aborted) setResult(response)
     } catch (reason) {
       if (!ctrl.signal.aborted) {
-        setError(reason instanceof Error ? reason.message : 'Não foi possível pesquisar fontes independentes.')
+        setError(reason instanceof Error ? reason.message : 'Não foi possível pesquisar domínios distintos.')
       }
     } finally {
       if (abortRef.current === ctrl) {
@@ -147,7 +147,7 @@ export function ProspectingG1G2Panel({ prospect, snapshot, workspaceId, readOnly
 
     <div className="prospecting-g1g2__investigate garimpo-cross-source__action">
       <div><strong>Verificação cruzada · Firecrawl + Ollama</strong>
-        <small>Pesquisa outras fontes públicas e compara com o cadastro. Só confirma um campo quando pelo menos dois publicadores independentes concordam. Não aprova nem envia empresas.</small>
+        <small>Pesquisa outras fontes públicas e compara com o cadastro. Considera o dado corroborado quando dois domínios distintos apresentam o mesmo valor. A decisão continua humana.</small>
       </div>
       <Button variant="secondary" disabled={busy || readOnly} onClick={() => void run()}>
         {busy ? <LoaderCircle size={15} className="spin"/> : <SearchCheck size={15}/>}
@@ -182,7 +182,7 @@ export function ProspectingG1G2Panel({ prospect, snapshot, workspaceId, readOnly
         <footer className="garimpo-cross-source__footer">
           {applicable && !readOnly ? <Button variant="secondary" onClick={apply}>
             Adicionar {review.importable.length} campo(s) confirmados e ausentes
-          </Button> : <small>Nenhum campo novo possui confirmação independente suficiente para preenchimento automático. Os dados existentes foram preservados.</small>}
+          </Button> : <small>Nenhum campo ausente tem corroboração suficiente em dois domínios diferentes para preenchimento automático. Os dados existentes foram preservados.</small>}
           <small>A aprovação e o envio ao CRM continuam manuais.</small>
         </footer>
       </> : <p role="status">A pesquisa terminou, mas não encontrou evidências que identifiquem com segurança <strong>{prospect.company}</strong>. Nenhuma informação foi atribuída a esta empresa.</p>}

@@ -185,7 +185,9 @@ export function identifyInstagramProfile(input, sources, profileResults = []) {
   const provided = accountName(input)
   const knownSite = selectExistingUrl(input)
   const candidates = []
-  const nameParts = String(input.segment || '').toLowerCase().split(/\s+/).filter((part) => part.length >= 5)
+  const genericWords = new Set(['barber','barbearia','barbershop','studio','salon','salao','estetica','official','oficial'])
+  const nameParts = String(input.segment || '').toLowerCase().split(/\s+/)
+    .filter((part) => part.length >= 5 && !genericWords.has(norm(part)))
   const handleRelated = (profile) => {
     const handle = norm(profile.split('/').filter(Boolean).at(-1) || '')
     return Boolean(nameParts.some((part) => handle.includes(norm(part))))

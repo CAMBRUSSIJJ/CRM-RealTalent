@@ -3,7 +3,7 @@ import assert from 'node:assert/strict'
 import { mkdtemp, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { stageJournal, stagedLocalResearch, classifyStageError, companySources, sourceBackedFallback, extractFactBatches, instagramProfilesInText, instagramProfileUrl, identifyInstagramProfile, postLinkedToProfile, matchingBusinessLinkHub } from './staged-research.mjs'
+import { stageJournal, stagedLocalResearch, classifyStageError, companySources, sourceBackedFallback, extractFactBatches, instagramProfilesInText, instagramProfileUrl, identifyInstagramProfile, postLinkedToProfile, matchingBusinessLinkHub, publicInstagramPostLinks, instagramPageAccess, readPublicInstagram } from './staged-research.mjs'
 
 test('separates collection phases, retains verified company if model fails and resumes from checkpoint', async () => {
   const originalHome = process.env.HOME
@@ -282,10 +282,15 @@ test('finds a candidate profile through Linktree and attributes only readable po
         calls.push({ path: url.pathname, query: body.query || '', url: body.url || '' })
         if (url.pathname.endsWith('/scrape')) return new Response(JSON.stringify({
           success: true, data: {
-            metadata: { title: body.url === site ? 'Fainer Barber — Rio Grande' : 'Barber Model' },
+            metadata: { title: body.url === site ? 'Fainer Barber — Rio Grande' :
+              body.url === publication ? 'Barber Model (@barbermodelrg) • Instagram post' : 'Barber Model' },
             markdown: body.url === site
               ? 'Fainer Barber, Rio Grande RS: (53) 99157-9674.'
-              : 'FainerBarber Rio Grande RS · botão Instagram',
+              : body.url === publication
+                ? 'Barber Model (@barbermodelrg) em Rio Grande RS. Estamos com uma nova equipe. Atendimento e agendamento disponíveis nesta semana.'
+                : body.url === instagram
+                  ? 'Barber Model (@barbermodelrg) Rio Grande RS. Perfil público da barbearia com fotos e informações de contato.'
+                  : 'FainerBarber Rio Grande RS · botão Instagram',
             links: body.url === linktree ? [instagram] : [],
           },
         }))
@@ -299,10 +304,13 @@ test('finds a candidate profile through Linktree and attributes only readable po
         return new Response(JSON.stringify({ success: true, data: { web: [] } }))
       },
       generate: async (args) => {
-        if (args.system.includes('eventos comerciais')) return { output: { signals: [{
-          type: 'hiring', title: 'Equipe ampliada', excerpt: 'Estamos com uma nova equipe.',
-          sourceUrl: publication, eventDate: '',
-        }] } }
+        if (args.system.includes('eventos comerciais')) return { output: {
+          profileSummary: 'A publicação acessível menciona atendimento e uma nova equipe.',
+          signals: [{
+            type: 'hiring', title: 'Equipe ampliada', excerpt: 'Estamos com uma nova equipe.',
+            sourceUrl: publication, eventDate: '',
+          }],
+        } }
         const batch = JSON.parse(args.prompt).sources || []
         const source = batch[0]
         return { output: { leads: [{ facts: [
@@ -313,6 +321,10 @@ test('finds a candidate profile through Linktree and attributes only readable po
     assert.equal(result.instagramDiscovery.status, 'candidate')
     assert.equal(result.instagramDiscovery.profileUrl, instagram)
     assert.equal(result.instagramDiscovery.postCount, 1)
+    assert.equal(result.instagramDiscovery.profileAccess, 'bio_only')
+    assert.equal(result.instagramDiscovery.contentSummary, 'A publicação acessível menciona atendimento e uma nova equipe.')
+    assert.ok(calls.some((call) => call.url === instagram), 'must attempt direct public profile scrape')
+    assert.ok(calls.some((call) => call.url === publication), 'must scrape actual post instead of only trusting search index')
     assert.ok(calls.some((call) => call.url === linktree), 'must read Linktree links')
     assert.ok(calls.some((call) => call.query.includes('instagram.com/p/')))
     assert.equal(result.leads[0].company, 'Fainer Barber')
@@ -322,4 +334,64 @@ test('finds a candidate profile through Linktree and attributes only readable po
     else process.env.HOME = originalHome
     await rm(home, { recursive: true, force: true })
   }
+})
+
+
+test('direct Instagram profile links trigger bounded post scrapes with readable content', async () => {
+  const profile = 'https://www.instagram.com/fainerbarber/'
+  const publication = 'https://www.instagram.com/p/AbCdef12/'
+  const calls = []
+  const read = await readPublicInstagram({
+    profileUrl: profile,
+    call: async (path, payload) => {
+      calls.push({ path, ...payload })
+      if (payload.url === profile) return {
+        data: { markdown: 'Fainer Barber (@fainerbarber) em Rio Grande RS. Barbearia com atendimento, horários e agendamentos.',
+          links: [publication, 'https://www.instagram.com/p/XYZ12345/?utm_source=foo'] },
+      }
+      if (payload.url === publication) return {
+        data: { markdown: 'Fainer Barber (@fainerbarber) anuncia atendimento nesta semana. Esta publicação divulga os serviços de barbearia e agendamento para os clientes.' },
+      }
+      return { data: { markdown: 'Log in to Instagram' } }
+    },
+  })
+  assert.equal(read.profileAccess, 'readable')
+  assert.equal(read.postLinksFound, 2)
+  assert.equal(read.readablePostUrls.length, 1)
+  assert.equal(read.readablePostUrls[0], publication)
+  assert.equal(read.postSources.length, 1)
+  assert.ok(calls.some((request) => request.url === profile))
+  assert.ok(calls.some((request) => request.url === publication))
+  assert.equal(publicInstagramPostLinks({ links: ['/p/AbCdef12/', 'https://example.com/p/AAAAA'] }, profile)[0], publication)
+})
+
+test('login wall or absent content is reported without inventing posts or triggering the model', async () => {
+  const profile = 'https://www.instagram.com/fainerbarber/'
+  const reading = await readPublicInstagram({
+    profileUrl: profile,
+    call: async () => ({ data: { markdown: 'Log in to Instagram. Sign up to see posts and photos.' } }),
+    searchFallback: async () => [{ url: 'https://www.instagram.com/p/A1B2C3/', title: 'Unrelated (@somebody) Instagram', description: '@fainerbarber' }],
+  })
+  assert.equal(reading.profileAccess, 'blocked')
+  assert.equal(reading.accessReason, 'login_required')
+  assert.deepEqual(reading.readablePostUrls, [])
+  assert.equal(reading.postLinksFound, 0)
+  assert.deepEqual(reading.postSources, [])
+  const empty = instagramPageAccess({ markdown: 'Log in to Instagram' }, profile)
+  assert.equal(empty.status, 'blocked')
+})
+
+test('indexed post links alone do not qualify as accessible content', async () => {
+  const profile = 'https://www.instagram.com/fainerbarber/'
+  const reading = await readPublicInstagram({
+    profileUrl: profile,
+    call: async (path, payload) => payload.url === profile
+      ? { data: { markdown: 'Fainer Barber Rio Grande, perfil público de barbearia com informações de localização e serviços.' } }
+      : { data: { markdown: 'Log in to Instagram' } },
+    indexedPosts: [{ url: 'https://www.instagram.com/p/A1B2C3/',
+      title: 'Fainer Barber (@fainerbarber) • Instagram post', description: 'Contratação anunciada.' }],
+  })
+  assert.equal(reading.postLinksFound, 1)
+  assert.equal(reading.readablePostUrls.length, 0)
+  assert.equal(reading.accessReason, 'posts_unavailable')
 })

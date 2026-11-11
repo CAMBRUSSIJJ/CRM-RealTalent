@@ -54,3 +54,8 @@
 .garimpo-cross-source__triggers li p {font-size:12px;line-height:1.55;margin:8px 0}
 .garimpo-cross-source__triggers li a {font-size:11px;display:inline-flex;align-items:center;gap:5px;color:#315bd5}
 .garimpo-cross-source__footer .button {max-width:100%;white-space:normal;text-align:left;height:auto;min-height:35px}
+
+/* Durable, read-only status from the local worker (no raw content or secrets). */
+.garimpo-cross-source__stage-status {display:grid;gap:4px;padding:11px 13px;border-radius:9px;border:1px solid #c8d6ee;background:#f2f7ff;margin:10px 0;font-size:12px;line-height:1.5;color:#25467a}
+.garimpo-cross-source__stage-status strong {font-size:12px}
+.garimpo-cross-source__stage-status small {color:#566b88;font-size:11px}

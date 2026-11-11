@@ -81,14 +81,12 @@ export function ProspectingG1G2Panel({ prospect, snapshot, workspaceId, readOnly
       // A batch of 5 gives Firecrawl up to 10 distinct web sources.
       // The output is filtered to the selected company, never to other leads.
       const name = prospect.company || prospect.name
+      // Search engines receive short keywords, not model instructions or a full
+      // company profile. Identity controls remain enforced when reviewing hits.
       const query = [
-        'Investigar somente esta empresa. Confirmar identidade, endereço, telefone, site, Instagram e CNPJ em outras fontes públicas.',
-        'Procurar fontes independentes: site oficial, diretórios comerciais, redes sociais públicas e cadastros abertos.',
-        'Nome:', name, 'Cidade:', prospect.city,
-        prospect.website ? 'Site do cadastro: ' + prospect.website : '',
-        prospect.cnpj ? 'CNPJ do cadastro: ' + prospect.cnpj : '',
-        prospect.phone ? 'Telefone do cadastro: ' + prospect.phone : '',
-      ].filter(Boolean).join(' ').slice(0, 1000)
+        'endereço telefone site Instagram CNPJ',
+        prospect.website ? 'domínio ' + new URL(prospect.website.startsWith('http') ? prospect.website : 'https://' + prospect.website).hostname : '',
+      ].filter(Boolean).join(' ').slice(0, 240)
       const response = await searchProspectsWithAi({
         organizationId: workspaceId,
         segment: name,

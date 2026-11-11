@@ -3,7 +3,7 @@ import assert from 'node:assert/strict'
 import { mkdtemp, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { stageJournal, stagedLocalResearch, classifyStageError, companySources, sourceBackedFallback, extractFactBatches, instagramProfilesInText, instagramProfileUrl, identifyInstagramProfile, postLinkedToProfile } from './staged-research.mjs'
+import { stageJournal, stagedLocalResearch, classifyStageError, companySources, sourceBackedFallback, extractFactBatches, instagramProfilesInText, instagramProfileUrl, identifyInstagramProfile, postLinkedToProfile, matchingBusinessLinkHub } from './staged-research.mjs'
 
 test('separates collection phases, retains verified company if model fails and resumes from checkpoint', async () => {
   const originalHome = process.env.HOME
@@ -233,4 +233,17 @@ test('Instagram is reported missing with no invented account or signals when sea
     else process.env.HOME = originalHome
     await rm(home, { recursive: true, force: true })
   }
+})
+
+
+test('Linktree discovery remains a candidate, never an automatically confirmed Instagram account', async () => {
+  const input = { segment: 'Fainer Barber', city: 'Rio Grande, RS', query: '' }
+  assert.equal(matchingBusinessLinkHub(input, 'https://linktr.ee/fainerbarber'), true)
+  assert.equal(matchingBusinessLinkHub(input, 'https://linktr.ee/barbeariaoutra'), false)
+  const source = { url: 'https://linktr.ee/fainerbarber', title: 'Barber Model',
+    content: 'FainerBarber | Rio Grande RS | Instagram: https://www.instagram.com/barbermodelrg/' }
+  const result = identifyInstagramProfile(input, [source])
+  assert.equal(result.status, 'candidate')
+  assert.equal(result.profileUrl, 'https://www.instagram.com/barbermodelrg/')
+  assert.equal(result.evidenceUrl, source.url)
 })

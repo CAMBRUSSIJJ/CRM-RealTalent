@@ -55,6 +55,7 @@ import {GARIMPO_REVIEW_REQUEST,garimpoReviewStorageKey} from '../../services/rea
 import { FirecrawlLocalPanel } from './firecrawl-local-panel'
 import { AiResearchCard } from './ai-research-card'
 import { aiResearchNotes, applyAiDiscovery, applyAiEnrichment, getLocalConnectorStatus, searchProspectsWithAi, type AiSearchResult } from '../../services/prospecting-ai'
+import { savedCrossSourceReview } from '../../services/prospecting-cross-source-review'
 
  type ProspectingTab = 'search' | 'local' | 'results' | 'history'
  type ReviewMode = 'list' | 'guided' | 'sources'
@@ -1855,6 +1856,12 @@ function ProcessingWorkspace({ readOnly, queue, active, leads, snapshot, onSelec
   const quality = prospectDataQuality(active)
   const attentionReasons = prospectAttentionReasons(active)
   const autoValidatable = prospectIsAutoValidatable(active)
+  const sourceAudit = savedCrossSourceReview(active)
+  const confirmedByIndependentSources = (field: string) => Boolean(sourceAudit?.fields.some((row) => row.field === field && row.status === 'confirmed'))
+  const identityConfirmed = confirmedByIndependentSources('company')
+  const locationConfirmed = Boolean(prospectGeoPoint(active)) && confirmedByIndependentSources('address')
+  const contactConfirmed = ['phone','email','website'].some(confirmedByIndependentSources)
+  const readyWithEvidence = autoValidatable && identityConfirmed && contactConfirmed
   return <div className="prospecting-processing-layout prospecting-processing-layout-v101106">
     <aside className="panel prospecting-queue">
       <header><div><span className="eyebrow">Fila de análise</span><strong>{queue.length} empresa(s)</strong></div>{!readOnly ? <button type="button" className="icon-button" onClick={onAnalyzeAll} title="Analisar todos"><Sparkles size={16} /></button> : null}</header>
@@ -1862,13 +1869,13 @@ function ProcessingWorkspace({ readOnly, queue, active, leads, snapshot, onSelec
     </aside>
 
     <section className="panel prospecting-review-card">
-      <header className="prospecting-review-header"><div><span className="eyebrow"><ClipboardCheck size={14} /> {autoValidatable ? 'Validação rápida' : 'Revisão de exceção'}</span><h3>{active.company}</h3><p>{autoValidatable ? 'Os sinais principais estão confirmados. Faça uma leitura rápida antes de aprovar.' : 'Veja primeiro o que precisa da sua decisão; os detalhes técnicos ficam recolhidos.'}</p></div><div><StatusPill tone={autoValidatable ? 'success' : 'warning'}>{autoValidatable ? 'Pronta' : 'Precisa atenção'}</StatusPill><span className="prospecting-counter">{index + 1} de {queue.length}</span></div></header>
+      <header className="prospecting-review-header"><div><span className="eyebrow"><ClipboardCheck size={14} /> {autoValidatable ? 'Revisão dos dados disponíveis' : 'Revisão de exceção'}</span><h3>{active.company}</h3><p>{autoValidatable ? 'O cadastro possui dados suficientes para análise. Confira as fontes antes de aprovar.' : 'Veja primeiro o que precisa da sua decisão; os detalhes técnicos ficam recolhidos.'}</p></div><div><StatusPill tone={autoValidatable ? 'success' : 'warning'}>{autoValidatable ? 'Pronta para revisão' : 'Precisa atenção'}</StatusPill><span className="prospecting-counter">{index + 1} de {queue.length}</span></div></header>
       <div className="prospecting-review-decisions-v101104">
-        <article className={active.company ? 'is-ok' : 'is-warning'}><span>1</span><div><strong>É uma empresa real?</strong><small>{prospectPlaceType(active) === 'content' || prospectPlaceType(active) === 'directory' ? 'Resultado parece conteúdo/diretório' : `Local classificado como ${prospectPlaceType(active).replace('_', ' ')}`}</small></div>{active.company ? <CheckCircle2 size={17}/> : <AlertTriangle size={17}/>}</article>
-        <article className={active.description || rawText(active.rawData, 'intentId', 'category') ? 'is-ok' : 'is-warning'}><span>2</span><div><strong>É do segmento correto?</strong><small>{active.description || rawText(active.rawData, 'intentLabel', 'category') || 'Categoria ainda precisa de confirmação'}</small></div>{active.description || rawText(active.rawData, 'intentId', 'category') ? <CheckCircle2 size={17}/> : <AlertTriangle size={17}/>}</article>
-        <article className={prospectGeoPoint(active) ? 'is-ok' : 'is-warning'}><span>3</span><div><strong>Está no território correto?</strong><small>{prospectGeoPoint(active) ? active.address || active.city || 'Coordenada confirmada' : `Coordenadas pendentes${active.city ? ' · cidade informada: ' + active.city : ''}`}</small></div>{prospectGeoPoint(active) ? <CheckCircle2 size={17}/> : <AlertTriangle size={17}/>}</article>
-        <article className={active.phone || active.email || active.website ? 'is-ok' : 'is-warning'}><span>4</span><div><strong>Há contato utilizável?</strong><small>{active.phone || active.email || active.website || 'Nenhum canal confirmado'}</small></div>{active.phone || active.email || active.website ? <CheckCircle2 size={17}/> : <AlertTriangle size={17}/>}</article>
-        <article className={quality.readiness === 'ready' && active.duplicateLevel === 'none' ? 'is-ok' : 'is-warning'}><span>5</span><div><strong>Está pronta para sua base?</strong><small>{quality.readiness === 'ready' && active.duplicateLevel === 'none' ? 'Sem bloqueios conhecidos' : [...quality.blockers, ...active.duplicateReasons].slice(0, 2).join(' · ') || 'Requer decisão humana'}</small></div>{quality.readiness === 'ready' && active.duplicateLevel === 'none' ? <CheckCircle2 size={17}/> : <AlertTriangle size={17}/>}</article>
+        <article className={identityConfirmed ? 'is-ok' : 'is-warning'}><span>1</span><div><strong>A identidade foi confirmada?</strong><small>{identityConfirmed ? 'Nome confirmado por pelo menos duas fontes independentes' : 'Nome cadastrado; ainda falta confirmação independente'}</small></div>{identityConfirmed ? <CheckCircle2 size={17}/> : <AlertTriangle size={17}/>}</article>
+        <article className="is-warning"><span>2</span><div><strong>O segmento está confirmado?</strong><small>{active.description || rawText(active.rawData, 'intentLabel', 'category') || 'Categoria informada'} · Categoria ainda precisa ser conferida nas fontes.</small></div><AlertTriangle size={17}/></article>
+        <article className={locationConfirmed ? 'is-ok' : 'is-warning'}><span>3</span><div><strong>O território foi confirmado?</strong><small>{locationConfirmed ? 'Endereço corroborado; confira o ponto no mapa' : 'Cidade e coordenadas cadastradas não garantem localização confirmada'}</small></div>{locationConfirmed ? <CheckCircle2 size={17}/> : <AlertTriangle size={17}/>}</article>
+        <article className={contactConfirmed ? 'is-ok' : 'is-warning'}><span>4</span><div><strong>Há contato confirmado?</strong><small>{contactConfirmed ? 'Pelo menos um canal corroborado em duas fontes' : 'Telefone, e-mail ou site cadastrado ainda sem confirmação independente'}</small></div>{contactConfirmed ? <CheckCircle2 size={17}/> : <AlertTriangle size={17}/>}</article>
+        <article className={readyWithEvidence ? 'is-ok' : 'is-warning'}><span>5</span><div><strong>A empresa está verificada?</strong><small>{readyWithEvidence ? 'Identidade, contato e qualidade corroborados; aprovação continua manual' : [...quality.blockers, ...active.duplicateReasons].slice(0, 1).join(' · ') || 'Ainda exige revisão das evidências antes da decisão'}</small></div>{readyWithEvidence ? <CheckCircle2 size={17}/> : <AlertTriangle size={17}/>}</article>
       </div>
       {attentionReasons.length ? <section className="prospecting-review-attention-v101106"><AlertTriangle size={16}/><div><strong>O que precisa da sua atenção</strong><div>{attentionReasons.map((reason) => <span key={reason}>{reason}</span>)}</div></div></section> : <section className="prospecting-review-attention-v101106 is-clear"><CheckCircle2 size={16}/><div><strong>Sem divergências importantes</strong><small>Identidade, local, contato e duplicidade atendem às regras atuais.</small></div></section>}
       <ProspectingG1G2Panel prospect={active} snapshot={snapshot} workspaceId={workspaceId} readOnly={readOnly} onEnriched={onEnriched}/>

@@ -121,11 +121,25 @@ export async function recentLocalResearch(organizationId: string, company: strin
       && normalizeLabel(input.city || '') === normalizeLabel(city)
   })
   if (!match) return null
-  const result = match.result as (AiSearchResult & { progress?: LocalResearchProgress }) | null
+  const result = match.result as (AiSearchResult & { progress?: LocalResearchProgress; stages?: LocalResearchProgress[] }) | null
+  const stages = Array.isArray(result?.stages) ? result.stages : []
+  const finalStage = stages.at(-1)
+  // Completed jobs store their final trace in "stages", not "progress".
+  // Do not keep showing a stale "Ollama em andamento" after completion.
+  const terminalProgress: LocalResearchProgress | null = match.status === 'completed'
+    ? {
+      stage: 'completed', phaseStatus: 'completed',
+      sourceCount: finalStage?.sourceCount ?? result?.leads?.[0]?.aiResearch?.sources?.length ?? 0,
+      leadCount: result?.leads?.length ?? 0,
+      updatedAt: finalStage?.updatedAt ?? match.completed_at ?? match.created_at,
+    }
+    : match.status === 'failed' && result?.progress
+      ? { ...result.progress, phaseStatus: 'failed' }
+      : null
   return {
     id: match.id as string, status: match.status as string,
     result: match.status === 'completed' && result ? result : null,
-    progress: result?.progress ?? null, createdAt: match.created_at as string,
+    progress: terminalProgress ?? result?.progress ?? null, createdAt: match.created_at as string,
     errorCode: match.error_code || '',
   }
 }

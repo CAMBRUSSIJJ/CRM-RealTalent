@@ -185,6 +185,7 @@ export function ProspectingPage() {
   const [localRunning, setLocalRunning] = useState(false)
   const [localStatus, setLocalStatus] = useState<'idle' | 'running' | 'completed' | 'failed'>('idle')
   const [localFound, setLocalFound] = useState(0)
+  const [integratedStartedAt, setIntegratedStartedAt] = useState<number | null>(null)
   const [localMessage, setLocalMessage] = useState('')
   const localAbortRef = useRef<AbortController | null>(null)
   const [providerDiagnostics, setProviderDiagnostics] = useState<ProspectingProviderDiagnostics | null>(null)
@@ -389,6 +390,7 @@ export function ProspectingPage() {
     setLocalRunning(false)
     setLocalStatus('idle')
     setLocalFound(0)
+    setIntegratedStartedAt(null)
     setLocalMessage('')
     setTab('search')
     setSegment('')
@@ -507,7 +509,7 @@ export function ProspectingPage() {
   // One user action coordinates Firecrawl/Ollama, then the territorial engine.
   // Sequential execution protects low-RAM Linux systems from parallel crawls.
   const startIntegratedSearch = async () => {
-    if (!canProspectingCreate || !workspaceId || agentBusy || localAbortRef.current ||
+    if (!canWrite || !workspaceId || agentBusy || localAbortRef.current ||
         (agentJob && ['queued', 'running', 'paused'].includes(agentJob.status))) return
     if (!segment.trim() || !city.trim()) {
       notify('warning', 'Informe o segmento e a cidade antes de iniciar a busca.')
@@ -518,6 +520,7 @@ export function ProspectingPage() {
       return
     }
     const controller = new AbortController()
+    setIntegratedStartedAt(Date.now())
     localAbortRef.current = controller
     setLocalRunning(true)
     setLocalStatus('running')
@@ -526,10 +529,12 @@ export function ProspectingPage() {
 
     let localSuccess = false
     let localResultCount = 0
+    let connectedNow = false
     let cancelled = false
     try {
       const status = await getLocalConnectorStatus(workspaceId).catch(() => null)
       const connected = Boolean(status?.online)
+      connectedNow = connected
       setLocalConnected(connected)
       if (connected) {
         try {
@@ -580,7 +585,7 @@ export function ProspectingPage() {
       } else if (!localSuccess) {
         notify('warning', 'A pesquisa territorial não iniciou e a coleta web não retornou dados.')
       }
-    } else if (!localSuccess && !localConnected) {
+    } else if (!localSuccess && !connectedNow) {
       notify('error', 'Nenhum mecanismo disponível: conecte seu Linux ou inicie o Agente Territorial.')
     } else if (localSuccess && !localResultCount) {
       notify('info', 'Nenhuma empresa verificável foi encontrada; a cobertura territorial está indisponível nesta sessão.')
@@ -1185,10 +1190,10 @@ export function ProspectingPage() {
             categoryMode={categoryMode}
             areaMode={areaMode}
             radiusKm={radiusKm}
-            canEdit={canProspectingEdit}
+            canEdit={canWrite}
             agentBusy={agentBusy}
             agentHealth={agentHealth}
-            job={agentJob}
+            job={agentJob && (integratedStartedAt === null || Date.parse(agentJob.createdAt) >= integratedStartedAt - 1000) ? agentJob : null}
             baseTotal={metrics.total}
             sentCount={metrics.sent}
             readyCount={metrics.autoValidatable}

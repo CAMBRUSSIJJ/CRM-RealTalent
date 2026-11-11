@@ -298,7 +298,7 @@ export function instagramPageAccess(page, profileUrl) {
 }
 
 /** Bounded direct profile+post scrape; no cookies, account login or bypass. */
-export async function readPublicInstagram({ profileUrl, call, indexedPosts = [], searchFallback, maxPosts = 3 }) {
+export async function readPublicInstagram({ profileUrl, call, indexedPosts = [], searchFallback, maxPosts = 3, signal }) {
   const outcome = { profileAccess: 'unavailable', accessReason: 'no_public_content',
     postLinksFound: 0, readablePostUrls: [], postSources: [], profileExcerpt: '' }
   if (!instagramProfileUrl(profileUrl)) return outcome
@@ -318,6 +318,7 @@ export async function readPublicInstagram({ profileUrl, call, indexedPosts = [],
     outcome.accessReason = access.reason || (access.status === 'bio_only' ? 'posts_unavailable' : undefined)
     for (const url of access.postUrls) register(url)
   } catch (error) {
+    if (signal?.aborted) throw error
     const errorText = String(error?.message || '')
     outcome.profileAccess = /http_401|http_403|http_429/.test(errorText) ? 'blocked' : 'unavailable'
     outcome.accessReason = outcome.profileAccess === 'blocked' ? 'login_required'
@@ -327,7 +328,10 @@ export async function readPublicInstagram({ profileUrl, call, indexedPosts = [],
   // A missing post list in the profile is not proof that the user has no posts.
   if (postUrls.length < maxPosts && typeof searchFallback === 'function') {
     try { indexedPosts = [...indexedPosts, ...(await searchFallback())] }
-    catch { /* the discovery result still shows a failed/partial read */ }
+    catch (error) {
+      if (signal?.aborted) throw error
+      // Other site evidence is still valid when the fallback search fails.
+    }
   }
   // Indexed posts must state the publishing handle in the title; the search
   // query itself or a third-party mention does not prove post authorship.
@@ -344,7 +348,10 @@ export async function readPublicInstagram({ profileUrl, call, indexedPosts = [],
       if (!readable) continue
       outcome.postSources.push({ url, title: String(page?.data?.metadata?.title || 'Publicação pública do Instagram').slice(0, 200), content: readable })
       outcome.readablePostUrls.push(url)
-    } catch { /* a failed post must not erase other accessible posts */ }
+    } catch (error) {
+      if (signal?.aborted) throw error
+      // One blocked/failed post never invalidates other successfully read posts.
+    }
   }
   if (outcome.postLinksFound && !outcome.readablePostUrls.length && outcome.profileAccess !== 'blocked') {
     outcome.accessReason = 'posts_unavailable'
@@ -526,7 +533,7 @@ export async function stagedLocalResearch({ input, signal, values, fetcher, mode
         } else {
           const profileUrl = instagramDiscovery.profileUrl
           const result = await readPublicInstagram({
-            profileUrl, call, maxPosts: 3,
+            profileUrl, call, signal, maxPosts: 3,
             searchFallback: async () => {
               const handle = profileUrl.split('/').filter(Boolean).at(-1)
               const indexed = []

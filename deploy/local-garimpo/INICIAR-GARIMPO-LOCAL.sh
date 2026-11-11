@@ -107,18 +107,40 @@ done
 start_existing realtalent-garimpo-api-1 || exit 1
 
 say "===== VALIDANDO FIRECRAWL ====="
+# Cold starts can take longer than one minute when the Linux host has low RAM.
+# Fail fast on a crashed container; otherwise allow up to three minutes.
 ok="false"
-for attempt in $(seq 1 25); do
-  if curl -fsS --max-time 5 http://127.0.0.1:3002/ >/dev/null 2>&1; then
+for attempt in $(seq 1 60); do
+  status="$(docker inspect -f '{{.State.Status}}' realtalent-garimpo-api-1 2>/dev/null)"
+  if [[ "$status" == "exited" || "$status" == "dead" ]]; then
+    echo "A API encerrou durante a inicialização (estado: $status)."
+    break
+  fi
+  http="$(curl -sS --max-time 4 -o /dev/null -w '%{http_code}' http://127.0.0.1:3002/ 2>/dev/null || true)"
+  if [[ "$http" == "200" ]]; then
     ok="true"
     break
   fi
-  sleep 2
+  if (( attempt % 10 == 0 )); then
+    echo "API ainda inicializando (${attempt} verificações); contêiner: $status, HTTP: ${http:-000}"
+  fi
+  sleep 3
 done
-[[ "$ok" == "true" ]] || {
-  fail "API Firecrawl ainda não responde. Confira docker logs --tail 40 realtalent-garimpo-api-1."
+if [[ "$ok" != "true" ]]; then
+  echo
+  echo "===== DIAGNÓSTICO AUTOMÁTICO — SEM ALTERAR O BANCO ====="
+  docker inspect realtalent-garimpo-api-1 \
+    --format 'Estado: {{.State.Status}} | Exit: {{.State.ExitCode}} | OOMKilled: {{.State.OOMKilled}}' 2>&1 || true
+  echo
+  echo "Últimos registros da API (revise dados privados antes de compartilhar):"
+  docker logs --tail 60 realtalent-garimpo-api-1 2>&1 || true
+  echo
+  echo "Memória do computador:"
+  free -h || true
+  echo
+  fail "A API do Firecrawl não respondeu. O conector não será iniciado até resolvermos os logs acima."
   exit 1
-}
+fi
 echo "✓ Firecrawl local: HTTP 200."
 WORKERS="$(docker inspect --format '{{range .Config.Env}}{{println .}}{{end}}' realtalent-garimpo-api-1 | grep '^NUQ_WORKER_COUNT=' | head -1)"
 echo "${WORKERS:-Aviso: NUQ_WORKER_COUNT não definido; confira o perfil econômico.}"

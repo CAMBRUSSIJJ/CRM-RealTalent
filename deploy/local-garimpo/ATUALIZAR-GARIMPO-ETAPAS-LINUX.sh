@@ -18,7 +18,7 @@ if [[ -z "$ROOT" || ! -f "$ROOT/deploy/local-garimpo/bridge.mjs" ||
   echo "Instalação antiga não encontrada. Nenhuma alteração."
   exit 1
 fi
-REV="6d1dc06d686892232daa1f7f3ff077faa5217d19"
+REV="e7f5a753dda87cf51d221677559426fdabc4775f"
 FILES=(
   "deploy/local-garimpo/bridge.mjs|8af8c2d7cf337b365a8f38262c0929e1cb3b5cdd"
   "deploy/local-garimpo/staged-research.mjs|61b091c09db91b2e079cd9749f66d495c2f8a7be"
@@ -26,7 +26,7 @@ FILES=(
   "deploy/local-garimpo/staged-research-check.mjs|2c5ecbc787eb70485313b1db2a779a3f3e42c2bb"
   "deploy/local-garimpo/package.json|131128006be97090d99302bb0aa67b8c3d222d64"
   "supabase/functions/_shared/prospecting-ai.ts|5fd4a4c633d96bc4d06ff1fa0816d4eea717cadc"
-  "supabase/functions/_shared/firecrawl-research.ts|b76c4eb67e9b97b68c7c2cdba2b9ddfef5a8c336"
+  "supabase/functions/_shared/firecrawl-research.ts|8dd02e8ebce007631270fade713a277a9b027895"
 )
 TMP="$(mktemp -d)" || exit 1
 trap 'rm -rf "$TMP"' EXIT

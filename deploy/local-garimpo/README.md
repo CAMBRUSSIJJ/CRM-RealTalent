@@ -1,5 +1,17 @@
 # Garimpo no seu computador
 
+## Recuperação da API quando aparecer "Port 3002 did not become available within 60000ms"
+
+Esse erro significa que o harness oficial encerrou a API por exceder seu timeout interno. Na revisão fixada, o padrão é `NUQ_WORKER_COUNT=5` e `HARNESS_STARTUP_TIMEOUT_MS=60000`. Um simples `docker start` não altera as variáveis do contêiner. A recuperação sem rebuild recria somente a API via Docker Compose, com `NUQ_WORKER_COUNT=1` e `HARNESS_STARTUP_TIMEOUT_MS=180000`:
+
+```bash
+cd ~/Downloads
+curl -fL https://raw.githubusercontent.com/CAMBRUSSIJJ/CRM-RealTalent/fbcab05045a6c25717db3f82548cb353b6b92eab/deploy/local-garimpo/REPARAR-INICIALIZACAO-FIRECRAWL.sh -o REPARAR-INICIALIZACAO-FIRECRAWL.sh
+bash -n REPARAR-INICIALIZACAO-FIRECRAWL.sh && bash REPARAR-INICIALIZACAO-FIRECRAWL.sh
+```
+
+O reparador preserva PostgreSQL, volumes, RabbitMQ, Redis, SearXNG, Playwright, Ollama, WAHA e o CRM. Só atualiza e recria o serviço `api`; interrompe-se se não encontrar os arquivos Compose originais. Os logs exibidos podem conter informações privadas.
+
 ## Modo Linux local (padrão atual, sem Railway)
 
 O Firecrawl continua no seu próprio Linux, em `http://127.0.0.1:3002`, com o Ollama em `http://127.0.0.1:11434`. Para abrir uma instalação **já configurada** e aproveitar os contêineres existentes, execute:

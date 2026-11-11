@@ -166,6 +166,19 @@ export function instagramProfilesInText(raw) {
   return found.slice(0, 10)
 }
 const cleanCity = (value) => norm(String(value || '').replace(/(?:,|\s)\s*[A-Z]{2}\s*$/i, ''))
+export function matchingBusinessLinkHub(input, raw) {
+  try {
+    const u = new URL(publicWebUrl(raw))
+    if (!['linktr.ee', 'www.linktr.ee', 'bio.site'].includes(u.hostname.toLowerCase())) return false
+    const part = u.pathname.split('/').filter(Boolean)[0] || ''
+    const company = norm(input.segment || '')
+    const name = norm(part)
+    // A Linktree vanity slug alone is only a discovery clue. The profile is
+    // marked as a candidate until a business source corroborates it.
+    return name.length >= 6 && (name === company || (company.length >= 10 && name.includes(company)))
+  } catch { return false }
+}
+
 export function identifyInstagramProfile(input, sources, profileResults = []) {
   const company = norm(input.segment || '')
   const city = cleanCity(input.city)
@@ -181,13 +194,14 @@ export function identifyInstagramProfile(input, sources, profileResults = []) {
   // result. Reject generic third-party social accounts when handles differ.
   for (const source of sources) {
     const text = String(source.title || '') + '\n' + String(source.content || '')
-    if (!company || !norm(text).includes(company)) continue
+    const hub = matchingBusinessLinkHub(input, source.url)
+    if (!company || (!norm(text).includes(company) && !hub)) continue
     const known = Boolean(knownSite && source.url === knownSite)
     const hasCity = Boolean(city && norm(source.url + ' ' + text).includes(city))
     if (!known && !hasCity) continue
     for (const profile of instagramProfilesInText(text)) {
       const related = handleRelated(profile)
-      const score = (known ? 70 : 55) + (related ? 25 : 0)
+      const score = (known ? 70 : hub ? 55 : 45) + (related ? 25 : 0)
       candidates.push({ profileUrl: profile, evidenceUrl: source.url, score,
         status: (known && related) ? 'linked' : 'candidate' })
     }
@@ -268,13 +282,14 @@ export async function stagedLocalResearch({ input, signal, values, fetcher, mode
   function accept(items) {
     for (const item of items) {
       const url = publicWebUrl(item?.url)
-      if (!url || sourceMap.has(url) || sourceMap.size >= maxSources || contentUsed >= 36000) continue
+      if (!url || (!sourceMap.has(url) && sourceMap.size >= maxSources) || contentUsed >= 36000) continue
       const title = short(item.title, 250) || new URL(url).hostname
-      // Include the provider's title in the exact evidence used by the model.
+      const previous = sourceMap.get(url)
+      // A full scrape may replace a short search snippet for the same URL.
       const content = [title, typeof item.markdown === 'string' ? item.markdown : '', typeof item.description === 'string' ? item.description : '', typeof item.content === 'string' ? item.content : '']
-        .filter(Boolean).join('\n').slice(0, Math.min(6000, 36000 - contentUsed))
-      if (content.length < 12) continue
-      contentUsed += content.length
+        .filter(Boolean).join('\n').slice(0, Math.min(6000, 36000 - contentUsed + (previous?.content.length || 0)))
+      if (content.length < 12 || (previous && previous.content.length >= content.length)) continue
+      contentUsed += content.length - (previous?.content.length || 0)
       sourceMap.set(url, { url, title, content })
     }
   }
@@ -346,6 +361,7 @@ export async function stagedLocalResearch({ input, signal, values, fetcher, mode
           const profileQueries = [
             'site:instagram.com "' + input.segment + '" "' + input.city + '"',
             '"' + input.segment + '" "' + input.city + '" Instagram',
+            norm(input.segment) + ' linktr.ee instagram ' + input.city,
           ]
           for (const q of profileQueries) {
             try {
@@ -353,8 +369,22 @@ export async function stagedLocalResearch({ input, signal, values, fetcher, mode
                 sources: ['web'], scrapeOptions: { formats: ['markdown'], onlyMainContent: true } }, 30_000)
               const hits = Array.isArray(data?.data?.web) ? data.data.web : []
               profileHits.push(...hits)
-              // Results may include directory pages with business-owned IG links.
+              // A Linktree profile can expose the *actual* Instagram link
+              // even when the search index does not list the Instagram page.
+              const hubs = hits.filter((hit) => matchingBusinessLinkHub(input, hit?.url)).slice(0, 1)
               accept(hits.filter((hit) => !/instagram\.com\/(p|reel)\//i.test(hit?.url || '')))
+              for (const hub of hubs) {
+                try {
+                  const page = await call('/v2/scrape', { url: hub.url,
+                    formats: ['markdown'], onlyMainContent: true }, 26_000)
+                  if (page?.data?.markdown) accept([{ url: hub.url,
+                    title: page.data?.metadata?.title || hub.title || '',
+                    markdown: page.data.markdown, description: hub.description || '' }])
+                } catch (error) {
+                  if (signal.aborted) throw error
+                  // An inaccessible link hub is not proof that Instagram is absent.
+                }
+              }
               const located = identifyInstagramProfile(input, sources(), profileHits)
               if (located.status !== 'not_found') { instagramDiscovery = located; break }
             } catch (error) {

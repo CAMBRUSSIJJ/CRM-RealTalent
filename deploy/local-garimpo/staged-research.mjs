@@ -143,6 +143,95 @@ const accountName = (input) => {
   account = account.replace(/^https:\/\/(www\.)?instagram\.com\//i, '').replace(/^@/, '').replace(/\/$/, '')
   return /^[a-z0-9._]{1,30}$/i.test(account) ? account : ''
 }
+
+const instagramReserved = new Set(['p','reel','reels','stories','explore','direct','accounts','about','privacy','terms','legal','developers','api','instagram','links'])
+export function instagramProfileUrl(raw) {
+  try {
+    const u = new URL(publicWebUrl(raw))
+    if (!/(^|\.)instagram\.com$/i.test(u.hostname)) return ''
+    const segments = u.pathname.split('/').filter(Boolean)
+    if (segments.length !== 1 || instagramReserved.has(segments[0].toLowerCase()) ||
+        !/^[a-z0-9._]{1,30}$/i.test(segments[0])) return ''
+    return 'https://www.instagram.com/' + segments[0].toLowerCase() + '/'
+  } catch { return '' }
+}
+export function instagramProfilesInText(raw) {
+  const text = String(raw || '').replace(/&amp;/gi, '&').replace(/\\u002f/gi, '/').replace(/\\\//g, '/')
+  const found = []
+  const regex = /https?:\/\/(?:www\.)?instagram\.com\/[a-z0-9._]+(?:\/)?(?:\?[^"'<>\s)\]]*)?/gi
+  for (const item of text.matchAll(regex)) {
+    const profile = instagramProfileUrl(item[0])
+    if (profile && !found.includes(profile)) found.push(profile)
+  }
+  return found.slice(0, 10)
+}
+const cleanCity = (value) => norm(String(value || '').replace(/(?:,|\s)\s*[A-Z]{2}\s*$/i, ''))
+export function identifyInstagramProfile(input, sources, profileResults = []) {
+  const company = norm(input.segment || '')
+  const city = cleanCity(input.city)
+  const provided = accountName(input)
+  const knownSite = selectExistingUrl(input)
+  const candidates = []
+  const nameParts = String(input.segment || '').toLowerCase().split(/\s+/).filter((part) => part.length >= 5)
+  const handleRelated = (profile) => {
+    const handle = norm(profile.split('/').filter(Boolean).at(-1) || '')
+    return Boolean(nameParts.some((part) => handle.includes(norm(part))))
+  }
+  // A profile linked from the exact saved listing is stronger than a search
+  // result. Reject generic third-party social accounts when handles differ.
+  for (const source of sources) {
+    const text = String(source.title || '') + '\n' + String(source.content || '')
+    if (!company || !norm(text).includes(company)) continue
+    const known = Boolean(knownSite && source.url === knownSite)
+    const hasCity = Boolean(city && norm(source.url + ' ' + text).includes(city))
+    if (!known && !hasCity) continue
+    for (const profile of instagramProfilesInText(text)) {
+      const related = handleRelated(profile)
+      const score = (known ? 70 : 55) + (related ? 25 : 0)
+      candidates.push({ profileUrl: profile, evidenceUrl: source.url, score,
+        status: (known && related) ? 'linked' : 'candidate' })
+    }
+  }
+  for (const result of profileResults) {
+    const profile = instagramProfileUrl(result?.url)
+    if (!profile) continue
+    const text = String(result.title || '') + ' ' + String(result.description || '') + ' ' +
+      String(result.markdown || '') + ' ' + String(result.content || '')
+    const hasCompany = Boolean(company && norm(text).includes(company))
+    const hasCity = Boolean(city && norm(text).includes(city))
+    if (!hasCompany || !hasCity) continue
+    candidates.push({ profileUrl: profile, evidenceUrl: result.url,
+      score: 40 + (handleRelated(profile) ? 25 : 0), status: 'candidate' })
+  }
+  if (provided) {
+    const profileUrl = 'https://www.instagram.com/' + provided.toLowerCase() + '/'
+    const matched = candidates.find((candidate) => candidate.profileUrl === profileUrl)
+    if (matched) return { ...matched, postCount: 0 }
+    // Never imply that a user-supplied handle was verified externally.
+    return { status: 'provided', profileUrl, postCount: 0 }
+  }
+  candidates.sort((a, b) => b.score - a.score)
+  if (!candidates.length) return { status: 'not_found', postCount: 0 }
+  const best = candidates[0]
+  // Independent equal-score candidates remain ambiguous: no auto-attribution.
+  if (candidates.some((candidate) => candidate.profileUrl !== best.profileUrl && candidate.score === best.score)) {
+    return { status: 'not_found', postCount: 0 }
+  }
+  return { status: best.status, profileUrl: best.profileUrl,
+    evidenceUrl: best.evidenceUrl, postCount: 0 }
+}
+export function postLinkedToProfile(post, profileUrl) {
+  const account = profileUrl?.split('/').filter(Boolean).at(-1)
+  if (!account || !publicInstagram(post?.url)) return false
+  const text = String(post?.title || '') + ' ' + String(post?.description || '') + ' ' +
+    String(post?.markdown || '') + ' ' + String(post?.content || '')
+  const handle = account.toLowerCase()
+  // An Instagram post URL has no account name, and search queries are NOT
+  // identity evidence. Require the indexed result itself to mention the handle.
+  return text.toLowerCase().includes('@' + handle) ||
+    text.toLowerCase().includes('instagram.com/' + handle)
+}
+
 const jsonFilePath = (jobId) => {
   if (!/^[0-9a-f-]{36}$/i.test(jobId)) throw new Error('invalid_job_id')
   return join(homedir(), '.local', 'share', 'realtalent', 'garimpo', 'jobs', jobId + '.json')

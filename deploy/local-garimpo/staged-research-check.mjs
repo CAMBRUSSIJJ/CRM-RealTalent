@@ -323,6 +323,8 @@ test('finds a candidate profile through Linktree and attributes only readable po
     assert.equal(result.instagramDiscovery.postCount, 1)
     assert.equal(result.instagramDiscovery.profileAccess, 'bio_only')
     assert.equal(result.instagramDiscovery.contentSummary, 'A publicação acessível menciona atendimento e uma nova equipe.')
+    assert.equal(result.instagramDiscovery.readablePostExcerpts?.length, 1)
+    assert.ok(result.instagramDiscovery.readablePostExcerpts[0].excerpt.includes('Estamos com uma nova equipe.'))
     assert.ok(calls.some((call) => call.url === instagram), 'must attempt direct public profile scrape')
     assert.ok(calls.some((call) => call.url === publication), 'must scrape actual post instead of only trusting search index')
     assert.ok(calls.some((call) => call.url === linktree), 'must read Linktree links')

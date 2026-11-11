@@ -1871,7 +1871,7 @@ function ProcessingWorkspace({ readOnly, queue, active, leads, snapshot, onSelec
         <article className={quality.readiness === 'ready' && active.duplicateLevel === 'none' ? 'is-ok' : 'is-warning'}><span>5</span><div><strong>Está pronta para sua base?</strong><small>{quality.readiness === 'ready' && active.duplicateLevel === 'none' ? 'Sem bloqueios conhecidos' : [...quality.blockers, ...active.duplicateReasons].slice(0, 2).join(' · ') || 'Requer decisão humana'}</small></div>{quality.readiness === 'ready' && active.duplicateLevel === 'none' ? <CheckCircle2 size={17}/> : <AlertTriangle size={17}/>}</article>
       </div>
       {attentionReasons.length ? <section className="prospecting-review-attention-v101106"><AlertTriangle size={16}/><div><strong>O que precisa da sua atenção</strong><div>{attentionReasons.map((reason) => <span key={reason}>{reason}</span>)}</div></div></section> : <section className="prospecting-review-attention-v101106 is-clear"><CheckCircle2 size={16}/><div><strong>Sem divergências importantes</strong><small>Identidade, local, contato e duplicidade atendem às regras atuais.</small></div></section>}
-      <ProspectingG1G2Panel prospect={active} snapshot={snapshot}/>
+      <ProspectingG1G2Panel prospect={active} snapshot={snapshot} workspaceId={workspaceId} readOnly={readOnly} onEnriched={onEnriched}/>
       <details className="prospecting-review-edit-v101106">
         <summary><div><span><SlidersHorizontal size={15}/> Editar dados</span><small>Abra somente se precisar corrigir alguma informação.</small></div><ChevronRight size={15}/></summary>
         <div className="prospecting-review-form">
@@ -1894,8 +1894,6 @@ function ProcessingWorkspace({ readOnly, queue, active, leads, snapshot, onSelec
 
     <aside className="prospecting-analysis-sidebar prospecting-analysis-sidebar-v101106">
       <AiResearchCard prospect={active} />
-      <FirecrawlLocalPanel key={`${workspaceId}:${active.id}`} workspaceId={workspaceId} readOnly={readOnly} canConfigure={false}
-        segment={active.company} city={active.city} prospect={active} onComplete={onEnriched} />
       <ProspectMiniMap prospect={active} />
       <details className="panel prospecting-review-evidence-v101106">
         <summary><div><Database size={15}/><span><strong>Qualidade e evidências</strong><small>Score, duplicidade, origem e rastreabilidade</small></span></div><ChevronRight size={15}/></summary>

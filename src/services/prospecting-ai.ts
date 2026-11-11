@@ -22,7 +22,9 @@ const messages: Record<string, string> = {
   local_connector_unavailable: 'O conector local ainda precisa ser instalado no Supabase. Consulte o guia do Garimpo local.',
   local_connector_offline: 'Seu computador está desconectado. Inicie o conector local e aguarde alguns segundos antes de pesquisar.',
   local_queue_busy: 'Há pesquisas aguardando no seu computador. Aguarde a conclusão para iniciar outra.',
-  local_research_failed: 'A pesquisa local falhou. Verifique se o Firecrawl e o modelo estão funcionando no seu computador.',
+  local_research_failed: 'A pesquisa local não concluiu. Consulte as etapas no Garimpo ou o terminal Linux.',
+  local_stage_failed: 'Uma etapa da investigação não concluiu; confira o diagnóstico e as fontes já coletadas.',
+  local_stage_timeout: 'A investigação excedeu o tempo permitido. As etapas concluídas continuam registradas no Linux.',
   local_job_expired: 'A pesquisa local expirou. Verifique se o conector continua aberto no computador.',
   connector_admin_required: 'Somente um administrador do workspace pode conectar ou desconectar um computador.',
 }
@@ -90,7 +92,45 @@ export async function getLocalConnectorStatus(organizationId: string) {
   return { enabled: data.enabled, lastSeenAt: data.last_seen_at, online: Boolean(data.enabled && data.last_seen_at && Date.now() - Date.parse(data.last_seen_at) < 60_000) }
 }
 
-export async function searchProspectsWithAi(input: AiSearchInput, signal?: AbortSignal): Promise<AiSearchResult> {
+export interface LocalResearchProgress {
+  stage: 'discover' | 'website' | 'web' | 'instagram' | 'facts' | 'signals' | 'completed'
+  phaseStatus: 'running' | 'completed' | 'failed'
+  sourceCount: number
+  leadCount: number
+  errorCode?: string
+  updatedAt?: string
+}
+export interface LocalSearchOptions {
+  onProgress?: (progress: LocalResearchProgress) => void
+  keepRunningOnClose?: boolean
+}
+
+export async function recentLocalResearch(organizationId: string, company: string, city: string): Promise<{
+  id: string; status: string; result: AiSearchResult | null; progress: LocalResearchProgress | null; createdAt: string; errorCode: string
+} | null> {
+  const client = effectiveDataMode === 'local' ? null : getSupabaseClient()
+  if (!client) return null
+  const { data, error } = await client.from('prospecting_ai_jobs')
+    .select('id,status,result,error_code,created_at,input')
+    .eq('organization_id', organizationId).order('created_at', { ascending: false }).limit(30)
+  if (error || !data) return null
+  const normalizeLabel = (value: string) => value.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/\s+/g, ' ').trim()
+  const match = data.find((row) => {
+    const input = row.input as Partial<AiSearchInput> | null
+    return input?.source === 'manual' && normalizeLabel(input.segment || '') === normalizeLabel(company)
+      && normalizeLabel(input.city || '') === normalizeLabel(city)
+  })
+  if (!match) return null
+  const result = match.result as (AiSearchResult & { progress?: LocalResearchProgress }) | null
+  return {
+    id: match.id as string, status: match.status as string,
+    result: match.status === 'completed' && result ? result : null,
+    progress: result?.progress ?? null, createdAt: match.created_at as string,
+    errorCode: match.error_code || '',
+  }
+}
+
+export async function searchProspectsWithAi(input: AiSearchInput, signal?: AbortSignal, options: LocalSearchOptions = {}): Promise<AiSearchResult> {
   if (!input.segment.trim() || !input.city.trim()) throw new Error(messages.search_criteria_required)
   const client = effectiveDataMode === 'local' ? null : getSupabaseClient()
   if (!client) throw new Error('A busca com IA requer o CRM conectado ao Supabase. O modo local permite importação e revisão manual.')
@@ -109,13 +149,15 @@ export async function searchProspectsWithAi(input: AiSearchInput, signal?: Abort
         const job = await client.from('prospecting_ai_jobs').select('status,result,error_code').eq('id', data.jobId).eq('organization_id', input.organizationId).maybeSingle()
         if (job.error || !job.data) throw new Error('Não foi possível acompanhar a pesquisa local.')
         if (job.data.status === 'completed') return validateAiResponse(job.data.result)
+        const progress = (job.data.result as { progress?: LocalResearchProgress } | null)?.progress
+        if (progress && options.onProgress) options.onProgress(progress)
         if (job.data.status === 'failed') throw new Error(messages[job.data.error_code ?? ''] ?? messages.local_research_failed)
         if (job.data.status === 'cancelled') throw new DOMException('Pesquisa cancelada', 'AbortError')
       }
       throw new Error(messages.local_job_expired)
     } finally {
       // Stop queued or processing work when the page closes, the user cancels or polling times out.
-      void connectorAction(input.organizationId, 'cancel', data.jobId).catch(() => {})
+      if (!options.keepRunningOnClose) void connectorAction(input.organizationId, 'cancel', data.jobId).catch(() => {})
     }
   }
   return validateAiResponse(data)

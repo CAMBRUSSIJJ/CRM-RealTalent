@@ -236,6 +236,16 @@ test('Instagram is reported missing with no invented account or signals when sea
 })
 
 
+test('does not confirm a generic barber handle from a directory as Fainer Barber', () => {
+  const input = { segment: 'Fainer Barber', city: 'Rio Grande, RS',
+    website: 'https://kortar.com.br/barbearias/rio-grande/fainer-barber', query: '' }
+  const listing = { url: input.website, title: 'Fainer Barber Rio Grande',
+    content: 'Fainer Barber Rio Grande: https://www.instagram.com/barberoficial/' }
+  const found = identifyInstagramProfile(input, [listing])
+  assert.equal(found.status, 'candidate')
+  assert.equal(found.profileUrl, 'https://www.instagram.com/barberoficial/')
+})
+
 test('Linktree discovery remains a candidate, never an automatically confirmed Instagram account', async () => {
   const input = { segment: 'Fainer Barber', city: 'Rio Grande, RS', query: '' }
   assert.equal(matchingBusinessLinkHub(input, 'https://linktr.ee/fainerbarber'), true)

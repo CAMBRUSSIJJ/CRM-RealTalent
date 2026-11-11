@@ -62,7 +62,7 @@ test('devolve dados com fontes e libera somente o modelo Ollama usado pelo conec
     const address = String(endpoint)
     calls.push({ address, options })
     if (address.endsWith('/v2/search')) return new Response(JSON.stringify({ success: true, data: { web: [{ url, title: 'Empresa', markdown: 'Empresa QA\nCanoas\n' + 'Texto\n'.repeat(1800) }] } }))
-    if (address.endsWith('/chat/completions')) return new Response(JSON.stringify({ id: 'qa', object: 'chat.completion', created: 1, model: 'qwen2.5-coder:3b', choices: [{ index: 0, message: { role: 'assistant', content: JSON.stringify({ leads: [{ facts, opportunity: '', suggestedApproach: '' }] }) }, finish_reason: 'stop' }] }))
+    if (address.endsWith('/chat/completions')) return new Response(JSON.stringify({ id: 'qa', object: 'chat.completion', created: 1, model: 'qwen2.5-coder:3b', choices: [{ index: 0, message: { role: 'assistant', content: JSON.stringify({ leads: [{ facts, opportunity: '', suggestedApproach: '', signals: [] }] }) }, finish_reason: 'stop' }] }))
     if (address.endsWith('/api/generate')) return new Response('{"done":true}')
     throw new Error('Endpoint inesperado')
   }

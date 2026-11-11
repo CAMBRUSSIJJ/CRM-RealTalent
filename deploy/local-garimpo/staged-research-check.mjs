@@ -3,7 +3,7 @@ import assert from 'node:assert/strict'
 import { mkdtemp, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { stageJournal, stagedLocalResearch, classifyStageError, companySources, sourceBackedFallback, extractFactBatches } from './staged-research.mjs'
+import { stageJournal, stagedLocalResearch, classifyStageError, companySources, sourceBackedFallback, extractFactBatches, instagramProfilesInText, instagramProfileUrl, identifyInstagramProfile, postLinkedToProfile } from './staged-research.mjs'
 
 test('separates collection phases, retains verified company if model fails and resumes from checkpoint', async () => {
   const originalHome = process.env.HOME
@@ -156,6 +156,78 @@ test('persists a verifiable contact before Ollama and marks a failed model stage
     assert.equal(result.stages.at(-1).stage, 'completed')
     assert.equal(result.stages.at(-1).phaseStatus, 'completed')
     assert.equal(result.warnings.some((warning) => warning.includes('secret worker machine')), false)
+  } finally {
+    if (originalHome === undefined) delete process.env.HOME
+    else process.env.HOME = originalHome
+    await rm(home, { recursive: true, force: true })
+  }
+})
+
+
+test('discovers Instagram from the known business page without attributing the directory own account', () => {
+  const input = { segment: 'Fainer Barber', city: 'Rio Grande, RS', query: '',
+    website: 'https://kortar.com.br/barbearias/rio-grande/fainer-barber' }
+  const listing = { url: input.website, title: 'Fainer Barber em Rio Grande',
+    content: 'Fainer Barber Rio Grande — Instagram: https://www.instagram.com/fainerbarber/?hl=pt-br. ' +
+      'Página do diretório: https://www.instagram.com/kortaroficial/' }
+  const discovered = identifyInstagramProfile(input, [listing])
+  assert.equal(discovered.profileUrl, 'https://www.instagram.com/fainerbarber/')
+  assert.equal(discovered.status, 'linked')
+  assert.equal(discovered.evidenceUrl, input.website)
+  assert.ok(instagramProfilesInText(listing.content).includes(discovered.profileUrl))
+  assert.equal(instagramProfileUrl('https://www.instagram.com/p/Abcde/'), '')
+})
+
+test('search profile by matching company and city; never assume homonymous barbers are same company', () => {
+  const input = { segment: 'Fainer Barber', city: 'Rio Grande, RS', query: '' }
+  const candidate = { url: 'https://www.instagram.com/fainerbarber/', title: 'Fainer Barber — Rio Grande RS',
+    description: 'Serviços de barbearia' }
+  const unrelated = { url: 'https://www.instagram.com/fainerpelotas/', title: 'Fainer Barber — Pelotas RS',
+    description: 'Barbearia em Pelotas' }
+  const found = identifyInstagramProfile(input, [], [unrelated, candidate])
+  assert.equal(found.status, 'candidate')
+  assert.equal(found.profileUrl, candidate.url)
+  const notFound = identifyInstagramProfile(input, [], [unrelated])
+  assert.equal(notFound.status, 'not_found')
+  const provided = identifyInstagramProfile({ ...input, instagram: '@fainerbarber' }, [], [])
+  assert.equal(provided.status, 'provided')
+})
+
+test('does not attribute an unrelated post to company merely because the search query mentions its name', () => {
+  const actual = { url: 'https://www.instagram.com/p/AAAA/', title: 'Fainer Barber (@fainerbarber) • Instagram post',
+    description: 'Contratamos uma pessoa para a equipe.' }
+  const unrelated = { url: 'https://www.instagram.com/p/BBBB/', title: 'Barbearia Outra (@barbeariaoutra) • Instagram post',
+    description: 'Marque @fainerbarber na promoção.' }
+  const profile = 'https://www.instagram.com/fainerbarber/'
+  assert.equal(postLinkedToProfile(actual, profile), true)
+  assert.equal(postLinkedToProfile(unrelated, profile), false)
+})
+
+test('Instagram is reported missing with no invented account or signals when searches fail', async () => {
+  const originalHome = process.env.HOME
+  const home = await mkdtemp(join(tmpdir(), 'realtalent-instagram-missing-'))
+  process.env.HOME = home
+  try {
+    const input = {
+      organizationId: 'aaaaaaaa-0000-4000-8000-000000000001',
+      segment: 'Fainer Barber', city: 'Rio Grande', source: 'manual', query: '', limit: 1,
+      website: 'https://kortar.com.br/barbearias/rio-grande/fainer-barber',
+    }
+    const result = await stagedLocalResearch({
+      input, jobId: 'aaaaaaaa-0000-4000-8000-000000000777', model: {},
+      signal: new AbortController().signal,
+      values: { FIRECRAWL_API_URL: 'http://127.0.0.1:3002', GARIMPO_MEMORY_PROFILE: 'low' },
+      onProgress: async () => {},
+      fetcher: async (url) => new Response(JSON.stringify(String(url).endsWith('/scrape')
+        ? { success: true, data: { metadata: { title: 'Fainer Barber' },
+          markdown: 'Fainer Barber, Rio Grande, telefone (53) 99157-9674.' } }
+        : { success: true, data: { web: [] } })),
+      generate: async () => { throw new Error('private failure') },
+    })
+    assert.equal(result.instagramDiscovery.status, 'not_found')
+    assert.equal(result.instagramDiscovery.postCount, 0)
+    assert.equal(result.leads[0].instagram, '')
+    assert.equal(result.leads[0].aiResearch.signals.length, 0)
   } finally {
     if (originalHome === undefined) delete process.env.HOME
     else process.env.HOME = originalHome

@@ -59,3 +59,9 @@
 .garimpo-cross-source__stage-status {display:grid;gap:4px;padding:11px 13px;border-radius:9px;border:1px solid #c8d6ee;background:#f2f7ff;margin:10px 0;font-size:12px;line-height:1.5;color:#25467a}
 .garimpo-cross-source__stage-status strong {font-size:12px}
 .garimpo-cross-source__stage-status small {color:#566b88;font-size:11px}
+
+.garimpo-cross-source__instagram {display:grid;gap:7px;padding:12px 14px;border-radius:10px;border:1px solid #cdd8ed;background:#f5f8fd;margin:10px 0;color:#344054}
+.garimpo-cross-source__instagram strong {font-size:12px;color:#1b2c4d}
+.garimpo-cross-source__instagram p {font-size:12px;line-height:1.55;margin:0}
+.garimpo-cross-source__instagram a {font-size:12px;display:inline-flex;gap:5px;align-items:center;color:#315bd5;max-width:100%;overflow-wrap:anywhere}
+.garimpo-cross-source__instagram small {font-size:11px;color:#64748b;line-height:1.5}

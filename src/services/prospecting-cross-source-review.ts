@@ -1,4 +1,4 @@
-import type { AiField, AiLead, AiSearchResult } from '../../supabase/functions/_shared/prospecting-ai'
+import type { AiField, AiLead, AiSearchResult, AiTriggerSignal } from '../../supabase/functions/_shared/prospecting-ai'
 import type { ProspectRecord } from './prospecting-workspace'
 
 // A field must be corroborated by two distinct registrable domains to be confirmed.
@@ -20,6 +20,7 @@ export interface CrossSourceReview {
   matched: boolean
   fields: CrossSourceField[]
   sources: Array<{ url: string; title: string }>
+  signals: AiTriggerSignal[]
   warnings: string[]
   confirmed: number
   divergent: number
@@ -82,8 +83,24 @@ export function matchedCrossSourceLead(prospect: ProspectRecord, result: AiSearc
     const sameCity = Boolean(city && normalizeCity(lead.city) === city)
     const strongCnpj = cnpj.length === 14 && digits(lead.cnpj) === cnpj
     const strongPhone = phone.length >= 10 && identityValue('phone', lead.phone) === phone
+    // Some booking directories never print the city as a field, although the
+    // specific venue URL is the same URL the reviewer already knows.
+    const knownSite = (() => {
+      try {
+        if (!prospect.website) return false
+        const known = new URL(prospect.website.startsWith('http') ? prospect.website : 'https://' + prospect.website)
+        const matches = [lead.website, ...lead.aiResearch.sources.map((source) => source.url)]
+        return matches.some((url) => {
+          try {
+            const found = new URL(url)
+            return found.hostname.replace(/^www\./, '') === known.hostname.replace(/^www\./, '')
+              && found.pathname.replace(/\/$/, '') === known.pathname.replace(/\/$/, '')
+          } catch { return false }
+        })
+      } catch { return false }
+    })()
     // A matching phone alone is not sufficient: shared booking desks may reuse numbers.
-    return (sameName && (sameCity || strongCnpj || (strongPhone && !lead.city)))
+    return (sameName && (sameCity || strongCnpj || (strongPhone && !lead.city) || (!lead.city && knownSite)))
       || (strongCnpj && (!lead.city || sameCity))
   }) ?? null
 }
@@ -123,6 +140,8 @@ export function crossSourceReview(prospect: ProspectRecord, result: AiSearchResu
     matched: Boolean(lead),
     fields: reviewedFields,
     sources,
+    signals: (lead?.aiResearch.signals ?? []).filter((signal) =>
+      Boolean(signal && signal.excerpt && signal.sourceUrl && urlHost(signal.sourceUrl))),
     // The batch size controls search depth, not the number of companies we expect
     // in a single-company review. Hide this generic limit warning here.
     warnings: result.warnings.filter((warning) => !warning.startsWith('A pesquisa retornou menos empresas com fontes')),
@@ -135,23 +154,25 @@ export function crossSourceReview(prospect: ProspectRecord, result: AiSearchResu
   }
 }
 
-// Explicit action only: copy corroborated, currently missing fields. Never overwrite
-// existing data, merge distinct companies, or approve/send the prospect.
-export function confirmedEnrichmentResult(prospect: ProspectRecord, result: AiSearchResult): AiSearchResult | null {
+// Explicit action only: import fields backed by a direct source, without
+// overwriting existing data or mistaking one source for independent confirmation.
+export function reviewEnrichmentResult(prospect: ProspectRecord, result: AiSearchResult, mode: 'confirmed' | 'observed'): AiSearchResult | null {
   const lead = matchedCrossSourceLead(prospect, result)
   if (!lead) return null
   const review = crossSourceReview(prospect, result)
-  if (!review.importable.length) return null
-  const cleaned = {
-    ...lead,
-    company: prospect.company,
-    city: prospect.city,
-  }
+  const allowed = review.fields.filter(({ status, currentValue, field }) =>
+    !currentValue && field !== 'company' && field !== 'city' &&
+    (status === 'confirmed' || (mode === 'observed' && status === 'observed'))).map(({ field }) => field)
+  if (!allowed.length) return null
+  const cleaned = { ...lead, company: prospect.company, city: prospect.city }
   for (const [field] of fields) {
-    if (field !== 'company' && field !== 'city' && !review.importable.includes(field)) cleaned[field] = ''
+    if (field !== 'company' && field !== 'city' && !allowed.includes(field)) cleaned[field] = ''
   }
   return { ...result, leads: [cleaned] }
 }
+
+export const confirmedEnrichmentResult = (prospect: ProspectRecord, result: AiSearchResult) =>
+  reviewEnrichmentResult(prospect, result, 'confirmed')
 
 /** Corroboration derived from saved evidence, never from mere field presence. */
 export function savedCrossSourceReview(prospect: ProspectRecord): CrossSourceReview | null {

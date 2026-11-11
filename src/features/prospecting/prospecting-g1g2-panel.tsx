@@ -66,6 +66,9 @@ export function ProspectingG1G2Panel({ prospect, snapshot, workspaceId, readOnly
     stage_timeout: 'A leitura dessa fonte excedeu o prazo.',
     stage_unavailable: 'A fonte ou serviço estava indisponível.',
     company_sources_unmatched: 'As páginas não foram associadas com segurança à empresa.',
+    instagram_login_required: 'O Instagram exigiu login ou restringiu a leitura pública do perfil.',
+    instagram_profile_unavailable: 'A tentativa direta de leitura do perfil não retornou conteúdo útil.',
+    instagram_posts_unavailable: 'O perfil foi identificado, mas não foi possível ler textos de publicações.',
   }
   const completionPartial = result?.researchStatus === 'partial' ||
     Boolean(result?.stages?.some((step) => step.phaseStatus === 'failed')) ||

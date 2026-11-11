@@ -85,7 +85,16 @@ export function ProspectingG1G2Panel({ prospect, snapshot, workspaceId, readOnly
       const name = prospect.company || prospect.name
       // Search engines receive short keywords, not model instructions or a full
       // company profile. Identity controls remain enforced when reviewing hits.
-      const query = 'endereço telefone site Instagram CNPJ cadastro empresarial'
+      const knownSite = prospect.website.trim()
+      const safeWebsite = knownSite.startsWith('https://') ? knownSite
+        : /^(?:www\.)?[a-z0-9-]+\.[a-z]{2,}/i.test(knownSite) ? 'https://' + knownSite : ''
+      // The existing production queue forwards 'query' but strips unknown
+      // fields. Preserve these optional hints until the backend is upgraded.
+      const hints = [
+        safeSite(safeWebsite) ? 'SITE_URL=' + encodeURIComponent(safeWebsite) : '',
+        prospect.instagram.trim() ? 'INSTAGRAM=' + encodeURIComponent(prospect.instagram.trim()) : '',
+      ].filter(Boolean)
+      const query = ['endereço telefone site Instagram CNPJ cadastro empresarial', ...hints].join(' ').slice(0, 950)
       const response = await searchProspectsWithAi({
         organizationId: workspaceId,
         segment: name,

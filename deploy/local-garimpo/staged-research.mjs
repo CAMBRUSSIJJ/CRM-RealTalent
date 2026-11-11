@@ -18,6 +18,29 @@ const publicInstagram = (url) => {
 }
 const codeOf = (error) => error?.name === 'AbortError' || error?.name === 'TimeoutError' ? 'stage_timeout' : 'stage_unavailable'
 const withTimeout = (signal, ms) => AbortSignal.any([signal, AbortSignal.timeout(ms)])
+export function sourceBackedFallback(input, sources, report) {
+  // Only unambiguous, literal public business contacts from a page identifying
+  // the selected company. No inferred WhatsApp, ownership or demand.
+  const candidate = sources.find((source) => norm(source.content || '').includes(norm(input.segment || '')))
+  if (!candidate) return { leads: [], warnings: [], researchedAt: new Date().toISOString() }
+  const facts = [{ field: 'company', value: input.segment, sourceUrl: candidate.url }]
+  const text = candidate.content || ''
+  const findUnique = (pattern, normalize = (s) => s.toLowerCase()) => {
+    const found = [...text.matchAll(pattern)].map((match) => match[0].trim())
+    const distinct = [...new Map(found.map((value) => [normalize(value), value])).values()]
+    return distinct.length === 1 ? distinct[0] : ''
+  }
+  const phone = findUnique(/(?:\+?55[ \t-]?)?\(?\d{2}\)?[ \t-]?9?\d{4}[ \t-]?\d{4}\b/g, (s) => s.replace(/\D/g, ''))
+  const email = findUnique(/[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}/gi)
+  const cnpj = findUnique(/\b\d{2}\.\d{3}\.\d{3}\/\d{4}-\d{2}\b/g, (s) => s.replace(/\D/g, ''))
+  if (phone) facts.push({ field: 'phone', value: phone, sourceUrl: candidate.url })
+  if (email) facts.push({ field: 'email', value: email, sourceUrl: candidate.url })
+  if (cnpj) facts.push({ field: 'cnpj', value: cnpj, sourceUrl: candidate.url })
+  return sanitizeAiResult({ leads: [{
+    facts, opportunity: '', suggestedApproach: '', signals: [],
+  }] }, sources, report, 1)
+}
+
 const selectExistingUrl = (input) => {
   // Old queue validators may carry these optional fields inside query hints.
   const hint = (key) => {
@@ -178,9 +201,7 @@ export async function stagedLocalResearch({ input, signal, values, fetcher, mode
       if (!factsResult.leads.length) {
         const first = sources().find((item) => norm(item.content).includes(norm(input.segment)))
         if (first) {
-          factsResult = sanitizeAiResult({ leads: [{ facts: [
-            { field: 'company', value: input.segment, sourceUrl: first.url },
-          ], opportunity: '', suggestedApproach: '', signals: [] }] }, sources(), report(), 1)
+          factsResult = sourceBackedFallback(input, sources(), report())
           warnings.push('A IA não extraiu contatos; a identidade observada foi preservada para revisão.')
         }
       }
@@ -190,9 +211,7 @@ export async function stagedLocalResearch({ input, signal, values, fetcher, mode
       warnings.push('Análise dos dados pelo Ollama não concluiu; as fontes coletadas foram preservadas.')
       // A source-backed company identity only, not unverified contact details.
       const known = sources().find((item) => norm(item.content).includes(norm(input.segment)))
-      factsResult = known ? sanitizeAiResult({ leads: [{ facts: [
-        { field: 'company', value: input.segment, sourceUrl: known.url },
-      ], opportunity: '', suggestedApproach: '', signals: [] }] }, sources(), report(), 1) :
+      factsResult = known ? sourceBackedFallback(input, sources(), report()) :
         { leads: [], warnings: [], researchedAt: new Date().toISOString() }
       await checkpoint('facts', 'failed', codeOf(error))
     }

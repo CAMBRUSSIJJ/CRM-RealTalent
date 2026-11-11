@@ -23,6 +23,10 @@ const safeSite = (value: string): string | null => {
       && !['localhost', '127.0.0.1'].includes(parsed.hostname) ? parsed.href : null
   } catch { return null }
 }
+const cadastroSignalLabel = (reason: string) => reason
+  .replace(/Empresa real confirmada por múltiplos sinais/i, 'Cadastro apresenta indícios de empresa real; a confirmação depende de fontes externas')
+  .replace(/Presença digital própria confirmada/i, 'Presença digital indicada no cadastro; autoria a verificar')
+
 const groups = [
   { status: 'divergent', title: 'Divergências — precisam de decisão' },
   { status: 'confirmed', title: 'Corroborados em domínios distintos' },
@@ -156,7 +160,7 @@ export function ProspectingG1G2Panel({ prospect, snapshot, workspaceId, readOnly
     </div>
     <p className="prospecting-g1g2__note">Pontuações baseadas no ICP e na qualidade do cadastro; não são probabilidades de compra. Score anterior: {score.existingScore}/100. Não equivalem a confirmação externa.</p>
     {score.reasons.length ? <div className="prospecting-g1g2__detail"><strong><ShieldCheck size={14}/> Sinais do cadastro</strong>
-      <ul>{score.reasons.map((reason, i) => <li key={i}>{reason}</li>)}</ul>
+      <ul>{score.reasons.map((reason, i) => <li key={i}>{cadastroSignalLabel(reason)}</li>)}</ul>
     </div> : null}
     {score.uncertainties.length ? <div className="prospecting-g1g2__detail is-warning"><strong><AlertTriangle size={14}/> O que ainda não sabemos</strong>
       <ul>{score.uncertainties.map((reason, i) => <li key={i}>{reason}</li>)}</ul>

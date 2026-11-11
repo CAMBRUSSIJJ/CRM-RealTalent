@@ -65,3 +65,9 @@
 .garimpo-cross-source__instagram p {font-size:12px;line-height:1.55;margin:0}
 .garimpo-cross-source__instagram a {font-size:12px;display:inline-flex;gap:5px;align-items:center;color:#315bd5;max-width:100%;overflow-wrap:anywhere}
 .garimpo-cross-source__instagram small {font-size:11px;color:#64748b;line-height:1.5}
+
+.garimpo-cross-source__instagram-access,.garimpo-cross-source__instagram-summary{display:grid;gap:5px;border:1px solid #d5deee;background:#fff;border-radius:9px;padding:10px;min-width:0}
+.garimpo-cross-source__instagram-access span{font-size:12px;color:#40516c}
+.garimpo-cross-source__instagram-access strong,.garimpo-cross-source__instagram-summary strong{font-size:12px}
+.garimpo-cross-source__instagram-excerpt,.garimpo-cross-source__instagram-summary p{font-size:12px;line-height:1.55;white-space:pre-wrap;overflow-wrap:anywhere;margin:5px 0}
+.garimpo-cross-source__instagram details summary{font-size:12px;font-weight:650;cursor:pointer}

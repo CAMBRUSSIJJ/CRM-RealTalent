@@ -389,7 +389,19 @@ export async function stagedLocalResearch({ input, signal, values, fetcher, mode
   function accept(items) {
     for (const item of items) {
       const url = publicWebUrl(item?.url)
-      if (!url || (!sourceMap.has(url) && sourceMap.size >= maxSources) || contentUsed >= 36000) continue
+      if (!url) continue
+      if (!sourceMap.has(url) && sourceMap.size >= maxSources && publicInstagram(url)) {
+        // Keep actual public-post text even when earlier broad web results have
+        // filled the small low-RAM source budget. Never evict the saved site.
+        const site = selectExistingUrl(input)
+        const eviction = [...sourceMap.entries()].reverse().find(([key]) =>
+          !publicInstagram(key) && key !== site)
+        if (eviction) {
+          sourceMap.delete(eviction[0])
+          contentUsed -= eviction[1].content.length
+        }
+      }
+      if ((!sourceMap.has(url) && sourceMap.size >= maxSources) || contentUsed >= 36000) continue
       const title = short(item.title, 250) || new URL(url).hostname
       const previous = sourceMap.get(url)
       // A full scrape may replace a short search snippet for the same URL.
@@ -536,13 +548,14 @@ export async function stagedLocalResearch({ input, signal, values, fetcher, mode
           accept(result.postSources.map((post) => ({
             url: post.url, title: post.title, markdown: post.content,
           })))
+          const retainedPostUrls = result.readablePostUrls.filter((url) => sourceMap.has(url))
           instagramDiscovery = {
             ...instagramDiscovery,
             profileAccess: result.profileAccess,
             accessReason: result.accessReason,
             postLinksFound: result.postLinksFound,
-            postCount: result.readablePostUrls.length,
-            readablePostUrls: result.readablePostUrls,
+            postCount: retainedPostUrls.length,
+            readablePostUrls: retainedPostUrls,
             profileExcerpt: result.profileExcerpt,
           }
           if (!result.readablePostUrls.length) {

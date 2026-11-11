@@ -149,3 +149,18 @@ export function confirmedEnrichmentResult(prospect: ProspectRecord, result: AiSe
   }
   return { ...result, leads: [cleaned] }
 }
+
+/** Corroboration derived from saved evidence, never from mere field presence. */
+export function savedCrossSourceReview(prospect: ProspectRecord): CrossSourceReview | null {
+  const candidate = prospect.rawData.aiResearch as Record<string, unknown> | undefined
+  if (!candidate || !Array.isArray(candidate.evidence) || !Array.isArray(candidate.sources)) return null
+  const lead: AiLead = {
+    company: prospect.company, city: prospect.city, address: prospect.address,
+    phone: prospect.phone, email: prospect.email, cnpj: prospect.cnpj,
+    instagram: prospect.instagram, website: prospect.website,
+    bookingUrl: prospect.bookingUrl, systemName: prospect.systemName,
+    whatsappUrl: '',
+    aiResearch: candidate as unknown as AiLead['aiResearch'],
+  }
+  return crossSourceReview(prospect, { leads: [lead], warnings: [], researchedAt: new Date().toISOString() })
+}

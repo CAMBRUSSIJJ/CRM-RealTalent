@@ -549,7 +549,7 @@ export function ProspectingPage() {
             : 'A coleta terminou sem empresas comprovadas. Confira os critérios e a etapa territorial.'
           setLocalMessage(message)
           if (localResultCount) {
-            commit((current) => applyAiDiscovery(current, result, workspaceId, 'manual', snapshot.leads, currentUserId))
+            commit((current) => applyAiDiscovery(current, result, workspaceId, 'manual', snapshot?.leads ?? [], currentUserId))
             notify('success', `Firecrawl + Ollama: ${localResultCount} empresa(s) processada(s). Confira Revisar para validar evidências.`)
           } else {
             notify('info', 'Firecrawl + Ollama concluíram sem empresas verificáveis. Nenhum registro fictício foi criado.')

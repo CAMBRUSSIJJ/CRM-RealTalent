@@ -25,7 +25,7 @@ test('entrega o resultado na mesma reserva e não envia mensagens privadas de er
   await assert.rejects(runLocalJob(api, job, 'other-workspace', async () => {}), /workspace_mismatch/)
   calls.length = 0
   await runLocalJob(api, job, org, async () => { throw new Error('secret-key') })
-  assert.deepEqual(calls[0][1], { jobId: 'job', leaseId: 'lease', failed: true })
+  assert.deepEqual(calls[0][1], { jobId: 'job', leaseId: 'lease', failed: true, errorCode: 'local_research_failed' })
 })
 
 test('aceita serviços locais e nunca cria empresas sem fontes', async () => {

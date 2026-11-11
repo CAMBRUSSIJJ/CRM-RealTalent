@@ -31,6 +31,25 @@ describe('Garimpo com IA e fontes', () => {
     expect(output.warnings).toHaveLength(1)
   })
 
+  it('preserva eventos-gatilho somente quando a publicação contém o trecho citado', () => {
+    const publication = 'https://www.instagram.com/p/exemplo123/'
+    const text = 'Alpha Barbearia Canoas anuncia: Estamos contratando profissionais para a equipe.'
+    const extracted = sanitizeAiResult({
+      leads: [{
+        facts: [{ field: 'company', value: 'Alpha Barbearia', sourceUrl: publication }],
+        opportunity: 'Investigar contratação', suggestedApproach: 'Perguntar sobre equipe',
+        signals: [
+          { type: 'hiring', title: 'Contratação', excerpt: 'Estamos contratando profissionais', sourceUrl: publication, eventDate: '' },
+          { type: 'expansion', title: 'Nova unidade', excerpt: 'Abriremos uma nova unidade', sourceUrl: publication, eventDate: '' },
+        ],
+      }],
+    }, [{ url: publication, title: 'Post público', content: text }], text, 1)
+    expect(extracted.leads[0].aiResearch.signals).toHaveLength(1)
+    expect(extracted.leads[0].aiResearch.signals?.[0]).toMatchObject({
+      type: 'hiring', channel: 'instagram', sourceUrl: publication, eventDate: '',
+    })
+  })
+
   it('não atribui dado de outra página a uma empresa e não cria leads sem fonte', () => {
     expect(sanitizeAiResult(raw, [{ url, title: 'Alpha', content: 'Outra empresa' }], report, 5).leads).toEqual([])
     expect(sanitizeAiResult(raw, [], report, 5).leads).toEqual([])
@@ -130,6 +149,26 @@ describe('coleta com Firecrawl próprio', () => {
     expect(JSON.parse(options.body).scrapeOptions.formats).toEqual(['markdown'])
     expect(output.sources).toHaveLength(1)
     expect(output.report).toContain('Alpha')
+  })
+
+  it('lê primeiro o site exato da empresa e pesquisa posts públicos usando a fila atual', async () => {
+    const website = 'https://kortar.com.br/barbearias/rio-grande/fainer-barber'
+    const fetcher = vi.fn().mockImplementation((endpoint: URL) => new Response(JSON.stringify(
+      endpoint.pathname.endsWith('/scrape')
+        ? { success: true, data: { markdown: 'Fainer Barber Rio Grande telefone (53) 99999-9999', metadata: { title: 'Fainer Barber' } } }
+        : { success: true, data: { web: [] } },
+    )))
+    const query = 'cadastro empresarial SITE_URL=' + encodeURIComponent(website) + ' INSTAGRAM=' + encodeURIComponent('@fainerbarber')
+    const output = await createFirecrawlResearch('http://127.0.0.1:3002', '', fetcher, true)(
+      { ...input, segment: 'Fainer Barber', city: 'Rio Grande', source: 'manual', query },
+      new AbortController().signal,
+    )
+    expect(fetcher.mock.calls).toHaveLength(3)
+    expect(fetcher.mock.calls[0][0].pathname).toBe('/v2/scrape')
+    expect(fetcher.mock.calls[1][0].pathname).toBe('/v2/search')
+    expect(fetcher.mock.calls[2][1].body).toContain('fainerbarber')
+    expect(output.sources[0].url).toBe(website)
+    expect(output.warnings.some((warning) => warning.includes('Instagram'))).toBe(true)
   })
 
   it('não aceita credenciais na URL nem devolve o corpo do erro do coletor', async () => {

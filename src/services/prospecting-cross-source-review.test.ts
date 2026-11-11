@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import type { ProspectRecord } from './prospecting-workspace'
 import type { AiEvidence, AiLead, AiSearchResult } from '../../supabase/functions/_shared/prospecting-ai'
-import { confirmedEnrichmentResult, crossSourceReview, matchedCrossSourceLead } from './prospecting-cross-source-review'
+import { confirmedEnrichmentResult, reviewEnrichmentResult, researchOnlyEnrichmentResult, crossSourceReview, matchedCrossSourceLead } from './prospecting-cross-source-review'
 
 const prospect = (overrides: Record<string, string> = {}) => ({
   id: 'review-1',
@@ -95,6 +95,50 @@ describe('Garimpo: revisão cruzada de fontes', () => {
     const data = result([fact('company', 'Barbearia Central', a)], { city: 'Rio Grande' })
     expect(matchedCrossSourceLead(prospect({ city: 'Rio Grande, RS' }), data)).not.toBeNull()
     expect(matchedCrossSourceLead(prospect({ city: 'Pelotas, RS' }), data)).toBeNull()
+  })
+
+  it('associa uma empresa sem cidade no resultado pela página exata já cadastrada', () => {
+    const website = 'https://kortar.com.br/barbearias/rio-grande/fainer-barber'
+    const known = prospect({ company: 'Fainer Barber', name: 'Fainer Barber', website, city: 'Rio Grande' })
+    const data = result([fact('company', 'Fainer Barber', website)], {
+      company: 'Fainer Barber', city: '',
+      aiResearch: {
+        evidence: [fact('company', 'Fainer Barber', website)],
+        sources: [{ url: website, title: 'Fainer Barber | Kortar' }],
+        opportunity: '', suggestedApproach: '', missingFields: [], researchedAt: '2026-11-11T12:00:00Z',
+      },
+    })
+    expect(matchedCrossSourceLead(known, data)).not.toBeNull()
+    expect(matchedCrossSourceLead({ ...known, company: 'Outra Barbearia', name: 'Outra Barbearia' }, data)).toBeNull()
+  })
+
+  it('permite preencher dado de uma fonte sem promover esse dado a confirmado', () => {
+    const phone = '(53) 99911-2233'
+    const data = result([fact('phone', phone, a)], { phone, systemName: 'Não analisado' })
+    const review = crossSourceReview(prospect(), data)
+    expect(review.fields.find((field) => field.field === 'phone')?.status).toBe('observed')
+    expect(reviewEnrichmentResult(prospect(), data, 'confirmed')).toBeNull()
+    const observed = reviewEnrichmentResult(prospect(), data, 'observed')
+    expect(observed?.leads[0].phone).toBe(phone)
+    expect(observed?.leads[0].systemName).toBe('')
+  })
+
+  it('salva sinais com suas fontes, sem preencher nenhum campo comercial', () => {
+    const data = result([fact('company', 'Barbearia Central', a)], {
+      phone: '(53) 99911-2233',
+      aiResearch: {
+        evidence: [fact('company', 'Barbearia Central', a)],
+        sources: [{ url: a, title: 'Página oficial' }],
+        opportunity: '', suggestedApproach: '', missingFields: [], researchedAt: '2026-11-11T12:00:00Z',
+        signals: [{
+          type: 'hiring', title: 'Contratação divulgada', excerpt: 'Estamos contratando',
+          sourceUrl: a, eventDate: '', channel: 'website',
+        }],
+      },
+    })
+    const saved = researchOnlyEnrichmentResult(prospect(), data)
+    expect(saved?.leads[0].phone).toBe('')
+    expect(saved?.leads[0].aiResearch.signals).toHaveLength(1)
   })
 
   it('sem evidências não confirma nenhum dado e não preenche lacunas', () => {

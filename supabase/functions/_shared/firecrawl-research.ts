@@ -6,7 +6,7 @@ export function createFirecrawlResearch(baseUrl: string, apiKey = '', fetcher: t
   if ((!localHttp && base.protocol !== 'https:') || base.username || base.password || base.search || base.hash) throw new Error('firecrawl_requires_https')
   const endpoint = new URL(`${base.href.replace(/\/$/, '').replace(/\/v2$/, '')}/v2/search`)
   return async (input: AiSearchInput, signal: AbortSignal): Promise<{ report: string; sources: AiSource[]; warnings: string[] }> => {
-    const review = input.source === 'manual' && input.query.includes('cadastro empresarial')
+    const review = input.source === 'manual'
     const focus = input.source === 'instagram' ? 'site:instagram.com' : input.source === 'cnpj' ? 'CNPJ empresa' : ''
     // Use concise search terms: long instructions and a long list of desired
     // fields make SearXNG return zero results, even for genuine businesses.
@@ -47,12 +47,40 @@ export function createFirecrawlResearch(baseUrl: string, apiKey = '', fetcher: t
         documents.push({ url, title, content })
       }
     }
-    addResults(await request(searchPhrase, review ? 6 : Math.min(input.limit * 2, 20)))
+    if (review && input.website) {
+      // The saved booking/site URL can contain contacts even when no search
+      // engine indexes it. Read only a validated public HTTPS URL.
+      try {
+        const scrapeEndpoint = new URL(base.href.replace(/\/$/, '').replace(/\/v2$/, '') + '/v2/scrape')
+        const response = await fetcher(scrapeEndpoint, {
+          method: 'POST', redirect: 'error', signal,
+          headers: { 'content-type': 'application/json', ...(apiKey ? { authorization: 'Bearer ' + apiKey } : {}) },
+          body: JSON.stringify({ url: input.website, formats: ['markdown'], onlyMainContent: true }),
+        })
+        if (response.ok) {
+          const payload: unknown = await response.json()
+          const data = isRecord(payload) && isRecord(payload.data) ? payload.data : null
+          if (data) addResults([{ url: input.website,
+            title: isRecord(data.metadata) ? data.metadata.title : '',
+            description: '', markdown: data.markdown }])
+          else warnings.push('O site cadastrado não retornou conteúdo utilizável.')
+        } else warnings.push('O site cadastrado não pôde ser lido automaticamente.')
+      } catch (error) {
+        if (signal.aborted) throw error
+        warnings.push('Não foi possível ler o site cadastrado. A pesquisa em outras fontes continua.')
+      }
+    }
+    addResults(await request(searchPhrase, review ? 5 : Math.min(input.limit * 2, 20)))
     if (review && !signal.aborted) {
       // A second, focused web-index search may expose public posts/reels. It
       // does not bypass Instagram login, private accounts or rate limits.
       try {
-        addResults(await request(`site:instagram.com/p OR site:instagram.com/reel "${input.segment.replace(/"/g, '').slice(0, 80)}" ${input.city.slice(0, 80)}`, 5))
+        const account = input.instagram
+          ? input.instagram.replace(/^https:\/\/(www\.)?instagram\.com\//i, '').replace(/^@/, '').replace(/\/$/, '')
+          : ''
+        const instagramQuery = 'site:instagram.com/p OR site:instagram.com/reel ' +
+          (account ? account + ' ' + input.segment.slice(0, 70) : input.segment.slice(0, 70) + ' ' + input.city.slice(0, 70))
+        addResults(await request(instagramQuery, 5))
       } catch (error) {
         if (signal.aborted) throw error
         warnings.push('A pesquisa de publicações públicas do Instagram não respondeu. A pesquisa nos demais sites foi preservada.')

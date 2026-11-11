@@ -123,7 +123,9 @@ export function crossSourceReview(prospect: ProspectRecord, result: AiSearchResu
     matched: Boolean(lead),
     fields: reviewedFields,
     sources,
-    warnings: result.warnings,
+    // The batch size controls search depth, not the number of companies we expect
+    // in a single-company review. Hide this generic limit warning here.
+    warnings: result.warnings.filter((warning) => !warning.startsWith('A pesquisa retornou menos empresas com fontes')),
     confirmed: count('confirmed'),
     divergent: count('divergent'),
     observed: count('observed'),

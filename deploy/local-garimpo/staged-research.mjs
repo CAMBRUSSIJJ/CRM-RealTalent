@@ -326,9 +326,11 @@ export async function stagedLocalResearch({ input, signal, values, fetcher, mode
       await checkpoint('website', 'running')
       try {
         if (knownSite) {
-          const page = await call('/v2/scrape', { url: knownSite, formats: ['markdown'], onlyMainContent: true }, 38_000)
+          const page = await call('/v2/scrape', { url: knownSite, formats: ['markdown', 'links'], onlyMainContent: true }, 38_000)
           if (page.data) accept([{ url: knownSite, title: page.data?.metadata?.title || '',
-            markdown: page.data.markdown || '' }])
+            markdown: [page.data.markdown || '', ...(Array.isArray(page.data.links)
+              ? page.data.links.filter((link) => typeof link === 'string' &&
+                  /instagram\.com\//i.test(link)).slice(0, 8) : [])].join('\n') }])
         }
         await checkpoint('website', 'completed')
       } catch (error) {
@@ -378,10 +380,13 @@ export async function stagedLocalResearch({ input, signal, values, fetcher, mode
               for (const hub of hubs) {
                 try {
                   const page = await call('/v2/scrape', { url: hub.url,
-                    formats: ['markdown'], onlyMainContent: true }, 26_000)
+                    formats: ['markdown', 'links'], onlyMainContent: true }, 26_000)
                   if (page?.data?.markdown) accept([{ url: hub.url,
                     title: page.data?.metadata?.title || hub.title || '',
-                    markdown: page.data.markdown, description: hub.description || '' }])
+                    markdown: [page.data.markdown, ...(Array.isArray(page.data.links)
+                      ? page.data.links.filter((link) => typeof link === 'string' &&
+                          /instagram\.com\//i.test(link)).slice(0, 8) : [])].join('\n'),
+                    description: hub.description || '' }])
                 } catch (error) {
                   if (signal.aborted) throw error
                   // An inaccessible link hub is not proof that Instagram is absent.

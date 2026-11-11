@@ -247,3 +247,68 @@ test('Linktree discovery remains a candidate, never an automatically confirmed I
   assert.equal(result.profileUrl, 'https://www.instagram.com/barbermodelrg/')
   assert.equal(result.evidenceUrl, source.url)
 })
+
+
+test('finds a candidate profile through Linktree and attributes only readable posts to its account', async () => {
+  const originalHome = process.env.HOME
+  const home = await mkdtemp(join(tmpdir(), 'realtalent-linktree-research-'))
+  process.env.HOME = home
+  try {
+    const site = 'https://kortar.com.br/barbearias/rio-grande/fainer-barber'
+    const linktree = 'https://linktr.ee/fainerbarber'
+    const instagram = 'https://www.instagram.com/barbermodelrg/'
+    const publication = 'https://www.instagram.com/p/AbcdefG/'
+    const input = { organizationId: 'aaaaaaaa-0000-4000-8000-000000000001',
+      segment: 'Fainer Barber', city: 'Rio Grande, RS',
+      website: site, query: '', source: 'manual', limit: 1 }
+    const calls = []
+    const result = await stagedLocalResearch({
+      input, jobId: 'aaaaaaaa-0000-4000-8000-000000000888', model: {},
+      signal: new AbortController().signal,
+      values: { FIRECRAWL_API_URL: 'http://127.0.0.1:3002', GARIMPO_MEMORY_PROFILE: 'low' },
+      onProgress: async () => {},
+      fetcher: async (url, request) => {
+        const body = JSON.parse(request.body)
+        calls.push({ path: url.pathname, query: body.query || '', url: body.url || '' })
+        if (url.pathname.endsWith('/scrape')) return new Response(JSON.stringify({
+          success: true, data: {
+            metadata: { title: body.url === site ? 'Fainer Barber — Rio Grande' : 'Barber Model' },
+            markdown: body.url === site
+              ? 'Fainer Barber, Rio Grande RS: (53) 99157-9674.'
+              : 'FainerBarber Rio Grande RS · Instagram: ' + instagram,
+          },
+        }))
+        if (body.query.includes('linktr.ee')) return new Response(JSON.stringify({
+          success: true, data: { web: [{ url: linktree, title: 'Barber Model', description: 'FainerBarber Rio Grande' }] },
+        }))
+        if (body.query.includes('instagram.com/p/')) return new Response(JSON.stringify({
+          success: true, data: { web: [{ url: publication, title: 'Barber Model (@barbermodelrg) • Instagram post',
+            description: 'Fainer Barber Rio Grande: Estamos com uma nova equipe.' }] },
+        }))
+        return new Response(JSON.stringify({ success: true, data: { web: [] } }))
+      },
+      generate: async (args) => {
+        if (args.system.includes('eventos comerciais')) return { output: { signals: [{
+          type: 'hiring', title: 'Equipe ampliada', excerpt: 'Estamos com uma nova equipe.',
+          sourceUrl: publication, eventDate: '',
+        }] } }
+        const batch = JSON.parse(args.prompt).sources || []
+        const source = batch[0]
+        return { output: { leads: [{ facts: [
+          { field: 'company', value: 'Fainer Barber', sourceUrl: site },
+        ].filter((fact) => fact.sourceUrl === source?.url), opportunity: '', suggestedApproach: '', signals: [] }] } }
+      },
+    })
+    assert.equal(result.instagramDiscovery.status, 'candidate')
+    assert.equal(result.instagramDiscovery.profileUrl, instagram)
+    assert.equal(result.instagramDiscovery.postCount, 1)
+    assert.ok(calls.some((call) => call.url === linktree), 'must read Linktree links')
+    assert.ok(calls.some((call) => call.query.includes('instagram.com/p/')))
+    assert.equal(result.leads[0].company, 'Fainer Barber')
+    assert.equal(result.leads[0].aiResearch.signals[0]?.sourceUrl, publication)
+  } finally {
+    if (originalHome === undefined) delete process.env.HOME
+    else process.env.HOME = originalHome
+    await rm(home, { recursive: true, force: true })
+  }
+})

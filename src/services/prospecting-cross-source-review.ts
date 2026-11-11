@@ -1,3 +1,4 @@
+import { aiFields } from '../../supabase/functions/_shared/prospecting-ai'
 import type { AiField, AiLead, AiSearchResult, AiTriggerSignal } from '../../supabase/functions/_shared/prospecting-ai'
 import type { ProspectRecord } from './prospecting-workspace'
 
@@ -165,8 +166,20 @@ export function reviewEnrichmentResult(prospect: ProspectRecord, result: AiSearc
     (status === 'confirmed' || (mode === 'observed' && status === 'observed'))).map(({ field }) => field)
   if (!allowed.length) return null
   const cleaned = { ...lead, company: prospect.company, city: prospect.city }
-  for (const [field] of fields) {
+  for (const field of aiFields) {
     if (field !== 'company' && field !== 'city' && !allowed.includes(field)) cleaned[field] = ''
+  }
+  return { ...result, leads: [cleaned] }
+}
+
+// Preserve only the linked research and cited signals, without editing any
+// contact fields. Reviewers can save findings even when no new contact exists.
+export function researchOnlyEnrichmentResult(prospect: ProspectRecord, result: AiSearchResult): AiSearchResult | null {
+  const lead = matchedCrossSourceLead(prospect, result)
+  if (!lead) return null
+  const cleaned = { ...lead, company: prospect.company, city: prospect.city }
+  for (const field of aiFields) {
+    if (field !== 'company' && field !== 'city') cleaned[field] = ''
   }
   return { ...result, leads: [cleaned] }
 }

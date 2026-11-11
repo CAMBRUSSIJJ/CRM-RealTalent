@@ -34,6 +34,8 @@ export interface AiSearchInput {
   source: 'maps' | 'instagram' | 'cnpj' | 'extension' | 'manual'
   limit: number
   prospectId?: string
+  website?: string
+  instagram?: string
   execution?: 'local' | 'server'
 }
 export interface AiSearchResult { leads: AiLead[]; warnings: string[]; researchedAt: string }
@@ -56,7 +58,16 @@ export function parseAiSearchInput(value: unknown): AiSearchInput {
   if (!['maps', 'instagram', 'cnpj', 'extension', 'manual'].includes(source)) throw new ProspectingError('invalid_source')
   if (value.prospectId !== undefined && !uuid.test(text(value.prospectId))) throw new ProspectingError('invalid_prospect')
   if (value.execution !== undefined && !['local', 'server'].includes(text(value.execution))) throw new ProspectingError('invalid_execution')
-  return { organizationId: text(value.organizationId), segment, city, query, limit, source: source as AiSearchInput['source'], ...(value.prospectId ? { prospectId: text(value.prospectId) } : {}), ...(value.execution ? { execution: value.execution as 'local' | 'server' } : {}) }
+  const website = value.website ? publicWebUrl(value.website) : ''
+  if (value.website && (!website || !website.startsWith('https://'))) throw new ProspectingError('invalid_website')
+  const instagram = text(value.instagram, 100)
+  if (instagram && !(/^@?[a-z0-9._]{1,30}$/i.test(instagram) ||
+    (/^https:\/\/(www\.)?instagram\.com\/[a-z0-9._]{1,30}\/?$/i.test(instagram)))) throw new ProspectingError('invalid_instagram')
+  return { organizationId: text(value.organizationId), segment, city, query, limit, source: source as AiSearchInput['source'],
+    ...(value.prospectId ? { prospectId: text(value.prospectId) } : {}),
+    ...(website ? { website } : {}),
+    ...(instagram ? { instagram } : {}),
+    ...(value.execution ? { execution: value.execution as 'local' | 'server' } : {}) }
 }
 
 export function publicWebUrl(value: unknown): string {

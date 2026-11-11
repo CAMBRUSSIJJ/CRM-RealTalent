@@ -91,6 +91,12 @@ describe('Garimpo: revisão cruzada de fontes', () => {
     expect(confirmedEnrichmentResult(prospect({ phone }), data)).toBeNull()
   })
 
+  it('reconhece município com e sem UF, sem misturar empresas de outra cidade', () => {
+    const data = result([fact('company', 'Barbearia Central', a)], { city: 'Rio Grande' })
+    expect(matchedCrossSourceLead(prospect({ city: 'Rio Grande, RS' }), data)).not.toBeNull()
+    expect(matchedCrossSourceLead(prospect({ city: 'Pelotas, RS' }), data)).toBeNull()
+  })
+
   it('sem evidências não confirma nenhum dado e não preenche lacunas', () => {
     const data = result([])
     const review = crossSourceReview(prospect(), data)

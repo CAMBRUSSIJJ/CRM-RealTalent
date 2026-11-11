@@ -6,7 +6,7 @@ import type { ProspectRecord } from '../../services/prospecting-workspace'
 import { explainProspectScore, prospectDecisionLabel } from '../../services/prospecting-g1g2-intelligence'
 import { scoreProspectWithIcp } from '../../services/prospecting-intelligence'
 import { getLocalConnectorStatus, searchProspectsWithAi, type AiSearchResult } from '../../services/prospecting-ai'
-import { confirmedEnrichmentResult, crossSourceReview, type CrossSourceField } from '../../services/prospecting-cross-source-review'
+import { confirmedEnrichmentResult, reviewEnrichmentResult, crossSourceReview, savedCrossSourceReview, type CrossSourceField } from '../../services/prospecting-cross-source-review'
 import './prospecting-cross-source-review.css'
 
 interface Props {
@@ -52,8 +52,10 @@ export function ProspectingG1G2Panel({ prospect, snapshot, workspaceId, readOnly
   const [result, setResult] = useState<AiSearchResult | null>(null)
   const [error, setError] = useState('')
   const abortRef = useRef<AbortController | null>(null)
-  const review = useMemo(() => result ? crossSourceReview(prospect, result) : null, [prospect, result])
+  const review = useMemo(() => result ? crossSourceReview(prospect, result) : savedCrossSourceReview(prospect), [prospect, result])
   const applicable = useMemo(() => result ? confirmedEnrichmentResult(prospect, result) : null, [prospect, result])
+  const observedApplicable = useMemo(() => result ? reviewEnrichmentResult(prospect, result, 'observed') : null, [prospect, result])
+  const foundCount = review?.fields.filter((field) => !field.currentValue && (field.status === 'confirmed' || field.status === 'observed')).length ?? 0
 
   useEffect(() => {
     abortRef.current?.abort()
@@ -90,6 +92,13 @@ export function ProspectingG1G2Panel({ prospect, snapshot, workspaceId, readOnly
         city: prospect.city,
         query,
         source: 'manual',
+        website: (() => {
+          const site = prospect.website.trim()
+          if (!site) return undefined
+          const prepared = site.startsWith('https://') ? site : /^(?:www\.)?[a-z0-9-]+\.[a-z]{2,}/i.test(site) ? 'https://' + site : ''
+          return safeSite(prepared) || undefined
+        })(),
+        instagram: prospect.instagram.trim() || undefined,
         limit: 5,
         execution: 'local',
       }, ctrl.signal)
@@ -106,12 +115,13 @@ export function ProspectingG1G2Panel({ prospect, snapshot, workspaceId, readOnly
     }
   }
 
-  const apply = () => {
-    if (!applicable || readOnly) return
+  const apply = (mode: 'confirmed' | 'observed') => {
+    const selected = mode === 'confirmed' ? applicable : observedApplicable
+    if (!selected || readOnly) return
     try {
-      onEnriched(applicable)
+      onEnriched(selected)
     } catch (reason) {
-      setError(reason instanceof Error ? reason.message : 'Não foi possível registrar os campos confirmados.')
+      setError(reason instanceof Error ? reason.message : 'Não foi possível registrar os campos encontrados.')
     }
   }
 
@@ -147,7 +157,7 @@ export function ProspectingG1G2Panel({ prospect, snapshot, workspaceId, readOnly
 
     <div className="prospecting-g1g2__investigate garimpo-cross-source__action">
       <div><strong>Verificação cruzada · Firecrawl + Ollama</strong>
-        <small>Pesquisa outras fontes públicas e compara com o cadastro. Considera o dado corroborado quando dois domínios distintos apresentam o mesmo valor. A decisão continua humana.</small>
+        <small>Lê o site cadastrado, procura outras fontes e posts públicos do Instagram. Ollama identifica evidências e possíveis eventos-gatilho. O preenchimento exige fonte; a decisão continua humana.</small>
       </div>
       <Button variant="secondary" disabled={busy || readOnly} onClick={() => void run()}>
         {busy ? <LoaderCircle size={15} className="spin"/> : <SearchCheck size={15}/>}
@@ -157,7 +167,7 @@ export function ProspectingG1G2Panel({ prospect, snapshot, workspaceId, readOnly
     {busy ? <p className="garimpo-cross-source__progress" role="status">O Firecrawl está pesquisando. O Ollama verificará as informações encontradas. Mantenha o conector Linux aberto.</p> : null}
     {error ? <p className="prospecting-g1g2__error" role="alert">{error}</p> : null}
 
-    {result && review ? <div className="garimpo-cross-source" aria-live="polite">
+    {review ? <div className="garimpo-cross-source" aria-live="polite">
       {review.matched ? <>
         <div className="garimpo-cross-source__counts">
           <span className="is-confirmed"><strong>{review.confirmed}</strong> Confirmados</span>
@@ -173,6 +183,16 @@ export function ProspectingG1G2Panel({ prospect, snapshot, workspaceId, readOnly
             <ul>{found.map((field) => <EvidenceRow key={field.field} field={field}/>)}</ul>
           </section> : null
         })}
+        <section className="garimpo-cross-source__triggers" aria-label="Conteúdo público e eventos-gatilho">
+          <header><strong>Conteúdo público e eventos-gatilho</strong><small>Publicações, eventos, contratações, expansão e outros sinais comerciais observáveis. Sinal não significa intenção de compra.</small></header>
+          {review.signals.length ? <ul>
+            {review.signals.map((signal, index) => <li key={signal.sourceUrl + index}>
+              <div><strong>{signal.title}</strong><small>{signal.channel === 'instagram' ? 'Instagram público' : signal.channel === 'website' ? 'Website / notícia' : 'Fonte pública'}{signal.eventDate ? ' · ' + signal.eventDate : ' · Data não confirmada'}</small></div>
+              <p>{signal.excerpt}</p>
+              {safeSite(signal.sourceUrl) ? <a href={safeSite(signal.sourceUrl)!} target="_blank" rel="noopener noreferrer"><ExternalLink size={13}/> Abrir publicação ou fonte</a> : null}
+            </li>)}
+          </ul> : <p>Nenhum evento-gatilho foi comprovado nas publicações acessíveis desta pesquisa. Isso não significa que a empresa não tenha publicado conteúdo.</p>}
+        </section>
         {review.pending ? <details className="garimpo-cross-source__pending"><summary>Dados ainda não verificados ({review.pending})</summary>
           <p>{review.fields.filter((field) => field.status === 'pending').map((field) => field.label).join(' · ')}</p>
         </details> : null}
@@ -180,10 +200,13 @@ export function ProspectingG1G2Panel({ prospect, snapshot, workspaceId, readOnly
           <ul>{review.sources.map((source) => safeSite(source.url) ? <li key={source.url}><a href={safeSite(source.url)!} target="_blank" rel="noopener noreferrer"><ExternalLink size={12}/>{source.title || new URL(source.url).hostname}</a></li> : null)}</ul>
         </details> : null}
         <footer className="garimpo-cross-source__footer">
-          {applicable && !readOnly ? <Button variant="secondary" onClick={apply}>
-            Adicionar {review.importable.length} campo(s) confirmados e ausentes
-          </Button> : <small>Nenhum campo ausente tem corroboração suficiente em dois domínios diferentes para preenchimento automático. Os dados existentes foram preservados.</small>}
-          <small>A aprovação e o envio ao CRM continuam manuais.</small>
+          {applicable && !readOnly ? <Button variant="secondary" onClick={() => apply('confirmed')}>
+            Preencher {review.importable.length} campo(s) corroborados
+          </Button> : null}
+          {observedApplicable && !readOnly ? <Button variant="secondary" onClick={() => apply('observed')}>
+            Preencher {foundCount} dado(s) com fonte (ainda sem confirmação independente)
+          </Button> : <small>Nenhum novo campo seguro para preenchimento. Os dados já cadastrados foram preservados.</small>}
+          <small>O preenchimento não aprova a empresa nem altera campos existentes. Confirme os dados de uma única fonte antes de enviar ao CRM.</small>
         </footer>
       </> : <p role="status">A pesquisa terminou, mas não encontrou evidências que identifiquem com segurança <strong>{prospect.company}</strong>. Nenhuma informação foi atribuída a esta empresa.</p>}
       {review.warnings.length ? <details className="garimpo-cross-source__pending"><summary>Limitações da pesquisa ({review.warnings.length})</summary>

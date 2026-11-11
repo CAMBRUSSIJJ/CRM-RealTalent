@@ -60,6 +60,8 @@ export interface AiInstagramDiscovery {
   accessReason?: 'login_required' | 'no_public_content' | 'scrape_failed' | 'timeout' | 'posts_unavailable'
   /** Only URLs of post pages whose readable text was actually collected. */
   readablePostUrls?: string[]
+  /** Citable excerpts of real publicly readable posts, even if Ollama fails. */
+  readablePostExcerpts?: Array<{ url: string; excerpt: string }>
   /** Short excerpt actually returned from the public profile page. */
   profileExcerpt?: string
   /** Summarization of publicly readable posts only, not images or videos. */

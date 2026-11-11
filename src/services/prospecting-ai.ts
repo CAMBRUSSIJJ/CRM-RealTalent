@@ -133,7 +133,7 @@ export async function recentLocalResearch(organizationId: string, company: strin
       stage: 'completed', phaseStatus: partiallyCompleted ? 'failed' : 'completed',
       sourceCount: finalStage?.sourceCount ?? result?.leads?.[0]?.aiResearch?.sources?.length ?? 0,
       leadCount: result?.leads?.length ?? 0,
-      updatedAt: finalStage?.updatedAt ?? match.created_at,
+      updatedAt: finalStage?.at ?? match.created_at,
     }
     : match.status === 'failed' && result?.progress
       ? { ...result.progress, phaseStatus: 'failed' }

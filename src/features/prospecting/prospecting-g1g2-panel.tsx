@@ -276,6 +276,14 @@ export function ProspectingG1G2Panel({ prospect, snapshot, workspaceId, readOnly
             <a href={url} key={url} target="_blank" rel="noopener noreferrer"><ExternalLink size={13}/> Publicação fonte</a>)}
         </div>
       </div> : null}
+      {result.instagramDiscovery.readablePostExcerpts?.length ? <details className="garimpo-cross-source__instagram-excerpts">
+        <summary>Ver textos públicos realmente coletados ({result.instagramDiscovery.readablePostExcerpts.length})</summary>
+        <ul>{result.instagramDiscovery.readablePostExcerpts.map((post) =>
+          <li key={post.url}><p>{post.excerpt}</p>
+            {safeSite(post.url) ? <a href={post.url} target="_blank" rel="noopener noreferrer">
+              <ExternalLink size={13}/> Abrir publicação original</a> : null}
+          </li>)}</ul>
+      </details> : null}
       {!result.instagramDiscovery.postCount ? <small>Nenhuma legenda ou texto de publicação pôde ser analisado. Um link encontrado não conta como conteúdo lido.</small> : null}
     </section> : null}
     {error ? <p className="prospecting-g1g2__error" role="alert">{error}</p> : null}

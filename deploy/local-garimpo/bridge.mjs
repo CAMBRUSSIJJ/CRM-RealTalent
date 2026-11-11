@@ -4,6 +4,7 @@ import { createOpenAI } from '@ai-sdk/openai'
 import { aiOutputSchema, parseAiSearchInput, sanitizeAiResult } from '../../supabase/functions/_shared/prospecting-ai.ts'
 import { createFirecrawlResearch } from '../../supabase/functions/_shared/firecrawl-research.ts'
 import { compactLocalSources } from './hardware-profile.mjs'
+import { stagedLocalResearch } from './staged-research.mjs'
 
 export function connectorConfig(values) {
   const url = new URL(values.SUPABASE_URL || '')
@@ -11,7 +12,7 @@ export function connectorConfig(values) {
   if (!/^[a-f0-9]{64}$/.test(values.GARIMPO_CONNECTOR_TOKEN || '')) throw new Error('invalid_connector_token')
   if (!/^[a-f0-9-]{36}$/i.test(values.GARIMPO_WORKSPACE_ID || '')) throw new Error('invalid_workspace')
   if (!values.SUPABASE_PUBLISHABLE_KEY) throw new Error('public_key_required')
-  return { url: new URL('/functions/v1/prospecting-local-connector', url), workspaceId: values.GARIMPO_WORKSPACE_ID,
+  return { url: new URL('/functions/v1/prospecting-local-connector-staged', url), workspaceId: values.GARIMPO_WORKSPACE_ID,
     token: values.GARIMPO_CONNECTOR_TOKEN, publicKey: values.SUPABASE_PUBLISHABLE_KEY }
 }
 
@@ -30,12 +31,45 @@ export function workerClient(config, fetcher = fetch) {
 export async function runLocalJob(api, job, workspaceId, research) {
   const input = parseAiSearchInput(job.input)
   if (input.organizationId !== workspaceId) throw new Error('workspace_mismatch')
+  const progressive = input.source === 'manual'
+  // Reserve the existing queue lease while Ollama processes stages. Progress
+  // updates also extend expires_at, so a long investigation doesn't time out.
+  let last = { stage: 'discover', phaseStatus: 'running', sourceCount: 0, leadCount: 0 }
+  let heartbeating = false
+  let interrupted = false
+  const ctrl = new AbortController()
+  const maxMs = 8 * 60_000
+  const timer = setTimeout(() => ctrl.abort(), maxMs)
+  const progress = async (value) => {
+    last = { ...last, ...value }
+    if (heartbeating) return
+    heartbeating = true
+    try {
+      const ack = await api('progress', { jobId: job.id, leaseId: job.leaseId, ...last })
+      if (!ack.accepted) { interrupted = true; ctrl.abort() }
+    } catch {
+      // Keep trying; do not discard completed local stages because the network
+      // temporarily lost connectivity.
+    } finally { heartbeating = false }
+  }
+  const keepalive = progressive ? setInterval(() => void progress(last), 22_000) : null
   try {
-    const result = await research(input, AbortSignal.timeout(110_000))
+    if (progressive) await progress(last)
+    const signal = progressive ? ctrl.signal : AbortSignal.timeout(110_000)
+    const result = await research(input, signal, progressive ? progress : async () => {}, job.id)
+    if (interrupted) return { accepted: false }
     return await api('complete', { jobId: job.id, leaseId: job.leaseId, result })
-  } catch {
-    // Do not upload or log provider messages, prompts, API keys or page content on errors.
-    return api('complete', { jobId: job.id, leaseId: job.leaseId, failed: true })
+  } catch (error) {
+    if (interrupted) return { accepted: false }
+    // Only a fixed error category leaves the Linux. No prompts, credentials,
+    // scrape content, headers or stack traces are uploaded.
+    const errorCode = progressive
+      ? (ctrl.signal.aborted ? 'local_stage_timeout' : 'local_stage_failed')
+      : 'local_research_failed'
+    return api('complete', { jobId: job.id, leaseId: job.leaseId, failed: true, errorCode })
+  } finally {
+    clearTimeout(timer)
+    if (keepalive) clearInterval(keepalive)
   }
 }
 
@@ -46,7 +80,11 @@ export function localResearch(values, fetcher = fetch) {
   if (!values.PROSPECTING_AI_MODEL?.trim()) throw new Error('model_required')
   const collect = createFirecrawlResearch(values.FIRECRAWL_API_URL || 'http://127.0.0.1:3002', values.FIRECRAWL_API_KEY || '', fetcher, true)
   const provider = createOpenAI({ baseURL: base.href.replace(/\/$/, ''), apiKey: values.PROSPECTING_AI_API_KEY || 'local', fetch: fetcher })
-  return async (input, signal) => {
+  return async (input, signal, onProgress = async () => {}, jobId = '') => {
+    if (input.source === 'manual' && jobId) return stagedLocalResearch({
+      input, signal, values, fetcher, model: provider.chat(values.PROSPECTING_AI_MODEL),
+      jobId, onProgress,
+    })
     const { report, sources, warnings = [] } = await collect(input, signal)
     if (!sources.length) return { leads: [], warnings: ['Nenhuma fonte pública encontrada. Revise os critérios e o mecanismo de busca.', ...warnings], researchedAt: new Date().toISOString() }
     try {

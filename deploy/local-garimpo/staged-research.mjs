@@ -564,6 +564,8 @@ export async function stagedLocalResearch({ input, signal, values, fetcher, mode
             postLinksFound: result.postLinksFound,
             postCount: retainedPostUrls.length,
             readablePostUrls: retainedPostUrls,
+            readablePostExcerpts: result.postSources.filter((post) => retainedPostUrls.includes(post.url))
+              .map((post) => ({ url: post.url, excerpt: post.content.slice(0, 550) })),
             profileExcerpt: result.profileExcerpt,
           }
           if (!result.readablePostUrls.length) {

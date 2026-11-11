@@ -381,7 +381,7 @@ export async function stagedLocalResearch({ input, signal, values, fetcher, mode
                 try {
                   const page = await call('/v2/scrape', { url: hub.url,
                     formats: ['markdown', 'links'], onlyMainContent: true }, 26_000)
-                  if (page?.data?.markdown) accept([{ url: hub.url,
+                  if (page?.data && (page.data.markdown || Array.isArray(page.data.links))) accept([{ url: hub.url,
                     title: page.data?.metadata?.title || hub.title || '',
                     markdown: [page.data.markdown, ...(Array.isArray(page.data.links)
                       ? page.data.links.filter((link) => typeof link === 'string' &&

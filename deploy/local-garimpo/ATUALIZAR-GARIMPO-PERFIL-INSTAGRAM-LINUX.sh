@@ -21,10 +21,10 @@ if [[ -z "$ROOT" || ! -f "$ROOT/deploy/local-garimpo/staged-research.mjs" ||
   echo "ERRO: a versão por etapas não está instalada. Nada foi alterado."
   exit 1
 fi
-REV="d68c9124a08a4837e2753d65f6d1fb144e13615e"
+REV="e67974e42a91506d95fc2ffef2810c01df5f75aa"
 FILES=(
-  "deploy/local-garimpo/staged-research.mjs|85bb20d5add0a6bf804294fdf3fcb68086918520"
-  "deploy/local-garimpo/staged-research-check.mjs|4e8b77f0bfb06e6c470cca6071c5143ce6043f04"
+  "deploy/local-garimpo/staged-research.mjs|2975fd8896a8cb7edb3db3289200717c7ba0cb96"
+  "deploy/local-garimpo/staged-research-check.mjs|398fb2d0c192ab8e846f661d1938cae9edaa5671"
 )
 TEMP="$(mktemp -d)" || exit 1
 trap 'rm -rf "$TEMP"' EXIT

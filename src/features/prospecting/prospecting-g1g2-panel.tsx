@@ -5,7 +5,7 @@ import type { WorkspaceSnapshot } from '../../domain/types'
 import type { ProspectRecord } from '../../services/prospecting-workspace'
 import { explainProspectScore, prospectDecisionLabel } from '../../services/prospecting-g1g2-intelligence'
 import { scoreProspectWithIcp } from '../../services/prospecting-intelligence'
-import { getLocalConnectorStatus, searchProspectsWithAi, type AiSearchResult } from '../../services/prospecting-ai'
+import { getLocalConnectorStatus, searchProspectsWithAi, recentLocalResearch, type LocalResearchProgress, type AiSearchResult } from '../../services/prospecting-ai'
 import { confirmedEnrichmentResult, reviewEnrichmentResult, researchOnlyEnrichmentResult, crossSourceReview, savedCrossSourceReview, type CrossSourceField } from '../../services/prospecting-cross-source-review'
 import './prospecting-cross-source-review.css'
 
@@ -55,6 +55,14 @@ export function ProspectingG1G2Panel({ prospect, snapshot, workspaceId, readOnly
   const [busy, setBusy] = useState(false)
   const [result, setResult] = useState<AiSearchResult | null>(null)
   const [error, setError] = useState('')
+  const [progress, setProgress] = useState<LocalResearchProgress | null>(null)
+  const [persistedStatus, setPersistedStatus] = useState('')
+  const phaseTitles: Record<LocalResearchProgress['stage'], string> = {
+    discover: 'Preparando investigação', website: 'Lendo site cadastrado',
+    web: 'Pesquisando outras páginas', instagram: 'Buscando publicações públicas',
+    facts: 'Ollama analisando dados e contatos', signals: 'Ollama identificando eventos-gatilho',
+    completed: 'Investigação concluída',
+  }
   const abortRef = useRef<AbortController | null>(null)
   const review = useMemo(() => result ? crossSourceReview(prospect, result) : savedCrossSourceReview(prospect), [prospect, result])
   const applicable = useMemo(() => result ? confirmedEnrichmentResult(prospect, result) : null, [prospect, result])
@@ -62,16 +70,35 @@ export function ProspectingG1G2Panel({ prospect, snapshot, workspaceId, readOnly
   const foundCount = review?.fields.filter((field) => !field.currentValue && (field.status === 'confirmed' || field.status === 'observed')).length ?? 0
 
   useEffect(() => {
+    // Closing the review screen cancels only the browser polling; the Linux
+    // worker keeps researching and the Supabase job keeps the stage checkpoints.
     abortRef.current?.abort()
     abortRef.current = null
     setResult(null)
     setError('')
+    setProgress(null)
     setBusy(false)
-    return () => { abortRef.current?.abort() }
-  }, [prospect.id, prospect.updatedAt])
+    setPersistedStatus('')
+    let mounted = true
+    const restore = async () => {
+      const job = await recentLocalResearch(workspaceId, prospect.company, prospect.city).catch(() => null)
+      if (!mounted || !job) return
+      setPersistedStatus(job.status)
+      if (job.progress) setProgress(job.progress)
+      if (job.result) { setResult(job.result); setError('') }
+      if (job.status === 'failed') {
+        setError(job.errorCode === 'local_stage_timeout'
+          ? 'Uma etapa excedeu o prazo. As fontes coletadas foram preservadas no Linux para nova tentativa.'
+          : 'A investigação foi interrompida. Confira o terminal do conector Linux.')
+      }
+    }
+    void restore()
+    const interval = window.setInterval(() => void restore(), 7000)
+    return () => { mounted = false; window.clearInterval(interval); abortRef.current?.abort() }
+  }, [prospect.id, prospect.updatedAt, workspaceId])
 
   const run = async () => {
-    if (busy || readOnly) return
+    if (busy || readOnly || persistedStatus === 'processing' || persistedStatus === 'queued') return
     if (!prospect.city.trim()) {
       setError('Confirme primeiro a cidade da empresa para pesquisar fontes da região correta.')
       return
@@ -81,6 +108,8 @@ export function ProspectingG1G2Panel({ prospect, snapshot, workspaceId, readOnly
     setBusy(true)
     setError('')
     setResult(null)
+    setProgress(null)
+    setPersistedStatus('queued')
     try {
       const status = await getLocalConnectorStatus(workspaceId)
       if (!status?.online) throw new Error('Conector Linux indisponível. Inicie o Garimpo local e verifique a conexão na aba Buscar.')
@@ -114,11 +143,15 @@ export function ProspectingG1G2Panel({ prospect, snapshot, workspaceId, readOnly
         instagram: prospect.instagram.trim() || undefined,
         limit: 5,
         execution: 'local',
-      }, ctrl.signal)
-      if (!ctrl.signal.aborted) setResult(response)
+      }, ctrl.signal, {
+        keepRunningOnClose: true,
+        onProgress: (value) => { if (!ctrl.signal.aborted) { setProgress(value); setPersistedStatus('processing') } },
+      })
+      if (!ctrl.signal.aborted) { setResult(response); setPersistedStatus('completed') }
     } catch (reason) {
       if (!ctrl.signal.aborted) {
         setError(reason instanceof Error ? reason.message : 'Não foi possível pesquisar domínios distintos.')
+        setPersistedStatus('failed')
       }
     } finally {
       if (abortRef.current === ctrl) {
@@ -173,12 +206,17 @@ export function ProspectingG1G2Panel({ prospect, snapshot, workspaceId, readOnly
       <div><strong>Verificação cruzada · Firecrawl + Ollama</strong>
         <small>Lê o site cadastrado, procura outras fontes e posts públicos do Instagram. Ollama identifica evidências e possíveis eventos-gatilho. O preenchimento exige fonte; a decisão continua humana.</small>
       </div>
-      <Button variant="secondary" disabled={busy || readOnly} onClick={() => void run()}>
+      <Button variant="secondary" disabled={busy || readOnly || persistedStatus === 'processing' || persistedStatus === 'queued'} onClick={() => void run()}>
         {busy ? <LoaderCircle size={15} className="spin"/> : <SearchCheck size={15}/>}
-        {busy ? 'Consultando fontes…' : result ? 'Verificar novamente' : 'Verificar em outras fontes'}
+        {busy || persistedStatus === 'processing' || persistedStatus === 'queued'
+          ? 'Investigando no Linux…' : result ? 'Investigar novamente' : 'Investigar automaticamente'}
       </Button>
     </div>
-    {busy ? <p className="garimpo-cross-source__progress" role="status">O Firecrawl está pesquisando. O Ollama verificará as informações encontradas. Mantenha o conector Linux aberto.</p> : null}
+    {progress ? <div className="garimpo-cross-source__stage-status" role="status">
+      <strong>{phaseTitles[progress.stage]} · {progress.phaseStatus === 'running' ? 'em andamento' : progress.phaseStatus === 'failed' ? 'etapa indisponível' : 'concluída'}</strong>
+      <span>{progress.sourceCount} fonte(s) coletada(s) · {progress.leadCount} empresa(s) analisada(s).</span>
+      <small>As etapas finalizadas são preservadas no Linux. Você pode sair desta página; a investigação continuará enquanto o conector estiver aberto.</small>
+    </div> : busy ? <p className="garimpo-cross-source__progress" role="status">Preparando pesquisa em etapas. Mantenha o conector Linux aberto.</p> : null}
     {error ? <p className="prospecting-g1g2__error" role="alert">{error}</p> : null}
 
     {review ? <div className="garimpo-cross-source" aria-live="polite">

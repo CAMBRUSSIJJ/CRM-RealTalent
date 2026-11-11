@@ -72,7 +72,7 @@ export function ProspectingG1G2Panel({ prospect, snapshot, workspaceId, readOnly
     (progress?.stage === 'completed' && progress.phaseStatus === 'failed')
   const phaseTitles: Record<LocalResearchProgress['stage'], string> = {
     discover: 'Preparando investigação', website: 'Lendo site cadastrado',
-    web: 'Pesquisando outras páginas', instagram: 'Buscando publicações públicas',
+    web: 'Pesquisando outras páginas', instagram: 'Localizando perfil e publicações públicas',
     facts: 'Ollama analisando dados e contatos', signals: 'Ollama identificando eventos-gatilho',
     completed: 'Investigação concluída',
   }
@@ -238,6 +238,22 @@ export function ProspectingG1G2Panel({ prospect, snapshot, workspaceId, readOnly
       <ul>{result.stages.filter((step) => step.phaseStatus === 'failed').map((step, index) =>
         <li key={step.stage + index}><strong>{phaseTitles[step.stage] || step.stage}:</strong> {failureTitles[step.errorCode || ''] || 'Falha técnica não classificada. Os dados coletados foram preservados.'}</li>)}</ul>
     </details> : null}
+    {result?.instagramDiscovery ? <section className="garimpo-cross-source__instagram" aria-label="Descoberta do perfil Instagram">
+      <strong>Instagram · descoberta do perfil</strong>
+      <p>{result.instagramDiscovery.status === 'linked'
+        ? 'Perfil vinculado a uma página conhecida da empresa; confira se é realmente o perfil utilizado pelo negócio.'
+        : result.instagramDiscovery.status === 'candidate'
+          ? 'Encontramos um possível perfil pelos buscadores. A identidade ainda precisa ser conferida.'
+          : result.instagramDiscovery.status === 'provided'
+            ? 'Perfil informado no cadastro; ainda não foi confirmado em outra fonte.'
+            : result.instagramDiscovery.status === 'unavailable'
+              ? 'A busca pelo perfil não respondeu. O sistema preservou os demais resultados.'
+              : 'Nenhum perfil foi associado com segurança à empresa. Não atribuímos contas apenas por semelhança de nomes.'}</p>
+      {result.instagramDiscovery.profileUrl && safeSite(result.instagramDiscovery.profileUrl) ? <a href={result.instagramDiscovery.profileUrl} target="_blank" rel="noopener noreferrer">
+        <ExternalLink size={13}/> Ver perfil encontrado
+      </a> : <small>Você pode informar o endereço do perfil em “Editar dados” e repetir a investigação. É opcional.</small>}
+      <small>{result.instagramDiscovery.postCount} publicação(ões) pública(s) com vínculo encontrado nas fontes acessíveis. Sem posts legíveis, não é possível comprovar eventos-gatilho.</small>
+    </section> : null}
     {error ? <p className="prospecting-g1g2__error" role="alert">{error}</p> : null}
 
     {review ? <div className="garimpo-cross-source" aria-live="polite">

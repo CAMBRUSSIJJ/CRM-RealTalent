@@ -285,6 +285,38 @@ export function ProspectingPage() {
         prospectKey(merged).forEach((key) => existingKeys.set(key, merged))
         continue
       }
+      if (match && action === 'capture') {
+        // Progressive and final Agent deliveries can describe the same candidate.
+        // A final delivery must fill genuinely missing fields without replacing
+        // anything already edited by a reviewer. Never merge by shared phone
+        // or commercial name alone, as those identifiers can be ambiguous.
+        const priorCandidateId = rawText(match.rawData, 'candidateId')
+        const incomingCandidateId = rawText(incoming.rawData, 'candidateId')
+        if (priorCandidateId && priorCandidateId === incomingCandidateId) {
+          const fill = (current: string, next: string) => current.trim() || next.trim()
+          const merged = refreshProspectAnalysis({
+            ...match,
+            phone: fill(match.phone, incoming.phone),
+            email: fill(match.email, incoming.email),
+            city: fill(match.city, incoming.city),
+            address: fill(match.address, incoming.address),
+            cnpj: fill(match.cnpj, incoming.cnpj),
+            instagram: fill(match.instagram, incoming.instagram),
+            website: fill(match.website, incoming.website),
+            bookingUrl: fill(match.bookingUrl, incoming.bookingUrl),
+            systemName: fill(match.systemName, incoming.systemName),
+            description: fill(match.description, incoming.description),
+            rawData: {
+              ...match.rawData, ...incoming.rawData,
+              ...(match.rawData.aiResearch ? { aiResearch: match.rawData.aiResearch } : {}),
+            },
+            updatedAt: new Date().toISOString(),
+          }, leads)
+          enriched.set(match.id, merged)
+          prospectKey(merged).forEach((key) => existingKeys.set(key, merged))
+          continue
+        }
+      }
       if (match) { skipped += 1; continue }
       prospectKey(incoming).forEach((key) => existingKeys.set(key, incoming)); newProspects.push(incoming)
     }

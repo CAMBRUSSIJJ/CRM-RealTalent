@@ -6,7 +6,7 @@ import type { ProspectRecord } from '../../services/prospecting-workspace'
 import { explainProspectScore, prospectDecisionLabel } from '../../services/prospecting-g1g2-intelligence'
 import { scoreProspectWithIcp } from '../../services/prospecting-intelligence'
 import { getLocalConnectorStatus, searchProspectsWithAi, type AiSearchResult } from '../../services/prospecting-ai'
-import { confirmedEnrichmentResult, reviewEnrichmentResult, crossSourceReview, savedCrossSourceReview, type CrossSourceField } from '../../services/prospecting-cross-source-review'
+import { confirmedEnrichmentResult, reviewEnrichmentResult, researchOnlyEnrichmentResult, crossSourceReview, savedCrossSourceReview, type CrossSourceField } from '../../services/prospecting-cross-source-review'
 import './prospecting-cross-source-review.css'
 
 interface Props {
@@ -124,8 +124,9 @@ export function ProspectingG1G2Panel({ prospect, snapshot, workspaceId, readOnly
     }
   }
 
-  const apply = (mode: 'confirmed' | 'observed') => {
-    const selected = mode === 'confirmed' ? applicable : observedApplicable
+  const apply = (mode: 'confirmed' | 'observed' | 'research') => {
+    const selected = mode === 'confirmed' ? applicable : mode === 'observed' ? observedApplicable
+      : result ? researchOnlyEnrichmentResult(prospect, result) : null
     if (!selected || readOnly) return
     try {
       onEnriched(selected)
@@ -209,6 +210,7 @@ export function ProspectingG1G2Panel({ prospect, snapshot, workspaceId, readOnly
           <ul>{review.sources.map((source) => safeSite(source.url) ? <li key={source.url}><a href={safeSite(source.url)!} target="_blank" rel="noopener noreferrer"><ExternalLink size={12}/>{source.title || new URL(source.url).hostname}</a></li> : null)}</ul>
         </details> : null}
         <footer className="garimpo-cross-source__footer">
+          {result && !readOnly ? <Button variant="secondary" onClick={() => apply('research')}>Salvar análise e sinais no cadastro (sem alterar os campos)</Button> : null}
           {applicable && !readOnly ? <Button variant="secondary" onClick={() => apply('confirmed')}>
             Preencher {review.importable.length} campo(s) corroborados
           </Button> : null}

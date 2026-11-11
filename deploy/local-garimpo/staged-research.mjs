@@ -88,7 +88,7 @@ export async function stagedLocalResearch({ input, signal, values, fetcher, mode
   const sources = () => [...sourceMap.values()]
   const checkpoint = async (stage, phaseStatus, failureCode = '') => {
     const info = { stage, phaseStatus, errorCode: failureCode, sourceCount: sourceMap.size,
-      leadCount: cached?.facts?.leads?.length ?? 0 }
+      leadCount: factsResult?.leads?.length ?? 0 }
     trace.push({ ...info, at: new Date().toISOString() })
     await journal.save(stage, { sources: sources(), warnings, trace, ...(factsResult ? { facts: factsResult } : {}) })
     await onProgress(info)
@@ -175,6 +175,15 @@ export async function stagedLocalResearch({ input, signal, values, fetcher, mode
         prompt: JSON.stringify({ target: input.segment, city: input.city, website: knownSite, report: compact(), sources: srcRefs() }),
       })
       factsResult = sanitizeAiResult(response.output, sources(), report(), 1)
+      if (!factsResult.leads.length) {
+        const first = sources().find((item) => norm(item.content).includes(norm(input.segment)))
+        if (first) {
+          factsResult = sanitizeAiResult({ leads: [{ facts: [
+            { field: 'company', value: input.segment, sourceUrl: first.url },
+          ], opportunity: '', suggestedApproach: '', signals: [] }] }, sources(), report(), 1)
+          warnings.push('A IA não extraiu contatos; a identidade observada foi preservada para revisão.')
+        }
+      }
       await checkpoint('facts', 'completed')
     } catch (error) {
       if (signal.aborted) throw error

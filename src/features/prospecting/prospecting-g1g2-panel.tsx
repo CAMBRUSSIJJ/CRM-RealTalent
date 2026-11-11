@@ -57,6 +57,19 @@ export function ProspectingG1G2Panel({ prospect, snapshot, workspaceId, readOnly
   const [error, setError] = useState('')
   const [progress, setProgress] = useState<LocalResearchProgress | null>(null)
   const [persistedStatus, setPersistedStatus] = useState('')
+  const failureTitles: Record<string, string> = {
+    model_timeout: 'O Ollama excedeu o prazo deste lote.',
+    model_out_of_memory: 'Memória insuficiente para o modelo neste lote.',
+    model_invalid_output: 'O modelo não retornou dados no formato esperado.',
+    model_unavailable: 'Ollama ou o modelo não estavam acessíveis.',
+    model_failed: 'O modelo não concluiu a análise deste lote.',
+    stage_timeout: 'A leitura dessa fonte excedeu o prazo.',
+    stage_unavailable: 'A fonte ou serviço estava indisponível.',
+    company_sources_unmatched: 'As páginas não foram associadas com segurança à empresa.',
+  }
+  const completionPartial = result?.researchStatus === 'partial' ||
+    Boolean(result?.stages?.some((step) => step.phaseStatus === 'failed')) ||
+    (progress?.stage === 'completed' && progress.phaseStatus === 'failed')
   const phaseTitles: Record<LocalResearchProgress['stage'], string> = {
     discover: 'Preparando investigação', website: 'Lendo site cadastrado',
     web: 'Pesquisando outras páginas', instagram: 'Buscando publicações públicas',
@@ -213,10 +226,18 @@ export function ProspectingG1G2Panel({ prospect, snapshot, workspaceId, readOnly
       </Button>
     </div>
     {progress ? <div className="garimpo-cross-source__stage-status" role="status">
-      <strong>{phaseTitles[progress.stage]} · {progress.phaseStatus === 'running' ? 'em andamento' : progress.phaseStatus === 'failed' ? 'etapa indisponível' : 'concluída'}</strong>
+      <strong>{progress.stage === 'completed' && completionPartial
+        ? 'Investigação concluída parcialmente'
+        : phaseTitles[progress.stage] + ' · ' +
+          (progress.phaseStatus === 'running' ? 'em andamento' : progress.phaseStatus === 'failed' ? 'etapa indisponível' : 'concluída')}</strong>
       <span>{progress.sourceCount} fonte(s) coletada(s) · {progress.leadCount} empresa(s) analisada(s).</span>
       <small>As etapas finalizadas são preservadas no Linux. Você pode sair desta página; a investigação continuará enquanto o conector estiver aberto.</small>
     </div> : busy ? <p className="garimpo-cross-source__progress" role="status">Preparando pesquisa em etapas. Mantenha o conector Linux aberto.</p> : null}
+    {result?.stages?.some((step) => step.phaseStatus === 'failed') ? <details className="garimpo-cross-source__partial-detail">
+      <summary>Etapas que precisam de atenção ({result.stages.filter((step) => step.phaseStatus === 'failed').length})</summary>
+      <ul>{result.stages.filter((step) => step.phaseStatus === 'failed').map((step, index) =>
+        <li key={step.stage + index}><strong>{phaseTitles[step.stage] || step.stage}:</strong> {failureTitles[step.errorCode || ''] || 'Falha técnica não classificada. Os dados coletados foram preservados.'}</li>)}</ul>
+    </details> : null}
     {error ? <p className="prospecting-g1g2__error" role="alert">{error}</p> : null}
 
     {review ? <div className="garimpo-cross-source" aria-live="polite">

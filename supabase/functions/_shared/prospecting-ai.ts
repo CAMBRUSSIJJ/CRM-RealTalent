@@ -3,6 +3,15 @@ export const aiFields = ['company', 'phone', 'email', 'city', 'address', 'cnpj',
 export type AiField = typeof aiFields[number]
 export interface AiSource { url: string; title: string; content?: string }
 export interface AiEvidence { field: AiField; value: string; sourceUrl: string }
+export interface AiTriggerSignal {
+  type: 'expansion' | 'hiring' | 'launch' | 'partnership' | 'opening' | 'rebranding' | 'event' | 'complaint' | 'other'
+  title: string
+  excerpt: string
+  sourceUrl: string
+  eventDate: string
+  channel: 'instagram' | 'website' | 'other'
+}
+export const aiTriggerTypes = ['expansion', 'hiring', 'launch', 'partnership', 'opening', 'rebranding', 'event', 'complaint', 'other'] as const
 export interface AiResearch {
   sources: AiSource[]
   evidence: AiEvidence[]
@@ -10,6 +19,7 @@ export interface AiResearch {
   suggestedApproach: string
   missingFields: AiField[]
   researchedAt: string
+  signals?: AiTriggerSignal[]
 }
 export interface AiLead {
   company: string; phone: string; email: string; city: string; address: string; cnpj: string
@@ -113,10 +123,36 @@ export function sanitizeAiResult(raw: unknown, sources: AiSource[], report: stri
     if (!lead.company) continue
     if (result.leads.some((item) => normalized(`${item.company}:${item.city}`) === normalized(`${lead.company}:${lead.city}`))) continue
     const urls = new Set(evidence.map((item) => item.sourceUrl))
+    const signals: AiTriggerSignal[] = []
+    const rawSignals = Array.isArray(row.signals) ? row.signals : []
+    for (const candidate of rawSignals.slice(0, 12)) {
+      if (!isRecord(candidate)) continue
+      const sourceUrl = publicWebUrl(candidate.sourceUrl)
+      const excerpt = text(candidate.excerpt, 420)
+      const sourceContent = allowedSources.get(sourceUrl)?.content || ''
+      const type = text(candidate.type) as AiTriggerSignal['type']
+      // A proposed signal is retained only when the cited page actually contains
+      // the exact excerpt. Hypotheses without matching evidence are discarded.
+      if (!excerpt || !sourceContent || !allowedSources.has(sourceUrl) ||
+          !normalized(sourceContent).includes(normalized(excerpt)) ||
+          !aiTriggerTypes.includes(type)) continue
+      const eventDate = text(candidate.eventDate, 60)
+      const channel: AiTriggerSignal['channel'] = /(^|\.)instagram\.com$/i.test(new URL(sourceUrl).hostname) ? 'instagram'
+        : /(^|\.)facebook\.com$/i.test(new URL(sourceUrl).hostname) ? 'other' : 'website'
+      if (signals.some((item) => item.sourceUrl === sourceUrl && normalized(item.excerpt) === normalized(excerpt))) continue
+      signals.push({
+        type, title: text(candidate.title, 150) || 'Sinal a revisar',
+        excerpt, sourceUrl,
+        // A date is never inferred from the research date. It must appear in
+        // the page itself, and is otherwise omitted.
+        eventDate: eventDate && normalized(sourceContent).includes(normalized(eventDate)) ? eventDate : '',
+        channel,
+      })
+    }
     lead.aiResearch = {
-      evidence, sources: [...urls].map((url) => ({ url, title: text(allowedSources.get(url)?.title) || new URL(url).hostname })),
+      evidence, sources: [...new Set([...urls, ...signals.map((item) => item.sourceUrl)])].map((url) => ({ url, title: text(allowedSources.get(url)?.title) || new URL(url).hostname })),
       opportunity: text(row.opportunity, 1500), suggestedApproach: text(row.suggestedApproach, 1500),
-      missingFields: aiFields.filter((field) => !lead[field]), researchedAt: now,
+      missingFields: aiFields.filter((field) => !lead[field]), researchedAt: now, signals,
     }
     result.leads.push(lead)
   }
@@ -126,10 +162,14 @@ export function sanitizeAiResult(raw: unknown, sources: AiSource[], report: stri
 
 export const aiOutputSchema = {
   type: 'object', additionalProperties: false, required: ['leads'], properties: {
-    leads: { type: 'array', items: { type: 'object', additionalProperties: false, required: ['facts', 'opportunity', 'suggestedApproach'], properties: {
+    leads: { type: 'array', items: { type: 'object', additionalProperties: false, required: ['facts', 'opportunity', 'suggestedApproach', 'signals'], properties: {
       facts: { type: 'array', items: { type: 'object', additionalProperties: false, required: ['field', 'value', 'sourceUrl'], properties: {
         field: { type: 'string', enum: [...aiFields] }, value: { type: 'string' }, sourceUrl: { type: 'string' },
       } } }, opportunity: { type: 'string' }, suggestedApproach: { type: 'string' },
+      signals: { type: 'array', items: { type: 'object', additionalProperties: false, required: ['type', 'title', 'excerpt', 'sourceUrl', 'eventDate'], properties: {
+        type: { type: 'string', enum: [...aiTriggerTypes] }, title: { type: 'string' },
+        excerpt: { type: 'string' }, sourceUrl: { type: 'string' }, eventDate: { type: 'string' },
+      } } },
     } } },
   },
 } as const

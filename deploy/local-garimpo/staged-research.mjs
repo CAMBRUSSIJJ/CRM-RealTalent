@@ -223,13 +223,12 @@ export function identifyInstagramProfile(input, sources, profileResults = []) {
 export function postLinkedToProfile(post, profileUrl) {
   const account = profileUrl?.split('/').filter(Boolean).at(-1)
   if (!account || !publicInstagram(post?.url)) return false
-  const text = String(post?.title || '') + ' ' + String(post?.description || '') + ' ' +
-    String(post?.markdown || '') + ' ' + String(post?.content || '')
+  const title = String(post?.title || '').toLowerCase().trim()
   const handle = account.toLowerCase()
-  // An Instagram post URL has no account name, and search queries are NOT
-  // identity evidence. Require the indexed result itself to mention the handle.
-  return text.toLowerCase().includes('@' + handle) ||
-    text.toLowerCase().includes('instagram.com/' + handle)
+  // Mentions in a different account's caption are NOT authorship evidence.
+  // Require the account attribution in the indexed title itself.
+  return title.includes('(@' + handle + ')') || title.startsWith('@' + handle + ' ') ||
+    title.startsWith(handle + ' on instagram')
 }
 
 const jsonFilePath = (jobId) => {

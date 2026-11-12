@@ -1925,17 +1925,24 @@ function ProcessingWorkspace({ readOnly, queue, active, leads, snapshot, onSelec
 
     <section className="panel prospecting-review-card">
       <header className="prospecting-review-header"><div><span className="eyebrow"><ClipboardCheck size={14} /> {autoValidatable ? 'Revisão dos dados disponíveis' : 'Revisão de exceção'}</span><h3>{active.company}</h3><p>{autoValidatable ? 'O cadastro possui dados suficientes para análise. Confira as fontes antes de aprovar.' : 'Veja primeiro o que precisa da sua decisão; os detalhes técnicos ficam recolhidos.'}</p></div><div><StatusPill tone={autoValidatable ? 'success' : 'warning'}>{autoValidatable ? 'Pronta para revisão' : 'Precisa atenção'}</StatusPill><span className="prospecting-counter">{index + 1} de {queue.length}</span></div></header>
-      <div className="prospecting-review-decisions-v101104">
+      <details className="prospecting-review-checks-compact" key={active.id}>
+        <summary><span><ShieldCheck size={15}/> Critérios de revisão</span><small>Identidade · segmento · território · contato · decisão</small><ChevronRight size={15}/></summary>
+        <div className="prospecting-review-decisions-v101104">
         <article className={identityConfirmed ? 'is-ok' : 'is-warning'}><span>1</span><div><strong>A identidade foi confirmada?</strong><small>{identityConfirmed ? 'Nome confirmado por pelo menos duas fontes independentes' : 'Nome cadastrado; ainda falta confirmação independente'}</small></div>{identityConfirmed ? <CheckCircle2 size={17}/> : <AlertTriangle size={17}/>}</article>
         <article className="is-warning"><span>2</span><div><strong>O segmento está confirmado?</strong><small>{active.description || rawText(active.rawData, 'intentLabel', 'category') || 'Categoria informada'} · Categoria ainda precisa ser conferida nas fontes.</small></div><AlertTriangle size={17}/></article>
         <article className={locationConfirmed ? 'is-ok' : 'is-warning'}><span>3</span><div><strong>O território foi confirmado?</strong><small>{locationConfirmed ? 'Endereço corroborado; confira o ponto no mapa' : 'Cidade e coordenadas cadastradas não garantem localização confirmada'}</small></div>{locationConfirmed ? <CheckCircle2 size={17}/> : <AlertTriangle size={17}/>}</article>
         <article className={contactConfirmed ? 'is-ok' : 'is-warning'}><span>4</span><div><strong>Há contato confirmado?</strong><small>{contactConfirmed ? 'Pelo menos um canal corroborado em duas fontes' : 'Telefone, e-mail ou site cadastrado ainda sem confirmação independente'}</small></div>{contactConfirmed ? <CheckCircle2 size={17}/> : <AlertTriangle size={17}/>}</article>
         <article className={readyWithEvidence ? 'is-ok' : 'is-warning'}><span>5</span><div><strong>Os dados principais estão prontos para decisão?</strong><small>{readyWithEvidence ? 'Identidade, endereço e contato corroborados; valide segmento e aprove manualmente' : [...quality.blockers, ...active.duplicateReasons].slice(0, 1).join(' · ') || 'Ainda exige revisão das evidências antes da decisão'}</small></div>{readyWithEvidence ? <CheckCircle2 size={17}/> : <AlertTriangle size={17}/>}</article>
-      </div>
-      {attentionReasons.length ? <section className="prospecting-review-attention-v101106"><AlertTriangle size={16}/><div><strong>O que precisa da sua atenção</strong><div>{attentionReasons.map((reason) => <span key={reason}>{reason}</span>)}</div></div></section> : <section className="prospecting-review-attention-v101106 is-clear"><CheckCircle2 size={16}/><div><strong>Sem divergências importantes</strong><small>Identidade, local, contato e duplicidade atendem às regras atuais.</small></div></section>}
+        </div>
+      </details>
+      {attentionReasons.length ? <section className="prospecting-review-attention-v101106 prospecting-review-attention-compact"><AlertTriangle size={16}/><div><strong>Antes de aprovar · {attentionReasons.length} ponto(s) para conferir</strong>
+        <p>{attentionReasons.slice(0, 2).join(' · ')}{attentionReasons.length > 2 ? ' · outros pontos nos critérios de revisão' : ''}</p>
+        {attentionReasons.length > 2 ? <details><summary>Ver todos os pontos ({attentionReasons.length})</summary>
+          <ul>{attentionReasons.map((reason) => <li key={reason}>{reason}</li>)}</ul></details> : null}
+      </div></section> : null}
       <ProspectingG1G2Panel prospect={active} snapshot={snapshot} workspaceId={workspaceId} readOnly={readOnly}
         onEnriched={onEnriched} onConfirmInstagram={onConfirmInstagram}/>
-      <details className="prospecting-review-edit-v101106">
+      <details className="prospecting-review-edit-v101106" key={active.id}>
         <summary><div><span><SlidersHorizontal size={15}/> Editar dados</span><small>Abra somente se precisar corrigir alguma informação.</small></div><ChevronRight size={15}/></summary>
         <div className="prospecting-review-form">
         <label><span>Nome do contato/empresa</span><input readOnly={readOnly} value={active.name} onChange={(event) => onChange(active.id, { name: event.target.value, company: event.target.value })} /></label>

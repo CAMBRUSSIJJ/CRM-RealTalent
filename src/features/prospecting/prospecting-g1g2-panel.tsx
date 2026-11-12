@@ -130,6 +130,7 @@ export function ProspectingG1G2Panel({ prospect, snapshot, workspaceId, readOnly
     discover: 'Preparando investigação', website: 'Lendo site cadastrado',
     web: 'Pesquisando outras páginas', instagram: 'Localizando perfil e publicações públicas',
     facts: 'Ollama analisando dados e contatos', signals: 'Ollama identificando eventos-gatilho',
+    business: 'Identificando serviços, preços e posicionamento',
     completed: 'Investigação concluída',
   }
   const abortRef = useRef<AbortController | null>(null)
@@ -418,6 +419,56 @@ export function ProspectingG1G2Panel({ prospect, snapshot, workspaceId, readOnly
         </li>)}</ul> : null}
         {result.commercialBrief.researchLimits.map((limitation, i) =>
           <small key={i}>{limitation}</small>)}
+      </details>
+    </section> : null}
+    {result?.leadIntelligence ? <section className="garimpo-g7-card" aria-label="Inteligência comercial do lead">
+      <header className="garimpo-g7-card__header">
+        <div><strong><Sparkles size={15}/> Inteligência comercial do lead</strong>
+          <small>Produtos, preços e posicionamento · somente informações com fontes</small>
+        </div>
+        <span>{result.leadIntelligence.status === 'partial_evidence' ? 'Evidências parciais' : 'Dados insuficientes'}</span>
+      </header>
+      <div className="garimpo-g7-card__summary">
+        <span><strong>{result.leadIntelligence.offerings.length}</strong> produto(s) ou serviço(s)</span>
+        <span><strong>{result.leadIntelligence.prices.length}</strong> preço(s) anunciados</span>
+        <span><strong>{result.leadIntelligence.positioning.length}</strong> sinal(is) de posicionamento</span>
+      </div>
+      <p>{result.leadIntelligence.prices.length
+        ? 'Valores anunciados em páginas públicas. Não representam ticket médio nem preços atuais garantidos.'
+        : 'Nenhum preço verificável foi encontrado. Ticket médio não estimado.'}</p>
+      <details className="garimpo-g7-card__details">
+        <summary>Ver análise comercial, trechos e fontes</summary>
+        {([
+          ['Produtos e serviços', result.leadIntelligence.offerings],
+          ['Preços anunciados', result.leadIntelligence.prices],
+          ['Posicionamento declarado', result.leadIntelligence.positioning],
+        ] as const).map(([label, rows]) => <div key={label} className="garimpo-g7-card__group">
+          <strong>{label}</strong>
+          {rows.length ? <ul>{rows.map((item, index) =>
+            <li key={item.sourceUrl + item.label + index}>
+              <strong>{item.label}{item.amount ? ' · ' + item.amount : ''}</strong>
+              <small>Trecho: “{item.excerpt}”</small>
+              {safeSite(item.sourceUrl) ? <a href={item.sourceUrl} target="_blank" rel="noopener noreferrer">
+                <ExternalLink size={12}/> Ver fonte original
+              </a> : null}
+            </li>)}</ul> : <p>Não encontrado nas fontes disponíveis.</p>}
+        </div>)}
+        {result.leadIntelligence.missing.length ? <div className="garimpo-g7-card__group">
+          <strong>Dados pendentes</strong>
+          <ul>{result.leadIntelligence.missing.map((reason, index) =>
+            <li key={index}>{reason}</li>)}</ul>
+        </div> : null}
+        <div className="garimpo-g7-card__group">
+          <strong>Hipótese comercial — precisa de validação</strong>
+          <p>{result.leadIntelligence.hypotheses[0]}</p>
+          <strong>Perguntas de diagnóstico</strong>
+          <ul>{result.leadIntelligence.questions.slice(0, 2).map((question, index) =>
+            <li key={index}>{question}</li>)}</ul>
+          <p><strong>Próxima ação:</strong> {result.leadIntelligence.recommendedAction}</p>
+        </div>
+        <small>{result.leadIntelligence.sourceCount} fonte(s) considerada(s). Extração {result.leadIntelligence.extraction === 'ollama_verified'
+          ? 'com Ollama e validação literal de evidências' : 'literal; o Ollama não respondeu ou não havia conteúdo suficiente'}.
+          Dados sem trechos correspondentes à fonte são descartados.</small>
       </details>
     </section> : null}
     {result?.stages?.some((step) => step.phaseStatus === 'failed') ? <details className="garimpo-cross-source__partial-detail">

@@ -1950,13 +1950,19 @@ function ProcessingWorkspace({ readOnly, queue, active, leads, snapshot, onSelec
         <label><span>E-mail</span><input readOnly={readOnly} value={active.email} onChange={(event) => onChange(active.id, { email: event.target.value })} /></label>
         <label><span>Cidade</span><input readOnly={readOnly} value={active.city} onChange={(event) => onChange(active.id, { city: event.target.value })} /></label>
         <label className="is-wide"><span>Endereço</span><input readOnly={readOnly} value={active.address} onChange={(event) => onChange(active.id, { address: event.target.value })} /></label>
-        <label><span>CNPJ</span><input readOnly={readOnly} value={active.cnpj} onChange={(event) => onChange(active.id, { cnpj: event.target.value })} /></label>
+
         <label><span>Instagram</span><input readOnly={readOnly} value={active.instagram} onChange={(event) => onChange(active.id, { instagram: event.target.value })} placeholder="@perfil" /></label>
         <label><span>Site</span><input readOnly={readOnly} value={active.website} onChange={(event) => onChange(active.id, { website: event.target.value })} /></label>
-        <label><span>Link de agendamento</span><input readOnly={readOnly} value={active.bookingUrl} onChange={(event) => onChange(active.id, { bookingUrl: event.target.value })} /></label>
-        <label><span>Sistema identificado</span><input readOnly={readOnly} value={active.systemName} onChange={(event) => onChange(active.id, { systemName: event.target.value })} /></label>
-        <label className="is-wide"><span>Descrição e sinais comerciais</span><textarea readOnly={readOnly} value={active.description} onChange={(event) => onChange(active.id, { description: event.target.value })} /></label>
-        <label className="is-wide"><span>Observações da revisão</span><textarea readOnly={readOnly} value={active.notes} onChange={(event) => onChange(active.id, { notes: event.target.value })} /></label>
+        <details className="prospecting-review-form__advanced is-wide">
+          <summary>Campos adicionais · CNPJ, agendamento, sistema e observações</summary>
+          <div className="prospecting-review-form">
+            <label><span>CNPJ</span><input readOnly={readOnly} value={active.cnpj} onChange={(event) => onChange(active.id, { cnpj: event.target.value })} /></label>
+            <label><span>Link de agendamento</span><input readOnly={readOnly} value={active.bookingUrl} onChange={(event) => onChange(active.id, { bookingUrl: event.target.value })} /></label>
+            <label><span>Sistema identificado</span><input readOnly={readOnly} value={active.systemName} onChange={(event) => onChange(active.id, { systemName: event.target.value })} /></label>
+            <label className="is-wide"><span>Descrição e sinais comerciais</span><textarea readOnly={readOnly} value={active.description} onChange={(event) => onChange(active.id, { description: event.target.value })} /></label>
+            <label className="is-wide"><span>Observações da revisão</span><textarea readOnly={readOnly} value={active.notes} onChange={(event) => onChange(active.id, { notes: event.target.value })} /></label>
+          </div>
+        </details>
         </div>
       </details>
       {!readOnly ? <footer className="prospecting-review-actions prospecting-review-actions-v101106"><div><Button variant="ghost" onClick={() => onDiscard(active.id)}><Ban size={16} /> Descartar</Button><Button variant="secondary" onClick={() => onAnalyze(active.id)}><RefreshCw size={16} /> Reanalisar</Button></div><div><Button variant="secondary" disabled={quality.readiness === 'blocked'} title={quality.readiness === 'blocked' ? quality.blockers.join(' · ') : 'Aprovar registro revisado'} onClick={() => onApprove(active.id)}><Check size={16} /> Aprovar</Button><Button disabled={active.status !== 'approved' || quality.readiness === 'blocked'} title={active.status !== 'approved' ? 'Aprove o registro antes do envio' : quality.blockers.join(' · ')} onClick={() => onSend(active.id)}><Send size={16} /> Enviar ao CRM</Button></div><small className="prospecting-review-shortcuts-v101104">Atalhos: A aprovar · D descartar · ← → navegar</small></footer> : null}

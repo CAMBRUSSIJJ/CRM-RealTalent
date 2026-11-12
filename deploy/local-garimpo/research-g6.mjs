@@ -276,7 +276,11 @@ export function buildCommercialBrief({ input, plan, result, instagramDiscovery }
     status: lead && knownFacts.length ? 'evidence_based' : 'insufficient_evidence',
     segment: plan?.segment || 'geral',
     summary: lead && knownFacts.length
-      ? 'Cadastro encontrado em fontes públicas; consulte as evidências e confirme os pontos pendentes antes do contato.'
+      ? (knownFacts.find((fact) => fact.field === 'company')?.value || 'Empresa selecionada') +
+        ': fontes públicas trazem ' +
+        (unique(knownFacts.filter((fact) => fact.field !== 'company').map((fact) =>
+          fact.label.toLowerCase()), 3).join(', ') || 'referências cadastrais') +
+        '. Esses registros não comprovam uma necessidade ou intenção de compra.'
       : 'Não há evidência pública suficiente para emitir um diagnóstico comercial confiável.',
     knownFacts, missing, signals, hypotheses, questions,
     recommendedAction: signals.length

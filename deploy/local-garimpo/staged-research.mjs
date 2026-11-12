@@ -209,8 +209,7 @@ export function identifyInstagramProfile(input, sources, profileResults = []) {
       // Business directories often link their own social account next to a
       // listing; never treat that unrelated handle as the listed company's.
       // Even a saved listing may belong to a third-party directory, so
-      // reject unrelated handles until the reviewer explicitly selects one.
-      if (!related) continue
+      // reject unrelated handles from directories. A company-matched Linktree\n      // with corroborating city can yield a *candidate*, never a verified link.\n      // The reviewer must still confirm the identity before CRM enrichment.\n      if (!related && !hub) continue
       const score = (known ? 70 : hub ? 55 : 45) + (related ? 25 : 0)
       candidates.push({ profileUrl: profile, evidenceUrl: source.url, score,
         status: (known && related) ? 'linked' : 'candidate' })
@@ -529,7 +528,7 @@ export async function stagedLocalResearch({ input, signal, values, fetcher, mode
       if (successes || deepPages.length && deepReadFailures < deepPages.length) {
         await checkpoint('web', 'completed')
       } else {
-        warnings.push('Busca web direcionada indisponível; fontes anteriores foram preservadas.')
+        warnings.push('Busca web principal direcionada indisponível; fontes anteriores foram preservadas.')
         await checkpoint('web', 'failed', 'stage_unavailable')
       }
     }

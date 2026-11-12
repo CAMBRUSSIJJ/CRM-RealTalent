@@ -119,6 +119,26 @@ export function reviewedInstagramProfile(value: string): string | null {
   } catch { return null }
 }
 
+export function findPriorInstagramCandidate(rows: Array<{
+  status: string
+  result: unknown
+  created_at: string
+}>): { profileUrl: string; evidenceUrl?: string; discoveredAt: string } | null {
+  for (const row of rows) {
+    if (row.status !== 'completed') continue
+    const discovery = (row.result as AiSearchResult | null)?.instagramDiscovery
+    if (!discovery || !['candidate', 'linked', 'provided'].includes(discovery.status)) continue
+    const profileUrl = reviewedInstagramProfile(discovery.profileUrl || '')
+    if (!profileUrl) continue
+    return {
+      profileUrl,
+      ...(discovery.evidenceUrl ? { evidenceUrl: discovery.evidenceUrl } : {}),
+      discoveredAt: row.created_at,
+    }
+  }
+  return null
+}
+
 export async function recentLocalResearch(organizationId: string, company: string, city: string): Promise<{
   id: string; status: string; result: AiSearchResult | null; progress: LocalResearchProgress | null; createdAt: string; errorCode: string
   priorInstagramCandidate: { profileUrl: string; evidenceUrl?: string; discoveredAt: string } | null
@@ -137,20 +157,7 @@ export async function recentLocalResearch(organizationId: string, company: strin
   })
   const match = matchingJobs[0]
   if (!match) return null
-  const priorCandidate = matchingJobs.find((row) => {
-    if (row.status !== 'completed') return false
-    const discovery = (row.result as AiSearchResult | null)?.instagramDiscovery
-    return discovery && ['candidate', 'linked', 'provided'].includes(discovery.status)
-      && reviewedInstagramProfile(discovery.profileUrl || '')
-  })
-  const priorDiscovery = (priorCandidate?.result as AiSearchResult | null)?.instagramDiscovery
-  const priorInstagramCandidate = priorDiscovery?.profileUrl
-    ? {
-      profileUrl: reviewedInstagramProfile(priorDiscovery.profileUrl)!,
-      evidenceUrl: priorDiscovery.evidenceUrl,
-      discoveredAt: priorCandidate?.created_at || match.created_at,
-    }
-    : null
+  const priorInstagramCandidate = findPriorInstagramCandidate(matchingJobs)
   const result = match.result as (AiSearchResult & { progress?: LocalResearchProgress; stages?: LocalResearchProgress[] }) | null
   const stages = Array.isArray(result?.stages) ? result.stages : []
   const finalStage = stages.at(-1)

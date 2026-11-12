@@ -205,6 +205,10 @@ export function identifyInstagramProfile(input, sources, profileResults = []) {
     if (!known && !hasCity) continue
     for (const profile of instagramProfilesInText(text)) {
       const related = handleRelated(profile)
+      // Business directories often link their own social account next to a
+      // listing; never treat that unrelated handle as the listed company's.
+      // A direct link on the saved company website is still a candidate.
+      if (!known && !related) continue
       const score = (known ? 70 : hub ? 55 : 45) + (related ? 25 : 0)
       candidates.push({ profileUrl: profile, evidenceUrl: source.url, score,
         status: (known && related) ? 'linked' : 'candidate' })
@@ -217,7 +221,7 @@ export function identifyInstagramProfile(input, sources, profileResults = []) {
       String(result.markdown || '') + ' ' + String(result.content || '')
     const hasCompany = Boolean(company && norm(text).includes(company))
     const hasCity = Boolean(city && norm(text).includes(city))
-    if (!hasCompany || !hasCity) continue
+    if (!hasCompany || !hasCity || !handleRelated(profile)) continue
     candidates.push({ profileUrl: profile, evidenceUrl: result.url,
       score: 40 + (handleRelated(profile) ? 25 : 0), status: 'candidate' })
   }

@@ -105,8 +105,23 @@ export interface LocalSearchOptions {
   keepRunningOnClose?: boolean
 }
 
+/** A past candidate is only a suggestion. Identity is confirmed by the reviewer. */
+export function reviewedInstagramProfile(value: string): string | null {
+  try {
+    const url = new URL(value)
+    const hostname = url.hostname.toLowerCase()
+    const account = url.pathname.split('/').filter(Boolean)
+    if (url.protocol !== 'https:' || !['instagram.com', 'www.instagram.com'].includes(hostname)
+      || account.length !== 1 || !/^[a-z0-9._]{1,30}$/i.test(account[0])
+      || ['p', 'reel', 'stories', 'explore', 'accounts'].includes(account[0].toLowerCase())
+      || url.username || url.password) return null
+    return 'https://www.instagram.com/' + account[0].toLowerCase() + '/'
+  } catch { return null }
+}
+
 export async function recentLocalResearch(organizationId: string, company: string, city: string): Promise<{
   id: string; status: string; result: AiSearchResult | null; progress: LocalResearchProgress | null; createdAt: string; errorCode: string
+  priorInstagramCandidate: { profileUrl: string; evidenceUrl?: string; discoveredAt: string } | null
 } | null> {
   const client = effectiveDataMode === 'local' ? null : getSupabaseClient()
   if (!client) return null
@@ -115,12 +130,27 @@ export async function recentLocalResearch(organizationId: string, company: strin
     .eq('organization_id', organizationId).order('created_at', { ascending: false }).limit(30)
   if (error || !data) return null
   const normalizeLabel = (value: string) => value.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/\s+/g, ' ').trim()
-  const match = data.find((row) => {
+  const matchingJobs = data.filter((row) => {
     const input = row.input as Partial<AiSearchInput> | null
     return input?.source === 'manual' && normalizeLabel(input.segment || '') === normalizeLabel(company)
       && normalizeLabel(input.city || '') === normalizeLabel(city)
   })
+  const match = matchingJobs[0]
   if (!match) return null
+  const priorCandidate = matchingJobs.find((row) => {
+    if (row.status !== 'completed') return false
+    const discovery = (row.result as AiSearchResult | null)?.instagramDiscovery
+    return discovery && ['candidate', 'linked', 'provided'].includes(discovery.status)
+      && reviewedInstagramProfile(discovery.profileUrl || '')
+  })
+  const priorDiscovery = (priorCandidate?.result as AiSearchResult | null)?.instagramDiscovery
+  const priorInstagramCandidate = priorDiscovery?.profileUrl
+    ? {
+      profileUrl: reviewedInstagramProfile(priorDiscovery.profileUrl)!,
+      evidenceUrl: priorDiscovery.evidenceUrl,
+      discoveredAt: priorCandidate?.created_at || match.created_at,
+    }
+    : null
   const result = match.result as (AiSearchResult & { progress?: LocalResearchProgress; stages?: LocalResearchProgress[] }) | null
   const stages = Array.isArray(result?.stages) ? result.stages : []
   const finalStage = stages.at(-1)
@@ -143,6 +173,7 @@ export async function recentLocalResearch(organizationId: string, company: strin
     result: match.status === 'completed' && result ? result : null,
     progress: terminalProgress ?? result?.progress ?? null, createdAt: match.created_at as string,
     errorCode: match.error_code || '',
+    priorInstagramCandidate,
   }
 }
 

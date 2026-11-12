@@ -217,6 +217,13 @@ export function ProspectingG1G2Panel({ prospect, snapshot, workspaceId, readOnly
     }
   }
 
+  const approvedInstagram = prospect.rawData.approvedInstagram as { profileUrl?: string } | undefined
+  const currentInstagram = prospect.instagram.trim()
+  const currentInstagramUrl = reviewedInstagramProfile(currentInstagram.startsWith('@')
+    ? 'https://www.instagram.com/' + currentInstagram.slice(1) + '/'
+    : currentInstagram)
+  const reviewerConfirmedInstagram = Boolean(currentInstagramUrl && currentInstagramUrl === approvedInstagram?.profileUrl)
+
   const labels: Array<[string, number]> = [
     ['Aderência ao ICP', score.fit],
     ['Potencial comercial', score.opportunity],
@@ -289,7 +296,7 @@ export function ProspectingG1G2Panel({ prospect, snapshot, workspaceId, readOnly
       <small>O aceite salva o Instagram no cadastro e inicia uma nova pesquisa. Ele confirma sua escolha, não garante acesso às publicações privadas ou bloqueadas.</small>
     </section>}
     {prospect.instagram.trim() && <p className="garimpo-cross-source__instagram-saved">
-      <ShieldCheck size={14}/> Perfil registrado no cadastro: <strong>{prospect.instagram}</strong>. Nas próximas investigações ele terá prioridade sobre sugestões dos buscadores.
+      <ShieldCheck size={14}/> {reviewerConfirmedInstagram ? 'Instagram confirmado nesta revisão:' : 'Instagram registrado no cadastro:'} <strong>{prospect.instagram}</strong>
     </p>}
     {result?.instagramDiscovery ? <section className="garimpo-cross-source__instagram garimpo-review__instagram-compact" aria-label="Descoberta do perfil Instagram">
       <div className="garimpo-review__instagram-heading">
@@ -305,7 +312,9 @@ export function ProspectingG1G2Panel({ prospect, snapshot, workspaceId, readOnly
         : result.instagramDiscovery.status === 'candidate'
           ? 'Encontramos um possível perfil pelos buscadores. A identidade ainda precisa ser conferida.'
           : result.instagramDiscovery.status === 'provided'
-            ? 'Perfil informado no cadastro; ainda não foi confirmado em outra fonte.'
+            ? (reviewerConfirmedInstagram
+              ? 'Perfil associado à empresa por confirmação humana; publicações dependem de acesso público.'
+              : 'Perfil informado no cadastro; ainda não confirmado por fonte independente.')
             : result.instagramDiscovery.status === 'unavailable'
               ? 'A busca pelo perfil não respondeu. O sistema preservou os demais resultados.'
               : suggestedInstagram?.profileUrl

@@ -503,9 +503,9 @@ export async function stagedLocalResearch({ input, signal, values, fetcher, mode
       // mentions. All requests stay sequential on the low-memory Linux host.
       const queries = [...new Set([
         ...researchPlan.queries.slice(0, 1),
-        ...multiQueries.slice(0, values.GARIMPO_MEMORY_PROFILE === 'low' ? 2 : 3),
-        ...researchPlan.queries.slice(1),
-      ])].slice(0, values.GARIMPO_MEMORY_PROFILE === 'low' ? 4 : 6)
+        ...multiQueries.slice(0, values.GARIMPO_MEMORY_PROFILE === 'low' ? 3 : 4),
+        ...researchPlan.queries.slice(1, 2),
+      ])].slice(0, values.GARIMPO_MEMORY_PROFILE === 'low' ? 5 : 6)
       for (const query of queries) {
         try {
           const page = await call('/v2/search', {

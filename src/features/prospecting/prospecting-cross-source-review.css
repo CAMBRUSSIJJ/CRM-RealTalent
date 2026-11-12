@@ -143,3 +143,183 @@
 .prospecting-review-form__advanced{min-width:0;border-top:1px solid var(--color-border,#e0e5ee);padding-top:10px;margin-top:4px}
 .prospecting-review-form__advanced>summary{font-size:12px;cursor:pointer;color:var(--color-text-muted,#475467);font-weight:650;padding:8px 0}
 .prospecting-review-form__advanced>.prospecting-review-form{margin-top:8px}
+
+
+/* Native RealTalent CRM review: adapt only the workspace structure from the
+   supplied 60/40 reference. Never duplicate global navigation or header. */
+.prospecting-processing-layout.crm-prospecting-layout {
+  display:grid;
+  grid-template-columns:minmax(180px,224px) minmax(0,1fr);
+  gap:12px;
+  align-items:start;
+  width:100%;
+  min-width:0;
+}
+.crm-prospecting-layout > .prospecting-queue {min-width:0;max-width:none}
+.crm-prospecting-review-shell {
+  display:grid;
+  grid-template-columns:minmax(0,3fr) minmax(0,2fr);
+  align-items:stretch;
+  min-width:0;
+  height:clamp(580px,calc(100dvh - 205px),1080px);
+  border:1px solid var(--color-border,#dfe5ed);
+  border-radius:12px;
+  background:var(--color-surface,#fff);
+  overflow:hidden;
+}
+.crm-prospecting-review-shell__editor {
+  display:flex;
+  flex-direction:column;
+  min-width:0;
+  min-height:0;
+  margin:0;
+  padding:0;
+  border:0;
+  border-radius:0;
+  box-shadow:none;
+  background:var(--color-surface,#fff);
+  overflow-y:auto;
+  overscroll-behavior:contain;
+  scrollbar-width:thin;
+}
+.crm-prospecting-review-shell__editor > .prospecting-review-header {
+  padding:20px 22px 12px;
+  flex-shrink:0;
+  border-bottom:1px solid var(--color-border,#edf0f5);
+}
+.crm-prospecting-review-form-panel {
+  display:block;
+  min-width:0;
+  padding:19px 22px 22px;
+  border:0;
+  background:transparent;
+}
+.crm-prospecting-review-form-panel__header {
+  display:flex;
+  justify-content:space-between;
+  align-items:flex-start;
+  margin:0 0 17px;
+  padding:0;
+  border:0;
+}
+.crm-prospecting-review-form-panel__header h4{
+  font-size:18px;line-height:1.3;font-weight:700;
+  margin:0;color:var(--color-text,#182234)
+}
+.crm-prospecting-review-form-panel__header p{
+  font-size:12px;line-height:1.5;
+  margin:5px 0 0;color:var(--color-text-muted,#667085)
+}
+.crm-prospecting-review-form-panel > .prospecting-review-form,
+.crm-prospecting-review-form-panel .prospecting-review-form__advanced > .prospecting-review-form {
+  display:grid;
+  grid-template-columns:repeat(2,minmax(0,1fr));
+  gap:15px;
+}
+.crm-prospecting-review-form-panel .prospecting-review-form label{min-width:0}
+.crm-prospecting-review-form-panel .prospecting-review-form label.is-wide,
+.crm-prospecting-review-form-panel .prospecting-review-form__advanced.is-wide{grid-column:1/-1}
+.crm-prospecting-review-form-panel .prospecting-review-form input,
+.crm-prospecting-review-form-panel .prospecting-review-form textarea{
+  min-width:0;width:100%;max-width:100%;box-sizing:border-box
+}
+.crm-prospecting-review-shell__editor > .prospecting-review-checks-compact,
+.crm-prospecting-review-shell__editor > .prospecting-review-attention-v101106{
+  margin:0 22px 12px;
+  flex-shrink:0
+}
+.crm-prospecting-review-shell__editor > .prospecting-review-actions {
+  position:sticky;
+  bottom:0;
+  z-index:3;
+  flex-shrink:0;
+  margin-top:auto;
+  padding:12px 16px;
+  display:flex;
+  flex-wrap:wrap;
+  justify-content:space-between;
+  align-items:center;
+  gap:10px;
+  border-top:1px solid var(--color-border,#dfe5ed);
+  background:var(--color-surface,#fff);
+  box-shadow:0 -5px 18px rgba(16,24,40,.05)
+}
+.crm-prospecting-review-shell__editor > .prospecting-review-actions > div{
+  display:flex;gap:8px;flex-wrap:wrap;align-items:center
+}
+.crm-prospecting-review-shell__editor .prospecting-review-shortcuts-v101104{
+  width:100%;text-align:right;font-size:10px
+}
+.crm-prospecting-review-shell__insights {
+  display:flex;
+  flex-direction:column;
+  gap:13px;
+  min-width:0;
+  min-height:0;
+  max-width:none;
+  margin:0;
+  padding:18px;
+  border:0;
+  border-left:1px solid var(--color-border,#dfe5ed);
+  border-radius:0;
+  background:var(--color-surface-muted,#f7f9fc);
+  overflow-y:auto;
+  overscroll-behavior:contain;
+  scrollbar-width:thin
+}
+.crm-prospecting-review-shell__insights > .prospecting-g1g2{
+  min-width:0;
+  margin:0;
+  padding:16px;
+  border:1px solid var(--color-border,#e0e5ee);
+  border-radius:11px;
+  background:var(--color-surface,#fff)
+}
+.crm-prospecting-review-shell__insights .garimpo-cross-source {padding:12px;gap:10px}
+.crm-prospecting-review-shell__insights .prospecting-g1g2__dimensions{grid-template-columns:repeat(3,minmax(0,1fr))}
+.crm-prospecting-review-context{
+  min-width:0;
+  border:1px solid var(--color-border,#e0e5ee);
+  background:var(--color-surface,#fff);
+  border-radius:10px
+}
+.crm-prospecting-review-context > summary{
+  cursor:pointer;padding:13px 14px;
+  font-size:12px;font-weight:650;color:var(--color-text,#344054);
+}
+.crm-prospecting-review-context > :not(summary){margin:10px 12px}
+.crm-prospecting-review-shell__insights > .prospecting-review-evidence-v101106{
+  min-width:0;
+  max-width:none;
+  margin:0;
+  width:100%
+}
+@media (max-width:1160px){
+  .prospecting-processing-layout.crm-prospecting-layout {
+    grid-template-columns:minmax(160px,200px) minmax(0,1fr);
+  }
+  .crm-prospecting-review-shell {grid-template-columns:minmax(0,55fr) minmax(0,45fr)}
+  .crm-prospecting-review-form-panel {padding:16px}
+  .crm-prospecting-review-shell__insights {padding:12px}
+}
+@media (max-width:900px){
+  .prospecting-processing-layout.crm-prospecting-layout {grid-template-columns:1fr}
+  .crm-prospecting-layout>.prospecting-queue {max-height:180px;overflow:auto}
+  .crm-prospecting-review-shell {grid-template-columns:1fr;height:auto;min-height:0;overflow:visible}
+  .crm-prospecting-review-shell__editor {overflow:visible;min-height:0}
+  .crm-prospecting-review-shell__insights{
+    border-left:0;border-top:1px solid var(--color-border,#dfe5ed);
+    overflow:visible
+  }
+}
+@media (max-width:560px){
+  .crm-prospecting-review-form-panel > .prospecting-review-form,
+  .crm-prospecting-review-form-panel .prospecting-review-form__advanced > .prospecting-review-form{
+    grid-template-columns:1fr
+  }
+  .crm-prospecting-review-shell__editor > .prospecting-review-header{padding:15px}
+  .crm-prospecting-review-form-panel{padding:14px}
+  .crm-prospecting-review-shell__editor > .prospecting-review-checks-compact,
+  .crm-prospecting-review-shell__editor > .prospecting-review-attention-v101106{margin:0 14px 11px}
+  .crm-prospecting-review-shell__editor > .prospecting-review-actions {padding:10px}
+}

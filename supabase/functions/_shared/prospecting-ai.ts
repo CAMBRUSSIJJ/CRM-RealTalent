@@ -99,6 +99,8 @@ export interface AiG7LeadIntelligence {
   status: 'partial_evidence' | 'insufficient_evidence'
   extraction: 'ollama_verified' | 'literal_only'
   sourceCount: number
+  businessSummary?: string
+  coverage?: Array<{ channel: string; label: string; pages: number; status: string }>
   offerings: AiG7LeadIntelligenceEvidence[]
   prices: AiG7LeadIntelligenceEvidence[]
   positioning: AiG7LeadIntelligenceEvidence[]

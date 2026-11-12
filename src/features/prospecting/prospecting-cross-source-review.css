@@ -76,3 +76,15 @@
 .garimpo-cross-source__instagram-excerpts li{border:1px solid #dbe3ef;background:#fff;border-radius:8px;padding:9px;min-width:0;overflow-wrap:anywhere}
 .garimpo-cross-source__instagram-excerpts li p{font-size:12px;line-height:1.55;white-space:pre-wrap;margin:0 0 6px}
 .garimpo-cross-source__instagram-excerpts li a{font-size:11px;display:inline-flex;gap:5px;align-items:center;color:#315bd5}
+
+/* Reviewer acceptance: recover a previously found Instagram account instead
+   of losing a candidate whenever a later public search returns no matches. */
+.garimpo-cross-source__instagram-approval{display:grid;gap:10px;padding:14px;border:1px solid #adc4ee;border-radius:11px;background:#eef4ff;color:#253d69;margin:12px 0}
+.garimpo-cross-source__instagram-approval>div{display:flex;flex-wrap:wrap;gap:5px 12px;align-items:center}
+.garimpo-cross-source__instagram-approval>div>strong,.garimpo-cross-source__instagram-approval>div>p{flex-basis:100%}
+.garimpo-cross-source__instagram-approval p{font-size:12px;line-height:1.55;margin:0}
+.garimpo-cross-source__instagram-approval a{display:inline-flex;align-items:center;gap:5px;font-size:12px;color:#2852b9;overflow-wrap:anywhere}
+.garimpo-cross-source__instagram-approval>.button{justify-self:start;max-width:100%;white-space:normal}
+.garimpo-cross-source__instagram-approval small{font-size:11px;line-height:1.5;color:#586c8e}
+.garimpo-cross-source__instagram-saved{display:flex;align-items:flex-start;gap:7px;flex-wrap:wrap;font-size:12px;color:#1f6a4f;background:#eef9f2;padding:10px 12px;border-radius:9px}
+.garimpo-cross-source__instagram-saved strong{overflow-wrap:anywhere}

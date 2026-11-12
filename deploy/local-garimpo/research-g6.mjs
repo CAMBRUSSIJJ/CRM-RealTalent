@@ -130,7 +130,10 @@ export function selectDeepPages(input, website, links, limit = 2) {
     origin = new URL(website)
     if (origin.protocol !== 'https:' || origin.username || origin.password || origin.port) return []
   } catch { return [] }
-  const nameParts = normal(input.segment).split(' ').filter((word) => word.length > 4)
+  const genericTerms = new Set(['barber','barbearia','escola','colegio','clinica','comercio','loja',
+    'studio','salao','beleza','mercado','servicos','empresa','municipal','brasil'])
+  const nameParts = normal(input.segment).split(' ')
+    .filter((word) => word.length > 4 && !genericTerms.has(word))
   const domainOwned = nameParts.some((part) => normal(origin.hostname).includes(part))
   const candidates = []
   for (const value of Array.isArray(links) ? links.slice(0, 100) : []) {

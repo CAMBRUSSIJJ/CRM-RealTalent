@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
 import { createProspect, readProspectingState, writeProspectingState, type ProspectingState } from './prospecting-workspace'
-import { aiResearchNotes, applyAiDiscovery, applyAiEnrichment, prospectIdentityKeys, searchProspectsWithAi } from './prospecting-ai'
+import { aiResearchNotes, applyAiDiscovery, applyAiEnrichment, prospectIdentityKeys, searchProspectsWithAi, findPriorInstagramCandidate, reviewedInstagramProfile } from './prospecting-ai'
 import { createProspectingAiHandler, parseAiSearchInput, ProspectingError, sanitizeAiResult, type AiSearchResult } from '../../supabase/functions/_shared/prospecting-ai'
 import { createFirecrawlResearch } from '../../supabase/functions/_shared/firecrawl-research'
 
@@ -15,6 +15,36 @@ const raw = { leads: [{ facts: [
 ], opportunity: 'Verificar como organiza os agendamentos.', suggestedApproach: 'Perguntar sobre o processo atual.' }] }
 const result = () => sanitizeAiResult(raw, [{ url, title: 'Alpha', content: report }], report, 5, '2026-11-10T15:00:00.000Z')
 const blank = (): ProspectingState => ({ prospects: [], history: [], lastExtensionSyncAt: null })
+
+describe('Garimpo: confirmação humana de Instagram', () => {
+  it('recupera perfil encontrado anteriormente quando a pesquisa mais recente não localizou Instagram', () => {
+    const jobs = [
+      { status: 'completed', created_at: '2026-11-12T02:24:00Z',
+        result: { instagramDiscovery: { status: 'not_found', postCount: 0 } } },
+      { status: 'completed', created_at: '2026-11-11T20:30:00Z',
+        result: { instagramDiscovery: { status: 'candidate',
+          profileUrl: 'https://www.instagram.com/fainerbarber/',
+          evidenceUrl: 'https://linktr.ee/fainerbarber', postCount: 0 } } },
+    ]
+    expect(findPriorInstagramCandidate(jobs)).toEqual({
+      profileUrl: 'https://www.instagram.com/fainerbarber/',
+      evidenceUrl: 'https://linktr.ee/fainerbarber',
+      discoveredAt: '2026-11-11T20:30:00Z',
+    })
+    expect(reviewedInstagramProfile('https://www.instagram.com/fainerbarber/')).toBe('https://www.instagram.com/fainerbarber/')
+  })
+
+  it('não oferece publicação, Instagram de terceiros ou resultado ainda em andamento para aceite', () => {
+    expect(reviewedInstagramProfile('https://www.instagram.com/p/ABC123/')).toBeNull()
+    expect(reviewedInstagramProfile('https://instagram.com/conta/segundo-perfil')).toBeNull()
+    expect(reviewedInstagramProfile('https://outro.example.com/fainerbarber')).toBeNull()
+    expect(reviewedInstagramProfile('https://www.instagram.com.evil.example.org/fainerbarber/')).toBeNull()
+    expect(findPriorInstagramCandidate([
+      { status: 'processing', created_at: '2026-11-11T20:30:00Z',
+        result: { instagramDiscovery: { status: 'candidate', profileUrl: 'https://www.instagram.com/conta/' } } },
+    ])).toBeNull()
+  })
+})
 
 describe('Garimpo com IA e fontes', () => {
   it('mantém somente dados presentes na fonte correspondente, validando CNPJ e URLs', () => {

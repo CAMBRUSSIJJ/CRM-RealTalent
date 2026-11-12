@@ -139,7 +139,7 @@ export function findPriorInstagramCandidate(rows: Array<{
   return null
 }
 
-export async function recentLocalResearch(organizationId: string, company: string, city: string): Promise<{
+export async function recentLocalResearch(organizationId: string, company: string, city: string, instagram = ''): Promise<{
   id: string; status: string; result: AiSearchResult | null; progress: LocalResearchProgress | null; createdAt: string; errorCode: string
   priorInstagramCandidate: { profileUrl: string; evidenceUrl?: string; discoveredAt: string } | null
 } | null> {
@@ -150,10 +150,25 @@ export async function recentLocalResearch(organizationId: string, company: strin
     .eq('organization_id', organizationId).order('created_at', { ascending: false }).limit(30)
   if (error || !data) return null
   const normalizeLabel = (value: string) => value.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/\s+/g, ' ').trim()
+  const normalizedProfile = (raw: string) => reviewedInstagramProfile(
+    raw.startsWith('@') ? 'https://www.instagram.com/' + raw.slice(1) + '/' : raw,
+  )
+  const activeProfile = normalizedProfile(instagram.trim())
+  const jobProfile = (input: Partial<AiSearchInput> | null) => {
+    const hint = input?.query?.match(/(?:^|\s)INSTAGRAM=([^\s]+)/)?.[1]
+    let raw = input?.instagram || ''
+    if (!raw && hint) {
+      try { raw = decodeURIComponent(hint) } catch { /* malformed legacy hint */ }
+    }
+    return normalizedProfile(raw)
+  }
+  // A corrected profile must not inherit sources or post counts from a job
+  // previously executed for a different Instagram account.
   const matchingJobs = data.filter((row) => {
     const input = row.input as Partial<AiSearchInput> | null
     return input?.source === 'manual' && normalizeLabel(input.segment || '') === normalizeLabel(company)
       && normalizeLabel(input.city || '') === normalizeLabel(city)
+      && (!activeProfile || jobProfile(input) === activeProfile)
   })
   const match = matchingJobs[0]
   if (!match) return null

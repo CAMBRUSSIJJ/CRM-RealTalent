@@ -1969,7 +1969,35 @@ function ProcessingWorkspace({ readOnly, queue, active, leads, snapshot, onSelec
 
     <aside className="prospecting-analysis-sidebar prospecting-analysis-sidebar-v101106 crm-prospecting-review-shell__insights">
       <ProspectingG1G2Panel prospect={active} snapshot={snapshot} workspaceId={workspaceId} readOnly={readOnly}
-        onEnriched={onEnriched} onConfirmInstagram={onConfirmInstagram}/>
+        onEnriched={onEnriched} onConfirmInstagram={onConfirmInstagram}
+        onApplySuggestion={(field, value, sourceUrl) => {
+          if (readOnly) return
+          const beforeValue = String(active[field] || '')
+          const previous = Array.isArray(active.rawData.garimpoReviewDecisions)
+            ? active.rawData.garimpoReviewDecisions : []
+          onChange(active.id, {
+            [field]: value,
+            rawData: {
+              ...active.rawData,
+              garimpoReviewDecisions: [...previous.slice(-29), {
+                action: 'applied', field, previousValue: beforeValue, value, sourceUrl,
+                reviewedAt: new Date().toISOString(),
+              }],
+            },
+          })
+        }}
+        onIgnoreSuggestion={(key) => {
+          if (readOnly) return
+          const previous = Array.isArray(active.rawData.garimpoIgnoredSuggestions)
+            ? active.rawData.garimpoIgnoredSuggestions.filter((value): value is string => typeof value === 'string') : []
+          if (previous.includes(key)) return
+          onChange(active.id, {
+            rawData: {
+              ...active.rawData,
+              garimpoIgnoredSuggestions: [...previous.slice(-59), key],
+            },
+          })
+        }}/>
       <details className="crm-prospecting-review-context" key={active.id}>
         <summary>Outras informações · IA e localização</summary>
         <AiResearchCard prospect={active} />

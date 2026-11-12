@@ -52,6 +52,10 @@ import {buildProspectingHandoffMetrics,isProspectTransferable,transferableProspe
 } from '../../services/prospecting-handoff-r1'
 import '../../styles/prospecting-r1.css'
 import {GARIMPO_REVIEW_REQUEST,garimpoReviewStorageKey} from '../../services/realtalent-agent-garimpo-bridge'
+import { FirecrawlLocalPanel } from './firecrawl-local-panel'
+import { AiResearchCard } from './ai-research-card'
+import { aiResearchNotes, applyAiDiscovery, applyAiEnrichment, getLocalConnectorStatus, searchProspectsWithAi, type AiSearchResult } from '../../services/prospecting-ai'
+import { savedCrossSourceReview } from '../../services/prospecting-cross-source-review'
 
  type ProspectingTab = 'search' | 'local' | 'results' | 'history'
  type ReviewMode = 'list' | 'guided' | 'sources'
@@ -143,7 +147,7 @@ export function ProspectingPage() {
   const [segment, setSegment] = useState('')
   const [city, setCity] = useState('')
   const [query, setQuery] = useState('')
-  const [quantity, setQuantity] = useState(40)
+  const [quantity, setQuantity] = useState(5)
   const [quickCapture, setQuickCapture] = useState('')
   const [universalCapture, setUniversalCapture] = useState('')
   const [search, setSearch] = useState('')
@@ -178,6 +182,13 @@ export function ProspectingPage() {
   const [searchCenter, setSearchCenter] = useState<ProspectingGeoPoint | null>(null)
   const [mapPreviewBusy, setMapPreviewBusy] = useState(false)
   const [agentBusy, setAgentBusy] = useState(false)
+  const [localConnected, setLocalConnected] = useState(false)
+  const [localRunning, setLocalRunning] = useState(false)
+  const [localStatus, setLocalStatus] = useState<'idle' | 'running' | 'completed' | 'failed'>('idle')
+  const [localFound, setLocalFound] = useState(0)
+  const [integratedStartedAt, setIntegratedStartedAt] = useState<number | null>(null)
+  const [localMessage, setLocalMessage] = useState('')
+  const localAbortRef = useRef<AbortController | null>(null)
   const [providerDiagnostics, setProviderDiagnostics] = useState<ProspectingProviderDiagnostics | null>(null)
   const [workspaceMembers, setWorkspaceMembers] = useState<WorkspaceMember[]>([])
   const fileInputRef = useRef<HTMLInputElement>(null)
@@ -273,6 +284,38 @@ export function ProspectingPage() {
         enriched.set(match.id, merged)
         prospectKey(merged).forEach((key) => existingKeys.set(key, merged))
         continue
+      }
+      if (match && action === 'capture') {
+        // Progressive and final Agent deliveries can describe the same candidate.
+        // A final delivery must fill genuinely missing fields without replacing
+        // anything already edited by a reviewer. Never merge by shared phone
+        // or commercial name alone, as those identifiers can be ambiguous.
+        const priorCandidateId = rawText(match.rawData, 'candidateId')
+        const incomingCandidateId = rawText(incoming.rawData, 'candidateId')
+        if (priorCandidateId && priorCandidateId === incomingCandidateId) {
+          const fill = (current: string, next: string) => current.trim() || next.trim()
+          const merged = refreshProspectAnalysis({
+            ...match,
+            phone: fill(match.phone, incoming.phone),
+            email: fill(match.email, incoming.email),
+            city: fill(match.city, incoming.city),
+            address: fill(match.address, incoming.address),
+            cnpj: fill(match.cnpj, incoming.cnpj),
+            instagram: fill(match.instagram, incoming.instagram),
+            website: fill(match.website, incoming.website),
+            bookingUrl: fill(match.bookingUrl, incoming.bookingUrl),
+            systemName: fill(match.systemName, incoming.systemName),
+            description: fill(match.description, incoming.description),
+            rawData: {
+              ...match.rawData, ...incoming.rawData,
+              ...(match.rawData.aiResearch ? { aiResearch: match.rawData.aiResearch } : {}),
+            },
+            updatedAt: new Date().toISOString(),
+          }, leads)
+          enriched.set(match.id, merged)
+          prospectKey(merged).forEach((key) => existingKeys.set(key, merged))
+          continue
+        }
       }
       if (match) { skipped += 1; continue }
       prospectKey(incoming).forEach((key) => existingKeys.set(key, incoming)); newProspects.push(incoming)
@@ -375,11 +418,18 @@ export function ProspectingPage() {
   }, [agentJob?.status, refreshAgent])
 
   const resetProspectingSearch = () => {
+    localAbortRef.current?.abort()
+    localAbortRef.current = null
+    setLocalRunning(false)
+    setLocalStatus('idle')
+    setLocalFound(0)
+    setIntegratedStartedAt(null)
+    setLocalMessage('')
     setTab('search')
     setSegment('')
     setCity('')
     setQuery('')
-    setQuantity(40)
+    setQuantity(5)
     setAreaMode('radius')
     setRadiusKm(15)
     setSearchMode('fast')
@@ -487,6 +537,118 @@ export function ProspectingPage() {
       return false
     } finally { setAgentBusy(false) }
   }
+
+
+  // One user action coordinates Firecrawl/Ollama, then the territorial engine.
+  // Sequential execution protects low-RAM Linux systems from parallel crawls.
+  const startIntegratedSearch = async () => {
+    if (!canWrite || !workspaceId || agentBusy || localAbortRef.current ||
+        (agentJob && ['queued', 'running', 'paused'].includes(agentJob.status))) return
+    if (!segment.trim() || !city.trim()) {
+      notify('warning', 'Informe o segmento e a cidade antes de iniciar a busca.')
+      return
+    }
+    if (areaMode === 'map' && mapPolygon.length < 3) {
+      notify('warning', 'Desenhe a área com pelo menos três pontos no mapa antes de pesquisar.')
+      return
+    }
+    const controller = new AbortController()
+    setIntegratedStartedAt(Date.now())
+    localAbortRef.current = controller
+    setLocalRunning(true)
+    setLocalStatus('running')
+    setLocalMessage('Pesquisando fontes e validando dados no Linux.')
+    setLocalFound(0)
+
+    let localSuccess = false
+    let localResultCount = 0
+    let connectedNow = false
+    let cancelled = false
+    try {
+      const status = await getLocalConnectorStatus(workspaceId).catch(() => null)
+      const connected = Boolean(status?.online)
+      connectedNow = connected
+      setLocalConnected(connected)
+      if (connected) {
+        try {
+          // The local web API handles up to ten leads per call.
+          const result = await searchProspectsWithAi({
+            organizationId: workspaceId, segment: segment.trim(), city: city.trim(),
+            query: query.trim(), limit: Math.min(10, Math.max(1, quantity)),
+            source: 'maps', execution: 'local',
+          }, controller.signal)
+          if (controller.signal.aborted) { cancelled = true; return }
+          localSuccess = true
+          localResultCount = result.leads.length
+          setLocalFound(localResultCount)
+          setLocalStatus('completed')
+          const message = localResultCount
+            ? `${localResultCount} empresa(s) com fontes encaminhada(s) à revisão.`
+            : 'A coleta terminou sem empresas comprovadas. Confira os critérios e a etapa territorial.'
+          setLocalMessage(message)
+          if (localResultCount) {
+            commit((current) => applyAiDiscovery(current, result, workspaceId, 'manual', snapshot?.leads ?? [], currentUserId))
+            notify('success', `Firecrawl + Ollama: ${localResultCount} empresa(s) processada(s). Confira Revisar para validar evidências.`)
+          } else {
+            notify('info', 'Firecrawl + Ollama concluíram sem empresas verificáveis. Nenhum registro fictício foi criado.')
+          }
+        } catch (error) {
+          if (controller.signal.aborted) { cancelled = true; return }
+          const message = error instanceof Error ? error.message : 'Falha na coleta web e análise local.'
+          setLocalStatus('failed')
+          setLocalMessage(message)
+          notify('warning', `A etapa Firecrawl + Ollama não concluiu: ${message}. Tentaremos a cobertura territorial.`)
+        }
+      } else {
+        setLocalStatus('failed')
+        setLocalMessage('Conector Linux offline; somente a cobertura territorial está disponível.')
+      }
+    } finally {
+      if (localAbortRef.current === controller) localAbortRef.current = null
+      setLocalRunning(false)
+    }
+    if (cancelled || controller.signal.aborted) return
+    let territorialAvailable = false
+    try { territorialAvailable = Boolean(await getProspectingAgentHealth()) }
+    catch { /* The browser may not reach the separate territorial runtime. */ }
+    if (territorialAvailable) {
+      const started = await startLinuxAgentSearch()
+      if (started) {
+        notify('info', 'Pesquisa web encerrada. Cobertura territorial iniciada na mesma busca.')
+      } else if (!localSuccess) {
+        notify('warning', 'A pesquisa territorial não iniciou e a coleta web não retornou dados.')
+      }
+    } else if (!localSuccess && !connectedNow) {
+      notify('error', 'Nenhum mecanismo disponível: conecte seu Linux ou inicie o Agente Territorial.')
+    } else if (localSuccess && !localResultCount) {
+      notify('info', 'Nenhuma empresa verificável foi encontrada; a cobertura territorial está indisponível nesta sessão.')
+    } else if (localSuccess && localResultCount) {
+      notify('info', 'Resultados disponíveis na aba Revisar. O agente territorial pode ser ativado quando estiver acessível.')
+    }
+  }
+
+  const cancelIntegratedLocalSearch = () => {
+    localAbortRef.current?.abort()
+    localAbortRef.current = null
+    setLocalRunning(false)
+    setLocalStatus('idle')
+    setLocalMessage('Pesquisa web cancelada.')
+    notify('info', 'Pesquisa web cancelada. Nenhum dado parcial foi importado.')
+  }
+
+  useEffect(() => {
+    if (!workspaceId) { setLocalConnected(false); return }
+    let mounted = true
+    const check = async () => {
+      try {
+        const status = await getLocalConnectorStatus(workspaceId)
+        if (mounted) setLocalConnected(Boolean(status?.online))
+      } catch { if (mounted) setLocalConnected(false) }
+    }
+    void check()
+    const timer = window.setInterval(() => void check(), 10_000)
+    return () => { mounted = false; window.clearInterval(timer) }
+  }, [workspaceId])
 
   const controlLinuxAgentSearch = async (action: 'pause' | 'resume' | 'cancel') => {
     if (!agentJob) return
@@ -968,7 +1130,7 @@ export function ProspectingPage() {
           let leadId: string | null = null
           if (options.createOpportunity) {
             const importTag = `garimpo-id:${prospect.id}`
-            const details = [`Lote Garimpo: ${batchId}`, `Empresa canônica: ${company.id}`, contactId ? `Contato canônico: ${contactId}` : '', prospect.instagram ? `Instagram: ${prospect.instagram}` : '', prospect.website ? `Site: ${prospect.website}` : '', prospect.bookingUrl ? `Agendamento: ${prospect.bookingUrl}` : '', prospect.cnpj ? `CNPJ: ${prospect.cnpj}` : '', prospect.address ? `Endereço: ${prospect.address}` : '', prospect.description, prospect.notes].filter(Boolean).join('\n')
+            const details = [`Lote Garimpo: ${batchId}`, `Empresa canônica: ${company.id}`, contactId ? `Contato canônico: ${contactId}` : '', prospect.instagram ? `Instagram: ${prospect.instagram}` : '', prospect.website ? `Site: ${prospect.website}` : '', prospect.bookingUrl ? `Agendamento: ${prospect.bookingUrl}` : '', prospect.cnpj ? `CNPJ: ${prospect.cnpj}` : '', prospect.address ? `Endereço: ${prospect.address}` : '', prospect.description, prospect.notes, aiResearchNotes(prospect)].filter(Boolean).join('\n')
             const alreadyImported = snapshot.leads.find((lead) => lead.tags.includes(importTag)||lead.id===importedLeadId)
             if (alreadyImported && options.duplicateBehavior === 'update') {
               const tags = Array.from(new Set([...alreadyImported.tags, ...tagsFromOptions, 'garimpo', importTag]))
@@ -1056,18 +1218,27 @@ export function ProspectingPage() {
           <ProspectingRedesignSearch
             segment={segment}
             city={city}
+            query={query}
             quantity={quantity}
             categoryMode={categoryMode}
             areaMode={areaMode}
             radiusKm={radiusKm}
-            canEdit={canProspectingEdit}
+            canEdit={canWrite}
             agentBusy={agentBusy}
             agentHealth={agentHealth}
-            job={agentJob}
+            job={agentJob && (integratedStartedAt === null || Date.parse(agentJob.createdAt) >= integratedStartedAt - 1000) ? agentJob : null}
             baseTotal={metrics.total}
             sentCount={metrics.sent}
             readyCount={metrics.autoValidatable}
             attentionCount={metrics.attention}
+            localConnected={localConnected}
+            localRunning={localRunning}
+            localStatus={localStatus}
+            localFound={localFound}
+            localMessage={localMessage}
+            connectionPanel={<FirecrawlLocalPanel key={workspaceId} workspaceId={workspaceId}
+              readOnly={!canProspectingCreate} canConfigure={currentWorkspace?.role === 'owner' || currentWorkspace?.role === 'admin'}
+              segment={segment} city={city} connectionOnly onComplete={() => {}} />}
             mapPanel={areaMode === 'map' ? <TerritoryAreaSelector
               preview={mapPreview}
               polygon={mapPolygon}
@@ -1090,11 +1261,13 @@ export function ProspectingPage() {
             />}
             onSegment={setSegment}
             onCity={changeProspectingCity}
+            onQuery={setQuery}
+            onCancelLocal={cancelIntegratedLocalSearch}
             onQuantity={setQuantity}
             onCategoryMode={setCategoryMode}
             onAreaMode={(value) => { setAreaMode(value); if (value !== 'map') setMapPolygon([]) }}
             onRadiusKm={setRadiusKm}
-            onStart={() => void startLinuxAgentSearch()}
+            onStart={() => void startIntegratedSearch()}
             onControl={(action) => void controlLinuxAgentSearch(action)}
             onDetails={() => setShowTechnical((value) => !value)}
             onInspect={(mode) => openReviewWorkspace(mode)}
@@ -1178,7 +1351,38 @@ export function ProspectingPage() {
           onAnalyze={analyze} onApprove={approveProspects} onDiscard={(ids) => setStatus(ids, 'discarded')} onSend={openSend} onDelete={(ids) => void removeProspects(ids)} onExport={exportResults} onBulkRetry={(ids) => void retrySelectedEnrichment(ids)}
           onOpenGuided={(id) => { setProcessingId(id); setReviewMode('guided') }}
         /> : <ProcessingWorkspace
+          key={activeProspect?.id ?? 'review-empty'}
           readOnly={!canProspectingEdit}
+          workspaceId={workspaceId}
+          onConfirmInstagram={(profileUrl) => {
+            if (!activeProspect || !canProspectingEdit) return
+            const existing = activeProspect.instagram.trim()
+            const normalizedExisting = existing.replace(/^https?:\/\/(www\.)?instagram\.com\//i, '')
+              .replace(/^@/, '').replace(/\/.*$/, '').toLowerCase()
+            const selectedAccount = new URL(profileUrl).pathname.split('/').filter(Boolean)[0]?.toLowerCase()
+            if (existing && normalizedExisting !== selectedAccount) {
+              throw new Error('Outro Instagram já está cadastrado. Verifique o campo antes de substituir.')
+            }
+            updateProspect(activeProspect.id, {
+              instagram: profileUrl,
+              rawData: {
+                ...activeProspect.rawData,
+                approvedInstagram: {
+                  profileUrl,
+                  reviewedAt: new Date().toISOString(),
+                  reviewedBy: currentUserId || 'workspace-reviewer',
+                  method: 'manual-confirmation',
+                },
+              },
+            })
+            notify('success', 'Instagram confirmado e salvo. O Garimpo iniciará a leitura das publicações públicas.')
+          }}
+          onEnriched={(result) => {
+            if (!activeProspect) return
+            const updated = applyAiEnrichment(activeProspect, result, snapshot.leads)
+            updateProspect(activeProspect.id, updated)
+            notify('success', 'Dados encontrados pelo Firecrawl disponíveis para revisão. Campos já preenchidos foram preservados.')
+          }}
           queue={guidedQueue} active={activeProspect} leads={snapshot.leads} snapshot={snapshot} onSelect={setProcessingId} onChange={updateProspect}
           onAnalyze={(id) => analyze([id])} onApprove={(id) => approveProspects([id])} onDiscard={(id) => setStatus([id], 'discarded')}
           onSend={(id) => openSend([id])} onAnalyzeAll={() => analyze(guidedQueue.filter((item) => item.status !== 'sent').map((item) => item.id))}
@@ -1682,7 +1886,8 @@ function EngineProcessingWorkspace({ job, busy, onRefresh, onRetry, onOpenReview
   </div>
 }
 
-function ProcessingWorkspace({ readOnly, queue, active, leads, snapshot, onSelect, onChange, onAnalyze, onApprove, onDiscard, onSend, onAnalyzeAll }: {
+function ProcessingWorkspace({ readOnly, queue, active, leads, snapshot, onSelect, onChange, onAnalyze, onApprove, onDiscard, onSend, onAnalyzeAll, workspaceId, onEnriched, onConfirmInstagram }: {
+  workspaceId: string; onEnriched(result: AiSearchResult): void; onConfirmInstagram(profileUrl: string): void
   readOnly: boolean; queue: ProspectRecord[]; active: ProspectRecord | null; leads: Array<{ id: string; name: string; company: string }>; snapshot: import('../../domain/types').WorkspaceSnapshot; onSelect(id: string): void
   onChange(id: string, patch: Partial<ProspectRecord>): void; onAnalyze(id: string): void; onApprove(id: string): void; onDiscard(id: string): void; onSend(id: string): void; onAnalyzeAll(): void
 }) {
@@ -1707,45 +1912,98 @@ function ProcessingWorkspace({ readOnly, queue, active, leads, snapshot, onSelec
   const quality = prospectDataQuality(active)
   const attentionReasons = prospectAttentionReasons(active)
   const autoValidatable = prospectIsAutoValidatable(active)
-  return <div className="prospecting-processing-layout prospecting-processing-layout-v101106">
+  const sourceAudit = savedCrossSourceReview(active)
+  const confirmedByIndependentSources = (field: string) => Boolean(sourceAudit?.fields.some((row) => row.field === field && row.status === 'confirmed'))
+  const identityConfirmed = confirmedByIndependentSources('company')
+  const locationConfirmed = Boolean(prospectGeoPoint(active)) && confirmedByIndependentSources('address')
+  const contactConfirmed = ['phone','email','website'].some(confirmedByIndependentSources)
+  const readyWithEvidence = autoValidatable && identityConfirmed && locationConfirmed && contactConfirmed
+  return <div className="prospecting-processing-layout prospecting-processing-layout-v101106 crm-prospecting-layout">
     <aside className="panel prospecting-queue">
       <header><div><span className="eyebrow">Fila de análise</span><strong>{queue.length} empresa(s)</strong></div>{!readOnly ? <button type="button" className="icon-button" onClick={onAnalyzeAll} title="Analisar todos"><Sparkles size={16} /></button> : null}</header>
       <div>{queue.map((prospect) => <button type="button" key={prospect.id} className={prospect.id === active.id ? 'is-active' : ''} onClick={() => onSelect(prospect.id)}><span className={`prospect-confidence is-${prospectDataQuality(prospect).readiness === 'ready' ? 'high' : prospectDataQuality(prospect).readiness === 'blocked' ? 'low' : 'medium'}`}>{prospectDataQuality(prospect).score}</span><div><strong>{prospect.company}</strong><small>{prospectDataQuality(prospect).label} · {prospectOriginLabel(prospect)}</small></div>{prospectDataQuality(prospect).readiness === 'blocked' ? <AlertTriangle size={14} /> : <ChevronRight size={14} />}</button>)}</div>
     </aside>
 
-    <section className="panel prospecting-review-card">
-      <header className="prospecting-review-header"><div><span className="eyebrow"><ClipboardCheck size={14} /> {autoValidatable ? 'Validação rápida' : 'Revisão de exceção'}</span><h3>{active.company}</h3><p>{autoValidatable ? 'Os sinais principais estão confirmados. Faça uma leitura rápida antes de aprovar.' : 'Veja primeiro o que precisa da sua decisão; os detalhes técnicos ficam recolhidos.'}</p></div><div><StatusPill tone={autoValidatable ? 'success' : 'warning'}>{autoValidatable ? 'Pronta' : 'Precisa atenção'}</StatusPill><span className="prospecting-counter">{index + 1} de {queue.length}</span></div></header>
-      <div className="prospecting-review-decisions-v101104">
-        <article className={active.company ? 'is-ok' : 'is-warning'}><span>1</span><div><strong>É uma empresa real?</strong><small>{prospectPlaceType(active) === 'content' || prospectPlaceType(active) === 'directory' ? 'Resultado parece conteúdo/diretório' : `Local classificado como ${prospectPlaceType(active).replace('_', ' ')}`}</small></div>{active.company ? <CheckCircle2 size={17}/> : <AlertTriangle size={17}/>}</article>
-        <article className={active.description || rawText(active.rawData, 'intentId', 'category') ? 'is-ok' : 'is-warning'}><span>2</span><div><strong>É do segmento correto?</strong><small>{active.description || rawText(active.rawData, 'intentLabel', 'category') || 'Categoria ainda precisa de confirmação'}</small></div>{active.description || rawText(active.rawData, 'intentId', 'category') ? <CheckCircle2 size={17}/> : <AlertTriangle size={17}/>}</article>
-        <article className={prospectGeoPoint(active) ? 'is-ok' : 'is-warning'}><span>3</span><div><strong>Está no território correto?</strong><small>{prospectGeoPoint(active) ? active.address || active.city || 'Coordenada confirmada' : `Coordenadas pendentes${active.city ? ' · cidade informada: ' + active.city : ''}`}</small></div>{prospectGeoPoint(active) ? <CheckCircle2 size={17}/> : <AlertTriangle size={17}/>}</article>
-        <article className={active.phone || active.email || active.website ? 'is-ok' : 'is-warning'}><span>4</span><div><strong>Há contato utilizável?</strong><small>{active.phone || active.email || active.website || 'Nenhum canal confirmado'}</small></div>{active.phone || active.email || active.website ? <CheckCircle2 size={17}/> : <AlertTriangle size={17}/>}</article>
-        <article className={quality.readiness === 'ready' && active.duplicateLevel === 'none' ? 'is-ok' : 'is-warning'}><span>5</span><div><strong>Está pronta para sua base?</strong><small>{quality.readiness === 'ready' && active.duplicateLevel === 'none' ? 'Sem bloqueios conhecidos' : [...quality.blockers, ...active.duplicateReasons].slice(0, 2).join(' · ') || 'Requer decisão humana'}</small></div>{quality.readiness === 'ready' && active.duplicateLevel === 'none' ? <CheckCircle2 size={17}/> : <AlertTriangle size={17}/>}</article>
-      </div>
-      {attentionReasons.length ? <section className="prospecting-review-attention-v101106"><AlertTriangle size={16}/><div><strong>O que precisa da sua atenção</strong><div>{attentionReasons.map((reason) => <span key={reason}>{reason}</span>)}</div></div></section> : <section className="prospecting-review-attention-v101106 is-clear"><CheckCircle2 size={16}/><div><strong>Sem divergências importantes</strong><small>Identidade, local, contato e duplicidade atendem às regras atuais.</small></div></section>}
-      <ProspectingG1G2Panel prospect={active} snapshot={snapshot}/>
-      <details className="prospecting-review-edit-v101106">
-        <summary><div><span><SlidersHorizontal size={15}/> Editar dados</span><small>Abra somente se precisar corrigir alguma informação.</small></div><ChevronRight size={15}/></summary>
+    <div className="crm-prospecting-review-shell" key={active.id}>
+    <section className="panel prospecting-review-card crm-prospecting-review-shell__editor" key={'editor-' + active.id}>
+      <header className="prospecting-review-header"><div><span className="eyebrow"><ClipboardCheck size={14} /> {autoValidatable ? 'Revisão dos dados disponíveis' : 'Revisão de exceção'}</span><h3>{active.company}</h3><p>{autoValidatable ? 'O cadastro possui dados suficientes para análise. Confira as fontes antes de aprovar.' : 'Veja primeiro o que precisa da sua decisão; os detalhes técnicos ficam recolhidos.'}</p></div><div><StatusPill tone={autoValidatable ? 'success' : 'warning'}>{autoValidatable ? 'Pronta para revisão' : 'Precisa atenção'}</StatusPill><span className="prospecting-counter">{index + 1} de {queue.length}</span></div></header>
+      <section className="prospecting-review-edit-v101106 crm-prospecting-review-form-panel" key={active.id}>
+        <header className="crm-prospecting-review-form-panel__header"><div><h4>Revisão de dados</h4><p>Confira e corrija os dados cadastrados antes da aprovação.</p></div></header>
         <div className="prospecting-review-form">
         <label><span>Nome do contato/empresa</span><input readOnly={readOnly} value={active.name} onChange={(event) => onChange(active.id, { name: event.target.value, company: event.target.value })} /></label>
         <label><span>Telefone</span><input readOnly={readOnly} value={active.phone} onChange={(event) => onChange(active.id, { phone: event.target.value })} placeholder="(51) 99999-9999" /></label>
         <label><span>E-mail</span><input readOnly={readOnly} value={active.email} onChange={(event) => onChange(active.id, { email: event.target.value })} /></label>
         <label><span>Cidade</span><input readOnly={readOnly} value={active.city} onChange={(event) => onChange(active.id, { city: event.target.value })} /></label>
         <label className="is-wide"><span>Endereço</span><input readOnly={readOnly} value={active.address} onChange={(event) => onChange(active.id, { address: event.target.value })} /></label>
-        <label><span>CNPJ</span><input readOnly={readOnly} value={active.cnpj} onChange={(event) => onChange(active.id, { cnpj: event.target.value })} /></label>
+
         <label><span>Instagram</span><input readOnly={readOnly} value={active.instagram} onChange={(event) => onChange(active.id, { instagram: event.target.value })} placeholder="@perfil" /></label>
         <label><span>Site</span><input readOnly={readOnly} value={active.website} onChange={(event) => onChange(active.id, { website: event.target.value })} /></label>
-        <label><span>Link de agendamento</span><input readOnly={readOnly} value={active.bookingUrl} onChange={(event) => onChange(active.id, { bookingUrl: event.target.value })} /></label>
-        <label><span>Sistema identificado</span><input readOnly={readOnly} value={active.systemName} onChange={(event) => onChange(active.id, { systemName: event.target.value })} /></label>
-        <label className="is-wide"><span>Descrição e sinais comerciais</span><textarea readOnly={readOnly} value={active.description} onChange={(event) => onChange(active.id, { description: event.target.value })} /></label>
-        <label className="is-wide"><span>Observações da revisão</span><textarea readOnly={readOnly} value={active.notes} onChange={(event) => onChange(active.id, { notes: event.target.value })} /></label>
+        <details className="prospecting-review-form__advanced is-wide">
+          <summary>Campos adicionais · CNPJ, agendamento, sistema e observações</summary>
+          <div className="prospecting-review-form">
+            <label><span>CNPJ</span><input readOnly={readOnly} value={active.cnpj} onChange={(event) => onChange(active.id, { cnpj: event.target.value })} /></label>
+            <label><span>Link de agendamento</span><input readOnly={readOnly} value={active.bookingUrl} onChange={(event) => onChange(active.id, { bookingUrl: event.target.value })} /></label>
+            <label><span>Sistema identificado</span><input readOnly={readOnly} value={active.systemName} onChange={(event) => onChange(active.id, { systemName: event.target.value })} /></label>
+            <label className="is-wide"><span>Descrição e sinais comerciais</span><textarea readOnly={readOnly} value={active.description} onChange={(event) => onChange(active.id, { description: event.target.value })} /></label>
+            <label className="is-wide"><span>Observações da revisão</span><textarea readOnly={readOnly} value={active.notes} onChange={(event) => onChange(active.id, { notes: event.target.value })} /></label>
+          </div>
+        </details>
+        </div>
+      </section>
+      <details className="prospecting-review-checks-compact" key={active.id}>
+        <summary><span><ShieldCheck size={15}/> Critérios de revisão</span><small>Identidade · segmento · território · contato · decisão</small><ChevronRight size={15}/></summary>
+        <div className="prospecting-review-decisions-v101104">
+        <article className={identityConfirmed ? 'is-ok' : 'is-warning'}><span>1</span><div><strong>A identidade foi confirmada?</strong><small>{identityConfirmed ? 'Nome confirmado por pelo menos duas fontes independentes' : 'Nome cadastrado; ainda falta confirmação independente'}</small></div>{identityConfirmed ? <CheckCircle2 size={17}/> : <AlertTriangle size={17}/>}</article>
+        <article className="is-warning"><span>2</span><div><strong>O segmento está confirmado?</strong><small>{active.description || rawText(active.rawData, 'intentLabel', 'category') || 'Categoria informada'} · Categoria ainda precisa ser conferida nas fontes.</small></div><AlertTriangle size={17}/></article>
+        <article className={locationConfirmed ? 'is-ok' : 'is-warning'}><span>3</span><div><strong>O território foi confirmado?</strong><small>{locationConfirmed ? 'Endereço corroborado; confira o ponto no mapa' : 'Cidade e coordenadas cadastradas não garantem localização confirmada'}</small></div>{locationConfirmed ? <CheckCircle2 size={17}/> : <AlertTriangle size={17}/>}</article>
+        <article className={contactConfirmed ? 'is-ok' : 'is-warning'}><span>4</span><div><strong>Há contato confirmado?</strong><small>{contactConfirmed ? 'Pelo menos um canal corroborado em duas fontes' : 'Telefone, e-mail ou site cadastrado ainda sem confirmação independente'}</small></div>{contactConfirmed ? <CheckCircle2 size={17}/> : <AlertTriangle size={17}/>}</article>
+        <article className={readyWithEvidence ? 'is-ok' : 'is-warning'}><span>5</span><div><strong>Os dados principais estão prontos para decisão?</strong><small>{readyWithEvidence ? 'Identidade, endereço e contato corroborados; valide segmento e aprove manualmente' : [...quality.blockers, ...active.duplicateReasons].slice(0, 1).join(' · ') || 'Ainda exige revisão das evidências antes da decisão'}</small></div>{readyWithEvidence ? <CheckCircle2 size={17}/> : <AlertTriangle size={17}/>}</article>
         </div>
       </details>
+      {attentionReasons.length ? <section className="prospecting-review-attention-v101106 prospecting-review-attention-compact"><AlertTriangle size={16}/><div><strong>Antes de aprovar · {attentionReasons.length} ponto(s) para conferir</strong>
+        <p>{attentionReasons.slice(0, 2).join(' · ')}{attentionReasons.length > 2 ? ' · outros pontos nos critérios de revisão' : ''}</p>
+        {attentionReasons.length > 2 ? <details><summary>Ver todos os pontos ({attentionReasons.length})</summary>
+          <ul>{attentionReasons.map((reason) => <li key={reason}>{reason}</li>)}</ul></details> : null}
+      </div></section> : null}
       {!readOnly ? <footer className="prospecting-review-actions prospecting-review-actions-v101106"><div><Button variant="ghost" onClick={() => onDiscard(active.id)}><Ban size={16} /> Descartar</Button><Button variant="secondary" onClick={() => onAnalyze(active.id)}><RefreshCw size={16} /> Reanalisar</Button></div><div><Button variant="secondary" disabled={quality.readiness === 'blocked'} title={quality.readiness === 'blocked' ? quality.blockers.join(' · ') : 'Aprovar registro revisado'} onClick={() => onApprove(active.id)}><Check size={16} /> Aprovar</Button><Button disabled={active.status !== 'approved' || quality.readiness === 'blocked'} title={active.status !== 'approved' ? 'Aprove o registro antes do envio' : quality.blockers.join(' · ')} onClick={() => onSend(active.id)}><Send size={16} /> Enviar ao CRM</Button></div><small className="prospecting-review-shortcuts-v101104">Atalhos: A aprovar · D descartar · ← → navegar</small></footer> : null}
     </section>
 
-    <aside className="prospecting-analysis-sidebar prospecting-analysis-sidebar-v101106">
+    <aside className="prospecting-analysis-sidebar prospecting-analysis-sidebar-v101106 crm-prospecting-review-shell__insights">
+      <ProspectingG1G2Panel prospect={active} snapshot={snapshot} workspaceId={workspaceId} readOnly={readOnly}
+        onEnriched={onEnriched} onConfirmInstagram={onConfirmInstagram}
+        onApplySuggestion={(field, value, sourceUrl) => {
+          if (readOnly) return
+          const beforeValue = String(active[field] || '')
+          const previous = Array.isArray(active.rawData.garimpoReviewDecisions)
+            ? active.rawData.garimpoReviewDecisions : []
+          onChange(active.id, {
+            [field]: value,
+            rawData: {
+              ...active.rawData,
+              garimpoReviewDecisions: [...previous.slice(-29), {
+                action: 'applied', field, previousValue: beforeValue, value, sourceUrl,
+                reviewedAt: new Date().toISOString(),
+              }],
+            },
+          })
+        }}
+        onIgnoreSuggestion={(key) => {
+          if (readOnly) return
+          const previous = Array.isArray(active.rawData.garimpoIgnoredSuggestions)
+            ? active.rawData.garimpoIgnoredSuggestions.filter((value): value is string => typeof value === 'string') : []
+          if (previous.includes(key)) return
+          onChange(active.id, {
+            rawData: {
+              ...active.rawData,
+              garimpoIgnoredSuggestions: [...previous.slice(-59), key],
+            },
+          })
+        }}/>
+      <details className="crm-prospecting-review-context" key={active.id}>
+        <summary>Outras informações · IA e localização</summary>
+        <AiResearchCard prospect={active} />
       <ProspectMiniMap prospect={active} />
+      </details>
       <details className="panel prospecting-review-evidence-v101106">
         <summary><div><Database size={15}/><span><strong>Qualidade e evidências</strong><small>Score, duplicidade, origem e rastreabilidade</small></span></div><ChevronRight size={15}/></summary>
         <div className="prospecting-review-evidence-v101106__body">
@@ -1756,6 +2014,7 @@ function ProcessingWorkspace({ readOnly, queue, active, leads, snapshot, onSelec
         </div>
       </details>
     </aside>
+    </div>
   </div>
 }
 

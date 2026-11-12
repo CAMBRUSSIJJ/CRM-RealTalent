@@ -59,6 +59,7 @@ export function ProspectingRedesignShell(props: ProspectingRedesignShellProps) {
 interface ProspectingRedesignSearchProps {
   segment: string
   city: string
+  query: string
   quantity: number
   categoryMode: ProspectingCategoryMode
   areaMode: ProspectingAreaMode
@@ -71,9 +72,17 @@ interface ProspectingRedesignSearchProps {
   sentCount: number
   readyCount: number
   attentionCount: number
+  localConnected: boolean
+  localRunning: boolean
+  localStatus: 'idle' | 'running' | 'completed' | 'failed'
+  localFound: number
+  localMessage: string
+  connectionPanel: ReactNode
   mapPanel: ReactNode
   onSegment(value: string): void
   onCity(value: string): void
+  onQuery(value: string): void
+  onCancelLocal(): void
   onQuantity(value: number): void
   onCategoryMode(value: ProspectingCategoryMode): void
   onAreaMode(value: ProspectingAreaMode): void
@@ -91,16 +100,20 @@ const statusLabel: Record<ProspectingAgentJob['status'], string> = {
 export function ProspectingRedesignSearch(props: ProspectingRedesignSearchProps) {
   const [advancedOpen, setAdvancedOpen] = useState(false)
   const active = Boolean(props.job && ['queued', 'running', 'paused'].includes(props.job.status))
-  const found = props.job?.stats.unique ?? 0
-  const ready = props.job?.processing?.ready ?? props.readyCount
-  const attention = props.job?.processing?.attention ?? props.attentionCount
+  const searching = active || props.localRunning
+  const found = props.job?.stats.unique ?? props.localFound
+  // Current-execution counters must never fall back to counts from the historical base.
+  const ready = props.job?.processing?.ready ?? 0
+  const attention = props.job?.processing?.attention ?? 0
   const target = props.job?.input.targetQuantity ?? props.quantity
   const coverage = props.job?.coverage?.successfulTerritoryPercent ?? props.job?.coverage?.territoryPercent
   const executionFinished = Boolean(props.job && ['completed', 'failed', 'cancelled'].includes(props.job.status))
+    || (!props.job && props.localStatus === 'completed')
   const progress = executionFinished ? 100 : Math.max(0, Math.min(99, Math.round((found / Math.max(1, target)) * 100)))
   const coverageLabel = coverage == null ? 'não medida' : `${Math.round(coverage)}%`
   const coverageFailed = Number(props.job?.coverage?.failedCells ?? 0) > 0
-  const currentActivity = props.job?.runtime?.phaseLabel || props.job?.message || 'Pronto para iniciar uma nova busca.'
+  const currentActivity = props.localRunning ? 'Firecrawl pesquisando fontes e Ollama analisando as informações…'
+    : props.job?.runtime?.phaseLabel || props.job?.message || props.localMessage || 'Pronto para iniciar uma nova busca.'
   // SearchSession canônica: durante uma execução, título, território, mapa e status leem o input imutável do job.
   const sessionSegment = props.job?.input.segment || props.segment
   const sessionCity = props.job?.input.regions?.join('; ') || props.city
@@ -110,7 +123,7 @@ export function ProspectingRedesignSearch(props: ProspectingRedesignSearchProps)
   const sourceLabel = props.job?.runtime?.currentSource || props.job?.progress.currentSource || 'Web pública + OpenStreetMap'
   const areaLabel = props.areaMode === 'city' ? 'Cidade inteira' : props.areaMode === 'neighborhoods' ? 'Bairros' : props.areaMode === 'map' ? 'Área desenhada' : `Raio de ${props.radiusKm} km`
   const sessionAreaLabel = sessionAreaMode === 'city' ? 'Cidade inteira' : sessionAreaMode === 'neighborhoods' ? 'Bairros' : sessionAreaMode === 'map' ? 'Área desenhada' : `Raio de ${sessionRadiusKm} km`
-  const canStart = props.canEdit && !props.agentBusy && !active && Boolean(props.segment.trim() && props.city.trim())
+  const canStart = props.canEdit && !props.agentBusy && !searching && Boolean(props.segment.trim() && props.city.trim())
   const raw = props.job?.processing?.raw ?? props.job?.stats.discovered ?? 0
   const rejected = (props.job?.runtime?.counters.rejectedCategory ?? 0) + (props.job?.runtime?.counters.rejectedLocation ?? 0) + (props.job?.stats.webRejectedDocuments ?? 0)
   const duplicates = props.job?.runtime?.counters.duplicates ?? props.job?.stats.duplicates ?? 0
@@ -122,11 +135,12 @@ export function ProspectingRedesignSearch(props: ProspectingRedesignSearchProps)
       <section className={`prospecting-redesign-v4__execution ${active ? 'is-active' : ''}`}>
         <div className="prospecting-redesign-v4__execution-head">
           <span>Execução atual{props.job ? ` · ${props.job.id.slice(0, 8)}` : ''}</span>
-          <em className={`is-${props.job?.status ?? 'idle'}`}>{props.job ? statusLabel[props.job.status] : 'Pronto'}</em>
+          <em className={`is-${props.localRunning ? 'running' : props.job?.status ?? props.localStatus}`}>{props.localRunning ? 'Pesquisando' : props.job ? statusLabel[props.job.status] : props.localStatus === 'completed' ? 'Concluído' : props.localStatus === 'failed' ? 'Atenção' : 'Pronto'}</em>
         </div>
         <h2>{sessionSegment || 'Nova prospecção'} · {sessionCity || 'Defina a região'}</h2>
-        <div className="prospecting-redesign-v4__progress-row"><div><span style={{ width: `${progress}%` }}/></div><strong>{progress}%</strong></div>
-        <p>{props.job?.stats.queries ?? 0} consultas · {sourceLabel}{semanticPlanner ? ` · plano IA ${semanticPlanner}` : ''}</p>
+        <div className="prospecting-redesign-v4__progress-row"><div><span className={props.localRunning ? 'is-indeterminate' : ''} style={{ width: props.localRunning ? '100%' : `${progress}%` }}/></div><strong>{props.localRunning ? 'Em análise' : `${progress}%`}</strong></div>
+        <p>{props.job ? `${props.job.stats.queries} consultas · ${sourceLabel}` : 'Pesquisa integrada · Firecrawl + Ollama + cobertura territorial'}{semanticPlanner ? ` · plano IA ${semanticPlanner}` : ''}</p>
+        {props.localStatus !== 'idle' ? <p className="prospecting-redesign-v4__local-result" role="status">Web + IA local: {props.localRunning ? 'coletando e analisando…' : `${props.localFound} empresa(s) com evidências`}{props.localMessage && !props.localRunning ? ` · ${props.localMessage}` : ''}</p> : null}
         <div className="prospecting-redesign-v4__now"><i/><span><strong>Agora:</strong> {currentActivity}{currentRegion ? ` · ${currentRegion}` : ''}</span></div>
         <div className="prospecting-redesign-v4__execution-metrics">
           <button type="button" onClick={() => props.onInspect('found')} title="Abrir empresas encontradas"><strong>{found}</strong><span>Encontradas agora</span></button>
@@ -145,25 +159,28 @@ export function ProspectingRedesignSearch(props: ProspectingRedesignSearchProps)
           <button type="button" className="prospecting-redesign-v4__button" onClick={props.onDetails}>Diagnóstico técnico</button>
           {props.job?.status === 'running' ? <button type="button" className="prospecting-redesign-v4__button" disabled={props.agentBusy} onClick={() => props.onControl('pause')}><Pause size={15}/> Pausar</button> : null}
           {props.job?.status === 'paused' ? <button type="button" className="prospecting-redesign-v4__button" disabled={props.agentBusy} onClick={() => props.onControl('resume')}><Play size={15}/> Continuar</button> : null}
-          {active ? <button type="button" className="prospecting-redesign-v4__cancel" disabled={props.agentBusy} onClick={() => props.onControl('cancel')}>Cancelar</button> : null}
+          {props.localRunning ? <button type="button" className="prospecting-redesign-v4__cancel" onClick={props.onCancelLocal}>Cancelar pesquisa web</button> : active ? <button type="button" className="prospecting-redesign-v4__cancel" disabled={props.agentBusy} onClick={() => props.onControl('cancel')}>Cancelar</button> : null}
         </div>
       </section>
 
       <section className="prospecting-redesign-v4__search-card">
         <h2>Nova busca</h2>
-        <label><span>O que você procura?</span><div className="prospecting-redesign-v4__input-wrap"><input id="prospecting-linux-segment" value={props.segment} onChange={(event) => props.onSegment(event.target.value)} placeholder="Ex.: Barbearias" disabled={!props.canEdit || active}/>{props.segment ? <button type="button" aria-label="Limpar" onClick={() => props.onSegment('')}><X size={16}/></button> : null}</div></label>
-        <label><span>Onde?</span><div className="prospecting-redesign-v4__input-wrap"><input id="prospecting-linux-regions" value={props.city} onChange={(event) => props.onCity(event.target.value)} placeholder="Ex.: Rio Grande, RS" disabled={!props.canEdit || active}/>{props.city ? <button type="button" aria-label="Limpar" onClick={() => props.onCity('')}><X size={16}/></button> : null}</div></label>
+        <label><span>O que você procura?</span><div className="prospecting-redesign-v4__input-wrap"><input id="prospecting-linux-segment" value={props.segment} onChange={(event) => props.onSegment(event.target.value)} placeholder="Ex.: Barbearias" disabled={!props.canEdit || searching}/>{props.segment ? <button type="button" aria-label="Limpar" onClick={() => props.onSegment('')}><X size={16}/></button> : null}</div></label>
+        <label><span>Onde?</span><div className="prospecting-redesign-v4__input-wrap"><input id="prospecting-linux-regions" value={props.city} onChange={(event) => props.onCity(event.target.value)} placeholder="Ex.: Rio Grande, RS" disabled={!props.canEdit || searching}/>{props.city ? <button type="button" aria-label="Limpar" onClick={() => props.onCity('')}><X size={16}/></button> : null}</div></label>
+        <label><span>Critérios adicionais</span><textarea className="prospecting-redesign-v4__criteria" value={props.query} onChange={(event) => props.onQuery(event.target.value)} maxLength={1000} disabled={!props.canEdit || searching} placeholder="Ex.: Priorizar site próprio, telefone e link de agendamento verificáveis." /></label>
         <label><span>Área da busca</span><div className="prospecting-redesign-v4__readout"><MapPinned size={15}/>{areaLabel}</div></label>
         <div className={`prospecting-redesign-v4__scope-note ${props.categoryMode === 'exact' ? 'is-exact' : 'is-related'}`}><ShieldCheck size={16}/><span><strong>{props.categoryMode === 'exact' ? 'Alta precisão:' : 'Correspondência relacionada:'}</strong> {props.categoryMode === 'exact' ? `prioriza e valida ${props.segment || 'empresas do segmento'} dentro de ${props.city || 'sua região'}; listas, diretórios e locais fora do território são filtrados antes da revisão.` : 'inclui categorias comercialmente próximas para ampliar a cobertura.'}</span></div>
+        {props.connectionPanel}
+        <p className="prospecting-redesign-v4__scope-detail">O Firecrawl busca fontes públicas na cidade informada; o raio ou desenho da área é validado pela etapa territorial, quando disponível.</p>
         <button type="button" className="prospecting-redesign-v4__advanced-trigger" onClick={() => setAdvancedOpen((value) => !value)}>Opções avançadas <ArrowRight size={15} className={advancedOpen ? 'is-open' : ''}/></button>
         {advancedOpen ? <div className="prospecting-redesign-v4__advanced">
-          <label><span>Quantidade</span><select value={props.quantity} onChange={(event) => props.onQuantity(Number(event.target.value))} disabled={!props.canEdit || active}>{[20,40,60,80,100].map((value) => <option key={value} value={value}>{value} empresas</option>)}</select></label>
-          <label><span>Correspondência</span><select value={props.categoryMode} onChange={(event) => props.onCategoryMode(event.target.value as ProspectingCategoryMode)} disabled={!props.canEdit || active}><option value="exact">Exata</option><option value="related">Relacionada</option></select></label>
-          <label><span>Território</span><select value={props.areaMode} onChange={(event) => props.onAreaMode(event.target.value as ProspectingAreaMode)} disabled={!props.canEdit || active}><option value="city">Cidade inteira</option><option value="neighborhoods">Bairros</option><option value="radius">Raio</option><option value="map">Área desenhada</option></select></label>
-          {props.areaMode === 'radius' ? <label><span>Raio</span><input type="number" min={1} max={100} value={props.radiusKm} onChange={(event) => props.onRadiusKm(Math.max(1, Number(event.target.value) || 1))} disabled={!props.canEdit || active}/></label> : null}
+          <label><span>Quantidade</span><select value={props.quantity} onChange={(event) => props.onQuantity(Number(event.target.value))} disabled={!props.canEdit || searching}>{[1,3,5,10,20,40,60,80,100].map((value) => <option key={value} value={value}>{value} empresas</option>)}</select></label>
+          <label><span>Correspondência</span><select value={props.categoryMode} onChange={(event) => props.onCategoryMode(event.target.value as ProspectingCategoryMode)} disabled={!props.canEdit || searching}><option value="exact">Exata</option><option value="related">Relacionada</option></select></label>
+          <label><span>Território</span><select value={props.areaMode} onChange={(event) => props.onAreaMode(event.target.value as ProspectingAreaMode)} disabled={!props.canEdit || searching}><option value="city">Cidade inteira</option><option value="neighborhoods">Bairros</option><option value="radius">Raio</option><option value="map">Área desenhada</option></select></label>
+          {props.areaMode === 'radius' ? <label><span>Raio</span><input type="number" min={1} max={100} value={props.radiusKm} onChange={(event) => props.onRadiusKm(Math.max(1, Number(event.target.value) || 1))} disabled={!props.canEdit || searching}/></label> : null}
           <div className="prospecting-redesign-v4__engine-status"><i className={props.agentHealth?.ok ? 'is-ok' : ''}/>{props.agentHealth?.ok ? `Serviço do Garimpo ativo · V${props.agentHealth.version}` : 'Serviço do Garimpo será verificado ao iniciar'}</div>
         </div> : null}
-        <button type="button" className="prospecting-redesign-v4__button is-primary is-start" disabled={!canStart} onClick={props.onStart}><Search size={16}/>{active ? 'Busca em andamento' : props.agentBusy ? 'Iniciando…' : 'Iniciar busca'}</button>
+        <button type="button" className="prospecting-redesign-v4__button is-primary is-start" disabled={!canStart} onClick={props.onStart}><Search size={16}/>{searching ? 'Busca em andamento' : props.agentBusy ? 'Iniciando…' : 'Iniciar busca integrada'}</button>
       </section>
     </div>
 

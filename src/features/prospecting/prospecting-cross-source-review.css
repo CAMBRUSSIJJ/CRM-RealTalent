@@ -1,0 +1,477 @@
+/* Review-local cross-source audit. Does not change the main CRM layout. */
+.garimpo-cross-source__action {align-items:center;gap:14px;flex-wrap:wrap}
+.garimpo-cross-source__action > div {min-width:210px;flex:1}
+.garimpo-cross-source__action small {display:block;max-width:700px;line-height:1.5}
+.garimpo-cross-source__progress {font-size:12px;color:var(--color-text-muted,#475467);background:var(--color-surface-muted,#f5f8ff);padding:12px;border-radius:10px}
+.garimpo-cross-source {border:1px solid var(--color-border,#e0e5ee);border-radius:12px;padding:14px;min-width:0;display:grid;gap:14px;background:var(--color-surface,#fff)}
+.garimpo-cross-source__counts {display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:7px}
+.garimpo-cross-source__counts > span {border-radius:8px;padding:8px 4px;text-align:center;font-size:11px;color:#344054;background:#f7f8fa}
+.garimpo-cross-source__counts > span strong {display:block;font-size:19px;color:#101828}
+.garimpo-cross-source__counts > .is-confirmed {background:#eaf8f0;color:#17683c}
+.garimpo-cross-source__counts > .is-divergent {background:#fff0ec;color:#a53926}
+.garimpo-cross-source__counts > .is-observed {background:#fff7e8;color:#8b5b13}
+.garimpo-cross-source__counts > .is-pending {background:#f1f5f9;color:#475569}
+.garimpo-cross-source__note {font-size:12px;line-height:1.55;margin:0;color:var(--color-text-muted,#475467)}
+.garimpo-cross-source__group {min-width:0}
+.garimpo-cross-source__group h5 {font-size:12px;font-weight:750;margin:0 0 8px}
+.garimpo-cross-source__group.is-divergent h5 {color:#ac422c}
+.garimpo-cross-source__group.is-confirmed h5 {color:#17683c}
+.garimpo-cross-source__group.is-observed h5 {color:#8b5b13}
+.garimpo-cross-source__group > ul {margin:0;padding:0;list-style:none;display:grid;gap:8px}
+.garimpo-cross-source__field {padding:10px 11px;border:1px solid #e0e5ec;border-radius:9px;min-width:0;overflow-wrap:anywhere;background:var(--color-surface,#fff)}
+.garimpo-cross-source__field > strong {font-size:12px;display:block}
+.garimpo-cross-source__field > small {font-size:11px;color:#667085;display:block}
+.garimpo-cross-source__candidate {margin-top:8px;font-size:12px}
+.garimpo-cross-source__candidate > span:first-child {display:block;line-height:1.45}
+.garimpo-cross-source__candidate small {color:#667085;font-size:10px}
+.garimpo-cross-source__links {display:flex;flex-wrap:wrap;gap:5px;margin-top:4px}
+.garimpo-cross-source__links a,.garimpo-cross-source__pending a {display:inline-flex;align-items:center;gap:5px;font-size:11px;color:#315bd5;overflow-wrap:anywhere;max-width:100%}
+.garimpo-cross-source__field.is-divergent {border-left:3px solid #c75239}
+.garimpo-cross-source__field.is-confirmed {border-left:3px solid #319b64}
+.garimpo-cross-source__field.is-observed {border-left:3px solid #c9922e}
+.garimpo-cross-source__pending {font-size:12px}
+.garimpo-cross-source__pending > summary {cursor:pointer;font-weight:650}
+.garimpo-cross-source__pending p {margin:8px 0 0}
+.garimpo-cross-source__pending ul {padding-left:18px;margin:8px 0 0;display:grid;gap:6px}
+.garimpo-cross-source__footer {border-top:1px solid #e0e5ec;padding-top:12px;display:flex;gap:9px;align-items:flex-start;flex-direction:column}
+.garimpo-cross-source__footer small {font-size:11px;color:#667085;line-height:1.45}
+@media(max-width:500px) {
+ .garimpo-cross-source__counts {grid-template-columns:repeat(2,minmax(0,1fr))}
+ .garimpo-cross-source__action .button {width:100%}
+}
+
+/* Public-post evidence and commercial trigger events: citations are primary. */
+.garimpo-cross-source__triggers {background:var(--color-surface-muted,#f6f8fc);border:1px solid #e0e6ef;border-radius:10px;padding:12px;min-width:0}
+.garimpo-cross-source__triggers header {display:grid;gap:4px;margin-bottom:8px}
+.garimpo-cross-source__triggers header strong {font-size:12px;color:var(--color-text,#17202f)}
+.garimpo-cross-source__triggers header small {font-size:11px;line-height:1.5;color:var(--color-text-muted,#667085)}
+.garimpo-cross-source__triggers > p {font-size:12px;color:var(--color-text-muted,#475467);line-height:1.5}
+.garimpo-cross-source__triggers ul {margin:0;padding:0;list-style:none;display:grid;gap:9px}
+.garimpo-cross-source__triggers li {padding:10px;background:var(--color-surface,#fff);border:1px solid #e0e5ee;border-radius:9px;overflow-wrap:anywhere}
+.garimpo-cross-source__triggers li > div {display:grid;gap:3px}
+.garimpo-cross-source__triggers li strong {font-size:12px}
+.garimpo-cross-source__triggers li small {font-size:11px;color:var(--color-text-muted,#667085)}
+.garimpo-cross-source__triggers li p {font-size:12px;line-height:1.55;margin:8px 0}
+.garimpo-cross-source__triggers li a {font-size:11px;display:inline-flex;align-items:center;gap:5px;color:#315bd5}
+.garimpo-cross-source__footer .button {max-width:100%;white-space:normal;text-align:left;height:auto;min-height:35px}
+
+/* Durable, read-only status from the local worker (no raw content or secrets). */
+.garimpo-cross-source__stage-status {display:grid;gap:4px;padding:11px 13px;border-radius:9px;border:1px solid #c8d6ee;background:#f2f7ff;margin:10px 0;font-size:12px;line-height:1.5;color:#25467a}
+.garimpo-cross-source__stage-status strong {font-size:12px}
+.garimpo-cross-source__stage-status small {color:#566b88;font-size:11px}
+
+.garimpo-cross-source__instagram {display:grid;gap:7px;padding:12px 14px;border-radius:10px;border:1px solid #cdd8ed;background:#f5f8fd;margin:10px 0;color:#344054}
+.garimpo-cross-source__instagram strong {font-size:12px;color:#1b2c4d}
+.garimpo-cross-source__instagram p {font-size:12px;line-height:1.55;margin:0}
+.garimpo-cross-source__instagram a {font-size:12px;display:inline-flex;gap:5px;align-items:center;color:#315bd5;max-width:100%;overflow-wrap:anywhere}
+.garimpo-cross-source__instagram small {font-size:11px;color:#64748b;line-height:1.5}
+
+.garimpo-cross-source__instagram-access,.garimpo-cross-source__instagram-summary{display:grid;gap:5px;border:1px solid #d5deee;background:#fff;border-radius:9px;padding:10px;min-width:0}
+.garimpo-cross-source__instagram-access span{font-size:12px;color:#40516c}
+.garimpo-cross-source__instagram-access strong,.garimpo-cross-source__instagram-summary strong{font-size:12px}
+.garimpo-cross-source__instagram-excerpt,.garimpo-cross-source__instagram-summary p{font-size:12px;line-height:1.55;white-space:pre-wrap;overflow-wrap:anywhere;margin:5px 0}
+.garimpo-cross-source__instagram details summary{font-size:12px;font-weight:650;cursor:pointer}
+
+.garimpo-cross-source__instagram-excerpts ul{padding:0;list-style:none;display:grid;gap:8px;margin:10px 0 0}
+.garimpo-cross-source__instagram-excerpts li{border:1px solid #dbe3ef;background:#fff;border-radius:8px;padding:9px;min-width:0;overflow-wrap:anywhere}
+.garimpo-cross-source__instagram-excerpts li p{font-size:12px;line-height:1.55;white-space:pre-wrap;margin:0 0 6px}
+.garimpo-cross-source__instagram-excerpts li a{font-size:11px;display:inline-flex;gap:5px;align-items:center;color:#315bd5}
+
+/* Reviewer acceptance: recover a previously found Instagram account instead
+   of losing a candidate whenever a later public search returns no matches. */
+.garimpo-cross-source__instagram-approval{display:grid;gap:10px;padding:14px;border:1px solid #adc4ee;border-radius:11px;background:#eef4ff;color:#253d69;margin:12px 0}
+.garimpo-cross-source__instagram-approval>div{display:flex;flex-wrap:wrap;gap:5px 12px;align-items:center}
+.garimpo-cross-source__instagram-approval>div>strong,.garimpo-cross-source__instagram-approval>div>p{flex-basis:100%}
+.garimpo-cross-source__instagram-approval p{font-size:12px;line-height:1.55;margin:0}
+.garimpo-cross-source__instagram-approval a{display:inline-flex;align-items:center;gap:5px;font-size:12px;color:#2852b9;overflow-wrap:anywhere}
+.garimpo-cross-source__instagram-approval>.button{justify-self:start;max-width:100%;white-space:normal}
+.garimpo-cross-source__instagram-approval small{font-size:11px;line-height:1.5;color:#586c8e}
+.garimpo-cross-source__instagram-saved{display:flex;align-items:flex-start;gap:7px;flex-wrap:wrap;font-size:12px;color:#1f6a4f;background:#eef9f2;padding:10px 12px;border-radius:9px}
+.garimpo-cross-source__instagram-saved strong{overflow-wrap:anywhere}
+
+/* Garimpo review focus: the reviewer sees decisions before audit details. */
+.prospecting-review-checks-compact,.garimpo-review__score-details,.garimpo-review__evidence-details,.garimpo-review__instagram-details{
+  border:1px solid var(--color-border,#e0e5ee);border-radius:10px;min-width:0
+}
+.prospecting-review-checks-compact>summary,.garimpo-review__score-details>summary,
+.garimpo-review__evidence-details>summary,.garimpo-review__instagram-details>summary{
+  display:flex;gap:10px;align-items:center;justify-content:space-between;
+  cursor:pointer;list-style:none;padding:11px 12px;font-size:12px;font-weight:650;color:var(--color-text,#263449)
+}
+.prospecting-review-checks-compact>summary::-webkit-details-marker,.garimpo-review__score-details>summary::-webkit-details-marker,
+.garimpo-review__evidence-details>summary::-webkit-details-marker,.garimpo-review__instagram-details>summary::-webkit-details-marker{display:none}
+.prospecting-review-checks-compact>summary span:first-child,.garimpo-review__score-details>summary span:first-child{display:inline-flex;gap:6px;align-items:center}
+.prospecting-review-checks-compact>summary small{font-size:11px;font-weight:400;color:var(--color-text-muted,#667085);margin-left:auto}
+.prospecting-review-checks-compact[open]>summary svg:last-child{transform:rotate(90deg)}
+.prospecting-review-checks-compact .prospecting-review-decisions-v101104{padding:0 10px 11px}
+.prospecting-review-attention-compact{padding:10px 12px;gap:8px}
+.prospecting-review-attention-compact p{font-size:12px;margin:4px 0 0;line-height:1.45;color:var(--color-text,#344054)}
+.prospecting-review-attention-compact details summary{font-size:11px;font-weight:650;cursor:pointer;margin-top:6px}
+.prospecting-review-attention-compact details ul{padding-left:18px;margin:6px 0 0;font-size:11px}
+.garimpo-review__score-details{margin:0 0 10px;background:var(--color-surface,#fff)}
+.garimpo-review__score-details>summary{flex-wrap:wrap}
+.garimpo-review__score-details>summary span:last-child{font-size:11px;font-weight:450;color:var(--color-text-muted,#667085)}
+.garimpo-review__score-details>summary span:last-child b{color:var(--color-text,#344054)}
+.garimpo-review__score-details .prospecting-g1g2__dimensions{margin:8px 10px}
+.garimpo-review__score-details .prospecting-g1g2__note,
+.garimpo-review__score-details .prospecting-g1g2__detail,
+.garimpo-review__score-details .prospecting-g1g2__evidence{margin:8px 10px}
+.garimpo-review__instagram-compact{gap:6px;background:var(--color-surface,#fff);border-color:var(--color-border,#e0e5ee)}
+.garimpo-review__instagram-heading{display:flex;flex-wrap:wrap;gap:6px 12px;align-items:center;justify-content:space-between}
+.garimpo-review__instagram-heading small{font-size:11px}
+.garimpo-review__instagram-details{border-color:transparent}
+.garimpo-review__instagram-details>summary{padding:7px 0;font-weight:550;font-size:11px}
+.garimpo-review__instagram-details>p,.garimpo-review__instagram-details>.garimpo-cross-source__instagram-access{margin-bottom:8px}
+.garimpo-review__ig-insight{font-size:12px;line-height:1.5;padding:10px;border-radius:8px;background:var(--color-surface-muted,#f3f6fd)}
+.garimpo-review__evidence-details>summary{font-size:12px;padding:10px 12px}
+.garimpo-review__evidence-details>ul{padding:0 10px 10px}
+.garimpo-cross-source__counts{display:flex;flex-wrap:wrap;gap:6px}
+.garimpo-cross-source__counts>span{display:inline-flex;align-items:center;gap:5px;padding:6px 9px;font-size:11px}
+.garimpo-cross-source__counts>span strong{font-size:13px}
+.garimpo-cross-source__group.is-divergent>h5{margin:0 0 7px}
+.garimpo-cross-source__note{line-height:1.4}
+.garimpo-review__triggers{padding:10px}
+.garimpo-review__triggers header{margin-bottom:3px}
+.garimpo-cross-source__footer{gap:7px}
+@media(max-width:600px){
+ .prospecting-review-checks-compact>summary{flex-wrap:wrap}
+ .prospecting-review-checks-compact>summary small{margin-left:0}
+ .garimpo-cross-source__counts>span{flex:1 1 43%;justify-content:center}
+ .garimpo-review__score-details>summary span:last-child{width:100%}
+}
+
+.prospecting-review-form__advanced{min-width:0;border-top:1px solid var(--color-border,#e0e5ee);padding-top:10px;margin-top:4px}
+.prospecting-review-form__advanced>summary{font-size:12px;cursor:pointer;color:var(--color-text-muted,#475467);font-weight:650;padding:8px 0}
+.prospecting-review-form__advanced>.prospecting-review-form{margin-top:8px}
+
+
+/* Native RealTalent CRM review: adapt only the workspace structure from the
+   supplied 60/40 reference. Never duplicate global navigation or header. */
+.prospecting-processing-layout.crm-prospecting-layout {
+  display:grid;
+  grid-template-columns:minmax(180px,224px) minmax(0,1fr);
+  gap:12px;
+  align-items:start;
+  width:100%;
+  min-width:0;
+}
+.crm-prospecting-layout > .prospecting-queue {min-width:0;max-width:none}
+.crm-prospecting-review-shell {
+  display:grid;
+  grid-template-columns:minmax(0,3fr) minmax(0,2fr);
+  align-items:stretch;
+  min-width:0;
+  height:clamp(580px,calc(100dvh - 205px),1080px);
+  border:1px solid var(--color-border,#dfe5ed);
+  border-radius:12px;
+  background:var(--color-surface,#fff);
+  overflow:hidden;
+}
+.crm-prospecting-review-shell__editor {
+  display:flex;
+  flex-direction:column;
+  min-width:0;
+  min-height:0;
+  margin:0;
+  padding:0;
+  border:0;
+  border-radius:0;
+  box-shadow:none;
+  background:var(--color-surface,#fff);
+  overflow-y:auto;
+  overscroll-behavior:contain;
+  scrollbar-width:thin;
+}
+.crm-prospecting-review-shell__editor > .prospecting-review-header {
+  padding:20px 22px 12px;
+  flex-shrink:0;
+  border-bottom:1px solid var(--color-border,#edf0f5);
+}
+.crm-prospecting-review-form-panel {
+  display:block;
+  min-width:0;
+  padding:19px 22px 22px;
+  border:0;
+  background:transparent;
+}
+.crm-prospecting-review-form-panel__header {
+  display:flex;
+  justify-content:space-between;
+  align-items:flex-start;
+  margin:0 0 17px;
+  padding:0;
+  border:0;
+}
+.crm-prospecting-review-form-panel__header h4{
+  font-size:18px;line-height:1.3;font-weight:700;
+  margin:0;color:var(--color-text,#182234)
+}
+.crm-prospecting-review-form-panel__header p{
+  font-size:12px;line-height:1.5;
+  margin:5px 0 0;color:var(--color-text-muted,#667085)
+}
+.crm-prospecting-review-form-panel > .prospecting-review-form,
+.crm-prospecting-review-form-panel .prospecting-review-form__advanced > .prospecting-review-form {
+  display:grid;
+  grid-template-columns:repeat(2,minmax(0,1fr));
+  gap:15px;
+}
+.crm-prospecting-review-form-panel .prospecting-review-form label{min-width:0}
+.crm-prospecting-review-form-panel .prospecting-review-form label.is-wide,
+.crm-prospecting-review-form-panel .prospecting-review-form__advanced.is-wide{grid-column:1/-1}
+.crm-prospecting-review-form-panel .prospecting-review-form input,
+.crm-prospecting-review-form-panel .prospecting-review-form textarea{
+  min-width:0;width:100%;max-width:100%;box-sizing:border-box
+}
+.crm-prospecting-review-shell__editor > .prospecting-review-checks-compact,
+.crm-prospecting-review-shell__editor > .prospecting-review-attention-v101106{
+  margin:0 22px 12px;
+  flex-shrink:0
+}
+.crm-prospecting-review-shell__editor > .prospecting-review-actions {
+  position:sticky;
+  bottom:0;
+  z-index:3;
+  flex-shrink:0;
+  margin-top:auto;
+  padding:12px 16px;
+  display:flex;
+  flex-wrap:wrap;
+  justify-content:space-between;
+  align-items:center;
+  gap:10px;
+  border-top:1px solid var(--color-border,#dfe5ed);
+  background:var(--color-surface,#fff);
+  box-shadow:0 -5px 18px rgba(16,24,40,.05)
+}
+.crm-prospecting-review-shell__editor > .prospecting-review-actions > div{
+  display:flex;gap:8px;flex-wrap:wrap;align-items:center
+}
+.crm-prospecting-review-shell__editor .prospecting-review-shortcuts-v101104{
+  width:100%;text-align:right;font-size:10px
+}
+.crm-prospecting-review-shell__insights {
+  display:flex;
+  flex-direction:column;
+  gap:13px;
+  min-width:0;
+  min-height:0;
+  max-width:none;
+  margin:0;
+  padding:18px;
+  border:0;
+  border-left:1px solid var(--color-border,#dfe5ed);
+  border-radius:0;
+  background:var(--color-surface-muted,#f7f9fc);
+  overflow-y:auto;
+  overscroll-behavior:contain;
+  scrollbar-width:thin
+}
+.crm-prospecting-review-shell__insights > .prospecting-g1g2{
+  min-width:0;
+  margin:0;
+  padding:16px;
+  border:1px solid var(--color-border,#e0e5ee);
+  border-radius:11px;
+  background:var(--color-surface,#fff)
+}
+.crm-prospecting-review-shell__insights .garimpo-cross-source {padding:12px;gap:10px}
+.crm-prospecting-review-shell__insights .prospecting-g1g2__dimensions{grid-template-columns:repeat(3,minmax(0,1fr))}
+.crm-prospecting-review-context{
+  min-width:0;
+  border:1px solid var(--color-border,#e0e5ee);
+  background:var(--color-surface,#fff);
+  border-radius:10px
+}
+.crm-prospecting-review-context > summary{
+  cursor:pointer;padding:13px 14px;
+  font-size:12px;font-weight:650;color:var(--color-text,#344054);
+}
+.crm-prospecting-review-context > :not(summary){margin:10px 12px}
+.crm-prospecting-review-shell__insights > .prospecting-review-evidence-v101106{
+  min-width:0;
+  max-width:none;
+  margin:0;
+  width:100%
+}
+@media (max-width:1160px){
+  .prospecting-processing-layout.crm-prospecting-layout {
+    grid-template-columns:minmax(160px,200px) minmax(0,1fr);
+  }
+  .crm-prospecting-review-shell {grid-template-columns:minmax(0,55fr) minmax(0,45fr)}
+  .crm-prospecting-review-form-panel {padding:16px}
+  .crm-prospecting-review-shell__insights {padding:12px}
+}
+@media (max-width:900px){
+  .prospecting-processing-layout.crm-prospecting-layout {grid-template-columns:1fr}
+  .crm-prospecting-layout>.prospecting-queue {max-height:180px;overflow:auto}
+  .crm-prospecting-review-shell {grid-template-columns:1fr;height:auto;min-height:0;overflow:visible}
+  .crm-prospecting-review-shell__editor {overflow:visible;min-height:0}
+  .crm-prospecting-review-shell__insights{
+    border-left:0;border-top:1px solid var(--color-border,#dfe5ed);
+    overflow:visible
+  }
+}
+@media (max-width:560px){
+  .crm-prospecting-review-form-panel > .prospecting-review-form,
+  .crm-prospecting-review-form-panel .prospecting-review-form__advanced > .prospecting-review-form{
+    grid-template-columns:1fr
+  }
+  .crm-prospecting-review-shell__editor > .prospecting-review-header{padding:15px}
+  .crm-prospecting-review-form-panel{padding:14px}
+  .crm-prospecting-review-shell__editor > .prospecting-review-checks-compact,
+  .crm-prospecting-review-shell__editor > .prospecting-review-attention-v101106{margin:0 14px 11px}
+  .crm-prospecting-review-shell__editor > .prospecting-review-actions {padding:10px}
+}
+
+
+/* G6: compact decision brief inside existing RealTalent CRM review hierarchy */
+.garimpo-g6-brief{display:grid;gap:11px;padding:14px;border-radius:10px;
+  border:1px solid var(--color-border,#dbe3ef);
+  background:var(--color-surface,#fff);min-width:0}
+.garimpo-g6-brief__top{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:7px}
+.garimpo-g6-brief__top strong{display:inline-flex;align-items:center;gap:6px;font-size:13px;
+  color:var(--color-text,#25314b)}
+.garimpo-g6-brief__top small{font-size:11px;padding:4px 8px;border-radius:999px;
+  background:var(--color-surface-muted,#edf2fb);color:var(--color-text-muted,#596a86)}
+.garimpo-g6-brief p{font-size:12px;line-height:1.5;margin:0;color:var(--color-text,#344054)}
+.garimpo-g6-brief__hypothesis,.garimpo-g6-brief__next{padding:10px;
+  background:var(--color-surface-muted,#f2f6fd);border-radius:8px}
+.garimpo-g6-brief__hypothesis strong,.garimpo-g6-brief__next strong,
+.garimpo-g6-brief__questions strong{display:block;font-size:11px;margin-bottom:5px;color:var(--color-text,#344054)}
+.garimpo-g6-brief__questions ul{padding-left:18px;margin:5px 0 0;display:grid;gap:5px}
+.garimpo-g6-brief__questions li{font-size:12px;line-height:1.5}
+.garimpo-g6-brief__details{border-top:1px solid var(--color-border,#e6eaf1);padding-top:9px}
+.garimpo-g6-brief__details summary{font-size:12px;cursor:pointer;font-weight:650}
+.garimpo-g6-brief__details>div{display:grid;gap:5px;margin-top:10px}
+.garimpo-g6-brief__details ul{display:grid;gap:7px;padding-left:17px;margin:9px 0}
+.garimpo-g6-brief__details li{font-size:11px;line-height:1.5;overflow-wrap:anywhere}
+.garimpo-g6-brief__details li a{display:inline-flex;gap:3px;align-items:center;margin-left:6px}
+.garimpo-g6-brief__details p{font-size:11px}
+.garimpo-g6-brief__details small{display:block;font-size:11px;color:var(--color-text-muted,#667085)}
+
+
+/* Reference crm_prospec_o(1).tsx: operational 60/40 decision feed, native CRM chrome. */
+.crm-prospecting-review-shell__insights > .prospecting-g1g2 {
+  display:flex;
+  flex-direction:column;
+  gap:14px;
+  padding:0;
+  background:transparent;
+  border:0;
+  border-radius:0;
+  box-shadow:none;
+}
+.crm-prospecting-review-shell__insights .prospecting-g1g2__header {
+  padding:3px 2px 4px;
+  margin:0;
+  background:transparent;
+  border:0;
+}
+.crm-prospecting-review-shell__insights .prospecting-g1g2__header h4 {
+  font-size:17px;
+  line-height:1.3;
+  letter-spacing:-.015em;
+  font-weight:700;
+}
+.garimpo-review-feed {
+  display:grid;
+  gap:12px;
+  min-width:0;
+  margin:0;
+}
+.garimpo-review-feed__header,
+.garimpo-review-decision__title {
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:8px;
+}
+.garimpo-review-feed__header strong {
+  display:inline-flex;align-items:center;gap:7px;
+  font-size:13px;font-weight:700;
+  color:var(--color-text,#25314b);
+}
+.garimpo-review-feed__header>span {
+  font-size:11px;font-weight:650;white-space:nowrap;
+  color:var(--color-text-muted,#667085);
+  background:var(--color-surface,#fff);
+  border:1px solid var(--color-border,#e2e7ef);
+  border-radius:999px;padding:3px 8px;
+}
+.garimpo-review-feed__list{display:grid;gap:12px}
+.garimpo-review-feed__empty {
+  padding:22px 13px;
+  border:1px dashed var(--color-border,#cbd5e1);
+  border-radius:11px;
+  background:var(--color-surface,#fff);
+  color:var(--color-text-muted,#667085);
+  font-size:12px;text-align:center;line-height:1.55;
+  margin:0;
+}
+.garimpo-review-feed>small{
+  color:var(--color-text-muted,#667085);
+  font-size:11px;line-height:1.5;
+}
+.garimpo-review-decision {
+  display:grid;gap:12px;
+  border:1px solid var(--color-border,#d9e1ed);
+  border-radius:11px;
+  padding:14px;
+  background:var(--color-surface,#fff);
+  box-shadow:0 2px 8px rgba(20,31,50,.035);
+  min-width:0;
+}
+.garimpo-review-decision__title{align-items:flex-start;flex-wrap:wrap}
+.garimpo-review-decision__title strong{font-size:12px;line-height:1.4;color:var(--color-text,#24314b)}
+.garimpo-review-decision.is-conflict .garimpo-review-decision__title strong{color:var(--color-warning,#b67214)}
+.garimpo-review-decision.is-new .garimpo-review-decision__title strong{color:var(--color-success,#168054)}
+.garimpo-review-decision__title span{
+  font-size:10px;font-weight:700;letter-spacing:.02em;
+  padding:4px 6px;border-radius:5px;
+  background:var(--color-surface-muted,#f1f5f9);
+  color:var(--color-text-muted,#64748b)
+}
+.garimpo-review-decision__values{
+  display:grid;gap:8px;
+  background:var(--color-surface-muted,#f5f7fb);
+  border:1px solid var(--color-border,#eef0f4);
+  border-radius:8px;padding:11px;
+}
+.garimpo-review-decision__values>div{display:grid;grid-template-columns:58px minmax(0,1fr);gap:5px;align-items:start}
+.garimpo-review-decision__values small{font-size:11px;color:var(--color-text-muted,#8a97a9)}
+.garimpo-review-decision__values span,
+.garimpo-review-decision__values strong{font-size:12px;line-height:1.45;min-width:0;overflow-wrap:anywhere}
+.garimpo-review-decision__values .is-current{color:var(--color-text-muted,#7b8596);text-decoration:line-through}
+.garimpo-review-decision__values .is-empty{color:var(--color-text-muted,#98a2b3);font-style:italic}
+.garimpo-review-decision__values strong{color:var(--color-text,#263449);font-weight:700}
+.garimpo-review-decision__source{font-size:11px;display:inline-flex;align-items:center;gap:5px;color:var(--color-primary,#2563eb)}
+.garimpo-review-decision__caution{font-size:11px;line-height:1.5;color:var(--color-text-muted,#667085);margin:0}
+.garimpo-review-decision__actions{display:flex;align-items:stretch;gap:8px;flex-wrap:wrap}
+.garimpo-review-decision__actions>button{flex:1 1 130px;justify-content:center;min-height:34px;white-space:normal}
+.garimpo-review-feed__more{border-top:1px solid var(--color-border,#e4e9ef);padding-top:9px}
+.garimpo-review-feed__more>summary{font-weight:650;font-size:12px;cursor:pointer}
+.garimpo-review-feed__more .garimpo-review-feed__list{margin-top:11px}
+.garimpo-review-audit{
+  border:1px solid var(--color-border,#e0e5ee);
+  background:var(--color-surface,#fff);
+  border-radius:10px;
+  overflow:hidden;
+}
+.garimpo-review-audit>summary{
+  list-style:none;
+  display:flex;align-items:center;gap:7px;
+  cursor:pointer;padding:12px 14px;
+  font-size:12px;font-weight:650;
+  color:var(--color-text,#344054);
+}
+.garimpo-review-audit>summary::-webkit-details-marker{display:none}
+.garimpo-review-audit[open]>summary{border-bottom:1px solid var(--color-border,#e0e5ee)}
+.garimpo-review-audit>.garimpo-cross-source{padding:12px}
+@media(max-width:1160px){
+  .garimpo-review-decision{padding:11px}
+  .garimpo-review-decision__actions>button{flex-basis:100%}
+}
+@media(max-width:900px){
+  .garimpo-review-decision__actions>button{flex-basis:135px}
+}

@@ -25,3 +25,18 @@
 .prospecting-r1-receipt__rows small{color:var(--text-secondary,#66758c);font-size:11px;overflow-wrap:anywhere}
 .prospecting-r1-receipt__rows span{font-size:11px;color:var(--text-secondary,#556981);white-space:nowrap}
 @media(max-width:760px){.prospecting-r1-agent{flex-wrap:wrap}.prospecting-r1-agent>button{margin-left:auto}.prospecting-r1-handoff{align-items:stretch}.prospecting-r1-handoff__metrics{gap:12px}.prospecting-r1-handoff__actions{margin-left:0}.prospecting-r1-receipt__rows>div{flex-wrap:wrap}}
+
+/* Garimpo: one search form, sequential source + AI + territorial execution. */
+.prospecting-redesign-v4__criteria {
+  display: block; width: 100%; min-height: 78px; max-height: 180px;
+  box-sizing: border-box; resize: vertical; padding: 10px 12px;
+  border: 1px solid #d0d5dd; border-radius: 8px;
+  background: var(--color-surface, #fff); color: var(--color-text, #101828);
+  font: inherit; font-size: 13px; line-height: 1.5;
+}
+.prospecting-redesign-v4__criteria:focus-visible {outline: 2px solid #8098f9;outline-offset: 1px}
+.prospecting-redesign-v4__scope-detail {color: var(--color-text-muted, #667085);font-size: 11px;line-height: 1.5;margin: 10px 0 0}
+.prospecting-redesign-v4__execution .prospecting-redesign-v4__local-result {padding: 9px 10px;border-radius: 8px;background: var(--color-surface-muted, #f3f6ff);font-size: 12px;overflow-wrap: anywhere}
+.prospecting-redesign-v4__progress-row > div > .is-indeterminate {animation: garimpo-indeterminate 1.8s ease-in-out infinite;transform-origin: left center}
+@keyframes garimpo-indeterminate {0%,100%{transform:scaleX(.2);opacity:.6}50%{transform:scaleX(.85);opacity:1}}
+@media(prefers-reduced-motion:reduce){.prospecting-redesign-v4__progress-row > div > .is-indeterminate{animation:none}}

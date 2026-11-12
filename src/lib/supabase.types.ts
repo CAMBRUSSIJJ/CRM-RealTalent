@@ -3,6 +3,18 @@ export type Json = string | number | boolean | null | { [key: string]: Json | un
 export interface Database {
   public: {
     Tables: {
+      prospecting_ai_jobs: {
+        Row: { id: string; organization_id: string; created_by: string; input: Json; status: 'queued' | 'processing' | 'completed' | 'failed' | 'cancelled'; result: Json | null; error_code: string | null; attempts: number; lease_id: string | null; locked_until: string | null; created_at: string; expires_at: string; completed_at: string | null }
+        Insert: { organization_id: string; input: Json; created_by?: string }
+        Update: never
+        Relationships: []
+      }
+      prospecting_local_connectors: {
+        Row: { organization_id: string; enabled: boolean; last_seen_at: string | null; updated_at: string }
+        Insert: never
+        Update: never
+        Relationships: []
+      }
       profiles: {
         Row: { id: string; display_name: string; email: string; avatar_url: string | null; created_at: string; updated_at: string }
         Insert: { id: string; display_name?: string; email?: string; avatar_url?: string | null; created_at?: string; updated_at?: string }

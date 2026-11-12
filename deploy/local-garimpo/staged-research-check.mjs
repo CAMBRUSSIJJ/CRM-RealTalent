@@ -397,3 +397,66 @@ test('indexed post links alone do not qualify as accessible content', async () =
   assert.equal(reading.readablePostUrls.length, 0)
   assert.equal(reading.accessReason, 'posts_unavailable')
 })
+
+
+test('reviewer-provided Instagram is read directly even when Google returns no profile results', async () => {
+  const previousHome = process.env.HOME
+  const tempHome = await mkdtemp(join(tmpdir(), 'realtalent-confirmed-instagram-'))
+  process.env.HOME = tempHome
+  const website = 'https://kortar.com.br/barbearias/rio-grande/fainer-barber'
+  const profile = 'https://www.instagram.com/fainerbarber/'
+  const post = 'https://www.instagram.com/p/A1B2C3D4/'
+  const input = {
+    organizationId: 'aaaaaaaa-0000-4000-8000-000000000001',
+    segment: 'Fainer Barber', city: 'Rio Grande', source: 'manual', query: '',
+    instagram: '@fainerbarber', website, limit: 1,
+  }
+  const calls = []
+  try {
+    const result = await stagedLocalResearch({
+      input, signal: new AbortController().signal,
+      jobId: 'aaaaaaaa-0000-4000-8000-000000000889', model: {},
+      values: { FIRECRAWL_API_URL: 'http://127.0.0.1:3002', GARIMPO_MEMORY_PROFILE: 'low' },
+      onProgress: async () => {},
+      fetcher: async (endpoint, options) => {
+        const data = JSON.parse(options.body)
+        calls.push(data.url || data.query || '')
+        if (endpoint.pathname.endsWith('/scrape')) {
+          if (data.url === website) return new Response(JSON.stringify({ success: true,
+            data: { markdown: 'Fainer Barber de Rio Grande atende por agendamento e telefone (53) 99157-9674.',
+              metadata: { title: 'Fainer Barber em Rio Grande' } } }))
+          if (data.url === profile) return new Response(JSON.stringify({ success: true,
+            data: { markdown: 'Fainer Barber (@fainerbarber) Rio Grande RS, barbearia com atendimento e agendamento de horários.',
+              links: [post], metadata: { title: 'Fainer Barber (@fainerbarber)' } } }))
+          if (data.url === post) return new Response(JSON.stringify({ success: true,
+            data: { markdown: 'Fainer Barber (@fainerbarber) apresenta seu atendimento. Novos horários para agendamento estão disponíveis nesta semana.',
+              metadata: { title: 'Fainer Barber (@fainerbarber) • Instagram post' } } }))
+        }
+        return new Response(JSON.stringify({ success: true, data: { web: [] } }))
+      },
+      generate: async (args) => {
+        if (String(args.system).includes('eventos comerciais')) {
+          return { output: { profileSummary: 'O texto público menciona horários disponíveis para agendamento.',
+            signals: [{ type: 'other', title: 'Disponibilidade de agendamentos',
+              excerpt: 'Novos horários para agendamento estão disponíveis nesta semana.',
+              sourceUrl: post, eventDate: '' }] } }
+        }
+        const first = JSON.parse(args.prompt).sources[0]
+        return { output: { leads: [{ facts: [{
+          field: 'company', value: 'Fainer Barber', sourceUrl: first.url,
+        }], opportunity: '', suggestedApproach: '', signals: [] }] } }
+      },
+    })
+    assert.ok(calls.includes(profile), 'must scrape the exact reviewer-approved Instagram URL')
+    assert.ok(calls.includes(post), 'must read an actual post before sending the text to Ollama')
+    assert.equal(result.instagramDiscovery.status, 'provided')
+    assert.equal(result.instagramDiscovery.postCount, 1)
+    assert.equal(result.instagramDiscovery.readablePostUrls[0], post)
+    assert.ok(result.instagramDiscovery.contentSummary.includes('agendamento'))
+    assert.equal(result.leads[0].company, 'Fainer Barber')
+  } finally {
+    if (previousHome === undefined) delete process.env.HOME
+    else process.env.HOME = previousHome
+    await rm(tempHome, { recursive: true, force: true })
+  }
+})

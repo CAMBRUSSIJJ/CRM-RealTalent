@@ -101,6 +101,29 @@ export async function refineResearchPlan(plan, { model, generate, Output, jsonSc
   }
 }
 
+/** Rank identity-backed sources before giving the small Ollama model its first batch. */
+export function prioritizeEvidenceSources(input, sources) {
+  const company = normal(input.segment)
+  const city = normal(input.city).replace(/\\b(?:rs|sp|rj|mg|pr|sc)$/, '').trim()
+  const website = String(input.website || '')
+  return [...sources].sort((left, right) => {
+    const rank = (source) => {
+      const content = normal([source.title, source.content].join(' ')).slice(0, 18000)
+      let score = 0
+      if (website && source.url === website) score += 100
+      if (company && content.includes(company)) score += 30
+      if (city && content.includes(city)) score += 18
+      if (/\\b(telefone|whatsapp|contato|cnpj|endereco|agendamento|servico|horario)\\b/i.test(content)) score += 9
+      try {
+        const uri = new URL(source.url)
+        if (website && uri.hostname === new URL(website).hostname) score += 12
+      } catch { /* ranking-only signal */ }
+      return score
+    }
+    return rank(right) - rank(left)
+  })
+}
+
 export function selectDeepPages(input, website, links, limit = 2) {
   let origin
   try {

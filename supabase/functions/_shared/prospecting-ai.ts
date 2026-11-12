@@ -67,6 +67,35 @@ export interface AiInstagramDiscovery {
   /** Summarization of publicly readable posts only, not images or videos. */
   contentSummary?: string
 }
+export interface AiG6Fact {
+  field: string
+  label: string
+  value: string
+  sourceUrl: string
+}
+export interface AiG6CommercialBrief {
+  status: 'evidence_based' | 'insufficient_evidence'
+  segment: string
+  summary: string
+  knownFacts: AiG6Fact[]
+  missing: string[]
+  signals: Array<{ title: string; excerpt: string; sourceUrl: string; type: string }>
+  /** Hypotheses are never treated as validated business needs. */
+  hypotheses: string[]
+  questions: string[]
+  recommendedAction: string
+  researchLimits: string[]
+  planner?: 'ollama_questions'
+}
+export interface AiG6ResearchPlan {
+  version: string
+  segment: string
+  priorities: string[]
+  questions: string[]
+  queries: string[]
+  strategy: 'sector_rules' | 'ollama_bounded'
+  budget: { lowMemorySearches: number; normalSearches: number; deepPagesLow: number; deepPagesNormal: number }
+}
 export interface AiSearchResult {
   leads: AiLead[]
   warnings: string[]
@@ -75,6 +104,8 @@ export interface AiSearchResult {
   stages?: AiResearchStage[]
   researchStatus?: 'completed' | 'partial'
   instagramDiscovery?: AiInstagramDiscovery
+  researchPlan?: AiG6ResearchPlan
+  commercialBrief?: AiG6CommercialBrief
 }
 export class ProspectingError extends Error {
   code: string

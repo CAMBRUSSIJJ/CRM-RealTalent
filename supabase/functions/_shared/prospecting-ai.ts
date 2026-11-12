@@ -39,7 +39,7 @@ export interface AiSearchInput {
   execution?: 'local' | 'server'
 }
 export interface AiResearchStage {
-  stage: 'website' | 'web' | 'instagram' | 'facts' | 'signals' | 'completed'
+  stage: 'website' | 'web' | 'instagram' | 'facts' | 'signals' | 'business' | 'completed'
   phaseStatus: 'running' | 'completed' | 'failed'
   errorCode?: string
   sourceCount: number

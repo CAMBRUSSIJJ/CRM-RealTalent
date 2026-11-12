@@ -6,7 +6,7 @@ import { join } from 'node:path'
 import {
   buildResearchPlan, refineResearchPlan, selectDeepPages,
   crawl4aiEndpoint, crawl4aiContent, readDeepPage,
-  prioritizeEvidenceSources, buildCommercialBrief, refineCommercialBrief,
+  prioritizeEvidenceSources, selectBusinessSearchHits, buildCommercialBrief, refineCommercialBrief,
 } from './research-g6.mjs'
 import { stagedLocalResearch, stageJournal } from './staged-research.mjs'
 
@@ -96,6 +96,20 @@ test('G6 crawls sequentially with optional local Crawl4AI, falling back to Firec
     signal,
   })
   assert.equal(fallback.reader, 'firecrawl')
+})
+
+test('G6 rejects unassociated web hits and city homonyms before allocating evidence slots', () => {
+  const input = { segment: 'Fainer Barber', city: 'Rio Grande, RS' }
+  const results = [
+    { url: 'https://kortar.com.br/barbearias/pelotas/king-bravos-barber',
+      title: 'King Bravos Barber — Pelotas', markdown: 'Outra empresa.' },
+    { url: 'https://kortar.com.br/barbearias/rio-grande/fainer-barber',
+      title: 'Fainer Barber — Rio Grande', description: 'Agendamentos e atendimento.' },
+    { url: 'https://barbearias.example.net/pelotas/fainer-barber',
+      title: 'Fainer Barber — Pelotas', description: 'Empresa com o mesmo nome em outra cidade.' },
+  ]
+  const selected = selectBusinessSearchHits(input, results)
+  assert.deepEqual(selected.map((item) => item.url), [results[1].url])
 })
 
 test('G6 prioritizes company identity and contact facts before unrelated sources', () => {

@@ -17,9 +17,9 @@ if [[ -z "$ROOT" || ! -f "$ROOT/deploy/local-garimpo/staged-research.mjs" ||
   echo "ERRO: conector local por etapas não encontrado; nada foi modificado."
   exit 1
 fi
-REV="a232d23b943b179e213409a34f9ad5e26ada00b6"
+REV="768e36034f6233018ffc6b438c90f17cc8ee5226"
 FILES=(
-  "deploy/local-garimpo/research-g6.mjs|0bce148c2819c817d9412d0d76845103bba873a5"
+  "deploy/local-garimpo/research-g6.mjs|d6c877478316a98f18965615fe1fa67ed7c95f18"
   "deploy/local-garimpo/staged-research.mjs|08337f216a8acb232bdc8b0492674d52afb51c5c"
   "deploy/local-garimpo/research-g6-check.mjs|f524d61b16a43abf1afc02469fe5ac2df3693e90"
   "deploy/local-garimpo/package.json|2615632b32c1fd9007048c9da6c266a0f95941b9"

@@ -1351,6 +1351,7 @@ export function ProspectingPage() {
           onAnalyze={analyze} onApprove={approveProspects} onDiscard={(ids) => setStatus(ids, 'discarded')} onSend={openSend} onDelete={(ids) => void removeProspects(ids)} onExport={exportResults} onBulkRetry={(ids) => void retrySelectedEnrichment(ids)}
           onOpenGuided={(id) => { setProcessingId(id); setReviewMode('guided') }}
         /> : <ProcessingWorkspace
+          key={activeProspect?.id ?? 'review-empty'}
           readOnly={!canProspectingEdit}
           workspaceId={workspaceId}
           onConfirmInstagram={(profileUrl) => {
@@ -1923,8 +1924,8 @@ function ProcessingWorkspace({ readOnly, queue, active, leads, snapshot, onSelec
       <div>{queue.map((prospect) => <button type="button" key={prospect.id} className={prospect.id === active.id ? 'is-active' : ''} onClick={() => onSelect(prospect.id)}><span className={`prospect-confidence is-${prospectDataQuality(prospect).readiness === 'ready' ? 'high' : prospectDataQuality(prospect).readiness === 'blocked' ? 'low' : 'medium'}`}>{prospectDataQuality(prospect).score}</span><div><strong>{prospect.company}</strong><small>{prospectDataQuality(prospect).label} · {prospectOriginLabel(prospect)}</small></div>{prospectDataQuality(prospect).readiness === 'blocked' ? <AlertTriangle size={14} /> : <ChevronRight size={14} />}</button>)}</div>
     </aside>
 
-    <div className="crm-prospecting-review-shell">
-    <section className="panel prospecting-review-card crm-prospecting-review-shell__editor">
+    <div className="crm-prospecting-review-shell" key={active.id}>
+    <section className="panel prospecting-review-card crm-prospecting-review-shell__editor" key={'editor-' + active.id}>
       <header className="prospecting-review-header"><div><span className="eyebrow"><ClipboardCheck size={14} /> {autoValidatable ? 'Revisão dos dados disponíveis' : 'Revisão de exceção'}</span><h3>{active.company}</h3><p>{autoValidatable ? 'O cadastro possui dados suficientes para análise. Confira as fontes antes de aprovar.' : 'Veja primeiro o que precisa da sua decisão; os detalhes técnicos ficam recolhidos.'}</p></div><div><StatusPill tone={autoValidatable ? 'success' : 'warning'}>{autoValidatable ? 'Pronta para revisão' : 'Precisa atenção'}</StatusPill><span className="prospecting-counter">{index + 1} de {queue.length}</span></div></header>
       <section className="prospecting-review-edit-v101106 crm-prospecting-review-form-panel" key={active.id}>
         <header className="crm-prospecting-review-form-panel__header"><div><h4>Revisão de dados</h4><p>Confira e corrija os dados cadastrados antes da aprovação.</p></div></header>

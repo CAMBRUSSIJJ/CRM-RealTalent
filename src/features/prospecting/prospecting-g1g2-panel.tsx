@@ -278,7 +278,7 @@ export function ProspectingG1G2Panel({ prospect, snapshot, workspaceId, readOnly
         {suggestedInstagram.evidenceUrl && safeSite(suggestedInstagram.evidenceUrl) ?
           <a href={suggestedInstagram.evidenceUrl} target="_blank" rel="noopener noreferrer"><ExternalLink size={13}/> Fonte da descoberta</a> : null}
       </div>
-      <Button variant="default" disabled={readOnly || busy || persistedStatus === 'queued' || persistedStatus === 'processing'}
+      <Button variant="primary" disabled={readOnly || busy || persistedStatus === 'queued' || persistedStatus === 'processing'}
         onClick={() => void confirmAndInvestigate(suggestedInstagram.profileUrl)}>
         <ShieldCheck size={15}/> Confirmar perfil e investigar
       </Button>

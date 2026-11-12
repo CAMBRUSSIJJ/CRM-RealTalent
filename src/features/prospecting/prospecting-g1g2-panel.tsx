@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { AlertTriangle, ExternalLink, LoaderCircle, SearchCheck, ShieldCheck, Sparkles } from 'lucide-react'
+import { AlertTriangle, Check, ExternalLink, LoaderCircle, SearchCheck, ShieldCheck, Sparkles, X } from 'lucide-react'
 import { Button } from '../../components/ui/button'
 import type { WorkspaceSnapshot } from '../../domain/types'
 import type { ProspectRecord } from '../../services/prospecting-workspace'
@@ -7,6 +7,7 @@ import { explainProspectScore, prospectDecisionLabel } from '../../services/pros
 import { scoreProspectWithIcp } from '../../services/prospecting-intelligence'
 import { getLocalConnectorStatus, searchProspectsWithAi, recentLocalResearch, reviewedInstagramProfile, type LocalResearchProgress, type AiSearchResult } from '../../services/prospecting-ai'
 import { confirmedEnrichmentResult, reviewEnrichmentResult, researchOnlyEnrichmentResult, crossSourceReview, savedCrossSourceReview, type CrossSourceField } from '../../services/prospecting-cross-source-review'
+import { buildReviewSuggestions, type EditableReviewField, type ReviewSuggestion } from '../../services/prospecting-review-suggestions'
 import './prospecting-cross-source-review.css'
 
 interface Props {
@@ -16,6 +17,8 @@ interface Props {
   readOnly: boolean
   onEnriched(result: AiSearchResult): void
   onConfirmInstagram(profileUrl: string): void
+  onApplySuggestion(field: EditableReviewField, value: string, sourceUrl: string): void
+  onIgnoreSuggestion(suggestionKey: string): void
 }
 const safeSite = (value: string): string | null => {
   try {
@@ -50,7 +53,46 @@ function EvidenceRow({ field }: { field: CrossSourceField }) {
   </li>
 }
 
-export function ProspectingG1G2Panel({ prospect, snapshot, workspaceId, readOnly, onEnriched, onConfirmInstagram }: Props) {
+function ReviewDecisionCard({ suggestion, pendingReplacement, disabled, onApply, onIgnore, onCancel }: {
+  suggestion: ReviewSuggestion
+  pendingReplacement: boolean
+  disabled: boolean
+  onApply(): void
+  onIgnore(): void
+  onCancel(): void
+}) {
+  const source = suggestion.sourceUrls.map(safeSite).find(Boolean)
+  return <article className={'garimpo-review-decision is-' + suggestion.kind}>
+    <div className="garimpo-review-decision__title">
+      <strong>{suggestion.kind === 'conflict' ? 'Divergência · ' : 'Dado encontrado · '}{suggestion.label}</strong>
+      <span>{suggestion.evidenceStatus === 'confirmed' ? 'Corroborado' :
+        suggestion.independentPublishers > 1 ? suggestion.independentPublishers + ' fontes' : 'Uma fonte'}</span>
+    </div>
+    <div className="garimpo-review-decision__values">
+      <div><small>Atual</small><span className={!suggestion.currentValue ? 'is-empty' : 'is-current'}>
+        {suggestion.currentValue || 'Não preenchido'}</span></div>
+      <div><small>Sugerido</small><strong>{suggestion.suggestedValue}</strong></div>
+    </div>
+    {source ? <a href={source} target="_blank" rel="noopener noreferrer" className="garimpo-review-decision__source">
+      <ExternalLink size={12}/> Ver fonte original
+    </a> : null}
+    {pendingReplacement ? <p className="garimpo-review-decision__caution" role="status">
+      O valor atual será substituído. Confirme somente após conferir a fonte.
+    </p> : suggestion.evidenceStatus !== 'confirmed' ? <small className="garimpo-review-decision__caution">
+      Informação de fonte única ou divergente; não é confirmação independente.
+    </small> : null}
+    <div className="garimpo-review-decision__actions">
+      <Button variant="ghost" disabled={disabled} onClick={pendingReplacement ? onCancel : onIgnore}>
+        <X size={14}/>{pendingReplacement ? 'Cancelar' : 'Ignorar'}
+      </Button>
+      <Button variant="secondary" disabled={disabled} onClick={onApply}>
+        <Check size={14}/>{pendingReplacement ? 'Confirmar substituição' : 'Aplicar sugestão'}
+      </Button>
+    </div>
+  </article>
+}
+
+export function ProspectingG1G2Panel({ prospect, snapshot, workspaceId, readOnly, onEnriched, onConfirmInstagram, onApplySuggestion, onIgnoreSuggestion }: Props) {
   const base = useMemo(() => scoreProspectWithIcp(prospect, snapshot), [prospect, snapshot])
   const score = useMemo(() => explainProspectScore(prospect, snapshot, base), [prospect, snapshot, base])
   const [busy, setBusy] = useState(false)
@@ -60,6 +102,7 @@ export function ProspectingG1G2Panel({ prospect, snapshot, workspaceId, readOnly
   const [persistedStatus, setPersistedStatus] = useState('')
   const [suggestedInstagram, setSuggestedInstagram] = useState<{ profileUrl: string; evidenceUrl?: string; discoveredAt: string } | null>(null)
   const [confirmedInstagram, setConfirmedInstagram] = useState('')
+  const [pendingReplacement, setPendingReplacement] = useState<string | null>(null)
   const failureTitles: Record<string, string> = {
     model_timeout: 'O Ollama excedeu o prazo deste lote.',
     model_out_of_memory: 'Memória insuficiente para o modelo neste lote.',
@@ -87,6 +130,32 @@ export function ProspectingG1G2Panel({ prospect, snapshot, workspaceId, readOnly
   const applicable = useMemo(() => result ? confirmedEnrichmentResult(prospect, result) : null, [prospect, result])
   const observedApplicable = useMemo(() => result ? reviewEnrichmentResult(prospect, result, 'observed') : null, [prospect, result])
   const foundCount = review?.fields.filter((field) => !field.currentValue && (field.status === 'confirmed' || field.status === 'observed')).length ?? 0
+  const ignoredKeys = Array.isArray(prospect.rawData.garimpoIgnoredSuggestions)
+    ? (prospect.rawData.garimpoIgnoredSuggestions as unknown[]).filter((key): key is string => typeof key === 'string') : []
+  const decisionSuggestions = buildReviewSuggestions(review).filter((suggestion) => !ignoredKeys.includes(suggestion.key))
+  const applyDecision = (suggestion: ReviewSuggestion) => {
+    if (readOnly) return
+    if (suggestion.currentValue && pendingReplacement !== suggestion.key) {
+      setPendingReplacement(suggestion.key)
+      return
+    }
+    try {
+      const sourceUrl = suggestion.sourceUrls.map(safeSite).find(Boolean)
+      if (!sourceUrl) throw new Error('A sugestão precisa de uma fonte pública válida.')
+      onApplySuggestion(suggestion.field, suggestion.suggestedValue, sourceUrl)
+      setPendingReplacement(null)
+      setError('')
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : 'Não foi possível aplicar o campo sugerido.')
+    }
+  }
+  const decisionCard = (suggestion: ReviewSuggestion) => <ReviewDecisionCard key={suggestion.key}
+    suggestion={suggestion} pendingReplacement={pendingReplacement === suggestion.key}
+    disabled={readOnly || busy}
+    onApply={() => applyDecision(suggestion)}
+    onIgnore={() => { onIgnoreSuggestion(suggestion.key); setPendingReplacement(null) }}
+    onCancel={() => setPendingReplacement(null)}/>
+
 
   useEffect(() => {
     // Closing the review screen cancels only the browser polling; the Linux
@@ -100,6 +169,7 @@ export function ProspectingG1G2Panel({ prospect, snapshot, workspaceId, readOnly
     setPersistedStatus('')
     setSuggestedInstagram(null)
     setConfirmedInstagram('')
+    setPendingReplacement(null)
     let mounted = true
     const restore = async () => {
       const job = await recentLocalResearch(workspaceId, prospect.company, prospect.city).catch(() => null)
@@ -232,11 +302,29 @@ export function ProspectingG1G2Panel({ prospect, snapshot, workspaceId, readOnly
   return <section className="prospecting-g1g2" aria-label="Investigação e qualificação explicável">
     <header className="prospecting-g1g2__header">
       <div><span className="eyebrow"><Sparkles size={14} /> Garimpo Inteligente · G1 + G2</span>
-        <h4>Análise comercial</h4>
-        <p>Fontes, oportunidades e próximos passos para sua decisão.</p>
+        <h4>Feed de decisões da IA</h4>
+        <p>Revisão de dados com fontes verificáveis e investigação comercial G6.</p>
       </div>
       <span className={'prospecting-g1g2__decision is-' + score.decision}>{prospectDecisionLabel(score.decision)}</span>
     </header>
+    <section className="garimpo-review-feed" aria-label="Sugestões do Garimpo para revisar">
+      <header className="garimpo-review-feed__header">
+        <strong><Sparkles size={16}/> Ações sugeridas</strong>
+        <span>{decisionSuggestions.length} pendente(s)</span>
+      </header>
+      {decisionSuggestions.length ? <>
+        <div className="garimpo-review-feed__list">
+          {decisionSuggestions.slice(0, 3).map(decisionCard)}
+        </div>
+        {decisionSuggestions.length > 3 ? <details className="garimpo-review-feed__more">
+          <summary>Ver mais sugestões ({decisionSuggestions.length - 3})</summary>
+          <div className="garimpo-review-feed__list">{decisionSuggestions.slice(3).map(decisionCard)}</div>
+        </details> : null}
+      </> : <p className="garimpo-review-feed__empty">
+        Nenhuma sugestão com fonte está pendente. Execute uma investigação ou consulte os dados já encontrados.
+      </p>}
+      <small>Aplicar ou ignorar afeta apenas o cadastro em revisão; nenhuma empresa é aprovada automaticamente.</small>
+    </section>
     <details className="garimpo-review__score-details">
       <summary><span><ShieldCheck size={14}/> Indicadores de qualificação</span>
         <span>Aderência <b>{score.fit}</b> · Potencial <b>{score.opportunity}</b> · Dados <b>{score.evidenceConfidence}</b></span></summary>
@@ -398,7 +486,9 @@ export function ProspectingG1G2Panel({ prospect, snapshot, workspaceId, readOnly
     </section> : null}
     {error ? <p className="prospecting-g1g2__error" role="alert">{error}</p> : null}
 
-    {review ? <div className="garimpo-cross-source" aria-live="polite">
+    {review ? <details className="garimpo-review-audit" key={prospect.id}>
+      <summary><ShieldCheck size={14}/> Ver evidências, divergências e fontes da investigação</summary>
+      <div className="garimpo-cross-source" aria-live="polite">
       {review.matched ? <>
         <div className="garimpo-cross-source__counts">
           <span className="is-confirmed"><strong>{review.confirmed}</strong> Confirmados</span>
@@ -449,6 +539,7 @@ export function ProspectingG1G2Panel({ prospect, snapshot, workspaceId, readOnly
       {review.warnings.length ? <details className="garimpo-cross-source__pending"><summary>Limitações da pesquisa ({review.warnings.length})</summary>
         <ul>{review.warnings.map((warning, i) => <li key={i}>{warning}</li>)}</ul>
       </details> : null}
-    </div> : null}
+      </div>
+    </details> : null}
   </section>
 }

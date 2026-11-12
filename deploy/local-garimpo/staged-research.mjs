@@ -7,6 +7,7 @@ import { join } from 'node:path'
 import { generateText, Output, jsonSchema } from 'ai'
 import { aiOutputSchema, sanitizeAiResult, publicWebUrl } from '../../supabase/functions/_shared/prospecting-ai.ts'
 import { compactLocalSources } from './hardware-profile.mjs'
+import { buildLeadIntelligence } from './lead-intelligence-g7.mjs'
 import { buildResearchPlan, refineResearchPlan, selectDeepPages, readDeepPage,
   prioritizeEvidenceSources, selectBusinessSearchHits, buildCommercialBrief, refineCommercialBrief } from './research-g6.mjs'
 
@@ -400,6 +401,7 @@ export async function stagedLocalResearch({ input, signal, values, fetcher, mode
   let instagramDiscovery = cached?.instagramDiscovery || null
   let researchPlan = cached?.researchPlan || buildResearchPlan(input)
   let commercialBrief = cached?.commercialBrief || null
+  let leadIntelligence = cached?.leadIntelligence || null
   let knownSiteLinks = Array.isArray(cached?.knownSiteLinks) ? cached.knownSiteLinks : []
   const maxSources = 12
   let contentUsed = 0
@@ -436,7 +438,7 @@ export async function stagedLocalResearch({ input, signal, values, fetcher, mode
       leadCount: factsResult?.leads?.length ?? 0 }
     trace.push({ ...info, at: new Date().toISOString() })
     await journal.save(stage, { sources: sources(), warnings, trace, instagramDiscovery,
-      researchPlan, commercialBrief, knownSiteLinks,
+      researchPlan, commercialBrief, leadIntelligence, knownSiteLinks,
       ...(factsResult ? { facts: factsResult } : {}) })
     await onProgress(info)
   }
@@ -456,7 +458,7 @@ export async function stagedLocalResearch({ input, signal, values, fetcher, mode
   const knownSite = selectExistingUrl(input)
   let factsResult = cached?.facts || null
   const factsFinished = Boolean(trace.some((item) => item.stage === 'facts' && item.phaseStatus !== 'running'))
-  if (!cached || !['facts','signals','completed'].includes(cached.stage)) {
+  if (!cached || !['facts','signals','business','completed'].includes(cached.stage)) {
     // Website first. A failed directory must not erase other sources.
     if (!trace.some((item) => item.stage === 'website' && item.phaseStatus !== 'running')) {
       await checkpoint('website', 'running')
@@ -757,11 +759,35 @@ export async function stagedLocalResearch({ input, signal, values, fetcher, mode
       })
     }
   }
+  if (!leadIntelligence) {
+    await checkpoint('business', 'running')
+    // Only company-matched evidence, genuinely read posts, or a readable
+    // confirmed public profile are eligible for a commercial intelligence card.
+    const matched = companySources(input, sources())
+    const sourceUrls = new Set(matched.map((source) => source.url))
+    const eligible = [...matched]
+    for (const post of attributablePosts) {
+      if (!sourceUrls.has(post.url)) { eligible.push(post); sourceUrls.add(post.url) }
+    }
+    if (instagramDiscovery?.profileUrl && instagramDiscovery.profileExcerpt &&
+      ['readable','bio_only'].includes(instagramDiscovery.profileAccess || '') &&
+      (instagramDiscovery.status === 'provided' || instagramDiscovery.status === 'linked')) {
+      eligible.push({
+        url: instagramDiscovery.profileUrl,
+        title: 'Perfil público do Instagram',
+        content: instagramDiscovery.profileExcerpt,
+      })
+    }
+    leadIntelligence = await buildLeadIntelligence({
+      sources: eligible, instagramDiscovery, model, generate, Output, jsonSchema, signal,
+    })
+    await checkpoint('business', 'completed')
+  }
   const stages = trace.filter((item) => item.phaseStatus !== 'running')
   const partial = stages.some((item) => item.phaseStatus === 'failed')
   await checkpoint('completed', 'completed')
   return { ...factsResult, warnings: [...(factsResult.warnings || []), ...warnings],
-    researchPlan, commercialBrief,
+    researchPlan, commercialBrief, leadIntelligence,
     instagramDiscovery: instagramDiscovery || { status: 'not_found', postCount: 0 },
     researchStatus: partial ? 'partial' : 'completed',
     stages: trace.filter((item) => item.phaseStatus !== 'running').slice(-12) }

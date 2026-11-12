@@ -1,6 +1,8 @@
 // Garimpo G7 — grounded, low-memory commercial intelligence for one business.
 // Public sources only. Model suggestions become facts only when backed by a
 // literal quote from the exact, previously selected source URL.
+import { multiChannelCoverage } from './multichannel-g7.mjs'
+
 const limit = (x, n = 160) => String(x || '').trim().slice(0, n)
 const fold = (x) => String(x || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '')
   .toLowerCase().replace(/\s+/g, ' ').trim()
@@ -91,8 +93,8 @@ export async function buildLeadIntelligence({ sources, instagramDiscovery, model
   const selected = sources.filter((source) =>
     verifiedUrl(source?.url) && typeof source?.content === 'string' &&
     source.content.trim().length >= 18).slice(0, 6)
-  const compact = selected.slice(0, 4).map(({ url, title, content }) => ({
-    url, title: limit(title, 100), text: content.slice(0, 2100),
+  const compact = selected.slice(0, 5).map(({ url, title, content }) => ({
+    url, title: limit(title, 100), text: content.slice(0, 1750),
   }))
   let candidates = { offerings: [], prices: [], positioning: [] }
   let extraction = 'literal_only'
@@ -149,6 +151,12 @@ export async function buildLeadIntelligence({ sources, instagramDiscovery, model
   return {
     version: 'G7', status: hasEvidence ? 'partial_evidence' : 'insufficient_evidence',
     extraction, sourceCount: selected.length,
+    coverage: multiChannelCoverage(selected, instagramDiscovery),
+    businessSummary: offerings.length
+      ? 'Serviços e produtos identificados nas fontes: ' + offerings.slice(0, 3).map((item) => item.label).join(', ') + '.'
+      : prices.length
+        ? 'Preços publicados encontrados; o catálogo completo ainda não foi confirmado.'
+        : 'Não foi possível comprovar o portfólio nas páginas públicas acessíveis.',
     offerings, prices, positioning, missing,
     hypotheses: ['Possível oportunidade de aprimorar atendimento e relacionamento; confirmar em conversa antes de propor solução.'],
     questions,

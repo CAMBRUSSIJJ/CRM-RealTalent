@@ -5,7 +5,7 @@ import type { WorkspaceSnapshot } from '../../domain/types'
 import type { ProspectRecord } from '../../services/prospecting-workspace'
 import { explainProspectScore, prospectDecisionLabel } from '../../services/prospecting-g1g2-intelligence'
 import { scoreProspectWithIcp } from '../../services/prospecting-intelligence'
-import { getLocalConnectorStatus, searchProspectsWithAi, recentLocalResearch, type LocalResearchProgress, type AiSearchResult } from '../../services/prospecting-ai'
+import { getLocalConnectorStatus, searchProspectsWithAi, recentLocalResearch, reviewedInstagramProfile, type LocalResearchProgress, type AiSearchResult } from '../../services/prospecting-ai'
 import { confirmedEnrichmentResult, reviewEnrichmentResult, researchOnlyEnrichmentResult, crossSourceReview, savedCrossSourceReview, type CrossSourceField } from '../../services/prospecting-cross-source-review'
 import './prospecting-cross-source-review.css'
 
@@ -15,6 +15,7 @@ interface Props {
   workspaceId: string
   readOnly: boolean
   onEnriched(result: AiSearchResult): void
+  onConfirmInstagram(profileUrl: string): void
 }
 const safeSite = (value: string): string | null => {
   try {
@@ -49,7 +50,7 @@ function EvidenceRow({ field }: { field: CrossSourceField }) {
   </li>
 }
 
-export function ProspectingG1G2Panel({ prospect, snapshot, workspaceId, readOnly, onEnriched }: Props) {
+export function ProspectingG1G2Panel({ prospect, snapshot, workspaceId, readOnly, onEnriched, onConfirmInstagram }: Props) {
   const base = useMemo(() => scoreProspectWithIcp(prospect, snapshot), [prospect, snapshot])
   const score = useMemo(() => explainProspectScore(prospect, snapshot, base), [prospect, snapshot, base])
   const [busy, setBusy] = useState(false)
@@ -57,6 +58,8 @@ export function ProspectingG1G2Panel({ prospect, snapshot, workspaceId, readOnly
   const [error, setError] = useState('')
   const [progress, setProgress] = useState<LocalResearchProgress | null>(null)
   const [persistedStatus, setPersistedStatus] = useState('')
+  const [suggestedInstagram, setSuggestedInstagram] = useState<{ profileUrl: string; evidenceUrl?: string; discoveredAt: string } | null>(null)
+  const [confirmedInstagram, setConfirmedInstagram] = useState('')
   const failureTitles: Record<string, string> = {
     model_timeout: 'O Ollama excedeu o prazo deste lote.',
     model_out_of_memory: 'Memória insuficiente para o modelo neste lote.',
@@ -95,10 +98,13 @@ export function ProspectingG1G2Panel({ prospect, snapshot, workspaceId, readOnly
     setProgress(null)
     setBusy(false)
     setPersistedStatus('')
+    setSuggestedInstagram(null)
+    setConfirmedInstagram('')
     let mounted = true
     const restore = async () => {
       const job = await recentLocalResearch(workspaceId, prospect.company, prospect.city).catch(() => null)
-      if (!mounted || !job) return
+      if (!mounted || !job || abortRef.current) return
+      setSuggestedInstagram(job.priorInstagramCandidate)
       setPersistedStatus(job.status)
       setProgress(job.progress ?? null)
       if (job.result) { setResult(job.result); setError('') }
@@ -111,9 +117,9 @@ export function ProspectingG1G2Panel({ prospect, snapshot, workspaceId, readOnly
     void restore()
     const interval = window.setInterval(() => void restore(), 7000)
     return () => { mounted = false; window.clearInterval(interval); abortRef.current?.abort() }
-  }, [prospect.id, prospect.updatedAt, workspaceId])
+  }, [prospect.id, workspaceId])
 
-  const run = async () => {
+  const run = async (instagramOverride?: string) => {
     if (busy || readOnly || persistedStatus === 'processing' || persistedStatus === 'queued') return
     if (!prospect.city.trim()) {
       setError('Confirme primeiro a cidade da empresa para pesquisar fontes da região correta.')
@@ -139,9 +145,10 @@ export function ProspectingG1G2Panel({ prospect, snapshot, workspaceId, readOnly
         : /^(?:www\.)?[a-z0-9-]+\.[a-z]{2,}/i.test(knownSite) ? 'https://' + knownSite : ''
       // The existing production queue forwards 'query' but strips unknown
       // fields. Preserve these optional hints until the backend is upgraded.
+      const selectedInstagram = instagramOverride || confirmedInstagram || prospect.instagram.trim()
       const hints = [
         safeSite(safeWebsite) ? 'SITE_URL=' + encodeURIComponent(safeWebsite) : '',
-        prospect.instagram.trim() ? 'INSTAGRAM=' + encodeURIComponent(prospect.instagram.trim()) : '',
+        selectedInstagram ? 'INSTAGRAM=' + encodeURIComponent(selectedInstagram) : '',
       ].filter(Boolean)
       const query = ['endereço telefone site Instagram CNPJ cadastro empresarial', ...hints].join(' ').slice(0, 950)
       const response = await searchProspectsWithAi({
@@ -156,7 +163,7 @@ export function ProspectingG1G2Panel({ prospect, snapshot, workspaceId, readOnly
           const prepared = site.startsWith('https://') ? site : /^(?:www\.)?[a-z0-9-]+\.[a-z]{2,}/i.test(site) ? 'https://' + site : ''
           return safeSite(prepared) || undefined
         })(),
-        instagram: prospect.instagram.trim() || undefined,
+        instagram: selectedInstagram || undefined,
         limit: 5,
         execution: 'local',
       }, ctrl.signal, {
@@ -174,6 +181,28 @@ export function ProspectingG1G2Panel({ prospect, snapshot, workspaceId, readOnly
         abortRef.current = null
         setBusy(false)
       }
+    }
+  }
+
+  const confirmAndInvestigate = async (rawUrl: string) => {
+    if (readOnly || busy || persistedStatus === 'queued' || persistedStatus === 'processing') return
+    const profile = reviewedInstagramProfile(rawUrl)
+    if (!profile) { setError('O perfil encontrado não possui um endereço público válido do Instagram.'); return }
+    const current = prospect.instagram.trim()
+    const currentUrl = current.startsWith('@')
+      ? reviewedInstagramProfile('https://www.instagram.com/' + current.slice(1) + '/')
+      : reviewedInstagramProfile(current)
+    if (current && currentUrl !== profile) {
+      setError('O cadastro já possui outro Instagram. Confira primeiro em Editar dados para evitar substituir o perfil incorreto.')
+      return
+    }
+    try {
+      onConfirmInstagram(profile)
+      setConfirmedInstagram(profile)
+      setError('')
+      await run(profile)
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : 'Não foi possível confirmar o perfil Instagram.')
     }
   }
 
@@ -241,6 +270,23 @@ export function ProspectingG1G2Panel({ prospect, snapshot, workspaceId, readOnly
       <ul>{result.stages.filter((step) => step.phaseStatus === 'failed').map((step, index) =>
         <li key={step.stage + index}><strong>{phaseTitles[step.stage] || step.stage}:</strong> {failureTitles[step.errorCode || ''] || 'Falha técnica não classificada. Os dados coletados foram preservados.'}</li>)}</ul>
     </details> : null}
+    {!prospect.instagram.trim() && suggestedInstagram?.profileUrl && <section className="garimpo-cross-source__instagram-approval" aria-label="Confirmar Instagram encontrado">
+      <div>
+        <strong>Perfil do Instagram encontrado em uma pesquisa anterior</strong>
+        <p>O Garimpo havia encontrado <strong>@{suggestedInstagram.profileUrl.split('/').filter(Boolean).at(-1)}</strong>. Uma nova busca sem resultado não descarta esse candidato. Confirme apenas se você reconhece que a conta pertence à empresa.</p>
+        <a href={suggestedInstagram.profileUrl} target="_blank" rel="noopener noreferrer"><ExternalLink size={13}/> Abrir o perfil para conferir</a>
+        {suggestedInstagram.evidenceUrl && safeSite(suggestedInstagram.evidenceUrl) ?
+          <a href={suggestedInstagram.evidenceUrl} target="_blank" rel="noopener noreferrer"><ExternalLink size={13}/> Fonte da descoberta</a> : null}
+      </div>
+      <Button variant="default" disabled={readOnly || busy || persistedStatus === 'queued' || persistedStatus === 'processing'}
+        onClick={() => void confirmAndInvestigate(suggestedInstagram.profileUrl)}>
+        <ShieldCheck size={15}/> Confirmar perfil e investigar
+      </Button>
+      <small>O aceite salva o Instagram no cadastro e inicia uma nova pesquisa. Ele confirma sua escolha, não garante acesso às publicações privadas ou bloqueadas.</small>
+    </section>}
+    {prospect.instagram.trim() && <p className="garimpo-cross-source__instagram-saved">
+      <ShieldCheck size={14}/> Perfil registrado no cadastro: <strong>{prospect.instagram}</strong>. Nas próximas investigações ele terá prioridade sobre sugestões dos buscadores.
+    </p>}
     {result?.instagramDiscovery ? <section className="garimpo-cross-source__instagram" aria-label="Descoberta do perfil Instagram">
       <strong>Instagram · descoberta do perfil</strong>
       <p>{result.instagramDiscovery.status === 'linked'

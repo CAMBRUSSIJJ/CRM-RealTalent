@@ -306,9 +306,9 @@ export function ProspectingG1G2Panel({ prospect, snapshot, workspaceId, readOnly
   ]
   return <section className="prospecting-g1g2" aria-label="Investigação e qualificação explicável">
     <header className="prospecting-g1g2__header">
-      <div><span className="eyebrow"><Sparkles size={14} /> Garimpo Inteligente · G1 + G2</span>
+      <div><span className="eyebrow"><Sparkles size={14} /> Garimpo Inteligente · G7 Multicanal</span>
         <h4>Feed de decisões da IA</h4>
-        <p>Revisão de dados com fontes verificáveis e investigação comercial G6.</p>
+        <p>Diagnóstico de negócio, qualificação e evidências públicas por vários canais.</p>
       </div>
       <span className={'prospecting-g1g2__decision is-' + score.decision}>{prospectDecisionLabel(score.decision)}</span>
     </header>
@@ -365,8 +365,8 @@ export function ProspectingG1G2Panel({ prospect, snapshot, workspaceId, readOnly
     </details>
 
     <div className="prospecting-g1g2__investigate garimpo-cross-source__action">
-      <div><strong>Verificação cruzada · Firecrawl + Ollama</strong>
-        <small>Investiga fontes públicas e tenta analisar publicações acessíveis. Dados sem comprovação permanecem para revisão.</small>
+      <div><strong>Inteligência empresarial · Firecrawl + Crawl4AI + Ollama</strong>
+        <small>Investiga site, agendamento, catálogo, buscas e reputação pública. O Instagram é uma fonte opcional; dados não comprovados ficam pendentes.</small>
       </div>
       <Button variant="secondary" disabled={busy || readOnly || persistedStatus === 'processing' || persistedStatus === 'queued'} onClick={() => void run()}>
         {busy ? <LoaderCircle size={15} className="spin"/> : <SearchCheck size={15}/>}
@@ -382,7 +382,64 @@ export function ProspectingG1G2Panel({ prospect, snapshot, workspaceId, readOnly
       <span>{progress.sourceCount} fonte(s) coletada(s) · {progress.leadCount} empresa(s) analisada(s).</span>
       {progress.phaseStatus === 'running' ? <small>O conector Linux continua processando enquanto estiver aberto.</small> : null}
     </div> : busy ? <p className="garimpo-cross-source__progress" role="status">Preparando pesquisa em etapas. Mantenha o conector Linux aberto.</p> : null}
-    {result?.commercialBrief ? <section className="garimpo-g6-brief" aria-label="Diagnóstico comercial do Garimpo G6">
+    {result?.leadIntelligence ? <section className="garimpo-g7-card" aria-label="Inteligência do negócio">
+      <header className="garimpo-g7-card__header">
+        <div><strong><Sparkles size={15}/> Inteligência do negócio</strong>
+          <small>Produtos, preços e posicionamento · somente informações com fontes</small>
+        </div>
+        <span>{result.leadIntelligence.status === 'partial_evidence' ? 'Evidências parciais' : 'Dados insuficientes'}</span>
+      </header>
+      {result.leadIntelligence.businessSummary ? <p className="garimpo-g7-card__overview">{result.leadIntelligence.businessSummary}</p> : null}
+      {result.leadIntelligence.coverage?.length ? <div className="garimpo-g7-card__channels" aria-label="Fontes multicanal com evidência">
+        {result.leadIntelligence.coverage.map((row) => <span key={row.channel}
+          className={row.status === 'read' ? 'is-read' : 'is-pending'}>
+          {row.label} · {row.status === 'read' ? row.pages + ' fonte(s)' : 'não acessível'}
+        </span>)}
+      </div> : null}
+      <div className="garimpo-g7-card__summary">
+        <span><strong>{result.leadIntelligence.offerings.length}</strong> produto(s) ou serviço(s)</span>
+        <span><strong>{result.leadIntelligence.prices.length}</strong> preço(s) anunciados</span>
+        <span><strong>{result.leadIntelligence.positioning.length}</strong> sinal(is) de posicionamento</span>
+      </div>
+      <p className="garimpo-g7-card__disclaimer">{result.leadIntelligence.prices.length
+        ? 'Valores anunciados em páginas públicas. Não representam ticket médio nem preços atuais garantidos.'
+        : 'Nenhum preço verificável foi encontrado. Ticket médio não estimado.'}</p>
+      <details className="garimpo-g7-card__details">
+        <summary>Ver portfólio, preços, fontes e abordagem</summary>
+        {([
+          ['Produtos e serviços', result.leadIntelligence.offerings],
+          ['Preços anunciados', result.leadIntelligence.prices],
+          ['Posicionamento declarado', result.leadIntelligence.positioning],
+        ] as const).map(([label, rows]) => <div key={label} className="garimpo-g7-card__group">
+          <strong>{label}</strong>
+          {rows.length ? <ul>{rows.map((item, index) =>
+            <li key={item.sourceUrl + item.label + index}>
+              <strong>{item.label}{item.amount ? ' · ' + item.amount : ''}</strong>
+              <small>Trecho: “{item.excerpt}”</small>
+              {safeSite(item.sourceUrl) ? <a href={item.sourceUrl} target="_blank" rel="noopener noreferrer">
+                <ExternalLink size={12}/> Ver fonte original
+              </a> : null}
+            </li>)}</ul> : <p>Não encontrado nas fontes disponíveis.</p>}
+        </div>)}
+        {result.leadIntelligence.missing.length ? <div className="garimpo-g7-card__group">
+          <strong>Dados pendentes</strong>
+          <ul>{result.leadIntelligence.missing.map((reason, index) =>
+            <li key={index}>{reason}</li>)}</ul>
+        </div> : null}
+        <div className="garimpo-g7-card__group">
+          <strong>Hipótese comercial — precisa de validação</strong>
+          <p>{result.leadIntelligence.hypotheses[0]}</p>
+          <strong>Perguntas de diagnóstico</strong>
+          <ul>{result.leadIntelligence.questions.slice(0, 2).map((question, index) =>
+            <li key={index}>{question}</li>)}</ul>
+          <p><strong>Próxima ação:</strong> {result.leadIntelligence.recommendedAction}</p>
+        </div>
+        <small>{result.leadIntelligence.sourceCount} fonte(s) considerada(s). Extração {result.leadIntelligence.extraction === 'ollama_verified'
+          ? 'com Ollama e validação literal de evidências' : 'literal; o Ollama não respondeu ou não havia conteúdo suficiente'}.
+          Dados sem trechos correspondentes à fonte são descartados.</small>
+      </details>
+    </section> : null}
+    {result?.commercialBrief ? <details className="garimpo-review__strategy"><summary>Estratégia de abordagem e diagnóstico complementar</summary><section className="garimpo-g6-brief" aria-label="Diagnóstico comercial do Garimpo G6">
       <div className="garimpo-g6-brief__top">
         <strong><Sparkles size={15}/> Diagnóstico comercial</strong>
         <small>{result.commercialBrief.status === 'evidence_based'
@@ -420,57 +477,7 @@ export function ProspectingG1G2Panel({ prospect, snapshot, workspaceId, readOnly
         {result.commercialBrief.researchLimits.map((limitation, i) =>
           <small key={i}>{limitation}</small>)}
       </details>
-    </section> : null}
-    {result?.leadIntelligence ? <section className="garimpo-g7-card" aria-label="Inteligência comercial do lead">
-      <header className="garimpo-g7-card__header">
-        <div><strong><Sparkles size={15}/> Inteligência comercial do lead</strong>
-          <small>Produtos, preços e posicionamento · somente informações com fontes</small>
-        </div>
-        <span>{result.leadIntelligence.status === 'partial_evidence' ? 'Evidências parciais' : 'Dados insuficientes'}</span>
-      </header>
-      <div className="garimpo-g7-card__summary">
-        <span><strong>{result.leadIntelligence.offerings.length}</strong> produto(s) ou serviço(s)</span>
-        <span><strong>{result.leadIntelligence.prices.length}</strong> preço(s) anunciados</span>
-        <span><strong>{result.leadIntelligence.positioning.length}</strong> sinal(is) de posicionamento</span>
-      </div>
-      <p>{result.leadIntelligence.prices.length
-        ? 'Valores anunciados em páginas públicas. Não representam ticket médio nem preços atuais garantidos.'
-        : 'Nenhum preço verificável foi encontrado. Ticket médio não estimado.'}</p>
-      <details className="garimpo-g7-card__details">
-        <summary>Ver análise comercial, trechos e fontes</summary>
-        {([
-          ['Produtos e serviços', result.leadIntelligence.offerings],
-          ['Preços anunciados', result.leadIntelligence.prices],
-          ['Posicionamento declarado', result.leadIntelligence.positioning],
-        ] as const).map(([label, rows]) => <div key={label} className="garimpo-g7-card__group">
-          <strong>{label}</strong>
-          {rows.length ? <ul>{rows.map((item, index) =>
-            <li key={item.sourceUrl + item.label + index}>
-              <strong>{item.label}{item.amount ? ' · ' + item.amount : ''}</strong>
-              <small>Trecho: “{item.excerpt}”</small>
-              {safeSite(item.sourceUrl) ? <a href={item.sourceUrl} target="_blank" rel="noopener noreferrer">
-                <ExternalLink size={12}/> Ver fonte original
-              </a> : null}
-            </li>)}</ul> : <p>Não encontrado nas fontes disponíveis.</p>}
-        </div>)}
-        {result.leadIntelligence.missing.length ? <div className="garimpo-g7-card__group">
-          <strong>Dados pendentes</strong>
-          <ul>{result.leadIntelligence.missing.map((reason, index) =>
-            <li key={index}>{reason}</li>)}</ul>
-        </div> : null}
-        <div className="garimpo-g7-card__group">
-          <strong>Hipótese comercial — precisa de validação</strong>
-          <p>{result.leadIntelligence.hypotheses[0]}</p>
-          <strong>Perguntas de diagnóstico</strong>
-          <ul>{result.leadIntelligence.questions.slice(0, 2).map((question, index) =>
-            <li key={index}>{question}</li>)}</ul>
-          <p><strong>Próxima ação:</strong> {result.leadIntelligence.recommendedAction}</p>
-        </div>
-        <small>{result.leadIntelligence.sourceCount} fonte(s) considerada(s). Extração {result.leadIntelligence.extraction === 'ollama_verified'
-          ? 'com Ollama e validação literal de evidências' : 'literal; o Ollama não respondeu ou não havia conteúdo suficiente'}.
-          Dados sem trechos correspondentes à fonte são descartados.</small>
-      </details>
-    </section> : null}
+    </section></details> : null}
     {result?.stages?.some((step) => step.phaseStatus === 'failed') ? <details className="garimpo-cross-source__partial-detail">
       <summary>Etapas que precisam de atenção ({result.stages.filter((step) => step.phaseStatus === 'failed').length})</summary>
       <ul>{result.stages.filter((step) => step.phaseStatus === 'failed').map((step, index) =>
@@ -503,7 +510,9 @@ export function ProspectingG1G2Panel({ prospect, snapshot, workspaceId, readOnly
       </> : !currentInstagramUrl ? <small>Informe um endereço https://www.instagram.com/perfil/ ou @perfil válido para confirmar.</small>
         : <small>Perfil confirmado pela revisão. Use “Investigar novamente” para tentar novas leituras públicas.</small>}
     </section>}
-    {result?.instagramDiscovery ? <section className="garimpo-cross-source__instagram garimpo-review__instagram-compact" aria-label="Descoberta do perfil Instagram">
+    {result?.instagramDiscovery ? <details className="garimpo-review__social-source">
+      <summary>Fonte adicional · Instagram {result.instagramDiscovery.postCount > 0 ? '· ' + result.instagramDiscovery.postCount + ' post(s) legível(is)' : '· sem posts acessíveis'}</summary>
+      <section className="garimpo-cross-source__instagram garimpo-review__instagram-compact" aria-label="Descoberta do perfil Instagram">
       <div className="garimpo-review__instagram-heading">
         <strong>Instagram · {result.instagramDiscovery.postCount > 0 ? 'Publicações analisáveis' : result.instagramDiscovery.status === 'candidate' ? 'Candidato não confirmado' : 'Perfil localizado'}</strong>
         <small>{result.instagramDiscovery.postCount} post(s) lido(s) · {result.instagramDiscovery.profileAccess === 'blocked' ? 'Acesso restrito' : result.instagramDiscovery.profileAccess === 'bio_only' ? 'Somente bio acessível' : result.instagramDiscovery.profileAccess === 'readable' ? 'Perfil acessado' : 'Acesso parcial ou não verificado'}</small>
@@ -561,7 +570,7 @@ export function ProspectingG1G2Panel({ prospect, snapshot, workspaceId, readOnly
       </details>
       {result.instagramDiscovery.contentSummary && result.instagramDiscovery.postCount > 0 ?
         <p className="garimpo-review__ig-insight">{result.instagramDiscovery.contentSummary}</p> : null}
-    </section> : null}
+    </section></details> : null}
     {error ? <p className="prospecting-g1g2__error" role="alert">{error}</p> : null}
 
     {review ? <details className="garimpo-review-audit" key={prospect.id}>

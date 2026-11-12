@@ -225,12 +225,15 @@ export function ProspectingG1G2Panel({ prospect, snapshot, workspaceId, readOnly
   return <section className="prospecting-g1g2" aria-label="Investigação e qualificação explicável">
     <header className="prospecting-g1g2__header">
       <div><span className="eyebrow"><Sparkles size={14} /> Garimpo Inteligente · G1 + G2</span>
-        <h4>Por que investigar esta empresa?</h4>
-        <p>Uma leitura comercial, sem confundir presença digital com intenção de compra.</p>
+        <h4>Análise comercial</h4>
+        <p>Fontes, oportunidades e próximos passos para sua decisão.</p>
       </div>
       <span className={'prospecting-g1g2__decision is-' + score.decision}>{prospectDecisionLabel(score.decision)}</span>
     </header>
-    <div className="prospecting-g1g2__dimensions">
+    <details className="garimpo-review__score-details">
+      <summary><span><ShieldCheck size={14}/> Indicadores de qualificação</span>
+        <span>Aderência <b>{score.fit}</b> · Potencial <b>{score.opportunity}</b> · Dados <b>{score.evidenceConfidence}</b></span></summary>
+      <div className="prospecting-g1g2__dimensions">
       {labels.map(([label, value]) => <div key={label} className="prospecting-g1g2__dimension">
         <span>{label}</span><strong>{value}<small>/100</small></strong>
         <div className="prospecting-g1g2__meter" aria-label={label + ' ' + value + ' de 100'}><i style={{ width: value + '%' }} /></div>
@@ -246,10 +249,11 @@ export function ProspectingG1G2Panel({ prospect, snapshot, workspaceId, readOnly
     <details className="prospecting-g1g2__evidence"><summary>Ver origem dos dados cadastrados ({score.evidence.length})</summary>
       <ul>{score.evidence.map((e, i) => <li key={i}><strong>{e.type === 'gap' ? 'Pendente' : e.type === 'inference' ? 'Inferência' : 'Informado'}</strong> · {e.label} <small>({e.source})</small></li>)}</ul>
     </details>
+    </details>
 
     <div className="prospecting-g1g2__investigate garimpo-cross-source__action">
       <div><strong>Verificação cruzada · Firecrawl + Ollama</strong>
-        <small>Lê o site cadastrado, procura outras fontes e posts públicos do Instagram. Ollama identifica evidências e possíveis eventos-gatilho. O preenchimento exige fonte; a decisão continua humana.</small>
+        <small>Investiga fontes públicas e tenta analisar publicações acessíveis. Dados sem comprovação permanecem para revisão.</small>
       </div>
       <Button variant="secondary" disabled={busy || readOnly || persistedStatus === 'processing' || persistedStatus === 'queued'} onClick={() => void run()}>
         {busy ? <LoaderCircle size={15} className="spin"/> : <SearchCheck size={15}/>}
@@ -263,7 +267,7 @@ export function ProspectingG1G2Panel({ prospect, snapshot, workspaceId, readOnly
         : phaseTitles[progress.stage] + ' · ' +
           (progress.phaseStatus === 'running' ? 'em andamento' : progress.phaseStatus === 'failed' ? 'etapa indisponível' : 'concluída')}</strong>
       <span>{progress.sourceCount} fonte(s) coletada(s) · {progress.leadCount} empresa(s) analisada(s).</span>
-      <small>As etapas finalizadas são preservadas no Linux. Você pode sair desta página; a investigação continuará enquanto o conector estiver aberto.</small>
+      {progress.phaseStatus === 'running' ? <small>O conector Linux continua processando enquanto estiver aberto.</small> : null}
     </div> : busy ? <p className="garimpo-cross-source__progress" role="status">Preparando pesquisa em etapas. Mantenha o conector Linux aberto.</p> : null}
     {result?.stages?.some((step) => step.phaseStatus === 'failed') ? <details className="garimpo-cross-source__partial-detail">
       <summary>Etapas que precisam de atenção ({result.stages.filter((step) => step.phaseStatus === 'failed').length})</summary>
@@ -287,8 +291,15 @@ export function ProspectingG1G2Panel({ prospect, snapshot, workspaceId, readOnly
     {prospect.instagram.trim() && <p className="garimpo-cross-source__instagram-saved">
       <ShieldCheck size={14}/> Perfil registrado no cadastro: <strong>{prospect.instagram}</strong>. Nas próximas investigações ele terá prioridade sobre sugestões dos buscadores.
     </p>}
-    {result?.instagramDiscovery ? <section className="garimpo-cross-source__instagram" aria-label="Descoberta do perfil Instagram">
-      <strong>Instagram · descoberta do perfil</strong>
+    {result?.instagramDiscovery ? <section className="garimpo-cross-source__instagram garimpo-review__instagram-compact" aria-label="Descoberta do perfil Instagram">
+      <div className="garimpo-review__instagram-heading">
+        <strong>Instagram · {result.instagramDiscovery.postCount > 0 ? 'Publicações analisáveis' : 'Perfil identificado'}</strong>
+        <small>{result.instagramDiscovery.postCount} post(s) lido(s) · {result.instagramDiscovery.profileAccess === 'blocked' ? 'Acesso restrito' : result.instagramDiscovery.profileAccess === 'bio_only' ? 'Somente bio acessível' : result.instagramDiscovery.profileAccess === 'readable' ? 'Perfil acessado' : 'Acesso parcial ou não verificado'}</small>
+      </div>
+      {result.instagramDiscovery.profileUrl && safeSite(result.instagramDiscovery.profileUrl) ? <a href={result.instagramDiscovery.profileUrl} target="_blank" rel="noopener noreferrer">
+        <ExternalLink size={13}/> Abrir Instagram da empresa
+      </a> : null}
+      <details className="garimpo-review__instagram-details"><summary>Ver diagnóstico da leitura</summary>
       <p>{result.instagramDiscovery.status === 'linked'
         ? 'Perfil vinculado a uma página conhecida da empresa; confira se é realmente o perfil utilizado pelo negócio.'
         : result.instagramDiscovery.status === 'candidate'
@@ -332,7 +343,10 @@ export function ProspectingG1G2Panel({ prospect, snapshot, workspaceId, readOnly
               <ExternalLink size={13}/> Abrir publicação original</a> : null}
           </li>)}</ul>
       </details> : null}
-      {!result.instagramDiscovery.postCount ? <small>Nenhuma legenda ou texto de publicação pôde ser analisado. Um link encontrado não conta como conteúdo lido.</small> : null}
+      {!result.instagramDiscovery.postCount ? <small>Nenhuma legenda ou texto de publicação foi recuperado. A confirmação do perfil não libera posts restritos.</small> : null}
+      </details>
+      {result.instagramDiscovery.contentSummary && result.instagramDiscovery.postCount > 0 ?
+        <p className="garimpo-review__ig-insight">{result.instagramDiscovery.contentSummary}</p> : null}
     </section> : null}
     {error ? <p className="prospecting-g1g2__error" role="alert">{error}</p> : null}
 
@@ -344,23 +358,28 @@ export function ProspectingG1G2Panel({ prospect, snapshot, workspaceId, readOnly
           <span className="is-observed"><strong>{review.observed}</strong> Uma fonte</span>
           <span className="is-pending"><strong>{review.pending}</strong> Pendentes</span>
         </div>
-        <p className="garimpo-cross-source__note">Resultados referentes somente a <strong>{prospect.company}</strong>. Os links permitem conferir as evidências antes de qualquer alteração.</p>
+        <p className="garimpo-cross-source__note">Evidências de <strong>{prospect.company}</strong>; dados divergentes exigem decisão antes de alterar o cadastro.</p>
         {groups.map((group) => {
           const found = review.fields.filter((field) => field.status === group.status)
-          return found.length ? <section className={'garimpo-cross-source__group is-' + group.status} key={group.status}>
-            <h5>{group.title} ({found.length})</h5>
-            <ul>{found.map((field) => <EvidenceRow key={field.field} field={field}/>)}</ul>
-          </section> : null
+          if (!found.length) return null
+          const content = <ul>{found.map((field) => <EvidenceRow key={field.field} field={field}/>)}</ul>
+          return group.status === 'divergent'
+            ? <section className="garimpo-cross-source__group is-divergent" key={group.status}>
+                <h5>{group.title} ({found.length})</h5>{content}
+              </section>
+            : <details className={'garimpo-cross-source__group garimpo-review__evidence-details is-' + group.status} key={group.status}>
+                <summary>{group.title} ({found.length})</summary>{content}
+              </details>
         })}
-        <section className="garimpo-cross-source__triggers" aria-label="Conteúdo público e eventos-gatilho">
-          <header><strong>Conteúdo público e eventos-gatilho</strong><small>Publicações, eventos, contratações, expansão e outros sinais comerciais observáveis. Sinal não significa intenção de compra.</small></header>
+        <section className="garimpo-cross-source__triggers garimpo-review__triggers" aria-label="Conteúdo público e eventos-gatilho">
+          <header><strong>Eventos e oportunidades</strong>{review.signals.length ? <small>{review.signals.length} sinal(is) com fonte para conferir.</small> : null}</header>
           {review.signals.length ? <ul>
             {review.signals.map((signal, index) => <li key={signal.sourceUrl + index}>
               <div><strong>{signal.title}</strong><small>{signal.channel === 'instagram' ? 'Instagram público' : signal.channel === 'website' ? 'Website / notícia' : 'Fonte pública'}{signal.eventDate ? ' · ' + signal.eventDate : ' · Data não confirmada'}</small></div>
               <p>{signal.excerpt}</p>
               {safeSite(signal.sourceUrl) ? <a href={safeSite(signal.sourceUrl)!} target="_blank" rel="noopener noreferrer"><ExternalLink size={13}/> Abrir publicação ou fonte</a> : null}
             </li>)}
-          </ul> : <p>Nenhum evento-gatilho foi comprovado nas publicações acessíveis desta pesquisa. Isso não significa que a empresa não tenha publicado conteúdo.</p>}
+          </ul> : <p>Sem eventos-gatilho comprovados nesta pesquisa.</p>}
         </section>
         {review.pending ? <details className="garimpo-cross-source__pending"><summary>Dados ainda não verificados ({review.pending})</summary>
           <p>{review.fields.filter((field) => field.status === 'pending').map((field) => field.label).join(' · ')}</p>
@@ -376,7 +395,7 @@ export function ProspectingG1G2Panel({ prospect, snapshot, workspaceId, readOnly
           {observedApplicable && !readOnly ? <Button variant="secondary" onClick={() => apply('observed')}>
             Preencher {foundCount} dado(s) com fonte (ainda sem confirmação independente)
           </Button> : <small>Nenhum novo campo seguro para preenchimento. Os dados já cadastrados foram preservados.</small>}
-          <small>O preenchimento não aprova a empresa nem altera campos existentes. Confirme os dados de uma única fonte antes de enviar ao CRM.</small>
+          <small>Alterações no cadastro exigem sua confirmação.</small>
         </footer>
       </> : <p role="status">A pesquisa terminou, mas não encontrou evidências que identifiquem com segurança <strong>{prospect.company}</strong>. Nenhuma informação foi atribuída a esta empresa.</p>}
       {review.warnings.length ? <details className="garimpo-cross-source__pending"><summary>Limitações da pesquisa ({review.warnings.length})</summary>

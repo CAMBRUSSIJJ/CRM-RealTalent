@@ -7,6 +7,8 @@ import { join } from 'node:path'
 import { generateText, Output, jsonSchema } from 'ai'
 import { aiOutputSchema, sanitizeAiResult, publicWebUrl } from '../../supabase/functions/_shared/prospecting-ai.ts'
 import { compactLocalSources } from './hardware-profile.mjs'
+import { buildResearchPlan, refineResearchPlan, selectDeepPages, readDeepPage,
+  prioritizeEvidenceSources, buildCommercialBrief, refineCommercialBrief } from './research-g6.mjs'
 
 const short = (value, max = 180) => typeof value === 'string' ? value.trim().slice(0, max) : ''
 const norm = (value) => value.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z0-9]/g, '')
@@ -391,6 +393,9 @@ export async function stagedLocalResearch({ input, signal, values, fetcher, mode
   const warnings = cached?.warnings ? [...cached.warnings] : []
   const trace = cached?.trace ? [...cached.trace] : []
   let instagramDiscovery = cached?.instagramDiscovery || null
+  let researchPlan = cached?.researchPlan || buildResearchPlan(input)
+  let commercialBrief = cached?.commercialBrief || null
+  let knownSiteLinks = Array.isArray(cached?.knownSiteLinks) ? cached.knownSiteLinks : []
   const maxSources = 12
   let contentUsed = 0
   function accept(items) {
@@ -425,7 +430,9 @@ export async function stagedLocalResearch({ input, signal, values, fetcher, mode
     const info = { stage, phaseStatus, errorCode: failureCode, sourceCount: sourceMap.size,
       leadCount: factsResult?.leads?.length ?? 0 }
     trace.push({ ...info, at: new Date().toISOString() })
-    await journal.save(stage, { sources: sources(), warnings, trace, instagramDiscovery, ...(factsResult ? { facts: factsResult } : {}) })
+    await journal.save(stage, { sources: sources(), warnings, trace, instagramDiscovery,
+      researchPlan, commercialBrief, knownSiteLinks,
+      ...(factsResult ? { facts: factsResult } : {}) })
     await onProgress(info)
   }
   const base = new URL(values.FIRECRAWL_API_URL || 'http://127.0.0.1:3002')
@@ -451,10 +458,13 @@ export async function stagedLocalResearch({ input, signal, values, fetcher, mode
       try {
         if (knownSite) {
           const page = await call('/v2/scrape', { url: knownSite, formats: ['markdown', 'links'], onlyMainContent: true }, 38_000)
-          if (page.data) accept([{ url: knownSite, title: page.data?.metadata?.title || '',
+          if (page.data) {
+            knownSiteLinks = Array.isArray(page.data.links) ? page.data.links.filter((link) => typeof link === 'string').slice(0, 100) : []
+            accept([{ url: knownSite, title: page.data?.metadata?.title || '',
             markdown: [page.data.markdown || '', ...(Array.isArray(page.data.links)
               ? page.data.links.filter((link) => typeof link === 'string' &&
                   /instagram\.com\//i.test(link)).slice(0, 8) : [])].join('\n') }])
+          }
         }
         await checkpoint('website', 'completed')
       } catch (error) {
@@ -465,15 +475,55 @@ export async function stagedLocalResearch({ input, signal, values, fetcher, mode
     }
     if (!trace.some((item) => item.stage === 'web' && item.phaseStatus !== 'running')) {
       await checkpoint('web', 'running')
-      try {
-        const q = [input.segment, input.city, 'telefone endereço serviços agendamento'].filter(Boolean).join(' ').slice(0, 190)
-        const page = await call('/v2/search', { query: q, limit: 5, sources: ['web'], scrapeOptions: { formats: ['markdown'], onlyMainContent: true } }, 42_000)
-        accept(Array.isArray(page?.data?.web) ? page.data.web : [])
+      if (values.GARIMPO_G6_AI_PLAN !== 'false' && typeof model?.doGenerate === 'function') {
+        researchPlan = await refineResearchPlan(researchPlan, {
+          model, generate, Output, jsonSchema, signal, timeout: 16_000,
+        })
+      }
+      // Sequential source discovery: no parallel Firecrawl loads on 7.4 GiB.
+      // One failed query does not erase pages already collected.
+      let successes = 0
+      let failedQueries = 0
+      const limitQueries = values.GARIMPO_MEMORY_PROFILE === 'low'
+        ? researchPlan.budget.lowMemorySearches : researchPlan.budget.normalSearches
+      for (const query of researchPlan.queries.slice(0, Math.min(3, limitQueries))) {
+        try {
+          const page = await call('/v2/search', {
+            query: query.slice(0, 190), limit: 5, sources: ['web'],
+            scrapeOptions: { formats: ['markdown'], onlyMainContent: true },
+          }, 32_000)
+          accept(Array.isArray(page?.data?.web) ? page.data.web : [])
+          successes++
+        } catch (error) {
+          if (signal.aborted) throw error
+          failedQueries++
+        }
+      }
+      // Crawl only public, same-host pages connected to this exact company.
+      // Crawl4AI is optional and off by default, never a new Docker service.
+      const deepLimit = values.GARIMPO_MEMORY_PROFILE === 'low'
+        ? researchPlan.budget.deepPagesLow : researchPlan.budget.deepPagesNormal
+      const deepPages = knownSite ? selectDeepPages(input, knownSite, knownSiteLinks, deepLimit) : []
+      let deepReadFailures = 0
+      for (const url of deepPages) {
+        try {
+          const deep = await readDeepPage({
+            url, callFirecrawl: call, crawl4aiUrl: values.GARIMPO_CRAWL4AI_URL || '',
+            fetcher, signal,
+          })
+          if (deep) accept([deep])
+        } catch (error) {
+          if (signal.aborted) throw error
+          deepReadFailures++
+        }
+      }
+      if (failedQueries) warnings.push('Algumas consultas direcionadas não responderam; as fontes disponíveis foram preservadas.')
+      if (deepReadFailures) warnings.push('Algumas páginas internas não puderam ser lidas; a pesquisa prosseguiu com as outras fontes.')
+      if (successes || deepPages.length && deepReadFailures < deepPages.length) {
         await checkpoint('web', 'completed')
-      } catch (error) {
-        if (signal.aborted) throw error
-        warnings.push('Busca web principal indisponível; fontes anteriores foram preservadas.')
-        await checkpoint('web', 'failed', codeOf(error))
+      } else {
+        warnings.push('Busca web direcionada indisponível; fontes anteriores foram preservadas.')
+        await checkpoint('web', 'failed', 'stage_unavailable')
       }
     }
     if (!trace.some((item) => item.stage === 'instagram' && item.phaseStatus !== 'running')) {
@@ -598,6 +648,8 @@ export async function stagedLocalResearch({ input, signal, values, fetcher, mode
     return { leads: [], warnings: [...warnings, 'Não foram encontradas fontes públicas legíveis.'], researchedAt: new Date().toISOString(),
       researchStatus: trace.some((item) => item.phaseStatus === 'failed') ? 'partial' : 'completed',
       instagramDiscovery: instagramDiscovery || { status: 'not_found', postCount: 0 },
+      researchPlan,
+      commercialBrief: buildCommercialBrief({ input, plan: researchPlan, result: factsResult, instagramDiscovery }),
       stages: trace.filter((item) => item.phaseStatus !== 'running') }
   }
   if (!sources().some((item) => publicInstagram(item.url)) && !instagramDiscovery) warnings.push('Nenhuma publicação pública verificável do Instagram foi localizada nesta investigação.')
@@ -605,7 +657,7 @@ export async function stagedLocalResearch({ input, signal, values, fetcher, mode
   const compact = () => values.GARIMPO_MEMORY_PROFILE === 'low' ? compactLocalSources(sources()) : report()
   const srcRefs = () => sources().map(({ url, title }) => ({ url, title }))
   if (!factsFinished) {
-    const relevant = companySources(input, sources())
+    const relevant = prioritizeEvidenceSources(input, companySources(input, sources()))
     // First save any literal, verifiable contacts found in the selected listing,
     // before making a potentially expensive model call.
     const baseline = sourceBackedFallback(input, relevant, JSON.stringify(relevant))
@@ -691,10 +743,20 @@ export async function stagedLocalResearch({ input, signal, values, fetcher, mode
       }
     }
   }
+  if (!commercialBrief) {
+    commercialBrief = buildCommercialBrief({ input, plan: researchPlan,
+      result: factsResult, instagramDiscovery })
+    if (values.GARIMPO_G6_AI_BRIEF !== 'false' && typeof model?.doGenerate === 'function') {
+      commercialBrief = await refineCommercialBrief(commercialBrief, {
+        model, generate, Output, jsonSchema, signal,
+      })
+    }
+  }
   const stages = trace.filter((item) => item.phaseStatus !== 'running')
   const partial = stages.some((item) => item.phaseStatus === 'failed')
   await checkpoint('completed', 'completed')
   return { ...factsResult, warnings: [...(factsResult.warnings || []), ...warnings],
+    researchPlan, commercialBrief,
     instagramDiscovery: instagramDiscovery || { status: 'not_found', postCount: 0 },
     researchStatus: partial ? 'partial' : 'completed',
     stages: trace.filter((item) => item.phaseStatus !== 'running').slice(-12) }

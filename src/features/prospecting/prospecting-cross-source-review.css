@@ -139,3 +139,7 @@
  .garimpo-cross-source__counts>span{flex:1 1 43%;justify-content:center}
  .garimpo-review__score-details>summary span:last-child{width:100%}
 }
+
+.prospecting-review-form__advanced{min-width:0;border-top:1px solid var(--color-border,#e0e5ee);padding-top:10px;margin-top:4px}
+.prospecting-review-form__advanced>summary{font-size:12px;cursor:pointer;color:var(--color-text-muted,#475467);font-weight:650;padding:8px 0}
+.prospecting-review-form__advanced>.prospecting-review-form{margin-top:8px}

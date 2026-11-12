@@ -410,6 +410,7 @@ export function ProspectingG1G2Panel({ prospect, snapshot, workspaceId, readOnly
           ['Produtos e serviços', result.leadIntelligence.offerings],
           ['Preços anunciados', result.leadIntelligence.prices],
           ['Posicionamento declarado', result.leadIntelligence.positioning],
+          ['Reputação pública verificável', result.leadIntelligence.reputation || []],
         ] as const).map(([label, rows]) => <div key={label} className="garimpo-g7-card__group">
           <strong>{label}</strong>
           {rows.length ? <ul>{rows.map((item, index) =>
@@ -421,6 +422,19 @@ export function ProspectingG1G2Panel({ prospect, snapshot, workspaceId, readOnly
               </a> : null}
             </li>)}</ul> : <p>Não encontrado nas fontes disponíveis.</p>}
         </div>)}
+        {result.commercialBrief?.signals?.length ? <div className="garimpo-g7-card__group">
+          <strong>Eventos-gatilho com fontes</strong>
+          <ul>{result.commercialBrief.signals.slice(0, 3).map((signal, index) =>
+            <li key={signal.sourceUrl + index}>
+              <strong>{signal.title}</strong><small>“{signal.excerpt}”</small>
+              {safeSite(signal.sourceUrl) ? <a href={signal.sourceUrl} target="_blank" rel="noopener noreferrer">
+                <ExternalLink size={12}/> Ver evento na fonte
+              </a> : null}
+            </li>)}</ul>
+        </div> : null}
+        <div className="garimpo-g7-card__fit"><ShieldCheck size={13}/>
+          <span>Aderência ao ICP do CRM: <strong>{score.fit}/100</strong> · Potencial cadastral: <strong>{score.opportunity}/100</strong>. São indicadores de triagem, não previsão de compra.</span>
+        </div>
         {result.leadIntelligence.missing.length ? <div className="garimpo-g7-card__group">
           <strong>Dados pendentes</strong>
           <ul>{result.leadIntelligence.missing.map((reason, index) =>

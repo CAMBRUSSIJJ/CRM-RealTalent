@@ -120,7 +120,8 @@ export function selectBusinessSearchHits(input, hits, limit = 5) {
     if (!matchName) return false
     const local = city && (text.includes(city) || path.includes(city))
     const own = distinctive.some((part) => host.includes(part))
-    return Boolean(local || own || path.includes(company))
+    // A directory path with the same name but another city is not proof of identity.
+    return Boolean(local || own)
   }).slice(0, Math.max(0, Math.min(5, limit)))
 }
 

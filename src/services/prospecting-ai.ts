@@ -93,7 +93,7 @@ export async function getLocalConnectorStatus(organizationId: string) {
 }
 
 export interface LocalResearchProgress {
-  stage: 'discover' | 'website' | 'web' | 'instagram' | 'facts' | 'signals' | 'completed'
+  stage: 'discover' | 'website' | 'web' | 'instagram' | 'facts' | 'signals' | 'business' | 'completed'
   phaseStatus: 'running' | 'completed' | 'failed'
   sourceCount: number
   leadCount: number

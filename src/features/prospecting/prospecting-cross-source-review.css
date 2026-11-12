@@ -349,3 +349,129 @@
 .garimpo-g6-brief__details li a{display:inline-flex;gap:3px;align-items:center;margin-left:6px}
 .garimpo-g6-brief__details p{font-size:11px}
 .garimpo-g6-brief__details small{display:block;font-size:11px;color:var(--color-text-muted,#667085)}
+
+
+/* Reference crm_prospec_o(1).tsx: operational 60/40 decision feed, native CRM chrome. */
+.crm-prospecting-review-shell__insights > .prospecting-g1g2 {
+  display:flex;
+  flex-direction:column;
+  gap:14px;
+  padding:0;
+  background:transparent;
+  border:0;
+  border-radius:0;
+  box-shadow:none;
+}
+.crm-prospecting-review-shell__insights .prospecting-g1g2__header {
+  padding:3px 2px 4px;
+  margin:0;
+  background:transparent;
+  border:0;
+}
+.crm-prospecting-review-shell__insights .prospecting-g1g2__header h4 {
+  font-size:17px;
+  line-height:1.3;
+  letter-spacing:-.015em;
+  font-weight:700;
+}
+.garimpo-review-feed {
+  display:grid;
+  gap:12px;
+  min-width:0;
+  margin:0;
+}
+.garimpo-review-feed__header,
+.garimpo-review-decision__title {
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:8px;
+}
+.garimpo-review-feed__header strong {
+  display:inline-flex;align-items:center;gap:7px;
+  font-size:13px;font-weight:700;
+  color:var(--color-text,#25314b);
+}
+.garimpo-review-feed__header>span {
+  font-size:11px;font-weight:650;white-space:nowrap;
+  color:var(--color-text-muted,#667085);
+  background:var(--color-surface,#fff);
+  border:1px solid var(--color-border,#e2e7ef);
+  border-radius:999px;padding:3px 8px;
+}
+.garimpo-review-feed__list{display:grid;gap:12px}
+.garimpo-review-feed__empty {
+  padding:22px 13px;
+  border:1px dashed var(--color-border,#cbd5e1);
+  border-radius:11px;
+  background:var(--color-surface,#fff);
+  color:var(--color-text-muted,#667085);
+  font-size:12px;text-align:center;line-height:1.55;
+  margin:0;
+}
+.garimpo-review-feed>small{
+  color:var(--color-text-muted,#667085);
+  font-size:11px;line-height:1.5;
+}
+.garimpo-review-decision {
+  display:grid;gap:12px;
+  border:1px solid var(--color-border,#d9e1ed);
+  border-radius:11px;
+  padding:14px;
+  background:var(--color-surface,#fff);
+  box-shadow:0 2px 8px rgba(20,31,50,.035);
+  min-width:0;
+}
+.garimpo-review-decision__title{align-items:flex-start;flex-wrap:wrap}
+.garimpo-review-decision__title strong{font-size:12px;line-height:1.4;color:var(--color-text,#24314b)}
+.garimpo-review-decision.is-conflict .garimpo-review-decision__title strong{color:var(--color-warning,#b67214)}
+.garimpo-review-decision.is-new .garimpo-review-decision__title strong{color:var(--color-success,#168054)}
+.garimpo-review-decision__title span{
+  font-size:10px;font-weight:700;letter-spacing:.02em;
+  padding:4px 6px;border-radius:5px;
+  background:var(--color-surface-muted,#f1f5f9);
+  color:var(--color-text-muted,#64748b)
+}
+.garimpo-review-decision__values{
+  display:grid;gap:8px;
+  background:var(--color-surface-muted,#f5f7fb);
+  border:1px solid var(--color-border,#eef0f4);
+  border-radius:8px;padding:11px;
+}
+.garimpo-review-decision__values>div{display:grid;grid-template-columns:58px minmax(0,1fr);gap:5px;align-items:start}
+.garimpo-review-decision__values small{font-size:11px;color:var(--color-text-muted,#8a97a9)}
+.garimpo-review-decision__values span,
+.garimpo-review-decision__values strong{font-size:12px;line-height:1.45;min-width:0;overflow-wrap:anywhere}
+.garimpo-review-decision__values .is-current{color:var(--color-text-muted,#7b8596);text-decoration:line-through}
+.garimpo-review-decision__values .is-empty{color:var(--color-text-muted,#98a2b3);font-style:italic}
+.garimpo-review-decision__values strong{color:var(--color-text,#263449);font-weight:700}
+.garimpo-review-decision__source{font-size:11px;display:inline-flex;align-items:center;gap:5px;color:var(--color-primary,#2563eb)}
+.garimpo-review-decision__caution{font-size:11px;line-height:1.5;color:var(--color-text-muted,#667085);margin:0}
+.garimpo-review-decision__actions{display:flex;align-items:stretch;gap:8px;flex-wrap:wrap}
+.garimpo-review-decision__actions>button{flex:1 1 130px;justify-content:center;min-height:34px;white-space:normal}
+.garimpo-review-feed__more{border-top:1px solid var(--color-border,#e4e9ef);padding-top:9px}
+.garimpo-review-feed__more>summary{font-weight:650;font-size:12px;cursor:pointer}
+.garimpo-review-feed__more .garimpo-review-feed__list{margin-top:11px}
+.garimpo-review-audit{
+  border:1px solid var(--color-border,#e0e5ee);
+  background:var(--color-surface,#fff);
+  border-radius:10px;
+  overflow:hidden;
+}
+.garimpo-review-audit>summary{
+  list-style:none;
+  display:flex;align-items:center;gap:7px;
+  cursor:pointer;padding:12px 14px;
+  font-size:12px;font-weight:650;
+  color:var(--color-text,#344054);
+}
+.garimpo-review-audit>summary::-webkit-details-marker{display:none}
+.garimpo-review-audit[open]>summary{border-bottom:1px solid var(--color-border,#e0e5ee)}
+.garimpo-review-audit>.garimpo-cross-source{padding:12px}
+@media(max-width:1160px){
+  .garimpo-review-decision{padding:11px}
+  .garimpo-review-decision__actions>button{flex-basis:100%}
+}
+@media(max-width:900px){
+  .garimpo-review-decision__actions>button{flex-basis:135px}
+}

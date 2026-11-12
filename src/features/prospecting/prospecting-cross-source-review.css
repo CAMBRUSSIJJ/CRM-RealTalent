@@ -88,3 +88,54 @@
 .garimpo-cross-source__instagram-approval small{font-size:11px;line-height:1.5;color:#586c8e}
 .garimpo-cross-source__instagram-saved{display:flex;align-items:flex-start;gap:7px;flex-wrap:wrap;font-size:12px;color:#1f6a4f;background:#eef9f2;padding:10px 12px;border-radius:9px}
 .garimpo-cross-source__instagram-saved strong{overflow-wrap:anywhere}
+
+/* Garimpo review focus: the reviewer sees decisions before audit details. */
+.prospecting-review-checks-compact,.garimpo-review__score-details,.garimpo-review__evidence-details,.garimpo-review__instagram-details{
+  border:1px solid var(--color-border,#e0e5ee);border-radius:10px;min-width:0
+}
+.prospecting-review-checks-compact>summary,.garimpo-review__score-details>summary,
+.garimpo-review__evidence-details>summary,.garimpo-review__instagram-details>summary{
+  display:flex;gap:10px;align-items:center;justify-content:space-between;
+  cursor:pointer;list-style:none;padding:11px 12px;font-size:12px;font-weight:650;color:var(--color-text,#263449)
+}
+.prospecting-review-checks-compact>summary::-webkit-details-marker,.garimpo-review__score-details>summary::-webkit-details-marker,
+.garimpo-review__evidence-details>summary::-webkit-details-marker,.garimpo-review__instagram-details>summary::-webkit-details-marker{display:none}
+.prospecting-review-checks-compact>summary span:first-child,.garimpo-review__score-details>summary span:first-child{display:inline-flex;gap:6px;align-items:center}
+.prospecting-review-checks-compact>summary small{font-size:11px;font-weight:400;color:var(--color-text-muted,#667085);margin-left:auto}
+.prospecting-review-checks-compact[open]>summary svg:last-child{transform:rotate(90deg)}
+.prospecting-review-checks-compact .prospecting-review-decisions-v101104{padding:0 10px 11px}
+.prospecting-review-attention-compact{padding:10px 12px;gap:8px}
+.prospecting-review-attention-compact p{font-size:12px;margin:4px 0 0;line-height:1.45;color:var(--color-text,#344054)}
+.prospecting-review-attention-compact details summary{font-size:11px;font-weight:650;cursor:pointer;margin-top:6px}
+.prospecting-review-attention-compact details ul{padding-left:18px;margin:6px 0 0;font-size:11px}
+.garimpo-review__score-details{margin:0 0 10px;background:var(--color-surface,#fff)}
+.garimpo-review__score-details>summary{flex-wrap:wrap}
+.garimpo-review__score-details>summary span:last-child{font-size:11px;font-weight:450;color:var(--color-text-muted,#667085)}
+.garimpo-review__score-details>summary span:last-child b{color:var(--color-text,#344054)}
+.garimpo-review__score-details .prospecting-g1g2__dimensions{margin:8px 10px}
+.garimpo-review__score-details .prospecting-g1g2__note,
+.garimpo-review__score-details .prospecting-g1g2__detail,
+.garimpo-review__score-details .prospecting-g1g2__evidence{margin:8px 10px}
+.garimpo-review__instagram-compact{gap:6px;background:var(--color-surface,#fff);border-color:var(--color-border,#e0e5ee)}
+.garimpo-review__instagram-heading{display:flex;flex-wrap:wrap;gap:6px 12px;align-items:center;justify-content:space-between}
+.garimpo-review__instagram-heading small{font-size:11px}
+.garimpo-review__instagram-details{border-color:transparent}
+.garimpo-review__instagram-details>summary{padding:7px 0;font-weight:550;font-size:11px}
+.garimpo-review__instagram-details>p,.garimpo-review__instagram-details>.garimpo-cross-source__instagram-access{margin-bottom:8px}
+.garimpo-review__ig-insight{font-size:12px;line-height:1.5;padding:10px;border-radius:8px;background:var(--color-surface-muted,#f3f6fd)}
+.garimpo-review__evidence-details>summary{font-size:12px;padding:10px 12px}
+.garimpo-review__evidence-details>ul{padding:0 10px 10px}
+.garimpo-cross-source__counts{display:flex;flex-wrap:wrap;gap:6px}
+.garimpo-cross-source__counts>span{display:inline-flex;align-items:center;gap:5px;padding:6px 9px;font-size:11px}
+.garimpo-cross-source__counts>span strong{font-size:13px}
+.garimpo-cross-source__group.is-divergent>h5{margin:0 0 7px}
+.garimpo-cross-source__note{line-height:1.4}
+.garimpo-review__triggers{padding:10px}
+.garimpo-review__triggers header{margin-bottom:3px}
+.garimpo-cross-source__footer{gap:7px}
+@media(max-width:600px){
+ .prospecting-review-checks-compact>summary{flex-wrap:wrap}
+ .prospecting-review-checks-compact>summary small{margin-left:0}
+ .garimpo-cross-source__counts>span{flex:1 1 43%;justify-content:center}
+ .garimpo-review__score-details>summary span:last-child{width:100%}
+}

@@ -323,3 +323,29 @@
   .crm-prospecting-review-shell__editor > .prospecting-review-attention-v101106{margin:0 14px 11px}
   .crm-prospecting-review-shell__editor > .prospecting-review-actions {padding:10px}
 }
+
+
+/* G6: compact decision brief inside existing RealTalent CRM review hierarchy */
+.garimpo-g6-brief{display:grid;gap:11px;padding:14px;border-radius:10px;
+  border:1px solid var(--color-border,#dbe3ef);
+  background:var(--color-surface,#fff);min-width:0}
+.garimpo-g6-brief__top{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:7px}
+.garimpo-g6-brief__top strong{display:inline-flex;align-items:center;gap:6px;font-size:13px;
+  color:var(--color-text,#25314b)}
+.garimpo-g6-brief__top small{font-size:11px;padding:4px 8px;border-radius:999px;
+  background:var(--color-surface-muted,#edf2fb);color:var(--color-text-muted,#596a86)}
+.garimpo-g6-brief p{font-size:12px;line-height:1.5;margin:0;color:var(--color-text,#344054)}
+.garimpo-g6-brief__hypothesis,.garimpo-g6-brief__next{padding:10px;
+  background:var(--color-surface-muted,#f2f6fd);border-radius:8px}
+.garimpo-g6-brief__hypothesis strong,.garimpo-g6-brief__next strong,
+.garimpo-g6-brief__questions strong{display:block;font-size:11px;margin-bottom:5px;color:var(--color-text,#344054)}
+.garimpo-g6-brief__questions ul{padding-left:18px;margin:5px 0 0;display:grid;gap:5px}
+.garimpo-g6-brief__questions li{font-size:12px;line-height:1.5}
+.garimpo-g6-brief__details{border-top:1px solid var(--color-border,#e6eaf1);padding-top:9px}
+.garimpo-g6-brief__details summary{font-size:12px;cursor:pointer;font-weight:650}
+.garimpo-g6-brief__details>div{display:grid;gap:5px;margin-top:10px}
+.garimpo-g6-brief__details ul{display:grid;gap:7px;padding-left:17px;margin:9px 0}
+.garimpo-g6-brief__details li{font-size:11px;line-height:1.5;overflow-wrap:anywhere}
+.garimpo-g6-brief__details li a{display:inline-flex;gap:3px;align-items:center;margin-left:6px}
+.garimpo-g6-brief__details p{font-size:11px}
+.garimpo-g6-brief__details small{display:block;font-size:11px;color:var(--color-text-muted,#667085)}

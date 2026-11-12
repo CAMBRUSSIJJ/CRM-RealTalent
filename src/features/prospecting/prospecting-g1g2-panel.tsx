@@ -297,6 +297,8 @@ export function ProspectingG1G2Panel({ prospect, snapshot, workspaceId, readOnly
             ? 'Perfil informado no cadastro; ainda não foi confirmado em outra fonte.'
             : result.instagramDiscovery.status === 'unavailable'
               ? 'A busca pelo perfil não respondeu. O sistema preservou os demais resultados.'
+              : suggestedInstagram?.profileUrl
+              ? 'A busca mais recente não encontrou um perfil novo. Mantivemos acima o candidato de uma pesquisa anterior para sua confirmação.'
               : 'Nenhum perfil foi associado com segurança à empresa. Não atribuímos contas apenas por semelhança de nomes.'}</p>
       {result.instagramDiscovery.profileUrl && safeSite(result.instagramDiscovery.profileUrl) ? <a href={result.instagramDiscovery.profileUrl} target="_blank" rel="noopener noreferrer">
         <ExternalLink size={13}/> Ver perfil encontrado

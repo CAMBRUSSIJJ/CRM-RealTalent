@@ -499,3 +499,13 @@
 .garimpo-g7-card__group li small,.garimpo-g7-card__details>small{font-size:10px;color:var(--color-text-muted,#667085);line-height:1.5}
 .garimpo-g7-card__group a{font-size:11px;display:inline-flex;gap:5px;align-items:center;color:#315bd5}
 @media(max-width:500px){.garimpo-g7-card__summary{grid-template-columns:1fr}}
+
+/* G7.1: channel coverage and compact primary business diagnosis. */
+.garimpo-g7-card__overview{font-size:12px!important;line-height:1.55!important;font-weight:550;color:var(--color-text,#263449)!important}
+.garimpo-g7-card__channels{display:flex;flex-wrap:wrap;gap:6px;min-width:0}
+.garimpo-g7-card__channels span{font-size:10px;border-radius:20px;border:1px solid var(--color-border,#dce4ef);background:var(--color-surface-muted,#f6f8fb);color:var(--color-text,#314052);padding:5px 9px}
+.garimpo-g7-card__channels span.is-pending{border-style:dashed;color:var(--color-text-muted,#667085)}
+.garimpo-g7-card__disclaimer{font-size:11px!important;line-height:1.45!important}
+.garimpo-review__strategy,.garimpo-review__social-source{border:1px solid var(--color-border,#e0e5ee);border-radius:10px;margin:10px 0;background:var(--color-surface,#fff)}
+.garimpo-review__strategy>summary,.garimpo-review__social-source>summary{cursor:pointer;padding:11px 13px;font-weight:650;font-size:12px;color:var(--color-text,#28374c)}
+.garimpo-review__strategy>.garimpo-g6-brief,.garimpo-review__social-source>.garimpo-cross-source__instagram{margin:0 10px 10px}

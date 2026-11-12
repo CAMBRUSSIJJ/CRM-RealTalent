@@ -7,7 +7,7 @@
   },
   "scripts": {
     "start": "node bridge.mjs",
-    "test": "node --test bridge-check.mjs configurar-linux-check.mjs staged-research-check.mjs research-g6-check.mjs"
+    "test": "node --test bridge-check.mjs configurar-linux-check.mjs staged-research-check.mjs research-g6-check.mjs lead-intelligence-g7-check.mjs multichannel-g7-check.mjs"
   },
   "dependencies": {
     "@ai-sdk/openai": "4.0.113",

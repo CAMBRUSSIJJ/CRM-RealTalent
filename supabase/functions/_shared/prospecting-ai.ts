@@ -39,7 +39,7 @@ export interface AiSearchInput {
   execution?: 'local' | 'server'
 }
 export interface AiResearchStage {
-  stage: 'website' | 'web' | 'instagram' | 'facts' | 'signals' | 'completed'
+  stage: 'website' | 'web' | 'instagram' | 'facts' | 'signals' | 'business' | 'completed'
   phaseStatus: 'running' | 'completed' | 'failed'
   errorCode?: string
   sourceCount: number
@@ -87,6 +87,29 @@ export interface AiG6CommercialBrief {
   researchLimits: string[]
   planner?: 'ollama_questions'
 }
+export interface AiG7LeadIntelligenceEvidence {
+  label: string
+  excerpt: string
+  sourceUrl: string
+  channel: 'instagram' | 'website_or_web'
+  amount?: string
+}
+export interface AiG7LeadIntelligence {
+  version: 'G7'
+  status: 'partial_evidence' | 'insufficient_evidence'
+  extraction: 'ollama_verified' | 'literal_only'
+  sourceCount: number
+  businessSummary?: string
+  coverage?: Array<{ channel: string; label: string; pages: number; status: string }>
+  offerings: AiG7LeadIntelligenceEvidence[]
+  prices: AiG7LeadIntelligenceEvidence[]
+  positioning: AiG7LeadIntelligenceEvidence[]
+  reputation?: AiG7LeadIntelligenceEvidence[]
+  missing: string[]
+  hypotheses: string[]
+  questions: string[]
+  recommendedAction: string
+}
 export interface AiG6ResearchPlan {
   version: string
   segment: string
@@ -106,6 +129,7 @@ export interface AiSearchResult {
   instagramDiscovery?: AiInstagramDiscovery
   researchPlan?: AiG6ResearchPlan
   commercialBrief?: AiG6CommercialBrief
+  leadIntelligence?: AiG7LeadIntelligence
 }
 export class ProspectingError extends Error {
   code: string

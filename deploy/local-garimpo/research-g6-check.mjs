@@ -8,7 +8,7 @@ import {
   crawl4aiEndpoint, crawl4aiContent, readDeepPage,
   prioritizeEvidenceSources, selectBusinessSearchHits, buildCommercialBrief, refineCommercialBrief,
 } from './research-g6.mjs'
-import { stagedLocalResearch, stageJournal } from './staged-research.mjs'
+import { stagedLocalResearch, stageJournal, identifyInstagramProfile } from './staged-research.mjs'
 
 test('G6 builds different bounded investigation plans per business sector', () => {
   const barber = buildResearchPlan({ segment: 'Fainer Barber', city: 'Rio Grande, RS', query: '' })
@@ -233,4 +233,32 @@ test('G6 runs two targeted searches on low RAM, deep-reads own page and keeps ch
     else process.env.HOME = originalHome
     await rm(home, { recursive: true, force: true })
   }
+})
+
+
+test('G6 does not assign a directory-owned Instagram to the business', () => {
+  const input = { segment: 'Alpha Barbearia', city: 'Rio Grande', query: '' }
+  const directory = {
+    url: 'https://locaisbrasil.example.com/barbearia/alpha-rio-grande',
+    title: 'Alpha Barbearia em Rio Grande',
+    content: 'Confira a barbearia. Nosso Instagram: https://www.instagram.com/locaisbrasil/',
+  }
+  const falsePositive = identifyInstagramProfile(input, [directory], [{
+    url: 'https://www.instagram.com/locaisbrasil/',
+    title: 'Locais Brasil — Alpha Barbearia em Rio Grande',
+  }])
+  assert.equal(falsePositive.status, 'not_found')
+  assert.equal(falsePositive.profileUrl, undefined)
+
+  const companyListing = { ...directory,
+    content: 'Alpha Barbearia Rio Grande. Perfil: https://www.instagram.com/alphabarber/' }
+  const candidate = identifyInstagramProfile(input, [companyListing], [])
+  assert.equal(candidate.status, 'candidate')
+  assert.equal(candidate.profileUrl, 'https://www.instagram.com/alphabarber/')
+
+  const userProvided = identifyInstagramProfile({
+    ...input, instagram: 'https://www.instagram.com/estudio.especial/',
+  }, [directory], [])
+  assert.equal(userProvided.status, 'provided')
+  assert.equal(userProvided.profileUrl, 'https://www.instagram.com/estudio.especial/')
 })

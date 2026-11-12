@@ -7,6 +7,8 @@ import { join } from 'node:path'
 import { generateText, Output, jsonSchema } from 'ai'
 import { aiOutputSchema, sanitizeAiResult, publicWebUrl } from '../../supabase/functions/_shared/prospecting-ai.ts'
 import { compactLocalSources } from './hardware-profile.mjs'
+import { buildLeadIntelligence } from './lead-intelligence-g7.mjs'
+import { buildMultiChannelQueries } from './multichannel-g7.mjs'
 import { buildResearchPlan, refineResearchPlan, selectDeepPages, readDeepPage,
   prioritizeEvidenceSources, selectBusinessSearchHits, buildCommercialBrief, refineCommercialBrief } from './research-g6.mjs'
 
@@ -205,6 +207,10 @@ export function identifyInstagramProfile(input, sources, profileResults = []) {
     if (!known && !hasCity) continue
     for (const profile of instagramProfilesInText(text)) {
       const related = handleRelated(profile)
+      // Business directories often link their own social account next to a
+      // listing; never treat that unrelated handle as the listed company's.
+      // Even a saved listing may belong to a third-party directory, so
+      // reject unrelated handles from directories. A company-matched Linktree\n      // with corroborating city can yield a *candidate*, never a verified link.\n      // The reviewer must still confirm the identity before CRM enrichment.\n      if (!related && !hub) continue
       const score = (known ? 70 : hub ? 55 : 45) + (related ? 25 : 0)
       candidates.push({ profileUrl: profile, evidenceUrl: source.url, score,
         status: (known && related) ? 'linked' : 'candidate' })
@@ -217,7 +223,7 @@ export function identifyInstagramProfile(input, sources, profileResults = []) {
       String(result.markdown || '') + ' ' + String(result.content || '')
     const hasCompany = Boolean(company && norm(text).includes(company))
     const hasCity = Boolean(city && norm(text).includes(city))
-    if (!hasCompany || !hasCity) continue
+    if (!hasCompany || !hasCity || !handleRelated(profile)) continue
     candidates.push({ profileUrl: profile, evidenceUrl: result.url,
       score: 40 + (handleRelated(profile) ? 25 : 0), status: 'candidate' })
   }
@@ -276,6 +282,13 @@ export function publicInstagramPostLinks(page, profileUrl) {
 export function instagramReadableText(markdown, { profile = false } = {}) {
   const raw = String(markdown || '').replace(/<[^>]*>/g, ' ').trim()
   if (raw.length < (profile ? 45 : 65)) return ''
+  // Instagram may return Markdown containing *only* login/app/profile-photo
+  // navigation. This is not a business bio or readable commercial evidence.
+  if (profile && /\[(?:Log in|Open app|Sign up)\]\(|\/accounts\/login\/|app\.link\.instagram\.com/i.test(raw)) {
+    const textOnly = raw.replace(/\[[^\]]*\]\([^)]+\)/g, ' ')
+      .replace(/https?:\/\/\S+/g, ' ').replace(/\s+/g, ' ').trim()
+    if (textOnly.length < 65 || /^(?:Instagram|Log in|Open app|Profile picture|Sign up|Home|Explore|Reels|\s)+$/i.test(textOnly)) return ''
+  }
   const lowered = raw.toLowerCase()
   const appearsLoginWall = /(?:log in to instagram|login • instagram|you must log in|inicie sessão para|faça login para|entre para ver|sign up to see)/i.test(raw)
   // Links and navigation alone are not captions. Avoid sending a login wall
@@ -395,6 +408,7 @@ export async function stagedLocalResearch({ input, signal, values, fetcher, mode
   let instagramDiscovery = cached?.instagramDiscovery || null
   let researchPlan = cached?.researchPlan || buildResearchPlan(input)
   let commercialBrief = cached?.commercialBrief || null
+  let leadIntelligence = cached?.leadIntelligence || null
   let knownSiteLinks = Array.isArray(cached?.knownSiteLinks) ? cached.knownSiteLinks : []
   const maxSources = 12
   let contentUsed = 0
@@ -431,7 +445,7 @@ export async function stagedLocalResearch({ input, signal, values, fetcher, mode
       leadCount: factsResult?.leads?.length ?? 0 }
     trace.push({ ...info, at: new Date().toISOString() })
     await journal.save(stage, { sources: sources(), warnings, trace, instagramDiscovery,
-      researchPlan, commercialBrief, knownSiteLinks,
+      researchPlan, commercialBrief, leadIntelligence, knownSiteLinks,
       ...(factsResult ? { facts: factsResult } : {}) })
     await onProgress(info)
   }
@@ -451,7 +465,7 @@ export async function stagedLocalResearch({ input, signal, values, fetcher, mode
   const knownSite = selectExistingUrl(input)
   let factsResult = cached?.facts || null
   const factsFinished = Boolean(trace.some((item) => item.stage === 'facts' && item.phaseStatus !== 'running'))
-  if (!cached || !['facts','signals','completed'].includes(cached.stage)) {
+  if (!cached || !['facts','signals','business','completed'].includes(cached.stage)) {
     // Website first. A failed directory must not erase other sources.
     if (!trace.some((item) => item.stage === 'website' && item.phaseStatus !== 'running')) {
       await checkpoint('website', 'running')
@@ -484,9 +498,15 @@ export async function stagedLocalResearch({ input, signal, values, fetcher, mode
       // One failed query does not erase pages already collected.
       let successes = 0
       let failedQueries = 0
-      const limitQueries = values.GARIMPO_MEMORY_PROFILE === 'low'
-        ? researchPlan.budget.lowMemorySearches : researchPlan.budget.normalSearches
-      for (const query of researchPlan.queries.slice(0, Math.min(3, limitQueries))) {
+      const multiQueries = buildMultiChannelQueries(input, researchPlan.segment)
+      // Prioritise catalog, pricing and independent channels before generic
+      // mentions. All requests stay sequential on the low-memory Linux host.
+      const queries = [...new Set([
+        ...researchPlan.queries.slice(0, 1),
+        ...multiQueries.slice(0, values.GARIMPO_MEMORY_PROFILE === 'low' ? 3 : 4),
+        ...researchPlan.queries.slice(1, 2),
+      ])].slice(0, values.GARIMPO_MEMORY_PROFILE === 'low' ? 5 : 6)
+      for (const query of queries) {
         try {
           const page = await call('/v2/search', {
             query: query.slice(0, 190), limit: 5, sources: ['web'],
@@ -522,7 +542,7 @@ export async function stagedLocalResearch({ input, signal, values, fetcher, mode
       if (successes || deepPages.length && deepReadFailures < deepPages.length) {
         await checkpoint('web', 'completed')
       } else {
-        warnings.push('Busca web direcionada indisponível; fontes anteriores foram preservadas.')
+        warnings.push('Busca web principal direcionada indisponível; fontes anteriores foram preservadas.')
         await checkpoint('web', 'failed', 'stage_unavailable')
       }
     }
@@ -650,6 +670,7 @@ export async function stagedLocalResearch({ input, signal, values, fetcher, mode
       instagramDiscovery: instagramDiscovery || { status: 'not_found', postCount: 0 },
       researchPlan,
       commercialBrief: buildCommercialBrief({ input, plan: researchPlan, result: factsResult, instagramDiscovery }),
+      leadIntelligence: await buildLeadIntelligence({ sources: [], instagramDiscovery, model: null }),
       stages: trace.filter((item) => item.phaseStatus !== 'running') }
   }
   if (!sources().some((item) => publicInstagram(item.url)) && !instagramDiscovery) warnings.push('Nenhuma publicação pública verificável do Instagram foi localizada nesta investigação.')
@@ -752,11 +773,35 @@ export async function stagedLocalResearch({ input, signal, values, fetcher, mode
       })
     }
   }
+  if (!leadIntelligence) {
+    await checkpoint('business', 'running')
+    // Only company-matched evidence, genuinely read posts, or a readable
+    // confirmed public profile are eligible for a commercial intelligence card.
+    const matched = companySources(input, sources())
+    const sourceUrls = new Set(matched.map((source) => source.url))
+    const eligible = [...matched]
+    for (const post of attributablePosts) {
+      if (!sourceUrls.has(post.url)) { eligible.push(post); sourceUrls.add(post.url) }
+    }
+    if (instagramDiscovery?.profileUrl && instagramDiscovery.profileExcerpt &&
+      ['readable','bio_only'].includes(instagramDiscovery.profileAccess || '') &&
+      (instagramDiscovery.status === 'provided' || instagramDiscovery.status === 'linked')) {
+      eligible.push({
+        url: instagramDiscovery.profileUrl,
+        title: 'Perfil público do Instagram',
+        content: instagramDiscovery.profileExcerpt,
+      })
+    }
+    leadIntelligence = await buildLeadIntelligence({
+      sources: eligible, instagramDiscovery, model, generate, Output, jsonSchema, signal,
+    })
+    await checkpoint('business', 'completed')
+  }
   const stages = trace.filter((item) => item.phaseStatus !== 'running')
   const partial = stages.some((item) => item.phaseStatus === 'failed')
   await checkpoint('completed', 'completed')
   return { ...factsResult, warnings: [...(factsResult.warnings || []), ...warnings],
-    researchPlan, commercialBrief,
+    researchPlan, commercialBrief, leadIntelligence,
     instagramDiscovery: instagramDiscovery || { status: 'not_found', postCount: 0 },
     researchStatus: partial ? 'partial' : 'completed',
     stages: trace.filter((item) => item.phaseStatus !== 'running').slice(-12) }

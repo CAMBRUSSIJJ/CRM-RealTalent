@@ -101,6 +101,29 @@ export async function refineResearchPlan(plan, { model, generate, Output, jsonSc
   }
 }
 
+/** Keep web discovery focused on the requested company, not namesakes. */
+export function selectBusinessSearchHits(input, hits, limit = 5) {
+  const company = normal(input.segment)
+  const city = normal(input.city).replace(/\b(?:rs|sp|rj|mg|pr|sc|ba|pe|df)$/, '').trim()
+  const website = String(input.website || '')
+  if (!company) return []
+  const special = new Set(['barber','barbearia','escola','clinica','studio','empresa','comercio'])
+  const distinctive = company.split(' ').filter((part) => part.length > 4 && !special.has(part))
+  return (Array.isArray(hits) ? hits : []).filter((hit) => {
+    if (!hit || typeof hit.url !== 'string' || !/^https?:\/\//i.test(hit.url)) return false
+    if (website && hit.url === website) return true
+    let host = '', path = ''
+    try { const u = new URL(hit.url); host = normal(u.hostname); path = normal(u.pathname) }
+    catch { return false }
+    const text = normal([hit.title, hit.description, hit.markdown, hit.content].join(' '))
+    const matchName = text.includes(company) || path.includes(company)
+    if (!matchName) return false
+    const local = city && (text.includes(city) || path.includes(city))
+    const own = distinctive.some((part) => host.includes(part))
+    return Boolean(local || own || path.includes(company))
+  }).slice(0, Math.max(0, Math.min(5, limit)))
+}
+
 /** Rank identity-backed sources before giving the small Ollama model its first batch. */
 export function prioritizeEvidenceSources(input, sources) {
   const company = normal(input.segment)

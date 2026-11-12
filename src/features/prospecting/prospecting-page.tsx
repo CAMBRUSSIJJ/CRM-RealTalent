@@ -1356,9 +1356,11 @@ export function ProspectingPage() {
           onConfirmInstagram={(profileUrl) => {
             if (!activeProspect || !canProspectingEdit) return
             const existing = activeProspect.instagram.trim()
-            if (existing && existing.toLowerCase() !== profileUrl.toLowerCase()) {
-              notify('warning', 'Já existe outro perfil Instagram cadastrado. Revise antes de substituir.')
-              return
+            const normalizedExisting = existing.replace(/^https?:\/\/(www\.)?instagram\.com\//i, '')
+              .replace(/^@/, '').replace(/\/.*$/, '').toLowerCase()
+            const selectedAccount = new URL(profileUrl).pathname.split('/').filter(Boolean)[0]?.toLowerCase()
+            if (existing && normalizedExisting !== selectedAccount) {
+              throw new Error('Outro Instagram já está cadastrado. Verifique o campo antes de substituir.')
             }
             updateProspect(activeProspect.id, {
               instagram: profileUrl,

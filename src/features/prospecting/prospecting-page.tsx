@@ -1353,6 +1353,27 @@ export function ProspectingPage() {
         /> : <ProcessingWorkspace
           readOnly={!canProspectingEdit}
           workspaceId={workspaceId}
+          onConfirmInstagram={(profileUrl) => {
+            if (!activeProspect || !canProspectingEdit) return
+            const existing = activeProspect.instagram.trim()
+            if (existing && existing.toLowerCase() !== profileUrl.toLowerCase()) {
+              notify('warning', 'Já existe outro perfil Instagram cadastrado. Revise antes de substituir.')
+              return
+            }
+            updateProspect(activeProspect.id, {
+              instagram: profileUrl,
+              rawData: {
+                ...activeProspect.rawData,
+                approvedInstagram: {
+                  profileUrl,
+                  reviewedAt: new Date().toISOString(),
+                  reviewedBy: currentUserId || 'workspace-reviewer',
+                  method: 'manual-confirmation',
+                },
+              },
+            })
+            notify('success', 'Instagram confirmado e salvo. O Garimpo iniciará a leitura das publicações públicas.')
+          }}
           onEnriched={(result) => {
             if (!activeProspect) return
             const updated = applyAiEnrichment(activeProspect, result, snapshot.leads)
@@ -1862,8 +1883,8 @@ function EngineProcessingWorkspace({ job, busy, onRefresh, onRetry, onOpenReview
   </div>
 }
 
-function ProcessingWorkspace({ readOnly, queue, active, leads, snapshot, onSelect, onChange, onAnalyze, onApprove, onDiscard, onSend, onAnalyzeAll, workspaceId, onEnriched }: {
-  workspaceId: string; onEnriched(result: AiSearchResult): void
+function ProcessingWorkspace({ readOnly, queue, active, leads, snapshot, onSelect, onChange, onAnalyze, onApprove, onDiscard, onSend, onAnalyzeAll, workspaceId, onEnriched, onConfirmInstagram }: {
+  workspaceId: string; onEnriched(result: AiSearchResult): void; onConfirmInstagram(profileUrl: string): void
   readOnly: boolean; queue: ProspectRecord[]; active: ProspectRecord | null; leads: Array<{ id: string; name: string; company: string }>; snapshot: import('../../domain/types').WorkspaceSnapshot; onSelect(id: string): void
   onChange(id: string, patch: Partial<ProspectRecord>): void; onAnalyze(id: string): void; onApprove(id: string): void; onDiscard(id: string): void; onSend(id: string): void; onAnalyzeAll(): void
 }) {
@@ -1910,7 +1931,8 @@ function ProcessingWorkspace({ readOnly, queue, active, leads, snapshot, onSelec
         <article className={readyWithEvidence ? 'is-ok' : 'is-warning'}><span>5</span><div><strong>Os dados principais estão prontos para decisão?</strong><small>{readyWithEvidence ? 'Identidade, endereço e contato corroborados; valide segmento e aprove manualmente' : [...quality.blockers, ...active.duplicateReasons].slice(0, 1).join(' · ') || 'Ainda exige revisão das evidências antes da decisão'}</small></div>{readyWithEvidence ? <CheckCircle2 size={17}/> : <AlertTriangle size={17}/>}</article>
       </div>
       {attentionReasons.length ? <section className="prospecting-review-attention-v101106"><AlertTriangle size={16}/><div><strong>O que precisa da sua atenção</strong><div>{attentionReasons.map((reason) => <span key={reason}>{reason}</span>)}</div></div></section> : <section className="prospecting-review-attention-v101106 is-clear"><CheckCircle2 size={16}/><div><strong>Sem divergências importantes</strong><small>Identidade, local, contato e duplicidade atendem às regras atuais.</small></div></section>}
-      <ProspectingG1G2Panel prospect={active} snapshot={snapshot} workspaceId={workspaceId} readOnly={readOnly} onEnriched={onEnriched}/>
+      <ProspectingG1G2Panel prospect={active} snapshot={snapshot} workspaceId={workspaceId} readOnly={readOnly}
+        onEnriched={onEnriched} onConfirmInstagram={onConfirmInstagram}/>
       <details className="prospecting-review-edit-v101106">
         <summary><div><span><SlidersHorizontal size={15}/> Editar dados</span><small>Abra somente se precisar corrigir alguma informação.</small></div><ChevronRight size={15}/></summary>
         <div className="prospecting-review-form">

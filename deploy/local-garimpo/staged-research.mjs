@@ -207,8 +207,9 @@ export function identifyInstagramProfile(input, sources, profileResults = []) {
       const related = handleRelated(profile)
       // Business directories often link their own social account next to a
       // listing; never treat that unrelated handle as the listed company's.
-      // A direct link on the saved company website is still a candidate.
-      if (!known && !related) continue
+      // Even a saved listing may belong to a third-party directory, so
+      // reject unrelated handles until the reviewer explicitly selects one.
+      if (!related) continue
       const score = (known ? 70 : hub ? 55 : 45) + (related ? 25 : 0)
       candidates.push({ profileUrl: profile, evidenceUrl: source.url, score,
         status: (known && related) ? 'linked' : 'candidate' })

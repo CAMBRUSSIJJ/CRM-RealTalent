@@ -276,6 +276,45 @@ export function ProspectingG1G2Panel({ prospect, snapshot, workspaceId, readOnly
       <span>{progress.sourceCount} fonte(s) coletada(s) · {progress.leadCount} empresa(s) analisada(s).</span>
       {progress.phaseStatus === 'running' ? <small>O conector Linux continua processando enquanto estiver aberto.</small> : null}
     </div> : busy ? <p className="garimpo-cross-source__progress" role="status">Preparando pesquisa em etapas. Mantenha o conector Linux aberto.</p> : null}
+    {result?.commercialBrief ? <section className="garimpo-g6-brief" aria-label="Diagnóstico comercial do Garimpo G6">
+      <div className="garimpo-g6-brief__top">
+        <strong><Sparkles size={15}/> Diagnóstico comercial</strong>
+        <small>{result.commercialBrief.status === 'evidence_based'
+          ? result.commercialBrief.knownFacts.length + ' fato(s) com fonte' : 'Evidência insuficiente'}</small>
+      </div>
+      <p>{result.commercialBrief.summary}</p>
+      {result.commercialBrief.hypotheses.length ? <div className="garimpo-g6-brief__hypothesis">
+        <strong>Hipótese para validar</strong>
+        <p>{result.commercialBrief.hypotheses[0]}</p>
+      </div> : null}
+      {result.commercialBrief.questions.length ? <div className="garimpo-g6-brief__questions">
+        <strong>Perguntas sugeridas</strong>
+        <ul>{result.commercialBrief.questions.slice(0, 3).map((question, i) =>
+          <li key={i}>{question}</li>)}</ul>
+      </div> : null}
+      <div className="garimpo-g6-brief__next">
+        <strong>Próxima ação</strong>
+        <p>{result.commercialBrief.recommendedAction}</p>
+      </div>
+      <details className="garimpo-g6-brief__details">
+        <summary>Plano de investigação, lacunas e fontes</summary>
+        {result.researchPlan ? <div>
+          <strong>Pesquisa por segmento: {result.researchPlan.segment}</strong>
+          <small>{result.researchPlan.strategy === 'ollama_bounded'
+            ? 'Prioridades ordenadas pelo Ollama; consultas delimitadas e verificáveis.'
+            : 'Plano setorial seguro, sem depender da resposta da IA.'}</small>
+          <ul>{result.researchPlan.queries.map((query, i) => <li key={i}>{query}</li>)}</ul>
+        </div> : null}
+        {result.commercialBrief.missing.length ? <p><strong>Campos pendentes:</strong> {result.commercialBrief.missing.join(' · ')}</p> : null}
+        {result.commercialBrief.knownFacts.length ? <ul>{result.commercialBrief.knownFacts.map((fact, i) => <li key={i}>
+          <strong>{fact.label}:</strong> {fact.value}
+          {safeSite(fact.sourceUrl) ? <a href={fact.sourceUrl} target="_blank" rel="noopener noreferrer">
+            <ExternalLink size={12}/> fonte</a> : null}
+        </li>)}</ul> : null}
+        {result.commercialBrief.researchLimits.map((limitation, i) =>
+          <small key={i}>{limitation}</small>)}
+      </details>
+    </section> : null}
     {result?.stages?.some((step) => step.phaseStatus === 'failed') ? <details className="garimpo-cross-source__partial-detail">
       <summary>Etapas que precisam de atenção ({result.stages.filter((step) => step.phaseStatus === 'failed').length})</summary>
       <ul>{result.stages.filter((step) => step.phaseStatus === 'failed').map((step, index) =>

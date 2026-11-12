@@ -8,6 +8,7 @@ import { generateText, Output, jsonSchema } from 'ai'
 import { aiOutputSchema, sanitizeAiResult, publicWebUrl } from '../../supabase/functions/_shared/prospecting-ai.ts'
 import { compactLocalSources } from './hardware-profile.mjs'
 import { buildLeadIntelligence } from './lead-intelligence-g7.mjs'
+import { buildMultiChannelQueries } from './multichannel-g7.mjs'
 import { buildResearchPlan, refineResearchPlan, selectDeepPages, readDeepPage,
   prioritizeEvidenceSources, selectBusinessSearchHits, buildCommercialBrief, refineCommercialBrief } from './research-g6.mjs'
 
@@ -281,6 +282,13 @@ export function publicInstagramPostLinks(page, profileUrl) {
 export function instagramReadableText(markdown, { profile = false } = {}) {
   const raw = String(markdown || '').replace(/<[^>]*>/g, ' ').trim()
   if (raw.length < (profile ? 45 : 65)) return ''
+  // Instagram may return Markdown containing *only* login/app/profile-photo
+  // navigation. This is not a business bio or readable commercial evidence.
+  if (profile && /\[(?:Log in|Open app|Sign up)\]\(|\/accounts\/login\/|app\.link\.instagram\.com/i.test(raw)) {
+    const textOnly = raw.replace(/\[[^\]]*\]\([^)]+\)/g, ' ')
+      .replace(/https?:\/\/\S+/g, ' ').replace(/\s+/g, ' ').trim()
+    if (textOnly.length < 65 || /^(?:Instagram|Log in|Open app|Profile picture|Sign up|Home|Explore|Reels|\s)+$/i.test(textOnly)) return ''
+  }
   const lowered = raw.toLowerCase()
   const appearsLoginWall = /(?:log in to instagram|login • instagram|you must log in|inicie sessão para|faça login para|entre para ver|sign up to see)/i.test(raw)
   // Links and navigation alone are not captions. Avoid sending a login wall
@@ -490,9 +498,15 @@ export async function stagedLocalResearch({ input, signal, values, fetcher, mode
       // One failed query does not erase pages already collected.
       let successes = 0
       let failedQueries = 0
-      const limitQueries = values.GARIMPO_MEMORY_PROFILE === 'low'
-        ? researchPlan.budget.lowMemorySearches : researchPlan.budget.normalSearches
-      for (const query of researchPlan.queries.slice(0, Math.min(3, limitQueries))) {
+      const multiQueries = buildMultiChannelQueries(input, researchPlan.segment)
+      // Prioritise catalog, pricing and independent channels before generic
+      // mentions. All requests stay sequential on the low-memory Linux host.
+      const queries = [...new Set([
+        ...researchPlan.queries.slice(0, 1),
+        ...multiQueries.slice(0, values.GARIMPO_MEMORY_PROFILE === 'low' ? 2 : 3),
+        ...researchPlan.queries.slice(1),
+      ])].slice(0, values.GARIMPO_MEMORY_PROFILE === 'low' ? 4 : 6)
+      for (const query of queries) {
         try {
           const page = await call('/v2/search', {
             query: query.slice(0, 190), limit: 5, sources: ['web'],
@@ -656,6 +670,7 @@ export async function stagedLocalResearch({ input, signal, values, fetcher, mode
       instagramDiscovery: instagramDiscovery || { status: 'not_found', postCount: 0 },
       researchPlan,
       commercialBrief: buildCommercialBrief({ input, plan: researchPlan, result: factsResult, instagramDiscovery }),
+      leadIntelligence: await buildLeadIntelligence({ sources: [], instagramDiscovery, model: null }),
       stages: trace.filter((item) => item.phaseStatus !== 'running') }
   }
   if (!sources().some((item) => publicInstagram(item.url)) && !instagramDiscovery) warnings.push('Nenhuma publicação pública verificável do Instagram foi localizada nesta investigação.')

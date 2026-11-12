@@ -104,6 +104,7 @@ export interface AiG7LeadIntelligence {
   offerings: AiG7LeadIntelligenceEvidence[]
   prices: AiG7LeadIntelligenceEvidence[]
   positioning: AiG7LeadIntelligenceEvidence[]
+  reputation?: AiG7LeadIntelligenceEvidence[]
   missing: string[]
   hypotheses: string[]
   questions: string[]

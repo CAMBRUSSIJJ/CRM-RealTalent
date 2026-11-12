@@ -8,7 +8,7 @@ import { generateText, Output, jsonSchema } from 'ai'
 import { aiOutputSchema, sanitizeAiResult, publicWebUrl } from '../../supabase/functions/_shared/prospecting-ai.ts'
 import { compactLocalSources } from './hardware-profile.mjs'
 import { buildResearchPlan, refineResearchPlan, selectDeepPages, readDeepPage,
-  prioritizeEvidenceSources, buildCommercialBrief, refineCommercialBrief } from './research-g6.mjs'
+  prioritizeEvidenceSources, selectBusinessSearchHits, buildCommercialBrief, refineCommercialBrief } from './research-g6.mjs'
 
 const short = (value, max = 180) => typeof value === 'string' ? value.trim().slice(0, max) : ''
 const norm = (value) => value.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z0-9]/g, '')
@@ -492,7 +492,7 @@ export async function stagedLocalResearch({ input, signal, values, fetcher, mode
             query: query.slice(0, 190), limit: 5, sources: ['web'],
             scrapeOptions: { formats: ['markdown'], onlyMainContent: true },
           }, 32_000)
-          accept(Array.isArray(page?.data?.web) ? page.data.web : [])
+          accept(selectBusinessSearchHits(input, page?.data?.web, 5))
           successes++
         } catch (error) {
           if (signal.aborted) throw error

@@ -68,7 +68,7 @@ export function buildResearchPlan(input) {
   ], 3)
   return { version: 'G6', segment: sector.id, priorities: [...sector.priorities],
     questions: [...sector.questions], queries, strategy: 'segment_rules', budget: {
-      lowMemorySearches: 3, normalSearches: 3, deepPagesLow: 1, deepPagesNormal: 2,
+      lowMemorySearches: 2, normalSearches: 3, deepPagesLow: 1, deepPagesNormal: 2,
     } }
 }
 
@@ -104,7 +104,7 @@ export async function refineResearchPlan(plan, { model, generate, Output, jsonSc
 /** Rank identity-backed sources before giving the small Ollama model its first batch. */
 export function prioritizeEvidenceSources(input, sources) {
   const company = normal(input.segment)
-  const city = normal(input.city).replace(/\\b(?:rs|sp|rj|mg|pr|sc)$/, '').trim()
+  const city = normal(input.city).replace(/\b(?:rs|sp|rj|mg|pr|sc)$/, '').trim()
   const website = String(input.website || '')
   return [...sources].sort((left, right) => {
     const rank = (source) => {
@@ -113,7 +113,7 @@ export function prioritizeEvidenceSources(input, sources) {
       if (website && source.url === website) score += 100
       if (company && content.includes(company)) score += 30
       if (city && content.includes(city)) score += 18
-      if (/\\b(telefone|whatsapp|contato|cnpj|endereco|agendamento|servico|horario)\\b/i.test(content)) score += 9
+      if (/\b(telefone|whatsapp|contato|cnpj|endereco|agendamento|servico|horario)\b/i.test(content)) score += 9
       try {
         const uri = new URL(source.url)
         if (website && uri.hostname === new URL(website).hostname) score += 12

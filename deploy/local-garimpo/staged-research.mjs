@@ -3,9 +3,10 @@
 import { createHash } from 'node:crypto'
 import { mkdir, readFile, rename, writeFile, unlink, chmod } from 'node:fs/promises'
 import { homedir } from 'node:os'
-import { join } from 'node:path'
+import { join, dirname } from 'node:path'
 import { generateText, Output, jsonSchema } from 'ai'
-import { aiOutputSchema, sanitizeAiResult, publicWebUrl } from '../../supabase/functions/_shared/prospecting-ai.ts'
+import { aiOutputSchema, sanitizeAiResult, publicWebUrl, researchCompletionStatus } from '../../supabase/functions/_shared/prospecting-ai.ts'
+import { contextualCommercialAdvice, adaptiveResearchPlan } from './intelligence-g8.mjs'
 import { compactLocalSources } from './hardware-profile.mjs'
 import { buildLeadIntelligence } from './lead-intelligence-g7.mjs'
 import { buildMultiChannelQueries } from './multichannel-g7.mjs'
@@ -210,7 +211,10 @@ export function identifyInstagramProfile(input, sources, profileResults = []) {
       // Business directories often link their own social account next to a
       // listing; never treat that unrelated handle as the listed company's.
       // Even a saved listing may belong to a third-party directory, so
-      // reject unrelated handles from directories. A company-matched Linktree\n      // with corroborating city can yield a *candidate*, never a verified link.\n      // The reviewer must still confirm the identity before CRM enrichment.\n      if (!related && !hub) continue
+      // reject unrelated handles from directories. A company-matched Linktree
+      // with corroborating city can yield a *candidate*, never a verified link.
+      // The reviewer must still confirm the identity before CRM enrichment.
+      if (!related && !hub) continue
       const score = (known ? 70 : hub ? 55 : 45) + (related ? 25 : 0)
       candidates.push({ profileUrl: profile, evidenceUrl: source.url, score,
         status: (known && related) ? 'linked' : 'candidate' })
@@ -376,7 +380,7 @@ export async function readPublicInstagram({ profileUrl, call, indexedPosts = [],
 
 const jsonFilePath = (jobId) => {
   if (!/^[0-9a-f-]{36}$/i.test(jobId)) throw new Error('invalid_job_id')
-  return join(homedir(), '.local', 'share', 'realtalent', 'garimpo', 'jobs', jobId + '.json')
+  return join(process.env.GARIMPO_JOB_STORAGE_DIR || join(homedir(), '.local', 'share', 'realtalent', 'garimpo', 'jobs'), jobId + '.json')
 }
 export function stageJournal(jobId, input) {
   const path = jsonFilePath(jobId)
@@ -389,7 +393,7 @@ export function stageJournal(jobId, input) {
       } catch { return null }
     },
     async save(stage, data) {
-      await mkdir(join(homedir(), '.local', 'share', 'realtalent', 'garimpo', 'jobs'), { recursive: true, mode: 0o700 })
+      await mkdir(dirname(path), { recursive: true, mode: 0o700 })
       const tmp = path + '.tmp'
       await writeFile(tmp, JSON.stringify({ version: 1, hash, stage, ...data }), { mode: 0o600 })
       await chmod(tmp, 0o600)
@@ -402,6 +406,27 @@ export function stageJournal(jobId, input) {
 export async function stagedLocalResearch({ input, signal, values, fetcher, model, jobId, onProgress, generate = generateText }) {
   const journal = stageJournal(jobId, input)
   const cached = await journal.load()
+  const providers = cached?.providers || [
+    { name: 'Firecrawl', configured: true, used: false, succeeded: 0, failed: 0 },
+    { name: 'Crawl4AI', configured: Boolean(values.GARIMPO_CRAWL4AI_URL), used: false, succeeded: 0, failed: 0 },
+    { name: 'Ollama', configured: Boolean(values.PROSPECTING_AI_MODEL), used: false, succeeded: 0, failed: 0 },
+  ]
+  const rawGenerate = generate
+  const track = async (name, operation) => {
+    const provider = providers.find((item) => item.name === name)
+    provider.used = true
+    try { const result = await operation(); if (result?.ok === false) provider.failed++; else provider.succeeded++; return result }
+    catch (error) { provider.failed++; throw error }
+  }
+  generate = (options) => track('Ollama', () => rawGenerate(options))
+  const researchAttempts = cached?.researchAttempts || []
+  const sourceStates = new Map(cached?.sourceStates || [])
+  let adaptive = cached?.adaptive || { gaps: [], queries: [] }
+  const runtime = { version: 'G8', model: String(values.PROSPECTING_AI_MODEL || 'não informado'), memoryProfile: values.GARIMPO_MEMORY_PROFILE || 'normal' }
+  const metadata = () => ({ executionId: jobId, contractVersion: 'garimpo-research/8', runtime, providers,
+    sourceReads: [...sourceStates].map(([url, status]) => ({ url, status })),
+    adaptiveResearch: { gaps: adaptive.gaps, queriesExecuted: researchAttempts.filter((attempt) => attempt.query).length,
+      exhausted: adaptive.queries.length > 0 && adaptive.queries.every((query) => researchAttempts.some((attempt) => attempt.query === query)) } })
   const sourceMap = new Map()
   const warnings = cached?.warnings ? [...cached.warnings] : []
   const trace = cached?.trace ? [...cached.trace] : []
@@ -436,6 +461,8 @@ export async function stagedLocalResearch({ input, signal, values, fetcher, mode
       if (content.length < 12 || (previous && previous.content.length >= content.length)) continue
       contentUsed += content.length - (previous?.content.length || 0)
       sourceMap.set(url, { url, title, content })
+      if (typeof item.markdown === 'string' && item.markdown.trim().length >= 40) sourceStates.set(url, 'read')
+      else if (!sourceStates.has(url)) sourceStates.set(url, 'observed')
     }
   }
   accept(cached?.sources || [])
@@ -444,7 +471,7 @@ export async function stagedLocalResearch({ input, signal, values, fetcher, mode
     const info = { stage, phaseStatus, errorCode: failureCode, sourceCount: sourceMap.size,
       leadCount: factsResult?.leads?.length ?? 0 }
     trace.push({ ...info, at: new Date().toISOString() })
-    await journal.save(stage, { sources: sources(), warnings, trace, instagramDiscovery,
+    await journal.save(stage, { sources: sources(), warnings, trace, instagramDiscovery, providers, researchAttempts, adaptive, sourceStates: [...sourceStates],
       researchPlan, commercialBrief, leadIntelligence, knownSiteLinks,
       ...(factsResult ? { facts: factsResult } : {}) })
     await onProgress(info)
@@ -453,6 +480,7 @@ export async function stagedLocalResearch({ input, signal, values, fetcher, mode
   const headers = { 'content-type': 'application/json', ...(values.FIRECRAWL_API_KEY ? { authorization: 'Bearer ' + values.FIRECRAWL_API_KEY } : {}) }
   const endpoint = (path) => new URL(base.href.replace(/\/$/, '').replace(/\/v2$/, '') + path)
   async function call(path, payload, ms) {
+    return track('Firecrawl', async () => {
     const response = await fetcher(endpoint(path), {
       method: 'POST', headers, redirect: 'error', signal: withTimeout(signal, ms),
       body: JSON.stringify(payload),
@@ -461,6 +489,7 @@ export async function stagedLocalResearch({ input, signal, values, fetcher, mode
     const body = await response.json()
     if (!body || body.success === false) throw new Error('firecrawl_response_invalid')
     return body
+    })
   }
   const knownSite = selectExistingUrl(input)
   let factsResult = cached?.facts || null
@@ -483,6 +512,7 @@ export async function stagedLocalResearch({ input, signal, values, fetcher, mode
         await checkpoint('website', 'completed')
       } catch (error) {
         if (signal.aborted) throw error
+        if (knownSite) sourceStates.set(knownSite, 'unavailable')
         warnings.push('Leitura do site cadastrado indisponível; buscando outras fontes.')
         await checkpoint('website', 'failed', codeOf(error))
       }
@@ -501,12 +531,14 @@ export async function stagedLocalResearch({ input, signal, values, fetcher, mode
       const multiQueries = buildMultiChannelQueries(input, researchPlan.segment)
       // Prioritise catalog, pricing and independent channels before generic
       // mentions. All requests stay sequential on the low-memory Linux host.
-      const queries = [...new Set([
-        ...researchPlan.queries.slice(0, 1),
-        ...multiQueries.slice(0, values.GARIMPO_MEMORY_PROFILE === 'low' ? 3 : 4),
-        ...researchPlan.queries.slice(1, 2),
-      ])].slice(0, values.GARIMPO_MEMORY_PROFILE === 'low' ? 5 : 6)
-      for (const query of queries) {
+      // Resume the same bounded plan: new sources must not expand the budget
+      // or cause a different set of queries after a process restart.
+      if (!adaptive.queries.length) adaptive = adaptiveResearchPlan({ input, plan: researchPlan, sources: sources(), multiQueries, lowMemory: values.GARIMPO_MEMORY_PROFILE === 'low' })
+      for (const query of adaptive.queries) {
+        const prior = researchAttempts.find((attempt) => attempt.query === query)
+        if (prior) { if (prior.status === 'completed') successes++; else failedQueries++; continue }
+        const attempt = { query, status: 'failed' }
+        researchAttempts.push(attempt)
         try {
           const page = await call('/v2/search', {
             query: query.slice(0, 190), limit: 5, sources: ['web'],
@@ -514,28 +546,41 @@ export async function stagedLocalResearch({ input, signal, values, fetcher, mode
           }, 32_000)
           accept(selectBusinessSearchHits(input, page?.data?.web, 5))
           successes++
+          attempt.status = 'completed'
         } catch (error) {
           if (signal.aborted) throw error
           failedQueries++
         }
+        await checkpoint('web', 'running')
       }
       // Crawl only public, same-host pages connected to this exact company.
       // Crawl4AI is optional and off by default, never a new Docker service.
       const deepLimit = values.GARIMPO_MEMORY_PROFILE === 'low'
         ? researchPlan.budget.deepPagesLow : researchPlan.budget.deepPagesNormal
-      const deepPages = knownSite ? selectDeepPages(input, knownSite, knownSiteLinks, deepLimit) : []
+      const deepPages = knownSite ? selectDeepPages(input, knownSite, knownSiteLinks, deepLimit).filter((url) => !sourceMap.has(url)) : []
       let deepReadFailures = 0
       for (const url of deepPages) {
+        if (researchAttempts.some((attempt) => attempt.url === url)) continue
+        const attempt = { url, status: 'failed' }
+        researchAttempts.push(attempt)
         try {
           const deep = await readDeepPage({
             url, callFirecrawl: call, crawl4aiUrl: values.GARIMPO_CRAWL4AI_URL || '',
             fetcher, signal,
+            onProviderResult: (name, succeeded) => {
+              const provider = providers.find((item) => item.name === name)
+              provider.used = true
+              if (succeeded) provider.succeeded++; else provider.failed++
+            },
           })
-          if (deep) accept([deep])
+          if (deep) { accept([deep]); attempt.status = 'completed' }
+          else { deepReadFailures++; sourceStates.set(url, 'unavailable') }
         } catch (error) {
           if (signal.aborted) throw error
           deepReadFailures++
+          sourceStates.set(url, 'unavailable')
         }
+        await checkpoint('web', 'running')
       }
       if (failedQueries) warnings.push('Algumas consultas direcionadas não responderam; as fontes disponíveis foram preservadas.')
       if (deepReadFailures) warnings.push('Algumas páginas internas não puderam ser lidas; a pesquisa prosseguiu com as outras fontes.')
@@ -666,7 +711,7 @@ export async function stagedLocalResearch({ input, signal, values, fetcher, mode
   if (!sources().length) {
     await checkpoint('completed', 'completed')
     return { leads: [], warnings: [...warnings, 'Não foram encontradas fontes públicas legíveis.'], researchedAt: new Date().toISOString(),
-      researchStatus: trace.some((item) => item.phaseStatus === 'failed') ? 'partial' : 'completed',
+      ...metadata(), researchStatus: researchCompletionStatus(trace, false),
       instagramDiscovery: instagramDiscovery || { status: 'not_found', postCount: 0 },
       researchPlan,
       commercialBrief: buildCommercialBrief({ input, plan: researchPlan, result: factsResult, instagramDiscovery }),
@@ -798,11 +843,18 @@ export async function stagedLocalResearch({ input, signal, values, fetcher, mode
     await checkpoint('business', 'completed')
   }
   const stages = trace.filter((item) => item.phaseStatus !== 'running')
-  const partial = stages.some((item) => item.phaseStatus === 'failed')
+  if (instagramDiscovery?.profileUrl) {
+    const access = instagramDiscovery.profileAccess
+    sourceStates.set(instagramDiscovery.profileUrl, access === 'blocked' ? 'blocked' : access === 'unavailable' ? 'unavailable' : ['readable', 'bio_only'].includes(access) ? 'read' : 'observed')
+  }
+  for (const url of instagramDiscovery?.readablePostUrls || []) sourceStates.set(url, 'read')
+  const researchStatus = researchCompletionStatus(stages, sources().length > 0)
+  Object.assign(leadIntelligence, contextualCommercialAdvice({ intelligence: leadIntelligence,
+    facts: factsResult?.leads?.[0]?.aiResearch?.evidence || [], signals: commercialBrief?.signals || [] }))
   await checkpoint('completed', 'completed')
   return { ...factsResult, warnings: [...(factsResult.warnings || []), ...warnings],
     researchPlan, commercialBrief, leadIntelligence,
     instagramDiscovery: instagramDiscovery || { status: 'not_found', postCount: 0 },
-    researchStatus: partial ? 'partial' : 'completed',
+    ...metadata(), researchStatus,
     stages: trace.filter((item) => item.phaseStatus !== 'running').slice(-12) }
 }

@@ -5,7 +5,8 @@ import type { WorkspaceSnapshot } from '../../domain/types'
 import type { ProspectRecord } from '../../services/prospecting-workspace'
 import { explainProspectScore, prospectDecisionLabel } from '../../services/prospecting-g1g2-intelligence'
 import { buildProspectingIcp, scoreProspectWithIcp } from '../../services/prospecting-intelligence'
-import { getLocalConnectorStatus, searchProspectsWithAi, recentLocalResearch, reviewedInstagramProfile, type LocalResearchProgress, type AiSearchResult } from '../../services/prospecting-ai'
+import { getLocalConnectorStatus, searchProspectsWithAi, recentLocalResearch, reviewedInstagramProfile, savedResearchResult, type LocalResearchProgress, type AiSearchResult } from '../../services/prospecting-ai'
+import { researchCompletionStatus } from '../../../supabase/functions/_shared/prospecting-ai'
 import { confirmedEnrichmentResult, reviewEnrichmentResult, researchOnlyEnrichmentResult, crossSourceReview, savedCrossSourceReview, type CrossSourceField } from '../../services/prospecting-cross-source-review'
 import { buildReviewSuggestions, type EditableReviewField, type ReviewSuggestion } from '../../services/prospecting-review-suggestions'
 import './prospecting-cross-source-review.css'
@@ -15,7 +16,7 @@ interface Props {
   snapshot: WorkspaceSnapshot
   workspaceId: string
   readOnly: boolean
-  onEnriched(result: AiSearchResult): void
+  onEnriched(result: AiSearchResult, researchOnly?: boolean): void
   onConfirmInstagram(profileUrl: string): void
   onApplySuggestion(field: EditableReviewField, value: string, sourceUrl: string): void
   onIgnoreSuggestion(suggestionKey: string): void
@@ -123,9 +124,10 @@ export function ProspectingG1G2Panel({ prospect, snapshot, workspaceId, readOnly
     instagram_profile_unavailable: 'A tentativa direta de leitura do perfil não retornou conteúdo útil.',
     instagram_posts_unavailable: 'O perfil foi identificado, mas não foi possível ler textos de publicações.',
   }
-  const completionPartial = result?.researchStatus === 'partial' ||
-    Boolean(result?.stages?.some((step) => step.phaseStatus === 'failed')) ||
-    (progress?.stage === 'completed' && progress.phaseStatus === 'failed')
+  const completionStatus = result?.stages?.length
+    ? researchCompletionStatus(result.stages, result.leads.some((lead) => lead.aiResearch.sources.length > 0))
+    : result?.researchStatus || (progress?.stage === 'completed' && progress.phaseStatus === 'failed' ? 'partial' : 'completed')
+  const completionPartial = completionStatus === 'partial'
   const phaseTitles: Record<LocalResearchProgress['stage'], string> = {
     discover: 'Preparando investigação', website: 'Lendo site cadastrado',
     web: 'Pesquisando outras páginas', instagram: 'Localizando perfil e publicações públicas',
@@ -134,6 +136,9 @@ export function ProspectingG1G2Panel({ prospect, snapshot, workspaceId, readOnly
     completed: 'Investigação concluída',
   }
   const abortRef = useRef<AbortController | null>(null)
+  const onEnrichedRef = useRef(onEnriched)
+  const restoredRun = useRef('')
+  useEffect(() => { onEnrichedRef.current = onEnriched }, [onEnriched])
   const review = useMemo(() => result ? crossSourceReview(prospect, result) : savedCrossSourceReview(prospect), [prospect, result])
   const applicable = useMemo(() => result ? confirmedEnrichmentResult(prospect, result) : null, [prospect, result])
   const observedApplicable = useMemo(() => result ? reviewEnrichmentResult(prospect, result, 'observed') : null, [prospect, result])
@@ -166,36 +171,47 @@ export function ProspectingG1G2Panel({ prospect, snapshot, workspaceId, readOnly
 
 
   useEffect(() => {
-    // Closing the review screen cancels only the browser polling; the Linux
-    // worker keeps researching and the Supabase job keeps the stage checkpoints.
     abortRef.current?.abort()
     abortRef.current = null
-    setResult(null)
-    setError('')
-    setProgress(null)
-    setBusy(false)
-    setPersistedStatus('')
-    setSuggestedInstagram(null)
-    setConfirmedInstagram('')
-    setPendingReplacement(null)
-    let mounted = true
+    const cached = savedResearchResult(prospect)
+    setResult(cached)
+    setError(''); setProgress(null); setBusy(false)
+    setPersistedStatus(cached ? 'completed' : '')
+    setSuggestedInstagram(null); setConfirmedInstagram(''); setPendingReplacement(null)
+    restoredRun.current = cached?.executionId || cached?.researchedAt || ''
+    let mounted = true, restoring = false
+    let timer: number | undefined
     const restore = async () => {
-      const job = await recentLocalResearch(workspaceId, prospect.company, prospect.city, currentInstagramUrl || '').catch(() => null)
-      if (!mounted || !job || abortRef.current) return
-      setSuggestedInstagram(job.priorInstagramCandidate)
-      setPersistedStatus(job.status)
-      setProgress(job.progress ?? null)
-      if (job.result) { setResult(job.result); setError('') }
-      if (job.status === 'failed') {
-        setError(job.errorCode === 'local_stage_timeout'
-          ? 'Uma etapa excedeu o prazo. As fontes coletadas foram preservadas no Linux para nova tentativa.'
-          : 'A investigação foi interrompida. Confira o terminal do conector Linux.')
-      }
+      if (!mounted || restoring || abortRef.current) return
+      if (timer) window.clearTimeout(timer)
+      restoring = true
+      try {
+        const job = await recentLocalResearch(workspaceId, prospect.company, prospect.city, currentInstagramUrl || '', prospect.id)
+        if (!mounted || !job || abortRef.current) return
+        setSuggestedInstagram(job.priorInstagramCandidate)
+        setPersistedStatus(job.recoverable ? 'expired' : job.status)
+        setProgress(job.progress ?? null)
+        if (job.result) {
+          const restored = { ...job.result, executionId: job.id }
+          setResult(restored); setError('')
+          if (!readOnly && restoredRun.current !== job.id) {
+            onEnrichedRef.current(restored, true)
+            restoredRun.current = job.id
+          }
+        }
+        if (job.recoverable) setError('A investigação anterior expirou. As evidências salvas continuam disponíveis; você pode tentar novamente.')
+        else if (job.status === 'failed') setError('A investigação foi interrompida. As evidências salvas foram preservadas; confira o conector Linux e tente novamente.')
+        if (['queued', 'processing'].includes(job.status) && !job.recoverable)
+          timer = window.setTimeout(() => void restore(), document.hidden ? 15000 : 5000)
+      } catch (reason) {
+        if (mounted) setError(reason instanceof Error ? reason.message : 'Não foi possível recuperar a investigação.')
+      } finally { restoring = false }
     }
+    const visible = () => { if (!document.hidden) void restore() }
     void restore()
-    const interval = window.setInterval(() => void restore(), 7000)
-    return () => { mounted = false; window.clearInterval(interval); abortRef.current?.abort() }
-  }, [prospect.id, workspaceId, currentInstagramUrl, prospect.company, prospect.city])
+    document.addEventListener('visibilitychange', visible)
+    return () => { mounted = false; window.clearTimeout(timer); document.removeEventListener('visibilitychange', visible); abortRef.current?.abort() }
+  }, [prospect.id, workspaceId, currentInstagramUrl, prospect.company, prospect.city, readOnly])
 
   const run = async (instagramOverride?: string) => {
     if (busy || readOnly || persistedStatus === 'processing' || persistedStatus === 'queued') return
@@ -231,6 +247,7 @@ export function ProspectingG1G2Panel({ prospect, snapshot, workspaceId, readOnly
       const query = ['endereço telefone site Instagram CNPJ cadastro empresarial', ...hints].join(' ').slice(0, 950)
       const response = await searchProspectsWithAi({
         organizationId: workspaceId,
+        prospectId: prospect.id,
         segment: name,
         city: prospect.city,
         query,
@@ -248,7 +265,11 @@ export function ProspectingG1G2Panel({ prospect, snapshot, workspaceId, readOnly
         keepRunningOnClose: true,
         onProgress: (value) => { if (!ctrl.signal.aborted) { setProgress(value); setPersistedStatus('processing') } },
       })
-      if (!ctrl.signal.aborted) { setResult(response); setPersistedStatus('completed') }
+      if (!ctrl.signal.aborted) {
+        setResult(response); setPersistedStatus('completed')
+        onEnrichedRef.current(response, true)
+        restoredRun.current = response.executionId || response.researchedAt
+      }
     } catch (reason) {
       if (!ctrl.signal.aborted) {
         setError(reason instanceof Error ? reason.message : 'Não foi possível pesquisar domínios distintos.')
@@ -306,15 +327,15 @@ export function ProspectingG1G2Panel({ prospect, snapshot, workspaceId, readOnly
   ]
   return <section className="prospecting-g1g2" aria-label="Investigação e qualificação explicável">
     <header className="prospecting-g1g2__header">
-      <div><span className="eyebrow"><Sparkles size={14} /> Garimpo Inteligente · G7 Multicanal</span>
-        <h4>Feed de decisões da IA</h4>
+      <div><span className="eyebrow"><Sparkles size={14} /> Garimpo · Revisão comercial G8</span>
+        <h4>Inteligência comercial</h4>
         <p>Diagnóstico de negócio, qualificação e evidências públicas por vários canais.</p>
       </div>
       <span className={'prospecting-g1g2__decision is-' + score.decision}>{prospectDecisionLabel(score.decision)}</span>
     </header>
     <section className="garimpo-review-feed" aria-label="Sugestões do Garimpo para revisar">
       <header className="garimpo-review-feed__header">
-        <strong><Sparkles size={16}/> Ações sugeridas</strong>
+        <strong><Sparkles size={16}/> Correções cadastrais</strong>
         <span>{decisionSuggestions.length} pendente(s)</span>
       </header>
       {decisionSuggestions.length ? <>
@@ -365,7 +386,7 @@ export function ProspectingG1G2Panel({ prospect, snapshot, workspaceId, readOnly
     </details>
 
     <div className="prospecting-g1g2__investigate garimpo-cross-source__action">
-      <div><strong>Inteligência empresarial · Firecrawl + Crawl4AI + Ollama</strong>
+      <div><strong>Investigação da empresa</strong>
         <small>Investiga site, agendamento, catálogo, buscas e reputação pública. O Instagram é uma fonte opcional; dados não comprovados ficam pendentes.</small>
       </div>
       <Button variant="secondary" disabled={busy || readOnly || persistedStatus === 'processing' || persistedStatus === 'queued'} onClick={() => void run()}>
@@ -375,9 +396,9 @@ export function ProspectingG1G2Panel({ prospect, snapshot, workspaceId, readOnly
       </Button>
     </div>
     {progress ? <div className="garimpo-cross-source__stage-status" role="status">
-      <strong>{progress.stage === 'completed' && completionPartial
-        ? 'Investigação concluída parcialmente'
-        : phaseTitles[progress.stage] + ' · ' +
+      <strong>{persistedStatus === 'expired' ? 'Investigação expirada; nova tentativa disponível' : persistedStatus === 'failed' ? 'Investigação interrompida' : persistedStatus === 'cancelled' ? 'Investigação cancelada' : progress.stage === 'completed' && completionPartial
+        ? 'Falha parcial em etapa essencial'
+        : progress.stage === 'completed' && completionStatus === 'limited' ? 'Concluída com limitações em fontes opcionais' : phaseTitles[progress.stage] + ' · ' +
           (progress.phaseStatus === 'running' ? 'em andamento' : progress.phaseStatus === 'failed' ? 'etapa indisponível' : 'concluída')}</strong>
       <span>{progress.sourceCount} fonte(s) coletada(s) · {progress.leadCount} empresa(s) analisada(s).</span>
       {progress.phaseStatus === 'running' ? <small>O conector Linux continua processando enquanto estiver aberto.</small> : null}

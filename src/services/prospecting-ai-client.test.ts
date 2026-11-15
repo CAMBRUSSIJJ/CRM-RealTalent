@@ -18,7 +18,7 @@ describe('cliente do conector de Garimpo', () => {
     mocks.maybeSingle.mockResolvedValue({ data: { status: 'completed', result }, error: null })
     const pending = searchProspectsWithAi(input)
     await vi.advanceTimersByTimeAsync(2000)
-    await expect(pending).resolves.toEqual(result)
+    await expect(pending).resolves.toEqual({ ...result, executionId: 'job-1' })
     expect(mocks.invoke).toHaveBeenCalledWith('prospecting-ai-search', { body: input, signal: undefined })
     expect(mocks.invoke).toHaveBeenCalledWith('prospecting-local-connector', { body: { organizationId: input.organizationId, action: 'cancel', jobId: 'job-1' } })
   })

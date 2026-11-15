@@ -1,5 +1,5 @@
 import { createClient } from 'npm:@supabase/supabase-js@2.110.7'
-import { isRecord, parseAiSearchInput, ProspectingError } from '../_shared/prospecting-ai.ts'
+import { isRecord, parseAiSearchInput, parseAiSearchResult, ProspectingError } from '../_shared/prospecting-ai.ts'
 
 const url = Deno.env.get('SUPABASE_URL') ?? ''
 const publicKey = Deno.env.get('SUPABASE_ANON_KEY') ?? ''
@@ -36,7 +36,7 @@ Deno.serve(async (request) => {
       }
       if (typeof body.jobId !== 'string' || !uuid.test(body.jobId) || typeof body.leaseId !== 'string' || !uuid.test(body.leaseId)) throw new ProspectingError('invalid_job')
       const failed = body.failed === true
-      if (!failed && (!isRecord(body.result) || !Array.isArray(body.result.leads) || body.result.leads.length > 10 || !Array.isArray(body.result.warnings))) throw new ProspectingError('invalid_result')
+      if (!failed) parseAiSearchResult(body.result)
       const done = await admin.from('prospecting_ai_jobs').update({ status: failed ? 'failed' : 'completed', result: failed ? null : body.result,
         error_code: failed ? 'local_research_failed' : null, completed_at: new Date().toISOString(), locked_until: null,
       }).eq('id', body.jobId).eq('organization_id', organizationId).eq('status', 'processing').eq('lease_id', body.leaseId).gt('locked_until', new Date().toISOString()).select('id')

@@ -4,6 +4,7 @@ import { effectiveDataMode, env } from '../lib/env'
 import type { Lead } from '../domain/types'
 import { appendHistory, createProspect, refreshProspectAnalysis, type ProspectRecord, type ProspectingState, type ProspectSource } from './prospecting-workspace'
 import type { AiField, AiResearch, AiSearchInput, AiSearchResult } from '../../supabase/functions/_shared/prospecting-ai'
+import { parseAiSearchResult, parseAiResearch, researchCompletionStatus } from '../../supabase/functions/_shared/prospecting-ai'
 
 export type { AiResearch, AiSearchInput, AiSearchResult }
 export const aiFieldLabels: Record<AiField, string> = {
@@ -26,6 +27,8 @@ const messages: Record<string, string> = {
   local_stage_failed: 'Uma etapa da investigação não concluiu; confira o diagnóstico e as fontes já coletadas.',
   local_stage_timeout: 'A investigação excedeu o tempo permitido. As etapas concluídas continuam registradas no Linux.',
   local_job_expired: 'A pesquisa local expirou. Verifique se o conector continua aberto no computador.',
+  invalid_ai_response: 'A investigação retornou dados incompatíveis. Os dados atuais foram preservados.',
+  research_contract_unsupported: 'O conector e o CRM usam contratos de pesquisa diferentes. Atualize o conector Linux antes de tentar novamente.',
   connector_admin_required: 'Somente um administrador do workspace pode conectar ou desconectar um computador.',
 }
 
@@ -105,6 +108,19 @@ export interface LocalSearchOptions {
   keepRunningOnClose?: boolean
 }
 
+export function localResearchProgress(value: unknown): LocalResearchProgress | null {
+  if (!value || typeof value !== 'object') return null
+  const row = value as Record<string, unknown>
+  if (!['discover', 'website', 'web', 'instagram', 'facts', 'signals', 'business', 'completed'].includes(row.stage as string)
+    || !['running', 'completed', 'failed'].includes(row.phaseStatus as string)
+    || !Number.isInteger(row.sourceCount) || Number(row.sourceCount) < 0
+    || !Number.isInteger(row.leadCount) || Number(row.leadCount) < 0) return null
+  return { stage: row.stage as LocalResearchProgress['stage'], phaseStatus: row.phaseStatus as LocalResearchProgress['phaseStatus'],
+    sourceCount: Number(row.sourceCount), leadCount: Number(row.leadCount),
+    ...(typeof row.errorCode === 'string' ? { errorCode: row.errorCode.slice(0, 100) } : {}),
+    ...(typeof row.updatedAt === 'string' ? { updatedAt: row.updatedAt } : {}) }
+}
+
 /** A past candidate is only a suggestion. Identity is confirmed by the reviewer. */
 export function reviewedInstagramProfile(value: string): string | null {
   try {
@@ -139,15 +155,27 @@ export function findPriorInstagramCandidate(rows: Array<{
   return null
 }
 
-export async function recentLocalResearch(organizationId: string, company: string, city: string, instagram = ''): Promise<{
+export async function recentLocalResearch(organizationId: string, company: string, city: string, instagram = '', prospectId = ''): Promise<{
   id: string; status: string; result: AiSearchResult | null; progress: LocalResearchProgress | null; createdAt: string; errorCode: string
   priorInstagramCandidate: { profileUrl: string; evidenceUrl?: string; discoveredAt: string } | null
+  recoverable: boolean
 } | null> {
   const client = effectiveDataMode === 'local' ? null : getSupabaseClient()
   if (!client) return null
-  const { data, error } = await client.from('prospecting_ai_jobs')
-    .select('id,status,result,error_code,created_at,completed_at,input')
-    .eq('organization_id', organizationId).order('created_at', { ascending: false }).limit(30)
+  const scopedQuery = () => client.from('prospecting_ai_jobs')
+    .select('id,status,result,error_code,created_at,completed_at,input,expires_at')
+    .eq('organization_id', organizationId).eq('input->>source', 'manual')
+  let query = scopedQuery()
+  query = prospectId ? query.eq('input->>prospectId', prospectId)
+    : query.eq('input->>segment', company).eq('input->>city', city)
+  let { data, error } = await query.order('created_at', { ascending: false }).limit(30)
+  // Older connectors did not attach prospectId. Scope their fallback by company
+  // before limiting, so other companies cannot evict this company's history.
+  if (!error && !data?.length && prospectId) {
+    const legacy = await scopedQuery().eq('input->>segment', company).eq('input->>city', city)
+      .order('created_at', { ascending: false }).limit(30)
+    data = legacy.data; error = legacy.error
+  }
   if (error || !data) return null
   const normalizeLabel = (value: string) => value.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/\s+/g, ' ').trim()
   const normalizedProfile = (raw: string) => reviewedInstagramProfile(
@@ -166,36 +194,43 @@ export async function recentLocalResearch(organizationId: string, company: strin
   // previously executed for a different Instagram account.
   const matchingJobs = data.filter((row) => {
     const input = row.input as Partial<AiSearchInput> | null
-    return input?.source === 'manual' && normalizeLabel(input.segment || '') === normalizeLabel(company)
-      && normalizeLabel(input.city || '') === normalizeLabel(city)
+    return input?.source === 'manual' && (prospectId && input.prospectId ? input.prospectId === prospectId :
+        normalizeLabel(input?.segment || '') === normalizeLabel(company) && normalizeLabel(input?.city || '') === normalizeLabel(city))
       && (!activeProfile || jobProfile(input) === activeProfile)
   })
   const match = matchingJobs[0]
   if (!match) return null
   const priorInstagramCandidate = findPriorInstagramCandidate(matchingJobs)
-  const result = match.result as (AiSearchResult & { progress?: LocalResearchProgress; stages?: LocalResearchProgress[] }) | null
-  const stages = Array.isArray(result?.stages) ? result.stages : []
+  const recoverable = ['queued', 'processing'].includes(match.status) && Number.isFinite(Date.parse(match.expires_at)) && Date.parse(match.expires_at) <= Date.now()
+  const result = match.status === 'completed' && match.result
+    ? validateAiResponse(match.result) as AiSearchResult & { progress?: LocalResearchProgress }
+    : match.result as { progress?: LocalResearchProgress; stages?: LocalResearchProgress[] } | null
+  const completeResult = match.status === 'completed' ? result as AiSearchResult | null : null
+  const stages = completeResult?.stages ?? []
   const finalStage = stages.at(-1)
-  const partiallyCompleted = result?.researchStatus === 'partial'
-    || stages.some((stage) => stage.phaseStatus === 'failed')
+  const partiallyCompleted = stages.length
+    ? researchCompletionStatus(stages, Boolean(completeResult?.leads.some((lead) => lead.aiResearch.sources.length))) === 'partial'
+    : completeResult?.researchStatus === 'partial'
   // Completed jobs store their final trace in "stages", not "progress".
   // Do not keep showing a stale "Ollama em andamento" after completion.
+  const safeProgress = localResearchProgress(result?.progress)
   const terminalProgress: LocalResearchProgress | null = match.status === 'completed'
     ? {
       stage: 'completed', phaseStatus: partiallyCompleted ? 'failed' : 'completed',
-      sourceCount: finalStage?.sourceCount ?? result?.leads?.[0]?.aiResearch?.sources?.length ?? 0,
-      leadCount: result?.leads?.length ?? 0,
+      sourceCount: finalStage?.sourceCount ?? completeResult?.leads?.[0]?.aiResearch?.sources?.length ?? 0,
+      leadCount: completeResult?.leads?.length ?? 0,
       updatedAt: finalStage?.at ?? match.created_at,
     }
-    : match.status === 'failed' && result?.progress
-      ? { ...result.progress, phaseStatus: 'failed' }
+    : recoverable || ['failed', 'cancelled'].includes(match.status)
+      ? { stage: 'completed', phaseStatus: 'failed', sourceCount: safeProgress?.sourceCount || 0, leadCount: safeProgress?.leadCount || 0 }
       : null
   return {
     id: match.id as string, status: match.status as string,
-    result: match.status === 'completed' && result ? result : null,
-    progress: terminalProgress ?? result?.progress ?? null, createdAt: match.created_at as string,
+    result: completeResult,
+    progress: terminalProgress ?? safeProgress, createdAt: match.created_at as string,
     errorCode: match.error_code || '',
     priorInstagramCandidate,
+    recoverable,
   }
 }
 
@@ -217,8 +252,8 @@ export async function searchProspectsWithAi(input: AiSearchInput, signal?: Abort
         await waitForPoll(signal)
         const job = await client.from('prospecting_ai_jobs').select('status,result,error_code').eq('id', data.jobId).eq('organization_id', input.organizationId).maybeSingle()
         if (job.error || !job.data) throw new Error('Não foi possível acompanhar a pesquisa local.')
-        if (job.data.status === 'completed') return validateAiResponse(job.data.result)
-        const progress = (job.data.result as { progress?: LocalResearchProgress } | null)?.progress
+        if (job.data.status === 'completed') return { ...validateAiResponse(job.data.result), executionId: data.jobId }
+        const progress = localResearchProgress((job.data.result as { progress?: unknown } | null)?.progress)
         if (progress && options.onProgress) options.onProgress(progress)
         if (job.data.status === 'failed') throw new Error(messages[job.data.error_code ?? ''] ?? messages.local_research_failed)
         if (job.data.status === 'cancelled') throw new DOMException('Pesquisa cancelada', 'AbortError')
@@ -233,8 +268,8 @@ export async function searchProspectsWithAi(input: AiSearchInput, signal?: Abort
 }
 
 function validateAiResponse(data: unknown): AiSearchResult {
-  if (!data || typeof data !== 'object' || !Array.isArray((data as AiSearchResult).leads) || !Array.isArray((data as AiSearchResult).warnings)) throw new Error('A busca retornou uma resposta inválida. Nenhum dado foi importado.')
-  return data as AiSearchResult
+  try { return parseAiSearchResult(data) }
+  catch (error) { throw new Error(messages[(error as { code?: string }).code || ''] || messages.invalid_ai_response) }
 }
 
 const normalize = (value: string) => value.normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]/gi, '').toLowerCase()
@@ -266,28 +301,66 @@ export function applyAiDiscovery(state: ProspectingState, result: AiSearchResult
   })
 }
 
-export function applyAiEnrichment(prospect: ProspectRecord, result: AiSearchResult, leads: Lead[]): ProspectRecord {
+export function applyAiEnrichment(prospect: ProspectRecord, result: AiSearchResult, leads: Lead[], researchOnly = false): ProspectRecord {
+  result = validateAiResponse(result)
   const keys = new Set(prospectIdentityKeys(prospect))
   const match = result.leads.find((lead) => prospectIdentityKeys(lead).some((key) => keys.has(key)))
   if (!match) throw new Error('A pesquisa não encontrou uma empresa com identidade compatível. Os dados atuais foram preservados.')
   const patch: Record<string, string> = {}
   for (const field of Object.keys(aiFieldLabels)) {
-    if (!prospect[field] && match[field as AiField]) patch[field] = match[field as AiField]
+    if (!researchOnly && !prospect[field] && match[field as AiField]) patch[field] = match[field as AiField]
   }
+  const saved = { ...result, leads: [match] }
+  const previous = savedResearchVersions(prospect)
+  const id = result.executionId || result.researchedAt
+  const version: SavedResearchVersion = { id, researchedAt: result.researchedAt,
+    summary: (result.leadIntelligence?.businessSummary || result.commercialBrief?.summary || 'Investigação da empresa').slice(0, 500),
+    sourceCount: match.aiResearch.sources.length, status: result.researchStatus || 'completed' }
+  // Keep compact references in browser storage; full versions remain in the
+  // company-scoped jobs table. Only the current complete result is duplicated.
+  const researchHistory = [...previous.filter((run) => run.id !== id), version].slice(-20)
   return refreshProspectAnalysis({
     ...prospect, ...patch,
-    rawData: { ...prospect.rawData, aiResearch: match.aiResearch, whatsappUrl: prospect.rawData.whatsappUrl || match.whatsappUrl },
+    rawData: { ...prospect.rawData, aiResearch: match.aiResearch, aiResearchResult: saved, researchHistory,
+      leadIntelligence: result.leadIntelligence, commercialBrief: result.commercialBrief,
+      instagramDiscovery: result.instagramDiscovery, researchPlan: result.researchPlan,
+      whatsappUrl: prospect.rawData.whatsappUrl || match.whatsappUrl },
   }, leads)
 }
 
+export function savedResearchResult(prospect: ProspectRecord): AiSearchResult | null {
+  const saved = prospect.rawData.aiResearchResult
+  if (!saved) return null
+  try { return validateAiResponse(saved) } catch { return null }
+}
+
+export interface SavedResearchVersion { id: string; researchedAt: string; summary: string; sourceCount: number; status: string }
+export function savedResearchVersions(prospect: ProspectRecord): SavedResearchVersion[] {
+  if (!Array.isArray(prospect.rawData.researchHistory)) return []
+  return (prospect.rawData.researchHistory as SavedResearchVersion[]).slice(-20).filter((version) => version
+    && typeof version.id === 'string' && typeof version.summary === 'string'
+    && typeof version.status === 'string' && typeof version.researchedAt === 'string'
+    && Number.isFinite(Date.parse(version.researchedAt)) && Number.isFinite(version.sourceCount) && version.sourceCount >= 0)
+}
+export async function localResearchVersion(prospect: ProspectRecord, id: string, signal?: AbortSignal): Promise<AiSearchResult | null> {
+  const current = savedResearchResult(prospect)
+  if (current && (current.executionId || current.researchedAt) === id) return current
+  const client = effectiveDataMode === 'local' ? null : getSupabaseClient()
+  if (!client || !/^[a-f\d-]{36}$/i.test(id)) return null
+  let query = client.from('prospecting_ai_jobs').select('input,result').eq('id', id)
+    .eq('organization_id', prospect.workspaceId).eq('status', 'completed')
+  if (signal) query = query.abortSignal(signal)
+  const { data, error } = await query.maybeSingle()
+  if (error || !data) return null
+  const input = data.input as Partial<AiSearchInput> | null
+  const label = (value: string) => value.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim()
+  if (input?.source !== 'manual' || (input.prospectId ? input.prospectId !== prospect.id
+    : label(input.segment || '') !== label(prospect.company) || label(input.city || '') !== label(prospect.city))) return null
+  return { ...validateAiResponse(data.result), executionId: id }
+}
+
 export function researchForProspect(prospect: ProspectRecord): AiResearch | null {
-  const value = prospect.rawData.aiResearch as AiResearch | undefined
-  if (!value || !Array.isArray(value.sources) || !Array.isArray(value.evidence) || !Array.isArray(value.missingFields)) return null
-  if (typeof value.opportunity !== 'string' || typeof value.suggestedApproach !== 'string' || typeof value.researchedAt !== 'string' || !Number.isFinite(Date.parse(value.researchedAt))) return null
-  if (!value.sources.every((item) => item && typeof item.url === 'string' && typeof item.title === 'string')) return null
-  if (!value.evidence.every((item) => item && Object.hasOwn(aiFieldLabels, item.field) && typeof item.value === 'string' && typeof item.sourceUrl === 'string')) return null
-  if (!value.missingFields.every((field) => Object.hasOwn(aiFieldLabels, field))) return null
-  return value
+  try { return parseAiResearch(prospect.rawData.aiResearch) } catch { return null }
 }
 
 export function safeResearchUrl(value: string) {

@@ -181,10 +181,10 @@ test('G6 generated follow-up questions cannot modify verified facts or recorded 
   assert.equal(transformed.planner, 'ollama_questions')
 })
 
-test('G6 runs two targeted searches on low RAM, deep-reads own page and keeps checkpoint', async () => {
-  const originalHome = process.env.HOME
+test('G8 bounds adaptive low-RAM searches, deep-reads own page and keeps checkpoint', async () => {
+  const originalHome = process.env.GARIMPO_JOB_STORAGE_DIR
   const home = await mkdtemp(join(tmpdir(), 'realtalent-g6-'))
-  process.env.HOME = home
+  process.env.GARIMPO_JOB_STORAGE_DIR = home
   const website = 'https://fainerbarber.example.org/'
   const deepUrl = 'https://fainerbarber.example.org/servicos'
   const input = { organizationId: 'aaaaaaaa-0000-4000-8000-000000000001',
@@ -216,8 +216,9 @@ test('G6 runs two targeted searches on low RAM, deep-reads own page and keeps ch
       },
       generate: async () => { throw new Error('Ollama offline for test: literal evidence should remain') },
     })
-    const expected = buildResearchPlan(input)
-    assert.ok(expected.queries.slice(0, 2).every((q) => queries.includes(q)))
+    assert.ok(result.adaptiveResearch.queriesExecuted <= 4)
+    assert.ok(queries.every((query) => query.includes('Fainer') || query.includes('fainer')))
+    assert.ok(queries.length > 0)
     assert.ok(scrapes.includes(deepUrl), 'G6 reads relevant own-site page')
     assert.ok(!scrapes.some((url) => url.includes('evil.example.com')))
     assert.equal(result.researchPlan.segment, 'beleza')
@@ -229,8 +230,8 @@ test('G6 runs two targeted searches on low RAM, deep-reads own page and keeps ch
     assert.ok(journal.researchPlan)
     assert.ok(journal.commercialBrief)
   } finally {
-    if (originalHome === undefined) delete process.env.HOME
-    else process.env.HOME = originalHome
+    if (originalHome === undefined) delete process.env.GARIMPO_JOB_STORAGE_DIR
+    else process.env.GARIMPO_JOB_STORAGE_DIR = originalHome
     await rm(home, { recursive: true, force: true })
   }
 })

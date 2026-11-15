@@ -1,6 +1,7 @@
 import { expect, test } from 'vitest'
 import { spawnSync } from 'node:child_process'
-import { mkdtempSync, rmSync, writeFileSync } from 'node:fs'
+import { mkdtempSync, rmSync, writeFileSync, readFileSync } from 'node:fs'
+import { createHash } from 'node:crypto'
 import os from 'node:os'
 import path from 'node:path'
 import { buildGarimpoLinuxCommand, buildGarimpoLinuxInstaller } from './local-connector-installer'
@@ -18,7 +19,9 @@ test('Linux: gera instalador único com credencial embutida e pacote SHA256 fixa
   const installer = buildGarimpoLinuxInstaller(config)
   expect(installer.startsWith('#!/usr/bin/env bash\n')).toBe(true)
   expect(installer).toContain('exec bash "$CONNECTOR/CONFIGURAR-LINUX.sh" "$CONFIG"')
-  expect(installer).toContain('b83b561e17e3324ed906aa9304ea4a2247a1b752ca31f6da0adda693a40ecef1')
+  const archive = readFileSync(new URL('../../public/downloads/Garimpo-Local.zip', import.meta.url))
+  expect(installer).toContain(createHash('sha256').update(archive).digest('hex'))
+  expect(installer).toMatch(/raw\.githubusercontent\.com\/CAMBRUSSIJJ\/CRM-RealTalent\/[a-f0-9]{40}\/public\/downloads\/Garimpo-Local\.zip/)
   expect(installer).toContain('sha256sum --check --status')
   expect(installer).toContain('chmod 600 -- "$CONFIG.new"')
   expect(installer).toContain('ARCHIVE_URL="https://raw.githubusercontent.com')

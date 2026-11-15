@@ -208,10 +208,11 @@ export function crawl4aiContent(response) {
   }
   return ''
 }
-export async function readDeepPage({ url, callFirecrawl, crawl4aiUrl, fetcher, signal }) {
+export async function readDeepPage({ url, callFirecrawl, crawl4aiUrl, fetcher, signal, onProviderResult = () => {} }) {
   if (crawl4aiUrl) {
     const endpoint = crawl4aiEndpoint(crawl4aiUrl)
     if (endpoint) {
+      let succeeded = false
       try {
         const response = await fetcher(endpoint, {
           method: 'POST', redirect: 'error',
@@ -226,10 +227,12 @@ export async function readDeepPage({ url, callFirecrawl, crawl4aiUrl, fetcher, s
         })
         if (response.ok) {
           const content = crawl4aiContent(await response.json())
-          if (content) return { url, title: 'Página pública da empresa', markdown: content, reader: 'crawl4ai' }
+          if (content) { succeeded = true; return { url, title: 'Página pública da empresa', markdown: content, reader: 'crawl4ai' } }
         }
       } catch (error) {
         if (signal.aborted) throw error
+      } finally {
+        onProviderResult('Crawl4AI', succeeded)
       }
     }
   }

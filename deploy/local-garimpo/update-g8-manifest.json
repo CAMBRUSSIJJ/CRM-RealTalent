@@ -1,0 +1,83 @@
+{
+  "version": "G8",
+  "aiVersion": "7.0.168",
+  "files": [
+    {
+      "path": "deploy/local-garimpo/bridge.mjs",
+      "allowedBefore": [
+        "2615a88ac74999b07cc155d3ae67724e89a0bb26bdc4e0c2dc09f775052adfba",
+        "c6ce35361a0d89f28837dc1a3da5f3f583f083a870e77756d310a0974085ae3f"
+      ],
+      "after": "2615a88ac74999b07cc155d3ae67724e89a0bb26bdc4e0c2dc09f775052adfba"
+    },
+    {
+      "path": "deploy/local-garimpo/hardware-profile.mjs",
+      "allowedBefore": [
+        "f456d2b8dfb628571f96fb925936796301e40a7f29b960d1dfee4e0d11601cf4"
+      ],
+      "after": "f456d2b8dfb628571f96fb925936796301e40a7f29b960d1dfee4e0d11601cf4"
+    },
+    {
+      "path": "deploy/local-garimpo/staged-research.mjs",
+      "allowedBefore": [
+        "f664a8139f766be514b178351bff23520bd48662e8ce5f90854cce5121d02bba",
+        null
+      ],
+      "after": "d631bc30e81fcbba51b5885ad4276a191ae3e4b0c656486421e30835c46e104a"
+    },
+    {
+      "path": "deploy/local-garimpo/research-g6.mjs",
+      "allowedBefore": [
+        "f036dfa6d4e264328d450fba6947c4483ea1334711c5890360d9aa78d96745e7",
+        null
+      ],
+      "after": "1d7cf2b29bbf7aa6113c3caf14569f909c25a893c879187d417a6df007a2a363"
+    },
+    {
+      "path": "deploy/local-garimpo/lead-intelligence-g7.mjs",
+      "allowedBefore": [
+        "b81a770fd008af36d16ba603c4bd2c5fc88d7384216ac5c124d8e08628efb872",
+        null
+      ],
+      "after": "b81a770fd008af36d16ba603c4bd2c5fc88d7384216ac5c124d8e08628efb872"
+    },
+    {
+      "path": "deploy/local-garimpo/multichannel-g7.mjs",
+      "allowedBefore": [
+        "ee6a63008b5c3dc0786808f33d77f7e6dc7b1ef57c5486038f2174cd50bac4fe",
+        null
+      ],
+      "after": "ee6a63008b5c3dc0786808f33d77f7e6dc7b1ef57c5486038f2174cd50bac4fe"
+    },
+    {
+      "path": "deploy/local-garimpo/intelligence-g8.mjs",
+      "allowedBefore": [
+        null
+      ],
+      "after": "7d079ab0e8edca507e213b3f98bd534addbff3644b89e59bb5afb851eb5afbb6"
+    },
+    {
+      "path": "deploy/local-garimpo/intelligence-g8-check.mjs",
+      "allowedBefore": [
+        null
+      ],
+      "after": "19fca306e477419288e88b357c732b5c07b2a0bc8f6a6a9874d5620b2a485a43"
+    },
+    {
+      "path": "supabase/functions/_shared/prospecting-ai.ts",
+      "allowedBefore": [
+        "94342be050a18268ce5f7c3eb92ca15dcf5b96e8b800af358bbcc27b20edd72f",
+        "3988404a79f8515309d82b11720bd157e1c0b080b60ba08caef22cb2e2e5a5e8"
+      ],
+      "after": "dcc9dbdb28cdcd1fd27b4092e89c975686602bd289269424385ccd79fe382599"
+    },
+    {
+      "path": "supabase/functions/_shared/firecrawl-research.ts",
+      "allowedBefore": [
+        "b9df8805d4cd084414b3a447cc4d33656f6b2c7a406b77da575d1ec976c53fff",
+        "2a187c8f26856834ba38a4c6ba8e2cc8b56deadd07e66f4f946c76a876b472f6"
+      ],
+      "after": "b9df8805d4cd084414b3a447cc4d33656f6b2c7a406b77da575d1ec976c53fff"
+    }
+  ]
+}

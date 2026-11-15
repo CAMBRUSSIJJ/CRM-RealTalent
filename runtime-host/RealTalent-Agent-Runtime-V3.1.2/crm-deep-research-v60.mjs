@@ -1,5 +1,6 @@
 import {searchResearchSources} from './crm-script-research-v52.mjs'
 import {readPublicPageV60,validResearchUrlV60} from './crm-web-reader-v60.mjs'
+import {ollamaContextBudget,fitOllamaJsonMessages} from './crm-ollama-budget-v61.mjs'
 
 const normalize=s=>String(s||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase()
 const tokens=s=>[...new Set(normalize(s).match(/[\p{L}\p{N}]{4,}/gu)||[])].filter(x=>!/^(?:sobre|como|qual|quais|para|essa|esse|fazer|busque|pesquise|aplique|roteiro|script|scripts|vendas)$/.test(x))
@@ -63,17 +64,13 @@ export async function deepResearchV60({question,document='',history='',model,oll
       excerpt:checked?read.text.slice(0,460):source.excerpt.slice(0,300),
       reading:checked?'page':'snippet',readText:checked?read.text.slice(0,5000):''}
   })
-  const used=sources.map(({id,title,url,excerpt,reading,readText})=>({
-    id,title,url,excerpt,reading,content:readText||excerpt
+  const used=sources.map(({id,title,excerpt,reading,readText})=>({
+    id,title,reading,content:readText||excerpt
   }))
-  const controller=new AbortController(),timeout=setTimeout(()=>controller.abort(),60000)
+  const budget=ollamaContextBudget(2200)
+  let controller,timeout
   try{
-    const response=await fetcher(ollamaUrl+'/api/chat',{
-      method:'POST',headers:{'Content-Type':'application/json'},signal:controller.signal,
-      body:JSON.stringify({
-        model,stream:false,think:false,format:schema,
-        messages:[
-          {role:'system',content:[
+    const system=[
             'Você é o RealTalent Agent, pesquisador comercial e consultor de serviços em português brasileiro.',
             'Você TEM acesso a resultados de buscas e à leitura do corpo das páginas marcadas reading=page.',
             'Resultados reading=snippet não foram lidos integralmente: nunca afirme que viu vídeo, transcrição ou artigo inteiro.',
@@ -85,18 +82,30 @@ export async function deepResearchV60({question,document='',history='',model,oll
             'Se o pedido for criar/adaptar um roteiro com base nas fontes, gere adaptedBody original, mesmo sem documento ativo. Se for apenas análise, adaptedBody vazio.',
             'Se evidências forem fracas, declare incerteza e use quality=partial ou insufficient.',
             'Não execute ações no CRM. Responda apenas JSON.',
-          ].join(' ')},
-          {role:'user',content:JSON.stringify({
-            question,history:limited(history,2700),activeDocument:limited(document,5000),
-            sources:used
-          })}
-        ],options:{temperature:0.25,num_predict:2200,num_ctx:8192}
+    ].join(' ')
+    const messages=fitOllamaJsonMessages({system,budget,
+      input:{question,history:limited(history,2700),activeDocument:limited(document,5000),sources:used},
+      trimGroups:[
+        [{path:['history']},{path:['activeDocument'],minLength:280}],
+        used.map((source,index)=>({path:['sources',index,'content'],minLength:80})),
+      ],
+    })
+    if(!messages)throw Error('context_budget_exceeded')
+    controller=new AbortController()
+    timeout=setTimeout(()=>controller.abort(),60000)
+    const response=await fetcher(ollamaUrl+'/api/chat',{
+      method:'POST',headers:{'Content-Type':'application/json'},signal:controller.signal,
+      body:JSON.stringify({
+        model,stream:false,think:false,format:schema,messages,
+        options:{temperature:0.25,num_predict:budget.numPredict,num_ctx:budget.numCtx}
       })
     })
     if(!response.ok)throw new Error('ollama_http_'+response.status)
     const raw=await response.json()
     const result=JSON.parse(String(raw.message?.content||'{}'))
-    if(typeof result.answer!=='string'||!result.answer.trim())throw new Error('empty_analysis')
+    if(typeof result.answer!=='string'||!result.answer.trim()||
+      typeof result.adaptedBody!=='string'||!['sufficient','partial','insufficient'].includes(result.quality))
+      throw new Error('invalid_analysis')
     const allowed=new Set(sources.map(x=>String(x.id)))
     let answer=result.answer.slice(0,9400).replace(/\[(\d+)\]/g,(full,id)=>allowed.has(id)?full:'[fonte não verificada]')
     if(!/\[\d+\]/.test(answer)){
@@ -106,12 +115,16 @@ export async function deepResearchV60({question,document='',history='',model,oll
     return {ok:true,answer,adaptedBody,quality:result.quality||'partial',
       sources:sources.map(({id,title,url,excerpt,reading})=>({id,title,url,excerpt,reading})),
       evidence:{readPages:readResults.filter(r=>r?.ok).length,snippetOnly:sources.length-readResults.filter(r=>r?.ok).length,queries:queries.length}}
-  }catch{
+  }catch(error){
     const readable=sources.filter(x=>x.reading==='page')
     const intro=readable.length
       ? 'Encontrei '+sources.length+' resultados e consegui ler '+readable.length+' página(s), mas o Qwen não concluiu a análise. Não vou inventar conclusões.'
       : 'Encontrei resultados de busca, mas não consegui ler páginas completas nem concluir uma análise fundamentada.'
     return {ok:true,answer:intro,sources:sources.map(({id,title,url,excerpt,reading})=>({id,title,url,excerpt,reading})),
-      quality:'insufficient',adaptedBody:'',evidence:{readPages:readable.length,snippetOnly:sources.length-readable.length,queries:queries.length}}
+      quality:'insufficient',adaptedBody:'',
+      errorCode:error?.name==='AbortError'?'model_timeout':error?.message==='context_budget_exceeded'?'context_budget_exceeded':
+        error?.message==='invalid_analysis'||error instanceof SyntaxError?'invalid_analysis':'model_unavailable',
+      evidence:{readPages:readable.length,snippetOnly:sources.length-readable.length,queries:queries.length}}
   }finally{clearTimeout(timeout)}
 }
+

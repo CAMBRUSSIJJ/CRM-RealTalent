@@ -1,7 +1,7 @@
 // A private, one-time Linux installer is generated only after workspace admin authentication.
 // The connector package itself is public and pinned by commit and archive SHA256.
-const sourceCommit = '991bf142a74a61a722aa7265ca96c56c939f3acf'
-const archiveSha256 = 'b83b561e17e3324ed906aa9304ea4a2247a1b752ca31f6da0adda693a40ecef1'
+const sourceCommit = 'd7502297106af57a77bccc09302a5af84e6fd4b1'
+const archiveSha256 = 'd46a5cc3acc76aff235c5fe4ca042ca8603f34ddbf58bf0d4fbcfeed1135d15f'
 
 export function buildGarimpoLinuxInstaller(environment: string): string {
   if (!/^GARIMPO_CONNECTOR_TOKEN=[a-f0-9]{64}$/m.test(environment) || !/^GARIMPO_WORKSPACE_ID=[a-f0-9-]{36}$/im.test(environment)) {

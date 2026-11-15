@@ -35,6 +35,24 @@ export function validResearchUrlV60(raw){
     return url
   }catch{return null}
 }
+// Normalize only a company website supplied by the user. Redirects and search
+// results still pass through the strict HTTPS validator above.
+export function normalizeCompanyWebsiteV60(raw){
+  if(typeof raw!=='string')return null
+  const value=raw.trim()
+  if(!value||value.length>1100||/[\u0000-\u001f\u007f\\]/.test(value))return null
+  let candidate=value
+  if(candidate.startsWith('//'))candidate='https:'+candidate
+  else if(!/^https?:\/\//i.test(candidate)){
+    if(/^[a-z][a-z\d+.-]*:/i.test(candidate))return null
+    candidate='https://'+candidate
+  }
+  try{
+    const url=new URL(candidate)
+    if(url.protocol==='http:')url.protocol='https:'
+    return validResearchUrlV60(url.href)
+  }catch{return null}
+}
 const decode=(text)=>text.replace(/&(?:amp|quot|apos|lt|gt|nbsp|#(\d+)|#x([0-9a-f]+));/gi,(full,d,h)=>{
   if(d||h){const cp=Number.parseInt(d||h,d?10:16);return cp>31&&cp<=0x10ffff?String.fromCodePoint(cp):' '}
   return {amp:'&',quot:'"',apos:"'",lt:'<',gt:'>',nbsp:' '}[full.slice(1,-1).toLowerCase()]||' '
@@ -43,11 +61,11 @@ export function extractReadableV60(html,limit=6500){
   if(typeof html!=='string')return {title:'',text:''}
   const title=decode((html.match(/<title[^>]*>([\s\S]*?)<\/title>/i)||[])[1]||'').replace(/<[^>]+>/g,'').trim().slice(0,160)
   let text=html.replace(/<!--[\s\S]*?-->/g,' ')
-    .replace(/<(script|style|noscript|svg|header|footer|nav|form|iframe)\b[^>]*>[\s\S]*?<\/\1\s*>/gi,' ')
-    .replace(/<br\b[^>]*>|<\/(?:p|div|li|section|article|h[1-6]|tr)>/gi,'\n')
+    .replace(/<(head|script|style|noscript|svg|nav|form|iframe)\b[^>]*>[\s\S]*?<\/\1\s*>/gi,' ')
+    .replace(/<br\b[^>]*>|<\/(?:p|div|li|section|article|header|footer|h[1-6]|tr)>/gi,'\n')
     .replace(/<[^>]+>/g,' ')
   text=decode(text).split('\n').map(x=>x.replace(/\s+/g,' ').trim())
-    .filter(x=>x.length>=18 && !/^(?:cookie settings|privacy policy|aceitar cookies)$/i.test(x))
+    .filter(x=>x && !/^(?:cookie settings|privacy policy|aceitar cookies)$/i.test(x))
     .join('\n').slice(0,limit)
   return {title,text}
 }
@@ -108,3 +126,4 @@ export async function readPublicPageV60(raw,{requestPage=pinnedHttpsV60,maxRedir
   }
   return {ok:false,error:'too_many_redirects'}
 }
+

@@ -28,9 +28,7 @@ export interface ProspectingBatchReceipt{
   activityWarnings:number
 }
 export function isProspectTransferable(prospect:ProspectRecord):boolean{
-  return prospect.status==='approved' &&
-    prospectDataQuality(prospect).readiness!=='blocked' &&
-    prospect.duplicateLevel!=='confirmed'
+  return prospectDataQuality(prospect).readyForTransfer
 }
 export function transferableProspectIds(prospects:ProspectRecord[]):string[]{
   return prospects.filter(isProspectTransferable).map(row=>row.id)

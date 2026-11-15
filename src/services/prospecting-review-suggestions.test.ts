@@ -16,7 +16,7 @@ const evidence = (values: Array<{ field: 'website' | 'phone' | 'email'; value: s
     phone: '', address: '', cnpj: '', email: '', instagram: '',
     bookingUrl: '', systemName: '', whatsappUrl: '',
     aiResearch: { evidence: values,
-      sources: [...new Set(values.map((v) => v.sourceUrl))].map((url) => ({ url, title: new URL(url).hostname })),
+      sources: [...new Set(values.map((v) => v.sourceUrl))].map((url) => ({ url, title: 'Fonte de teste' })),
       opportunity: '', suggestedApproach: '', missingFields: [], researchedAt: '2026-11-12T12:00:00Z',
       signals: [] },
   }],

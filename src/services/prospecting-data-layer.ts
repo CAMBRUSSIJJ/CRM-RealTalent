@@ -25,6 +25,12 @@ export interface ProspectQualityProfile {
   recommendedActions: string[]
   identityKey: string
   entity: ProspectEntityResolution
+  registrationSufficient: boolean
+  companyVerified: boolean
+  autoApprovable: boolean
+  readyForTransfer: boolean
+  approvalIssues: string[]
+  requiresApprovalConfirmation: boolean
 }
 
 export interface ProspectPipelineCounts {
@@ -70,11 +76,25 @@ const rawText = (prospect: ProspectRecord, ...keys: string[]) => {
 }
 const rawNumber = (prospect: ProspectRecord, ...keys: string[]) => {
   for (const key of keys) {
-    const value = Number(prospect.rawData?.[key])
+    const raw = prospect.rawData?.[key]
+    if (typeof raw !== 'number' && typeof raw !== 'string' || typeof raw === 'string' && !raw.trim()) continue
+    const value = Number(raw)
     if (Number.isFinite(value)) return value
   }
   return null
 }
+
+export function prospectGeoPoint(prospect: ProspectRecord) {
+  const lat = rawNumber(prospect, 'latitude', 'lat'), lon = rawNumber(prospect, 'longitude', 'lon', 'lng')
+  return lat !== null && lon !== null && Math.abs(lat) <= 90 && Math.abs(lon) <= 180 ? { lat, lon } : null
+}
+export const prospectPlaceType = (prospect: ProspectRecord) => rawText(prospect, 'placeType', 'place_type') || (prospectGeoPoint(prospect) ? 'physical_place' : 'service_business')
+export const prospectPlaceConfidence = (prospect: ProspectRecord) => clamp(rawNumber(prospect, 'placeConfidence') ?? (prospectGeoPoint(prospect) ? 100 : 55))
+export const prospectApprovalFingerprint = (prospect: ProspectRecord) => JSON.stringify([
+  prospectIdentityKey(prospect), prospect.company, prospect.name, prospect.city, prospect.address, prospectGeoPoint(prospect),
+  prospectPlaceType(prospect), prospectPlaceConfidence(prospect), prospect.duplicateLevel,
+  prospect.phone, prospect.email, prospect.website, prospect.instagram, Boolean(prospect.analyzedAt),
+])
 
 export function prospectIdentityKey(prospect: ProspectRecord) {
   const cnpj = cnpjDigits(prospect.cnpj)
@@ -191,8 +211,25 @@ export function prospectDataQuality(prospect: ProspectRecord): ProspectQualityPr
   if (!wasAnalyzed) recommendedActions.push('Executar Reanalisar para recalcular qualidade e duplicidade')
   if (!recommendedActions.length) recommendedActions.push('Revisar os sinais comerciais e aprovar para envio ao CRM')
 
-  const readiness: ProspectReadiness = blockers.length ? 'blocked' : (wasAnalyzed && hasCompany && hasContact ? 'ready' : 'review')
-  const label = readiness === 'ready' ? 'Pronto para aprovação' : readiness === 'blocked' ? 'Bloqueado para envio' : 'Revisão necessária'
+  const registrationSufficient = hasCompany && hasContact
+  const companyVerified = entity.status === 'confirmed' && Boolean(prospectGeoPoint(prospect)) && prospectPlaceConfidence(prospect) >= 65
+    && !['content', 'directory', 'web_document', 'unknown'].includes(prospectPlaceType(prospect))
+  const approvalIssues = [
+    !registrationSufficient && 'Cadastro ainda incompleto',
+    !wasAnalyzed && 'Análise cadastral ainda pendente',
+    entity.status !== 'confirmed' && 'Identidade empresarial ainda não confirmada',
+    !prospectGeoPoint(prospect) && 'Coordenadas não confirmadas no território',
+    prospectPlaceConfidence(prospect) < 65 && 'Confiança territorial inferior a 65%',
+    ['content', 'directory', 'web_document', 'unknown'].includes(prospectPlaceType(prospect)) && 'Tipo de estabelecimento não confirmado',
+    prospect.duplicateLevel === 'possible' && 'Possível duplicidade precisa de revisão',
+  ].filter((issue): issue is string => Boolean(issue))
+  const autoApprovable = !blockers.length && wasAnalyzed && registrationSufficient && companyVerified && prospect.duplicateLevel === 'none'
+  const approval = prospect.rawData.garimpoApproval as { version?: string; fingerprint?: string; issues?: string[]; reviewerId?: string } | undefined
+  const acknowledged = approval?.version === 'G8' && Boolean(approval.reviewerId)
+    && approval.fingerprint === prospectApprovalFingerprint(prospect) && JSON.stringify(approval.issues) === JSON.stringify(approvalIssues)
+  const readyForTransfer = prospect.status === 'approved' && !blockers.length && (autoApprovable || acknowledged)
+  const readiness: ProspectReadiness = blockers.length ? 'blocked' : autoApprovable || readyForTransfer ? 'ready' : 'review'
+  const label = readyForTransfer ? 'Pronta para transferência' : readiness === 'ready' ? 'Pronta para aprovação' : readiness === 'blocked' ? 'Bloqueada para envio' : 'Revisão necessária'
 
   return {
     score,
@@ -205,7 +242,24 @@ export function prospectDataQuality(prospect: ProspectRecord): ProspectQualityPr
     recommendedActions: Array.from(new Set(recommendedActions)),
     identityKey: entity.identityKey,
     entity,
+    registrationSufficient, companyVerified, autoApprovable, readyForTransfer, approvalIssues,
+    requiresApprovalConfirmation: !blockers.length && approvalIssues.length > 0 && !acknowledged,
   }
+}
+
+export const prospectIsReady = (prospect: ProspectRecord) => prospectDataQuality(prospect).readiness === 'ready'
+export const prospectAttentionReasons = (prospect: ProspectRecord) => {
+  const quality = prospectDataQuality(prospect)
+  return [...new Set([...quality.blockers, ...quality.approvalIssues])].slice(0, 4)
+}
+export function recordProspectApproval(prospect: ProspectRecord, reviewerId: string, acknowledgeIssues = false): ProspectRecord {
+  const quality = prospectDataQuality(prospect)
+  if (!reviewerId || quality.blockers.length) throw new Error('Corrija identidade, contato e duplicidades antes de aprovar.')
+  if (quality.requiresApprovalConfirmation && !acknowledgeIssues) throw new Error('Confirme as ressalvas antes de aprovar esta empresa.')
+  const reviewedAt = new Date().toISOString()
+  return { ...prospect, status: 'approved', updatedAt: reviewedAt, rawData: { ...prospect.rawData,
+    garimpoApproval: { version: 'G8', reviewerId, reviewedAt, issues: quality.approvalIssues, fingerprint: prospectApprovalFingerprint(prospect) },
+  } }
 }
 
 export function sortProspectsForGuidedReview(prospects: ProspectRecord[]) {

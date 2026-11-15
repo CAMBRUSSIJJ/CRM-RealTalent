@@ -12,7 +12,7 @@ const record=(patch:Partial<ProspectRecord>={}):ProspectRecord=>({
   duplicateLevel:'none',duplicateLeadId:null,duplicateReasons:[],notes:'',
   rawData:{placeType:'physical_place',latitude:-32.04,longitude:-52.1},
   createdAt:'2026-10-29T10:00:00Z',updatedAt:'2026-10-29T10:00:00Z',
-  analyzedAt:null,sentAt:null,...patch
+  analyzedAt:'2026-10-29T10:00:00Z',sentAt:null,...patch
 })
 describe('R1: evidence-backed Garimpo -> CRM handoff',()=>{
   it('selects approved and eligible records only',()=>{

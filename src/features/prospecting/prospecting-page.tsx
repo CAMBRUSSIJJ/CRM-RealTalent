@@ -30,6 +30,7 @@ import {
 } from '../../services/prospecting-provider-gateway'
 import {
   buildProspectingDataLayerEnvelope, prospectDataQuality, prospectReadinessCounts, sortProspectsForGuidedReview,
+  prospectGeoPoint, prospectPlaceType, prospectPlaceConfidence, prospectIsReady, prospectAttentionReasons, recordProspectApproval, prospectApprovalFingerprint,
   type ProspectReadiness,
 } from '../../services/prospecting-data-layer'
 import { runProspectingSearchAutomation, type ProspectingSearchAutomationProgress } from '../../services/prospecting-search-automation'
@@ -46,6 +47,7 @@ import { requireExportApproval } from '../../services/team-governance'
 import { buildProspectingIcp, prospectingIcpSummary, rankProspects } from '../../services/prospecting-intelligence'
 import { ProspectingRedesignSearch, ProspectingRedesignShell } from './prospecting-redesign'
 import { ProspectingG1G2Panel } from './prospecting-g1g2-panel'
+import { ProspectingResearchSummary } from './prospecting-research-summary'
 import type { GarimpoSearchProposal } from './garimpo-conversation-g3'
 import {buildProspectingHandoffMetrics,isProspectTransferable,transferableProspectIds,
   linkedCrmLeadId,linkedCrmCompanyId,summarizeHandoffReceipt,type ProspectingBatchReceipt,type ProspectingHandoffReceipt
@@ -76,39 +78,12 @@ const crmDigits = (value: string) => value.replace(/\D/g, '')
 const crmDomain = (value: string) => value.trim().replace(/^https?:\/\//i, '').replace(/^www\./i, '').split(/[/?#]/)[0].toLocaleLowerCase('pt-BR')
 const rawText = (record: Record<string, unknown>, ...keys: string[]) => { for (const key of keys) { const value = record[key]; if (typeof value === 'string' && value.trim()) return value.trim() } return '' }
 const rawNumber = (record: Record<string, unknown>, ...keys: string[]) => { for (const key of keys) { const value = Number(record[key]); if (Number.isFinite(value)) return value } return null }
-const prospectGeoPoint = (prospect: ProspectRecord): ProspectingGeoPoint | null => { const lat = rawNumber(prospect.rawData, 'latitude', 'lat'); const lon = rawNumber(prospect.rawData, 'longitude', 'lon', 'lng'); return lat !== null && lon !== null ? { lat, lon } : null }
-const prospectPlaceType = (prospect: ProspectRecord) => rawText(prospect.rawData, 'placeType') || (prospectGeoPoint(prospect) ? 'physical_place' : 'service_business')
-const prospectPlaceConfidence = (prospect: ProspectRecord) => Math.max(0, Math.min(100, rawNumber(prospect.rawData, 'placeConfidence') ?? (prospectGeoPoint(prospect) ? 100 : 55)))
 const prospectOriginLabel = (prospect: ProspectRecord) => {
   const provider = rawText(prospect.rawData, 'provider').toLocaleLowerCase('pt-BR')
   if (provider.includes('openstreetmap') || provider.startsWith('osm') || rawText(prospect.rawData, 'osmId')) return 'OpenStreetMap'
   if (provider.startsWith('web')) return 'Web pública'
   if (prospect.source === 'extension') return 'RT Capture Browser'
   return prospectSourceLabels[prospect.source]
-}
-
-const prospectIsAutoValidatable = (prospect: ProspectRecord) => {
-  const quality = prospectDataQuality(prospect)
-  const placeType = prospectPlaceType(prospect)
-  return quality.readiness === 'ready'
-    && prospect.duplicateLevel === 'none'
-    && prospectPlaceConfidence(prospect) >= 65
-    && Boolean(prospectGeoPoint(prospect))
-    && !['content', 'directory', 'web_document', 'unknown'].includes(placeType)
-}
-
-const prospectAttentionReasons = (prospect: ProspectRecord) => {
-  const quality = prospectDataQuality(prospect)
-  const reasons: string[] = []
-  const placeType = prospectPlaceType(prospect)
-  if (['content', 'directory', 'web_document', 'unknown'].includes(placeType)) reasons.push('Confirmar se é uma empresa/local real')
-  if (!prospectGeoPoint(prospect)) reasons.push('Coordenadas não confirmadas no território')
-  if (prospectPlaceConfidence(prospect) < 65) reasons.push('Baixa confiança territorial')
-  if (prospect.duplicateLevel === 'possible') reasons.push('Possível duplicidade')
-  if (prospect.duplicateLevel === 'confirmed') reasons.push('Duplicidade confirmada')
-  if (!prospect.phone && !prospect.email && !prospect.website) reasons.push('Sem contato utilizável')
-  for (const blocker of quality.blockers) if (!reasons.includes(blocker)) reasons.push(blocker)
-  return reasons.slice(0, 4)
 }
 
 interface SendOptions {
@@ -673,7 +648,7 @@ export function ProspectingPage() {
   const readinessCounts = useMemo(() => prospectReadinessCounts(state.prospects.filter((item) => item.status !== 'discarded' && item.status !== 'sent')), [state.prospects])
   const metrics = useMemo(() => {
     const active = state.prospects.filter((item) => item.status !== 'discarded' && item.status !== 'sent')
-    const autoValidatable = active.filter(prospectIsAutoValidatable).length
+    const autoValidatable = active.filter(prospectIsReady).length
     return {
       total: state.prospects.length,
       review: state.prospects.filter((item) => item.status === 'new' || item.status === 'analyzing' || item.status === 'review').length,
@@ -738,10 +713,10 @@ export function ProspectingPage() {
   const reviewFiltered = useMemo(() => filtered.filter((item) => {
     if (reviewScope === 'all') return true
     if (item.status === 'discarded' || item.status === 'sent') return false
-    return reviewScope === 'ready' ? prospectIsAutoValidatable(item) : !prospectIsAutoValidatable(item)
+    return reviewScope === 'ready' ? prospectIsReady(item) : !prospectIsReady(item)
   }), [filtered, reviewScope])
   const processingQueue = useMemo(() => sortProspectsForGuidedReview(state.prospects.filter((item) => ['new', 'analyzing', 'review', 'approved'].includes(item.status))), [state.prospects])
-  const guidedQueue = useMemo(() => processingQueue.filter((item) => reviewScope === 'all' ? true : reviewScope === 'ready' ? prospectIsAutoValidatable(item) : !prospectIsAutoValidatable(item)), [processingQueue, reviewScope])
+  const guidedQueue = useMemo(() => processingQueue.filter((item) => reviewScope === 'all' ? true : reviewScope === 'ready' ? prospectIsReady(item) : !prospectIsReady(item)), [processingQueue, reviewScope])
   const activeProspect = guidedQueue.find((item) => item.id === processingId) ?? guidedQueue[0] ?? null
 
   useEffect(() => {
@@ -908,11 +883,12 @@ export function ProspectingPage() {
   }
 
   const setStatus = (ids: string[], status: ProspectStatus) => {
+    if (status === 'approved') { void approveProspects(ids); return }
     const idSet = new Set(ids); const now = new Date().toISOString()
     commit((current) => {
       const prospects = current.prospects.map((item) => idSet.has(item.id) ? { ...item, status, updatedAt: now } : item)
-      const action = status === 'approved' ? 'approve' : status === 'discarded' ? 'discard' : 'analyze'
-      return appendHistory({ ...current, prospects }, workspaceId, { action, title: status === 'approved' ? 'Empresas aprovadas' : status === 'discarded' ? 'Empresas descartadas' : 'Status atualizado', description: `${ids.length} registro(s) alterado(s).`, count: ids.length })
+      const action = status === 'discarded' ? 'discard' : 'analyze'
+      return appendHistory({ ...current, prospects }, workspaceId, { action, title: status === 'discarded' ? 'Empresas descartadas' : 'Status atualizado', description: `${ids.length} registro(s) alterado(s).`, count: ids.length })
     })
     setSelectedIds(new Set())
   }
@@ -934,12 +910,29 @@ export function ProspectingPage() {
     }
   }
 
-  const approveProspects = (ids: string[]) => {
-    const prospects = state.prospects.filter((item) => ids.includes(item.id))
-    const blocked = prospects.filter((item) => prospectDataQuality(item).readiness === 'blocked')
-    const approvable = prospects.filter((item) => prospectDataQuality(item).readiness !== 'blocked').map((item) => item.id)
-    if (blocked.length) notify('warning', `${blocked.length} registro(s) precisam corrigir identidade, contato ou duplicidade antes da aprovação.`)
-    if (approvable.length) setStatus(approvable, 'approved')
+  const approveProspects = async (ids: string[]) => {
+    if (!canWrite || !user?.id) return
+    const selected = state.prospects.filter((item) => ids.includes(item.id) && !['sent', 'discarded'].includes(item.status))
+    const approvable = selected.filter((item) => !prospectDataQuality(item).blockers.length)
+    if (selected.length !== approvable.length) notify('warning', `${selected.length - approvable.length} registro(s) precisam corrigir identidade, contato ou duplicidade.`)
+    if (!approvable.length) return
+    const exceptions = approvable.filter((item) => prospectDataQuality(item).requiresApprovalConfirmation)
+    if (exceptions.length && !await confirmAction({ title: `Aprovar ${exceptions.length} empresa(s) com ressalvas?`,
+      description: exceptions.map((item) => `${item.company}: ${prospectDataQuality(item).approvalIssues.join('; ')}`).join('\n') + '\nA decisão e as ressalvas serão registradas junto à empresa.',
+      confirmLabel: 'Confirmar aprovação com ressalvas', tone: 'danger' })) return
+    const fingerprints = new Map(approvable.map((item) => [item.id, prospectApprovalFingerprint(item)]))
+    commit((current) => {
+      let count = 0
+      const prospects = current.prospects.map((item) => {
+        if (fingerprints.get(item.id) !== prospectApprovalFingerprint(item)) return item
+        if (prospectDataQuality(item).blockers.length) return item
+        count += 1
+        return recordProspectApproval(item, user.id, true)
+      })
+      return appendHistory({ ...current, prospects }, workspaceId, { action: 'approve', title: 'Empresas aprovadas',
+        description: `${count} empresa(s); ressalvas e responsável registrados.`, count })
+    })
+    setSelectedIds(new Set())
   }
 
   const retrySelectedEnrichment = async (ids: string[]) => {
@@ -1296,7 +1289,7 @@ export function ProspectingPage() {
             <Button disabled={!canProspectingEdit||!r1Handoff.transferable||sending} onClick={()=>openSend(transferableProspectIds(state.prospects))}>Enviar aprovadas ao CRM <ArrowRight size={15}/></Button>
           </div>
         </section>
-        <section className="panel prospecting-review-modebar-v101103-h7 prospecting-review-modebar-v101106"><div><span className="eyebrow"><ClipboardCheck size={14} /> Central de revisão</span><h3>Todos os resultados em um único lugar</h3><p>Empresas ficam na lista e na revisão guiada. Dados brutos, fontes filtradas e duplicidades ficam disponíveis para triagem, sem envio automático ao CRM.</p></div><div className="prospecting-review-modebar-v101106__actions"><div className="prospecting-review-scope-v101106">{([['exceptions', 'Precisa atenção', metrics.attention], ['ready', 'Prontas', metrics.autoValidatable], ['all', 'Todas', metrics.total]] as Array<[ReviewScope,string,number]>).map(([value,label,count]) => <button type="button" key={value} className={reviewScope === value ? 'is-active' : ''} onClick={() => { setReviewScope(value); setSelectedIds(new Set()) }}>{label}<span>{count}</span></button>)}</div><div className="prospecting-review-switch-v101103-h7"><button type="button" className={reviewMode === 'list' ? 'is-active' : ''} onClick={() => { setReviewMode('list'); setInspectorMode(null) }}><ClipboardList size={15}/> Lista</button><button type="button" className={reviewMode === 'guided' ? 'is-active' : ''} onClick={() => { setReviewMode('guided'); setInspectorMode(null) }}><Sparkles size={15}/> Guiada</button><button type="button" className={reviewMode === 'sources' ? 'is-active' : ''} onClick={() => { setReviewMode('sources'); setInspectorMode(null) }}><Globe2 size={15}/> Fontes brutas <span>{rawSourceReviewCount(agentJob)}</span></button></div></div></section>
+        <section className="panel prospecting-review-modebar-v101103-h7 prospecting-review-modebar-v101106"><div><span className="eyebrow"><ClipboardCheck size={14} /> Central de revisão</span><h3>Todos os resultados em um único lugar</h3><p>Empresas ficam na lista e na revisão guiada. Dados brutos, fontes filtradas e duplicidades ficam disponíveis para triagem, sem envio automático ao CRM.</p></div><div className="prospecting-review-modebar-v101106__actions"><div className="prospecting-review-scope-v101106">{([['exceptions', 'Precisa atenção', metrics.attention], ['ready', 'Prontas', metrics.autoValidatable], ['all', 'Todas', metrics.total]] as Array<[ReviewScope,string,number]>).map(([value,label,count]) => <button type="button" key={value} className={reviewScope === value ? 'is-active' : ''} onClick={() => { setReviewScope(value); setSelectedIds(new Set()) }}>{label}<span>{count}</span></button>)}</div><div className="prospecting-review-switch-v101103-h7"><button type="button" className={reviewMode === 'list' ? 'is-active' : ''} onClick={() => { setReviewMode('list'); setInspectorMode(null) }}><ClipboardList size={15}/> Lista</button><button type="button" className={reviewMode === 'guided' ? 'is-active' : ''} onClick={() => { setReviewMode('guided'); setInspectorMode(null) }}><Sparkles size={15}/> Guiada</button><button type="button" className={reviewMode === 'sources' ? 'is-active' : ''} onClick={() => { setReviewMode('sources'); setInspectorMode(null) }}><Globe2 size={15}/> Fontes da descoberta <span>{rawSourceReviewCount(agentJob)}</span></button></div></div></section>
         {inspectorMode && reviewMode === 'list' ? <ProspectingEvidenceExplorer
           job={agentJob} prospects={state.prospects} mode={inspectorMode}
           onMode={(next) => {
@@ -1377,11 +1370,11 @@ export function ProspectingPage() {
             })
             notify('success', 'Instagram confirmado e salvo. O Garimpo iniciará a leitura das publicações públicas.')
           }}
-          onEnriched={(result) => {
+          onEnriched={(result, researchOnly) => {
             if (!activeProspect) return
-            const updated = applyAiEnrichment(activeProspect, result, snapshot.leads)
+            const updated = applyAiEnrichment(activeProspect, result, snapshot.leads, researchOnly)
             updateProspect(activeProspect.id, updated)
-            notify('success', 'Dados encontrados pelo Firecrawl disponíveis para revisão. Campos já preenchidos foram preservados.')
+            notify('success', 'Investigação salva junto à empresa. Os dados disponíveis podem ser revisados nas evidências.')
           }}
           queue={guidedQueue} active={activeProspect} leads={snapshot.leads} snapshot={snapshot} onSelect={setProcessingId} onChange={updateProspect}
           onAnalyze={(id) => analyze([id])} onApprove={(id) => approveProspects([id])} onDiscard={(id) => setStatus([id], 'discarded')}
@@ -1639,8 +1632,8 @@ function LocalWorkspace({ prospects, job, onOpenReview }: { prospects: ProspectR
     const term = normalize(query)
     if (term && !normalize(`${prospect.company} ${prospect.city} ${prospect.address} ${prospect.phone} ${prospect.website}`).includes(term)) return false
     const quality = prospectDataQuality(prospect)
-    if (filter === 'ready' && !prospectIsAutoValidatable(prospect)) return false
-    if (filter === 'attention' && prospectIsAutoValidatable(prospect)) return false
+    if (filter === 'ready' && !prospectIsReady(prospect)) return false
+    if (filter === 'attention' && prospectIsReady(prospect)) return false
     if (filter === 'phone' && !prospect.phone) return false
     if (filter === 'no-phone' && prospect.phone) return false
     return prospect.status !== 'discarded'
@@ -1673,9 +1666,9 @@ function LocalWorkspace({ prospects, job, onOpenReview }: { prospects: ProspectR
     <section className="prospecting-local-workspace-v101104__split">
       {mapPane}
       <aside className="prospecting-local-workspace-v101104__list">
-        {selected ? <article className="prospecting-local-detail-v101104"><header><div><span className="eyebrow"><MapPinned size={13}/> Local selecionado</span><h3>{selected.company}</h3><p>{selected.address || selected.city || 'Endereço em validação'}</p></div><StatusPill tone={prospectIsAutoValidatable(selected) ? 'success' : 'warning'}>{prospectIsAutoValidatable(selected) ? 'Pronta' : 'Precisa atenção'}</StatusPill></header><div className="prospecting-local-detail-v101104__facts"><span><Phone size={14}/>{selected.phone || 'Sem telefone'}</span><span><Globe2 size={14}/>{selected.website || 'Sem website'}</span><span><ShieldCheck size={14}/>Local {prospectPlaceConfidence(selected)}%</span></div><Button onClick={() => onOpenReview(selected.id)}><ClipboardCheck size={15}/> Revisar empresa</Button></article> : null}
+        {selected ? <article className="prospecting-local-detail-v101104"><header><div><span className="eyebrow"><MapPinned size={13}/> Local selecionado</span><h3>{selected.company}</h3><p>{selected.address || selected.city || 'Endereço em validação'}</p></div><StatusPill tone={prospectIsReady(selected) ? 'success' : 'warning'}>{prospectIsReady(selected) ? 'Pronta' : 'Precisa atenção'}</StatusPill></header><div className="prospecting-local-detail-v101104__facts"><span><Phone size={14}/>{selected.phone || 'Sem telefone'}</span><span><Globe2 size={14}/>{selected.website || 'Sem website'}</span><span><ShieldCheck size={14}/>Local {prospectPlaceConfidence(selected)}%</span></div><Button onClick={() => onOpenReview(selected.id)}><ClipboardCheck size={15}/> Revisar empresa</Button></article> : null}
         <header><div><strong>{visibleProspects.length} empresa(s)</strong><small>{located.length} com coordenadas confirmadas · clique em um card para localizar quando disponível.</small></div></header>
-        <div>{visibleProspects.slice(0, 160).map((prospect) => { const quality = prospectDataQuality(prospect); const hasPoint = Boolean(prospectGeoPoint(prospect)); const ready = prospectIsAutoValidatable(prospect); return <button type="button" key={prospect.id} className={prospect.id === selectedId ? 'is-active' : ''} onClick={() => setSelectedId(prospect.id)}><span className={`prospecting-local-workspace-v101104__status ${ready ? 'is-ready' : quality.readiness === 'blocked' ? 'is-blocked' : 'is-review'}`}/><div><strong>{prospect.company}</strong><small>{prospect.address || prospect.city || (hasPoint ? 'Localização confirmada por coordenadas' : 'Local validado sem coordenadas')}</small><em>{prospect.phone || prospect.website || 'Sem contato confirmado'}</em></div><span>{quality.score}%</span></button> })}</div>
+        <div>{visibleProspects.slice(0, 160).map((prospect) => { const quality = prospectDataQuality(prospect); const hasPoint = Boolean(prospectGeoPoint(prospect)); const ready = prospectIsReady(prospect); return <button type="button" key={prospect.id} className={prospect.id === selectedId ? 'is-active' : ''} onClick={() => setSelectedId(prospect.id)}><span className={`prospecting-local-workspace-v101104__status ${ready ? 'is-ready' : quality.readiness === 'blocked' ? 'is-blocked' : 'is-review'}`}/><div><strong>{prospect.company}</strong><small>{prospect.address || prospect.city || (hasPoint ? 'Localização confirmada por coordenadas' : 'Local validado sem coordenadas')}</small><em>{prospect.phone || prospect.website || 'Sem contato confirmado'}</em></div><span>{quality.score}%</span></button> })}</div>
       </aside>
     </section>
   </div>
@@ -1887,7 +1880,7 @@ function EngineProcessingWorkspace({ job, busy, onRefresh, onRetry, onOpenReview
 }
 
 function ProcessingWorkspace({ readOnly, queue, active, leads, snapshot, onSelect, onChange, onAnalyze, onApprove, onDiscard, onSend, onAnalyzeAll, workspaceId, onEnriched, onConfirmInstagram }: {
-  workspaceId: string; onEnriched(result: AiSearchResult): void; onConfirmInstagram(profileUrl: string): void
+  workspaceId: string; onEnriched(result: AiSearchResult, researchOnly?: boolean): void; onConfirmInstagram(profileUrl: string): void
   readOnly: boolean; queue: ProspectRecord[]; active: ProspectRecord | null; leads: Array<{ id: string; name: string; company: string }>; snapshot: import('../../domain/types').WorkspaceSnapshot; onSelect(id: string): void
   onChange(id: string, patch: Partial<ProspectRecord>): void; onAnalyze(id: string): void; onApprove(id: string): void; onDiscard(id: string): void; onSend(id: string): void; onAnalyzeAll(): void
 }) {
@@ -1911,13 +1904,13 @@ function ProcessingWorkspace({ readOnly, queue, active, leads, snapshot, onSelec
   const checks = prospectCompleteness(active)
   const quality = prospectDataQuality(active)
   const attentionReasons = prospectAttentionReasons(active)
-  const autoValidatable = prospectIsAutoValidatable(active)
+  const autoValidatable = prospectIsReady(active)
   const sourceAudit = savedCrossSourceReview(active)
   const confirmedByIndependentSources = (field: string) => Boolean(sourceAudit?.fields.some((row) => row.field === field && row.status === 'confirmed'))
   const identityConfirmed = confirmedByIndependentSources('company')
   const locationConfirmed = Boolean(prospectGeoPoint(active)) && confirmedByIndependentSources('address')
   const contactConfirmed = ['phone','email','website'].some(confirmedByIndependentSources)
-  const readyWithEvidence = autoValidatable && identityConfirmed && locationConfirmed && contactConfirmed
+  const readyWithEvidence = quality.companyVerified
   return <div className="prospecting-processing-layout prospecting-processing-layout-v101106 crm-prospecting-layout">
     <aside className="panel prospecting-queue">
       <header><div><span className="eyebrow">Fila de análise</span><strong>{queue.length} empresa(s)</strong></div>{!readOnly ? <button type="button" className="icon-button" onClick={onAnalyzeAll} title="Analisar todos"><Sparkles size={16} /></button> : null}</header>
@@ -1927,6 +1920,7 @@ function ProcessingWorkspace({ readOnly, queue, active, leads, snapshot, onSelec
     <div className="crm-prospecting-review-shell" key={active.id}>
     <section className="panel prospecting-review-card crm-prospecting-review-shell__editor" key={'editor-' + active.id}>
       <header className="prospecting-review-header"><div><span className="eyebrow"><ClipboardCheck size={14} /> {autoValidatable ? 'Revisão dos dados disponíveis' : 'Revisão de exceção'}</span><h3>{active.company}</h3><p>{autoValidatable ? 'O cadastro possui dados suficientes para análise. Confira as fontes antes de aprovar.' : 'Veja primeiro o que precisa da sua decisão; os detalhes técnicos ficam recolhidos.'}</p></div><div><StatusPill tone={autoValidatable ? 'success' : 'warning'}>{autoValidatable ? 'Pronta para revisão' : 'Precisa atenção'}</StatusPill><span className="prospecting-counter">{index + 1} de {queue.length}</span></div></header>
+      <ProspectingResearchSummary prospect={active} />
       <section className="prospecting-review-edit-v101106 crm-prospecting-review-form-panel" key={active.id}>
         <header className="crm-prospecting-review-form-panel__header"><div><h4>Revisão de dados</h4><p>Confira e corrija os dados cadastrados antes da aprovação.</p></div></header>
         <div className="prospecting-review-form">
@@ -1965,7 +1959,7 @@ function ProcessingWorkspace({ readOnly, queue, active, leads, snapshot, onSelec
         {attentionReasons.length > 2 ? <details><summary>Ver todos os pontos ({attentionReasons.length})</summary>
           <ul>{attentionReasons.map((reason) => <li key={reason}>{reason}</li>)}</ul></details> : null}
       </div></section> : null}
-      {!readOnly ? <footer className="prospecting-review-actions prospecting-review-actions-v101106"><div><Button variant="ghost" onClick={() => onDiscard(active.id)}><Ban size={16} /> Descartar</Button><Button variant="secondary" onClick={() => onAnalyze(active.id)}><RefreshCw size={16} /> Reanalisar</Button></div><div><Button variant="secondary" disabled={quality.readiness === 'blocked'} title={quality.readiness === 'blocked' ? quality.blockers.join(' · ') : 'Aprovar registro revisado'} onClick={() => onApprove(active.id)}><Check size={16} /> Aprovar</Button><Button disabled={active.status !== 'approved' || quality.readiness === 'blocked'} title={active.status !== 'approved' ? 'Aprove o registro antes do envio' : quality.blockers.join(' · ')} onClick={() => onSend(active.id)}><Send size={16} /> Enviar ao CRM</Button></div><small className="prospecting-review-shortcuts-v101104">Atalhos: A aprovar · D descartar · ← → navegar</small></footer> : null}
+      {!readOnly ? <footer className="prospecting-review-actions prospecting-review-actions-v101106"><div><Button variant="ghost" onClick={() => onDiscard(active.id)}><Ban size={16} /> Descartar</Button><Button variant="secondary" onClick={() => onAnalyze(active.id)}><RefreshCw size={16} /> Reanalisar</Button></div><div><Button variant="secondary" disabled={quality.readiness === 'blocked'} title={quality.readiness === 'blocked' ? quality.blockers.join(' · ') : 'Aprovar registro revisado'} onClick={() => onApprove(active.id)}><Check size={16} /> Aprovar</Button><Button disabled={!quality.readyForTransfer} title={active.status !== 'approved' ? 'Aprove o registro antes do envio' : quality.blockers.join(' · ')} onClick={() => onSend(active.id)}><Send size={16} /> Enviar ao CRM</Button></div><small className="prospecting-review-shortcuts-v101104">Atalhos: A aprovar · D descartar · ← → navegar</small></footer> : null}
     </section>
 
     <aside className="prospecting-analysis-sidebar prospecting-analysis-sidebar-v101106 crm-prospecting-review-shell__insights">
@@ -2042,10 +2036,10 @@ function ResultsWorkspace({ readOnly, prospects, selectedIds, search, statusFilt
   const [filtersOpen, setFiltersOpen] = useState(false)
   const activeFilterCount = (statusFilter !== 'all' ? 1 : 0) + (sourceFilter !== 'all' ? 1 : 0) + (qualityFilter !== 'all' ? 1 : 0) + (duplicateFilter !== 'all' ? 1 : 0)
   const clearFilters = () => { onStatusFilter('all'); onSourceFilter('all'); onQualityFilter('all'); onDuplicateFilter('all') }
-  const readyCount = prospects.filter(prospectIsAutoValidatable).length
+  const readyCount = prospects.filter(prospectIsReady).length
   const blockedCount = prospects.filter((item) => prospectDataQuality(item).readiness === 'blocked').length
   const duplicateCount = prospects.filter((item) => item.duplicateLevel !== 'none').length
-  const smartEligible = selectableProspects.filter(prospectIsAutoValidatable)
+  const smartEligible = selectableProspects.filter((item) => item.status !== 'approved' && prospectDataQuality(item).autoApprovable)
   const universalProspectingFilters: WorkspaceFilterField[] = [
     { key: 'status', label: 'Status', value: statusFilter, allValue: 'all', allLabel: 'Todos os status', group: 'Empresa', options: Object.entries(prospectStatusLabels).map(([value, label]) => ({ value, label })) },
     { key: 'source', label: 'Origem', value: sourceFilter, allValue: 'all', allLabel: 'Todas as origens', group: 'Origem', options: Object.entries(prospectSourceLabels).map(([value, label]) => ({ value, label })) },

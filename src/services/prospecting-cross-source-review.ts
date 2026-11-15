@@ -1,4 +1,5 @@
-import { aiFields } from '../../supabase/functions/_shared/prospecting-ai'
+import { getDomain } from 'tldts'
+import { aiFields, parseAiResearch } from '../../supabase/functions/_shared/prospecting-ai'
 import type { AiField, AiLead, AiSearchResult, AiTriggerSignal } from '../../supabase/functions/_shared/prospecting-ai'
 import type { ProspectRecord } from './prospecting-workspace'
 
@@ -50,11 +51,7 @@ const urlHost = (value: string) => {
 const publisher = (url: string) => {
   const host = urlHost(url)
   if (!host) return ''
-  const parts = host.split('.')
-  if (parts.length <= 2) return host
-  const suffix = parts.slice(-2).join('.')
-  return ['com.br', 'net.br', 'org.br', 'gov.br', 'edu.br', 'co.uk'].includes(suffix)
-    ? parts.slice(-3).join('.') : parts.slice(-2).join('.')
+  return getDomain(host, { allowPrivateDomains: false }) || host
 }
 const identityValue = (field: AiField, value: string) => {
   if (field === 'cnpj' || field === 'phone') {
@@ -191,6 +188,7 @@ export const confirmedEnrichmentResult = (prospect: ProspectRecord, result: AiSe
 export function savedCrossSourceReview(prospect: ProspectRecord): CrossSourceReview | null {
   const candidate = prospect.rawData.aiResearch as Record<string, unknown> | undefined
   if (!candidate || !Array.isArray(candidate.evidence) || !Array.isArray(candidate.sources)) return null
+  try { parseAiResearch(candidate) } catch { return null }
   const lead: AiLead = {
     company: prospect.company, city: prospect.city, address: prospect.address,
     phone: prospect.phone, email: prospect.email, cnpj: prospect.cnpj,

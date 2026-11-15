@@ -6,9 +6,9 @@ import { join } from 'node:path'
 import { stageJournal, stagedLocalResearch, classifyStageError, companySources, sourceBackedFallback, extractFactBatches, instagramProfilesInText, instagramProfileUrl, identifyInstagramProfile, postLinkedToProfile, matchingBusinessLinkHub, publicInstagramPostLinks, instagramPageAccess, readPublicInstagram } from './staged-research.mjs'
 
 test('separates collection phases, retains verified company if model fails and resumes from checkpoint', async () => {
-  const originalHome = process.env.HOME
+  const originalHome = process.env.GARIMPO_JOB_STORAGE_DIR
   const home = await mkdtemp(join(tmpdir(), 'realtalent-stage-test-'))
-  process.env.HOME = home
+  process.env.GARIMPO_JOB_STORAGE_DIR = home
   const jobId = 'aaaaaaaa-0000-4000-8000-000000000123'
   const input = {
     organizationId: 'aaaaaaaa-0000-4000-8000-000000000001', segment: 'Fainer Barber',
@@ -48,8 +48,8 @@ test('separates collection phases, retains verified company if model fails and r
     assert.equal(rerun.leads[0].company, 'Fainer Barber')
     assert.equal(calls.length, before, 'resume must not repeat completed web requests')
   } finally {
-    if (originalHome === undefined) delete process.env.HOME
-    else process.env.HOME = originalHome
+    if (originalHome === undefined) delete process.env.GARIMPO_JOB_STORAGE_DIR
+    else process.env.GARIMPO_JOB_STORAGE_DIR = originalHome
     await rm(home, { recursive: true, force: true })
   }
 })
@@ -118,9 +118,9 @@ test('extracts from small sequential source batches, preserving earlier evidence
 
 
 test('persists a verifiable contact before Ollama and marks a failed model stage as partial', async () => {
-  const originalHome = process.env.HOME
+  const originalHome = process.env.GARIMPO_JOB_STORAGE_DIR
   const home = await mkdtemp(join(tmpdir(), 'realtalent-early-facts-'))
-  process.env.HOME = home
+  process.env.GARIMPO_JOB_STORAGE_DIR = home
   const jobId = 'aaaaaaaa-0000-4000-8000-000000000321'
   const input = {
     organizationId: 'aaaaaaaa-0000-4000-8000-000000000001',
@@ -157,8 +157,8 @@ test('persists a verifiable contact before Ollama and marks a failed model stage
     assert.equal(result.stages.at(-1).phaseStatus, 'completed')
     assert.equal(result.warnings.some((warning) => warning.includes('secret worker machine')), false)
   } finally {
-    if (originalHome === undefined) delete process.env.HOME
-    else process.env.HOME = originalHome
+    if (originalHome === undefined) delete process.env.GARIMPO_JOB_STORAGE_DIR
+    else process.env.GARIMPO_JOB_STORAGE_DIR = originalHome
     await rm(home, { recursive: true, force: true })
   }
 })
@@ -204,9 +204,9 @@ test('does not attribute an unrelated post to company merely because the search 
 })
 
 test('Instagram is reported missing with no invented account or signals when searches fail', async () => {
-  const originalHome = process.env.HOME
+  const originalHome = process.env.GARIMPO_JOB_STORAGE_DIR
   const home = await mkdtemp(join(tmpdir(), 'realtalent-instagram-missing-'))
-  process.env.HOME = home
+  process.env.GARIMPO_JOB_STORAGE_DIR = home
   try {
     const input = {
       organizationId: 'aaaaaaaa-0000-4000-8000-000000000001',
@@ -229,8 +229,8 @@ test('Instagram is reported missing with no invented account or signals when sea
     assert.equal(result.leads[0].instagram, '')
     assert.equal(result.leads[0].aiResearch.signals.length, 0)
   } finally {
-    if (originalHome === undefined) delete process.env.HOME
-    else process.env.HOME = originalHome
+    if (originalHome === undefined) delete process.env.GARIMPO_JOB_STORAGE_DIR
+    else process.env.GARIMPO_JOB_STORAGE_DIR = originalHome
     await rm(home, { recursive: true, force: true })
   }
 })
@@ -262,9 +262,9 @@ test('Linktree discovery remains a candidate, never an automatically confirmed I
 
 
 test('finds a candidate profile through Linktree and attributes only readable posts to its account', async () => {
-  const originalHome = process.env.HOME
+  const originalHome = process.env.GARIMPO_JOB_STORAGE_DIR
   const home = await mkdtemp(join(tmpdir(), 'realtalent-linktree-research-'))
-  process.env.HOME = home
+  process.env.GARIMPO_JOB_STORAGE_DIR = home
   try {
     const site = 'https://kortar.com.br/barbearias/rio-grande/fainer-barber'
     const linktree = 'https://linktr.ee/fainerbarber'
@@ -334,8 +334,8 @@ test('finds a candidate profile through Linktree and attributes only readable po
     assert.equal(result.leads[0].company, 'Fainer Barber')
     assert.equal(result.leads[0].aiResearch.signals[0]?.sourceUrl, publication)
   } finally {
-    if (originalHome === undefined) delete process.env.HOME
-    else process.env.HOME = originalHome
+    if (originalHome === undefined) delete process.env.GARIMPO_JOB_STORAGE_DIR
+    else process.env.GARIMPO_JOB_STORAGE_DIR = originalHome
     await rm(home, { recursive: true, force: true })
   }
 })
@@ -402,9 +402,9 @@ test('indexed post links alone do not qualify as accessible content', async () =
 
 
 test('reviewer-provided Instagram is read directly even when Google returns no profile results', async () => {
-  const previousHome = process.env.HOME
+  const previousHome = process.env.GARIMPO_JOB_STORAGE_DIR
   const tempHome = await mkdtemp(join(tmpdir(), 'realtalent-confirmed-instagram-'))
-  process.env.HOME = tempHome
+  process.env.GARIMPO_JOB_STORAGE_DIR = tempHome
   const website = 'https://kortar.com.br/barbearias/rio-grande/fainer-barber'
   const profile = 'https://www.instagram.com/fainerbarber/'
   const post = 'https://www.instagram.com/p/A1B2C3D4/'
@@ -457,8 +457,8 @@ test('reviewer-provided Instagram is read directly even when Google returns no p
     assert.ok(result.instagramDiscovery.contentSummary.includes('agendamento'))
     assert.equal(result.leads[0].company, 'Fainer Barber')
   } finally {
-    if (previousHome === undefined) delete process.env.HOME
-    else process.env.HOME = previousHome
+    if (previousHome === undefined) delete process.env.GARIMPO_JOB_STORAGE_DIR
+    else process.env.GARIMPO_JOB_STORAGE_DIR = previousHome
     await rm(tempHome, { recursive: true, force: true })
   }
 })

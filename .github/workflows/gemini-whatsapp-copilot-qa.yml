@@ -21,4 +21,5 @@ jobs:
           node-version: '22'
       - run: node --check scripts/communications-gemini-copilot.mjs
       - run: node --check scripts/realtalent-communications-gateway.mjs
-      - run: node --test scripts/communications-gemini-copilot.test.mjs
+      - run: node --check api/communications-gemini.mjs
+      - run: node --test scripts/communications-gemini-copilot.test.mjs scripts/communications-gemini-api.test.mjs

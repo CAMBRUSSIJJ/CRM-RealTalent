@@ -315,7 +315,7 @@ export function WhatsAppChatPanel({ lead, externalIdentity, workspaceId, events,
     {workToolbar ? <div className="whatsapp-chat__work-layer">{workToolbar}</div> : null}
 
     {!externalIdentity?.isGroup ? <section className="whatsapp-gemini-copilot" aria-label="Copiloto comercial Gemini supervisionado">
-      <header className="whatsapp-gemini-copilot__header"><Sparkles size={16}/><strong>Copiloto Gemini</strong><small>Resposta supervisionada · sem envio automático</small></header>
+      <details className="whatsapp-gemini-copilot__details"><summary className="whatsapp-gemini-copilot__header"><Sparkles size={16}/><strong>Copiloto Gemini</strong><small>Resposta supervisionada · sem envio automático</small></summary>
       <label className="whatsapp-gemini-copilot__consent"><input type="checkbox" checked={copilotConsent} disabled={readOnly || blocked} onChange={event => setCopilotConsent(event.target.checked)}/><span>Autorizo compartilhar até 15 mensagens recentes desta conversa com a API do Google Gemini para obter sugestões. Não inclui mídias; avalie a privacidade do cliente antes de ativar.</span></label>
       <div className="whatsapp-gemini-copilot__actions">
         <Button size="sm" variant="secondary" disabled={!copilotConsent || readOnly || blocked || !account || !messages.length || Boolean(copilotBusy)} loading={copilotBusy === 'reply'} onClick={() => void runCopilot('reply')}>Sugerir resposta</Button>
@@ -334,6 +334,7 @@ export function WhatsAppChatPanel({ lead, externalIdentity, workspaceId, events,
         {copilotResult.mode === 'reply' ? <p><strong>Resposta inserida no editor.</strong> Revise antes de clicar em Enviar.</p> : null}
         <small>Modelo: {copilotResult.model} · Nenhuma mensagem enviada pela IA.</small>
       </div> : null}
+      </details>
     </section> : null}
 
     {accounts.length > 1 ? <div className="whatsapp-chat__accountbar whatsapp-chat__accountbar--compact"><div><MessageCircle size={15}/><span>WhatsApp</span></div><label><span>Enviar por</span><NativeSelectionSelect value={accountId} onChange={event => setAccountId(event.target.value)}>{accounts.map(item => <option key={item.id} value={item.id}>{connectedAccountLabel(item)}</option>)}</NativeSelectionSelect></label></div> : null}

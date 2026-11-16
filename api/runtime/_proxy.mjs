@@ -63,7 +63,7 @@ async function canManageQrWorkspace(req, userId, workspaceId) {
 // gateway records; a valid JWT from another workspace is not sufficient.
 const needsCommunicationWorkspaceMembership = (service, suffix) => service === 'communications'
   && ['/api/communications/events', '/api/communications/revision', '/api/integrations/accounts', '/api/communications/sync',
-    '/api/communications/send', '/api/communications/retry', '/api/communications/read',
+    '/api/communications/send', '/api/communications/retry', '/api/communications/read', '/api/communications/copilot',
     '/api/integrations/whatsapp/qr/contacts', '/api/integrations/whatsapp/qr/groups',
     '/api/integrations/whatsapp/qr/groups/info']
     .includes(new URL(suffix, 'https://runtime.local').pathname)

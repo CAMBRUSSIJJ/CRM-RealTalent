@@ -1,0 +1,25 @@
+name: Gemini WhatsApp Copilot QA
+on:
+  push:
+    branches:
+      - feat/gemini-whatsapp-copilot-supervised-20261116
+  pull_request:
+    paths:
+      - 'scripts/communications-gemini-copilot*'
+      - 'scripts/realtalent-communications-gateway.mjs'
+      - 'src/features/communications/whatsapp-chat-panel.tsx'
+      - 'api/runtime/_proxy.mjs'
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: '22'
+      - run: node --check scripts/communications-gemini-copilot.mjs
+      - run: node --check scripts/realtalent-communications-gateway.mjs
+      - run: node --check api/communications-gemini.mjs
+      - run: node --test scripts/communications-gemini-copilot.test.mjs scripts/communications-gemini-api.test.mjs

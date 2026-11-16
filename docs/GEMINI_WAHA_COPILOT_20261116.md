@@ -1,0 +1,36 @@
+# RealTalent CRM — Copiloto Gemini supervisionado para WhatsApp
+
+## Escopo entregue
+- O chat existente permanece o único responsável pelo envio de mensagens, independentemente de seu transporte WAHA ou QR.
+- No chat individual, **Sugerir resposta** e **Analisar conversa** consultam o Gemini após consentimento explícito no próprio painel.
+- Respostas aparecem primeiro no painel. Somente após clicar em **Usar no editor** o rascunho é preenchido; **nunca são enviadas automaticamente**.
+- Somente até 15 mensagens textuais recentes (650 caracteres por mensagem) são transmitidas ao Google após confirmação. Mídias e tokens não são enviados.
+- No Linux, o backend é o Communications Gateway existente, autenticado pela credencial do runtime. Na Vercel, a API serverless valida Supabase Auth e a associação ao workspace antes de chamar Gemini.
+- Sem criar novo QR nem segunda sessão WAHA, sem n8n, sem alterar histórico, contatos ou pipeline automaticamente.
+
+## Configuração obrigatória no servidor
+Na Vercel (Settings > Environment Variables) para o CRM publicado, configure a variável **secreta**; no Linux, configure o mesmo segredo no Communications Gateway local:
+  GEMINI_API_KEY=<sua chave nova do Google AI Studio>
+Opcionalmente:
+  GEMINI_MODEL=gemini-3.5-flash-lite
+Não use \`VITE_GEMINI_API_KEY\`, não configure no navegador e não envie a chave para o GitHub.
+Após salvar a variável na Vercel, faça novo deployment de Preview para disponibilizá-la naquele ambiente. Para o gateway Linux, reinicie **apenas** o serviço de Comunicações. A versão Vercel valida a sessão Supabase e o vínculo ao workspace antes de enviar mensagens textuais ao Gemini.
+A função permanece desativada sem a variável; os recursos WhatsApp existentes não são alterados.
+
+## Validação
+1. Execute \`node --test scripts/communications-gemini-copilot.test.mjs\`.
+2. Abra Comunicações > WhatsApp no CRM com uma conversa individual autorizada.
+3. Marque a caixa de consentimento e clique em **Analisar conversa**.
+4. Confira resumo, possíveis necessidades e próximos passos, sem ações automáticas.
+5. Clique em **Sugerir resposta**. Depois de conferir a sugestão, clique em **Usar no editor**, revise e utilize o botão **Enviar** existente.
+6. Verifique que grupo, contato bloqueado e conversa sem mensagens não acionam a IA.
+7. Teste HTTP 503 / 429 da Gemini API: o chat e a fila WAHA devem permanecer intactos.
+
+## Limites conhecidos
+- Gemini funciona na nuvem, mas o WAHA/gateway hospedado localmente requer notebook ligado. Operação 24h depende de migrar os serviços para infraestrutura persistente.
+- O provedor escolhido foi gemini-3.5-flash-lite, confirmado pelo usuário em 16/11/2026; disponibilidade e preço devem ser conferidos no projeto Google AI Studio.
+- Não é mecanismo de disparo em massa nem um agente SDR autônomo.
+- A transferência de conversa ao Google depende da modalidade e das condições de dados da Gemini API. Avaliar LGPD, contrato e consentimento antes do uso com clientes reais.
+
+## Sobre WAHA
+A integração acrescenta IA ao **chat existente** e não substitui seu transporte. No código da branch auditada, o conector QR embarcado utiliza whatsapp-web-js; a sessão WAHA que existe no Linux é um serviço distinto e não foi modificada por este PR. A conexão WAHA → histórico do CRM deve ser verificada separadamente antes de afirmar que mensagens recebidas no WAHA aparecem nesse chat.

@@ -1,5 +1,5 @@
 import { NativeSelectionSelect } from '../../components/selection'
-import { AlertCircle, Check, CheckCheck, Clock3, FileText, Image as ImageIcon, Info, Mic, MessageCircle, Paperclip, Pause, Play, RefreshCw, Reply, RotateCcw, Send, ShieldCheck, Square, UsersRound, X } from 'lucide-react'
+import { AlertCircle, Check, CheckCheck, Clock3, FileText, Image as ImageIcon, Info, Mic, MessageCircle, Paperclip, Pause, Play, RefreshCw, Reply, RotateCcw, Send, ShieldCheck, Sparkles, Square, UsersRound, X } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { Button } from '../../components/ui/button'
 import { Modal } from '../../components/ui/modal'
@@ -9,9 +9,10 @@ import { connectedAccountLabel, loadCommunicationChannelState, type Conversation
 import type { ConnectedAccount } from '../../services/integration-framework'
 import type { RealtimeTransportState } from '../../platform/events/realtime-status'
 import { normalizeWhatsAppPhone, sendOfficialWhatsApp } from '../../services/whatsapp-workspace'
-import { loadGatewayWhatsAppGroupInfo, retryGatewayCommunication, type GatewayWhatsAppAttachmentInput, type GatewayWhatsAppGroupInfo } from '../../services/local-communications-gateway'
+import { loadGatewayWhatsAppGroupInfo, retryGatewayCommunication, requestGeminiCopilot, type GeminiCopilotMode, type GeminiCopilotResult, type GatewayWhatsAppAttachmentInput, type GatewayWhatsAppGroupInfo } from '../../services/local-communications-gateway'
 import { WhatsAppConnectionCenter } from './whatsapp-connection-center'
 import { acknowledgedInTimeline, statusAfterGatewayAck, type PendingSendState } from './whatsapp-send-feedback'
+import './whatsapp-gemini-copilot.css'
 import { formatVoiceTime, safeAudioSeconds } from './whatsapp-voice-time'
 
 const sameDay = (left: string, right: string) => {
@@ -88,6 +89,10 @@ export function WhatsAppChatPanel({ lead, externalIdentity, workspaceId, events,
   const [accountId, setAccountId] = useState('')
   const [loadingAccounts, setLoadingAccounts] = useState(false)
   const [body, setBody] = useState('')
+  const [copilotConsent, setCopilotConsent] = useState(false)
+  const [copilotBusy, setCopilotBusy] = useState<GeminiCopilotMode | null>(null)
+  const [copilotResult, setCopilotResult] = useState<GeminiCopilotResult | null>(null)
+  const [copilotError, setCopilotError] = useState('')
   const [sending, setSending] = useState(false)
   const [pendingMessages, setPendingMessages] = useState<PendingMessage[]>([])
   const [attachment, setAttachment] = useState<ComposerAttachment | null>(null)
@@ -112,6 +117,9 @@ export function WhatsAppChatPanel({ lead, externalIdentity, workspaceId, events,
   const identityName = lead?.name || externalIdentity?.name || 'WhatsApp'
   const identityCompany = lead?.company || externalIdentity?.company || (externalIdentity?.isGroup ? 'Grupo do WhatsApp' : 'Conversa do WhatsApp')
   const rawPhone = externalIdentity?.phone || lead?.phone || ''
+  const copilotKey = [workspaceId, accountId, externalIdentity?.threadId || lead?.id || rawPhone].join(':')
+  const copilotKeyRef = useRef(copilotKey)
+  copilotKeyRef.current = copilotKey
   const recipient = normalizeWhatsAppPhone(rawPhone, countryCode)
   const groupThreadId = externalIdentity?.isGroup && externalIdentity.threadId?.endsWith('@g.us') ? externalIdentity.threadId : ''
   const blocked = Boolean(lead?.doNotContact)
@@ -145,6 +153,7 @@ export function WhatsAppChatPanel({ lead, externalIdentity, workspaceId, events,
   }
 
   useEffect(() => { void loadAccounts() }, [workspaceId, preferredAccountId])
+  useEffect(() => { setCopilotConsent(false); setCopilotResult(null); setCopilotError(''); setCopilotBusy(null) }, [copilotKey])
   useEffect(() => { endRef.current?.scrollIntoView({ block: 'end' }) }, [displayMessages.length, lead?.id, externalIdentity?.phone])
   useEffect(() => { textareaRef.current?.focus() }, [lead?.id, externalIdentity?.phone, externalIdentity?.threadId])
   useEffect(() => {
@@ -250,6 +259,36 @@ export function WhatsAppChatPanel({ lead, externalIdentity, workspaceId, events,
     catch (error) { onError(error instanceof Error ? error.message : 'Não foi possível reenviar a mensagem.') }
   }
 
+  const runCopilot = async (mode: GeminiCopilotMode) => {
+    if (!copilotConsent || !account || blocked || readOnly || copilotBusy || externalIdentity?.isGroup) return
+    const history = messages
+      .filter(item => item.direction === 'inbound' || item.direction === 'outbound')
+      .map(item => ({
+        role: item.direction === 'inbound' ? 'customer' as const : 'agent' as const,
+        text: safeMessageText(item.body || item.subject || '').slice(0, 650),
+      }))
+      .filter(item => item.text && !/^\[(Imagem|Áudio|Documento|Mídia|Sticker|Vídeo)\]/i.test(item.text))
+      .slice(-15)
+    if (!history.length) { setCopilotError('Não há mensagens de texto nesta conversa para analisar.'); return }
+    const startedFor = copilotKey
+    setCopilotBusy(mode)
+    setCopilotError('')
+    setCopilotResult(null)
+    try {
+      const result = await requestGeminiCopilot({
+        workspaceId, accountId: account.id, company: identityCompany, isGroup: false,
+        mode, confirmedDataTransfer: true, messages: history,
+      })
+      if (copilotKeyRef.current !== startedFor) return
+      setCopilotResult(result)
+      // Deliberately do not overwrite a human draft. The reviewer decides when to insert text.
+    } catch (error) {
+      if (copilotKeyRef.current === startedFor) setCopilotError(error instanceof Error ? error.message : 'Não foi possível consultar o Gemini.')
+    } finally {
+      if (copilotKeyRef.current === startedFor) setCopilotBusy(null)
+    }
+  }
+
   const openIdentity = async () => {
     if (externalIdentity?.isGroup && groupThreadId) {
       setGroupInfoOpen(true)
@@ -271,6 +310,37 @@ export function WhatsAppChatPanel({ lead, externalIdentity, workspaceId, events,
       <div className="whatsapp-chat__header-actions whatsapp-chat__header-actions--pure"><button type="button" className={`whatsapp-chat__connection ${connected ? 'is-connected' : ''}`} onClick={() => setConnectionOpen(true)} disabled={loadingAccounts} title={connected ? 'WhatsApp conectado' : 'Conectar WhatsApp'}><i/>{connected ? 'Conectado' : 'Conectar'}</button><Button size="sm" variant="ghost" loading={syncing} onClick={onSync} aria-label="Sincronizar conversa" title="Sincronizar"><RefreshCw size={15}/></Button></div>
     </header>
     {workToolbar ? <div className="whatsapp-chat__work-layer">{workToolbar}</div> : null}
+
+    {!externalIdentity?.isGroup ? <section className="whatsapp-gemini-copilot" aria-label="Copiloto comercial Gemini supervisionado">
+      <details className="whatsapp-gemini-copilot__details"><summary className="whatsapp-gemini-copilot__header"><Sparkles size={16}/><strong>Copiloto Gemini</strong><small>Resposta supervisionada · sem envio automático</small></summary>
+      <label className="whatsapp-gemini-copilot__consent"><input type="checkbox" checked={copilotConsent} disabled={readOnly || blocked} onChange={event => setCopilotConsent(event.target.checked)}/><span>Autorizo compartilhar até 15 mensagens recentes desta conversa com a API do Google Gemini para obter sugestões. Não inclui mídias; avalie a privacidade do cliente antes de ativar.</span></label>
+      <div className="whatsapp-gemini-copilot__actions">
+        <Button size="sm" variant="secondary" disabled={!copilotConsent || readOnly || blocked || !account || !messages.length || Boolean(copilotBusy)} loading={copilotBusy === 'reply'} onClick={() => void runCopilot('reply')}>Sugerir resposta</Button>
+        <Button size="sm" variant="secondary" disabled={!copilotConsent || readOnly || blocked || !account || !messages.length || Boolean(copilotBusy)} loading={copilotBusy === 'analyze'} onClick={() => void runCopilot('analyze')}>Analisar conversa</Button>
+      </div>
+      {copilotError ? <p className="whatsapp-gemini-copilot__error" role="alert">{copilotError}</p> : null}
+      {copilotResult ? <div className="whatsapp-gemini-copilot__results" role="status">
+        {copilotResult.summary ? <p><strong>Resumo:</strong> {copilotResult.summary}</p> : null}
+        {([
+          ['Necessidades declaradas / hipóteses', copilotResult.needs],
+          ['Objeções identificadas', copilotResult.objections],
+          ['Oportunidades a validar', copilotResult.opportunities],
+          ['Próximos passos sugeridos', copilotResult.nextSteps],
+        ] as Array<[string,string[]]>).filter(([,items]) => items.length).map(([label,items]) =>
+          <div key={label}><strong>{label}</strong><p>{items.join(' · ')}</p></div>)}
+        {copilotResult.mode === 'reply' ? <>
+          <p><strong>Resposta sugerida:</strong> {copilotResult.suggestedReply}</p>
+          <Button size="sm" variant="secondary" disabled={readOnly || blocked || sending} onClick={() => {
+            if (body.trim() && !window.confirm('Substituir o rascunho atual pela sugestão da IA?')) return
+            setBody(copilotResult.suggestedReply)
+            textareaRef.current?.focus()
+          }}>Usar no editor</Button>
+          <small>Revise e clique no Enviar normal do WhatsApp somente quando estiver de acordo.</small>
+        </> : null}
+        <small>Modelo: {copilotResult.model} · Nenhuma mensagem enviada pela IA.</small>
+      </div> : null}
+      </details>
+    </section> : null}
 
     {accounts.length > 1 ? <div className="whatsapp-chat__accountbar whatsapp-chat__accountbar--compact"><div><MessageCircle size={15}/><span>WhatsApp</span></div><label><span>Enviar por</span><NativeSelectionSelect value={accountId} onChange={event => setAccountId(event.target.value)}>{accounts.map(item => <option key={item.id} value={item.id}>{connectedAccountLabel(item)}</option>)}</NativeSelectionSelect></label></div> : null}
 

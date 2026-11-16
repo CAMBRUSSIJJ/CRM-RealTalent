@@ -153,6 +153,49 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   return payload as T
 }
 
+export type GeminiCopilotMode = 'reply' | 'analyze'
+export interface GeminiCopilotResult {
+  ok: true
+  mode: GeminiCopilotMode
+  model: string
+  provider: 'gemini'
+  suggestedReply: string
+  summary: string
+  needs: string[]
+  objections: string[]
+  opportunities: string[]
+  nextSteps: string[]
+  requiresHuman: boolean
+  sent: false
+}
+export interface GeminiCopilotInput {
+  workspaceId: string
+  accountId: string
+  company: string
+  isGroup: boolean
+  mode: GeminiCopilotMode
+  confirmedDataTransfer: true
+  messages: Array<{ role: 'customer' | 'agent'; text: string }>
+}
+// Cloud builds use Vercel's authenticated serverless endpoint, so Gemini does not
+// require a Linux Ollama process. Local builds can use the Communications Gateway.
+export async function requestGeminiCopilot(input: GeminiCopilotInput): Promise<GeminiCopilotResult> {
+  const requestBody = JSON.stringify(input)
+  if (typeof window !== 'undefined' && !['localhost', '127.0.0.1'].includes(window.location.hostname)) {
+    const result = await runtimeFetch('/api/communications-gemini', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', accept: 'application/json' },
+      body: requestBody,
+    })
+    const payload = await result.json().catch(() => ({})) as Record<string, unknown>
+    if (!result.ok) throw new Error(typeof payload.error === 'string' ? payload.error : 'Gemini indisponível (HTTP ' + result.status + ').')
+    return payload as unknown as GeminiCopilotResult
+  }
+  return request<GeminiCopilotResult>('/api/communications/copilot', {
+    method: 'POST', body: requestBody,
+  })
+}
+
 export const loadCommunicationsGatewayHealth = () => request<CommunicationsGatewayHealth>('/api/communications/health')
 export const loadGatewayAccounts = (workspaceId: string) => request<{ accounts: ConnectedAccount[] }>(`/api/integrations/accounts?workspaceId=${encodeURIComponent(workspaceId)}`).then((result) => result.accounts)
 const currentReturnUrl = () => {

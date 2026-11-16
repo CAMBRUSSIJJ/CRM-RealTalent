@@ -11,6 +11,7 @@ import { createRealtimeBus } from './communications-realtime-bus.mjs'
 import { workspaceCommunicationsRevision, mayAutoRetryQueuedQrEvent } from './communications-live-revision.mjs'
 import { looksLikeEncodedMediaText } from './whatsapp-sync-utils.mjs'
 import { createLocalTaskWhatsAppScheduler } from './local-task-whatsapp-scheduler.mjs'
+import { generateGeminiCopilot } from './communications-gemini-copilot.mjs'
 
 const ROOT = path.resolve(path.dirname(new URL(import.meta.url).pathname), '..')
 const PORT = Number(process.env.REALTALENT_COMMUNICATIONS_PORT || 3002)
@@ -117,6 +118,7 @@ function mediaPayload(ref) { const file = mediaDiskPath(ref); if (!file || !fs.e
 function contentTypeFor(name) { const ext=path.extname(name).toLowerCase(); return ({'.png':'image/png','.jpg':'image/jpeg','.jpeg':'image/jpeg','.gif':'image/gif','.webp':'image/webp','.mp4':'video/mp4','.webm':'video/webm','.mp3':'audio/mpeg','.ogg':'audio/ogg','.opus':'audio/ogg','.wav':'audio/wav','.pdf':'application/pdf','.txt':'text/plain','.zip':'application/zip'}[ext]||'application/octet-stream') }
 const whatsappQr = createWhatsAppBrowserQrBridge({ root:ROOT, now, uuid, store, saveStore, upsertAccount, pushEvent, makeEvent, persistMedia })
 const sendLocks = new Map()
+const geminiCopilotRequests = new Set()
 let outboxDraining = false
 function idempotencyEvent(snapshot, input) {
   const key = String(input?.idempotencyKey || '').trim()
@@ -355,6 +357,24 @@ async function route(req,res){
     workspaceId:String(u.searchParams.get('workspaceId')||''),
     taskId:String(u.searchParams.get('taskId')||''),
   })})}
+  if(req.method==='POST'&&u.pathname==='/api/communications/copilot'){
+    const b=await body(req)
+    if(!accountById(s,String(b.workspaceId||''),String(b.accountId||''))) return json(res,403,{error:'Conta de comunicação não pertence a este workspace.'})
+    if(b.isGroup===true) return json(res,403,{error:'Copiloto para grupos ainda não habilitado.'})
+    const lockKey=String(b.workspaceId||'')+'|'+String(b.accountId||'')
+    if(geminiCopilotRequests.has(lockKey) || geminiCopilotRequests.size>=2) return json(res,429,{error:'Outra análise está em andamento. Aguarde o resultado.'})
+    geminiCopilotRequests.add(lockKey)
+    try{
+      const result=await generateGeminiCopilot(b,{
+        apiKey:process.env.GEMINI_API_KEY||'',
+        model:process.env.GEMINI_MODEL||'gemini-3.5-flash-lite',
+      })
+      return json(res,200,result)
+    }catch(error){
+      const status=[400,403,422,429,502,503].includes(Number(error?.statusCode))?Number(error.statusCode):502
+      return json(res,status,{error:error instanceof Error?error.message:'Não foi possível gerar a análise.'})
+    }finally{geminiCopilotRequests.delete(lockKey)}
+  }
   if(req.method==='GET'&&u.pathname==='/api/communications/health'){const google=providerConfig('google');const microsoft=providerConfig('microsoft');return json(res,200,{ok:true,mode:'local-gateway',version:VERSION,whatsappLiveFixRevision:WHATSAPP_LIVE_FIX_VERSION,whatsappSendReturnRevision:WHATSAPP_SEND_RETURN_REVISION,security:{runtimeAuth:Boolean(RUNTIME_TOKEN),hostValidation:true,originValidation:true,webhooksFailClosed:true},providers:{google:Boolean(google.clientId),microsoft:Boolean(microsoft.clientId),whatsapp:true,whatsappQr:true},syncIntervalMs:SYNC_INTERVAL_MS,realtime:{transport:'sse',...realtimeBus.stats()}})}
   if(req.method==='GET'&&u.pathname==='/api/integrations/accounts'){const workspaceId=u.searchParams.get('workspaceId')||'';const accounts=s.accounts.filter(a=>a.workspaceId===workspaceId&&a.status!=='revoked').map(a=>{const view=safeAccount(a);if(a.provider==='whatsapp_cloud'&&a.metadata?.transport==='qr'){const live=whatsappQr.status(a.workspaceId);view.metadata={...(view.metadata||{}),liveState:live.state,qrEngine:live.engine||a.metadata?.qrEngine};if(live.state==='connected'){view.status='connected';view.lastError=null}else if(['starting','disconnected','idle'].includes(live.state)){view.status='attention';view.lastError=live.lastError||a.lastError||'WhatsApp QR reconectando.'}else if(live.state==='qr'){view.status='attention';view.lastError='WhatsApp QR aguardando leitura do código.'}}return view});return json(res,200,{accounts})}
   if(req.method==='POST'&&u.pathname==='/api/integrations/oauth/start'){const b=await body(req); if(!['google','microsoft'].includes(b.provider))return json(res,400,{error:b.provider==='whatsapp_cloud'?'No modo Linux local, conecte o WhatsApp Business pela tela WhatsApp informando o token permanente e o Phone Number ID.':'Este provedor ainda exige o backend hospedado.'}); try{return json(res,200,{mode:'oauth',url:authUrl(b.provider,b.workspaceId,b.returnUrl),message:'OAuth real iniciado pelo gateway local.'})}catch(e){return json(res,400,{error:e.message})}}

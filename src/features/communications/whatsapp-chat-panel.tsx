@@ -281,10 +281,7 @@ export function WhatsAppChatPanel({ lead, externalIdentity, workspaceId, events,
       })
       if (copilotKeyRef.current !== startedFor) return
       setCopilotResult(result)
-      if (mode === 'reply') {
-        setBody(result.suggestedReply)
-        window.setTimeout(() => textareaRef.current?.focus(), 0)
-      }
+      // Deliberately do not overwrite a human draft. The reviewer decides when to insert text.
     } catch (error) {
       if (copilotKeyRef.current === startedFor) setCopilotError(error instanceof Error ? error.message : 'Não foi possível consultar o Gemini.')
     } finally {
@@ -331,7 +328,15 @@ export function WhatsAppChatPanel({ lead, externalIdentity, workspaceId, events,
           ['Próximos passos sugeridos', copilotResult.nextSteps],
         ] as Array<[string,string[]]>).filter(([,items]) => items.length).map(([label,items]) =>
           <div key={label}><strong>{label}</strong><p>{items.join(' · ')}</p></div>)}
-        {copilotResult.mode === 'reply' ? <p><strong>Resposta inserida no editor.</strong> Revise antes de clicar em Enviar.</p> : null}
+        {copilotResult.mode === 'reply' ? <>
+          <p><strong>Resposta sugerida:</strong> {copilotResult.suggestedReply}</p>
+          <Button size="sm" variant="secondary" disabled={readOnly || blocked || sending} onClick={() => {
+            if (body.trim() && !window.confirm('Substituir o rascunho atual pela sugestão da IA?')) return
+            setBody(copilotResult.suggestedReply)
+            textareaRef.current?.focus()
+          }}>Usar no editor</Button>
+          <small>Revise e clique no Enviar normal do WhatsApp somente quando estiver de acordo.</small>
+        </> : null}
         <small>Modelo: {copilotResult.model} · Nenhuma mensagem enviada pela IA.</small>
       </div> : null}
       </details>

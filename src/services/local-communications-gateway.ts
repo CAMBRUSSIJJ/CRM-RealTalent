@@ -153,6 +153,35 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   return payload as T
 }
 
+export type GeminiCopilotMode = 'reply' | 'analyze'
+export interface GeminiCopilotResult {
+  ok: true
+  mode: GeminiCopilotMode
+  model: string
+  provider: 'gemini'
+  suggestedReply: string
+  summary: string
+  needs: string[]
+  objections: string[]
+  opportunities: string[]
+  nextSteps: string[]
+  requiresHuman: boolean
+  sent: false
+}
+export interface GeminiCopilotInput {
+  workspaceId: string
+  accountId: string
+  company: string
+  isGroup: boolean
+  mode: GeminiCopilotMode
+  confirmedDataTransfer: true
+  messages: Array<{ role: 'customer' | 'agent'; text: string }>
+}
+export const requestGeminiCopilot = (input: GeminiCopilotInput) =>
+  request<GeminiCopilotResult>('/api/communications/copilot', {
+    method: 'POST', body: JSON.stringify(input),
+  })
+
 export const loadCommunicationsGatewayHealth = () => request<CommunicationsGatewayHealth>('/api/communications/health')
 export const loadGatewayAccounts = (workspaceId: string) => request<{ accounts: ConnectedAccount[] }>(`/api/integrations/accounts?workspaceId=${encodeURIComponent(workspaceId)}`).then((result) => result.accounts)
 const currentReturnUrl = () => {

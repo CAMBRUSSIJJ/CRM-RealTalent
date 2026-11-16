@@ -5,16 +5,16 @@
 - No chat individual, **Sugerir resposta** e **Analisar conversa** consultam o Gemini após consentimento explícito no próprio painel.
 - Respostas são inseridas no editor para revisão, mas **nunca enviadas automaticamente**.
 - Somente até 15 mensagens textuais recentes (650 caracteres por mensagem) são transmitidas ao Google após confirmação. Mídias e tokens não são enviados.
-- O backend é o Communications Gateway já existente, autenticado pelo proxy da Vercel e com a checagem de pertencimento ao workspace.
+- No Linux, o backend é o Communications Gateway existente, autenticado pela credencial do runtime. Na Vercel, a API serverless valida Supabase Auth e a associação ao workspace antes de chamar Gemini.
 - Sem criar novo QR nem segunda sessão WAHA, sem n8n, sem alterar histórico, contatos ou pipeline automaticamente.
 
 ## Configuração obrigatória no servidor
-No serviço do Communications Gateway (Railway ou Linux, conforme o ambiente usado), configure a variável secreta:
+Na Vercel (Settings > Environment Variables) para o CRM publicado, configure a variável **secreta**; no Linux, configure o mesmo segredo no Communications Gateway local:
   GEMINI_API_KEY=<sua chave nova do Google AI Studio>
 Opcionalmente:
   GEMINI_MODEL=gemini-3.5-flash-lite
 Não use \`VITE_GEMINI_API_KEY\`, não configure no navegador e não envie a chave para o GitHub.
-Reinicie **apenas** o Communications Gateway após salvar o segredo.
+Após salvar a variável na Vercel, faça novo deployment de Preview para disponibilizá-la naquele ambiente. Para o gateway Linux, reinicie **apenas** o serviço de Comunicações. A versão Vercel valida a sessão Supabase e o vínculo ao workspace antes de enviar mensagens textuais ao Gemini.
 A função permanece desativada sem a variável; os recursos WhatsApp existentes não são alterados.
 
 ## Validação

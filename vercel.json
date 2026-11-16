@@ -33,6 +33,10 @@
       "destination": "/api/runtime-prospecting?__rt_path=:path*"
     },
     {
+      "source": "/api/communications-gemini",
+      "destination": "/api/communications-gemini"
+    },
+    {
       "source": "/(.*)",
       "destination": "/index.html"
     }

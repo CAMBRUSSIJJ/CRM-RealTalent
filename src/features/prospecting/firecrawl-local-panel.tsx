@@ -123,13 +123,13 @@ export function FirecrawlLocalPanel({ workspaceId, readOnly, canConfigure, segme
 
   if (connectionOnly) return <div className="firecrawl-connection-integrated" aria-label="Conexão da pesquisa com Firecrawl e Ollama">
     <div className="firecrawl-connection-integrated__status">
-      <span><Sparkles size={15} /> Pesquisa web + IA local</span>
+      <span><Sparkles size={15} /> Pesquisa web · IA opcional</span>
       <StatusPill tone={online ? 'success' : 'warning'}>{online ? 'Linux conectado' : 'Linux desconectado'}</StatusPill>
       <Button variant="ghost" disabled={configuring} onClick={() => void refresh()}><RefreshCw size={14}/> Verificar</Button>
     </div>
     {connectionBlock}
     {error ? <p className="firecrawl-local-panel__error" role="alert">{error}</p> : null}
-    {online ? <small>Firecrawl coleta fontes; Ollama analisa os dados. Uma busca, sem outro formulário.</small> : null}
+    {online ? <small>Fontes públicas com Firecrawl; no modo Essencial, nenhuma chamada ao Ollama é necessária.</small> : null}
     {canConfigure && online ? <details><summary>Gerenciar conexão Linux</summary>
       <div className="firecrawl-local-panel__setup">
         <Button variant="secondary" disabled={configuring} onClick={() => void configure(false, 'command')}>Gerar novo comando</Button>

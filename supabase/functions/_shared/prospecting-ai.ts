@@ -37,6 +37,7 @@ export interface AiSearchInput {
   website?: string
   instagram?: string
   execution?: 'local' | 'server'
+  mode?: 'essential' | 'intelligent'
 }
 export interface AiResearchStage {
   stage: 'website' | 'web' | 'instagram' | 'facts' | 'signals' | 'business' | 'completed'
@@ -129,6 +130,7 @@ export interface AiSearchResult {
   instagramDiscovery?: AiInstagramDiscovery
   researchPlan?: AiG6ResearchPlan
   commercialBrief?: AiG6CommercialBrief
+  researchMode?: 'essential' | 'intelligent'
   leadIntelligence?: AiG7LeadIntelligence
 }
 export class ProspectingError extends Error {
@@ -150,6 +152,7 @@ export function parseAiSearchInput(value: unknown): AiSearchInput {
   if (!['maps', 'instagram', 'cnpj', 'extension', 'manual'].includes(source)) throw new ProspectingError('invalid_source')
   if (value.prospectId !== undefined && !uuid.test(text(value.prospectId))) throw new ProspectingError('invalid_prospect')
   if (value.execution !== undefined && !['local', 'server'].includes(text(value.execution))) throw new ProspectingError('invalid_execution')
+  if (value.mode !== undefined && !['essential', 'intelligent'].includes(text(value.mode))) throw new ProspectingError('invalid_mode')
   const website = value.website ? publicWebUrl(value.website) : ''
   if (value.website && (!website || !website.startsWith('https://'))) throw new ProspectingError('invalid_website')
   const instagram = text(value.instagram, 100)
@@ -159,7 +162,8 @@ export function parseAiSearchInput(value: unknown): AiSearchInput {
     ...(value.prospectId ? { prospectId: text(value.prospectId) } : {}),
     ...(website ? { website } : {}),
     ...(instagram ? { instagram } : {}),
-    ...(value.execution ? { execution: value.execution as 'local' | 'server' } : {}) }
+    ...(value.execution ? { execution: value.execution as 'local' | 'server' } : {}),
+    ...(value.mode ? { mode: value.mode as 'essential' | 'intelligent' } : {}) }
 }
 
 export function publicWebUrl(value: unknown): string {

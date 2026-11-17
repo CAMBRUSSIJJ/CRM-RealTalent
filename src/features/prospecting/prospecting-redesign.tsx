@@ -61,6 +61,7 @@ interface ProspectingRedesignSearchProps {
   city: string
   query: string
   quantity: number
+  engineMode: 'essential' | 'intelligent'
   categoryMode: ProspectingCategoryMode
   areaMode: ProspectingAreaMode
   radiusKm: number
@@ -84,6 +85,7 @@ interface ProspectingRedesignSearchProps {
   onQuery(value: string): void
   onCancelLocal(): void
   onQuantity(value: number): void
+  onEngineMode(value: 'essential' | 'intelligent'): void
   onCategoryMode(value: ProspectingCategoryMode): void
   onAreaMode(value: ProspectingAreaMode): void
   onRadiusKm(value: number): void
@@ -112,7 +114,7 @@ export function ProspectingRedesignSearch(props: ProspectingRedesignSearchProps)
   const progress = executionFinished ? 100 : Math.max(0, Math.min(99, Math.round((found / Math.max(1, target)) * 100)))
   const coverageLabel = coverage == null ? 'não medida' : `${Math.round(coverage)}%`
   const coverageFailed = Number(props.job?.coverage?.failedCells ?? 0) > 0
-  const currentActivity = props.localRunning ? 'Firecrawl pesquisando fontes e Ollama analisando as informações…'
+  const currentActivity = props.localRunning ? (props.engineMode === 'essential' ? 'Coletando informações públicas sem IA…' : 'Firecrawl coletando e IA analisando…')
     : props.job?.runtime?.phaseLabel || props.job?.message || props.localMessage || 'Pronto para iniciar uma nova busca.'
   // SearchSession canônica: durante uma execução, título, território, mapa e status leem o input imutável do job.
   const sessionSegment = props.job?.input.segment || props.segment
@@ -139,8 +141,8 @@ export function ProspectingRedesignSearch(props: ProspectingRedesignSearchProps)
         </div>
         <h2>{sessionSegment || 'Nova prospecção'} · {sessionCity || 'Defina a região'}</h2>
         <div className="prospecting-redesign-v4__progress-row"><div><span className={props.localRunning ? 'is-indeterminate' : ''} style={{ width: props.localRunning ? '100%' : `${progress}%` }}/></div><strong>{props.localRunning ? 'Em análise' : `${progress}%`}</strong></div>
-        <p>{props.job ? `${props.job.stats.queries} consultas · ${sourceLabel}` : 'Pesquisa integrada · Firecrawl + Ollama + cobertura territorial'}{semanticPlanner ? ` · plano IA ${semanticPlanner}` : ''}</p>
-        {props.localStatus !== 'idle' ? <p className="prospecting-redesign-v4__local-result" role="status">Web + IA local: {props.localRunning ? 'coletando e analisando…' : `${props.localFound} empresa(s) com evidências`}{props.localMessage && !props.localRunning ? ` · ${props.localMessage}` : ''}</p> : null}
+        <p>{props.job ? `${props.job.stats.queries} consultas · ${sourceLabel}` : 'Pesquisa integrada · Fontes públicas + cobertura territorial'}{semanticPlanner ? ` · plano IA ${semanticPlanner}` : ''}</p>
+        {props.localStatus !== 'idle' ? <p className="prospecting-redesign-v4__local-result" role="status">{props.engineMode === 'essential' ? 'Pesquisa sem IA' : 'Pesquisa com IA'}: {props.localRunning ? 'coletando fontes…' : `${props.localFound} empresa(s) com evidências`}{props.localMessage && !props.localRunning ? ` · ${props.localMessage}` : ''}</p> : null}
         <div className="prospecting-redesign-v4__now"><i/><span><strong>Agora:</strong> {currentActivity}{currentRegion ? ` · ${currentRegion}` : ''}</span></div>
         <div className="prospecting-redesign-v4__execution-metrics">
           <button type="button" onClick={() => props.onInspect('found')} title="Abrir empresas encontradas"><strong>{found}</strong><span>Encontradas agora</span></button>
@@ -167,6 +169,8 @@ export function ProspectingRedesignSearch(props: ProspectingRedesignSearchProps)
         <h2>Nova busca</h2>
         <label><span>O que você procura?</span><div className="prospecting-redesign-v4__input-wrap"><input id="prospecting-linux-segment" value={props.segment} onChange={(event) => props.onSegment(event.target.value)} placeholder="Ex.: Barbearias" disabled={!props.canEdit || searching}/>{props.segment ? <button type="button" aria-label="Limpar" onClick={() => props.onSegment('')}><X size={16}/></button> : null}</div></label>
         <label><span>Onde?</span><div className="prospecting-redesign-v4__input-wrap"><input id="prospecting-linux-regions" value={props.city} onChange={(event) => props.onCity(event.target.value)} placeholder="Ex.: Rio Grande, RS" disabled={!props.canEdit || searching}/>{props.city ? <button type="button" aria-label="Limpar" onClick={() => props.onCity('')}><X size={16}/></button> : null}</div></label>
+        <label><span>Modo de pesquisa</span><select aria-label="Modo de pesquisa do Garimpo" value={props.engineMode} onChange={(event) => props.onEngineMode(event.target.value as 'essential' | 'intelligent')} disabled={!props.canEdit || searching}><option value="essential">Essencial · sem IA</option><option value="intelligent">Inteligente · com IA (opcional)</option></select></label>
+        <p className="prospecting-redesign-v4__scope-detail">{props.engineMode === 'essential' ? 'Fontes públicas e extração verificável, sem uso de Ollama ou Gemini. Os resultados precisam de revisão.' : 'Analisa as fontes com o modelo configurado no conector. Sem modelo, conserva apenas a extração verificável.'}</p>
         <label><span>Critérios adicionais</span><textarea className="prospecting-redesign-v4__criteria" value={props.query} onChange={(event) => props.onQuery(event.target.value)} maxLength={1000} disabled={!props.canEdit || searching} placeholder="Ex.: Priorizar site próprio, telefone e link de agendamento verificáveis." /></label>
         <label><span>Área da busca</span><div className="prospecting-redesign-v4__readout"><MapPinned size={15}/>{areaLabel}</div></label>
         <div className={`prospecting-redesign-v4__scope-note ${props.categoryMode === 'exact' ? 'is-exact' : 'is-related'}`}><ShieldCheck size={16}/><span><strong>{props.categoryMode === 'exact' ? 'Alta precisão:' : 'Correspondência relacionada:'}</strong> {props.categoryMode === 'exact' ? `prioriza e valida ${props.segment || 'empresas do segmento'} dentro de ${props.city || 'sua região'}; listas, diretórios e locais fora do território são filtrados antes da revisão.` : 'inclui categorias comercialmente próximas para ampliar a cobertura.'}</span></div>
@@ -180,7 +184,7 @@ export function ProspectingRedesignSearch(props: ProspectingRedesignSearchProps)
           {props.areaMode === 'radius' ? <label><span>Raio</span><input type="number" min={1} max={100} value={props.radiusKm} onChange={(event) => props.onRadiusKm(Math.max(1, Number(event.target.value) || 1))} disabled={!props.canEdit || searching}/></label> : null}
           <div className="prospecting-redesign-v4__engine-status"><i className={props.agentHealth?.ok ? 'is-ok' : ''}/>{props.agentHealth?.ok ? `Serviço do Garimpo ativo · V${props.agentHealth.version}` : 'Serviço do Garimpo será verificado ao iniciar'}</div>
         </div> : null}
-        <button type="button" className="prospecting-redesign-v4__button is-primary is-start" disabled={!canStart} onClick={props.onStart}><Search size={16}/>{searching ? 'Busca em andamento' : props.agentBusy ? 'Iniciando…' : 'Iniciar busca integrada'}</button>
+        <button type="button" className="prospecting-redesign-v4__button is-primary is-start" disabled={!canStart} onClick={props.onStart}><Search size={16}/>{searching ? 'Busca em andamento' : props.agentBusy ? 'Iniciando…' : 'Buscar empresas'}</button>
       </section>
     </div>
 

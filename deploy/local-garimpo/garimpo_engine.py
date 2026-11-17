@@ -8,7 +8,6 @@ from __future__ import annotations
 
 import datetime as dt
 import json
-import math
 import re
 import unicodedata
 import urllib.error
@@ -32,9 +31,9 @@ OSM_TAGS = {
     "padaria": ('["shop"="bakery"]',),
     "loja": ('["shop"="convenience"]',),
 }
-GENERIC = re.compile(r"^(?:\\d+\\s+(?:melhores?|principais?)|melhores?|listas?|guia|diret[oó]rio|"
-                     r"resultados?|empresas?\\s+(?:de|em)|encontre|pesquisa|busca|p[aá]gina|cat[aá]logo)\\b", re.I)
-EMAIL = re.compile(r"^[A-Za-z0-9._%+\\-]+@[A-Za-z0-9.\\-]+\\.[A-Za-z]{2,}$")
+GENERIC = re.compile(r"^(?:\d+\s+(?:melhores?|principais?)|melhores?|listas?|guia|diret[oó]rio|"
+                     r"resultados?|empresas?\s+(?:de|em)|encontre|pesquisa|busca|p[aá]gina|cat[aá]logo)\b", re.I)
+EMAIL = re.compile(r"^[A-Za-z0-9._%+\-]+@[A-Za-z0-9.\-]+\.[A-Za-z]{2,}$")
 DATE = lambda: dt.datetime.now(dt.timezone.utc).isoformat().replace("+00:00", "Z")
 
 
@@ -45,7 +44,7 @@ def norm(value: object) -> str:
 
 
 def clipped(value: object, maxlen: int = 180) -> str:
-    return re.sub(r"\\s+", " ", str(value or "")).strip()[:maxlen]
+    return re.sub(r"\s+", " ", str(value or "")).strip()[:maxlen]
 
 
 def safe_url(value: object) -> str:
@@ -65,8 +64,12 @@ def http_json(url: str, data: dict | None = None, timeout: int = 13) -> dict | l
     headers = {"User-Agent": USER_AGENT, "Accept": "application/json"}
     encoded = None
     if data is not None:
-        headers["Content-Type"] = "application/json"
-        encoded = json.dumps(data, ensure_ascii=False).encode("utf-8")
+        if url.endswith("/api/interpreter"):
+            headers["Content-Type"] = "application/x-www-form-urlencoded"
+            encoded = urllib.parse.urlencode(data).encode("utf-8")
+        else:
+            headers["Content-Type"] = "application/json"
+            encoded = json.dumps(data, ensure_ascii=False).encode("utf-8")
     req = urllib.request.Request(url, data=encoded, headers=headers)
     with urllib.request.urlopen(req, timeout=timeout) as response:
         raw = response.read(2_000_001)
@@ -98,9 +101,12 @@ def is_matching_osm(segment: str, tags: dict) -> bool:
         )
     if "cabeleireiro" in requested or "salao" in requested:
         return shop == "hairdresser"
-    return bool(category_filters(segment)) and (shop in ("bakery", "convenience") or
-        amenity in ("restaurant", "pharmacy", "school", "cafe") or
-        leisure == "fitness centre" or tourism == "hotel")
+    expected = category_filters(segment)
+    if not expected:
+        return False
+    osm_tags = {"shop": shop, "amenity": amenity, "leisure": leisure, "tourism": tourism}
+    return any('"' + key + '"="' + str(tags.get(key, "")) + '"' in flt
+               for flt in expected for key in osm_tags)
 
 
 def result_record(facts: dict[str, str], source: str, title: str, observed: str,
@@ -143,7 +149,7 @@ def from_osm(element: dict, segment: str, city: str, now: str) -> dict | None:
     else:
         facts["city"] = city.split(",")[0].strip()
     phone = clipped(tags.get("contact:phone") or tags.get("phone"), 50)
-    if 10 <= len(re.sub(r"\\D", "", phone)) <= 15:
+    if 10 <= len(re.sub(r"\D", "", phone)) <= 15:
         facts["phone"] = phone
     email = clipped(tags.get("contact:email") or tags.get("email"), 170)
     if EMAIL.match(email):
@@ -180,7 +186,7 @@ def web_records(data: dict | list, segment: str, city: str, now: str, limit: int
             continue
         if segment_key not in norm(" ".join([title, description])):
             continue
-        name = clipped(re.split(r"\\s+[|–—]\\s+|\\s+-\\s+|\\s+·\\s+", title)[0], 130)
+        name = clipped(re.split(r"\s+[|–—]\s+|\s+-\s+|\s+·\s+", title)[0], 130)
         if not name or GENERIC.match(name) or norm(name) == segment_key:
             continue
         facts = {"company": name, "city": city.split(",")[0].strip()}

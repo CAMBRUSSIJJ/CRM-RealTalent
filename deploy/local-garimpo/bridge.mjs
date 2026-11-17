@@ -5,7 +5,7 @@ import { aiOutputSchema, parseAiSearchInput, sanitizeAiResult } from '../../supa
 import { createFirecrawlResearch } from '../../supabase/functions/_shared/firecrawl-research.ts'
 import { compactLocalSources } from './hardware-profile.mjs'
 import { stagedLocalResearch } from './staged-research.mjs'
-import { essentialDiscovery } from './essential-research.mjs'
+import { runEssentialDiscovery } from './essential-python.mjs'
 
 export function connectorConfig(values) {
   const url = new URL(values.SUPABASE_URL || '')
@@ -107,7 +107,7 @@ export function localResearch(values, fetcher = fetch) {
     const { report, sources, warnings = [] } = await collect(input, signal)
     if (!sources.length) return { leads: [], warnings: ['Nenhuma fonte pública encontrada. Revise os critérios e o mecanismo de busca.', ...warnings], researchedAt: new Date().toISOString(), researchMode: mode }
     if (!withAi) {
-      const essential = essentialDiscovery(input, sources, report)
+      const essential = await runEssentialDiscovery(input, sources, report)
       return { ...essential, warnings: [...essential.warnings, ...warnings,
         ...(mode === 'intelligent' ? ['Modelo não configurado. Pesquisa concluída sem IA.'] : [])] }
     }

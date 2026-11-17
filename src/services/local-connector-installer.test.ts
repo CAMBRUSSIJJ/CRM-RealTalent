@@ -14,14 +14,16 @@ const config = [
   '',
 ].join('\n')
 
-test('Linux: gera instalador único com credencial embutida e pacote SHA256 fixado', () => {
+test('Linux: gera instalador privado fixado em commit completo e valida HEAD', () => {
   const installer = buildGarimpoLinuxInstaller(config)
   expect(installer.startsWith('#!/usr/bin/env bash\n')).toBe(true)
   expect(installer).toContain('exec bash "$CONNECTOR/CONFIGURAR-LINUX.sh" "$CONFIG"')
-  expect(installer).toContain('b83b561e17e3324ed906aa9304ea4a2247a1b752ca31f6da0adda693a40ecef1')
-  expect(installer).toContain('sha256sum --check --status')
+  expect(installer).toContain('a89eee2d26d68bd1b0f74d071d62ba9401249248')
+  expect(installer).toContain('git -C "$TEMP/source" fetch --depth=1 origin "$SOURCE_SHA"')
+  expect(installer).toContain('git -C "$ROOT" rev-parse HEAD')
+  expect(installer).toContain('essential_worker.py')
   expect(installer).toContain('chmod 600 -- "$CONFIG.new"')
-  expect(installer).toContain('ARCHIVE_URL="https://raw.githubusercontent.com')
+  expect(installer).toContain('SOURCE_REPO="https://github.com/CAMBRUSSIJJ/CRM-RealTalent.git"')
   expect(installer).not.toContain('a'.repeat(64))
   expect(installer).toContain(btoa(config))
 })

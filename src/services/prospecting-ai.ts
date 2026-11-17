@@ -261,7 +261,7 @@ export function applyAiDiscovery(state: ProspectingState, result: AiSearchResult
     added.push(prospect)
   }
   return appendHistory({ ...state, prospects: [...added, ...state.prospects] }, workspaceId, {
-    action: 'search', title: 'Pesquisa com IA concluída',
+    action: 'search', title: result.researchMode === 'essential' ? 'Pesquisa pública sem IA concluída' : 'Pesquisa com IA concluída',
     description: `${result.leads.length} encontrado(s) · ${added.length} novo(s) · ${skipped} repetido(s) ignorado(s). ${result.warnings.join(' ')}`, count: added.length,
   })
 }
@@ -298,7 +298,7 @@ export function aiResearchNotes(prospect: ProspectRecord) {
   const research = researchForProspect(prospect)
   if (!research) return ''
   return [
-    `Pesquisa com IA: ${research.researchedAt}`,
+    `Pesquisa de fontes públicas: ${research.researchedAt}`,
     research.opportunity ? `Hipótese comercial (IA): ${research.opportunity}` : '',
     research.suggestedApproach ? `Sugestão de abordagem (IA): ${research.suggestedApproach}` : '',
     ...research.sources.map((source) => `Fonte: ${safeResearchUrl(source.url)}`).filter((line) => line !== 'Fonte: '),

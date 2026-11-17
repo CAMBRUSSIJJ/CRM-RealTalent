@@ -131,6 +131,7 @@ export interface AiSearchResult {
   researchPlan?: AiG6ResearchPlan
   commercialBrief?: AiG6CommercialBrief
   researchMode?: 'essential' | 'intelligent'
+  extractionEngine?: 'python' | 'javascript'
   leadIntelligence?: AiG7LeadIntelligence
 }
 export class ProspectingError extends Error {

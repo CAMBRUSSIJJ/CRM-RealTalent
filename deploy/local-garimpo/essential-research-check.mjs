@@ -49,7 +49,7 @@ test('legacy queued mode marker chooses essential and never calls an LLM', async
   const calls = []
   const fetcher = async (url) => {
     calls.push(String(url))
-    return new Response(JSON.stringify({ success: true, data: { web: [good] } }))
+    return new Response(JSON.stringify({ success: true, data: { web: [{ ...good, markdown: good.content }] } }))
   }
   const research = localResearch({ FIRECRAWL_API_URL: 'http://127.0.0.1:3002' }, fetcher)
   const result = await research({ ...input, mode: undefined, query: 'GARIMPO_MODE_ESSENTIAL' },

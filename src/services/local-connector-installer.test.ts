@@ -18,7 +18,7 @@ test('Linux: gera instalador privado fixado em commit completo e valida HEAD', (
   const installer = buildGarimpoLinuxInstaller(config)
   expect(installer.startsWith('#!/usr/bin/env bash\n')).toBe(true)
   expect(installer).toContain('exec bash "$CONNECTOR/CONFIGURAR-LINUX.sh" "$CONFIG"')
-  expect(installer).toContain('a89eee2d26d68bd1b0f74d071d62ba9401249248')
+  expect(installer).toContain('157192ebe9131952a9dbed0c252a5c35dc56ffdf')
   expect(installer).toContain('git -C "$TEMP/source" fetch --depth=1 origin "$SOURCE_SHA"')
   expect(installer).toContain('git -C "$ROOT" rev-parse HEAD')
   expect(installer).toContain('essential_worker.py')

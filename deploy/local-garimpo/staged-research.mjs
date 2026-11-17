@@ -690,6 +690,9 @@ export async function stagedLocalResearch({ input, signal, values, fetcher, mode
     if (!relevant.length) {
       warnings.push('Nenhuma das fontes coletadas foi associada com segurança à empresa selecionada.')
       await checkpoint('facts', 'failed', 'company_sources_unmatched')
+    } else if (!model) {
+      warnings.push('Modo Essencial: dados literais extraídos das fontes; nenhuma inferência por IA foi executada.')
+      await checkpoint('facts', 'completed')
     } else {
       const batches = await extractFactBatches({
         input, sources: relevant, model, signal, generate,
@@ -720,7 +723,7 @@ export async function stagedLocalResearch({ input, signal, values, fetcher, mode
   if (sources().some((source) => publicInstagram(source.url)) && !attributablePosts.length) {
     warnings.push('Foram encontrados links do Instagram, mas não foi possível associar o conteúdo público à empresa com segurança.')
   }
-  if (factsResult?.leads?.length && attributablePosts.length) {
+  if (model && factsResult?.leads?.length && attributablePosts.length) {
     if (!trace.some((item) => item.stage === 'signals' && item.phaseStatus !== 'running')) {
       await checkpoint('signals', 'running')
       try {

@@ -1241,6 +1241,8 @@ export function ProspectingPage() {
             connectionPanel={<FirecrawlLocalPanel key={workspaceId} workspaceId={workspaceId}
               readOnly={!canProspectingCreate} canConfigure={currentWorkspace?.role === 'owner' || currentWorkspace?.role === 'admin'}
               segment={segment} city={city} connectionOnly onComplete={() => {}} />}
+            mapLoaded={Boolean(mapPreview)}
+            onMapLoad={() => void loadMapTerritory()}
             mapPanel={areaMode === 'map' ? <TerritoryAreaSelector
               preview={mapPreview}
               polygon={mapPolygon}

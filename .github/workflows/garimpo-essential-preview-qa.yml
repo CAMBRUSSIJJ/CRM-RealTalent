@@ -1,0 +1,42 @@
+name: Garimpo Essencial — Preview QA
+on:
+  push:
+    branches:
+      - feat/garimpo-essential-no-ai-preview-20261117
+  pull_request:
+    branches:
+      - feat/gemini-whatsapp-copilot-supervised-20261116
+permissions:
+  contents: read
+jobs:
+  build-and-local-worker:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+      - name: Node 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - name: Frontend dependencies
+        run: npm ci --include=dev
+      - name: TypeScript
+        run: npm run typecheck
+      - name: Build
+        run: npm run build
+      - name: Local connector dependencies
+        working-directory: deploy/local-garimpo
+        run: npm ci --include=dev
+      - name: Local connector regressions (Python + no AI)
+        working-directory: deploy/local-garimpo
+        run: npm test
+      - name: Offline worker syntax
+        run: python3 -m py_compile deploy/local-garimpo/essential_worker.py
+      - name: Bash startup syntax
+        run: |
+          bash -n deploy/local-garimpo/INICIAR-GARIMPO-LOCAL.sh
+          bash -n deploy/local-garimpo/CONFIGURAR-LINUX.sh

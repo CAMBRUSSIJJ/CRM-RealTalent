@@ -5,6 +5,7 @@ import { aiOutputSchema, parseAiSearchInput, sanitizeAiResult } from '../../supa
 import { createFirecrawlResearch } from '../../supabase/functions/_shared/firecrawl-research.ts'
 import { compactLocalSources } from './hardware-profile.mjs'
 import { stagedLocalResearch } from './staged-research.mjs'
+import { runEssentialDiscovery } from './essential-python.mjs'
 
 export function connectorConfig(values) {
   const url = new URL(values.SUPABASE_URL || '')
@@ -77,18 +78,27 @@ export function localResearch(values, fetcher = fetch) {
   const base = new URL(values.PROSPECTING_AI_BASE_URL || 'http://127.0.0.1:11434/v1')
   const loopback = base.protocol === 'http:' && ['localhost', '127.0.0.1', '[::1]'].includes(base.hostname)
   if ((!loopback && base.protocol !== 'https:') || base.username || base.password || base.hash || base.search) throw new Error('invalid_model_url')
-  if (!values.PROSPECTING_AI_MODEL?.trim()) throw new Error('model_required')
   const collect = createFirecrawlResearch(values.FIRECRAWL_API_URL || 'http://127.0.0.1:3002', values.FIRECRAWL_API_KEY || '', fetcher, true)
   const provider = createOpenAI({ baseURL: base.href.replace(/\/$/, ''), apiKey: values.PROSPECTING_AI_API_KEY || 'local', fetch: fetcher })
   return async (input, signal, onProgress = async () => {}, jobId = '') => {
+    // Older deployed Supabase functions may omit the optional mode field.
+    // Carry the explicit user choice through the legacy query contract until
+    // the Edge Function is updated; strip it before making web requests.
+    const marker = /\bGARIMPO_MODE_(ESSENTIAL|INTELLIGENT)\b/.exec(input.query || '')
+    const mode = input.mode || (marker ? marker[1].toLowerCase() : values.GARIMPO_MODE === 'essential' ? 'essential' : 'intelligent')
+    input = { ...input, query: (input.query || '').replace(/\bGARIMPO_MODE_(?:ESSENTIAL|INTELLIGENT)\b/g, '').trim() }
+    const withAi = mode === 'intelligent' && Boolean(values.PROSPECTING_AI_MODEL?.trim())
     if (input.source === 'manual' && jobId) {
       try {
-        return await stagedLocalResearch({
-          input, signal, values, fetcher, model: provider.chat(values.PROSPECTING_AI_MODEL),
+        const result = await stagedLocalResearch({
+          input, signal, values, fetcher, model: withAi ? provider.chat(values.PROSPECTING_AI_MODEL) : null,
           jobId, onProgress,
         })
+        return { ...result, researchMode: withAi ? 'intelligent' : 'essential',
+          warnings: [...result.warnings, ...(mode === 'intelligent' && !withAi
+            ? ['Modelo de IA não configurado; foram preservados somente dados públicos verificáveis.'] : [])] }
       } finally {
-        if (values.GARIMPO_OLLAMA_RELEASE === 'true' && loopback && base.port === '11434') {
+        if (withAi && values.GARIMPO_OLLAMA_RELEASE === 'true' && loopback && base.port === '11434') {
           try {
             await fetcher(new URL('/api/generate', base), {
               method: 'POST', redirect: 'error', signal: AbortSignal.timeout(5000),
@@ -100,7 +110,12 @@ export function localResearch(values, fetcher = fetch) {
       }
     }
     const { report, sources, warnings = [] } = await collect(input, signal)
-    if (!sources.length) return { leads: [], warnings: ['Nenhuma fonte pública encontrada. Revise os critérios e o mecanismo de busca.', ...warnings], researchedAt: new Date().toISOString() }
+    if (!sources.length) return { leads: [], warnings: ['Nenhuma fonte pública encontrada. Revise os critérios e o mecanismo de busca.', ...warnings], researchedAt: new Date().toISOString(), researchMode: mode }
+    if (!withAi) {
+      const essential = await runEssentialDiscovery(input, sources, report)
+      return { ...essential, warnings: [...essential.warnings, ...warnings,
+        ...(mode === 'intelligent' ? ['Modelo não configurado. Pesquisa concluída sem IA.'] : [])] }
+    }
     try {
     const response = await generateText({
       model: provider.chat(values.PROSPECTING_AI_MODEL), maxRetries: 0, maxOutputTokens: values.GARIMPO_MEMORY_PROFILE === 'low' ? 4500 : 9000, abortSignal: signal,
@@ -109,7 +124,7 @@ export function localResearch(values, fetcher = fetch) {
       prompt: JSON.stringify({ criteria: input, report: values.GARIMPO_MEMORY_PROFILE === 'low' ? compactLocalSources(sources) : report, sources: sources.map(({ url, title }) => ({ url, title })) }),
     })
     const validated = sanitizeAiResult(response.output, sources, report, input.limit)
-    return { ...validated, warnings: [...validated.warnings, ...warnings] }
+    return { ...validated, researchMode: 'intelligent', warnings: [...validated.warnings, ...warnings] }
     } finally {
       if (values.GARIMPO_OLLAMA_RELEASE === 'true' && loopback && base.port === '11434') {
         try { await fetcher(new URL('/api/generate', base), { method: 'POST', redirect: 'error', signal: AbortSignal.timeout(5000), headers: { 'content-type': 'application/json' }, body: JSON.stringify({ model: values.PROSPECTING_AI_MODEL, keep_alive: 0, stream: false }) }) } catch { /* A successful result remains valid when releasing the local model fails. */ }
@@ -122,7 +137,7 @@ async function main() {
   try { process.loadEnvFile(process.argv[2] || 'garimpo.env') } catch { console.error('Salve garimpo.env nesta pasta. Gere o arquivo no Garimpo do CRM.'); process.exitCode = 1; return }
   let config, research
   try { config = connectorConfig(process.env); research = localResearch(process.env) }
-  catch { console.error('Revise garimpo.env: endereço Supabase, token do conector e nome do modelo local são obrigatórios.'); process.exitCode = 1; return }
+  catch { console.error('Revise garimpo.env: configure a URL do Supabase, a chave pública e o token do conector.'); process.exitCode = 1; return }
   const api = workerClient(config)
   let stopped = false, heartbeating = false
   for (const signal of ['SIGINT', 'SIGTERM']) process.on(signal, () => { stopped = true })

@@ -22,7 +22,7 @@ const messages: Record<string, string> = {
   local_connector_unavailable: 'O conector local ainda precisa ser instalado no Supabase. Consulte o guia do Garimpo local.',
   local_connector_offline: 'Seu computador está desconectado. Inicie o conector local e aguarde alguns segundos antes de pesquisar.',
   local_queue_busy: 'Há pesquisas aguardando no seu computador. Aguarde a conclusão para iniciar outra.',
-  local_research_failed: 'A pesquisa local não concluiu. Consulte as etapas no Garimpo ou o terminal Linux.',
+  local_research_failed: 'A pesquisa local não concluiu. Confira a conexão do Linux e o Firecrawl no diagnóstico técnico.',
   local_stage_failed: 'Uma etapa da investigação não concluiu; confira o diagnóstico e as fontes já coletadas.',
   local_stage_timeout: 'A investigação excedeu o tempo permitido. As etapas concluídas continuam registradas no Linux.',
   local_job_expired: 'A pesquisa local expirou. Verifique se o conector continua aberto no computador.',
@@ -50,7 +50,7 @@ async function connectorAction(organizationId: string, action: 'register' | 'dis
 async function registeredLocalConnectorEnvironment(organizationId: string): Promise<string> {
   const data = await connectorAction(organizationId, 'register')
   if (!data || typeof data.token !== 'string' || !/^[a-f0-9]{64}$/.test(data.token)) throw new Error('Não foi possível gerar o acesso do Linux.')
-  return `SUPABASE_URL=${env.supabaseUrl}\nSUPABASE_PUBLISHABLE_KEY=${env.supabasePublishableKey}\nGARIMPO_WORKSPACE_ID=${organizationId}\nGARIMPO_CONNECTOR_TOKEN=${data.token}\nFIRECRAWL_API_URL=http://127.0.0.1:3002\nPROSPECTING_AI_BASE_URL=http://127.0.0.1:11434/v1\nPROSPECTING_AI_MODEL=qwen2.5-coder:3b\n`
+  return `SUPABASE_URL=${env.supabaseUrl}\nSUPABASE_PUBLISHABLE_KEY=${env.supabasePublishableKey}\nGARIMPO_WORKSPACE_ID=${organizationId}\nGARIMPO_CONNECTOR_TOKEN=${data.token}\nFIRECRAWL_API_URL=http://127.0.0.1:3002\nPROSPECTING_AI_BASE_URL=http://127.0.0.1:11434/v1\nGARIMPO_MODE=essential\n`
 }
 
 function downloadPrivateFile(filename: string, content: string, mimeType: string) {
@@ -254,7 +254,7 @@ export function applyAiDiscovery(state: ProspectingState, result: AiSearchResult
   const added: ProspectRecord[] = []
   let skipped = 0
   for (const draft of result.leads) {
-    const prospect = refreshProspectAnalysis(createProspect(workspaceId, { ...draft, source, sourceDetail: 'Pesquisa web com IA' }, source, leads, createdBy), leads)
+    const prospect = refreshProspectAnalysis(createProspect(workspaceId, { ...draft, source, sourceDetail: result.researchMode === 'essential' ? 'Pesquisa web sem IA' : 'Pesquisa web com IA' }, source, leads, createdBy), leads)
     const identities = prospectIdentityKeys(prospect)
     if (identities.some((key) => keys.has(key))) { skipped += 1; continue }
     identities.forEach((key) => keys.add(key))

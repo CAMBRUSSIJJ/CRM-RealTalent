@@ -210,7 +210,10 @@ export function identifyInstagramProfile(input, sources, profileResults = []) {
       // Business directories often link their own social account next to a
       // listing; never treat that unrelated handle as the listed company's.
       // Even a saved listing may belong to a third-party directory, so
-      // reject unrelated handles from directories. A company-matched Linktree\n      // with corroborating city can yield a *candidate*, never a verified link.\n      // The reviewer must still confirm the identity before CRM enrichment.\n      if (!related && !hub) continue
+      // reject unrelated handles from directories. A company-matched Linktree
+      // with corroborating city can yield a *candidate*, never a verified link.
+      // The reviewer must still confirm the identity before CRM enrichment.
+      if (!related && !hub) continue
       const score = (known ? 70 : hub ? 55 : 45) + (related ? 25 : 0)
       candidates.push({ profileUrl: profile, evidenceUrl: source.url, score,
         status: (known && related) ? 'linked' : 'candidate' })
@@ -690,6 +693,9 @@ export async function stagedLocalResearch({ input, signal, values, fetcher, mode
     if (!relevant.length) {
       warnings.push('Nenhuma das fontes coletadas foi associada com segurança à empresa selecionada.')
       await checkpoint('facts', 'failed', 'company_sources_unmatched')
+    } else if (!model) {
+      warnings.push('Modo Essencial: dados literais extraídos das fontes; nenhuma inferência por IA foi executada.')
+      await checkpoint('facts', 'completed')
     } else {
       const batches = await extractFactBatches({
         input, sources: relevant, model, signal, generate,
@@ -720,7 +726,7 @@ export async function stagedLocalResearch({ input, signal, values, fetcher, mode
   if (sources().some((source) => publicInstagram(source.url)) && !attributablePosts.length) {
     warnings.push('Foram encontrados links do Instagram, mas não foi possível associar o conteúdo público à empresa com segurança.')
   }
-  if (factsResult?.leads?.length && attributablePosts.length) {
+  if (model && factsResult?.leads?.length && attributablePosts.length) {
     if (!trace.some((item) => item.stage === 'signals' && item.phaseStatus !== 'running')) {
       await checkpoint('signals', 'running')
       try {

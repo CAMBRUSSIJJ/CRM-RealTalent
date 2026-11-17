@@ -148,6 +148,7 @@ export function ProspectingPage() {
   const [city, setCity] = useState('')
   const [query, setQuery] = useState('')
   const [quantity, setQuantity] = useState(5)
+  const [engineMode, setEngineMode] = useState<'essential' | 'intelligent'>('essential')
   const [quickCapture, setQuickCapture] = useState('')
   const [universalCapture, setUniversalCapture] = useState('')
   const [search, setSearch] = useState('')
@@ -557,7 +558,7 @@ export function ProspectingPage() {
     localAbortRef.current = controller
     setLocalRunning(true)
     setLocalStatus('running')
-    setLocalMessage('Pesquisando fontes e validando dados no Linux.')
+    setLocalMessage(engineMode === 'essential' ? 'Coletando fontes públicas sem usar IA.' : 'Coletando fontes públicas e analisando com IA.')
     setLocalFound(0)
 
     let localSuccess = false
@@ -574,8 +575,8 @@ export function ProspectingPage() {
           // The local web API handles up to ten leads per call.
           const result = await searchProspectsWithAi({
             organizationId: workspaceId, segment: segment.trim(), city: city.trim(),
-            query: query.trim(), limit: Math.min(10, Math.max(1, quantity)),
-            source: 'maps', execution: 'local',
+            query: [query.trim(), engineMode === 'essential' ? 'GARIMPO_MODE_ESSENTIAL' : 'GARIMPO_MODE_INTELLIGENT'].filter(Boolean).join(' '), limit: Math.min(10, Math.max(1, quantity)),
+            source: 'maps', execution: 'local', mode: engineMode,
           }, controller.signal)
           if (controller.signal.aborted) { cancelled = true; return }
           localSuccess = true
@@ -588,16 +589,16 @@ export function ProspectingPage() {
           setLocalMessage(message)
           if (localResultCount) {
             commit((current) => applyAiDiscovery(current, result, workspaceId, 'manual', snapshot?.leads ?? [], currentUserId))
-            notify('success', `Firecrawl + Ollama: ${localResultCount} empresa(s) processada(s). Confira Revisar para validar evidências.`)
+            notify('success', `${engineMode === 'essential' ? 'Pesquisa sem IA' : 'Pesquisa com IA'}: ${localResultCount} empresa(s) identificada(s). Confira as fontes em Revisar.`)
           } else {
-            notify('info', 'Firecrawl + Ollama concluíram sem empresas verificáveis. Nenhum registro fictício foi criado.')
+            notify('info', 'A coleta terminou sem empresas verificáveis. Nenhum registro fictício foi criado.')
           }
         } catch (error) {
           if (controller.signal.aborted) { cancelled = true; return }
           const message = error instanceof Error ? error.message : 'Falha na coleta web e análise local.'
           setLocalStatus('failed')
           setLocalMessage(message)
-          notify('warning', `A etapa Firecrawl + Ollama não concluiu: ${message}. Tentaremos a cobertura territorial.`)
+          notify('warning', `A coleta web não concluiu: ${message}. Tentaremos a cobertura territorial.`)
         }
       } else {
         setLocalStatus('failed')
@@ -1220,6 +1221,7 @@ export function ProspectingPage() {
             city={city}
             query={query}
             quantity={quantity}
+            engineMode={engineMode}
             categoryMode={categoryMode}
             areaMode={areaMode}
             radiusKm={radiusKm}
@@ -1239,6 +1241,8 @@ export function ProspectingPage() {
             connectionPanel={<FirecrawlLocalPanel key={workspaceId} workspaceId={workspaceId}
               readOnly={!canProspectingCreate} canConfigure={currentWorkspace?.role === 'owner' || currentWorkspace?.role === 'admin'}
               segment={segment} city={city} connectionOnly onComplete={() => {}} />}
+            mapLoaded={Boolean(mapPreview)}
+            onMapLoad={() => void loadMapTerritory()}
             mapPanel={areaMode === 'map' ? <TerritoryAreaSelector
               preview={mapPreview}
               polygon={mapPolygon}
@@ -1264,6 +1268,7 @@ export function ProspectingPage() {
             onQuery={setQuery}
             onCancelLocal={cancelIntegratedLocalSearch}
             onQuantity={setQuantity}
+            onEngineMode={setEngineMode}
             onCategoryMode={setCategoryMode}
             onAreaMode={(value) => { setAreaMode(value); if (value !== 'map') setMapPolygon([]) }}
             onRadiusKm={setRadiusKm}

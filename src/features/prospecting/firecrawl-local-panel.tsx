@@ -103,8 +103,8 @@ export function FirecrawlLocalPanel({ workspaceId, readOnly, canConfigure, segme
   }
 
 
-  const connectionBlock = !prospect && !online ? (<div className="firecrawl-local-panel__connection">
-      <div><strong>Conectar seu computador</strong><p>Conecte o Garimpo sem procurar nem baixar arquivos de configuração.</p></div>
+  const connectionBlock = !prospect && (!online || Boolean(generatedCommand)) ? (<div className="firecrawl-local-panel__connection">
+      <div><strong>{online ? 'Atualizar conector do Linux' : 'Conectar seu computador'}</strong><p>{online ? 'Use o novo instalador para ativar a pesquisa sem IA. O conector antigo deve ser encerrado antes de iniciar o novo.' : 'Conecte o Garimpo sem procurar nem baixar arquivos de configuração.'}</p></div>
       {canConfigure ? <>
         {!generatedCommand ? <Button disabled={configuring} onClick={() => void configure(false, 'command')}>
           <Copy size={16} />{configuring ? 'Gerando conexão…' : 'Conectar meu Linux'}
@@ -121,7 +121,7 @@ export function FirecrawlLocalPanel({ workspaceId, readOnly, canConfigure, segme
       </> : <small>Um administrador do workspace precisa autorizar este computador.</small>}
     </div>) : null
 
-  if (connectionOnly) return <div className="firecrawl-connection-integrated" aria-label="Conexão da pesquisa com Firecrawl e Ollama">
+  if (connectionOnly) return <div className="firecrawl-connection-integrated" aria-label="Conexão do Garimpo com Firecrawl e IA opcional">
     <div className="firecrawl-connection-integrated__status">
       <span><Sparkles size={15} /> Pesquisa web · IA opcional</span>
       <StatusPill tone={online ? 'success' : 'warning'}>{online ? 'Linux conectado' : 'Linux desconectado'}</StatusPill>
@@ -132,7 +132,7 @@ export function FirecrawlLocalPanel({ workspaceId, readOnly, canConfigure, segme
     {online ? <small>Fontes públicas com Firecrawl; no modo Essencial, nenhuma chamada ao Ollama é necessária.</small> : null}
     {canConfigure && online ? <details><summary>Gerenciar conexão Linux</summary>
       <div className="firecrawl-local-panel__setup">
-        <Button variant="secondary" disabled={configuring} onClick={() => void configure(false, 'command')}>Gerar novo comando</Button>
+        <Button variant="secondary" disabled={configuring} onClick={() => void configure(false, 'command')}>Gerar comando do novo motor</Button>
         <Button variant="ghost" disabled={configuring} onClick={() => void configure(true)}>Desconectar</Button>
       </div>
     </details> : null}
@@ -154,7 +154,7 @@ export function FirecrawlLocalPanel({ workspaceId, readOnly, canConfigure, segme
       <p>O conector trabalha somente enquanto o Linux estiver ligado e o instalador estiver em execução. O status é atualizado automaticamente.</p>
       <div className="firecrawl-local-panel__setup">
         <Button variant="secondary" onClick={() => void refresh()}><RefreshCw size={15} /> Verificar conexão</Button>
-        {canConfigure && online ? <Button variant="secondary" disabled={configuring} onClick={() => void configure(false, 'command')}>Gerar novo comando</Button> : null}
+        {canConfigure && online ? <Button variant="secondary" disabled={configuring} onClick={() => void configure(false, 'command')}>Gerar comando do novo motor</Button> : null}
         {canConfigure ? <Button variant="ghost" disabled={configuring} onClick={() => void configure(true)}>Desconectar Linux</Button> : null}
       </div></details> : null}
   </section>

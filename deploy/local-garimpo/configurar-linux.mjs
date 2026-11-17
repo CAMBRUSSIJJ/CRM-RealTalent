@@ -31,19 +31,18 @@ async function main() {
   command('docker', ['info', '--format', '{{.ServerVersion}}'])
   console.log(`Docker e Compose ${compose} disponíveis.`)
   let models = []
-  let profile
+  let profile = hardwareProfile(os.totalmem(), [])
   try {
     const response = await fetch('http://127.0.0.1:11434/api/tags', { signal: AbortSignal.timeout(5000) })
     if (!response.ok) throw new Error('ollama')
     const data = await response.json()
     profile = hardwareProfile(os.totalmem(), data.models || [])
     models = profile.models
-  } catch { throw new Error('Inicie o Ollama no Linux e execute este configurador novamente. O endereço esperado é http://127.0.0.1:11434.') }
-  console.log(models.length ? `Modelos instalados: ${models.join(', ')}` : 'Ollama está ativo, mas não tem modelos instalados. Instale um modelo compatível com JSON Schema antes de continuar.')
+  } catch { console.log('Ollama indisponível; o Garimpo Essencial funciona sem modelo de IA.') }
+  console.log(models.length ? `Modelos opcionais disponíveis: ${models.join(', ')}` : 'Sem modelos locais; a pesquisa Essencial continuará funcionando.')
   if (profile.economy) console.log('Perfil econômico: uma página por vez, contexto reduzido e modelo menor como primeira opção.')
   if (memoryAvailable !== null) console.log(`Memória disponível agora: ${(memoryAvailable / GiB).toFixed(1)} GiB.`)
   if (checkOnly) { console.log('Verificação concluída. Nenhum serviço ou arquivo foi alterado.'); return }
-  if (!models.length) throw new Error('Instale um modelo no Ollama e execute novamente. Use ollama list para conferir os modelos.')
   command('git', ['--version'])
   const suppliedConfig = process.argv.slice(2).find((value) => !value.startsWith('--'))
   const configFile = path.join(directory, 'garimpo.env')
@@ -58,7 +57,7 @@ async function main() {
   const endpoint = new URL(process.env.SUPABASE_URL || '')
   if (endpoint.protocol !== 'https:' || endpoint.username || endpoint.password || endpoint.pathname !== '/' || endpoint.search || endpoint.hash) throw new Error('Endereço Supabase inválido no arquivo de configuração.')
   let model = models.includes(process.env.PROSPECTING_AI_MODEL) ? process.env.PROSPECTING_AI_MODEL : ''
-  if (!model) {
+  if (!model && models.length && process.env.GARIMPO_MODE === 'intelligent') {
     models.forEach((name, index) => console.log(`  ${index + 1}. ${name}`))
     const terminal = createInterface({ input: process.stdin, output: process.stdout })
     try {
@@ -68,13 +67,13 @@ async function main() {
     if (!model) throw new Error('Número de modelo inválido. Execute novamente para escolher.')
   }
   let configuration = await readFile(configFile, 'utf8')
-  configuration = /^PROSPECTING_AI_MODEL=.*$/m.test(configuration) ? configuration.replace(/^PROSPECTING_AI_MODEL=.*$/m, `PROSPECTING_AI_MODEL=${model}`) : configuration + `\nPROSPECTING_AI_MODEL=${model}\n`
+  if (model) configuration = /^PROSPECTING_AI_MODEL=.*$/m.test(configuration) ? configuration.replace(/^PROSPECTING_AI_MODEL=.*$/m, `PROSPECTING_AI_MODEL=${model}`) : configuration + `\nPROSPECTING_AI_MODEL=${model}\n`
   for (const [key, value] of Object.entries({ GARIMPO_MEMORY_PROFILE: profile.economy ? 'low' : 'normal', GARIMPO_OLLAMA_RELEASE: profile.economy ? 'true' : 'false' })) {
     const pattern = new RegExp(`^${key}=.*$`, 'm')
     configuration = pattern.test(configuration) ? configuration.replace(pattern, `${key}=${value}`) : configuration + `\n${key}=${value}\n`
   }
   await writeFile(configFile, configuration, { mode: 0o600 })
-  process.env.PROSPECTING_AI_MODEL = model
+  if (model) process.env.PROSPECTING_AI_MODEL = model
   console.log('Instalando as dependências do conector…')
   command('npm', ['ci', '--no-audit', '--no-fund'], directory, true)
   const { connectorConfig, workerClient } = await import('./bridge.mjs')

@@ -80,6 +80,8 @@ interface ProspectingRedesignSearchProps {
   localMessage: string
   connectionPanel: ReactNode
   mapPanel: ReactNode
+  mapLoaded: boolean
+  onMapLoad(): void
   onSegment(value: string): void
   onCity(value: string): void
   onQuery(value: string): void
@@ -132,6 +134,7 @@ export function ProspectingRedesignSearch(props: ProspectingRedesignSearchProps)
   const semanticPlanner = props.job?.plan?.semanticPlan?.planner || ''
 
 
+  const mapEmpty = !props.mapLoaded && !props.job && props.areaMode !== 'map'
   return <div className="prospecting-redesign-v4__grid">
     <div className="prospecting-redesign-v4__left">
       <section className={`prospecting-redesign-v4__execution ${active ? 'is-active' : ''}`}>
@@ -188,10 +191,10 @@ export function ProspectingRedesignSearch(props: ProspectingRedesignSearchProps)
       </section>
     </div>
 
-    <section className="prospecting-redesign-v4__map prospecting-redesign-v4__map-live" aria-label={`Território da execução em ${sessionCity || 'sua região'}`}>
-      <div className="prospecting-redesign-v4__map-live-content">{props.mapPanel}</div>
+    <section className={`prospecting-redesign-v4__map prospecting-redesign-v4__map-live ${mapEmpty ? 'is-empty' : ''}`} aria-label={`Território da execução em ${sessionCity || 'sua região'}`}>
+      <div className="prospecting-redesign-v4__map-live-content">{mapEmpty ? <div className="prospecting-redesign-v4__map-placeholder"><MapPinned size={24}/><strong>Mapa territorial opcional</strong><span>Os resultados aparecem primeiro na lista de revisão. Carregue o mapa apenas quando precisar explorar o território.</span><button type="button" className="prospecting-redesign-v4__button" disabled={!props.city.trim()} onClick={props.onMapLoad}>Carregar mapa</button></div> : props.mapPanel}</div>
       <div className={`prospecting-redesign-v4__map-status ${coverageFailed ? 'is-warning' : ''}`}>
-        {props.job ? <><CheckCircle2 size={17}/><strong>{found} empresa(s) identificada(s).</strong><span> Execução {executionFinished ? 'encerrada' : 'em andamento'} · cobertura territorial {coverageLabel}{coverageFailed ? ' · fonte territorial com falha parcial' : ''}.</span></> : <><MapPinned size={17}/><strong>Defina a área real da busca.</strong><span> Carregue a cidade e ajuste o raio ou desenhe o território diretamente no mapa.</span></>}
+        {props.job ? <><CheckCircle2 size={17}/><strong>{found} empresa(s) identificada(s).</strong><span> Execução {executionFinished ? 'encerrada' : 'em andamento'} · cobertura territorial {coverageLabel}{coverageFailed ? ' · fonte territorial com falha parcial' : ''}.</span></> : <><MapPinned size={17}/><strong>Visualização territorial.</strong><span> A pesquisa usa a região informada; carregue o mapa para visualizar ou desenhar uma área.</span></>}
       </div>
     </section>
   </div>

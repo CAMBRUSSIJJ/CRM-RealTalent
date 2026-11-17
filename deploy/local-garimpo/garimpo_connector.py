@@ -67,8 +67,8 @@ class Connector:
         input_data = dict(job["input"])
         # Older Supabase Edge Functions strip unknown input fields. Keep
         # input mode compatible with the existing queue without changing DB schema.
-        mode_marker = re.search(r"\\bGARIMPO_MODE_(ESSENTIAL|INTELLIGENT)\\b", input_data.get("query") or "")
-        input_data["query"] = re.sub(r"\\bGARIMPO_MODE_(?:ESSENTIAL|INTELLIGENT)\\b", "", input_data.get("query") or "").strip()
+        mode_marker = re.search(r"\bGARIMPO_MODE_(ESSENTIAL|INTELLIGENT)\b", input_data.get("query") or "")
+        input_data["query"] = re.sub(r"\bGARIMPO_MODE_(?:ESSENTIAL|INTELLIGENT)\b", "", input_data.get("query") or "").strip()
         input_data["mode"] = "essential"
         if mode_marker and mode_marker.group(1) == "INTELLIGENT":
             print("IA opcional nao habilitada no motor Python: coleta factual preservada.")

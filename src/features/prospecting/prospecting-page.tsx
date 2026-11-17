@@ -575,7 +575,7 @@ export function ProspectingPage() {
           // The local web API handles up to ten leads per call.
           const result = await searchProspectsWithAi({
             organizationId: workspaceId, segment: segment.trim(), city: city.trim(),
-            query: query.trim(), limit: Math.min(10, Math.max(1, quantity)),
+            query: [query.trim(), engineMode === 'essential' ? 'GARIMPO_MODE_ESSENTIAL' : 'GARIMPO_MODE_INTELLIGENT'].filter(Boolean).join(' '), limit: Math.min(10, Math.max(1, quantity)),
             source: 'maps', execution: 'local', mode: engineMode,
           }, controller.signal)
           if (controller.signal.aborted) { cancelled = true; return }

@@ -84,9 +84,9 @@ export function localResearch(values, fetcher = fetch) {
     // Older deployed Supabase functions may omit the optional mode field.
     // Carry the explicit user choice through the legacy query contract until
     // the Edge Function is updated; strip it before making web requests.
-    const marker = /\\bGARIMPO_MODE_(ESSENTIAL|INTELLIGENT)\\b/.exec(input.query || '')
+    const marker = /\bGARIMPO_MODE_(ESSENTIAL|INTELLIGENT)\b/.exec(input.query || '')
     const mode = input.mode || (marker ? marker[1].toLowerCase() : values.GARIMPO_MODE === 'essential' ? 'essential' : 'intelligent')
-    input = { ...input, query: (input.query || '').replace(/\\bGARIMPO_MODE_(?:ESSENTIAL|INTELLIGENT)\\b/g, '').trim() }
+    input = { ...input, query: (input.query || '').replace(/\bGARIMPO_MODE_(?:ESSENTIAL|INTELLIGENT)\b/g, '').trim() }
     const withAi = mode === 'intelligent' && Boolean(values.PROSPECTING_AI_MODEL?.trim())
     if (input.source === 'manual' && jobId) {
       try {

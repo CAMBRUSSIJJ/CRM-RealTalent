@@ -582,16 +582,17 @@ export function ProspectingPage() {
           localSuccess = true
           localResultCount = result.leads.length
           setLocalFound(localResultCount)
-          setLocalStatus('completed')
+          const providerUnavailable = !localResultCount && result.warnings.some((item) => /indispon[ií]vel|n[aã]o foi poss[ií]vel|fonte.*falha|location_not_found/i.test(item))
+          setLocalStatus(providerUnavailable ? 'failed' : 'completed')
           const message = localResultCount
             ? `${localResultCount} empresa(s) com fontes encaminhada(s) à revisão.`
-            : 'A coleta terminou sem empresas comprovadas. Confira os critérios e a etapa territorial.'
+            : result.warnings.slice(0, 2).join(' ') || 'A pesquisa terminou sem empresas verificáveis. Revise os filtros e a conexão.'
           setLocalMessage(message)
           if (localResultCount) {
             commit((current) => applyAiDiscovery(current, result, workspaceId, 'manual', snapshot?.leads ?? [], currentUserId))
             notify('success', `${engineMode === 'essential' ? 'Pesquisa sem IA' : 'Pesquisa com IA'}: ${localResultCount} empresa(s) identificada(s). Confira as fontes em Revisar.`)
           } else {
-            notify('info', 'A coleta terminou sem empresas verificáveis. Nenhum registro fictício foi criado.')
+            notify(providerUnavailable ? 'warning' : 'info', message)
           }
         } catch (error) {
           if (controller.signal.aborted) { cancelled = true; return }

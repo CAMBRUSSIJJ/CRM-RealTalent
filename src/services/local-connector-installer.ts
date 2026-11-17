@@ -1,7 +1,7 @@
 // One-time installer generated only for a workspace administrator.
 // Source is pinned to an immutable Git commit and verified before execution.
 // The private configuration is base64 encoded (not encrypted): keep the script private.
-const sourceCommit = 'a89eee2d26d68bd1b0f74d071d62ba9401249248'
+const sourceCommit = '157192ebe9131952a9dbed0c252a5c35dc56ffdf'
 const sourceRepo = 'https://github.com/CAMBRUSSIJJ/CRM-RealTalent.git'
 
 export function buildGarimpoLinuxInstaller(environment: string): string {

@@ -138,7 +138,8 @@ def create_app(settings=None, *, auth_transport=None, store_factory=None, prefli
         headquarters: bool | None = Query(default=None),
         opened_after: str = Query(default='', max_length=10),
         opened_before: str = Query(default='', max_length=10),
-        cnae_scope: str = Query(default='any', pattern='^(any|main|secondary)
+        cnae_scope: str = Query(default='any', max_length=9),
+        limit: int = Query(default=30, ge=1, le=100),
         offset: int = Query(default=0, ge=0, le=10000),
     ):
         """Read-only official RFB register, scoped to an authenticated CRM workspace.
@@ -148,6 +149,8 @@ def create_app(settings=None, *, auth_transport=None, store_factory=None, prefli
         """
         if state.upper() != 'RS':
             raise HTTPException(422, 'O piloto do índice CNPJ cobre somente o Rio Grande do Sul.')
+        if cnae_scope not in {'any','main','secondary'}:
+            raise HTTPException(422, 'Informe um tipo de CNAE válido.')
         if cnae and (not cnae.isascii() or not cnae.isdigit() or len(cnae) < 2):
             raise HTTPException(422, 'Digite um CNAE com 2 a 7 números.')
         try:

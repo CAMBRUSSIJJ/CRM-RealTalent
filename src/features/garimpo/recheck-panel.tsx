@@ -8,12 +8,15 @@ type Props = {
   record: ProspectRecord
   canEdit: boolean
   onRecheck: () => Promise<void>
-  onResolve: (fields: RecheckField[]) => void
+  canSyncCrm: boolean
+  onResolve: (fields: RecheckField[], syncCrm: boolean) => Promise<void>
 }
 
 const format = (value: string) => value || 'Não informado'
-export function RecheckPanel({record,canEdit,onRecheck,onResolve}: Props) {
+export function RecheckPanel({record,canEdit,canSyncCrm,onRecheck,onResolve}: Props) {
   const [running,setRunning] = useState(false)
+  const [applying,setApplying] = useState(false)
+  const [syncCrm,setSyncCrm] = useState(false)
   const [error,setError] = useState('')
   const [selected,setSelected] = useState<RecheckField[]>([])
   const pending = readPending(record)
@@ -26,8 +29,12 @@ export function RecheckPanel({record,canEdit,onRecheck,onResolve}: Props) {
     catch (cause) { setError(cause instanceof Error ? cause.message : 'Não foi possível revisar esta empresa.') }
     finally { setRunning(false) }
   }
-  function resolve(fields: RecheckField[]) {
-    onResolve(fields);setSelected([])
+  async function resolve(fields: RecheckField[]) {
+    if (!canEdit || applying) return
+    setApplying(true);setError('')
+    try { await onResolve(fields, Boolean(fields.length && syncCrm));setSelected([]);setSyncCrm(false) }
+    catch (cause) { setError(cause instanceof Error ? cause.message : 'Não foi possível aplicar as propostas.') }
+    finally { setApplying(false) }
   }
   const existing = [
     ['Razão social',currentValue(record,'legal_name')], ['CNAE principal',currentValue(record,'main_cnae')],
@@ -63,10 +70,14 @@ export function RecheckPanel({record,canEdit,onRecheck,onResolve}: Props) {
             Conferir origem <ExternalLink size={12}/></a>}
         </div>
       </label>)}
-      <div className="gh-actions"><button className="gh-primary" type="button" disabled={!canEdit || !selected.length}
-        onClick={() => resolve(selected)}>Aplicar {selected.length} atualização(ões)</button>
-        <button className="gh-secondary" type="button" disabled={!canEdit} onClick={() => resolve([])}>Descartar sugestões</button></div>
-      {record.status === 'sent' && <p className="gh-help">Empresa já enviada: esta aprovação atualiza a ficha de revisão. O cadastro principal do CRM não será modificado automaticamente.</p>}
+      {canSyncCrm && <label className="gh-recheck-crm-optin">
+        <input type="checkbox" checked={syncCrm} onChange={event => setSyncCrm(event.target.checked)} disabled={!canEdit || applying} />
+        Atualizar também os campos compatíveis do cadastro principal no CRM (com verificação de conflitos).
+      </label>}
+      <div className="gh-actions"><button className="gh-primary" type="button" disabled={!canEdit || !selected.length || applying}
+        onClick={() => void resolve(selected)}>{applying ? 'Aplicando…' : `Aplicar ${selected.length} atualização(ões)`}</button>
+        <button className="gh-secondary" type="button" disabled={!canEdit || applying} onClick={() => void resolve([])}>Descartar sugestões</button></div>
+      {record.status === 'sent' && <p className="gh-help">Empresas enviadas continuam na revisão. O CRM só será alterado se você marcar explicitamente a opção acima; dados sem campo compatível permanecerão apenas na ficha de revisão.</p>}
     </div>}
     <details className="gh-recheck-history" open={Boolean(history.length && !pending)}>
       <summary>Histórico das verificações ({history.length})</summary>

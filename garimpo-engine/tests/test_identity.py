@@ -45,6 +45,12 @@ class CompanyRanking(unittest.TestCase):
             company(name='BARBEARIA VIZINHO',city='Rio Grande'),
         ]),[])
         self.assertEqual(search_terms('Conceito Barber')[0],'conceito barber')
+        self.assertEqual(search_terms('Alpha Barbearia em Rio Grande','Rio Grande')[0],
+                         'alpha barbearia')
+        matches = rank_candidates('Alpha Barbearia em Rio Grande','Rio Grande','RS',
+            [company(name='ALPHA BARBEARIA')])
+        self.assertEqual(len(matches),1)
+        self.assertFalse(matches[0]['identity_confirmed'])
 
 class IdentifyApi(unittest.IsolatedAsyncioTestCase):
     async def asyncSetUp(self):

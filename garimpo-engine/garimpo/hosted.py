@@ -133,9 +133,11 @@ def create_app(settings=None, *, auth_transport=None, store_factory=None, prefli
             raise HTTPException(422, 'O piloto do índice CNPJ cobre somente o Rio Grande do Sul.')
         if cnae and (not cnae.isascii() or not cnae.isdigit() or len(cnae) < 2):
             raise HTTPException(422, 'Digite um CNAE com 2 a 7 números.')
+        cnpj = ''.join(ch for ch in name if ch.isascii() and ch.isdigit())
+        name_query = cnpj if len(cnpj) == 14 and all(ch.isdigit() or ch in './- ' for ch in name) else normalized(name)
         params = {'p_org': scope.organization_id, 'p_uf': 'RS',
                   'p_city': normalized(city), 'p_cnae': cnae or None,
-                  'p_name': normalized(name), 'p_only_active': active_only,
+                  'p_name': name_query, 'p_only_active': active_only,
                   'p_limit': limit, 'p_offset': offset}
         try:
             async with httpx.AsyncClient(

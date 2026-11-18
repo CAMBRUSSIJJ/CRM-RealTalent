@@ -18,7 +18,7 @@ CNPJ='11222333000181'
 CNPJ_BRANCH='11222333000262'
 
 def company(cnpj=CNPJ, name='CONCEITO BARBER',city='Rio Grande',state='RS',status='02'):
-    return {'cnpj':cnpj,'legal_name':'CONCEITO BARBER ESTETICA LTDA',
+    return {'cnpj':cnpj,'legal_name':name+' ESTETICA LTDA',
             'trade_name':name,'city':city,'uf':state,
             'main_cnae':'9602501','status':status,'headquarters':cnpj==CNPJ,
             'source_month':'2026-10-01','source_url':'https://www.gov.br/receitafederal/dados'}

@@ -2,6 +2,24 @@ import { getSupabaseClient } from '../../lib/supabase'
 import type { CaptureDraft } from '../../services/prospecting-workspace'
 import type { RecheckResult } from './recheck'
 
+/** Names and corporate roles published in the Receita Federal QSA, not CRM contacts. */
+export interface QsaPerson {
+  partner_name: string
+  partner_type: 'Pessoa jurídica' | 'Pessoa física' | 'Estrangeiro'
+  role_code: string
+  role_label: string
+  joined_on: string | null
+  source_month: string
+  source_url: string
+}
+export interface QsaResponse {
+  company_cnpj: string
+  source: string
+  people: QsaPerson[]
+  has_records: boolean
+  truncated: boolean
+}
+
 export interface IndexedCompany {
   cnpj: string
   legal_name: string
@@ -27,6 +45,7 @@ export interface CompanyIndexSearch {
   opened_after: string
   opened_before: string
   cnae_scope: 'any' | 'main' | 'secondary'
+  has_qsa: 'all' | 'yes' | 'no'
   limit: number
   offset: number
 }
@@ -97,6 +116,10 @@ async function request(workspaceId: string, path: string, method = 'GET', body?:
 }
 
 export const hostedGarimpo = {
+  async qsa(workspaceId: string, cnpj: string, signal?: AbortSignal): Promise<QsaResponse> {
+    const params = new URLSearchParams({ cnpj })
+    return (await request(workspaceId, `/companies/qsa?${params.toString()}`, 'GET', undefined, undefined, signal)).json()
+  },
   async recheck(workspaceId: string, input: { company: string; city: string; state: string;
     cnpj: string; website: string; phone: string; address: string }, signal?: AbortSignal): Promise<RecheckResult> {
     return (await request(workspaceId, '/companies/recheck', 'POST', input, undefined, signal)).json()
@@ -108,7 +131,9 @@ export const hostedGarimpo = {
       ...(input.headquarters === 'all' ? {} : { headquarters: String(input.headquarters === 'yes') }),
       ...(input.opened_after ? { opened_after: input.opened_after } : {}),
       ...(input.opened_before ? { opened_before: input.opened_before } : {}),
-      cnae_scope: input.cnae_scope, limit: String(input.limit),
+      cnae_scope: input.cnae_scope,
+      ...(input.has_qsa === 'all' ? {} : { has_qsa: String(input.has_qsa === 'yes') }),
+      limit: String(input.limit),
       offset: String(input.offset),
     })
     return (await request(workspaceId, `/index?${query.toString()}`, 'GET', undefined, undefined, signal)).json()

@@ -139,6 +139,7 @@ def create_app(settings=None, *, auth_transport=None, store_factory=None, prefli
         opened_after: str = Query(default='', max_length=10),
         opened_before: str = Query(default='', max_length=10),
         cnae_scope: str = Query(default='any', max_length=9),
+        has_qsa: bool | None = Query(default=None),
         limit: int = Query(default=30, ge=1, le=100),
         offset: int = Query(default=0, ge=0, le=10000),
     ):
@@ -168,6 +169,9 @@ def create_app(settings=None, *, auth_transport=None, store_factory=None, prefli
                   'p_headquarters': headquarters, 'p_opened_after': opened_after or None,
                   'p_opened_before': opened_before or None, 'p_cnae_scope': cnae_scope,
                   'p_limit': limit, 'p_offset': offset}
+        if has_qsa is not None:
+            writable(scope)
+            params['p_has_qsa'] = has_qsa
         try:
             async with httpx.AsyncClient(
                 base_url=supabase_url, timeout=15, transport=auth_transport,
@@ -175,16 +179,71 @@ def create_app(settings=None, *, auth_transport=None, store_factory=None, prefli
                 follow_redirects=False
             ) as client:
                 result = await client.post(
-                    '/rest/v1/rpc/realtalent_company_index_search', json=params)
+                    '/rest/v1/rpc/realtalent_company_index_search_with_qsa'
+                    if has_qsa is not None else '/rest/v1/rpc/realtalent_company_index_search',
+                    json=params)
         except httpx.HTTPError as exc:
             raise HTTPException(503, 'A base empresarial não respondeu. Tente novamente.') from exc
         if result.status_code in {404, 406} or 'PGRST202' in result.text:
-            raise HTTPException(503, 'O índice CNPJ ainda não está instalado neste ambiente.')
+            raise HTTPException(503, 'A pesquisa cadastral ou o filtro QSA ainda não está instalado neste ambiente.')
         if result.status_code in {401, 403}:
             raise HTTPException(403, 'Você não tem acesso ao índice neste workspace.')
         if result.is_error:
             raise HTTPException(503, 'A consulta ao índice empresarial falhou.')
         return result.json()
+
+    @app.get('/api/garimpo/companies/qsa')
+    async def company_qsa(
+        cnpj: str = Query(min_length=14, max_length=18),
+        scope=Depends(authorize),
+    ):
+        """Corporate relationship snapshot; not a verified list of buyers/decision makers.
+
+        Never returns any CPF, shareholder identifier, age or personal contact.
+        A single registered CNPJ is required; no broad people-search endpoint.
+        """
+        writable(scope)
+        checked_cnpj = valid_cnpj(cnpj)
+        if not checked_cnpj:
+            raise HTTPException(422, 'Informe um CNPJ válido para identificar os integrantes do QSA.')
+        try:
+            async with httpx.AsyncClient(
+                base_url=supabase_url, timeout=15, transport=auth_transport,
+                headers={'apikey': public_key, 'Authorization': 'Bearer ' + scope.token},
+                follow_redirects=False,
+            ) as client:
+                result = await client.post('/rest/v1/rpc/realtalent_qsa_list',
+                    json={'p_org': scope.organization_id, 'p_cnpj': checked_cnpj})
+        except httpx.HTTPError as exc:
+            raise HTTPException(503, 'O cadastro societário não respondeu.') from exc
+        if result.status_code in {404, 406} or 'PGRST202' in result.text:
+            raise HTTPException(503, 'O índice QSA ainda não foi instalado no ambiente.')
+        if 'company_not_in_index' in result.text:
+            raise HTTPException(404, 'O CNPJ não está presente no recorte empresarial importado.')
+        if result.status_code in {401, 403} or 'workspace_forbidden' in result.text:
+            raise HTTPException(403, 'Sem permissão para consultar o quadro societário.')
+        if result.is_error:
+            raise HTTPException(503, 'Não foi possível consultar o QSA da empresa.')
+        try:
+            payload = result.json()
+            names = payload['people']
+            if not isinstance(names, list):
+                raise ValueError('invalid QSA payload')
+            safe_fields = ('partner_name', 'partner_type', 'role_code',
+                           'role_label', 'joined_on', 'source_month', 'source_url')
+            people = []
+            for person in names[:50]:
+                if not isinstance(person, dict):
+                    continue
+                people.append({field: person.get(field) for field in safe_fields})
+            return {
+                'company_cnpj': checked_cnpj,
+                'source': 'Receita Federal / QSA',
+                'people': people, 'has_records': bool(payload.get('has_records')),
+                'truncated': bool(payload.get('truncated')),
+            }
+        except (TypeError, ValueError, KeyError) as exc:
+            raise HTTPException(503, 'A fonte QSA retornou um formato inesperado.') from exc
 
     @app.post('/api/garimpo/companies/recheck')
     async def recheck_company(data: CompanyRecheckRequest, scope=Depends(authorize)):

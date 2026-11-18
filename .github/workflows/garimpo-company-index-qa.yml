@@ -1,9 +1,9 @@
 name: RealTalent Intelligence — RS CNPJ pilot QA
 on:
   push:
-    branches: [feat/realtalent-intelligence-cnpj-rs-pilot-20261118, feat/garimpo-recheck-filters-v2-20261118]
+    branches: [feat/realtalent-intelligence-cnpj-rs-pilot-20261118, feat/garimpo-recheck-filters-v2-20261118, feat/realtalent-qsa-people-intelligence-20261118]
   pull_request:
-    branches: [feat/garimpo-clean-hosted-20261118, feat/realtalent-intelligence-cnpj-rs-pilot-20261118]
+    branches: [feat/garimpo-clean-hosted-20261118, feat/realtalent-intelligence-cnpj-rs-pilot-20261118, feat/garimpo-recheck-filters-v2-20261118]
 permissions:
   contents: read
 jobs:
@@ -23,8 +23,10 @@ jobs:
         run: PYTHONPATH=garimpo-engine python -m unittest discover -s garimpo-engine/tests -p 'test_company_index.py' -v
       - name: Recheck Python authorization and source-safety contracts
         run: PYTHONPATH=garimpo-engine python -m unittest discover -s garimpo-engine/tests -p 'test_recheck.py' -v
+      - name: QSA official ZIP import, privacy and API regressions
+        run: PYTHONPATH=garimpo-engine python -m unittest discover -s garimpo-engine/tests -p 'test_qsa_import.py' -v
       - name: Check Python syntax
-        run: python -m py_compile garimpo-engine/garimpo/company_index_import.py garimpo-engine/garimpo/hosted.py garimpo-engine/garimpo/extraction.py
+        run: python -m py_compile garimpo-engine/garimpo/company_index_import.py garimpo-engine/garimpo/hosted.py garimpo-engine/garimpo/extraction.py garimpo-engine/garimpo/qsa_import.py
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           node-version: '22'

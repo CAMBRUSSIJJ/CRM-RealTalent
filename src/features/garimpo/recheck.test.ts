@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { createProspect } from '../../services/prospecting-workspace'
+import { savedPeople } from './people-panel'
 import { proposeRecheck, readPending, recheckHistory, resolveRecheck, stageRecheck,
   type RecheckResult } from './recheck'
 
@@ -17,6 +18,23 @@ const observation = (field:string,value:string,kind:'website'|'register'='websit
 const response = (observations: ReturnType<typeof observation>[]): RecheckResult => ({
   checked_at:'2026-11-18T13:30:00Z',cnpj:'11222333000181',company:'Escola Referência',
   observations, warnings:[],sources:['Site institucional'],no_changes_applied:true,
+})
+
+describe('inteligência de pessoas-chave', () => {
+  it('retém apenas fontes públicas seguras e tipos permitidos no cadastro manual', () => {
+    const company = make()
+    const linked = {...company,rawData:{...company.rawData,keyPeople:[
+      {id:'1',name:'Diretora Exemplo',position:'Diretora',function:'diretor',
+        sourceUrl:'https://site-oficial.example.org/equipe',
+        recordedAt:'2026-11-18T14:30:00Z',verification:'informada_pelo_usuario'},
+      {id:'2',name:'Pessoa não verificada',position:'Cargo',function:'decisor',
+        sourceUrl:'javascript:alert(1)',recordedAt:'2026-11-18T14:30:00Z'},
+      {id:'3',name:'Cargo inválido',position:'Outro',function:'admin-geral',
+        sourceUrl:'https://site-oficial.example.org/equipe',recordedAt:'2026-11-18T14:30:00Z'},
+    ]}}
+    expect(savedPeople(linked).map(person=>person.name)).toEqual(['Diretora Exemplo'])
+    expect(savedPeople(company)).toEqual([])
+  })
 })
 
 describe('revisão 2.0 — propostas verificadas e histórico', () => {

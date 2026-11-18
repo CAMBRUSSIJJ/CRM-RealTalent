@@ -60,3 +60,26 @@
 
 .gh-recheck-crm-optin{display:flex!important;flex-direction:row!important;align-items:flex-start!important;gap:9px!important;margin-top:14px;padding:12px;background:#eef8f5;border:1px solid #d1e9e1;border-radius:9px;color:#315d51!important;font-size:12px!important;line-height:1.6}
 .gh-recheck-crm-optin input{margin-top:2px}
+
+
+/* People Intelligence: corporate QSA records are separate from user-identified deciders. */
+.gh-people{margin-top:24px;padding-top:21px;border-top:1px solid #e7eaf2}
+.gh-people-heading{display:flex;align-items:center;justify-content:space-between;gap:20px}
+.gh-people-heading h3{display:flex;align-items:center;gap:8px;margin:8px 0;font-size:14px;color:#28384e}
+.gh-people-heading p{margin:0;color:#8391a0;font-size:12px;line-height:1.5}
+.gh-people-heading>div{flex:1}.gh-people-heading button{flex-shrink:0}
+.gh-people-qsa,.gh-people-manual{margin-top:18px;border:1px solid #e8ebf2;border-radius:10px;padding:18px;background:#fcfdff}
+.gh-people-manual{background:#fff}
+.gh-people h4{font-size:12px;font-weight:700;color:#34435d;margin:0 0 12px}
+.gh-people-section-title{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}
+.gh-people-section-title span{font-size:10px;color:#8190a4}
+.gh-people ul{list-style:none;padding:0;margin:0}
+.gh-people li{padding:13px 0;border-top:1px solid #edf0f6;font-size:12px;display:flex;justify-content:space-between;gap:15px}
+.gh-people li strong,.gh-people li span,.gh-people li small{display:block;line-height:1.6}
+.gh-people li strong{color:#30425c;font-weight:650}.gh-people li span{color:#60718a}
+.gh-people li small{color:#8b9aab;font-size:10px}
+.gh-people li a{font-size:10px;display:inline-flex;gap:5px;align-items:center;margin-top:5px}
+.gh-people-form{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin-top:18px;border-top:1px solid #edf0f6;padding-top:16px}
+.gh-people-form .gh-secondary{align-self:end;min-height:38px}
+.gh-people-form .gh-index-error{grid-column:1/-1;margin:0}
+@media(max-width:800px){.gh-people-heading{align-items:flex-start;flex-direction:column}.gh-people-form{grid-template-columns:1fr}}

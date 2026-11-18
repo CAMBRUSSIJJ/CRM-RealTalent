@@ -35,7 +35,8 @@ begin
     where m.organization_id = p_org and m.user_id = auth.uid();
   if member_role is null then raise exception 'workspace_forbidden' using errcode = '42501'; end if;
   if p_action = 'list' then
-    return coalesce((select jsonb_agg(q.document order by q.created_at desc) from
+    return coalesce((select jsonb_agg((q.document - array['candidates','done_ids','discovery_state','pending_enrichment_ids','pending','results'])
+      || jsonb_build_object('results','[]'::jsonb,'result_count',jsonb_array_length(q.document->'results')) order by q.created_at desc) from
       (select document, created_at from public.garimpo_hosted_jobs where organization_id = p_org order by created_at desc limit 20) q), '[]');
   end if;
   if p_action = 'get' then
@@ -53,7 +54,7 @@ begin
     end if;
     if (select count(*) from public.garimpo_hosted_jobs where organization_id = p_org and status in ('queued','running')) >= 3
       then raise exception 'queue_full'; end if;
-    if octet_length(p_document::text) > 2000000 or jsonb_typeof(p_document->'request') <> 'object' then raise exception 'invalid_document'; end if;
+    if p_document is null or octet_length(p_document::text) > 2000000 or jsonb_typeof(p_document->'request') is distinct from 'object' then raise exception 'invalid_document'; end if;
     doc := p_document || jsonb_build_object('id', p_job, 'status','queued','organization_id',p_org,'created_by',auth.uid());
     insert into public.garimpo_hosted_jobs(id, organization_id, created_by, idempotency_key, request_hash, status, document)
       values(p_job, p_org, auth.uid(), p_key, p_hash, 'queued', doc);

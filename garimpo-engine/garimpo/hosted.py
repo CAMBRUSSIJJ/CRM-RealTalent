@@ -194,9 +194,17 @@ def create_app(settings=None, *, auth_transport=None, store_factory=None, prefli
     @app.middleware('http')
     async def private_response(request, call_next):
         if request.method == 'POST':
-            raw = await request.body()
-            if len(raw) > 16384:
+            length = request.headers.get('content-length', '0')
+            if not length.isascii() or not length.isdecimal() or len(length) > 6 or int(length) > 16384:
                 return JSONResponse({'detail':'A pesquisa excedeu o limite de tamanho.'}, status_code=413)
+            total = 0
+            chunks = []
+            async for chunk in request.stream():
+                total += len(chunk)
+                if total > 16384:
+                    return JSONResponse({'detail':'A pesquisa excedeu o limite de tamanho.'}, status_code=413)
+                chunks.append(chunk)
+            request._body = b''.join(chunks)
         response = await call_next(request)
         response.headers['Cache-Control'] = 'no-store'
         response.headers['X-Content-Type-Options'] = 'nosniff'

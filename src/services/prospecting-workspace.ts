@@ -231,6 +231,16 @@ const scheduleRemoteSync = (workspaceId: string, previous: ProspectingState, sta
   }, 350))
 }
 
+/** Wait for the current workspace's pending writes before confirming a CRM handoff. */
+export async function flushProspectingSync(workspaceId: string): Promise<void> {
+  const timer = syncTimers.get(workspaceId)
+  if (timer) { window.clearTimeout(timer); syncTimers.delete(workspaceId) }
+  const pending = pendingSync.get(workspaceId)
+  pendingSync.delete(workspaceId)
+  if (pending) await enqueueRemoteOperation(workspaceId, () => syncRemote(workspaceId, pending))
+  else await remoteOperations.get(workspaceId)
+}
+
 /**
  * Explicit record deletion. Never infer deletions from a filtered snapshot.
  * Database row-level policies remain authoritative for the current user.

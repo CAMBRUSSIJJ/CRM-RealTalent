@@ -14,8 +14,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 WORKDIR /app
 COPY pyproject.toml ./
 COPY garimpo ./garimpo
+COPY run-hosted.sh ./run-hosted.sh
 RUN pip install --no-cache-dir .
 USER garimpo
 RUN python -m garimpo.cli setup-maps --directory /opt/garimpo-tools
 EXPOSE 80
-CMD ["python", "-m", "garimpo.hosted"]
+CMD ["sh", "/app/run-hosted.sh"]

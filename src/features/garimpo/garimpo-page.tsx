@@ -51,6 +51,9 @@ export function ProspectingPage() {
   const [uf, setUf] = useState('RS')
   const [quantity, setQuantity] = useState(30)
   const [phone, setPhone] = useState(true)
+  const [emailOnly, setEmailOnly] = useState(false)
+  const [verifiedLocation, setVerifiedLocation] = useState(false)
+  const [minRelevance, setMinRelevance] = useState(0)
   const [sites, setSites] = useState(true)
   const [view, setView] = useState<View>('review')
   const [filter, setFilter] = useState('')
@@ -227,7 +230,9 @@ export function ProspectingPage() {
     searchKey.current ||= createUuid()
     const requestedWorkspace = workspaceId
     try {
-      const next = await hostedGarimpo.create(workspaceId, { segment: segment.trim(), city: city.trim(), state: uf, limit: quantity, require_phone: phone, enrich_websites: sites }, searchKey.current)
+      const next = await hostedGarimpo.create(workspaceId, { segment: segment.trim(), city: city.trim(), state: uf, limit: quantity,
+        require_phone: phone, require_email: emailOnly, require_observed_location: verifiedLocation,
+        minimum_relevance: minRelevance, enrich_websites: sites }, searchKey.current)
       if (scopeRef.current !== requestedWorkspace) return
       searchKey.current = null
       await drive(next)
@@ -315,6 +320,16 @@ export function ProspectingPage() {
         <div className="gh-location"><label>Cidade<input required maxLength={100} value={city} onChange={event => { setCity(event.target.value); searchKey.current=null }} disabled={active(job) || busy} /></label><label>UF<select aria-label="UF" value={uf} onChange={event => { setUf(event.target.value); searchKey.current=null }} disabled={active(job) || busy}>{states.map(item => <option key={item}>{item}</option>)}</select></label></div>
         <label>Até quantas empresas?<input type="number" min={1} max={100} required value={quantity} onChange={event => { setQuantity(Number(event.target.value)); searchKey.current=null }} disabled={active(job) || busy} /></label>
         <div className="gh-options"><label><input type="checkbox" checked={phone} onChange={event => { setPhone(event.target.checked); searchKey.current=null }} disabled={active(job) || busy} />Exigir telefone publicado</label><label><input type="checkbox" checked={sites} onChange={event => { setSites(event.target.checked); searchKey.current=null }} disabled={active(job) || busy} />Consultar também os sites das empresas</label></div>
+        <details className="gh-search-advanced"><summary>Mais filtros de descoberta</summary><div>
+          <label className="gh-check"><input type="checkbox" checked={emailOnly} onChange={event => { setEmailOnly(event.target.checked); searchKey.current=null }} disabled={active(job) || busy} />Exigir e-mail publicado</label>
+          <label className="gh-check"><input type="checkbox" checked={verifiedLocation} onChange={event => { setVerifiedLocation(event.target.checked); searchKey.current=null }} disabled={active(job) || busy} />Exigir município observado na fonte</label>
+          <label>Relevância mínima (0–100)
+            <input type="number" min={0} max={100} step={5} value={minRelevance}
+              onChange={event => { setMinRelevance(Math.max(0,Math.min(100,Number(event.target.value) || 0))); searchKey.current=null }}
+              disabled={active(job) || busy} />
+          </label>
+          <p className="gh-help">A relevância é calculada por regras. Um limite maior e contatos obrigatórios podem reduzir o resultado. Empresas sem contato poderão precisar de nova investigação.</p>
+        </div></details>
         <p className="gh-source"><ShieldCheck size={16} />Google Maps e sites públicos. A busca amplia termos e áreas dentro do município.</p>
         <button className="gh-primary" disabled={!canCreate || availability !== 'ready' || !hydrated || busy || active(job)} type="submit">{busy ? <Loader2 size={17} className="gh-spin" /> : <Search size={17} />}{busy ? 'Pesquisa em andamento' : 'Pesquisar empresas'}</button>
         <p className="gh-help">Os contatos precisam de revisão. A fonte pode retornar menos empresas que o limite solicitado.</p>

@@ -83,3 +83,46 @@
 .gh-people-form .gh-secondary{align-self:end;min-height:38px}
 .gh-people-form .gh-index-error{grid-column:1/-1;margin:0}
 @media(max-width:800px){.gh-people-heading{align-items:flex-start;flex-direction:column}.gh-people-form{grid-template-columns:1fr}}
+
+
+/* Intelligence 3.1 — compact identification first, progressive disclosure afterward. */
+.gh-identity{margin-top:20px;padding:18px;border:1px solid #e5e9f3;border-radius:11px;background:#fafbfe}
+.gh-identity-top{display:flex;align-items:center;justify-content:space-between;gap:18px}
+.gh-identity-top>div{flex:1;min-width:0}
+.gh-identity-top h3{display:flex;align-items:center;gap:7px;color:#253654;font-size:14px;margin:6px 0}
+.gh-identity-top p{font-size:12px;color:#76869d;margin:0;line-height:1.6}
+.gh-identity-top>.gh-primary{flex-shrink:0;min-height:37px}
+.gh-identity-linked{display:flex;gap:11px;align-items:center;flex-wrap:wrap;margin-top:14px}
+.gh-identity-linked strong{font-size:12px;color:#3e536d}
+.gh-identity-linked small{font-size:11px;color:#8793a5;flex:1;min-width:160px}
+.gh-identity-linked a{font-size:11px;display:inline-flex;gap:5px;align-items:center}
+.gh-identity-results{margin-top:16px;padding-top:16px;border-top:1px solid #e7eaf3}
+.gh-identity-results h4{margin:0 0 10px;font-size:12px;color:#334965}
+.gh-identity-candidate{display:flex;align-items:center;gap:16px;justify-content:space-between;padding:13px 12px;margin:8px 0;border:1px solid #e4eaf0;border-radius:9px;background:#fff}
+.gh-identity-candidate>div{flex:1;min-width:0;overflow-wrap:anywhere}
+.gh-identity-candidate strong{display:block;font-size:12px;color:#2b3f5a}
+.gh-identity-candidate span,.gh-identity-candidate small{display:block;font-size:10px;color:#7789a0;margin-top:5px}
+.gh-identity-candidate .gh-secondary{flex-shrink:0}
+.gh-identity-manual{margin-top:14px;padding-top:12px;border-top:1px solid #edf0f6}
+.gh-identity-manual>summary{font-size:12px;cursor:pointer;color:#506784;font-weight:600}
+.gh-identity-manual form{display:flex;align-items:flex-end;gap:10px;flex-wrap:wrap;margin-top:12px}
+.gh-identity-manual form>label{flex:1;min-width:180px}
+.gh-identity-manual form>p{flex-basis:100%;margin:0}
+.gh-identity-manual form>.gh-secondary{min-height:40px}
+.gh-people{margin-top:14px;border:1px solid #e8eaf3;border-radius:10px;padding:0;background:#fff}
+.gh-people>summary.gh-people-heading{display:flex;align-items:center;justify-content:space-between;cursor:pointer;list-style:none;gap:16px;padding:15px 18px}
+.gh-people>summary.gh-people-heading::-webkit-details-marker{display:none}
+.gh-people-heading h3{font-size:13px;margin:5px 0}
+.gh-people-heading p{font-size:11px;margin:0}
+.gh-people-summary-action{font-size:11px;color:#5a6d8b;white-space:nowrap}
+.gh-people-content{padding:0 18px 17px}
+.gh-people-actions{display:flex;justify-content:space-between;align-items:center;gap:15px;flex-wrap:wrap}
+.gh-people-actions>p{flex:1}
+.gh-people-qsa,.gh-people-manual{margin-top:12px;padding:14px;border-radius:9px}
+.gh-people-add{margin-top:14px;border-top:1px solid #e7ebf2;padding-top:12px}
+.gh-people-add>summary{display:inline-flex;gap:7px;align-items:center;cursor:pointer;color:#4c5f7e;font-weight:600;font-size:12px}
+.gh-people-add .gh-people-form{margin-top:12px}
+.gh-recheck-fold{border-top:1px solid #edf0f6;margin-top:15px;padding-top:12px}
+.gh-recheck-fold>summary{font-size:12px;color:#5c708b;font-weight:600;cursor:pointer}
+.gh-recheck-fold>.gh-recheck{margin-top:13px;border-top:0;padding-top:0}
+@media(max-width:640px){.gh-identity-top,.gh-identity-candidate{align-items:stretch;flex-direction:column}.gh-identity-candidate .gh-secondary{align-self:flex-start}.gh-identity-manual form{flex-direction:column;align-items:stretch}.gh-identity-manual form>*{width:100%}}

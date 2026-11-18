@@ -33,7 +33,7 @@ export function isValidCnpj(value: string): boolean {
   const digits = cnpjDigits(value)
   if (!/^[0-9]{14}$/.test(digits) || /^(\d)\1+$/.test(digits)) return false
   for (const length of [12, 13]) {
-    const weights = [...Array.from({length:length-7},(_,i)=>length-7-i),
+    const weights = [...Array.from({length:length-8},(_,i)=>length-7-i),
       ...Array.from({length:8},(_,i)=>9-i)]
     const rem = [...digits.slice(0,length)].reduce((sum,n,i)=>sum+Number(n)*weights[i],0)%11
     if (Number(digits[length]) !== (rem < 2 ? 0 : 11-rem)) return false

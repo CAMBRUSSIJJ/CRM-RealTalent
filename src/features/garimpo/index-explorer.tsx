@@ -22,6 +22,7 @@ function toDraft(item: IndexedCompany): CaptureDraft {
     engine: {
       version: 'intelligence-index-rs-1', providerId: `cnpj:${item.cnpj}`,
       dataset: { source: 'Receita Federal / CNPJ', month: item.source_month },
+      legalName: item.legal_name, mainCnae: item.main_cnae, uf: item.uf,
       qualityScore: 30, relevanceScore: 0, relevanceReasons: ['Filtro cadastral CNAE/município'],
       // Dataset provenance is not a per-company URL or contact verification.
       evidence: [{

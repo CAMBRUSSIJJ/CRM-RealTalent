@@ -1,4 +1,4 @@
-import { useEffect, useState, type FormEvent } from 'react'
+import { useEffect, useRef, useState, type FormEvent } from 'react'
 import { ExternalLink, Plus, Search, Trash2, Users } from 'lucide-react'
 import { createUuid } from '../../lib/id'
 import type { ProspectRecord } from '../../services/prospecting-workspace'
@@ -31,12 +31,14 @@ export function savedPeople(record: ProspectRecord): KeyPerson[] {
   return Array.isArray(data) ? data.filter((item): item is KeyPerson =>
     Boolean(item && typeof item.id === 'string' && typeof item.name === 'string'
       && typeof item.position === 'string' && typeof item.sourceUrl === 'string'
-      && ['decisor','diretor','administrador','outro'].includes(item.function))) .slice(0,30) : []
+      && Boolean(publicUrl(item.sourceUrl))
+      && ['decisor','diretor','administrador','outro'].includes(item.function))).slice(0,30) : []
 }
 
 export function PeoplePanel({record,workspaceId,canEdit,onPatch}: Props) {
   const [qsa,setQsa] = useState<QsaResponse | null>(null)
   const [loading,setLoading] = useState(false)
+  const request = useRef<AbortController | null>(null)
   const [error,setError] = useState('')
   const [name,setName] = useState('')
   const [position,setPosition] = useState('')
@@ -45,19 +47,29 @@ export function PeoplePanel({record,workspaceId,canEdit,onPatch}: Props) {
   const [addError,setAddError] = useState('')
   const people = savedPeople(record)
 
-  useEffect(() => {setQsa(null);setError('');setLoading(false);setAddError('')},
-    [workspaceId,record.cnpj,record.id])
+  useEffect(() => {
+    request.current?.abort()
+    setQsa(null);setError('');setLoading(false);setAddError('')
+    return () => request.current?.abort()
+  }, [workspaceId,record.cnpj,record.id])
 
   async function consult() {
     if (loading || !record.cnpj || !workspaceId) return
+    request.current?.abort()
+    const controller = new AbortController()
+    request.current=controller
     setLoading(true);setError('')
     try {
-      const result = await hostedGarimpo.qsa(workspaceId,record.cnpj)
-      setQsa(result)
+      const result = await hostedGarimpo.qsa(workspaceId,record.cnpj,controller.signal)
+      if (!controller.signal.aborted) setQsa(result)
     } catch (cause) {
-      setQsa(null)
-      setError(cause instanceof Error ? cause.message : 'Não foi possível consultar a Receita.')
-    } finally {setLoading(false)}
+      if (!controller.signal.aborted) {
+        setQsa(null)
+        setError(cause instanceof Error ? cause.message : 'Não foi possível consultar a Receita.')
+      }
+    } finally {
+      if (request.current===controller) setLoading(false)
+    }
   }
 
   function add(event: FormEvent<HTMLFormElement>) {
@@ -106,7 +118,7 @@ export function PeoplePanel({record,workspaceId,canEdit,onPatch}: Props) {
       {people.length ? <ul>{people.map(person=><li key={person.id}>
         <div><strong>{person.name}</strong><span>{person.position} · {functions[person.function]}</span>
           <small>Fonte informada pelo usuário em {new Date(person.recordedAt).toLocaleDateString('pt-BR')}</small>
-          <a href={person.sourceUrl} target="_blank" rel="noopener noreferrer">Conferir fonte <ExternalLink size={12}/></a></div>
+          <a href={publicUrl(person.sourceUrl)!} target="_blank" rel="noopener noreferrer">Conferir fonte <ExternalLink size={12}/></a></div>
         {canEdit&&<button className="gh-icon" type="button" aria-label={'Excluir pessoa-chave '+person.name} onClick={()=>remove(person.id)}><Trash2 size={14}/></button>}
       </li>)}</ul>:<p className="gh-help">Nenhum decisor profissional foi cadastrado. Não inferimos nomes a partir do QSA.</p>}
       {canEdit&&<form className="gh-people-form" onSubmit={add}>

@@ -75,7 +75,7 @@ begin
     where c.uf = p_uf
       and (not p_only_active or c.status = '02')
       and (nullif(p_city,'') is null or c.city_search = p_city)
-      and (nullif(p_name,'') is null or position(p_name in c.name_search) > 0)
+      and (nullif(p_name,'') is null or c.cnpj = p_name or position(p_name in c.name_search) > 0)
       and (nullif(p_cnae,'') is null
            or c.main_cnae like p_cnae || '%'
            or exists (select 1 from unnest(c.secondary_cnaes) s

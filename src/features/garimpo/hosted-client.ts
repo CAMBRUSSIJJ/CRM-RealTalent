@@ -1,6 +1,38 @@
 import { getSupabaseClient } from '../../lib/supabase'
 import type { CaptureDraft } from '../../services/prospecting-workspace'
 
+export interface IndexedCompany {
+  cnpj: string
+  legal_name: string
+  trade_name: string
+  uf: string
+  municipality_code: string
+  city: string
+  main_cnae: string
+  secondary_cnaes: string[]
+  status: string
+  opened_on: string | null
+  headquarters: boolean
+  source_month: string
+  source_url: string
+}
+
+export interface CompanyIndexSearch {
+  city: string
+  cnae: string
+  name: string
+  active_only: boolean
+  limit: number
+  offset: number
+}
+
+export interface CompanyIndexPage {
+  items: IndexedCompany[]
+  has_more: boolean
+  limit: number
+  offset: number
+}
+
 export interface HostedJob {
   id: string
   organization_id: string
@@ -57,6 +89,14 @@ async function request(workspaceId: string, path: string, method = 'GET', body?:
 }
 
 export const hostedGarimpo = {
+  async index(workspaceId: string, input: CompanyIndexSearch, signal?: AbortSignal): Promise<CompanyIndexPage> {
+    const query = new URLSearchParams({
+      state: 'RS', city: input.city, cnae: input.cnae, name: input.name,
+      active_only: String(input.active_only), limit: String(input.limit),
+      offset: String(input.offset),
+    })
+    return (await request(workspaceId, `/index?${query.toString()}`, 'GET', undefined, undefined, signal)).json()
+  },
   async capabilities(workspaceId: string, signal?: AbortSignal): Promise<{ ready: boolean; hosted: boolean; can_write: boolean }> {
     return (await request(workspaceId, '/capabilities', 'GET', undefined, undefined, signal)).json()
   },

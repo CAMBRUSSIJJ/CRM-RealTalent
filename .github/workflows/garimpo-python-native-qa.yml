@@ -1,0 +1,45 @@
+name: Garimpo Python — End-to-end Contract QA
+on:
+  push:
+    branches: [feat/garimpo-python-native-functional-20261117]
+  pull_request:
+    branches: [feat/garimpo-essential-no-ai-preview-20261117]
+permissions:
+  contents: read
+jobs:
+  python-and-crm:
+    runs-on: ubuntu-latest
+    timeout-minutes: 18
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+      - name: Python 3.12
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with:
+          python-version: "3.12"
+      - name: Python 3 engine tests
+        run: |
+          python3 -m pip install -c garimpo-engine/requirements.lock ./garimpo-engine
+          PYTHONPATH=garimpo-engine python3 -m unittest discover -s deploy/local-garimpo -p 'test_garimpo*.py' -v
+          PYTHONPATH=garimpo-engine python3 -m unittest discover -s garimpo-engine/tests -v
+          python3 -m py_compile deploy/local-garimpo/garimpo_engine.py deploy/local-garimpo/garimpo_connector.py
+      - name: Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - name: Install CRM
+        run: npm ci --include=dev
+      - name: Typecheck
+        run: npm run typecheck
+      - name: Build
+        run: npm run build
+      - name: Linux installer regression
+        run: npx vitest run src/services/local-connector-installer.test.ts
+      - name: Connector regressions
+        working-directory: deploy/local-garimpo
+        run: |
+          npm ci --include=dev
+          npm test

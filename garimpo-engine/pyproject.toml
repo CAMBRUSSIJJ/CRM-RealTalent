@@ -1,0 +1,22 @@
+[build-system]
+requires = ["setuptools>=75,<83"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "realtalent-garimpo"
+version = "0.6.0"
+description = "Descoberta de empresas e contatos públicos para o Garimpo do RealTalent"
+requires-python = ">=3.12"
+dependencies = ["fastapi==0.141.1", "httpx==0.28.1", "uvicorn==0.52.1", "pydantic==2.14.3"]
+
+[project.scripts]
+garimpo = "garimpo.cli:main"
+
+[project.optional-dependencies]
+snapshot = ["osmium==4.3.2"]
+
+[tool.setuptools.packages.find]
+include = ["garimpo*"]
+
+[tool.setuptools.package-data]
+garimpo = ["preview_assets/*"]

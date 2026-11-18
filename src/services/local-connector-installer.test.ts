@@ -14,14 +14,20 @@ const config = [
   '',
 ].join('\n')
 
-test('Linux: gera instalador privado fixado em commit completo e valida HEAD', () => {
+test('Linux: gera instalador privado do motor Python fixado em commit completo e valida HEAD', () => {
   const installer = buildGarimpoLinuxInstaller(config)
   expect(installer.startsWith('#!/usr/bin/env bash\n')).toBe(true)
-  expect(installer).toContain('exec bash "$CONNECTOR/CONFIGURAR-LINUX.sh" "$CONFIG"')
-  expect(installer).toContain('157192ebe9131952a9dbed0c252a5c35dc56ffdf')
-  expect(installer).toContain('git -C "$TEMP/source" fetch --depth=1 origin "$SOURCE_SHA"')
+  expect(installer).toContain('exec "$PY" -u "$CONNECTOR/garimpo_connector.py" "$CONFIG"')
+  expect(installer).toContain('1f7e1515f82381744a05a33a89d62ffa61141df1')
+  expect(installer).toContain('git -C "$TEMP/source" fetch --filter=blob:none --depth=1 origin "$SOURCE_SHA"')
   expect(installer).toContain('git -C "$ROOT" rev-parse HEAD')
-  expect(installer).toContain('essential_worker.py')
+  expect(installer).toContain('garimpo_engine.py')
+  expect(installer).toContain('RealTalent-Garimpo-Python-v06')
+  expect(installer).toContain('mkdir -p -- "$(dirname "$ROOT")"')
+  expect(installer).toContain('garimpo setup-maps')
+  expect(installer).toContain('pip install --disable-pip-version-check')
+  expect(installer).toContain('GARIMPO_MAPS_BINARY=')
+  expect(installer).toContain('test_garimpo_python.py')
   expect(installer).toContain('chmod 600 -- "$CONFIG.new"')
   expect(installer).toContain('SOURCE_REPO="https://github.com/CAMBRUSSIJJ/CRM-RealTalent.git"')
   expect(installer).not.toContain('a'.repeat(64))
@@ -54,7 +60,7 @@ test('Linux: comando de copiar não depende de arquivo e tem sintaxe válida', (
   expect(payload).toBeTruthy()
   const decoded = Buffer.from(payload!, 'base64').toString('utf8')
   expect(decoded).toBe(buildGarimpoLinuxInstaller(config))
-  expect(decoded).toContain('exec bash "$CONNECTOR/CONFIGURAR-LINUX.sh" "$CONFIG"')
+  expect(decoded).toContain('exec "$PY" -u "$CONNECTOR/garimpo_connector.py" "$CONFIG"')
   if (process.platform !== 'win32') {
     const parsed = spawnSync('bash', ['-n'], { input: decoded, encoding: 'utf8' })
     expect(parsed.status, parsed.stderr).toBe(0)

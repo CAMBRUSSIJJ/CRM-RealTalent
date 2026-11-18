@@ -98,6 +98,17 @@ describe('Garimpo com IA e fontes', () => {
     expect(aiResearchNotes(restored.prospects[0])).toContain(`Fonte: ${url}`)
   })
 
+  it('conserva a origem Maps do motor nativo ao receber o lote na revisão', () => {
+    const payload = result()
+    const engine = { version: '0.6.0', providerId: 'maps:public-place' }
+    Object.assign(payload.leads[0], { engine })
+    const state = applyAiDiscovery(blank(), payload, organizationId, 'manual', [])
+    expect(state.prospects[0].source).toBe('maps')
+    expect(state.prospects[0].sourceDetail).toContain('Google Maps')
+    expect(state.prospects[0].rawData.engine).toEqual(engine)
+    expect(state.prospects[0].rawData.aiResearch).toEqual(payload.leads[0].aiResearch)
+  })
+
   it('normaliza DDI brasileiro e não confunde contatos sem identidade', () => {
     const a = createProspect(organizationId, { company: 'Alpha', phone: '+55 51 99999-1001' })
     const b = createProspect(organizationId, { company: 'Beta', phone: '(51) 99999-1001' })

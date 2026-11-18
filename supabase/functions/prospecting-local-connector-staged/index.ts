@@ -61,11 +61,23 @@ Deno.serve(async (request) => {
       }
       const failed = body.failed === true
       if (!failed && (!isRecord(body.result) || !Array.isArray(body.result.leads) || body.result.leads.length > 10 || !Array.isArray(body.result.warnings))) throw new ProspectingError('invalid_result')
-      const done = await admin.from('prospecting_ai_jobs').update({ status: failed ? 'failed' : 'completed', result: failed ? null : body.result,
+      const diagnostics: Record<string, string> = {
+        location_required: 'Informe a cidade e a UF, por exemplo: Rio Grande, RS.',
+        source_unavailable: 'O motor não conseguiu concluir a consulta às fontes. Confira o terminal do motor; isso não significa ausência de empresas.',
+      }
+      const diagnostic = typeof body.diagnosticCode === 'string' ? diagnostics[body.diagnosticCode] : ''
+      const failedResult = diagnostic ? { leads: [], warnings: [diagnostic], researchedAt: new Date().toISOString(),
+        progress: { stage: ['discover','website','web','instagram','facts','signals','completed'].includes(String(body.stage)) ? body.stage : 'discover',
+          phaseStatus: 'failed', errorCode: body.diagnosticCode, leadCount: 0, sourceCount: 0, updatedAt: new Date().toISOString() } } : null
+      const done = await admin.from('prospecting_ai_jobs').update({ status: failed ? 'failed' : 'completed', result: failed ? failedResult : body.result,
         error_code: failed ? (['local_stage_failed','local_stage_timeout','local_research_failed'].includes(String(body.errorCode)) ? String(body.errorCode) : 'local_research_failed') : null, completed_at: new Date().toISOString(), locked_until: null,
       }).eq('id', body.jobId).eq('organization_id', organizationId).eq('status', 'processing').eq('lease_id', body.leaseId).gt('locked_until', new Date().toISOString()).select('id')
       if (done.error) throw new ProspectingError('local_complete_failed', 500)
-      return json({ accepted: Boolean(done.data?.length) })
+      if (done.data?.length) return json({ accepted: true })
+      // A completion response can be lost after the DB commits. A retry from the
+      // same authenticated workspace and lease acknowledges that terminal write.
+      const previous = await admin.from('prospecting_ai_jobs').select('status').eq('id', body.jobId).eq('organization_id', organizationId).eq('lease_id', body.leaseId).maybeSingle()
+      return json({ accepted: !previous.error && previous.data?.status === (failed ? 'failed' : 'completed'), alreadyCompleted: true })
     }
     const authorization = request.headers.get('authorization') ?? ''
     if (!/^Bearer \S+$/i.test(authorization)) throw new ProspectingError('unauthorized', 401)

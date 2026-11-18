@@ -577,21 +577,28 @@ export function ProspectingPage() {
             organizationId: workspaceId, segment: segment.trim(), city: city.trim(),
             query: [query.trim(), engineMode === 'essential' ? 'GARIMPO_MODE_ESSENTIAL' : 'GARIMPO_MODE_INTELLIGENT'].filter(Boolean).join(' '), limit: Math.min(10, Math.max(1, quantity)),
             source: 'maps', execution: 'local', mode: engineMode,
-          }, controller.signal)
+          }, controller.signal, { onProgress: (progress) => {
+            if (controller.signal.aborted) return
+            setLocalFound(progress.leadCount)
+            setLocalMessage(progress.leadCount
+              ? `${progress.leadCount} empresa(s) com contatos encontradas; conferindo as fontes antes da revisão.`
+              : 'O motor está consultando as fontes públicas. Aguardando os primeiros contatos.')
+          } })
           if (controller.signal.aborted) { cancelled = true; return }
           localSuccess = true
           localResultCount = result.leads.length
           setLocalFound(localResultCount)
-          setLocalStatus('completed')
+          const providerUnavailable = !localResultCount && result.warnings.some((item) => /indispon[ií]vel|n[aã]o foi poss[ií]vel|fonte.*falha|location_not_found/i.test(item))
+          setLocalStatus(providerUnavailable ? 'failed' : 'completed')
           const message = localResultCount
             ? `${localResultCount} empresa(s) com fontes encaminhada(s) à revisão.`
-            : 'A coleta terminou sem empresas comprovadas. Confira os critérios e a etapa territorial.'
+            : result.warnings.slice(0, 2).join(' ') || 'A pesquisa terminou sem empresas verificáveis. Revise os filtros e a conexão.'
           setLocalMessage(message)
           if (localResultCount) {
             commit((current) => applyAiDiscovery(current, result, workspaceId, 'manual', snapshot?.leads ?? [], currentUserId))
-            notify('success', `${engineMode === 'essential' ? 'Pesquisa sem IA' : 'Pesquisa com IA'}: ${localResultCount} empresa(s) identificada(s). Confira as fontes em Revisar.`)
+            notify('success', `${result.researchMode === 'essential' ? 'Pesquisa sem IA' : 'Pesquisa com IA'}: ${localResultCount} empresa(s) identificada(s). Confira as fontes em Revisar.`)
           } else {
-            notify('info', 'A coleta terminou sem empresas verificáveis. Nenhum registro fictício foi criado.')
+            notify(providerUnavailable ? 'warning' : 'info', message)
           }
         } catch (error) {
           if (controller.signal.aborted) { cancelled = true; return }
@@ -609,6 +616,10 @@ export function ProspectingPage() {
       setLocalRunning(false)
     }
     if (cancelled || controller.signal.aborted) return
+    if (localSuccess && localResultCount) {
+      setTab('results')
+      return
+    }
     let territorialAvailable = false
     try { territorialAvailable = Boolean(await getProspectingAgentHealth()) }
     catch { /* The browser may not reach the separate territorial runtime. */ }

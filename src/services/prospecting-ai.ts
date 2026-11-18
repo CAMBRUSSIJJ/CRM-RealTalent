@@ -22,7 +22,7 @@ const messages: Record<string, string> = {
   local_connector_unavailable: 'O conector local ainda precisa ser instalado no Supabase. Consulte o guia do Garimpo local.',
   local_connector_offline: 'Seu computador está desconectado. Inicie o conector local e aguarde alguns segundos antes de pesquisar.',
   local_queue_busy: 'Há pesquisas aguardando no seu computador. Aguarde a conclusão para iniciar outra.',
-  local_research_failed: 'A pesquisa local não concluiu. Confira a conexão do Linux e o Firecrawl no diagnóstico técnico.',
+  local_research_failed: 'O motor não concluiu a pesquisa. Confira o terminal do Garimpo e a etapa indicada no diagnóstico.',
   local_stage_failed: 'Uma etapa da investigação não concluiu; confira o diagnóstico e as fontes já coletadas.',
   local_stage_timeout: 'A investigação excedeu o tempo permitido. As etapas concluídas continuam registradas no Linux.',
   local_job_expired: 'A pesquisa local expirou. Verifique se o conector continua aberto no computador.',
@@ -220,7 +220,11 @@ export async function searchProspectsWithAi(input: AiSearchInput, signal?: Abort
         if (job.data.status === 'completed') return validateAiResponse(job.data.result)
         const progress = (job.data.result as { progress?: LocalResearchProgress } | null)?.progress
         if (progress && options.onProgress) options.onProgress(progress)
-        if (job.data.status === 'failed') throw new Error(messages[job.data.error_code ?? ''] ?? messages.local_research_failed)
+        if (job.data.status === 'failed') {
+          const warnings = (job.data.result as { warnings?: unknown } | null)?.warnings
+          const detail = Array.isArray(warnings) ? warnings.filter((value): value is string => typeof value === 'string').slice(0, 3).join(' ') : ''
+          throw new Error(detail || messages[job.data.error_code ?? ''] || messages.local_research_failed)
+        }
         if (job.data.status === 'cancelled') throw new DOMException('Pesquisa cancelada', 'AbortError')
       }
       throw new Error(messages.local_job_expired)
@@ -254,14 +258,17 @@ export function applyAiDiscovery(state: ProspectingState, result: AiSearchResult
   const added: ProspectRecord[] = []
   let skipped = 0
   for (const draft of result.leads) {
-    const prospect = refreshProspectAnalysis(createProspect(workspaceId, { ...draft, source, sourceDetail: result.researchMode === 'essential' ? 'Pesquisa web sem IA' : 'Pesquisa web com IA' }, source, leads, createdBy), leads)
+    const nativeEngine = (draft as unknown as { engine?: { providerId?: unknown } }).engine
+    const actualSource: ProspectSource = typeof nativeEngine?.providerId === 'string' && nativeEngine.providerId.startsWith('maps:') ? 'maps' : source
+    const sourceDetail = actualSource === 'maps' && nativeEngine ? 'Google Maps · pesquisa pública' : result.researchMode === 'essential' ? 'Pesquisa web sem IA' : 'Pesquisa web com IA'
+    const prospect = refreshProspectAnalysis(createProspect(workspaceId, { ...draft, source: actualSource, sourceDetail }, actualSource, leads, createdBy), leads)
     const identities = prospectIdentityKeys(prospect)
     if (identities.some((key) => keys.has(key))) { skipped += 1; continue }
     identities.forEach((key) => keys.add(key))
     added.push(prospect)
   }
   return appendHistory({ ...state, prospects: [...added, ...state.prospects] }, workspaceId, {
-    action: 'search', title: 'Pesquisa com IA concluída',
+    action: 'search', title: result.researchMode === 'essential' ? 'Pesquisa pública sem IA concluída' : 'Pesquisa com IA concluída',
     description: `${result.leads.length} encontrado(s) · ${added.length} novo(s) · ${skipped} repetido(s) ignorado(s). ${result.warnings.join(' ')}`, count: added.length,
   })
 }
@@ -298,7 +305,7 @@ export function aiResearchNotes(prospect: ProspectRecord) {
   const research = researchForProspect(prospect)
   if (!research) return ''
   return [
-    `Pesquisa com IA: ${research.researchedAt}`,
+    `Pesquisa de fontes públicas: ${research.researchedAt}`,
     research.opportunity ? `Hipótese comercial (IA): ${research.opportunity}` : '',
     research.suggestedApproach ? `Sugestão de abordagem (IA): ${research.suggestedApproach}` : '',
     ...research.sources.map((source) => `Fonte: ${safeResearchUrl(source.url)}`).filter((line) => line !== 'Fonte: '),

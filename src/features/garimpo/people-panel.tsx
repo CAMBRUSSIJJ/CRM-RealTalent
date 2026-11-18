@@ -47,7 +47,8 @@ export function PeoplePanel({record,workspaceId,canEdit,onPatch}: Props) {
   const [sourceUrl,setSourceUrl] = useState('')
   const [addError,setAddError] = useState('')
   const people = savedPeople(record)
-  const identityAt = (record.rawData.identityMatch as {matchedAt?:string}|undefined)?.matchedAt
+  const linkedIdentity = record.rawData.identityMatch as {matchedAt?:string;method?:string}|undefined
+  const identityAt = linkedIdentity?.method !== 'user_supplied' ? linkedIdentity?.matchedAt : undefined
 
   useEffect(() => {
     request.current?.abort()
@@ -129,7 +130,7 @@ export function PeoplePanel({record,workspaceId,canEdit,onPatch}: Props) {
           disabled={!workspaceId||loading||!canEdit} onClick={()=>void consult()}>
           <Search size={14}/>{loading?'Consultando…':'Consultar novamente o QSA'}</button>}
       </div>
-    {!record.cnpj && <p className="gh-help">Informe um CNPJ para consultar o quadro de sócios da Receita.</p>}
+    {!record.cnpj && <p className="gh-help">Informe ou identifique um CNPJ para consultar os vínculos societários disponíveis.</p>}
     {error && <p className="gh-index-error" role="alert">{error}</p>}
     {qsa && <div className="gh-people-qsa">
       <div className="gh-people-section-title"><h4>Quadro de sócios e administradores (QSA)</h4>
@@ -139,7 +140,7 @@ export function PeoplePanel({record,workspaceId,canEdit,onPatch}: Props) {
         <span>{person.role_label} · {person.partner_type}</span>
         <small>{person.joined_on?'Ingresso: '+person.joined_on+' · ':''}{qsa.source}, {person.source_month?'competência '+person.source_month.slice(0,7):'competência não informada'}</small>
         {publicUrl(person.source_url) && <a href={publicUrl(person.source_url)!} target="_blank" rel="noopener noreferrer">Ver origem do conjunto <ExternalLink size={12}/></a>}
-      </li>)}</ul>:<p className="gh-help">Nenhum integrante encontrado na amostra QSA carregada. Isso não comprova ausência de sócios.</p>}
+      </li>)}</ul>:<p className="gh-help">Nenhum integrante retornado pela fonte consultada. Isso não comprova ausência de sócios.</p>}
       {qsa.note&&<p className="gh-help">{qsa.note}</p>}
       <p className="gh-help">Não são exibidos CPF, idade, dados privados ou contatos pessoais. Um sócio não é automaticamente um decisor comercial.</p>
     </div>}

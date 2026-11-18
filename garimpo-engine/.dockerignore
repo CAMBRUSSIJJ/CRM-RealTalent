@@ -1,0 +1,9 @@
+.venv
+data
+tests
+__pycache__
+*.sqlite*
+*.egg-info
+.env*
+build
+dist

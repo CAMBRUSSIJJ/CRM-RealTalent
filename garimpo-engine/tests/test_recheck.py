@@ -24,6 +24,7 @@ class RecheckContract(unittest.IsolatedAsyncioTestCase):
             'SUPABASE_PUBLISHABLE_KEY':'public-test-key'})
         self.env.start()
         self.role = 'member'
+        self.index_available=True
         self.db_requests = []
         def transport(request):
             if request.headers.get('authorization') != 'Bearer valid-test-session-token':
@@ -35,6 +36,8 @@ class RecheckContract(unittest.IsolatedAsyncioTestCase):
                 return httpx.Response(200,json=[{'role':self.role}] if allowed else [])
             if request.url.path == '/rest/v1/rpc/realtalent_company_index_search':
                 self.db_requests.append(request)
+                if not self.index_available:
+                    return httpx.Response(404,json={'code':'PGRST202'})
                 return httpx.Response(200,json={
                     'items':[{'cnpj':CNPJ,'legal_name':'ESCOLA EXEMPLO LTDA',
                               'main_cnae':'8513900','status':'02',
@@ -42,9 +45,22 @@ class RecheckContract(unittest.IsolatedAsyncioTestCase):
                               'source_url':'https://www.gov.br/receitafederal/dados'}],
                     'has_more':False,'offset':0,'limit':2})
             return httpx.Response(404,json={})
+        def public_transport(request):
+            if request.url.path != '/consulta/api/v1/empresa/' + CNPJ:
+                return httpx.Response(404,json={})
+            return httpx.Response(200,json={
+                'cnpj': CNPJ, 'razao_social':'ESCOLA EXEMPLO LTDA',
+                'nome_fantasia':'ESCOLA EXEMPLO','situacao':{'descricao':'Ativa'},
+                'atividade':{'cnae_principal':{'codigo':'8513900'}},
+                'data_fundacao':'2021-03-20',
+                'contatos':{'telefones':[{'mascarado':'(53) 9999-****'}]},
+                'quadro_societario':[{'nome':'PESSOA PRIVADA','cpf':'***123456**'}],
+                '_links':{'pagina':'https://www.datastone.com.br/consulta/empresa/exemplo'},
+            })
         self.app = create_app(
             Settings(db_path=Path(self.tmp.name)/'cache.sqlite3',maps_binary=Path(__file__)),
-            auth_transport=httpx.MockTransport(transport), preflight=lambda:None)
+            auth_transport=httpx.MockTransport(transport),
+            public_transport=httpx.MockTransport(public_transport), preflight=lambda:None)
         self.client = httpx.AsyncClient(
             transport=httpx.ASGITransport(app=self.app),base_url='http://test',
             headers={'Authorization':'Bearer valid-test-session-token','X-Workspace-Id':ORG})
@@ -83,6 +99,24 @@ class RecheckContract(unittest.IsolatedAsyncioTestCase):
         self.assertEqual({x['field'] for x in data['observations']},
                          {'legal_name','main_cnae','status'})
         self.assertNotIn('phone',{x['field'] for x in data['observations']})
+
+    async def test_public_registration_when_local_index_is_missing(self):
+        self.index_available=False
+        r=await self.client.post('/api/garimpo/companies/recheck',json={
+            'company':'Escola Exemplo','city':'Rio Grande','state':'RS',
+            'cnpj':CNPJ,'website':''})
+        self.assertEqual(r.status_code,200,r.text)
+        data=r.json()
+        self.assertTrue(data['no_changes_applied'])
+        self.assertEqual(data['sources'],[
+            'Consulta Data Stone (dados abertos da Receita Federal)'])
+        self.assertEqual({entry['field'] for entry in data['observations']},
+                         {'legal_name','trade_name','main_cnae','status','opened_on'})
+        self.assertNotIn('123456',str(data))
+        self.assertNotIn('PESSOA PRIVADA',str(data))
+        self.assertNotIn('9999-',str(data))
+        self.assertTrue(all(entry['url'].startswith('https://www.datastone.com.br/consulta/')
+                            for entry in data['observations']))
 
     async def test_recheck_requires_auth_permission_and_safe_identity(self):
         details = {'company':'Escola Exemplo','city':'Rio Grande','state':'RS',

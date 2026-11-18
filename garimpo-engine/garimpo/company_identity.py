@@ -9,7 +9,7 @@ from difflib import SequenceMatcher
 from .models import normalized, valid_cnpj
 
 STOPWORDS = {
-    "de", "da", "do", "das", "dos", "e", "a", "o", "na", "no",
+    "de", "da", "do", "das", "dos", "e", "em", "a", "o", "na", "no",
     "empresa", "empresas", "ltda", "mei", "me", "eireli", "sa", "s", "a",
     "comercio", "servicos", "servico", "industria", "grupo", "cia",
     "barbearia", "barbershop", "barber", "salao", "clinica", "escola",
@@ -23,9 +23,21 @@ def distinctive_tokens(value: str) -> list[str]:
     return [word for word in tokens if len(word) >= 3 and word not in STOPWORDS][:10]
 
 
-def search_terms(company: str) -> list[str]:
+def clean_company(company: str, city: str = "") -> str:
+    """Remove only an explicitly matching municipality suffix in a Maps listing."""
     full = normalized(company)[:120]
-    important = distinctive_tokens(company)
+    location = normalized(city)
+    if location:
+        for suffix in (" em " + location, " - " + location, " " + location):
+            if full.endswith(suffix):
+                full = full[:-len(suffix)].strip()
+                break
+    return full
+
+
+def search_terms(company: str, city: str = "") -> list[str]:
+    full = clean_company(company, city)
+    important = distinctive_tokens(full)
     if not important or len(full) < 3:
         return []
     # Fall back to at most one distinctive term if the complete business
@@ -48,8 +60,8 @@ def score_candidate(company: str, city: str, state: str, entry: dict) -> dict | 
     cnpj = valid_cnpj(str(entry.get("cnpj", "")))
     if not cnpj:
         return None
-    expected = normalized(company)
-    important = set(distinctive_tokens(company))
+    expected = clean_company(company, city)
+    important = set(distinctive_tokens(expected))
     if not important:
         return None
     legal = normalized(str(entry.get("legal_name", "")))
@@ -98,9 +110,10 @@ def score_candidate(company: str, city: str, state: str, entry: dict) -> dict | 
         "uf": str(entry.get("uf", "")),
         "main_cnae": str(entry.get("main_cnae", "")),
         "status": str(entry.get("status", "")),
-        "headquarters": bool(entry.get("headquarters", False)),
+        "headquarters": (bool(entry["headquarters"]) if entry.get("headquarters") is not None else None),
         "source_month": str(entry.get("source_month", "")),
         "source_url": str(entry.get("source_url", "")),
+        "source_provider": str(entry.get("source_provider", "Receita Federal — índice próprio")),
         "match_score": score,
         "reasons": reasons,
         "identity_confirmed": False,

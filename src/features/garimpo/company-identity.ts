@@ -9,9 +9,10 @@ export interface IdentityCandidate {
   uf: string
   main_cnae: string
   status: string
-  headquarters: boolean
+  headquarters: boolean | null
   source_month: string
   source_url: string
+  source_provider?: string
   match_score: number
   reasons: string[]
   identity_confirmed: false
@@ -25,6 +26,7 @@ export interface IdentitySearchResponse {
   candidates: IdentityCandidate[]
   incomplete: boolean
   identity_confirmed: false
+  provider?: string
   warnings: string[]
 }
 
@@ -73,6 +75,7 @@ export function fallbackIdentityResults(input: {
         trade_name:row.trade_name,city:row.city,uf:row.uf,main_cnae:row.main_cnae,
         status:row.status,headquarters:row.headquarters,
         source_month:row.source_month,source_url:row.source_url,
+        source_provider:'Receita Federal — índice próprio',
         match_score:row.status==='02'?score:Math.max(35,score-16),
         reasons:['Nome semelhante em cadastro da Receita.',
           'Município e UF coincidem.','Endereço e domínio não foram confirmados.'],
@@ -95,13 +98,14 @@ export function fallbackIdentityResults(input: {
       ...(incomplete?['A lista representa apenas a primeira página consultada.']:[])] }
 }
 export interface IdentityMatch {
-  method: 'selected_official_candidate' | 'user_supplied'
+  method: 'selected_official_candidate' | 'selected_public_candidate' | 'user_supplied'
   matchedAt: string
   candidateCnpj: string
   originalName: string
   city: string
   sourceMonth: string
   sourceUrl: string
+  sourceProvider: string
   score: number | null
   detail: string
 }
@@ -113,21 +117,27 @@ export function identityPatch(record: ProspectRecord, candidate: IdentityCandida
     throw new Error('O registro já tem outro CNPJ. Revise o vínculo existente antes de substituí-lo.')
   const previousEngine=(record.rawData.engine||{}) as Record<string,unknown>
   const match:IdentityMatch={
-    method:official?'selected_official_candidate':'user_supplied',
+    method:official
+      ? (candidate.source_provider?.includes('Data Stone') ? 'selected_public_candidate' : 'selected_official_candidate')
+      : 'user_supplied',
     matchedAt:new Date().toISOString(),candidateCnpj:cnpj,
     originalName:record.company||record.name,city:record.city,
     sourceMonth:official?candidate.source_month:'',
     sourceUrl:official?candidate.source_url:'',
+    sourceProvider:official?(candidate.source_provider||'Receita Federal — índice próprio'):'Informado manualmente',
     score:official?candidate.match_score:null,
     detail:official
-      ? 'Candidato cadastral selecionado pelo usuário; nome e município coincidem, rua e domínio não confirmados.'
+      ? `Candidato cadastral selecionado pelo usuário (fonte: ${candidate.source_provider || 'índice da Receita'}); nome e município correspondem, rua e domínio não confirmados.`
       : 'CNPJ informado manualmente; ainda não corroborado por fonte cadastral.',
   }
   const existingEvidence=Array.isArray(previousEngine.evidence)?previousEngine.evidence:[]
-  const registryEvidence=official && /^https:\/\/www\.gov\.br\/receitafederal\//.test(candidate.source_url)
-    ? [{field:'Proveniência do CNPJ no índice RFB',value:cnpj,url:candidate.source_url,
-      source:'Receita Federal — dados abertos do CNPJ, não documento individual',
-      observed_at:match.matchedAt,source_month:candidate.source_month}]
+  const originUrl=official?candidate.source_url:''
+  const allowedSource=official &&
+    (/^https:\/\/www\.gov\.br\/receitafederal\//.test(originUrl) ||
+      /^https:\/\/(www\.)?datastone\.com\.br\/consulta(?:\/|$)/.test(originUrl))
+  const registryEvidence=allowedSource
+    ? [{field:'Origem da sugestão de CNPJ',value:cnpj,url:originUrl,
+      source:match.sourceProvider,observed_at:match.matchedAt,source_month:match.sourceMonth}]
     : []
   const evidence=[...existingEvidence,...registryEvidence].slice(-45)
   return {cnpj,rawData:{

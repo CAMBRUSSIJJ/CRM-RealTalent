@@ -94,21 +94,24 @@ export function IdentifyPanel({record,workspaceId,canEdit,canSyncCrm,onConfirm,o
       <small>{existing?.detail || 'CNPJ disponível; confira se corresponde à filial pesquisada.'}</small>
       {record.website&&<a href={publicUrl(record.website)||undefined} target="_blank" rel="noopener noreferrer">Site informado <ExternalLink size={12}/></a>}
     </div>}
-    {!record.cnpj&&<p className="gh-help">O Garimpo consultará o índice de empresas do RS. Resultados semelhantes são sugestões, não provas de identidade. Endereço e site precisam de conferência.</p>}
+    {!record.cnpj&&<p className="gh-help">O Garimpo tenta primeiro o índice oficial próprio. Se ainda não estiver carregado, utiliza uma consulta pública secundária com atribuição da fonte. Os resultados exigem sua confirmação.</p>}
     {error&&<p className="gh-index-error" role="alert">{error}</p>}
     {result&&<div className="gh-identity-results" aria-live="polite">
-      <h4>{result.candidates.length?result.candidates.length+' possibilidade(s) de CNPJ':'Nenhuma correspondência segura no recorte importado'}</h4>
+      <h4>{result.candidates.length?result.candidates.length+' possibilidade(s) de CNPJ':'Nenhuma correspondência com segurança suficiente nesta consulta'}</h4>
+      <p className="gh-help">Fonte da pesquisa: {result.provider||'Índice CNPJ da Receita'}. A classificação não confirma a identidade do estabelecimento.</p>
       {result.candidates.map(item=><article key={item.cnpj} className="gh-identity-candidate">
         <div><strong>{item.trade_name||item.legal_name}</strong>
           {item.trade_name&&<span>{item.legal_name}</span>}
-          <small>{formattedCnpj(item.cnpj)} · {item.city}/{item.uf} · {item.headquarters?'Matriz':'Filial'} · CNAE {item.main_cnae}</small>
-          <small>{item.status==='02'?'Ativa':'Não ativa'} · Compatibilidade cadastral: {item.match_score}/100 · Fonte {item.source_month?.slice(0,7)||'não informada'}</small>
+          <small>{formattedCnpj(item.cnpj)} · {item.city}/{item.uf} · {item.headquarters===true?'Matriz':item.headquarters===false?'Filial':'Matriz/filial não informada'}{item.main_cnae?' · CNAE '+item.main_cnae:''}</small>
+          <small>{item.status==='02'?'Ativa':item.status==='08'?'Baixada':'Situação não informada'} · Similaridade do nome: {item.match_score}/100 · {item.source_provider||'Receita Federal'} {item.source_month?'· referência '+item.source_month.slice(0,7):''}</small>
           <small>{item.reasons[0]} Município conferido; rua/número não verificados.</small>
+          {publicUrl(item.source_url)&&<a href={publicUrl(item.source_url)!} target="_blank" rel="noopener noreferrer">Conferir origem <ExternalLink size={12}/></a>}
         </div>
         <button type="button" className="gh-secondary" disabled={!canLink||saving}
           onClick={()=>void confirm(item)}><Check size={14}/>Confirmar vínculo</button>
       </article>)}
-      {result.incomplete&&<p className="gh-help">A busca retornou uma primeira página parcial; podem existir outras empresas semelhantes.</p>}
+      {result.incomplete&&<p className="gh-help">A pesquisa é parcial: a fonte pode ter outras empresas semelhantes.</p>}
+      {result.warnings?.map((warning,index)=><p className="gh-help" key={index}>{warning}</p>)}
       <p className="gh-help">Compare nome, município, endereço e filial antes de vincular. Uma classificação elevada não é confirmação de titularidade.</p>
     </div>}
     {!record.cnpj&&<details className="gh-identity-manual">

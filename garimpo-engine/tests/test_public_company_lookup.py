@@ -2,7 +2,7 @@ import unittest
 
 from garimpo.public_company_lookup import (
     ATTRIBUTION_URL, PublicLookupUnavailable, SOURCE_LABEL,
-    parse_search_response, parse_public_people, safe_company_page,
+    parse_search_response, parse_public_people, parse_public_registration, safe_company_page,
 )
 from garimpo.company_identity import rank_candidates
 
@@ -59,6 +59,26 @@ class PublicFallbackSafety(unittest.TestCase):
         self.assertFalse(answer['truncated'])
         with self.assertRaises(PublicLookupUnavailable):
             parse_public_people(payload,'11222333000262')
+
+    def test_registration_snapshot_excludes_contacts_and_uses_no_guessed_cnae(self):
+        payload={'cnpj':CNPJ,'razao_social':'ALPHA BARBEARIA LTDA',
+                 'nome_fantasia':'ALPHA BARBEARIA',
+                 'situacao':{'descricao':'Ativa'},
+                 'atividade':{'cnae_principal':{'codigo':'9602501'}},
+                 'data_fundacao':'2022-09-07','cpf':'***123456**',
+                 'contatos':{'telefones':['(53) 9999-****']},
+                 '_links':{'pagina':'https://www.datastone.com.br/consulta/empresa/alpha'}}
+        row=parse_public_registration(payload,CNPJ)
+        self.assertEqual(row['legal_name'],'ALPHA BARBEARIA LTDA')
+        self.assertEqual(row['main_cnae'],'9602501')
+        self.assertEqual(row['status'],'02')
+        self.assertNotIn('contatos',row)
+        self.assertNotIn('cpf',row)
+        self.assertNotIn('123456',str(row))
+        payload['atividade']['cnae_principal']['codigo']='INVALIDO'
+        self.assertEqual(parse_public_registration(payload,CNPJ)['main_cnae'],'')
+        with self.assertRaises(PublicLookupUnavailable):
+            parse_public_registration(payload,'11222333000262')
 
     def test_search_limits_and_bad_payload_fail_closed(self):
         with self.assertRaises(PublicLookupUnavailable):

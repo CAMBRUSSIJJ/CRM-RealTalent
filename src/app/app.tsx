@@ -32,7 +32,7 @@ const PlaybooksPage = lazy(() => import('../features/playbooks/playbooks-page').
 const GoalsPage = lazy(() => import('../features/goals/goals-page').then((module) => ({ default: module.GoalsPage })))
 const AutomationsPage = lazy(() => import('../features/automations/automations-page').then((module) => ({ default: module.AutomationsPage })))
 const MetricsPage = lazy(() => import('../features/metrics/metrics-page').then((module) => ({ default: module.MetricsPage })))
-const ProspectingPage = lazy(() => import('../features/prospecting/prospecting-page').then((module) => ({ default: module.ProspectingPage })))
+const ProspectingPage = lazy(() => import('../features/garimpo/garimpo-page').then((module) => ({ default: module.ProspectingPage })))
 const SettingsPage = lazy(() => import('../features/settings/settings-page').then((module) => ({ default: module.SettingsPage })))
 const ModulePlaceholder = lazy(() => import('../features/modules/module-placeholder').then((module) => ({ default: module.ModulePlaceholder })))
 const BuyerRoomPublicPage = lazy(() => import('../features/proposals/buyer-room-public-page').then((module) => ({ default: module.BuyerRoomPublicPage })))

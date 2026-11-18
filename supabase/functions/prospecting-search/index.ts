@@ -2,7 +2,8 @@
 // maps:   Google Places (Text Search New) por segmento + cidade → site → contatos, redes, CNPJ → Receita Federal (BrasilAPI)
 // cnpj:   lista de CNPJs → Receita Federal (razão social, situação, CNAE, porte, sócios, telefones e e-mail)
 // enrich: reprocessa itens já capturados (site e/ou CNPJ)
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+// usage:  consumo da cota gratuita mensal do Google Places
+import { createClient, type SupabaseClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import {
   GOOGLE_PLACES_FIELD_MASK, applyWebsiteSignals, buildSearchQuery, emptyDraft, extractCnpjs, extractWebsiteSignals, formatCnpj, isPublicHttpUrl, isValidCnpj,
   mapBrasilApiCompany, mapGooglePlace, mergeDraft, type ProspectDraft,
@@ -13,6 +14,9 @@ const SUPABASE_ANON_KEY = Deno.env.get('SUPABASE_ANON_KEY') ?? ''
 const SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? Deno.env.get('SUPABASE_SECRET_KEY') ?? ''
 const GOOGLE_PLACES_API_KEY = Deno.env.get('GOOGLE_PLACES_API_KEY') ?? Deno.env.get('GOOGLE_MAPS_API_KEY') ?? ''
 const MAX_RESULTS = 60
+// Text Search com telefone/site é SKU Enterprise: 1.000 chamadas grátis por mês. Margem de segurança padrão: 950.
+const GOOGLE_PLACES_MONTHLY_LIMIT = Math.max(0, Math.floor(Number(Deno.env.get('GOOGLE_PLACES_MONTHLY_LIMIT') ?? '950')) || 0)
+const GOOGLE_QUOTA_PROVIDER = 'google_places_text_search_enterprise'
 const MAX_CNPJS = 50
 const USER_AGENT = 'Mozilla/5.0 (compatible; RealTalentCRM-Garimpo/1.0)'
 
@@ -21,7 +25,7 @@ const json = (body: unknown, status = 200) => new Response(JSON.stringify(body),
 const text = (value: unknown, maximum = 200) => typeof value === 'string' ? value.trim().slice(0, maximum) : ''
 const normalize = (value: string) => value.normalize('NFD').replace(/[̀-ͯ]/g, '').toLocaleLowerCase('pt-BR').replace(/[^a-z0-9]/g, '')
 
-type Mode = 'maps' | 'cnpj' | 'enrich'
+type Mode = 'maps' | 'cnpj' | 'enrich' | 'usage'
 interface RequestBody {
   organizationId?: string
   mode?: Mode
@@ -43,13 +47,43 @@ async function mapLimit<T, R>(items: T[], concurrency: number, worker: (item: T,
   return results
 }
 
+// ------------------------------------------------------------- Cota gratuita
+
+// O Google fecha o mês de cobrança no horário do Pacífico.
+const billingPeriod = () => {
+  const parts = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Los_Angeles', year: 'numeric', month: '2-digit' }).formatToParts(new Date())
+  return `${parts.find((part) => part.type === 'year')?.value}-${parts.find((part) => part.type === 'month')?.value}`
+}
+
+interface QuotaStatus { period: string; used: number; limit: number; remaining: number }
+
+async function readGoogleQuota(admin: SupabaseClient): Promise<QuotaStatus> {
+  const period = billingPeriod()
+  const { data, error } = await admin.from('provider_usage_counters').select('calls').eq('provider', GOOGLE_QUOTA_PROVIDER).eq('period', period).maybeSingle()
+  if (error) throw new Error(`Contador de cota indisponível: ${error.message}`)
+  const used = Number(data?.calls ?? 0)
+  return { period, used, limit: GOOGLE_PLACES_MONTHLY_LIMIT, remaining: Math.max(0, GOOGLE_PLACES_MONTHLY_LIMIT - used) }
+}
+
+/** Reserva uma chamada antes de enviá-la ao Google. Sem contador, não busca (custo zero garantido). */
+async function reserveGoogleCall(admin: SupabaseClient) {
+  const { data, error } = await admin.rpc('consume_provider_quota', { p_provider: GOOGLE_QUOTA_PROVIDER, p_period: billingPeriod(), p_limit: GOOGLE_PLACES_MONTHLY_LIMIT })
+  if (error) throw new Error(`Contador de cota indisponível: ${error.message}`)
+  return Number(data) > 0
+}
+
 // ------------------------------------------------------------- Google Places
 
-async function searchGooglePlaces(textQuery: string, limit: number) {
+async function searchGooglePlaces(textQuery: string, limit: number, reserve: () => Promise<boolean>) {
   const places: unknown[] = []
   let pageToken = ''
+  let calls = 0
+  let quotaReached = false
   while (places.length < limit) {
-    const body: Record<string, unknown> = { textQuery, languageCode: 'pt-BR', regionCode: 'BR', pageSize: Math.min(20, limit - places.length) }
+    if (!await reserve()) { quotaReached = true; break }
+    calls += 1
+    // O Google cobra por chamada, não por resultado: sempre pede o máximo (20) por página.
+    const body: Record<string, unknown> = { textQuery, languageCode: 'pt-BR', regionCode: 'BR', pageSize: 20 }
     if (pageToken) body.pageToken = pageToken
     const response = await fetch('https://places.googleapis.com/v1/places:searchText', {
       method: 'POST',
@@ -63,7 +97,7 @@ async function searchGooglePlaces(textQuery: string, limit: number) {
     pageToken = payload.nextPageToken ?? ''
     if (!pageToken || !(payload.places ?? []).length) break
   }
-  return places.slice(0, limit)
+  return { places: places.slice(0, limit), calls, quotaReached }
 }
 
 // ------------------------------------------------------------- Receita Federal
@@ -186,7 +220,16 @@ Deno.serve(async (request) => {
   const { data: canWrite } = await userClient.rpc('can_write_organization', { p_organization_id: organizationId })
   if (!canWrite) return json({ error: 'forbidden' }, 403)
 
-  const mode: Mode = body.mode === 'cnpj' || body.mode === 'enrich' ? body.mode : 'maps'
+  const mode: Mode = body.mode === 'cnpj' || body.mode === 'enrich' || body.mode === 'usage' ? body.mode : 'maps'
+  const admin = SERVICE_ROLE_KEY ? createClient(SUPABASE_URL, SERVICE_ROLE_KEY, { auth: { persistSession: false } }) : null
+  let quota: QuotaStatus | null = null
+  let googleCalls = 0
+
+  if (mode === 'usage') {
+    if (!admin) return json({ ok: true, mode, quota: null, configured: Boolean(GOOGLE_PLACES_API_KEY) })
+    try { return json({ ok: true, mode, quota: await readGoogleQuota(admin), configured: Boolean(GOOGLE_PLACES_API_KEY) }) }
+    catch (error) { return json({ error: 'quota_unavailable', message: error instanceof Error ? error.message : 'Contador indisponível.' }, 503) }
+  }
   const limit = Math.max(1, Math.min(MAX_RESULTS, Math.round(Number(body.limit) || 20)))
   const enrich = body.enrich !== false
   const warnings: string[] = []
@@ -199,8 +242,14 @@ Deno.serve(async (request) => {
       if (!GOOGLE_PLACES_API_KEY) return json({ error: 'maps_not_configured', message: 'Configure o segredo GOOGLE_MAPS_API_KEY (com a Places API (New) ativada) no Supabase.' }, 503)
       const textQuery = buildSearchQuery(text(body.segment), text(body.city), text(body.query))
       if (!textQuery) return json({ error: 'query_required', message: 'Informe o segmento ou uma busca específica.' }, 400)
+      if (!admin) return json({ error: 'quota_unavailable', message: 'A trava da cota gratuita precisa da SUPABASE_SERVICE_ROLE_KEY na função. Busca bloqueada para não gerar custo.' }, 503)
+      const before = await readGoogleQuota(admin)
+      if (before.remaining <= 0) return json({ error: 'free_quota_reached', message: `Cota gratuita do Google deste mês esgotada (${before.used}/${before.limit}). Ela renova no início do próximo mês.`, quota: before }, 429)
       label = textQuery
-      const places = await searchGooglePlaces(textQuery, limit)
+      const search = await searchGooglePlaces(textQuery, limit, () => reserveGoogleCall(admin))
+      googleCalls = search.calls
+      if (search.quotaReached) warnings.push('A cota gratuita do mês acabou durante a busca: foram trazidos só os resultados já obtidos.')
+      const places = search.places
       results = places.map((place) => mapGooglePlace(place, textQuery)).filter((item): item is ProspectDraft => Boolean(item))
       const closed = results.filter((item) => item.businessStatus === 'CLOSED_PERMANENTLY').length
       results = results.filter((item) => item.businessStatus !== 'CLOSED_PERMANENTLY')
@@ -232,12 +281,12 @@ Deno.serve(async (request) => {
     return json({ error: 'provider_error', message }, 502)
   }
 
-  if (SERVICE_ROLE_KEY && mode !== 'enrich') {
-    const admin = createClient(SUPABASE_URL, SERVICE_ROLE_KEY, { auth: { persistSession: false } })
+  if (admin && mode === 'maps') quota = await readGoogleQuota(admin).catch(() => null)
+  if (admin && mode !== 'enrich') {
     await admin.from('prospecting_batches').insert({
       organization_id: organizationId, source: mode, segment: text(body.segment), city: text(body.city), query: label,
       requested_count: limit, received_count: results.length, status: 'completed', created_by: userData.user.id,
-      metadata: { enrich, warnings, durationMs: Date.now() - startedAt, provider: mode === 'maps' ? 'google-places' : 'receita-federal' },
+      metadata: { enrich, warnings, googleCalls, durationMs: Date.now() - startedAt, provider: mode === 'maps' ? 'google-places' : 'receita-federal' },
     }).then(() => undefined, () => undefined)
   }
 
@@ -250,5 +299,5 @@ Deno.serve(async (request) => {
     withCnpj: results.filter((item) => item.enrichment.cnpj === 'ok').length,
     withWebsite: results.filter((item) => item.website).length,
   }
-  return json({ ok: true, mode, query: label, results, stats, warnings, durationMs: Date.now() - startedAt })
+  return json({ ok: true, mode, query: label, results, stats, warnings, quota, googleCalls, durationMs: Date.now() - startedAt })
 })

@@ -20,7 +20,10 @@ import {
   type CaptureDraft, type ProspectRecord, type ProspectSource, type ProspectStatus, type ProspectingState,
 } from '../../services/prospecting-workspace'
 import { recordLocalIntegrationEvent } from '../../services/integration-framework'
-import { isProspectingSearchAvailable, prospectToEnrichItem, runProspectingSearch, type ProspectingSearchResponse } from '../../services/prospecting-search'
+import {
+  googleCallsFor, isProspectingSearchAvailable, prospectToEnrichItem, readProspectingQuota, runProspectingSearch,
+  type ProspectingQuota, type ProspectingSearchResponse,
+} from '../../services/prospecting-search'
 import { usePreferences } from '../settings/preferences-context'
 
  type ProspectingTab = 'search' | 'processing' | 'results' | 'kanban' | 'history'
@@ -66,6 +69,14 @@ export function ProspectingPage() {
   const [searching, setSearching] = useState(false)
   const [lastSearch, setLastSearch] = useState<ProspectingSearchResponse | null>(null)
   const [enrichingIds, setEnrichingIds] = useState<Set<string>>(new Set())
+  const [quota, setQuota] = useState<ProspectingQuota | null>(null)
+
+  useEffect(() => {
+    if (!workspaceId || !canWrite || !isProspectingSearchAvailable()) return
+    let cancelled = false
+    void readProspectingQuota(workspaceId).then((value) => { if (!cancelled) setQuota(value) })
+    return () => { cancelled = true }
+  }, [canWrite, workspaceId])
   const [quickCapture, setQuickCapture] = useState('')
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState<'all' | ProspectStatus>('all')
@@ -175,6 +186,7 @@ export function ProspectingPage() {
         ? { mode, segment, city, query, limit: quantity, enrich: enrichResults }
         : { mode, cnpjs: cnpjInput })
       setLastSearch(response)
+      if (response.quota) setQuota(response.quota)
       const added = importDrafts(response.results, mode, 'capture', `${mode === 'maps' ? 'Google Maps' : 'Receita Federal'} · ${response.query} · ${response.results.length} encontrado(s)`, response.results.length)
       const repeated = response.results.length - added
       response.warnings.forEach((warning) => notify('info', warning))
@@ -182,7 +194,10 @@ export function ProspectingPage() {
       else notify(added ? 'success' : 'info', added ? `${added} empresa(s) nova(s) no Garimpo${repeated ? ` · ${repeated} já existia(m)` : ''}.` : 'Todas as empresas encontradas já estavam no Garimpo.')
       if (mode === 'cnpj' && added) setCnpjInput('')
       if (added) setTab('processing')
-    } catch (error) { notify('error', error instanceof Error ? error.message : 'Não foi possível buscar empresas.') }
+    } catch (error) {
+      notify('error', error instanceof Error ? error.message : 'Não foi possível buscar empresas.')
+      if (mode === 'maps') void readProspectingQuota(workspaceId).then((value) => { if (value) setQuota(value) })
+    }
     finally { setSearching(false) }
   }
 
@@ -366,7 +381,7 @@ export function ProspectingPage() {
       {tab === 'search' ? <SearchWorkspace
         readOnly={!canWrite}
         source={source} segment={segment} city={city} query={query} quantity={quantity} quickCapture={quickCapture} lastSync={state.lastExtensionSyncAt}
-        cnpjInput={cnpjInput} enrich={enrichResults} searching={searching} lastSearch={lastSearch} serverAvailable={isProspectingSearchAvailable()}
+        cnpjInput={cnpjInput} enrich={enrichResults} quota={quota} searching={searching} lastSearch={lastSearch} serverAvailable={isProspectingSearchAvailable()}
         onSource={setSource} onSegment={setSegment} onCity={setCity} onQuery={setQuery} onQuantity={setQuantity} onQuickCapture={setQuickCapture}
         onCnpjInput={setCnpjInput} onEnrich={setEnrichResults} onSearch={() => void runSearch()}
         onOpenSearch={openSearch} onCapture={captureQuick} onSyncExtension={syncExtension}
@@ -404,7 +419,7 @@ function Metric({ icon: Icon, label, value, detail, tone = '' }: { icon: typeof 
 
 function SearchWorkspace(props: {
   readOnly: boolean; source: ProspectSource; segment: string; city: string; query: string; quantity: number; quickCapture: string; lastSync: string | null
-  cnpjInput: string; enrich: boolean; searching: boolean; lastSearch: ProspectingSearchResponse | null; serverAvailable: boolean
+  cnpjInput: string; enrich: boolean; quota: ProspectingQuota | null; searching: boolean; lastSearch: ProspectingSearchResponse | null; serverAvailable: boolean
   onSource(value: ProspectSource): void; onSegment(value: string): void; onCity(value: string): void; onQuery(value: string): void; onQuantity(value: number): void; onQuickCapture(value: string): void
   onCnpjInput(value: string): void; onEnrich(value: boolean): void; onSearch(): void
   onOpenSearch(): void; onCapture(): void; onSyncExtension(): void
@@ -423,9 +438,10 @@ function SearchWorkspace(props: {
         <label><span>Segmento</span><input value={props.segment} onChange={(event) => props.onSegment(event.target.value)} placeholder="Ex.: Barbearias" /></label>
         <label><span>Cidade ou região</span><input value={props.city} onChange={(event) => props.onCity(event.target.value)} placeholder="Ex.: Canoas, RS" /></label>
         <label className="is-wide"><span>Busca específica</span><input value={props.query} onChange={(event) => props.onQuery(event.target.value)} placeholder="Opcional: nome, bairro ou palavra-chave" /></label>
-        <label><span>Limite por busca</span><select value={props.quantity} onChange={(event) => props.onQuantity(Number(event.target.value))}><option value={10}>10 empresas</option><option value={20}>20 empresas</option><option value={40}>40 empresas</option><option value={60}>60 empresas</option></select></label>
+        <label><span>Limite por busca</span><select value={props.quantity} onChange={(event) => props.onQuantity(Number(event.target.value))}>{[20, 40, 60].map((value) => <option key={value} value={value}>{value} empresas · {googleCallsFor(value)} consulta{googleCallsFor(value) > 1 ? 's' : ''}</option>)}</select></label>
         {props.source === 'maps' ? <label className="prospecting-toggle is-wide"><input type="checkbox" checked={props.enrich} disabled={props.readOnly} onChange={(event) => props.onEnrich(event.target.checked)} /><span><strong>Enriquecer automaticamente</strong><small>Visita o site de cada empresa (e-mail, WhatsApp, Instagram, sistema de agendamento, CNPJ) e consulta a Receita Federal (razão social, sócios, CNAE, porte).</small></span></label> : null}
       </div>}
+      {props.source === 'maps' && props.quota ? <QuotaMeter quota={props.quota} nextCalls={googleCallsFor(props.quantity)} /> : null}
       <div className="prospecting-search-actions">
         {automatic && !props.readOnly ? <Button loading={props.searching} disabled={!props.serverAvailable} onClick={props.onSearch}>{props.source === 'cnpj' ? <Building2 size={17} /> : <Search size={17} />} {props.searching ? (props.source === 'cnpj' ? 'Consultando Receita…' : 'Buscando e enriquecendo…') : props.source === 'cnpj' ? 'Consultar CNPJs' : 'Buscar empresas'}</Button> : null}
         {props.source !== 'cnpj' ? <Button variant={automatic ? 'secondary' : 'primary'} onClick={props.onOpenSearch}><ExternalLink size={17} /> {automatic ? 'Ver no Google Maps' : 'Abrir busca preparada'}</Button> : null}
@@ -447,6 +463,19 @@ function SearchWorkspace(props: {
       <textarea readOnly={props.readOnly} value={props.quickCapture} onChange={(event) => props.onQuickCapture(event.target.value)} placeholder={'Barbearia Exemplo | (51) 99999-9999 | Canoas | @barbeariaexemplo | Usa agenda manual\nOutra Empresa | (51) 98888-8888 | Porto Alegre | https://site.com.br'} />
       <footer><div><ShieldCheck size={17} /><span>Telefone, CNPJ, Instagram, domínio, nome e cidade são comparados antes de salvar.</span></div>{!props.readOnly ? <Button onClick={props.onCapture}><Sparkles size={17} /> Capturar e analisar</Button> : null}</footer>
     </section>
+  </div>
+}
+
+function QuotaMeter({ quota, nextCalls }: { quota: ProspectingQuota; nextCalls: number }) {
+  const percent = quota.limit ? Math.min(100, Math.round(quota.used / quota.limit * 100)) : 100
+  const tone = quota.remaining <= 0 ? 'is-empty' : percent >= 80 ? 'is-low' : ''
+  const [year, month] = quota.period.split('-')
+  return <div className={`prospecting-quota ${tone}`}>
+    <header><ShieldCheck size={15} /><strong>Cota gratuita do Google · {month}/{year}</strong><span>{quota.used} de {quota.limit} consultas</span></header>
+    <div className="prospecting-quota__track"><span style={{ width: `${percent}%` }} /></div>
+    <small>{quota.remaining > 0
+      ? `Restam ${quota.remaining} consultas (até ~${quota.remaining * 20} empresas) sem custo. Esta busca usa ${nextCalls}.`
+      : 'Cota gratuita esgotada: a busca no Google fica bloqueada até o próximo mês para não gerar cobrança. A consulta de CNPJ continua liberada.'}</small>
   </div>
 }
 

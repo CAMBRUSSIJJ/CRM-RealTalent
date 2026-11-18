@@ -24,6 +24,13 @@ export interface ProspectingSearchStats {
   withWebsite: number
 }
 
+export interface ProspectingQuota {
+  period: string
+  used: number
+  limit: number
+  remaining: number
+}
+
 export interface ProspectingSearchResponse {
   mode: ProspectingSearchMode
   query: string
@@ -31,6 +38,7 @@ export interface ProspectingSearchResponse {
   stats: ProspectingSearchStats
   warnings: string[]
   durationMs: number
+  quota: ProspectingQuota | null
 }
 
 const errorMessages: Record<string, string> = {
@@ -65,10 +73,22 @@ export async function runProspectingSearch(workspaceId: string, params: Prospect
   const response = data as Partial<ProspectingSearchResponse> | null
   if (!response || !Array.isArray(response.results)) throw new Error('Resposta inesperada do servidor de busca.')
   return {
-    mode: params.mode, query: response.query ?? '', results: response.results, warnings: response.warnings ?? [], durationMs: response.durationMs ?? 0,
+    mode: params.mode, query: response.query ?? '', results: response.results, warnings: response.warnings ?? [], durationMs: response.durationMs ?? 0, quota: response.quota ?? null,
     stats: response.stats ?? { returned: response.results.length, withPhone: 0, withWhatsapp: 0, withEmail: 0, withInstagram: 0, withCnpj: 0, withWebsite: 0 },
   }
 }
+
+/** Consumo da cota gratuita mensal do Google Places (null quando indisponível). */
+export async function readProspectingQuota(workspaceId: string): Promise<ProspectingQuota | null> {
+  const client = getSupabaseClient()
+  if (!client) return null
+  const { data, error } = await client.functions.invoke('prospecting-search', { body: { organizationId: workspaceId, mode: 'usage' } })
+  if (error) return null
+  return (data as { quota?: ProspectingQuota | null } | null)?.quota ?? null
+}
+
+/** Cada chamada ao Google traz até 20 empresas. */
+export const googleCallsFor = (limit: number) => Math.max(1, Math.ceil(limit / 20))
 
 /** Campos enviados para reprocessar um lead já capturado. */
 export function prospectToEnrichItem(prospect: ProspectRecord): CaptureDraft {

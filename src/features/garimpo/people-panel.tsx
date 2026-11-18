@@ -38,6 +38,7 @@ export function savedPeople(record: ProspectRecord): KeyPerson[] {
 export function PeoplePanel({record,workspaceId,canEdit,onPatch}: Props) {
   const [qsa,setQsa] = useState<QsaResponse | null>(null)
   const [loading,setLoading] = useState(false)
+  const [expanded,setExpanded] = useState(false)
   const request = useRef<AbortController | null>(null)
   const [error,setError] = useState('')
   const [name,setName] = useState('')
@@ -46,12 +47,31 @@ export function PeoplePanel({record,workspaceId,canEdit,onPatch}: Props) {
   const [sourceUrl,setSourceUrl] = useState('')
   const [addError,setAddError] = useState('')
   const people = savedPeople(record)
+  const identityAt = (record.rawData.identityMatch as {matchedAt?:string}|undefined)?.matchedAt
 
   useEffect(() => {
     request.current?.abort()
     setQsa(null);setError('');setLoading(false);setAddError('')
+    setExpanded(people.length > 0)
     return () => request.current?.abort()
   }, [workspaceId,record.cnpj,record.id])
+
+  // A CNPJ selected from search now unlocks one automatic QSA consultation.
+  // No QSA data is fabricated if the registry snapshot has not been loaded.
+  useEffect(() => {
+    if (!record.cnpj || !identityAt || !workspaceId || !canEdit) return
+    const next = new AbortController()
+    request.current?.abort();request.current=next
+    setLoading(true);setError('')
+    void hostedGarimpo.qsa(workspaceId,record.cnpj,next.signal)
+      .then(data=>{if (!next.signal.aborted) {setQsa(data);setExpanded(data.people.length>0)}})
+      .catch(cause=>{if (!next.signal.aborted) {
+        setError(cause instanceof Error?cause.message:'O QSA não respondeu à consulta.')
+        setExpanded(true)
+      }})
+      .finally(()=>{if (request.current===next) setLoading(false)})
+    return ()=>next.abort()
+  }, [workspaceId,record.id,record.cnpj,identityAt,canEdit])
 
   async function consult() {
     if (loading || !record.cnpj || !workspaceId) return
@@ -61,7 +81,7 @@ export function PeoplePanel({record,workspaceId,canEdit,onPatch}: Props) {
     setLoading(true);setError('')
     try {
       const result = await hostedGarimpo.qsa(workspaceId,record.cnpj,controller.signal)
-      if (!controller.signal.aborted) setQsa(result)
+      if (!controller.signal.aborted) {setQsa(result);setExpanded(true)}
     } catch (cause) {
       if (!controller.signal.aborted) {
         setQsa(null)
@@ -93,13 +113,22 @@ export function PeoplePanel({record,workspaceId,canEdit,onPatch}: Props) {
     onPatch({rawData:{...record.rawData,keyPeople:people.filter(item=>item.id!==id)}})
   }
 
-  return <section className="gh-people" aria-label={'Pessoas-chave de '+record.company}>
-    <div className="gh-people-heading"><div><span className="gh-eyebrow">INTELIGÊNCIA SOCIETÁRIA</span>
-      <h3><Users size={16}/> Sócios, administradores e pessoas-chave</h3>
-      <p>O QSA identifica vínculos societários publicados pela Receita; ele não comprova quem decide uma compra.</p></div>
-      <button className="gh-secondary" type="button" disabled={!record.cnpj || !workspaceId || loading || !canEdit}
-        onClick={() => void consult()}><Search size={14}/>{loading?'Consultando…':'Consultar QSA por CNPJ'}</button>
-    </div>
+  return <details className="gh-people" open={expanded}
+      onToggle={event=>setExpanded(event.currentTarget.open)}
+      aria-label={'Pessoas-chave de '+record.company}>
+    <summary className="gh-people-heading"><div><span className="gh-eyebrow">INTELIGÊNCIA SOCIETÁRIA</span>
+      <h3><Users size={16}/> Sócios e pessoas-chave</h3>
+      <p>{!record.cnpj?'CNPJ não identificado — use Investigar empresa acima.'
+        :loading?'Consultando o quadro societário…'
+        :qsa?`${qsa.people.length} vínculo(s) societário(s) no recorte · ${people.length} pessoa(s)-chave manual(is)`
+        :`CNPJ disponível · ${people.length} pessoa(s)-chave manual(is)`}</p>
+    </div><span className="gh-people-summary-action">Detalhes ▾</span></summary>
+    <div className="gh-people-content">
+      <div className="gh-people-actions"><p className="gh-help">O QSA identifica vínculos societários, não necessariamente quem decide uma contratação.</p>
+        {record.cnpj&&<button className="gh-secondary" type="button"
+          disabled={!workspaceId||loading||!canEdit} onClick={()=>void consult()}>
+          <Search size={14}/>{loading?'Consultando…':'Consultar novamente o QSA'}</button>}
+      </div>
     {!record.cnpj && <p className="gh-help">Informe um CNPJ para consultar o quadro de sócios da Receita.</p>}
     {error && <p className="gh-index-error" role="alert">{error}</p>}
     {qsa && <div className="gh-people-qsa">
@@ -121,7 +150,8 @@ export function PeoplePanel({record,workspaceId,canEdit,onPatch}: Props) {
           <a href={publicUrl(person.sourceUrl)!} target="_blank" rel="noopener noreferrer">Conferir fonte <ExternalLink size={12}/></a></div>
         {canEdit&&<button className="gh-icon" type="button" aria-label={'Excluir pessoa-chave '+person.name} onClick={()=>remove(person.id)}><Trash2 size={14}/></button>}
       </li>)}</ul>:<p className="gh-help">Nenhum decisor profissional foi cadastrado. Não inferimos nomes a partir do QSA.</p>}
-      {canEdit&&<form className="gh-people-form" onSubmit={add}>
+      {canEdit&&<details className="gh-people-add"><summary><Plus size={14}/> Adicionar pessoa-chave</summary>
+      <form className="gh-people-form" onSubmit={add}>
         <label>Nome público<input required maxLength={160} value={name} onChange={e=>setName(e.target.value)} placeholder="Nome conforme fonte institucional"/></label>
         <label>Cargo publicado<input required maxLength={120} value={position} onChange={e=>setPosition(e.target.value)} placeholder="Ex.: diretor administrativo"/></label>
         <label>Função na abordagem<select value={functionRole} onChange={e=>setFunctionRole(e.target.value as PersonFunction)}>
@@ -131,7 +161,8 @@ export function PeoplePanel({record,workspaceId,canEdit,onPatch}: Props) {
           onChange={e=>setSourceUrl(e.target.value)} placeholder="https://site-da-empresa/..."/></label>
         <button className="gh-secondary" type="submit"><Plus size={14}/>Adicionar pessoa-chave</button>
         {addError&&<span role="alert" className="gh-index-error">{addError}</span>}
-      </form>}
+      </form></details>}
     </div>
-  </section>
+    </div>
+  </details>
 }

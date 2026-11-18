@@ -258,7 +258,10 @@ export function applyAiDiscovery(state: ProspectingState, result: AiSearchResult
   const added: ProspectRecord[] = []
   let skipped = 0
   for (const draft of result.leads) {
-    const prospect = refreshProspectAnalysis(createProspect(workspaceId, { ...draft, source, sourceDetail: result.researchMode === 'essential' ? 'Pesquisa web sem IA' : 'Pesquisa web com IA' }, source, leads, createdBy), leads)
+    const nativeEngine = (draft as unknown as { engine?: { providerId?: unknown } }).engine
+    const actualSource: ProspectSource = typeof nativeEngine?.providerId === 'string' && nativeEngine.providerId.startsWith('maps:') ? 'maps' : source
+    const sourceDetail = actualSource === 'maps' && nativeEngine ? 'Google Maps · pesquisa pública' : result.researchMode === 'essential' ? 'Pesquisa web sem IA' : 'Pesquisa web com IA'
+    const prospect = refreshProspectAnalysis(createProspect(workspaceId, { ...draft, source: actualSource, sourceDetail }, actualSource, leads, createdBy), leads)
     const identities = prospectIdentityKeys(prospect)
     if (identities.some((key) => keys.has(key))) { skipped += 1; continue }
     identities.forEach((key) => keys.add(key))

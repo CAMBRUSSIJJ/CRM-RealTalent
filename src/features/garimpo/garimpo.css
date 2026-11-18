@@ -57,3 +57,6 @@
 .gh-search-advanced summary{color:#596b86;font-weight:600;font-size:12px;cursor:pointer}
 .gh-search-advanced>div{display:flex;flex-direction:column;gap:13px;margin-top:14px}
 .gh-search-advanced .gh-help{margin-top:0}
+
+.gh-recheck-crm-optin{display:flex!important;flex-direction:row!important;align-items:flex-start!important;gap:9px!important;margin-top:14px;padding:12px;background:#eef8f5;border:1px solid #d1e9e1;border-radius:9px;color:#315d51!important;font-size:12px!important;line-height:1.6}
+.gh-recheck-crm-optin input{margin-top:2px}

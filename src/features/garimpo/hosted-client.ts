@@ -64,6 +64,9 @@ export interface SearchInput {
   state: string
   limit: number
   require_phone: boolean
+  require_email: boolean
+  require_observed_location: boolean
+  minimum_relevance: number
   enrich_websites: boolean
 }
 

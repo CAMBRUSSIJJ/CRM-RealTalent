@@ -1,6 +1,7 @@
 import { getSupabaseClient } from '../../lib/supabase'
 import type { CaptureDraft } from '../../services/prospecting-workspace'
 import type { RecheckResult } from './recheck'
+import { fallbackIdentityResults, type IdentitySearchResponse } from './company-identity'
 
 /** Names and corporate roles published in the Receita Federal QSA, not CRM contacts. */
 export interface QsaPerson {
@@ -116,6 +117,26 @@ async function request(workspaceId: string, path: string, method = 'GET', body?:
 }
 
 export const hostedGarimpo = {
+  async identify(workspaceId: string,
+    input: { company: string; city: string; state: string; address: string },
+    signal?: AbortSignal): Promise<IdentitySearchResponse> {
+    try {
+      const response = await request(workspaceId, '/companies/identify', 'POST', input, undefined, signal)
+      return response.json()
+    } catch (cause) {
+      // While the Python service rolls out independently, retain an exact-city
+      // deterministic option on the existing authenticated index endpoint.
+      // Do not bypass missing indexes, permissions or network failures.
+      if (!(cause instanceof Error) || !/HTTP 404|HTTP 405/.test(cause.message)) throw cause
+      const page = await hostedGarimpo.index(workspaceId, {
+        city: input.city, name: input.company, cnae: '',
+        active_only: false, headquarters: 'all',
+        opened_after: '', opened_before: '', cnae_scope: 'any',
+        has_qsa: 'all', offset: 0, limit: 80,
+      }, signal)
+      return fallbackIdentityResults(input, page.items, page.has_more)
+    }
+  },
   async qsa(workspaceId: string, cnpj: string, signal?: AbortSignal): Promise<QsaResponse> {
     const params = new URLSearchParams({ cnpj })
     return (await request(workspaceId, `/companies/qsa?${params.toString()}`, 'GET', undefined, undefined, signal)).json()

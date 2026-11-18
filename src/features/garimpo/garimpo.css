@@ -52,3 +52,8 @@
 .gh-recheck-history li strong{color:#495770}
 @media(max-width:950px){.gh-review-more>div{grid-template-columns:1fr 1fr}.gh-index-advanced{grid-template-columns:1fr}}
 @media(max-width:600px){.gh-review-more>div,.gh-recheck-baseline dl{grid-template-columns:1fr}.gh-recheck-heading{align-items:flex-start;flex-direction:column}}
+
+.gh-search-advanced{margin-top:16px;border-top:1px solid #edf0f6;padding-top:13px}
+.gh-search-advanced summary{color:#596b86;font-weight:600;font-size:12px;cursor:pointer}
+.gh-search-advanced>div{display:flex;flex-direction:column;gap:13px;margin-top:14px}
+.gh-search-advanced .gh-help{margin-top:0}

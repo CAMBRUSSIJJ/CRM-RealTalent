@@ -4,8 +4,9 @@ import { Modal } from '../../components/ui/modal'
 import { useAppActions, useAppNavigation, useAppUi, useAppWorkspace } from '../../app/app-context'
 import { safeStorage } from '../../lib/storage'
 import { createUuid } from '../../lib/id'
-import { cacheProspectingStateLocally, detectProspectDuplicate, flushProspectingSync, readProspectingState, readRemoteProspectingState, writeProspectingState, type ProspectingState, type ProspectRecord } from '../../services/prospecting-workspace'
+import { cacheProspectingStateLocally, detectProspectDuplicate, flushProspectingSync, readProspectingState, readRemoteProspectingState, writeProspectingState, type ProspectingState, type ProspectRecord, type CaptureDraft } from '../../services/prospecting-workspace'
 import { hostedGarimpo, type HostedJob } from './hosted-client'
+import { IndexExplorer } from './index-explorer'
 import { evidenceFor, mergeResults, publicUrl } from './review'
 import './garimpo.css'
 
@@ -172,6 +173,13 @@ export function ProspectingPage() {
     commit(current => ({ ...current, prospects: current.prospects.map(record => record.id === id && inScope(record) ? { ...record, ...patch, updatedAt: new Date().toISOString() } : record) }))
   }
 
+  const acceptIndexed = useCallback((drafts: CaptureDraft[]) => {
+    if (!canCreate || !hydrated || !workspaceId || drafts.length === 0) return
+    commit(current => mergeResults(current, drafts, workspaceId, currentUserId, snapshotRef.current?.leads || []))
+    setView('review'); setSelected([])
+    notify('success', `${drafts.length} empresa(s) adicionada(s) à revisão. Confira os dados antes de enviá-las ao CRM.`)
+  }, [canCreate, hydrated, workspaceId, currentUserId, commit, notify])
+
   async function start(event: FormEvent) {
     event.preventDefault()
     if (!canCreate || !hydrated || starting.current || active(job)) return
@@ -223,10 +231,10 @@ export function ProspectingPage() {
               && ((digits(prospect.phone).length >= 10 && digits(item.phone) === digits(prospect.phone))
                 || (publicUrl(prospect.website) && publicUrl(item.website) === publicUrl(prospect.website)))))
         if (!company) {
-          company = await createCompany({ name: prospect.company || prospect.name, legalName: '', cnpj: prospect.cnpj,
+          company = await createCompany({ name: prospect.company || prospect.name, legalName: prospect.source === 'cnpj' ? String((prospect.rawData.engine as Record<string, unknown> | undefined)?.legalName || '') : '', cnpj: prospect.cnpj,
             website: publicUrl(prospect.website) || '', domain: publicUrl(prospect.website) ? new URL(prospect.website).hostname : '',
-            segment: String((prospect.rawData.engine as Record<string,unknown> | undefined)?.requestedSegment || ''),
-            phone: prospect.phone, city: prospect.city, state: String(prospect.rawData.state || ''), status: 'prospect', leadIds: [] })
+            segment: prospect.source === 'cnpj' ? String((prospect.rawData.engine as Record<string, unknown> | undefined)?.mainCnae || 'CNAE cadastral') : String((prospect.rawData.engine as Record<string,unknown> | undefined)?.requestedSegment || ''),
+            phone: prospect.phone, city: prospect.city, state: prospect.source === 'cnpj' ? 'RS' : String(prospect.rawData.state || ''), status: 'prospect', leadIds: [] })
           companies.push(company)
         }
         if (scopeRef.current !== requestedWorkspace) break
@@ -240,7 +248,7 @@ export function ProspectingPage() {
           if (!leadId) {
             const lead = await createLead({ name: prospect.name, company: company.name, companyId: company.id,
               phone: prospect.phone, email: prospect.email, city: prospect.city, cnpj: prospect.cnpj, website: publicUrl(prospect.website) || '',
-              source: 'Garimpo · Google Maps', sourceDetail: 'Motor Python hospedado', sourceUrl: evidenceFor(prospect)[0]?.url || '',
+              source: prospect.source === 'cnpj' ? 'Garimpo · CNPJ' : 'Garimpo · Google Maps', sourceDetail: prospect.sourceDetail || 'Motor Python hospedado', sourceUrl: evidenceFor(prospect)[0]?.url || '',
               stageId, status: 'active', temperature: 'cold', priority: 'medium', ownerId: null, ownerName: 'Sem responsável',
               value: 0, nextActionAt: null, notes: [prospect.notes, prospect.description, ...evidenceFor(prospect).map(item => `${item.field}: ${item.value} · ${item.url}`)].join('\n'), tags: ['garimpo'] })
             leads.push(lead); leadId = lead.id
@@ -274,6 +282,7 @@ export function ProspectingPage() {
       </form>
       {jobs.length > 0 && <section className="gh-card gh-history"><h2>Pesquisas recentes</h2>{jobs.slice(0,6).map(item => <button key={item.id} aria-current={item.id === job?.id} disabled={busy || sending} onClick={() => { void hostedGarimpo.get(workspaceId,item.id).then(full => { acceptJob(full); if (active(full) && canCreate) void drive(full) }).catch(cause => setError(cause instanceof Error ? cause.message : 'Não foi possível carregar a pesquisa.')) }}><strong>{item.request.segment}</strong><span>{item.request.city}, {item.request.state} · {item.result_count ?? item.results.length} resultados</span><small>{new Date(item.created_at).toLocaleString('pt-BR')} · {labels[item.status]}</small></button>)}</section>}</aside>
       <main className="gh-main">
+        <IndexExplorer workspaceId={workspaceId} canImport={canCreate && hydrated} onImport={acceptIndexed} />
         <section className="gh-card gh-progress" aria-live="polite"><div className="gh-progress-title"><div><span className="gh-eyebrow">ACOMPANHE A PESQUISA</span><h2>{job ? labels[job.status] : 'Sua próxima oportunidade começa aqui'}</h2>{job && <p><MapPin size={14} />{job.request.segment} · {job.request.city}, {job.request.state}</p>}</div>
           <div className="gh-actions">{active(job) && canCreate && <button className="gh-secondary" onClick={() => void cancel()}>Cancelar</button>}{job?.can_resume && canCreate && <button className="gh-secondary" disabled={busy} onClick={() => void resume()}>Retomar pesquisa</button>}{active(job) && !busy && canCreate && <button className="gh-secondary" onClick={() => job && void drive(job)}>Reconectar pesquisa</button>}</div></div>
           {busy && <div className="gh-loading"><i /></div>}
@@ -289,7 +298,7 @@ export function ProspectingPage() {
       </main>
     </div>
     <Modal open={sendOpen} title={`Enviar ${approved.length} empresa(s) ao CRM`} onClose={() => { if (!sending) setSendOpen(false) }} footer={<div className="gh-actions"><button className="gh-secondary" disabled={sending} onClick={() => setSendOpen(false)}>Cancelar</button><button className="gh-primary" disabled={sending || (opportunity && !stageId)} onClick={() => void send()}>{sending ? 'Enviando…' : 'Confirmar envio'}</button></div>}><div className="gh-page gh-send-content"><p>As empresas aprovadas entrarão na sua base de contatos. Empresas já vinculadas serão reutilizadas.</p><label className="gh-check"><input type="checkbox" checked={opportunity} disabled={sending || !canCreateOpportunity} onChange={event => setOpportunity(event.target.checked)} />Criar também uma oportunidade no funil</label>{opportunity && <label>Etapa inicial<select aria-label="Etapa inicial" value={stageId} disabled={sending} onChange={event => setStageId(event.target.value)}>{snapshot?.stages.map(stage => <option key={stage.id} value={stage.id}>{stage.name}</option>)}</select></label>}</div></Modal>
-    <footer className="gh-footer">Motor Python 0.6 · Contatos e fontes publicados. Revise os dados antes da abordagem.<button onClick={() => navigate('leads')}>Abrir base do CRM <ArrowRight size={13} /></button></footer>
+    <footer className="gh-footer">Motor Python 0.6 + Índice CNPJ/RS · Confirme os dados antes da abordagem.<button onClick={() => navigate('leads')}>Abrir base do CRM <ArrowRight size={13} /></button></footer>
   </div>
 }
 

@@ -21,6 +21,26 @@ describe('hosted Garimpo review',() => {
   it('does not merge different branches just because they share a phone',() => {
     expect(sameBusiness(draft,{...draft,company:'Barbearia Beta',engine:{providerId:'maps:beta'}})).toBe(false)
   })
+  it('imports official CNPJ records without falsely labeling them as Maps leads',() => {
+    const indexed = {company:'Escola Exemplo',city:'Porto Alegre',cnpj:'12.345.678/0001-95',
+      source:'cnpj',sourceDetail:'Receita Federal · índice CNPJ',
+      engine:{providerId:'cnpj:12345678000195',dataset:{source:'RFB'}}}
+    const saved = mergeResults(blank(),[indexed],'org','user',[])
+    expect(saved.prospects[0]).toMatchObject({
+      source:'cnpj',cnpj:'12.345.678/0001-95',status:'review',
+      sourceDetail:'Receita Federal · índice CNPJ',
+    })
+    expect(mergeResults(saved,[indexed],'org','user',[]).prospects).toHaveLength(1)
+  })
+  it('merges source records by exact CNPJ, not name-only or a shared domain',() => {
+    const first = {company:'Escola Matriz',city:'Rio Grande',cnpj:'12345678000195',
+      engine:{providerId:'cnpj:12345678000195'}}
+    const same = {company:'Escola Nova',city:'Rio Grande',cnpj:'12.345.678/0001-95',
+      engine:{providerId:'maps:new'}}
+    const another = {...same,cnpj:'12345678000276'}
+    expect(sameBusiness(first,same)).toBe(true)
+    expect(sameBusiness(first,another)).toBe(false)
+  })
   it('does not render executable URLs from source data',() => {
     expect(publicUrl('javascript:alert(1)')).toBeNull()
     expect(publicUrl('https://user:password@example.com')).toBeNull()

@@ -139,11 +139,20 @@ def prepare(*, establishments, companies, municipalities, month, output,
             # Enterprise names are stored in another RFB file. Join only
             # selected roots; do not load the national enterprise table in RAM.
             matched_roots = 0
+            # For a capped pilot, a small in-memory set avoids millions of
+            # unnecessary SQLite lookups while scanning national Empresas ZIPs.
+            # For a full RS load, fall back to the disk-backed index to bound RAM.
+            root_count = db.execute("select count(distinct basic) from selected").fetchone()[0]
+            pilot_roots = ({item[0] for item in db.execute("select distinct basic from selected")}
+                           if root_count <= 100_000 else None)
             for row in source_rows(companies):
                 if len(row) < 2 or not row[0].strip().isdigit():
                     continue
                 basic = row[0].strip().zfill(8)
-                if not db.execute("select 1 from selected where basic=? limit 1", (basic,)).fetchone():
+                if pilot_roots is not None:
+                    if basic not in pilot_roots:
+                        continue
+                elif not db.execute("select 1 from selected where basic=? limit 1", (basic,)).fetchone():
                     continue
                 legal_name = row[1].strip()[:240]
                 if legal_name:

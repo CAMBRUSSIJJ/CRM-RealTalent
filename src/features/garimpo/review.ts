@@ -32,7 +32,7 @@ export function mergeResults(state: ProspectingState, drafts: CaptureDraft[], wo
     const incoming = createProspect(workspaceId, draft, draft.source === 'cnpj' ? 'cnpj' : 'maps', leads, userId)
     const next = { ...original }
     // Enrichment must never undo a manual edit, an approval, a discard, or a CRM receipt.
-    for (const field of ['phone','email','website','instagram','address','bookingUrl','description'] as const) {
+    for (const field of ['phone','email','website','instagram','address','bookingUrl','description','cnpj'] as const) {
       if (!next[field] && incoming[field]) next[field] = incoming[field]
     }
     const oldEngine = engine(original) || {}, newEngine = engine(draft) || {}

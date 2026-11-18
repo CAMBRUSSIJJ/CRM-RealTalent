@@ -7,6 +7,8 @@ import { createUuid } from '../../lib/id'
 import { cacheProspectingStateLocally, detectProspectDuplicate, flushProspectingSync, readProspectingState, readRemoteProspectingState, writeProspectingState, type ProspectingState, type ProspectRecord, type CaptureDraft } from '../../services/prospecting-workspace'
 import { hostedGarimpo, type HostedJob } from './hosted-client'
 import { IndexExplorer } from './index-explorer'
+import { RecheckPanel } from './recheck-panel'
+import { readPending, resolveRecheck, stageRecheck, type RecheckField } from './recheck'
 import { evidenceFor, mergeResults, publicUrl } from './review'
 import './garimpo.css'
 
@@ -52,6 +54,9 @@ export function ProspectingPage() {
   const [sites, setSites] = useState(true)
   const [view, setView] = useState<View>('review')
   const [filter, setFilter] = useState('')
+  const [sourceFilter, setSourceFilter] = useState<'all'|'cnpj'|'maps'>('all')
+  const [contactFilter, setContactFilter] = useState<'all'|'with'|'without'>('all')
+  const [recheckedOnly, setRecheckedOnly] = useState(false)
   const [selected, setSelected] = useState<string[]>([])
   const [expanded, setExpanded] = useState<string | null>(null)
   const [sendOpen, setSendOpen] = useState(false)
@@ -165,7 +170,10 @@ export function ProspectingPage() {
   const inScope = (record: ProspectRecord) => canTeamAccessRecord('prospecting', record.createdBy ?? currentUserId)
   const all = state.prospects.filter(inScope)
   const visible = all.filter(record => (view === 'all' || (view === 'review' ? !['sent','discarded'].includes(record.status) : record.status === view))
-    && normalize(`${record.name} ${record.company} ${record.city} ${record.phone}`).includes(normalize(filter)))
+    && (sourceFilter === 'all' || (sourceFilter === 'cnpj' ? record.source === 'cnpj' : record.source === 'maps'))
+    && (contactFilter === 'all' || (contactFilter === 'with' ? Boolean(record.phone || record.email) : !record.phone && !record.email))
+    && (!recheckedOnly || Boolean(record.rawData.lastRecheckedAt))
+    && normalize(`${record.name} ${record.company} ${record.cnpj} ${record.city} ${record.phone} ${record.email}`).includes(normalize(filter)))
   const chosen = all.filter(record => selected.includes(record.id))
   const approved = chosen.filter(record => record.status === 'approved')
   const patchRecord = (id: string, patch: Partial<ProspectRecord>) => {
@@ -179,6 +187,37 @@ export function ProspectingPage() {
     setView('review'); setSelected([])
     notify('success', `${drafts.length} empresa(s) adicionada(s) à revisão. Confira os dados antes de enviá-las ao CRM.`)
   }, [canCreate, hydrated, workspaceId, currentUserId, commit, notify])
+
+  const recheckRecord = useCallback(async (id: string) => {
+    if (!canEdit || !workspaceId) throw new Error('Sem permissão para revisar empresas.')
+    const record = stateRef.current.prospects.find(item => item.id === id && item.workspaceId === workspaceId)
+    if (!record) throw new Error('Empresa não encontrada neste workspace.')
+    if (!canTeamAccessRecord('prospecting', record.createdBy ?? currentUserId)) throw new Error('Sem acesso à ficha desta empresa.')
+    if (readPending(record)) throw new Error('Resolva as propostas anteriores antes de investigar novamente.')
+    const requestedWorkspace = workspaceId
+    const engine = record.rawData.engine as Record<string,unknown> | undefined
+    const sourceState = String(record.rawData.state || engine?.uf || 'RS')
+    const result = await hostedGarimpo.recheck(workspaceId, {
+      company: record.company || record.name, city: record.city, state: sourceState,
+      cnpj: record.cnpj, website: record.website, phone: record.phone, address: record.address,
+    })
+    if (scopeRef.current !== requestedWorkspace) return
+    commit(current => ({ ...current, prospects: current.prospects.map(item =>
+      item.id === id && item.workspaceId === workspaceId
+        ? { ...item, ...stageRecheck(item,result), updatedAt: new Date().toISOString() } : item) }))
+    notify('success', 'Revisão concluída. Confira as novas informações antes de aceitar atualizações.')
+  }, [canEdit, workspaceId, currentUserId, canTeamAccessRecord, commit, notify])
+
+  const resolveRecordRecheck = useCallback((id: string, fields: RecheckField[]) => {
+    if (!canEdit) return
+    commit(current => ({ ...current, prospects: current.prospects.map(item => {
+      if (item.id !== id || item.workspaceId !== workspaceId
+          || !canTeamAccessRecord('prospecting', item.createdBy ?? currentUserId)) return item
+      if (!readPending(item)) return item
+      return { ...item, ...resolveRecheck(item,fields), updatedAt: new Date().toISOString() }
+    }) }))
+    notify('success', fields.length ? 'Atualizações aceitas na revisão.' : 'Sugestões descartadas; histórico preservado.')
+  }, [canEdit,workspaceId,currentUserId,canTeamAccessRecord,commit,notify])
 
   async function start(event: FormEvent) {
     event.preventDefault()
@@ -291,8 +330,18 @@ export function ProspectingPage() {
           {job && <p className="gh-help">{job.partial ? 'Os resultados são parciais e foram preservados. ' : ''}{job.metrics?.first_result_ms ? `Primeiro resultado em ${(job.metrics.first_result_ms / 1000).toFixed(1)} s. ` : ''}{active(job) ? 'A coleta e o enriquecimento continuam enquanto a pesquisa está ativa.' : 'Consulte a fonte e a data de cada contato na revisão.'}</p>}
         </section>
         <section className="gh-card gh-review"><div className="gh-review-heading"><div><span className="gh-eyebrow">SUA LISTA DE PROSPECÇÃO</span><h2>Empresas para revisar</h2></div><div className="gh-actions"><button className="gh-secondary" disabled={!canEdit || !chosen.some(record => !['sent','discarded'].includes(record.status))} onClick={() => chosen.filter(record => !['sent','discarded'].includes(record.status)).forEach(record => patchRecord(record.id,{status:'approved'}))}><Check size={15} />Aprovar selecionadas</button><button className="gh-primary" disabled={!canSend || !approved.length || sending || Boolean(syncError)} onClick={() => { setStageId(snapshot?.stages[0]?.id || ''); setSendOpen(true) }}>Enviar ao CRM ({approved.length})<ArrowRight size={15} /></button></div></div>
-          <div className="gh-tools"><nav aria-label="Etapas da revisão">{([['review','Revisar'],['sent','No CRM'],['discarded','Descartadas'],['all','Todas']] as const).map(([value,label]) => <button key={value} aria-pressed={view === value} onClick={() => { setView(value); setSelected([]) }}>{label}<span>{all.filter(record => value === 'all' || (value === 'review' ? !['sent','discarded'].includes(record.status) : record.status === value)).length}</span></button>)}</nav><input type="search" aria-label="Filtrar empresas" placeholder="Filtrar empresas…" value={filter} onChange={event => setFilter(event.target.value)} /></div>
-          {visible.length ? <div className="gh-table-wrap"><table><thead><tr><th><input type="checkbox" aria-label="Selecionar todas as empresas visíveis" checked={visible.length > 0 && visible.every(record => selected.includes(record.id))} onChange={event => setSelected(event.target.checked ? visible.map(record => record.id) : [])} /></th><th>Empresa</th><th>Contato publicado</th><th>Situação</th><th><span className="gh-sr">Ações</span></th></tr></thead><tbody>{visible.map(record => <RecordRows key={record.id} record={record} selected={selected.includes(record.id)} onSelect={checked => setSelected(current => checked ? [...new Set([...current,record.id])] : current.filter(id => id !== record.id))} expanded={expanded === record.id} onExpand={() => setExpanded(expanded === record.id ? null : record.id)} canEdit={canEdit} onPatch={patch => patchRecord(record.id,patch)} />)}</tbody></table></div>
+          <div className="gh-tools"><nav aria-label="Etapas da revisão">{([['review','Revisar'],['sent','No CRM'],['discarded','Descartadas'],['all','Todas']] as const).map(([value,label]) => <button key={value} aria-pressed={view === value} onClick={() => { setView(value); setSelected([]) }}>{label}<span>{all.filter(record => value === 'all' || (value === 'review' ? !['sent','discarded'].includes(record.status) : record.status === value)).length}</span></button>)}</nav><input type="search" aria-label="Filtrar empresas" placeholder="Nome, CNPJ, cidade, contato…" value={filter} onChange={event => setFilter(event.target.value)} /></div>
+          <details className="gh-review-more"><summary>Mais filtros da revisão</summary><div>
+            <label>Origem<select value={sourceFilter} onChange={e => setSourceFilter(e.target.value as typeof sourceFilter)}>
+              <option value="all">Todas as origens</option><option value="cnpj">Base CNPJ</option><option value="maps">Busca Maps</option>
+            </select></label>
+            <label>Contatos<select value={contactFilter} onChange={e => setContactFilter(e.target.value as typeof contactFilter)}>
+              <option value="all">Com e sem contatos</option><option value="with">Com telefone ou e-mail</option><option value="without">Sem contatos publicados</option>
+            </select></label>
+            <label className="gh-check"><input type="checkbox" checked={recheckedOnly} onChange={e => setRecheckedOnly(e.target.checked)} />Somente já investigadas novamente</label>
+          </div></details>
+          {visible.length ? <div className="gh-table-wrap"><table><thead><tr><th><input type="checkbox" aria-label="Selecionar todas as empresas visíveis" checked={visible.length > 0 && visible.every(record => selected.includes(record.id))} onChange={event => setSelected(event.target.checked ? visible.map(record => record.id) : [])} /></th><th>Empresa</th><th>Contato publicado</th><th>Situação</th><th><span className="gh-sr">Ações</span></th></tr></thead><tbody>{visible.map(record => <RecordRows key={record.id} record={record} selected={selected.includes(record.id)} onSelect={checked => setSelected(current => checked ? [...new Set([...current,record.id])] : current.filter(id => id !== record.id))} expanded={expanded === record.id} onExpand={() => setExpanded(expanded === record.id ? null : record.id)} canEdit={canEdit} onPatch={patch => patchRecord(record.id,patch)}
+            onRecheck={() => recheckRecord(record.id)} onResolve={fields => resolveRecordRecheck(record.id,fields)} />)}</tbody></table></div>
             : <div className="gh-empty"><Search size={29} /><h3>{busy ? 'Buscando as primeiras empresas…' : filter ? 'Nenhuma empresa corresponde ao filtro.' : view === 'review' ? 'As empresas encontradas aparecerão aqui.' : 'Nenhuma empresa nesta etapa.'}</h3><p>{busy ? 'Os resultados aparecem durante a coleta.' : 'Revise os dados, aprove as empresas e envie sua seleção ao CRM.'}</p></div>}
         </section>
       </main>
@@ -302,9 +351,15 @@ export function ProspectingPage() {
   </div>
 }
 
-function RecordRows({ record, selected, onSelect, expanded, onExpand, canEdit, onPatch }: { record: ProspectRecord; selected: boolean; onSelect(value: boolean): void; expanded: boolean; onExpand(): void; canEdit: boolean; onPatch(patch: Partial<ProspectRecord>): void }) {
+function RecordRows({ record, selected, onSelect, expanded, onExpand, canEdit, onPatch, onRecheck, onResolve }: {
+  record: ProspectRecord; selected: boolean; onSelect(value: boolean): void; expanded: boolean;
+  onExpand(): void; canEdit: boolean; onPatch(patch: Partial<ProspectRecord>): void;
+  onRecheck: () => Promise<void>; onResolve: (fields: RecheckField[]) => void
+}) {
   const evidence = evidenceFor(record)
   const status = { new:'Revisar', analyzing:'Revisar', review:'Revisar', approved:'Aprovada', discarded:'Descartada', sent:'No CRM' }[record.status]
   return <><tr className={selected ? 'gh-selected' : ''}><td><input type="checkbox" aria-label={`Selecionar ${record.company}`} checked={selected} onChange={event => onSelect(event.target.checked)} /></td><td><strong>{record.company || record.name}</strong><span>{record.city || 'Cidade a confirmar'}</span>{record.duplicateLevel !== 'none' && <small>Possível vínculo já existente no CRM</small>}</td><td>{record.phone ? <a href={`tel:${record.phone.replace(/[^+\d]/g,'')}`}>{record.phone}</a> : <span>Sem telefone publicado</span>}{record.email && <span>{record.email}</span>}{publicUrl(record.website) && <a href={publicUrl(record.website)!} target="_blank" rel="noopener noreferrer">Site da empresa <ExternalLink size={11} /></a>}</td><td><span className={`gh-badge gh-badge--${record.status}`}>{status}</span></td><td><button className="gh-icon" onClick={onExpand} aria-expanded={expanded} aria-label={`Conferir dados e fontes de ${record.company}`}><ChevronDown size={18} /></button></td></tr>
-    {expanded && <tr><td colSpan={5}><div className="gh-detail"><div className="gh-edit-fields">{(['company','phone','email','address','website','notes'] as const).map(field => <label key={field}>{{company:'Empresa',phone:'Telefone',email:'E-mail',address:'Endereço',website:'Site',notes:'Suas observações'}[field]}<input key={`${record.id}:${field}:${record[field]}`} defaultValue={record[field]} disabled={!canEdit || record.status === 'sent'} onBlur={event => { if (event.target.value !== record[field]) onPatch({ [field]: event.target.value }) }} /></label>)}</div><h3>Fontes dos dados</h3>{evidence.length ? <ul>{evidence.map((item,index) => <li key={index}><strong>{item.field}</strong>: {item.value} <a href={item.url} target="_blank" rel="noopener noreferrer">Conferir fonte <ExternalLink size={11} /></a>{item.observed_at && <small>Consultado em {new Date(item.observed_at).toLocaleString('pt-BR')}</small>}</li>)}</ul> : <p>Este registro não possui evidências detalhadas. Revise os dados antes de aprovar.</p>}<div className="gh-actions">{canEdit && !['sent','discarded'].includes(record.status) && <><button className="gh-primary" onClick={() => onPatch({status:record.status === 'approved' ? 'review' : 'approved'})}>{record.status === 'approved' ? 'Voltar para revisão' : 'Aprovar empresa'}</button><button className="gh-secondary" onClick={() => onPatch({status:'discarded'})}>Descartar</button></>}{canEdit && record.status === 'discarded' && <button className="gh-secondary" onClick={() => onPatch({status:'review'})}>Restaurar para revisão</button>}</div></div></td></tr>}</>
+    {expanded && <tr><td colSpan={5}><div className="gh-detail"><div className="gh-edit-fields">{(['company','phone','email','address','website','notes'] as const).map(field => <label key={field}>{{company:'Empresa',phone:'Telefone',email:'E-mail',address:'Endereço',website:'Site',notes:'Suas observações'}[field]}<input key={`${record.id}:${field}:${record[field]}`} defaultValue={record[field]} disabled={!canEdit || record.status === 'sent'} onBlur={event => { if (event.target.value !== record[field]) onPatch({ [field]: event.target.value }) }} /></label>)}</div><h3>Fontes dos dados</h3>{evidence.length ? <ul>{evidence.map((item,index) => <li key={index}><strong>{item.field}</strong>: {item.value} <a href={item.url} target="_blank" rel="noopener noreferrer">Conferir fonte <ExternalLink size={11} /></a>{item.observed_at && <small>Consultado em {new Date(item.observed_at).toLocaleString('pt-BR')}</small>}</li>)}</ul> : <p>Este registro não possui evidências detalhadas. Revise os dados antes de aprovar.</p>}<div className="gh-actions">{canEdit && !['sent','discarded'].includes(record.status) && <><button className="gh-primary" onClick={() => onPatch({status:record.status === 'approved' ? 'review' : 'approved'})}>{record.status === 'approved' ? 'Voltar para revisão' : 'Aprovar empresa'}</button><button className="gh-secondary" onClick={() => onPatch({status:'discarded'})}>Descartar</button></>}{canEdit && record.status === 'discarded' && <button className="gh-secondary" onClick={() => onPatch({status:'review'})}>Restaurar para revisão</button>}</div>
+    <RecheckPanel record={record} canEdit={canEdit} onRecheck={onRecheck} onResolve={onResolve} />
+    </div></td></tr>}</>
 }

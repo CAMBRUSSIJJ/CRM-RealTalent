@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { Lead } from '../domain/types'
-import { calculateProspectConfidence, createProspect, detectProspectDuplicate, parseProspectCsv, parseProspectJson, parseQuickCaptureLines } from './prospecting-workspace'
+import { applyProspectEnrichment, calculateProspectConfidence, createProspect, prospectInsightLines, prospectInsights, detectProspectDuplicate, parseProspectCsv, parseProspectJson, parseQuickCaptureLines } from './prospecting-workspace'
 
 const lead: Lead = {
   id: 'lead-1', workspaceId: 'ws', name: 'Barbearia Alpha', company: 'Barbearia Alpha', phone: '(51) 99999-1001', email: '', city: 'Canoas', source: 'Manual',
@@ -52,5 +52,23 @@ describe('prospecting workspace', () => {
     const prospect = createProspect('ws', { name: 'Alpha', phone: '51999991001', city: 'Canoas' }, 'maps', [lead])
     expect(prospect.source).toBe('maps')
     expect(prospect.duplicateLevel).toBe('confirmed')
+  })
+
+  it('aplica enriquecimento sem sobrescrever dados revisados e guarda dados da Receita', () => {
+    const prospect = { ...createProspect('ws', { company: 'Alpha Barbearia', phone: '(51) 98888-0000', website: 'https://alpha.com.br' }, 'maps', []), notes: 'revisado' }
+    const enriched = applyProspectEnrichment(prospect, {
+      company: 'Outro Nome', phone: '(51) 3456-7890', email: 'contato@alpha.com.br', cnpj: '11.222.333/0001-81', instagram: '@alpha',
+      legalName: 'Alpha Barbearia Ltda', registrationStatus: 'ATIVA', cnae: '9602-5/01', whatsapp: '(51) 98888-0000',
+      partners: [{ name: 'João Silva', role: 'Sócio-Administrador', since: '2019-01-01' }], rating: 4.7, reviewsCount: 90,
+    }, [])
+    expect(enriched).toMatchObject({ company: 'Alpha Barbearia', phone: '(51) 98888-0000', email: 'contato@alpha.com.br', cnpj: '11.222.333/0001-81', instagram: '@alpha', notes: 'revisado', status: 'review' })
+    expect(enriched.confidence).toBeGreaterThan(prospect.confidence)
+    const info = prospectInsights(enriched)
+    expect(info).toMatchObject({ legalName: 'Alpha Barbearia Ltda', registrationStatus: 'ATIVA', rating: 4.7 })
+    expect(info.partners).toHaveLength(1)
+    const lines = prospectInsightLines(enriched).join('\n')
+    expect(lines).toContain('Razão social: Alpha Barbearia Ltda')
+    expect(lines).toContain('Sócios: João Silva (Sócio-Administrador)')
+    expect(lines).toContain('Google: nota 4.7 (90 avaliações)')
   })
 })

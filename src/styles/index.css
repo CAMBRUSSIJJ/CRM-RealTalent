@@ -3187,6 +3187,39 @@ body { color: #172033; line-height: 1.45; }
 .prospecting-source-card dt, .prospecting-source-card dd { margin: 0; font-size: 8px; }
 .prospecting-source-card dt { color: #8b96a7; }
 .prospecting-source-card dd { color: #56647a; font-weight: 750; text-align: right; }
+.prospecting-cnpj-input { width: 100%; min-height: 110px; padding: 11px; color: #29354a; border: 1px solid #dce2ea; border-radius: 9px; background: #fff; font: inherit; font-size: 10px; line-height: 1.6; resize: vertical; outline: 0; }
+.prospecting-cnpj-input:focus { border-color: #9bb8ee; box-shadow: 0 0 0 3px #eaf1ff; }
+.prospecting-form-grid label.prospecting-toggle { grid-template-columns: 18px minmax(0,1fr); align-items: start; gap: 9px; padding: 10px 11px; border: 1px solid #dce2ea; border-radius: 10px; background: #f8faff; cursor: pointer; }
+.prospecting-form-grid label.prospecting-toggle input { width: 16px; min-height: 16px; margin: 1px 0 0; accent-color: var(--blue); }
+.prospecting-toggle > span { display: grid; gap: 3px; }
+.prospecting-toggle strong { color: #29354a; font-size: 10px; }
+.prospecting-toggle small { color: #7a869a; font-size: 9px; font-weight: 500; line-height: 1.5; }
+.prospecting-search-actions { flex-wrap: wrap; }
+.prospecting-search-summary { display: grid; gap: 10px; padding: 12px; border: 1px solid #d5ecdf; border-radius: 11px; background: #f4fbf7; }
+.prospecting-search-summary > header { display: flex; flex-wrap: wrap; align-items: center; gap: 7px; color: #2f7357; }
+.prospecting-search-summary > header strong { font-size: 11px; }
+.prospecting-search-summary > header span { color: #6c7b8f; font-size: 9px; }
+.prospecting-search-summary > div { display: grid; grid-template-columns: repeat(auto-fit,minmax(88px,1fr)); gap: 7px; }
+.prospecting-search-summary > div > span { display: grid; gap: 2px; padding: 8px; border-radius: 9px; background: #fff; }
+.prospecting-search-summary > div strong { color: #22304a; font-size: 13px; }
+.prospecting-search-summary > div small { color: #7a869a; font-size: 8px; }
+.prospecting-search-summary ul, .prospecting-insights-card ul { margin: 0; padding-left: 16px; color: #8a6a1c; font-size: 9px; line-height: 1.5; }
+.prospecting-insights-card { display: grid; gap: 11px; padding: 14px; }
+.prospecting-insights-card dl { margin: 0; display: grid; gap: 7px; }
+.prospecting-insights-card dl > div { display: grid; grid-template-columns: 84px minmax(0,1fr); gap: 8px; }
+.prospecting-insights-card dt, .prospecting-insights-card dd { margin: 0; font-size: 9px; line-height: 1.45; }
+.prospecting-insights-card dt { color: #8b96a7; }
+.prospecting-insights-card dd { color: #3d4a60; font-weight: 700; overflow-wrap: anywhere; }
+.prospecting-partners { display: grid; gap: 6px; }
+.prospecting-partners > small { color: #8b96a7; font-size: 8px; font-weight: 750; text-transform: uppercase; letter-spacing: .06em; }
+.prospecting-partners > span { display: flex; flex-wrap: wrap; align-items: center; gap: 5px; color: #56647a; font-size: 9px; }
+.prospecting-partners em { color: #8b96a7; font-style: normal; }
+.prospecting-insight-links { display: flex; flex-wrap: wrap; gap: 6px; }
+.prospecting-insight-links a { display: inline-flex; align-items: center; gap: 4px; padding: 4px 8px; color: var(--blue); border: 1px solid #dce5f6; border-radius: 999px; font-size: 9px; font-weight: 700; text-decoration: none; }
+html[data-theme="dark"] .prospecting-cnpj-input, html[data-theme="dark"] .prospecting-form-grid label.prospecting-toggle, html[data-theme="dark"] .prospecting-search-summary > div > span { color: var(--text); border-color: var(--border); background: var(--surface-soft); }
+html[data-theme="dark"] .prospecting-toggle strong, html[data-theme="dark"] .prospecting-search-summary > div strong, html[data-theme="dark"] .prospecting-insights-card dd { color: var(--text); }
+html[data-theme="dark"] .prospecting-search-summary { border-color: #2f5a48; background: #15282a; }
+html[data-theme="dark"] .prospecting-insight-links a { border-color: var(--border); }
 .prospecting-source-mark { width: 30px; height: 30px; display: inline-grid; place-items: center; flex: 0 0 auto; color: #5b6c83; border-radius: 9px; background: #eef1f5; }
 .prospecting-source-mark.is-instagram { color: #a64277; background: #fbe8f2; }
 .prospecting-source-mark.is-maps { color: #34705d; background: #e6f4ee; }

@@ -14,12 +14,13 @@ import type { ActivityType, LeadPriority, LeadTemperature } from '../../domain/t
 import { formatDateTime } from '../../domain/formatters'
 import { APP_VERSION, APP_VERSION_LABEL } from '../../lib/app-version'
 import {
-  EXTENSION_MESSAGE_TYPE, appendHistory, buildProspectingSearchUrl, clearExtensionInbox, createProspect, parseProspectFile,
-  parseQuickCaptureLines, prospectCompleteness, prospectSourceLabels, prospectStatusLabels, readExtensionInbox,
+  EXTENSION_MESSAGE_TYPE, appendHistory, applyProspectEnrichment, buildProspectingSearchUrl, clearExtensionInbox, createProspect, parseProspectFile,
+  parseQuickCaptureLines, prospectCompleteness, prospectInsightLines, prospectInsights, prospectSourceLabels, prospectStatusLabels, readExtensionInbox,
   readProspectingState, readRemoteProspectingState, refreshProspectAnalysis, writeProspectingState,
   type CaptureDraft, type ProspectRecord, type ProspectSource, type ProspectStatus, type ProspectingState,
 } from '../../services/prospecting-workspace'
 import { recordLocalIntegrationEvent } from '../../services/integration-framework'
+import { isProspectingSearchAvailable, prospectToEnrichItem, runProspectingSearch, type ProspectingSearchResponse } from '../../services/prospecting-search'
 import { usePreferences } from '../settings/preferences-context'
 
  type ProspectingTab = 'search' | 'processing' | 'results' | 'kanban' | 'history'
@@ -59,7 +60,12 @@ export function ProspectingPage() {
   const [segment, setSegment] = useState('Barbearias')
   const [city, setCity] = useState('Canoas')
   const [query, setQuery] = useState('')
-  const [quantity, setQuantity] = useState(25)
+  const [quantity, setQuantity] = useState(20)
+  const [cnpjInput, setCnpjInput] = useState('')
+  const [enrichResults, setEnrichResults] = useState(true)
+  const [searching, setSearching] = useState(false)
+  const [lastSearch, setLastSearch] = useState<ProspectingSearchResponse | null>(null)
+  const [enrichingIds, setEnrichingIds] = useState<Set<string>>(new Set())
   const [quickCapture, setQuickCapture] = useState('')
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState<'all' | ProspectStatus>('all')
@@ -158,6 +164,45 @@ export function ProspectingPage() {
     if (canWrite) commit((current) => appendHistory(current, workspaceId, { action: 'search', title: `Busca no ${prospectSourceLabels[source]}`, description: [query || segment, city].filter(Boolean).join(' · '), count: 0 }))
   }
 
+  const runSearch = async () => {
+    if (!canWrite || !workspaceId || searching) return
+    const mode = source === 'cnpj' ? 'cnpj' : 'maps'
+    if (mode === 'maps' && !(query.trim() || segment.trim())) { notify('error', 'Informe o segmento ou uma busca específica.'); return }
+    if (mode === 'cnpj' && !cnpjInput.trim()) { notify('error', 'Cole um ou mais CNPJs para consultar.'); return }
+    setSearching(true)
+    try {
+      const response = await runProspectingSearch(workspaceId, mode === 'maps'
+        ? { mode, segment, city, query, limit: quantity, enrich: enrichResults }
+        : { mode, cnpjs: cnpjInput })
+      setLastSearch(response)
+      const added = importDrafts(response.results, mode, 'capture', `${mode === 'maps' ? 'Google Maps' : 'Receita Federal'} · ${response.query} · ${response.results.length} encontrado(s)`, response.results.length)
+      const repeated = response.results.length - added
+      response.warnings.forEach((warning) => notify('info', warning))
+      if (!response.results.length) notify('info', 'Nenhuma empresa encontrada. Tente outro segmento, bairro ou cidade.')
+      else notify(added ? 'success' : 'info', added ? `${added} empresa(s) nova(s) no Garimpo${repeated ? ` · ${repeated} já existia(m)` : ''}.` : 'Todas as empresas encontradas já estavam no Garimpo.')
+      if (mode === 'cnpj' && added) setCnpjInput('')
+      if (added) setTab('processing')
+    } catch (error) { notify('error', error instanceof Error ? error.message : 'Não foi possível buscar empresas.') }
+    finally { setSearching(false) }
+  }
+
+  const enrichProspects = async (ids: string[]) => {
+    if (!canWrite || !workspaceId) return
+    const targets = state.prospects.filter((item) => ids.includes(item.id) && (item.website || item.cnpj)).slice(0, 25)
+    if (!targets.length) { notify('info', 'Informe o site ou o CNPJ para enriquecer os dados.'); return }
+    setEnrichingIds(new Set(targets.map((item) => item.id)))
+    try {
+      const response = await runProspectingSearch(workspaceId, { mode: 'enrich', items: targets.map(prospectToEnrichItem) })
+      const byId = new Map(targets.map((item, index) => [item.id, response.results[index]]))
+      commit((current) => appendHistory({
+        ...current,
+        prospects: current.prospects.map((item) => { const draft = byId.get(item.id); return draft ? applyProspectEnrichment(item, draft, snapshot?.leads ?? []) : item }),
+      }, workspaceId, { action: 'analyze', title: 'Dados enriquecidos', description: `Site e Receita Federal consultados · ${response.stats.withCnpj} com CNPJ · ${response.stats.withEmail} com e-mail`, count: targets.length }))
+      notify('success', `${targets.length} lead(s) enriquecido(s).`)
+    } catch (error) { notify('error', error instanceof Error ? error.message : 'Não foi possível enriquecer os dados.') }
+    finally { setEnrichingIds(new Set()) }
+  }
+
   const captureQuick = () => {
     const drafts = parseQuickCaptureLines(quickCapture)
     if (!drafts.length) { notify('error', 'Cole pelo menos um resultado para capturar.'); return }
@@ -250,7 +295,7 @@ export function ProspectingPage() {
           prospect.instagram ? `Instagram: ${prospect.instagram}` : '', prospect.website ? `Site: ${prospect.website}` : '',
           prospect.bookingUrl ? `Agendamento: ${prospect.bookingUrl}` : '', prospect.cnpj ? `CNPJ: ${prospect.cnpj}` : '',
           prospect.address ? `Endereço: ${prospect.address}` : '', prospect.systemName ? `Sistema identificado: ${prospect.systemName}` : '',
-          prospect.description, prospect.notes,
+          ...prospectInsightLines(prospect), prospect.description, prospect.notes,
         ].filter(Boolean).join('\n')
         let leadId: string
         if (duplicateLead && options.duplicateBehavior === 'update') {
@@ -321,7 +366,9 @@ export function ProspectingPage() {
       {tab === 'search' ? <SearchWorkspace
         readOnly={!canWrite}
         source={source} segment={segment} city={city} query={query} quantity={quantity} quickCapture={quickCapture} lastSync={state.lastExtensionSyncAt}
+        cnpjInput={cnpjInput} enrich={enrichResults} searching={searching} lastSearch={lastSearch} serverAvailable={isProspectingSearchAvailable()}
         onSource={setSource} onSegment={setSegment} onCity={setCity} onQuery={setQuery} onQuantity={setQuantity} onQuickCapture={setQuickCapture}
+        onCnpjInput={setCnpjInput} onEnrich={setEnrichResults} onSearch={() => void runSearch()}
         onOpenSearch={openSearch} onCapture={captureQuick} onSyncExtension={syncExtension}
       /> : null}
 
@@ -330,6 +377,7 @@ export function ProspectingPage() {
         queue={processingQueue} active={activeProspect} leads={snapshot.leads} onSelect={setProcessingId} onChange={updateProspect}
         onAnalyze={(id) => analyze([id])} onApprove={(id) => setStatus([id], 'approved')} onDiscard={(id) => setStatus([id], 'discarded')}
         onSend={(id) => openSend([id])} onAnalyzeAll={() => analyze(processingQueue.filter((item) => item.status !== 'sent').map((item) => item.id))}
+        enriching={activeProspect ? enrichingIds.has(activeProspect.id) : false} onEnrich={(id) => void enrichProspects([id])}
       /> : null}
 
       {tab === 'results' ? <ResultsWorkspace
@@ -337,7 +385,7 @@ export function ProspectingPage() {
         prospects={filtered} selectedIds={selectedIds} search={search} statusFilter={statusFilter} sourceFilter={sourceFilter}
         onSearch={setSearch} onStatusFilter={setStatusFilter} onSourceFilter={setSourceFilter} onSelected={setSelectedIds}
         onAnalyze={(ids) => analyze(ids)} onApprove={(ids) => setStatus(ids, 'approved')} onDiscard={(ids) => setStatus(ids, 'discarded')}
-        onSend={openSend} onDelete={removeProspects} onExport={exportResults}
+        onSend={openSend} onDelete={removeProspects} onExport={exportResults} enriching={enrichingIds.size > 0} onEnrich={(ids) => void enrichProspects(ids)}
       /> : null}
 
       {tab === 'kanban' ? <KanbanWorkspace readOnly={!canWrite} prospects={state.prospects} onStatus={(id, status) => setStatus([id], status)} onSelect={(id) => { setProcessingId(id); setTab('processing') }} /> : null}
@@ -356,23 +404,34 @@ function Metric({ icon: Icon, label, value, detail, tone = '' }: { icon: typeof 
 
 function SearchWorkspace(props: {
   readOnly: boolean; source: ProspectSource; segment: string; city: string; query: string; quantity: number; quickCapture: string; lastSync: string | null
+  cnpjInput: string; enrich: boolean; searching: boolean; lastSearch: ProspectingSearchResponse | null; serverAvailable: boolean
   onSource(value: ProspectSource): void; onSegment(value: string): void; onCity(value: string): void; onQuery(value: string): void; onQuantity(value: number): void; onQuickCapture(value: string): void
+  onCnpjInput(value: string): void; onEnrich(value: boolean): void; onSearch(): void
   onOpenSearch(): void; onCapture(): void; onSyncExtension(): void
 }) {
+  const automatic = props.source === 'maps' || props.source === 'cnpj'
   return <div className="prospecting-search-layout">
     <section className="panel prospecting-search-panel">
-      <header className="panel__heading"><div><span className="eyebrow"><Search size={14} /> Configuração da busca</span><h3>Encontrar novas oportunidades</h3><p>Escolha a fonte e abra uma pesquisa preparada com segmento e região.</p></div></header>
+      <header className="panel__heading"><div><span className="eyebrow"><Search size={14} /> Configuração da busca</span><h3>Encontrar novas oportunidades</h3><p>{props.source === 'maps' ? 'Busca real no Google Maps por segmento e cidade, com enriquecimento automático pelo site e pela Receita Federal.' : props.source === 'cnpj' ? 'Consulta direta na Receita Federal: razão social, situação, CNAE, porte, sócios, telefones e e-mail.' : 'Escolha a fonte e abra uma pesquisa preparada com segmento e região.'}</p></div></header>
       <div className="prospecting-source-grid">{(['maps', 'instagram', 'cnpj', 'extension', 'manual'] as ProspectSource[]).map((item) => {
         const Icon = sourceIcons[item]
-        return <button key={item} className={props.source === item ? 'is-active' : ''} onClick={() => props.onSource(item)}><span><Icon size={19} /></span><strong>{prospectSourceLabels[item]}</strong><small>{item === 'maps' ? 'Busca local e contatos' : item === 'instagram' ? 'Perfil e presença digital' : item === 'cnpj' ? 'Dados cadastrais' : item === 'extension' ? 'Captura automática' : 'Entrada própria'}</small></button>
+        return <button key={item} className={props.source === item ? 'is-active' : ''} onClick={() => props.onSource(item)}><span><Icon size={19} /></span><strong>{prospectSourceLabels[item]}</strong><small>{item === 'maps' ? 'Busca automática + enriquecimento' : item === 'instagram' ? 'Perfil e presença digital' : item === 'cnpj' ? 'Receita Federal e sócios' : item === 'extension' ? 'Captura automática' : 'Entrada própria'}</small></button>
       })}</div>
-      <div className="prospecting-form-grid">
+      {props.source === 'cnpj' ? <div className="prospecting-form-grid">
+        <label className="is-wide"><span>CNPJs (até 50, um por linha ou separados por vírgula)</span><textarea className="prospecting-cnpj-input" readOnly={props.readOnly} value={props.cnpjInput} onChange={(event) => props.onCnpjInput(event.target.value)} placeholder={'11.222.333/0001-81\n45.997.418/0001-53'} /></label>
+      </div> : <div className="prospecting-form-grid">
         <label><span>Segmento</span><input value={props.segment} onChange={(event) => props.onSegment(event.target.value)} placeholder="Ex.: Barbearias" /></label>
         <label><span>Cidade ou região</span><input value={props.city} onChange={(event) => props.onCity(event.target.value)} placeholder="Ex.: Canoas, RS" /></label>
         <label className="is-wide"><span>Busca específica</span><input value={props.query} onChange={(event) => props.onQuery(event.target.value)} placeholder="Opcional: nome, bairro ou palavra-chave" /></label>
-        <label><span>Limite por lote</span><select value={props.quantity} onChange={(event) => props.onQuantity(Number(event.target.value))}><option value={10}>10 leads</option><option value={25}>25 leads</option><option value={50}>50 leads</option><option value={100}>100 leads</option></select></label>
+        <label><span>Limite por busca</span><select value={props.quantity} onChange={(event) => props.onQuantity(Number(event.target.value))}><option value={10}>10 empresas</option><option value={20}>20 empresas</option><option value={40}>40 empresas</option><option value={60}>60 empresas</option></select></label>
+        {props.source === 'maps' ? <label className="prospecting-toggle is-wide"><input type="checkbox" checked={props.enrich} disabled={props.readOnly} onChange={(event) => props.onEnrich(event.target.checked)} /><span><strong>Enriquecer automaticamente</strong><small>Visita o site de cada empresa (e-mail, WhatsApp, Instagram, sistema de agendamento, CNPJ) e consulta a Receita Federal (razão social, sócios, CNAE, porte).</small></span></label> : null}
+      </div>}
+      <div className="prospecting-search-actions">
+        {automatic && !props.readOnly ? <Button loading={props.searching} disabled={!props.serverAvailable} onClick={props.onSearch}>{props.source === 'cnpj' ? <Building2 size={17} /> : <Search size={17} />} {props.searching ? (props.source === 'cnpj' ? 'Consultando Receita…' : 'Buscando e enriquecendo…') : props.source === 'cnpj' ? 'Consultar CNPJs' : 'Buscar empresas'}</Button> : null}
+        {props.source !== 'cnpj' ? <Button variant={automatic ? 'secondary' : 'primary'} onClick={props.onOpenSearch}><ExternalLink size={17} /> {automatic ? 'Ver no Google Maps' : 'Abrir busca preparada'}</Button> : null}
+        <span>{automatic ? (props.serverAvailable ? 'Os resultados entram direto na fila de processamento, sem duplicar registros.' : 'A busca automática exige o Supabase conectado (VITE_DATA_MODE=supabase).') : 'A pesquisa abre em uma nova guia e o CRM mantém o fluxo salvo.'}</span>
       </div>
-      <div className="prospecting-search-actions"><Button onClick={props.onOpenSearch}><ExternalLink size={17} /> Abrir busca preparada</Button><span>A pesquisa abre em uma nova guia e o CRM mantém o fluxo salvo.</span></div>
+      {props.lastSearch ? <SearchSummary response={props.lastSearch} /> : null}
     </section>
 
     <aside className="panel prospecting-extension-card">
@@ -391,7 +450,39 @@ function SearchWorkspace(props: {
   </div>
 }
 
-function ProcessingWorkspace({ readOnly, queue, active, leads, onSelect, onChange, onAnalyze, onApprove, onDiscard, onSend, onAnalyzeAll }: {
+function SearchSummary({ response }: { response: ProspectingSearchResponse }) {
+  const { stats } = response
+  const items: Array<[string, number]> = [['Telefone', stats.withPhone], ['WhatsApp', stats.withWhatsapp], ['E-mail', stats.withEmail], ['Instagram', stats.withInstagram], ['Site', stats.withWebsite], ['CNPJ na Receita', stats.withCnpj]]
+  return <div className="prospecting-search-summary">
+    <header><CheckCircle2 size={16} /><strong>{stats.returned} empresa(s) encontrada(s)</strong><span>{response.query} · {(response.durationMs / 1000).toFixed(1)}s</span></header>
+    <div>{items.map(([label, value]) => <span key={label}><strong>{stats.returned ? Math.round(value / stats.returned * 100) : 0}%</strong><small>{label} ({value})</small></span>)}</div>
+    {response.warnings.length ? <ul>{response.warnings.map((warning) => <li key={warning}>{warning}</li>)}</ul> : null}
+  </div>
+}
+
+function InsightsCard({ prospect }: { prospect: ProspectRecord }) {
+  const info = prospectInsights(prospect)
+  const money = (value: number) => value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 })
+  const rows: Array<[string, string]> = ([
+    ['Razão social', info.legalName], ['Situação', info.registrationStatus], ['CNAE', [info.cnae, info.cnaeDescription].filter(Boolean).join(' — ')],
+    ['Porte', [info.companySize, info.mei ? 'MEI' : info.simplesNacional ? 'Simples Nacional' : ''].filter(Boolean).join(' · ')],
+    ['Capital social', info.shareCapital != null ? money(info.shareCapital) : ''], ['Abertura', info.openedAt ? info.openedAt.split('-').reverse().join('/') : ''],
+    ['WhatsApp', info.whatsapp], ['Telefones', info.phones.join(', ')], ['E-mails', info.emails.join(', ')], ['Categoria', info.category],
+    ['Google', info.rating != null ? `${info.rating.toFixed(1)} ★ (${info.reviewsCount ?? 0} avaliações)` : ''],
+  ] as Array<[string, string]>).filter(([, value]) => value)
+  const links = [...(info.mapsUrl ? [['Google Maps', info.mapsUrl]] : []), ...Object.entries(info.socials).map(([network, url]) => [network[0].toUpperCase() + network.slice(1), url])]
+  if (!rows.length && !info.partners.length && !links.length && !info.enrichment) return null
+  return <section className="panel prospecting-insights-card">
+    <span className="eyebrow"><Database size={14} /> Dados enriquecidos</span>
+    {rows.length ? <dl>{rows.map(([label, value]) => <div key={label}><dt>{label}</dt><dd>{value}</dd></div>)}</dl> : null}
+    {info.partners.length ? <div className="prospecting-partners"><small>Sócios e administradores</small>{info.partners.map((partner) => <span key={`${partner.name}-${partner.role}`}><UsersRound size={13} /><strong>{partner.name}</strong>{partner.role ? <em>{partner.role}</em> : null}</span>)}</div> : null}
+    {links.length ? <div className="prospecting-insight-links">{links.map(([label, url]) => <a key={url} href={url} target="_blank" rel="noopener noreferrer"><ExternalLink size={12} /> {label}</a>)}</div> : null}
+    {info.enrichment?.notes.length ? <ul>{info.enrichment.notes.map((note) => <li key={note}>{note}</li>)}</ul> : null}
+  </section>
+}
+
+function ProcessingWorkspace({ readOnly, queue, active, leads, onSelect, onChange, onAnalyze, onApprove, onDiscard, onSend, onAnalyzeAll, enriching, onEnrich }: {
+  enriching: boolean; onEnrich(id: string): void
   readOnly: boolean; queue: ProspectRecord[]; active: ProspectRecord | null; leads: Array<{ id: string; name: string; company: string }>; onSelect(id: string): void
   onChange(id: string, patch: Partial<ProspectRecord>): void; onAnalyze(id: string): void; onApprove(id: string): void; onDiscard(id: string): void; onSend(id: string): void; onAnalyzeAll(): void
 }) {
@@ -421,11 +512,12 @@ function ProcessingWorkspace({ readOnly, queue, active, leads, onSelect, onChang
         <label className="is-wide"><span>Descrição e sinais comerciais</span><textarea readOnly={readOnly} value={active.description} onChange={(event) => onChange(active.id, { description: event.target.value })} /></label>
         <label className="is-wide"><span>Observações da revisão</span><textarea readOnly={readOnly} value={active.notes} onChange={(event) => onChange(active.id, { notes: event.target.value })} /></label>
       </div>
-      {!readOnly ? <footer className="prospecting-review-actions"><div><Button variant="ghost" onClick={() => onDiscard(active.id)}><Ban size={16} /> Descartar</Button><Button variant="secondary" onClick={() => onAnalyze(active.id)}><RefreshCw size={16} /> Reanalisar</Button></div><div><Button variant="secondary" onClick={() => onApprove(active.id)}><Check size={16} /> Aprovar</Button><Button onClick={() => onSend(active.id)}><Send size={16} /> Enviar ao CRM</Button></div></footer> : null}
+      {!readOnly ? <footer className="prospecting-review-actions"><div><Button variant="ghost" onClick={() => onDiscard(active.id)}><Ban size={16} /> Descartar</Button><Button variant="secondary" onClick={() => onAnalyze(active.id)}><RefreshCw size={16} /> Reanalisar</Button><Button variant="secondary" loading={enriching} disabled={!active.website && !active.cnpj} onClick={() => onEnrich(active.id)}><Sparkles size={16} /> Enriquecer</Button></div><div><Button variant="secondary" onClick={() => onApprove(active.id)}><Check size={16} /> Aprovar</Button><Button onClick={() => onSend(active.id)}><Send size={16} /> Enviar ao CRM</Button></div></footer> : null}
     </section>
 
     <aside className="prospecting-analysis-sidebar">
       <section className="panel prospecting-confidence-card"><header><div><span>Confiança dos dados</span><strong>{active.confidence}%</strong></div><GaugeRing value={active.confidence} /></header><div className="prospecting-confidence-track"><span style={{ width: `${active.confidence}%` }} /></div><div className="prospecting-checklist">{checks.map((check) => <span key={check.label} className={check.ok ? 'is-ok' : ''}>{check.ok ? <CheckCircle2 size={14} /> : <CircleDashed size={14} />}{check.label}</span>)}</div></section>
+      <InsightsCard prospect={active} />
       <section className={`panel prospecting-duplicate-card is-${active.duplicateLevel}`}><header><span><AlertTriangle size={18} /></span><div><small>Antiduplicação</small><strong>{duplicateLabel(active.duplicateLevel)}</strong></div></header>{active.duplicateReasons.length ? <ul>{active.duplicateReasons.map((reason) => <li key={reason}>{reason}</li>)}</ul> : <p>Nenhum identificador forte coincide com a base atual.</p>}{duplicateLead ? <div className="prospecting-duplicate-match"><UserRoundCheck size={16} /><div><small>Registro encontrado</small><strong>{duplicateLead.company || duplicateLead.name}</strong></div></div> : null}</section>
       <section className="panel prospecting-source-card"><span className="eyebrow">Origem e rastreabilidade</span><div><SourceMark source={active.source} /><div><strong>{prospectSourceLabels[active.source]}</strong><small>{active.sourceDetail || 'Captura sem detalhe adicional'}</small></div></div><dl><div><dt>Criado</dt><dd>{formatDateTime(active.createdAt)}</dd></div><div><dt>Analisado</dt><dd>{active.analyzedAt ? formatDateTime(active.analyzedAt) : 'Pendente'}</dd></div></dl></section>
     </aside>
@@ -435,7 +527,8 @@ function ProcessingWorkspace({ readOnly, queue, active, leads, onSelect, onChang
 function GaugeRing({ value }: { value: number }) { return <span className="prospecting-gauge" style={{ '--value': `${value * 3.6}deg` } as CSSProperties}><em>{value}</em></span> }
 function SourceMark({ source }: { source: ProspectSource }) { const Icon = sourceIcons[source]; return <span className={`prospecting-source-mark is-${source}`}><Icon size={17} /></span> }
 
-function ResultsWorkspace({ readOnly, prospects, selectedIds, search, statusFilter, sourceFilter, onSearch, onStatusFilter, onSourceFilter, onSelected, onAnalyze, onApprove, onDiscard, onSend, onDelete, onExport }: {
+function ResultsWorkspace({ readOnly, prospects, selectedIds, search, statusFilter, sourceFilter, onSearch, onStatusFilter, onSourceFilter, onSelected, onAnalyze, onApprove, onDiscard, onSend, onDelete, onExport, enriching, onEnrich }: {
+  enriching: boolean; onEnrich(ids: string[]): void
   readOnly: boolean; prospects: ProspectRecord[]; selectedIds: Set<string>; search: string; statusFilter: 'all' | ProspectStatus; sourceFilter: 'all' | ProspectSource
   onSearch(value: string): void; onStatusFilter(value: 'all' | ProspectStatus): void; onSourceFilter(value: 'all' | ProspectSource): void; onSelected(value: Set<string>): void
   onAnalyze(ids: string[]): void; onApprove(ids: string[]): void; onDiscard(ids: string[]): void; onSend(ids: string[]): void; onDelete(ids: string[]): void; onExport(): void
@@ -445,7 +538,7 @@ function ResultsWorkspace({ readOnly, prospects, selectedIds, search, statusFilt
   const ids = [...selectedIds]
   return <section className="panel prospecting-results-panel">
     <header className="prospecting-results-toolbar"><label className="search-field"><Search size={16} /><input value={search} onChange={(event) => onSearch(event.target.value)} placeholder="Buscar empresa, cidade, telefone ou CNPJ" /></label><label className="compact-select"><Filter size={15} /><select value={statusFilter} onChange={(event) => onStatusFilter(event.target.value as 'all' | ProspectStatus)}><option value="all">Todos os status</option>{Object.entries(prospectStatusLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label><label className="compact-select"><ListFilter size={15} /><select value={sourceFilter} onChange={(event) => onSourceFilter(event.target.value as 'all' | ProspectSource)}><option value="all">Todas as origens</option>{Object.entries(prospectSourceLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label><Button variant="secondary" onClick={onExport}><Download size={16} /> Exportar</Button></header>
-    {!readOnly && selectedIds.size ? <div className="prospecting-bulkbar"><strong>{selectedIds.size} selecionado(s)</strong><div><Button size="sm" variant="ghost" onClick={() => onAnalyze(ids)}><Sparkles size={15} /> Analisar</Button><Button size="sm" variant="ghost" onClick={() => onApprove(ids)}><Check size={15} /> Aprovar</Button><Button size="sm" variant="ghost" onClick={() => onDiscard(ids)}><Ban size={15} /> Descartar</Button><Button size="sm" onClick={() => onSend(ids)}><Send size={15} /> Enviar</Button><Button size="sm" variant="danger" onClick={() => onDelete(ids)}><Trash2 size={15} /></Button></div></div> : null}
+    {!readOnly && selectedIds.size ? <div className="prospecting-bulkbar"><strong>{selectedIds.size} selecionado(s)</strong><div><Button size="sm" variant="ghost" onClick={() => onAnalyze(ids)}><RefreshCw size={15} /> Analisar</Button><Button size="sm" variant="ghost" loading={enriching} onClick={() => onEnrich(ids)}><Sparkles size={15} /> Enriquecer</Button><Button size="sm" variant="ghost" onClick={() => onApprove(ids)}><Check size={15} /> Aprovar</Button><Button size="sm" variant="ghost" onClick={() => onDiscard(ids)}><Ban size={15} /> Descartar</Button><Button size="sm" onClick={() => onSend(ids)}><Send size={15} /> Enviar</Button><Button size="sm" variant="danger" onClick={() => onDelete(ids)}><Trash2 size={15} /></Button></div></div> : null}
     {prospects.length ? <div className="prospecting-table"><div className="prospecting-table__head"><label><input type="checkbox" disabled={readOnly} checked={allSelected} onChange={() => onSelected(allSelected ? new Set() : new Set(prospects.map((item) => item.id)))} /></label><span>Lead</span><span>Contato</span><span>Origem</span><span>Confiança</span><span>Validação</span><span>Status</span><span>Ações</span></div>{prospects.map((prospect) => <article key={prospect.id}><label><input type="checkbox" disabled={readOnly} checked={selectedIds.has(prospect.id)} onChange={() => toggle(prospect.id)} /></label><div className="prospecting-table__lead"><span>{prospect.company.slice(0, 1).toUpperCase()}</span><div><strong>{prospect.company}</strong><small>{prospect.city || 'Cidade não informada'}</small></div></div><div className="prospecting-table__contact"><strong>{prospect.phone || 'Sem telefone'}</strong><small>{prospect.instagram || prospect.email || prospect.website || 'Sem canal digital'}</small></div><div><SourceMark source={prospect.source} /><small>{prospectSourceLabels[prospect.source]}</small></div><div className="prospecting-table__confidence"><div><span style={{ width: `${prospect.confidence}%` }} /></div><strong>{prospect.confidence}%</strong></div><StatusPill tone={duplicateTone(prospect.duplicateLevel)}>{prospect.duplicateLevel === 'none' ? 'Único' : prospect.duplicateLevel === 'possible' ? 'Revisar' : 'Duplicado'}</StatusPill><StatusPill tone={statusTones[prospect.status]}>{prospectStatusLabels[prospect.status]}</StatusPill><div className="prospecting-table__actions">{!readOnly ? <><button className="icon-button" title="Analisar" onClick={() => onAnalyze([prospect.id])}><Sparkles size={15} /></button>{prospect.status !== 'sent' && prospect.status !== 'discarded' ? <button className="icon-button" title="Enviar ao CRM" onClick={() => onSend([prospect.id])}><Send size={15} /></button> : null}<button className="icon-button icon-button--danger" title="Remover" onClick={() => onDelete([prospect.id])}><Trash2 size={15} /></button></> : null}</div></article>)}</div> : <EmptyState icon={Search} title="Nenhum resultado encontrado" description="Ajuste os filtros ou faça uma nova captura." />}
   </section>
 }

@@ -208,6 +208,8 @@ export function calculateProspectConfidence(input: CaptureDraft) {
   if (cleanUrl(text(input.website))) score += 8
   if (text(input.address)) score += 5
   if (text(input.description)) score += 3
+  if (digits(text(input.whatsapp)).length >= 10) score += 6
+  if (/ativa/i.test(text(input.registrationStatus))) score += 6
   return Math.min(100, score)
 }
 
@@ -287,7 +289,7 @@ export function createProspect(workspaceId: string, draft: CaptureDraft, fallbac
   const name = text(draft.name) || text(draft.company) || 'Lead sem nome'
   return {
     id: recordId(), workspaceId, name, company: text(draft.company) || name,
-    phone: text(draft.phone), email: text(draft.email), city: text(draft.city), address: text(draft.address),
+    phone: text(draft.phone) || text(draft.whatsapp), email: text(draft.email), city: text(draft.city), address: text(draft.address),
     cnpj: text(draft.cnpj), instagram: text(draft.instagram), website: text(draft.website), bookingUrl: text(draft.bookingUrl),
     systemName: text(draft.systemName), description: text(draft.description), followers: Number.isFinite(followers) ? followers : null,
     source, sourceDetail: text(draft.sourceDetail), status: 'new', confidence: calculateProspectConfidence(draft),
@@ -300,7 +302,7 @@ export function refreshProspectAnalysis(prospect: ProspectRecord, leads: Lead[])
   const duplicate = detectProspectDuplicate(prospect, leads)
   return {
     ...prospect,
-    confidence: calculateProspectConfidence(prospect),
+    confidence: calculateProspectConfidence({ ...prospect.rawData, ...prospect }),
     duplicateLevel: duplicate.level,
     duplicateLeadId: duplicate.leadId,
     duplicateReasons: duplicate.reasons,
@@ -405,5 +407,85 @@ export function prospectCompleteness(prospect: ProspectRecord) {
     { label: 'Cidade ou endereço', ok: Boolean(prospect.city || prospect.address) },
     { label: 'Canal digital', ok: Boolean(prospect.instagram || prospect.website) },
     { label: 'CNPJ validado', ok: normalizeCnpj(prospect.cnpj).length === 14 },
+    { label: 'Situação ativa na Receita', ok: /ativa/i.test(prospectInsights(prospect).registrationStatus) },
   ]
+}
+
+export interface ProspectPartnerInfo { name: string; role: string; since: string }
+export interface ProspectInsights {
+  whatsapp: string
+  phones: string[]
+  emails: string[]
+  socials: Record<string, string>
+  mapsUrl: string
+  category: string
+  rating: number | null
+  reviewsCount: number | null
+  legalName: string
+  registrationStatus: string
+  cnae: string
+  cnaeDescription: string
+  companySize: string
+  legalNature: string
+  shareCapital: number | null
+  openedAt: string
+  simplesNacional: boolean | null
+  mei: boolean | null
+  partners: ProspectPartnerInfo[]
+  enrichment: { website: string; cnpj: string; checkedAt: string; notes: string[] } | null
+}
+
+const stringList = (value: unknown) => Array.isArray(value) ? value.map(text).filter(Boolean) : []
+const numberOrNull = (value: unknown) => typeof value === 'number' && Number.isFinite(value) ? value : null
+const boolOrNull = (value: unknown) => typeof value === 'boolean' ? value : null
+
+/** Dados de enriquecimento (Google Maps, site e Receita Federal) guardados em rawData. */
+export function prospectInsights(prospect: Pick<ProspectRecord, 'rawData'>): ProspectInsights {
+  const raw = prospect.rawData && typeof prospect.rawData === 'object' ? prospect.rawData : {}
+  const socials = raw.socials && typeof raw.socials === 'object' && !Array.isArray(raw.socials)
+    ? Object.fromEntries(Object.entries(raw.socials as Record<string, unknown>).map(([key, value]) => [key, text(value)]).filter(([, value]) => value)) : {}
+  const partners = Array.isArray(raw.partners) ? (raw.partners as unknown[]).filter((item): item is Record<string, unknown> => Boolean(item && typeof item === 'object'))
+    .map((item) => ({ name: text(item.name), role: text(item.role), since: text(item.since) })).filter((item) => item.name) : []
+  const enrichmentRaw = raw.enrichment && typeof raw.enrichment === 'object' ? raw.enrichment as Record<string, unknown> : null
+  return {
+    whatsapp: text(raw.whatsapp), phones: stringList(raw.phones), emails: stringList(raw.emails), socials, mapsUrl: text(raw.mapsUrl), category: text(raw.category),
+    rating: numberOrNull(raw.rating), reviewsCount: numberOrNull(raw.reviewsCount), legalName: text(raw.legalName), registrationStatus: text(raw.registrationStatus),
+    cnae: text(raw.cnae), cnaeDescription: text(raw.cnaeDescription), companySize: text(raw.companySize), legalNature: text(raw.legalNature),
+    shareCapital: numberOrNull(raw.shareCapital), openedAt: text(raw.openedAt), simplesNacional: boolOrNull(raw.simplesNacional), mei: boolOrNull(raw.mei), partners,
+    enrichment: enrichmentRaw ? { website: text(enrichmentRaw.website), cnpj: text(enrichmentRaw.cnpj), checkedAt: text(enrichmentRaw.checkedAt), notes: stringList(enrichmentRaw.notes) } : null,
+  }
+}
+
+const enrichableFields = ['name', 'company', 'phone', 'email', 'city', 'address', 'cnpj', 'instagram', 'website', 'bookingUrl', 'systemName', 'description'] as const
+
+/** Aplica o resultado do enriquecimento sem apagar o que o usuário já revisou. */
+export function applyProspectEnrichment(prospect: ProspectRecord, draft: CaptureDraft, leads: Lead[]): ProspectRecord {
+  const patch: Partial<ProspectRecord> = {}
+  for (const field of enrichableFields) {
+    const value = text(draft[field])
+    if (value && (!text(prospect[field]) || (field === 'name' && prospect.name === 'Lead sem nome'))) patch[field] = value
+  }
+  const merged: ProspectRecord = { ...prospect, ...patch, rawData: { ...prospect.rawData, ...draft } }
+  return refreshProspectAnalysis(merged, leads)
+}
+
+/** Resumo comercial em texto para as observações do lead no CRM. */
+export function prospectInsightLines(prospect: ProspectRecord) {
+  const info = prospectInsights(prospect)
+  const money = (value: number) => value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 })
+  return [
+    info.legalName ? `Razão social: ${info.legalName}` : '',
+    info.registrationStatus ? `Situação cadastral: ${info.registrationStatus}` : '',
+    info.cnae ? `CNAE: ${info.cnae}${info.cnaeDescription ? ` — ${info.cnaeDescription}` : ''}` : '',
+    info.companySize ? `Porte: ${info.companySize}${info.mei ? ' (MEI)' : info.simplesNacional ? ' (Simples Nacional)' : ''}` : '',
+    info.shareCapital != null ? `Capital social: ${money(info.shareCapital)}` : '',
+    info.openedAt ? `Abertura: ${info.openedAt.split('-').reverse().join('/')}` : '',
+    info.partners.length ? `Sócios: ${info.partners.map((partner) => `${partner.name}${partner.role ? ` (${partner.role})` : ''}`).join('; ')}` : '',
+    info.whatsapp ? `WhatsApp: ${info.whatsapp}` : '',
+    info.phones.length > 1 ? `Outros telefones: ${info.phones.filter((phone) => phone !== prospect.phone).join(', ')}` : '',
+    info.emails.length > 1 ? `Outros e-mails: ${info.emails.filter((email) => email !== prospect.email).join(', ')}` : '',
+    info.rating != null ? `Google: nota ${info.rating.toFixed(1)} (${info.reviewsCount ?? 0} avaliações)` : '',
+    info.mapsUrl ? `Google Maps: ${info.mapsUrl}` : '',
+    ...Object.entries(info.socials).map(([network, url]) => `${network[0].toUpperCase()}${network.slice(1)}: ${url}`),
+  ].filter(Boolean)
 }

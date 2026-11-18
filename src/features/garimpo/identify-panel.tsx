@@ -23,6 +23,7 @@ export function IdentifyPanel({record,workspaceId,canEdit,canSyncCrm,onConfirm,o
   const controller=useRef<AbortController|null>(null)
   const state=String(record.rawData.state || (record.rawData.engine as Record<string,unknown>|undefined)?.uf || 'RS')
   const existing=record.rawData.identityMatch as {method?:string; matchedAt?:string; detail?:string}|undefined
+  const canLink=canEdit&&(record.status!=='sent'||canSyncCrm)
 
   useEffect(()=>{
     controller.current?.abort()
@@ -104,7 +105,7 @@ export function IdentifyPanel({record,workspaceId,canEdit,canSyncCrm,onConfirm,o
           <small>{item.status==='02'?'Ativa':'Não ativa'} · Compatibilidade cadastral: {item.match_score}/100 · Fonte {item.source_month?.slice(0,7)||'não informada'}</small>
           <small>{item.reasons[0]} Município conferido; rua/número não verificados.</small>
         </div>
-        <button type="button" className="gh-secondary" disabled={!canEdit||saving}
+        <button type="button" className="gh-secondary" disabled={!canLink||saving}
           onClick={()=>void confirm(item)}><Check size={14}/>Confirmar vínculo</button>
       </article>)}
       {result.incomplete&&<p className="gh-help">A busca retornou uma primeira página parcial; podem existir outras empresas semelhantes.</p>}
@@ -116,7 +117,7 @@ export function IdentifyPanel({record,workspaceId,canEdit,canSyncCrm,onConfirm,o
         <label>CNPJ completo
           <input inputMode="numeric" maxLength={18} value={manual} onChange={event=>setManual(event.target.value)}
             placeholder="00.000.000/0000-00" aria-label="CNPJ informado manualmente"/></label>
-        <button type="submit" className="gh-secondary" disabled={!canEdit||saving||!isValidCnpj(manual)}>
+        <button type="submit" className="gh-secondary" disabled={!canLink||saving||!isValidCnpj(manual)}>
           <ArrowRight size={14}/>{saving?'Vinculando…':'Confirmar CNPJ informado'}
         </button>
         <p className="gh-help">O CNPJ informado passa por validação de dígitos, mas não é verificado contra o cadastro oficial até que o índice esteja disponível.</p>

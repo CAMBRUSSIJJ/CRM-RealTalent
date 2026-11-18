@@ -6,7 +6,7 @@ import { fallbackIdentityResults, type IdentitySearchResponse } from './company-
 /** Names and corporate roles published in the Receita Federal QSA, not CRM contacts. */
 export interface QsaPerson {
   partner_name: string
-  partner_type: 'Pessoa jurídica' | 'Pessoa física' | 'Estrangeiro'
+  partner_type: 'Pessoa jurídica' | 'Pessoa física' | 'Estrangeiro' | 'Não informado'
   role_code: string
   role_label: string
   joined_on: string | null
@@ -19,6 +19,7 @@ export interface QsaResponse {
   people: QsaPerson[]
   has_records: boolean
   truncated: boolean
+  note?: string
 }
 
 export interface IndexedCompany {

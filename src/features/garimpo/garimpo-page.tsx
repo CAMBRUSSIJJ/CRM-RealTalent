@@ -9,6 +9,8 @@ import { hostedGarimpo, type HostedJob } from './hosted-client'
 import { IndexExplorer } from './index-explorer'
 import { RecheckPanel } from './recheck-panel'
 import { PeoplePanel } from './people-panel'
+import { IdentifyPanel } from './identify-panel'
+import { identityPatch, cnpjDigits, type IdentityCandidate } from './company-identity'
 import { currentValue, readPending, resolveRecheck, stageRecheck, type RecheckField } from './recheck'
 import { evidenceFor, mergeResults, publicUrl } from './review'
 import './garimpo.css'
@@ -192,6 +194,54 @@ export function ProspectingPage() {
     setView('review'); setSelected([])
     notify('success', `${drafts.length} empresa(s) adicionada(s) à revisão. Confira os dados antes de enviá-las ao CRM.`)
   }, [canCreate, hydrated, workspaceId, currentUserId, commit, notify])
+
+  const confirmIdentity = useCallback(async (id: string, candidate: IdentityCandidate | string) => {
+    if (!canEdit || !workspaceId || !hydrated)
+      throw new Error('Sua permissão de revisão ou carregamento do workspace não está disponível.')
+    const original = stateRef.current.prospects.find(item => item.id === id && item.workspaceId === workspaceId)
+    if (!original || !canTeamAccessRecord('prospecting', original.createdBy ?? currentUserId))
+      throw new Error('Empresa não encontrada ou sem acesso neste workspace.')
+    if (readPending(original))
+      throw new Error('Resolva as alterações pendentes antes de vincular um CNPJ.')
+    if (typeof candidate !== 'string') {
+      const currentState = String(original.rawData.state || (original.rawData.engine as Record<string,unknown>|undefined)?.uf || 'RS')
+      if (currentState !== candidate.uf || normalize(original.city) !== normalize(candidate.city))
+        throw new Error('A UF ou município do candidato não corresponde à empresa.')
+    }
+    const patch = identityPatch(original, candidate)
+    const cnpj = String(patch.cnpj)
+    const duplicate = stateRef.current.prospects.find(other => other.id !== id && other.workspaceId === workspaceId
+      && cnpjDigits(other.cnpj).length === 14 && cnpjDigits(other.cnpj) === cnpj)
+    if (duplicate) throw new Error(`O CNPJ já está vinculado a "${duplicate.company}". Revise a ficha existente antes de prosseguir.`)
+    // For an already-sent prospect, the company record is changed only as a
+    // consequence of this *explicit* confirmation, after validating its link.
+    if (original.status === 'sent') {
+      if (!canUpdateCompany)
+        throw new Error('Sem permissão para atualizar o cadastro empresarial do CRM.')
+      const linkedId = String(original.rawData.hostedCrmCompanyId || '')
+      const company = snapshotRef.current?.companies.find(item =>
+        item.workspaceId === workspaceId && item.id === linkedId)
+      if (!company)
+        throw new Error('Não foi possível localizar o vínculo original da empresa no CRM.')
+      if (company.cnpj && cnpjDigits(company.cnpj) !== cnpj)
+        throw new Error('O CRM já possui outro CNPJ para esta empresa. Não faremos substituição automática.')
+      await updateCompany(company.id, {
+        cnpj,
+        ...(typeof candidate !== 'string' && !company.legalName
+          ? { legalName: candidate.legal_name } : {}),
+      })
+      if (scopeRef.current !== workspaceId) return
+    }
+    commit(current => ({...current,prospects:current.prospects.map(item => {
+      if (item.id !== id || item.workspaceId !== workspaceId
+          || !canTeamAccessRecord('prospecting', item.createdBy ?? currentUserId)) return item
+      if (item.cnpj && cnpjDigits(item.cnpj) !== cnpj) return item
+      return {...item,...identityPatch(item,candidate),updatedAt:new Date().toISOString()}
+    })}))
+    notify('success',typeof candidate === 'string'
+      ? 'CNPJ informado registrado. Ele ainda depende de confirmação cadastral.'
+      : 'CNPJ escolhido e vinculado. O quadro societário poderá ser consultado nesta ficha.')
+  },[canEdit,hydrated,workspaceId,currentUserId,canTeamAccessRecord,canUpdateCompany,updateCompany,commit,notify])
 
   const recheckRecord = useCallback(async (id: string) => {
     if (!canEdit || !workspaceId) throw new Error('Sem permissão para revisar empresas.')
@@ -400,6 +450,7 @@ export function ProspectingPage() {
           {visible.length ? <div className="gh-table-wrap"><table><thead><tr><th><input type="checkbox" aria-label="Selecionar todas as empresas visíveis" checked={visible.length > 0 && visible.every(record => selected.includes(record.id))} onChange={event => setSelected(event.target.checked ? visible.map(record => record.id) : [])} /></th><th>Empresa</th><th>Contato publicado</th><th>Situação</th><th><span className="gh-sr">Ações</span></th></tr></thead><tbody>{visible.map(record => <RecordRows key={record.id} record={record} selected={selected.includes(record.id)} onSelect={checked => setSelected(current => checked ? [...new Set([...current,record.id])] : current.filter(id => id !== record.id))} expanded={expanded === record.id} onExpand={() => setExpanded(expanded === record.id ? null : record.id)} canEdit={canEdit} onPatch={patch => patchRecord(record.id,patch)}
             onRecheck={() => recheckRecord(record.id)}
             onResolve={(fields,syncCrm) => resolveRecordRecheck(record.id,fields,syncCrm)}
+            onConfirmIdentity={candidate => confirmIdentity(record.id,candidate)}
             canSyncCrm={canUpdateCompany && record.status === 'sent'
               && Boolean(snapshot?.companies.some(item => item.workspaceId === workspaceId
                 && (item.id === record.rawData.hostedCrmCompanyId
@@ -413,16 +464,19 @@ export function ProspectingPage() {
   </div>
 }
 
-function RecordRows({ record, selected, onSelect, expanded, onExpand, canEdit, onPatch, onRecheck, onResolve, canSyncCrm }: {
+function RecordRows({ record, selected, onSelect, expanded, onExpand, canEdit, onPatch, onRecheck, onResolve, onConfirmIdentity, canSyncCrm }: {
   record: ProspectRecord; selected: boolean; onSelect(value: boolean): void; expanded: boolean;
   onExpand(): void; canEdit: boolean; onPatch(patch: Partial<ProspectRecord>): void;
   onRecheck: () => Promise<void>; onResolve: (fields: RecheckField[], syncCrm: boolean) => Promise<void>;
+  onConfirmIdentity: (candidate:IdentityCandidate|string)=>Promise<void>;
   canSyncCrm: boolean
 }) {
   const evidence = evidenceFor(record)
   const status = { new:'Revisar', analyzing:'Revisar', review:'Revisar', approved:'Aprovada', discarded:'Descartada', sent:'No CRM' }[record.status]
   return <><tr className={selected ? 'gh-selected' : ''}><td><input type="checkbox" aria-label={`Selecionar ${record.company}`} checked={selected} onChange={event => onSelect(event.target.checked)} /></td><td><strong>{record.company || record.name}</strong><span>{record.city || 'Cidade a confirmar'}</span>{record.duplicateLevel !== 'none' && <small>Possível vínculo já existente no CRM</small>}</td><td>{record.phone ? <a href={`tel:${record.phone.replace(/[^+\d]/g,'')}`}>{record.phone}</a> : <span>Sem telefone publicado</span>}{record.email && <span>{record.email}</span>}{publicUrl(record.website) && <a href={publicUrl(record.website)!} target="_blank" rel="noopener noreferrer">Site da empresa <ExternalLink size={11} /></a>}</td><td><span className={`gh-badge gh-badge--${record.status}`}>{status}</span></td><td><button className="gh-icon" onClick={onExpand} aria-expanded={expanded} aria-label={`Conferir dados e fontes de ${record.company}`}><ChevronDown size={18} /></button></td></tr>
     {expanded && <tr><td colSpan={5}><div className="gh-detail"><div className="gh-edit-fields">{(['company','phone','email','address','website','notes'] as const).map(field => <label key={field}>{{company:'Empresa',phone:'Telefone',email:'E-mail',address:'Endereço',website:'Site',notes:'Suas observações'}[field]}<input key={`${record.id}:${field}:${record[field]}`} defaultValue={record[field]} disabled={!canEdit || record.status === 'sent'} onBlur={event => { if (event.target.value !== record[field]) onPatch({ [field]: event.target.value }) }} /></label>)}</div><h3>Fontes dos dados</h3>{evidence.length ? <ul>{evidence.map((item,index) => <li key={index}><strong>{item.field}</strong>: {item.value} <a href={item.url} target="_blank" rel="noopener noreferrer">Conferir fonte <ExternalLink size={11} /></a>{item.observed_at && <small>Consultado em {new Date(item.observed_at).toLocaleString('pt-BR')}</small>}</li>)}</ul> : <p>Este registro não possui evidências detalhadas. Revise os dados antes de aprovar.</p>}<div className="gh-actions">{canEdit && !['sent','discarded'].includes(record.status) && <><button className="gh-primary" onClick={() => onPatch({status:record.status === 'approved' ? 'review' : 'approved'})}>{record.status === 'approved' ? 'Voltar para revisão' : 'Aprovar empresa'}</button><button className="gh-secondary" onClick={() => onPatch({status:'discarded'})}>Descartar</button></>}{canEdit && record.status === 'discarded' && <button className="gh-secondary" onClick={() => onPatch({status:'review'})}>Restaurar para revisão</button>}</div>
+    <IdentifyPanel record={record} workspaceId={record.workspaceId} canEdit={canEdit}
+      canSyncCrm={canSyncCrm} onConfirm={onConfirmIdentity} onRecheck={onRecheck} />
     <RecheckPanel record={record} canEdit={canEdit} canSyncCrm={canSyncCrm} onRecheck={onRecheck} onResolve={onResolve} />
     <PeoplePanel record={record} workspaceId={record.workspaceId} canEdit={canEdit} onPatch={onPatch} />
     </div></td></tr>}</>

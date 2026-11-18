@@ -15,9 +15,15 @@ jobs:
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
         with:
           persist-credentials: false
+      - name: Python 3.12
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with:
+          python-version: "3.12"
       - name: Python 3 engine tests
         run: |
-          python3 -m unittest discover -s deploy/local-garimpo -p test_garimpo_python.py -v
+          python3 -m pip install -c garimpo-engine/requirements.lock ./garimpo-engine
+          PYTHONPATH=garimpo-engine python3 -m unittest discover -s deploy/local-garimpo -p 'test_garimpo*.py' -v
+          PYTHONPATH=garimpo-engine python3 -m unittest discover -s garimpo-engine/tests -v
           python3 -m py_compile deploy/local-garimpo/garimpo_engine.py deploy/local-garimpo/garimpo_connector.py
       - name: Node.js 22
         uses: actions/setup-node@v4

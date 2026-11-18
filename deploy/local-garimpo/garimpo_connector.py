@@ -11,13 +11,15 @@ import re
 import signal
 import sys
 import time
+import threading
 import urllib.error
 import urllib.parse
 import urllib.request
 from pathlib import Path
-from garimpo_engine import perform
+from garimpo_v06 import perform, ResearchInterrupted
 
 stopping = False
+LEASE_REFRESH_SECONDS = 15
 def stop(*_):
     global stopping
     stopping = True
@@ -80,23 +82,56 @@ class Connector:
             ack = self.call("progress", jobId=job_id, leaseId=lease_id, **last)
             if not ack.get("accepted"):
                 raise RuntimeError("lease_revoked")
+        lease_lost = threading.Event()
+        heartbeat_stop = threading.Event()
+        def renew():
+            while not heartbeat_stop.wait(LEASE_REFRESH_SECONDS):
+                try:
+                    self.call("heartbeat")
+                    ack = self.call("progress", jobId=job_id, leaseId=lease_id, **dict(last))
+                    if not ack.get("accepted"):
+                        lease_lost.set()
+                        return
+                except Exception:
+                    # A temporary network failure is retried; the 150s lease remains authoritative.
+                    pass
+        renewer = threading.Thread(target=renew, daemon=True)
+        renewer.start()
         try:
-            result = perform(input_data, progress=progress)
-            answer = self.call("complete", jobId=job_id, leaseId=lease_id, result=result)
-            return bool(answer.get("accepted"))
+            input_data['organizationId'] = self.workspace
+            result = perform(input_data, progress=progress, external_job_id=job_id,
+                             cancelled=lambda: stopping or lease_lost.is_set())
+            if mode_marker and mode_marker.group(1) == 'INTELLIGENT':
+                result.setdefault('warnings', []).append('Esta execução coletou fatos e contatos sem análise de IA.')
+            if lease_lost.is_set():
+                return False
+            for attempt in range(3):
+                try:
+                    answer = self.call("complete", jobId=job_id, leaseId=lease_id, result=result)
+                    return bool(answer.get("accepted"))
+                except (urllib.error.URLError, TimeoutError):
+                    if attempt == 2:
+                        raise
+                    time.sleep(attempt + 1)
         except Exception as error:
             # No raw HTTP responses, private tokens or third-party page content in logs.
             print("Falha na pesquisa: " + type(error).__name__ + ".")
+            if isinstance(error, (ValueError, ResearchInterrupted)):
+                print(str(error)[:300])
             try:
                 self.call("complete", jobId=job_id, leaseId=lease_id, failed=True,
-                          errorCode="local_research_failed")
+                          errorCode="local_stage_failed", diagnosticCode='location_required' if isinstance(error, ValueError) else 'source_unavailable',
+                          stage=last['stage'], leadCount=last['leadCount'], sourceCount=last['sourceCount'])
             except Exception:
                 print("Nao foi possivel informar a falha ao CRM.")
             return False
+        finally:
+            heartbeat_stop.set()
+            renewer.join(timeout=1)
 
     def loop(self):
         self.call("verify")
-        print("Garimpo Python conectado ao CRM. Pesquisas: OSM + Firecrawl opcional; sem IA.")
+        print("Garimpo Python 0.6 conectado ao CRM. Pesquisa expandida e entrega na revisão; sem IA obrigatória.")
         last_heartbeat = 0.0
         while not stopping:
             try:
@@ -132,6 +167,15 @@ def main():
     file = Path(sys.argv[1]) if len(sys.argv) > 1 else Path(__file__).with_name("garimpo.env")
     try:
         config = read_env(file)
+        for key, value in config.items():
+            if key in {'GARIMPO_DB','GARIMPO_MAPS_BINARY','GARIMPO_OSM_INDEX','GARIMPO_JOB_TIMEOUT','GARIMPO_MAPS_TIMEOUT','GARIMPO_MAPS_QUERY_LIMIT','BRAVE_SEARCH_API_KEY'}:
+                os.environ[key] = value
+        from garimpo.config import Settings
+        settings = Settings.from_env()
+        if not settings.maps_binary or not settings.maps_binary.is_file():
+            raise ValueError("Coletor Maps não configurado. Execute o instalador atualizado antes de iniciar a fila.")
+        from garimpo.maps_setup import verify_browser
+        verify_browser()
         worker = Connector(config)
     except (ValueError, OSError) as error:
         print("Configuracao invalida: " + str(error))

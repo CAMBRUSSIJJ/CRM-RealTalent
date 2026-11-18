@@ -106,7 +106,7 @@ class EngineTest(unittest.TestCase):
         job = {"id": "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
                "leaseId": "cccccccc-cccc-4ccc-8ccc-cccccccccccc",
                "input": {**INPUT, "query": "GARIMPO_MODE_ESSENTIAL"}}
-        with patch("garimpo_connector.perform", side_effect=lambda inputs, progress: (
+        with patch("garimpo_connector.perform", side_effect=lambda inputs, progress, **_: (
                 progress("discover"), progress("completed", 2),
                 {"leads": [{"company": "Barbearia Atlântico"}],
                  "warnings": [], "researchedAt": "2026-11-17T20:00:00Z"})[-1]):

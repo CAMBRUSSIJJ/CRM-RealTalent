@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Garimpo · Preview do motor</title><link rel="stylesheet" href="/assets/preview.css"><script src="/assets/preview.js" defer></script></head>
+<body>
+<header><a class="brand" href="/" aria-label="Garimpo, início"><span class="brand-icon" aria-hidden="true">G</span><span>RealTalent <strong>Garimpo</strong></span></a><span class="preview-badge">PREVIEW PRIVADO</span></header>
+<main>
+<div class="heading"><div><p class="eyebrow">INTELIGÊNCIA COMERCIAL</p><h1>Encontre sua próxima oportunidade.</h1><p class="subtitle">Pesquise empresas, confira os contatos publicados e leve os resultados para o seu CCRM.</p><p id="source-status" class="source-status" role="status">Fonte de pesquisa ainda não consultada.</p></div><span class="engine-badge" id="connection" role="status">Conectando à API…</span></div>
+<div id="message" class="message" role="status" hidden></div>
+<section id="locked" class="panel locked" hidden><h2>Este preview tem acesso privado</h2><p>Abra o link completo enviado nesta conversa para iniciar sua sessão.</p></section>
+<div id="workspace" hidden>
+<div class="layout">
+<section class="panel search-panel"><div class="panel-heading"><span class="step">01</span><div><h2>Defina sua busca</h2><p>Comece com uma cidade e um segmento.</p></div></div>
+<form id="search-form">
+<label for="segment">Segmento</label><input id="segment" name="segment" value="barbearias" maxlength="100" required minlength="2" list="segments"><datalist id="segments"></datalist>
+<div class="location"><div><label for="city">Cidade</label><input id="city" name="city" value="Canoas" maxlength="100" required minlength="2"></div><div><label for="state">UF</label><select id="state" name="state" required></select></div></div>
+<div class="location"><div><label for="provider">Fonte</label><select id="provider" name="provider"><option value="osm">OpenStreetMap</option><option value="maps" disabled>Google Maps</option><option value="combined" disabled>Maps + OpenStreetMap</option><option value="brave" disabled>Pesquisa web</option><option value="hybrid" disabled>OSM + pesquisa web</option></select></div><div><label for="limit">Quantidade máxima</label><input id="limit" name="limit" type="number" min="1" max="100" value="10" required></div></div>
+<fieldset><legend>O que o resultado precisa ter?</legend><label class="check"><input id="require-phone" type="checkbox" checked> Telefone publicado</label><label class="check"><input id="require-email" type="checkbox"> E-mail publicado</label><label class="check"><input id="require-location" type="checkbox"> Cidade observada no cadastro ou site</label><label class="check"><input id="enrich" type="checkbox" checked> Consultar também os sites das empresas</label></fieldset>
+<details class="options"><summary>Ajustar correspondência com o segmento</summary><label for="relevance">Nota mínima, de 0 a 100</label><input id="relevance" type="number" min="0" max="100" value="0" required><p>Uma exigência maior pode reduzir a quantidade. A nota representa os sinais encontrados na fonte.</p></details>
+<label class="check"><input id="expand-search" type="checkbox" checked> Ampliar por variações e áreas do município</label>
+<label class="check"><input id="qualify" type="checkbox" disabled> Analisar serviços e agendamento com IA local</label><p id="qualification-note" class="small-note"></p>
+<button id="start" class="primary" type="submit">Pesquisar empresas <span aria-hidden="true">↗</span></button>
+<p class="small-note">Este preview usa um banco de teste separado. As fontes podem retornar menos empresas que a quantidade solicitada.</p>
+</form></section>
+<div class="results-column">
+<section class="panel progress-panel"><div class="panel-heading"><span class="step">02</span><div><h2>Acompanhe a pesquisa</h2><p id="phase">Sua busca começa aqui.</p></div><button id="cancel" class="quiet" disabled>Cancelar</button></div><button id="resume" class="secondary" hidden>Retomar pesquisa interrompida</button><p id="search-progress" class="small-note" role="status"></p><progress id="progress" value="0" max="1" aria-label="Progresso da coleta"></progress><div class="metrics"><div><strong id="discovered">—</strong><span>Descobertas</span></div><div><strong id="processed">—</strong><span>Processadas</span></div><div><strong id="returned">—</strong><span>Resultados úteis</span></div></div><p id="diagnostics" class="small-note">A origem e a data de consulta acompanham cada contato.</p></section>
+<section class="panel results-panel"><div class="results-heading"><div><p class="eyebrow">SUA LISTA DE PROSPECÇÃO</p><h2>Empresas encontradas</h2></div><button id="export" class="secondary" disabled>Baixar para o Garimpo ↓</button></div>
+<div id="empty" class="empty"><span class="empty-icon" aria-hidden="true">⌕</span><h3>Um novo mercado começa com uma busca.</h3><p>Os resultados aparecerão aqui, com os contatos disponíveis e os motivos de correspondência.</p></div>
+<div id="results" class="result-list" aria-live="polite"></div>
+</section>
+<section id="pending-panel" class="panel results-panel" hidden><div class="results-heading"><div><p class="eyebrow">CANDIDATOS PRESERVADOS</p><h2>Empresas com contato pendente (<span id="pending-count">0</span>)</h2></div><button id="export-pending" class="secondary" disabled>Baixar pendentes ↓</button></div><p class="small-note">Estas empresas ainda não atendem aos contatos exigidos. Confira as fontes e o que falta em cada registro.</p><button id="recover" class="secondary" disabled>Tentar recuperar contatos</button><p id="recovery-note" class="small-note"></p><div id="pending-results" class="result-list" aria-live="polite"></div></section>
+</div></div>
+<footer><span>Garimpo · Motor Python 0.6</span><span>Contatos publicados nas fontes. Revise os dados antes da abordagem.</span></footer>
+</div></main></body></html>

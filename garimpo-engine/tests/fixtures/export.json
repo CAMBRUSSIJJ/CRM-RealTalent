@@ -1,0 +1,42 @@
+[
+  {
+    "name": "Empresa Teste",
+    "company": "Empresa Teste",
+    "email": "comercial@empresa.com.br",
+    "cnpj": "",
+    "website": "https://empresa.test/",
+    "instagram": "",
+    "address": "",
+    "city": "Canoas",
+    "state": "RS",
+    "description": "",
+    "phone": "51999991001",
+    "source": "manual",
+    "sourceDetail": "Motor Python / osm",
+    "segment": "dentista",
+    "engine": {
+      "version": "0.2.0",
+      "providerId": "osm:node:1",
+      "requestedSegment": "dentista",
+      "locationStatus": "observed",
+      "qualityScore": 80,
+      "relevanceScore": 85,
+      "relevanceReasons": [
+        "Categoria OSM corresponde ao segmento solicitado.",
+        "Município observado corresponde ao solicitado."
+      ],
+      "evidence": [
+        {
+          "field": "phone",
+          "value": "+5551999991001",
+          "url": "https://empresa.test/contato",
+          "source": "Site da empresa",
+          "observed_at": "2026-11-17T00:00:00+00:00",
+          "status": "published"
+        }
+      ],
+      "warnings": []
+    },
+    "notes": "Motor Garimpo: contatos publicados, sem validação de titularidade. Localidade observada na fonte."
+  }
+]

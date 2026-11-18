@@ -1,4 +1,14 @@
 node_modules/
+__pycache__/
+*.pyc
+garimpo-engine/data/
+garimpo-engine/.venv/
+.venv/
+deploy/local-garimpo/garimpo.env*
+tools/google-maps-scraper-*
+tools/gosom-LICENSE.txt
+data/garimpo.sqlite3*
+.realtalent-source-commit
 dist/
 .vite/
 .cache/

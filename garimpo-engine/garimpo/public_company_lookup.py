@@ -163,3 +163,50 @@ async def public_qsa_lookup(cnpj: str, *, transport=None) -> dict:
         raise PublicLookupUnavailable("A fonte pública do QSA não respondeu.") from exc
     except ValueError as exc:
         raise PublicLookupUnavailable("A resposta pública do QSA não é válida.") from exc
+
+
+def parse_public_registration(payload: object, cnpj: str) -> dict:
+    """Only corporate fields, never private contacts/partners from the full record."""
+    if not isinstance(payload, dict) or valid_cnpj(str(payload.get("cnpj") or "")) != cnpj:
+        raise PublicLookupUnavailable("A fonte não corroborou o CNPJ solicitado.")
+    status = payload.get("situacao") or {}
+    status = status if isinstance(status, dict) else {}
+    status_label = normalized(str(status.get("descricao") or ""))
+    activity = payload.get("atividade") or {}
+    activity = activity if isinstance(activity, dict) else {}
+    main = activity.get("cnae_principal") or {}
+    main = main if isinstance(main, dict) else {}
+    cnae = str(main.get("codigo") or "")
+    if not cnae.isascii() or not cnae.isdigit() or len(cnae) != 7:
+        cnae = ""
+    links = payload.get("_links") or {}
+    links = links if isinstance(links, dict) else {}
+    return {
+        "legal_name": str(payload.get("razao_social") or "")[:240],
+        "trade_name": str(payload.get("nome_fantasia") or "")[:240],
+        "main_cnae": cnae,
+        "status": "02" if status_label == "ativa" else "08" if status_label == "baixada" else "",
+        "opened_on": str(payload.get("data_fundacao") or "")[:10],
+        "source_url": safe_company_page(links.get("pagina")),
+    }
+
+
+async def public_registration_lookup(cnpj: str, *, transport=None) -> dict:
+    if not valid_cnpj(cnpj):
+        raise PublicLookupUnavailable("Informe um CNPJ válido.")
+    try:
+        async with httpx.AsyncClient(base_url=BASE_URL, timeout=7,
+                                     transport=transport, follow_redirects=False) as client:
+            response = await client.get(f"/consulta/api/v1/empresa/{cnpj}",
+                                        headers={"Accept": "application/json"})
+        if response.status_code == 429:
+            raise PublicLookupUnavailable("A consulta pública atingiu o limite de uso gratuito.")
+        if response.status_code != 200:
+            raise PublicLookupUnavailable("O cadastro público desta empresa está indisponível.")
+        if len(response.content) > 1_000_000:
+            raise PublicLookupUnavailable("A resposta do cadastro excedeu o limite permitido.")
+        return parse_public_registration(response.json(), cnpj)
+    except httpx.HTTPError as exc:
+        raise PublicLookupUnavailable("A consulta pública do cadastro não respondeu.") from exc
+    except ValueError as exc:
+        raise PublicLookupUnavailable("A resposta pública do cadastro não é válida.") from exc

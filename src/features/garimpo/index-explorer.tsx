@@ -27,6 +27,7 @@ function readPresets(workspaceId: string): SearchPreset[] {
         && typeof preset.input.name === 'string' && typeof preset.input.active_only === 'boolean'
         && ['all','yes','no'].includes(preset.input.headquarters)
         && ['any','main','secondary'].includes(preset.input.cnae_scope)
+        && (!('has_qsa' in preset.input) || ['all','yes','no'].includes(preset.input.has_qsa))
         && typeof preset.input.opened_after === 'string'
         && typeof preset.input.opened_before === 'string')) as SearchPreset[]
   } catch { return [] }
@@ -67,6 +68,7 @@ export function IndexExplorer({ workspaceId, canImport, onImport }: Props) {
   const [openedAfter, setOpenedAfter] = useState('')
   const [openedBefore, setOpenedBefore] = useState('')
   const [cnaeScope, setCnaeScope] = useState<CompanyIndexSearch['cnae_scope']>('any')
+  const [hasQsa, setHasQsa] = useState<CompanyIndexSearch['has_qsa']>('all')
   const [savedName, setSavedName] = useState('')
   const [presets, setPresets] = useState<SearchPreset[]>([])
   const activeQuery = useRef<CompanyIndexSearch | null>(null)
@@ -92,15 +94,15 @@ export function IndexExplorer({ workspaceId, canImport, onImport }: Props) {
   const filters = (): CompanyIndexSearch => ({
     city: city.trim(), name: name.trim(), cnae: cnae.trim(), active_only: activeOnly,
     headquarters, opened_after: openedAfter, opened_before: openedBefore,
-    cnae_scope: cnaeScope, limit: pageSize, offset: 0,
+    cnae_scope: cnaeScope, has_qsa: hasQsa, limit: pageSize, offset: 0,
   })
   function saveSearch() {
     const label = savedName.trim()
     if (!workspaceId || label.length < 2 || label.length > 60) return
     const next = [...presets.filter(item => item.label.toLowerCase() !== label.toLowerCase()),
       { id: createUuid(), label, input: filters() }].slice(-10).map(item => ({
-      ...item, input: (({city,cnae,name,active_only,headquarters,opened_after,opened_before,cnae_scope}) =>
-        ({city,cnae,name,active_only,headquarters,opened_after,opened_before,cnae_scope}))(item.input),
+      ...item, input: (({city,cnae,name,active_only,headquarters,opened_after,opened_before,cnae_scope,has_qsa}) =>
+        ({city,cnae,name,active_only,headquarters,opened_after,opened_before,cnae_scope,has_qsa:has_qsa || 'all'}))(item.input),
     }))
     setPresets(next); safeStorage.setItem(presetKey(workspaceId),JSON.stringify(next)); setSavedName('')
   }
@@ -108,7 +110,7 @@ export function IndexExplorer({ workspaceId, canImport, onImport }: Props) {
     setCity(item.input.city);setName(item.input.name);setCnae(item.input.cnae)
     setActiveOnly(item.input.active_only);setHeadquarters(item.input.headquarters)
     setOpenedAfter(item.input.opened_after);setOpenedBefore(item.input.opened_before)
-    setCnaeScope(item.input.cnae_scope)
+    setCnaeScope(item.input.cnae_scope);setHasQsa(item.input.has_qsa || 'all')
     setItems([]);setSearched(false);setSelected([]);setPage(0);activeQuery.current=null
   }
   function removeSearch(id: string) {
@@ -169,7 +171,7 @@ export function IndexExplorer({ workspaceId, canImport, onImport }: Props) {
       <label className="gh-index-check"><input type="checkbox" checked={activeOnly} onChange={e => setActiveOnly(e.target.checked)} />
         Apenas situação cadastral ativa</label>
       <details className="gh-index-more">
-        <summary>Mais filtros · abertura, matriz/filial e tipo de CNAE</summary>
+        <summary>Mais filtros · abertura, matriz/filial, tipo de CNAE e QSA</summary>
         <div className="gh-index-advanced">
           <label>Tipo de estabelecimento
             <select value={headquarters} onChange={e => setHeadquarters(e.target.value as CompanyIndexSearch['headquarters'])}>
@@ -180,6 +182,13 @@ export function IndexExplorer({ workspaceId, canImport, onImport }: Props) {
             <select value={cnaeScope} onChange={e => setCnaeScope(e.target.value as CompanyIndexSearch['cnae_scope'])}>
               <option value="any">Principal ou secundário</option><option value="main">Somente principal</option>
               <option value="secondary">Somente secundário</option>
+            </select>
+          </label>
+          <label>Quadro de sócios e administradores
+            <select value={hasQsa} onChange={event => setHasQsa(event.target.value as CompanyIndexSearch['has_qsa'])}>
+              <option value="all">Não filtrar por QSA</option>
+              <option value="yes">Com integrante identificado no QSA</option>
+              <option value="no">Sem integrante no recorte carregado</option>
             </select>
           </label>
           <label>Aberta a partir de
@@ -234,6 +243,7 @@ export function IndexExplorer({ workspaceId, canImport, onImport }: Props) {
           Próxima<ChevronRight size={14} /></button>
       </div>
     </div>}
+    <p className="gh-help">O filtro QSA utiliza somente os dados oficiais já importados. “Sem integrante” significa ausência no recorte disponível, não ausência real de sócios ou responsáveis.</p>
     <p className="gh-help">O índice precisa ser carregado com os ZIPs oficiais da Receita. Dados cadastrais não comprovam telefone ativo, interesse comercial ou existência de site.</p>
   </section>
 }

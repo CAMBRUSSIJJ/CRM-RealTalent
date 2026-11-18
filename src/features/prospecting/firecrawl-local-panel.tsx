@@ -123,16 +123,16 @@ export function FirecrawlLocalPanel({ workspaceId, readOnly, canConfigure, segme
 
   if (connectionOnly) return <div className="firecrawl-connection-integrated" aria-label="Conexão do Garimpo com Firecrawl e IA opcional">
     <div className="firecrawl-connection-integrated__status">
-      <span><Sparkles size={15} /> Motor Python · pesquisa pública</span>
+      <span><Sparkles size={15} /> Motor Python 0.6 · pesquisa pública</span>
       <StatusPill tone={online ? 'success' : 'warning'}>{online ? 'Linux conectado' : 'Linux desconectado'}</StatusPill>
       <Button variant="ghost" disabled={configuring} onClick={() => void refresh()}><RefreshCw size={14}/> Verificar</Button>
     </div>
     {connectionBlock}
     {error ? <p className="firecrawl-local-panel__error" role="alert">{error}</p> : null}
-    {online ? <small>Conector ativo. Para identificar o motor Python atualizado, confira a mensagem “Garimpo Python conectado” no Linux; a conexão antiga também pode aparecer como ativa.</small> : null}
+    {online ? <small>Conector ativo. Para identificar o motor Python atualizado, confira a mensagem “Garimpo Python 0.6 conectado ao CRM” no Linux; a conexão antiga também pode aparecer como ativa.</small> : null}
     {canConfigure && online ? <details><summary>Gerenciar conexão Linux</summary>
       <div className="firecrawl-local-panel__setup">
-        <Button variant="secondary" disabled={configuring} onClick={() => void configure(false, 'command')}>Gerar comando do novo motor</Button>
+        <Button variant="secondary" disabled={configuring} onClick={() => void configure(false, 'command')}>Instalar ou atualizar motor Python 0.6</Button>
         <Button variant="ghost" disabled={configuring} onClick={() => void configure(true)}>Desconectar</Button>
       </div>
     </details> : null}
@@ -147,14 +147,14 @@ export function FirecrawlLocalPanel({ workspaceId, readOnly, canConfigure, segme
       <label className="is-wide"><span>Perfil e critérios adicionais</span><textarea value={query} disabled={readOnly || busy} maxLength={1000} onChange={(event) => setQuery(event.target.value)} placeholder="Ex.: priorizar telefone comercial, site e link de agendamento." /></label>
       <label><span>Limite por pesquisa</span><select value={limit} disabled={readOnly || busy} onChange={(event) => setLimit(Number(event.target.value))}><option value={1}>1 empresa — teste inicial</option><option value={3}>3 empresas</option><option value={5}>5 empresas</option><option value={10}>10 empresas</option></select></label>
     </div> : null}
-    <p className="firecrawl-local-panel__hint">Empresa, telefone, e-mail, localização, CNPJ, site, Instagram e WhatsApp publicado, quando encontrados. Os dados acompanham fontes; oportunidades e abordagens são sugestões da IA.</p>
+    <p className="firecrawl-local-panel__hint">Contatos e dados publicados acompanham as fontes para revisão. O motor Python 0.6 coleta os fatos sem exigir Firecrawl ou IA.</p>
     {error ? <p className="firecrawl-local-panel__error" role="alert">{error}</p> : null}
     {busy ? <div className="firecrawl-local-panel__progress" role="status"><LoaderCircle size={17} /><span>Seu Linux está pesquisando. Mantenha o conector aberto.</span><Button variant="ghost" onClick={() => { controller.current?.abort(); controller.current = null; setBusy(false) }}>Cancelar</Button></div> : <Button disabled={readOnly || !online || !(prospect?.company || segment).trim() || !(prospect?.city || city).trim()} onClick={() => void search()}><Sparkles size={17} />{prospect ? 'Enriquecer com Firecrawl' : 'Buscar leads com Firecrawl'}</Button>}
     {!prospect ? <details><summary>Verificar conexão ou desconectar</summary>
       <p>O conector trabalha somente enquanto o Linux estiver ligado e o instalador estiver em execução. O status é atualizado automaticamente.</p>
       <div className="firecrawl-local-panel__setup">
         <Button variant="secondary" onClick={() => void refresh()}><RefreshCw size={15} /> Verificar conexão</Button>
-        {canConfigure && online ? <Button variant="secondary" disabled={configuring} onClick={() => void configure(false, 'command')}>Gerar comando do novo motor</Button> : null}
+        {canConfigure && online ? <Button variant="secondary" disabled={configuring} onClick={() => void configure(false, 'command')}>Instalar ou atualizar motor Python 0.6</Button> : null}
         {canConfigure ? <Button variant="ghost" disabled={configuring} onClick={() => void configure(true)}>Desconectar Linux</Button> : null}
       </div></details> : null}
   </section>

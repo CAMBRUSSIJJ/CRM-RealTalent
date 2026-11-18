@@ -33,7 +33,15 @@ export interface SearchInput {
 async function request(workspaceId: string, path: string, method = 'GET', body?: unknown, key?: string, signal?: AbortSignal) {
   const client = getSupabaseClient()
   const session = client ? await client.auth.getSession() : null
-  const token = session?.data.session?.access_token
+  let currentSession = session?.data.session
+  // The stream keeps one JWT for up to four minutes. Refresh before starting
+  // when the existing session cannot cover that window.
+  if (client && currentSession?.expires_at && currentSession.expires_at * 1000 - Date.now() < 300_000) {
+    const refreshed = await client.auth.refreshSession()
+    if (refreshed.error) throw new Error('Sua sessão expirou. Entre novamente no CRM.')
+    currentSession = refreshed.data.session
+  }
+  const token = currentSession?.access_token
   if (!token) throw new Error('Entre na sua conta do CRM para usar o motor hospedado.')
   const response = await fetch(`/api/garimpo${path}`, {
     method, signal, credentials: 'same-origin', cache: 'no-store',

@@ -207,6 +207,15 @@ const syncRemote = async (workspaceId: string, state: ProspectingState) => {
 
 const uniqueById = <T extends { id: string }>(items: T[]): T[] => [...new Map(items.map((item) => [item.id, item])).values()]
 
+const retainFailedSync = (workspaceId: string, failed: ProspectingState) => {
+  const newer = pendingSync.get(workspaceId)
+  pendingSync.set(workspaceId, {
+    ...failed,
+    prospects: uniqueById([...failed.prospects, ...(newer?.prospects ?? [])]),
+    history: uniqueById([...failed.history, ...(newer?.history ?? [])]),
+  })
+}
+
 const scheduleRemoteSync = (workspaceId: string, previous: ProspectingState, state: ProspectingState) => {
   if (!getSupabaseClient()) return
   const before = new Map(previous.prospects.map((item) => [item.id, item]))
@@ -227,7 +236,10 @@ const scheduleRemoteSync = (workspaceId: string, previous: ProspectingState, sta
     const next = pendingSync.get(workspaceId)
     pendingSync.delete(workspaceId)
     if (next) void enqueueRemoteOperation(workspaceId, () => syncRemote(workspaceId, next))
-      .catch((error) => console.error('[Garimpo] Falha ao sincronizar registros alterados:', error))
+      .catch((error) => {
+        retainFailedSync(workspaceId, next)
+        console.error('[Garimpo] Falha ao sincronizar registros alterados:', error)
+      })
   }, 350))
 }
 
@@ -237,7 +249,10 @@ export async function flushProspectingSync(workspaceId: string): Promise<void> {
   if (timer) { window.clearTimeout(timer); syncTimers.delete(workspaceId) }
   const pending = pendingSync.get(workspaceId)
   pendingSync.delete(workspaceId)
-  if (pending) await enqueueRemoteOperation(workspaceId, () => syncRemote(workspaceId, pending))
+  if (pending) {
+    try { await enqueueRemoteOperation(workspaceId, () => syncRemote(workspaceId, pending)) }
+    catch (error) { retainFailedSync(workspaceId, pending); throw error }
+  }
   else await remoteOperations.get(workspaceId)
 }
 

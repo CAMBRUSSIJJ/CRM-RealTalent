@@ -27,6 +27,8 @@ jobs:
         run: PYTHONPATH=garimpo-engine python -m unittest discover -s garimpo-engine/tests -p 'test_qsa_import.py' -v
       - name: Exact-company identification and restricted CNPJ matching
         run: PYTHONPATH=garimpo-engine python -m unittest discover -s garimpo-engine/tests -p 'test_identity.py' -v
+      - name: Public CNPJ lookup fallback security, attribution and response normalization
+        run: PYTHONPATH=garimpo-engine python -m unittest discover -s garimpo-engine/tests -p 'test_public_company_lookup.py' -v
       - name: Check Python syntax
         run: python -m py_compile garimpo-engine/garimpo/company_index_import.py garimpo-engine/garimpo/hosted.py garimpo-engine/garimpo/extraction.py garimpo-engine/garimpo/qsa_import.py garimpo-engine/garimpo/company_identity.py garimpo-engine/garimpo/public_company_lookup.py
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0

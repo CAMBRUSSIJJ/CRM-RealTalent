@@ -41,7 +41,10 @@ export function RecheckPanel({record,canEdit,canSyncCrm,onRecheck,onResolve}: Pr
     ['Situação cadastral',currentValue(record,'status')],['CNPJ',record.cnpj],
     ['Site',record.website],['Telefone',record.phone],['E-mail',record.email],
   ]
-  return <section className="gh-recheck" aria-label={`Revisar novamente ${record.company}`}>
+  return <details className="gh-recheck-fold" open={Boolean(pending)}
+    aria-label={`Histórico e alterações de ${record.company}`}>
+    <summary>Comparação de dados e histórico da revisão ({history.length}){pending ? ' · alterações aguardando aprovação' : ''}</summary>
+    <section className="gh-recheck" aria-label={`Revisar novamente ${record.company}`}>
     <div className="gh-recheck-heading"><div>
       <span className="gh-eyebrow">REVISÃO DE EMPRESAS 2.0</span>
       <h3>Investigar novamente</h3>
@@ -88,5 +91,6 @@ export function RecheckPanel({record,canEdit,canSyncCrm,onRecheck,onResolve}: Pr
         {entry.warnings.map((warning,j) => <small key={j}>{warning}</small>)}
       </li>)}</ol> : <p className="gh-help">Esta empresa ainda não foi investigada novamente.</p>}
     </details>
-  </section>
+    </section>
+  </details>
 }

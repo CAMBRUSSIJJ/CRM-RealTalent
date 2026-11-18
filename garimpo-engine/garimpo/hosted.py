@@ -13,7 +13,7 @@ from pathlib import Path
 from uuid import UUID
 
 import httpx
-from fastapi import Depends, FastAPI, Header, HTTPException
+from fastapi import Depends, FastAPI, Header, HTTPException, Query
 from fastapi.responses import JSONResponse, StreamingResponse
 
 from . import __version__
@@ -21,7 +21,7 @@ from .config import Settings
 from .engine import Engine
 from .hosted_store import RemoteStore
 from .maps_setup import verify_browser
-from .models import SearchRequest
+from .models import SearchRequest, normalized
 from .network import HTTP, SourceError
 from .store import IdempotencyConflict, QueueFull, Store, public_job
 
@@ -112,6 +112,48 @@ def create_app(settings=None, *, auth_transport=None, store_factory=None, prefli
     async def capabilities(scope=Depends(authorize)):
         return {'ready': app.state.ready, 'version': __version__, 'hosted': True,
                 'max_results': 100, 'provider': 'maps', 'can_write': scope.role in {'owner','admin','member'}}
+
+    @app.get('/api/garimpo/index')
+    async def company_index(
+        scope=Depends(authorize),
+        state: str = Query(default='RS', min_length=2, max_length=2),
+        city: str = Query(default='', max_length=100),
+        cnae: str = Query(default='', max_length=7),
+        name: str = Query(default='', max_length=120),
+        active_only: bool = Query(default=True),
+        limit: int = Query(default=30, ge=1, le=100),
+        offset: int = Query(default=0, ge=0, le=10000),
+    ):
+        """Read-only official RFB register, scoped to an authenticated CRM workspace.
+
+        This does not collect or imply verified working contacts, and never
+        joins third-party profiles or personal data.
+        """
+        if state.upper() != 'RS':
+            raise HTTPException(422, 'O piloto do índice CNPJ cobre somente o Rio Grande do Sul.')
+        if cnae and (not cnae.isascii() or not cnae.isdigit() or len(cnae) < 2):
+            raise HTTPException(422, 'Digite um CNAE com 2 a 7 números.')
+        params = {'p_org': scope.organization_id, 'p_uf': 'RS',
+                  'p_city': normalized(city), 'p_cnae': cnae or None,
+                  'p_name': normalized(name), 'p_only_active': active_only,
+                  'p_limit': limit, 'p_offset': offset}
+        try:
+            async with httpx.AsyncClient(
+                base_url=supabase_url, timeout=15, transport=auth_transport,
+                headers={'apikey': public_key, 'Authorization': 'Bearer ' + scope.token},
+                follow_redirects=False
+            ) as client:
+                result = await client.post(
+                    '/rest/v1/rpc/realtalent_company_index_search', json=params)
+        except httpx.HTTPError as exc:
+            raise HTTPException(503, 'A base empresarial não respondeu. Tente novamente.') from exc
+        if result.status_code in {404, 406} or 'PGRST202' in result.text:
+            raise HTTPException(503, 'O índice CNPJ ainda não está instalado neste ambiente.')
+        if result.status_code in {401, 403}:
+            raise HTTPException(403, 'Você não tem acesso ao índice neste workspace.')
+        if result.is_error:
+            raise HTTPException(503, 'A consulta ao índice empresarial falhou.')
+        return result.json()
 
     @app.get('/api/garimpo/searches')
     async def history(scope=Depends(authorize)):

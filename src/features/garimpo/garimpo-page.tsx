@@ -233,8 +233,8 @@ export function ProspectingPage() {
         if (!company) {
           company = await createCompany({ name: prospect.company || prospect.name, legalName: '', cnpj: prospect.cnpj,
             website: publicUrl(prospect.website) || '', domain: publicUrl(prospect.website) ? new URL(prospect.website).hostname : '',
-            segment: String((prospect.rawData.engine as Record<string,unknown> | undefined)?.requestedSegment || ''),
-            phone: prospect.phone, city: prospect.city, state: String(prospect.rawData.state || ''), status: 'prospect', leadIds: [] })
+            segment: prospect.source === 'cnpj' ? String((prospect.rawData.engine as Record<string, unknown> | undefined)?.mainCnae || 'CNAE cadastral') : String((prospect.rawData.engine as Record<string,unknown> | undefined)?.requestedSegment || ''),
+            phone: prospect.phone, city: prospect.city, state: prospect.source === 'cnpj' ? 'RS' : String(prospect.rawData.state || ''), status: 'prospect', leadIds: [] })
           companies.push(company)
         }
         if (scopeRef.current !== requestedWorkspace) break
@@ -248,7 +248,7 @@ export function ProspectingPage() {
           if (!leadId) {
             const lead = await createLead({ name: prospect.name, company: company.name, companyId: company.id,
               phone: prospect.phone, email: prospect.email, city: prospect.city, cnpj: prospect.cnpj, website: publicUrl(prospect.website) || '',
-              source: 'Garimpo · Google Maps', sourceDetail: 'Motor Python hospedado', sourceUrl: evidenceFor(prospect)[0]?.url || '',
+              source: prospect.source === 'cnpj' ? 'Garimpo · CNPJ' : 'Garimpo · Google Maps', sourceDetail: prospect.sourceDetail || 'Motor Python hospedado', sourceUrl: evidenceFor(prospect)[0]?.url || '',
               stageId, status: 'active', temperature: 'cold', priority: 'medium', ownerId: null, ownerName: 'Sem responsável',
               value: 0, nextActionAt: null, notes: [prospect.notes, prospect.description, ...evidenceFor(prospect).map(item => `${item.field}: ${item.value} · ${item.url}`)].join('\n'), tags: ['garimpo'] })
             leads.push(lead); leadId = lead.id

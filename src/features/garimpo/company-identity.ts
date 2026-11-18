@@ -123,11 +123,19 @@ export function identityPatch(record: ProspectRecord, candidate: IdentityCandida
       ? 'Candidato cadastral selecionado pelo usuário; nome e município coincidem, rua e domínio não confirmados.'
       : 'CNPJ informado manualmente; ainda não corroborado por fonte cadastral.',
   }
+  const existingEvidence=Array.isArray(previousEngine.evidence)?previousEngine.evidence:[]
+  const registryEvidence=official && /^https:\/\/www\.gov\.br\/receitafederal\//.test(candidate.source_url)
+    ? [{field:'Proveniência do CNPJ no índice RFB',value:cnpj,url:candidate.source_url,
+      source:'Receita Federal — dados abertos do CNPJ, não documento individual',
+      observed_at:match.matchedAt,source_month:candidate.source_month}]
+    : []
+  const evidence=[...existingEvidence,...registryEvidence].slice(-45)
   return {cnpj,rawData:{
     ...record.rawData,
     identityMatch:match,
     engine:{
       ...previousEngine,
+      evidence,
       ...(official?{
         legalName:previousEngine.legalName||candidate.legal_name,
         tradeName:previousEngine.tradeName||candidate.trade_name,

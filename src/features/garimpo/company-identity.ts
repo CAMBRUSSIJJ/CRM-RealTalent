@@ -80,7 +80,12 @@ export function fallbackIdentityResults(input: {
       })
     }
   }
-  const unique=[...new Map(candidates.map(item=>[item.cnpj,item])).values()]
+  const bestByCnpj = new Map<string, IdentityCandidate>()
+  for (const item of candidates) {
+    const previous = bestByCnpj.get(item.cnpj)
+    if (!previous || item.match_score > previous.match_score) bestByCnpj.set(item.cnpj, item)
+  }
+  const unique=[...bestByCnpj.values()]
     .sort((a,b)=>b.match_score-a.match_score||a.cnpj.localeCompare(b.cnpj)).slice(0,7)
   return { checked_at:new Date().toISOString(),name:input.company,
     city:input.city,state:input.state,searched_terms:[full],

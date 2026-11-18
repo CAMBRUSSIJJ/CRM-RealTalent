@@ -126,3 +126,8 @@
 .gh-recheck-fold>summary{font-size:12px;color:#5c708b;font-weight:600;cursor:pointer}
 .gh-recheck-fold>.gh-recheck{margin-top:13px;border-top:0;padding-top:0}
 @media(max-width:640px){.gh-identity-top,.gh-identity-candidate{align-items:stretch;flex-direction:column}.gh-identity-candidate .gh-secondary{align-self:flex-start}.gh-identity-manual form{flex-direction:column;align-items:stretch}.gh-identity-manual form>*{width:100%}}
+
+.gh-identity-flag{display:block;font-size:10px;color:#8365ac;margin-top:5px;font-weight:500}
+.gh-review-more>div{grid-template-columns:repeat(3,minmax(0,1fr))}
+@media(max-width:800px){.gh-review-more>div{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:520px){.gh-review-more>div{grid-template-columns:1fr}}

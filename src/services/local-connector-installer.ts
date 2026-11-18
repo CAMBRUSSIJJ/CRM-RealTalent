@@ -21,6 +21,7 @@ export function buildGarimpoLinuxInstaller(environment: string): string {
     'ROOT="$HOME/Downloads/RealTalent-Garimpo-Python-v06"',
     'SOURCE_SHA="'+sourceCommit+'"',
     'SOURCE_REPO="'+sourceRepo+'"',
+    'mkdir -p -- "$(dirname "$ROOT")"',
     'if [[ -e "$ROOT" && ! -f "$ROOT/.realtalent-source-commit" ]]; then',
     '  echo "Destino existente não pertence a este instalador: $ROOT. Preserve a pasta e use um destino diferente." >&2; exit 1',
     'fi',

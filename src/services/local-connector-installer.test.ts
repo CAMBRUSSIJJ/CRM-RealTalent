@@ -23,6 +23,7 @@ test('Linux: gera instalador privado do motor Python fixado em commit completo e
   expect(installer).toContain('git -C "$ROOT" rev-parse HEAD')
   expect(installer).toContain('garimpo_engine.py')
   expect(installer).toContain('RealTalent-Garimpo-Python-v06')
+  expect(installer).toContain('mkdir -p -- "$(dirname "$ROOT")"')
   expect(installer).toContain('garimpo setup-maps')
   expect(installer).toContain('pip install --disable-pip-version-check')
   expect(installer).toContain('GARIMPO_MAPS_BINARY=')

@@ -24,9 +24,18 @@ from .engine import Engine
 from .hosted_store import RemoteStore
 from .maps_setup import verify_browser
 from .models import Candidate, SearchRequest, normalized, now, valid_cnpj, phone_number, website_url
+from .company_identity import rank_candidates, search_terms
 from .providers import eligible_site
 from .network import HTTP, SourceError
 from .store import IdempotencyConflict, QueueFull, Store, public_job
+
+
+class CompanyIdentifyRequest(BaseModel):
+    model_config = ConfigDict(extra='forbid', str_strip_whitespace=True)
+    company: str = Field(min_length=3, max_length=120)
+    city: str = Field(min_length=2, max_length=100)
+    state: str = Field(default='RS', min_length=2, max_length=2)
+    address: str = Field(default='', max_length=300)
 
 
 class CompanyRecheckRequest(BaseModel):
@@ -191,6 +200,66 @@ def create_app(settings=None, *, auth_transport=None, store_factory=None, prefli
         if result.is_error:
             raise HTTPException(503, 'A consulta ao índice empresarial falhou.')
         return result.json()
+
+    @app.post('/api/garimpo/companies/identify')
+    async def identify_company(data: CompanyIdentifyRequest, scope=Depends(authorize)):
+        """Suggest only official CNPJ candidates in the same city/UF.
+
+        A ranked candidate is never proof of business identity or a confirmed
+        CNPJ. The user must choose a record before any CRM write or QSA lookup.
+        """
+        writable(scope)
+        if data.state.upper() != 'RS':
+            raise HTTPException(422, 'O índice empresarial deste piloto cobre somente RS.')
+        terms = search_terms(data.company)
+        if not terms:
+            raise HTTPException(422, 'Informe o nome distintivo da empresa, não apenas o segmento.')
+        checked_at = now()
+        rows, incomplete, queried = [], False, []
+        try:
+            async with httpx.AsyncClient(
+                base_url=supabase_url, timeout=15, transport=auth_transport,
+                headers={'apikey': public_key, 'Authorization': 'Bearer ' + scope.token},
+                follow_redirects=False,
+            ) as client:
+                for term in terms:
+                    queried.append(term)
+                    result = await client.post('/rest/v1/rpc/realtalent_company_index_search',
+                        json={'p_org':scope.organization_id, 'p_uf':'RS',
+                              'p_city':normalized(data.city), 'p_name':term,
+                              'p_cnae':None,'p_only_active':False,'p_limit':80,
+                              'p_offset':0})
+                    if result.status_code in {404, 406} or 'PGRST202' in result.text:
+                        raise HTTPException(503, 'O índice CNPJ ainda não está instalado nesta versão. Utilize um CNPJ confirmado manualmente ou configure o banco de testes.')
+                    if result.status_code in {401,403} or 'workspace_forbidden' in result.text:
+                        raise HTTPException(403, 'Sem permissão para consultar este workspace.')
+                    if result.is_error:
+                        raise HTTPException(503, 'A consulta ao índice empresarial falhou.')
+                    payload = result.json()
+                    if not isinstance(payload, dict) or not isinstance(payload.get('items'), list):
+                        raise ValueError('Invalid company index response')
+                    rows.extend(item for item in payload['items'] if isinstance(item, dict))
+                    incomplete = incomplete or bool(payload.get('has_more'))
+                    if len(rows) >= 4:
+                        break
+        except httpx.HTTPError as exc:
+            raise HTTPException(503, 'A base empresarial está indisponível nesta tentativa.') from exc
+        except (ValueError, TypeError) as exc:
+            raise HTTPException(503, 'A base empresarial retornou um formato inválido.') from exc
+        matches = rank_candidates(data.company, data.city, 'RS', rows)
+        return {
+            'checked_at':checked_at, 'name':data.company,'city':data.city,'state':'RS',
+            'candidates':matches, 'searched_terms':queried,
+            'incomplete':incomplete, 'identity_confirmed':False,
+            'warnings':[
+                'Endereço, número, telefone e site não são verificados pelo índice cadastral.',
+                'Confirme o estabelecimento e o CNPJ antes de consultar o QSA ou atualizar o CRM.',
+                *(['Resultados limitados à primeira página de um termo; outras empresas podem existir.']
+                  if incomplete else []),
+                *(['Nenhuma correspondência suficientemente específica encontrada na base importada.']
+                  if not matches else []),
+            ],
+        }
 
     @app.get('/api/garimpo/companies/qsa')
     async def company_qsa(

@@ -71,7 +71,7 @@ def parse_search_response(payload: object) -> tuple[list[dict], bool]:
         total = int(payload.get("total", len(source)))
     except (ValueError, TypeError):
         total = len(source)
-    return candidates, total > len(source)
+    return candidates, total > len(source) or len(source) >= 10
 
 
 async def search_public_company(company: str, city: str, state: str, *,
@@ -140,7 +140,7 @@ def parse_public_people(payload: object, cnpj: str) -> dict:
         "people": people,
         "has_records": bool(people),
         "truncated": len(names) > 50,
-        "note": "Consulta pública secundária. CPF, contato privado e idade omitidos.",
+        "note": "Consulta pública secundária. Identificadores privados, contatos e idade omitidos.",
     }
 
 

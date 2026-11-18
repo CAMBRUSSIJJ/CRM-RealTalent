@@ -30,7 +30,7 @@ export function ProspectingPage() {
   const canEdit = canTeamAccess('edit','prospecting')
   const canSend = canEdit && canTeamAccess('create','contacts') && can('create','company')
   const canCreateOpportunity = canTeamAccess('create','pipeline') && can('create','lead')
-  const canUpdateCompany = can('edit','company') && canTeamAccess('edit','contacts')
+  const canUpdateCompany = can('update','company') && canTeamAccess('edit','contacts')
   const [state, setState] = useState<ProspectingState>(empty)
   const stateRef = useRef(state)
   const scopeRef = useRef(workspaceId)

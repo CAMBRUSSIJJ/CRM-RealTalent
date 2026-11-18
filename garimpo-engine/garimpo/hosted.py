@@ -224,7 +224,26 @@ def create_app(settings=None, *, auth_transport=None, store_factory=None, prefli
             raise HTTPException(403, 'Sem permissão para consultar o quadro societário.')
         if result.is_error:
             raise HTTPException(503, 'Não foi possível consultar o QSA da empresa.')
-        return result.json()
+        try:
+            payload = result.json()
+            names = payload['people']
+            if not isinstance(names, list):
+                raise ValueError('invalid QSA payload')
+            safe_fields = ('partner_name', 'partner_type', 'role_code',
+                           'role_label', 'joined_on', 'source_month', 'source_url')
+            people = []
+            for person in names[:50]:
+                if not isinstance(person, dict):
+                    continue
+                people.append({field: person.get(field) for field in safe_fields})
+            return {
+                'company_cnpj': checked_cnpj,
+                'source': 'Receita Federal / QSA',
+                'people': people, 'has_records': bool(payload.get('has_records')),
+                'truncated': bool(payload.get('truncated')),
+            }
+        except (TypeError, ValueError, KeyError) as exc:
+            raise HTTPException(503, 'A fonte QSA retornou um formato inesperado.') from exc
 
     @app.post('/api/garimpo/companies/recheck')
     async def recheck_company(data: CompanyRecheckRequest, scope=Depends(authorize)):

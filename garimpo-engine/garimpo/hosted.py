@@ -25,6 +25,9 @@ from .hosted_store import RemoteStore
 from .maps_setup import verify_browser
 from .models import Candidate, SearchRequest, normalized, now, valid_cnpj, phone_number, website_url
 from .company_identity import rank_candidates, search_terms
+from .public_company_lookup import (
+    PublicLookupUnavailable, search_public_company, public_qsa_lookup, SOURCE_LABEL
+)
 from .providers import eligible_site
 from .network import HTTP, SourceError
 from .store import IdempotencyConflict, QueueFull, Store, public_job
@@ -57,7 +60,7 @@ class Scope:
     token: str
 
 
-def create_app(settings=None, *, auth_transport=None, store_factory=None, preflight=verify_browser):
+def create_app(settings=None, *, auth_transport=None, public_transport=None, store_factory=None, preflight=verify_browser):
     settings = settings or Settings.from_env()
     supabase_url = os.environ.get('SUPABASE_URL', '').rstrip('/')
     public_key = os.environ.get('SUPABASE_PUBLISHABLE_KEY', '')
@@ -211,11 +214,11 @@ def create_app(settings=None, *, auth_transport=None, store_factory=None, prefli
         writable(scope)
         if data.state.upper() != 'RS':
             raise HTTPException(422, 'O índice empresarial deste piloto cobre somente RS.')
-        terms = search_terms(data.company)
+        terms = search_terms(data.company, data.city)
         if not terms:
             raise HTTPException(422, 'Informe o nome distintivo da empresa, não apenas o segmento.')
         checked_at = now()
-        rows, incomplete, queried = [], False, []
+        rows, incomplete, queried, missing_local_index = [], False, [], False
         try:
             async with httpx.AsyncClient(
                 base_url=supabase_url, timeout=15, transport=auth_transport,
@@ -230,7 +233,8 @@ def create_app(settings=None, *, auth_transport=None, store_factory=None, prefli
                               'p_cnae':None,'p_only_active':False,'p_limit':80,
                               'p_offset':0})
                     if result.status_code in {404, 406} or 'PGRST202' in result.text:
-                        raise HTTPException(503, 'O índice CNPJ ainda não está instalado nesta versão. Utilize um CNPJ confirmado manualmente ou configure o banco de testes.')
+                        missing_local_index = True
+                        break
                     if result.status_code in {401,403} or 'workspace_forbidden' in result.text:
                         raise HTTPException(403, 'Sem permissão para consultar este workspace.')
                     if result.is_error:
@@ -246,17 +250,34 @@ def create_app(settings=None, *, auth_transport=None, store_factory=None, prefli
             raise HTTPException(503, 'A base empresarial está indisponível nesta tentativa.') from exc
         except (ValueError, TypeError) as exc:
             raise HTTPException(503, 'A base empresarial retornou um formato inválido.') from exc
-        matches = rank_candidates(data.company, data.city, 'RS', rows)
+        if missing_local_index:
+            try:
+                matches, incomplete = await search_public_company(
+                    data.company, data.city, 'RS', transport=public_transport)
+            except PublicLookupUnavailable as exc:
+                raise HTTPException(503,
+                    'O índice local ainda não foi carregado e a consulta pública alternativa '
+                    'não está disponível. ' + str(exc)) from exc
+            warnings = [
+                'Índice próprio ausente: esta é uma pesquisa individual via Consulta Data Stone.',
+                'Fonte pública gratuita, sujeita a disponibilidade, limites e cobertura do fornecedor.',
+                'Fonte: Consulta Data Stone — https://www.datastone.com.br/consulta',
+            ]
+        else:
+            matches = rank_candidates(data.company, data.city, 'RS', rows)
+            warnings = ['Resultados do índice próprio de empresas da Receita Federal.']
         return {
             'checked_at':checked_at, 'name':data.company,'city':data.city,'state':'RS',
             'candidates':matches, 'searched_terms':queried,
+            'provider': SOURCE_LABEL if missing_local_index else 'Receita Federal — índice próprio',
             'incomplete':incomplete, 'identity_confirmed':False,
             'warnings':[
-                'Endereço, número, telefone e site não são verificados pelo índice cadastral.',
+                *warnings,
+                'Endereço, número, telefone e site não são verificados nesta consulta.',
                 'Confirme o estabelecimento e o CNPJ antes de consultar o QSA ou atualizar o CRM.',
-                *(['Resultados limitados à primeira página de um termo; outras empresas podem existir.']
+                *(['A fonte só retorna resultados parciais; podem existir outras empresas.']
                   if incomplete else []),
-                *(['Nenhuma correspondência suficientemente específica encontrada na base importada.']
+                *(['Nenhuma correspondência suficientemente específica encontrada nesta consulta.']
                   if not matches else []),
             ],
         }
@@ -286,7 +307,12 @@ def create_app(settings=None, *, auth_transport=None, store_factory=None, prefli
         except httpx.HTTPError as exc:
             raise HTTPException(503, 'O cadastro societário não respondeu.') from exc
         if result.status_code in {404, 406} or 'PGRST202' in result.text:
-            raise HTTPException(503, 'O índice QSA ainda não foi instalado no ambiente.')
+            try:
+                return await public_qsa_lookup(checked_cnpj, transport=public_transport)
+            except PublicLookupUnavailable as exc:
+                raise HTTPException(503,
+                    'O índice QSA local não está instalado e a fonte pública alternativa '
+                    'não respondeu. ' + str(exc)) from exc
         if 'company_not_in_index' in result.text:
             raise HTTPException(404, 'O CNPJ não está presente no recorte empresarial importado.')
         if result.status_code in {401, 403} or 'workspace_forbidden' in result.text:

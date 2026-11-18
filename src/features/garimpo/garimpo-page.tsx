@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react'
-import { ArrowRight, Check, ChevronDown, ExternalLink, Loader2, MapPin, Search, ShieldCheck, X } from 'lucide-react'
+import { ArrowRight, Check, ChevronDown, ExternalLink, Loader2, MapPin, Search, ShieldCheck } from 'lucide-react'
+import { Modal } from '../../components/ui/modal'
 import { useAppActions, useAppNavigation, useAppUi, useAppWorkspace } from '../../app/app-context'
 import { safeStorage } from '../../lib/storage'
 import { createUuid } from '../../lib/id'
@@ -17,14 +18,15 @@ const empty = (): ProspectingState => ({ prospects: [], history: [], lastExtensi
 type View = 'review' | 'sent' | 'discarded' | 'all'
 
 export function ProspectingPage() {
-  const { snapshot, currentWorkspace, currentUserId, repositoryMode, canTeamAccess, canTeamAccessRecord } = useAppWorkspace()
+  const { snapshot, currentWorkspace, currentUserId, repositoryMode, can, canTeamAccess, canTeamAccessRecord } = useAppWorkspace()
   const { createCompany, createLead } = useAppActions()
   const { navigate } = useAppNavigation()
   const { notify } = useAppUi()
   const workspaceId = currentWorkspace?.id || ''
   const canCreate = canTeamAccess('create','prospecting')
   const canEdit = canTeamAccess('edit','prospecting')
-  const canSend = canEdit && canTeamAccess('create','contacts')
+  const canSend = canEdit && canTeamAccess('create','contacts') && can('create','company')
+  const canCreateOpportunity = canTeamAccess('create','pipeline') && can('create','lead')
   const [state, setState] = useState<ProspectingState>(empty)
   const stateRef = useRef(state)
   const scopeRef = useRef(workspaceId)
@@ -74,6 +76,7 @@ export function ProspectingPage() {
   }, [workspaceId, currentUserId, canCreate, commit])
 
   const drive = useCallback(async (next: HostedJob) => {
+    if (scopeRef.current !== workspaceId || next.organization_id !== workspaceId) return
     execution.current?.abort()
     const controller = new AbortController()
     execution.current = controller
@@ -190,18 +193,21 @@ export function ProspectingPage() {
     if (!job || !canCreate) return
     try {
       acceptJob(await hostedGarimpo.cancel(workspaceId,job.id))
+      if (scopeRef.current !== workspaceId) return
       execution.current?.abort(); setBusy(false)
     } catch (cause) { setError(cause instanceof Error ? cause.message : 'Não foi possível cancelar.') }
   }
 
   async function resume() {
-    if (!job || busy || !canCreate) return
+    if (!job || busy || starting.current || !canCreate) return
+    starting.current = true; setBusy(true)
     try { await drive(await hostedGarimpo.resume(workspaceId,job.id,createUuid())) }
-    catch (cause) { setError(cause instanceof Error ? cause.message : 'Não foi possível retomar.') }
+    catch (cause) { if (scopeRef.current === workspaceId) { setBusy(false); setError(cause instanceof Error ? cause.message : 'Não foi possível retomar.') } }
+    finally { if (scopeRef.current === workspaceId) starting.current = false }
   }
 
   async function send() {
-    if (!snapshot || !canSend || sending || !approved.length || (opportunity && (!stageId || !canTeamAccess('create','pipeline')))) return
+    if (!snapshot || !canSend || sending || !approved.length || (opportunity && (!stageId || !canCreateOpportunity))) return
     const requestedWorkspace = workspaceId
     setSending(true); setError('')
     const companies = [...snapshot.companies], leads = [...snapshot.leads]
@@ -211,8 +217,11 @@ export function ProspectingPage() {
       for (const prospect of approved) {
         if (scopeRef.current !== requestedWorkspace) break
         let company = companies.find(item => item.id === prospect.rawData.hostedCrmCompanyId)
-          || companies.find(item => (prospect.cnpj && digits(item.cnpj) === digits(prospect.cnpj))
-            || (normalize(item.name) === normalize(prospect.company) && normalize(item.city) === normalize(prospect.city)))
+          || companies.find(item => (digits(prospect.cnpj).length === 14 && digits(item.cnpj) === digits(prospect.cnpj))
+            || (!(prospect.cnpj && item.cnpj && digits(prospect.cnpj) !== digits(item.cnpj))
+              && normalize(item.name) === normalize(prospect.company) && normalize(item.city) === normalize(prospect.city)
+              && ((digits(prospect.phone).length >= 10 && digits(item.phone) === digits(prospect.phone))
+                || (publicUrl(prospect.website) && publicUrl(item.website) === publicUrl(prospect.website)))))
         if (!company) {
           company = await createCompany({ name: prospect.company || prospect.name, legalName: '', cnpj: prospect.cnpj,
             website: publicUrl(prospect.website) || '', domain: publicUrl(prospect.website) ? new URL(prospect.website).hostname : '',
@@ -232,7 +241,7 @@ export function ProspectingPage() {
             const lead = await createLead({ name: prospect.name, company: company.name, companyId: company.id,
               phone: prospect.phone, email: prospect.email, city: prospect.city, cnpj: prospect.cnpj, website: publicUrl(prospect.website) || '',
               source: 'Garimpo · Google Maps', sourceDetail: 'Motor Python hospedado', sourceUrl: evidenceFor(prospect)[0]?.url || '',
-              stageId, status: 'active', temperature: 'cold', priority: 'medium', ownerId: currentUserId, ownerName: 'Sem responsável',
+              stageId, status: 'active', temperature: 'cold', priority: 'medium', ownerId: null, ownerName: 'Sem responsável',
               value: 0, nextActionAt: null, notes: [prospect.notes, prospect.description, ...evidenceFor(prospect).map(item => `${item.field}: ${item.value} · ${item.url}`)].join('\n'), tags: ['garimpo'] })
             leads.push(lead); leadId = lead.id
           }
@@ -279,7 +288,7 @@ export function ProspectingPage() {
         </section>
       </main>
     </div>
-    {sendOpen && <div className="gh-modal-backdrop"><section className="gh-modal" role="dialog" aria-modal="true" aria-labelledby="gh-send-title"><button className="gh-close" aria-label="Fechar envio" disabled={sending} onClick={() => setSendOpen(false)}><X size={20} /></button><h2 id="gh-send-title">Enviar {approved.length} empresa(s) ao CRM</h2><p>As empresas aprovadas entrarão na sua base de contatos. Empresas já vinculadas serão reutilizadas.</p><label className="gh-check"><input type="checkbox" checked={opportunity} disabled={sending || !canTeamAccess('create','pipeline')} onChange={event => setOpportunity(event.target.checked)} />Criar também uma oportunidade no funil</label>{opportunity && <label>Etapa inicial<select value={stageId} disabled={sending} onChange={event => setStageId(event.target.value)}>{snapshot?.stages.map(stage => <option key={stage.id} value={stage.id}>{stage.name}</option>)}</select></label>}<div className="gh-actions"><button className="gh-secondary" disabled={sending} onClick={() => setSendOpen(false)}>Cancelar</button><button className="gh-primary" disabled={sending || (opportunity && !stageId)} onClick={() => void send()}>{sending ? 'Enviando…' : 'Confirmar envio'}</button></div></section></div>}
+    <Modal open={sendOpen} title={`Enviar ${approved.length} empresa(s) ao CRM`} onClose={() => { if (!sending) setSendOpen(false) }} footer={<div className="gh-actions"><button className="gh-secondary" disabled={sending} onClick={() => setSendOpen(false)}>Cancelar</button><button className="gh-primary" disabled={sending || (opportunity && !stageId)} onClick={() => void send()}>{sending ? 'Enviando…' : 'Confirmar envio'}</button></div>}><div className="gh-page gh-send-content"><p>As empresas aprovadas entrarão na sua base de contatos. Empresas já vinculadas serão reutilizadas.</p><label className="gh-check"><input type="checkbox" checked={opportunity} disabled={sending || !canCreateOpportunity} onChange={event => setOpportunity(event.target.checked)} />Criar também uma oportunidade no funil</label>{opportunity && <label>Etapa inicial<select value={stageId} disabled={sending} onChange={event => setStageId(event.target.value)}>{snapshot?.stages.map(stage => <option key={stage.id} value={stage.id}>{stage.name}</option>)}</select></label>}</div></Modal>
     <footer className="gh-footer">Motor Python 0.6 · Contatos e fontes publicados. Revise os dados antes da abordagem.<button onClick={() => navigate('leads')}>Abrir base do CRM <ArrowRight size={13} /></button></footer>
   </div>
 }

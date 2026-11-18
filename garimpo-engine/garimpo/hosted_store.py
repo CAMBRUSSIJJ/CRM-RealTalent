@@ -1,6 +1,7 @@
 """Durable jobs in Supabase; public-source caches remain disposable per container."""
 import hashlib
 import json
+import time
 from uuid import uuid4
 
 import httpx
@@ -14,8 +15,16 @@ class RemoteStore:
         self.client, self.organization_id, self.cache = client, organization_id, cache
 
     def operation(self, action, job_id=None, **kwargs):
-        response = self.client.post('/rest/v1/rpc/garimpo_hosted_operation', json={
-            'p_org': self.organization_id, 'p_action': action, 'p_job': job_id, **kwargs})
+        payload = {'p_org': self.organization_id, 'p_action': action, 'p_job': job_id, **kwargs}
+        for attempt in range(3):
+            try:
+                response = self.client.post('/rest/v1/rpc/garimpo_hosted_operation', json=payload)
+                if response.status_code not in {429, 502, 503, 504} or attempt == 2:
+                    break
+            except httpx.TransportError:
+                if attempt == 2:
+                    raise RuntimeError('O armazenamento está temporariamente indisponível.') from None
+            time.sleep(0.25 * (attempt + 1))
         if response.is_error:
             message = response.text
             for code, error in [('lease_lost', LeaseLost), ('queue_full', QueueFull), ('idempotency_conflict', IdempotencyConflict)]:

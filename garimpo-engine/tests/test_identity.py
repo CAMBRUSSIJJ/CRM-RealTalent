@@ -54,7 +54,28 @@ class IdentifyApi(unittest.IsolatedAsyncioTestCase):
         self.env.start()
         self.role='member'
         self.index_installed=True
+        self.public_status=200
         self.rpc_calls=[]
+        self.public_calls=[]
+        def public_transport(request):
+            self.public_calls.append(request)
+            if self.public_status != 200:
+                return httpx.Response(self.public_status, json={'error':'limite'})
+            if request.url.path == '/consulta/api/v1/busca':
+                return httpx.Response(200, json={'total':1,'resultados':[{
+                    'cnpj':CNPJ,'razao_social':'CONCEITO BARBER ESTETICA LTDA',
+                    'nome_fantasia':'CONCEITO BARBER', 'cidade':'Rio Grande','uf':'RS',
+                    'situacao':'Ativa','_links':{'pagina':'https://www.datastone.com.br/consulta/empresa/exemplo'}
+                }]})
+            if request.url.path.startswith('/consulta/api/v1/empresa/'):
+                return httpx.Response(200,json={
+                    'cnpj':CNPJ, 'quadro_societario':[{
+                        'nome':'MARIA EXEMPLO','localizacao':'Rio Grande',
+                        'cpf':'***123456**', 'email':'privado@example.invalid'
+                    }], '_links':{'pagina':'https://www.datastone.com.br/consulta/empresa/exemplo'}
+                })
+            return httpx.Response(404,json={})
+
         def transport(request):
             if request.headers.get('authorization')!='Bearer valid-test-session-token':
                 return httpx.Response(401,json={})
@@ -75,7 +96,8 @@ class IdentifyApi(unittest.IsolatedAsyncioTestCase):
             return httpx.Response(404,json={})
         self.app=create_app(Settings(db_path=Path(self.tmp.name)/'cache.sqlite3',
                                      maps_binary=Path(__file__)),
-                            auth_transport=httpx.MockTransport(transport),preflight=lambda:None)
+                            auth_transport=httpx.MockTransport(transport),
+                            public_transport=httpx.MockTransport(public_transport),preflight=lambda:None)
         self.client=httpx.AsyncClient(transport=httpx.ASGITransport(app=self.app),
             base_url='http://test',
             headers={'Authorization':'Bearer valid-test-session-token','X-Workspace-Id':ORG})
@@ -110,11 +132,29 @@ class IdentifyApi(unittest.IsolatedAsyncioTestCase):
             **req,'state':'SC'})).status_code,422)
         self.assertEqual((await self.client.post('/api/garimpo/companies/identify',json={
             **req,'company':'Barbearia'})).status_code,422)
+        self.assertFalse(self.public_calls)
         self.index_installed=False
         result=await self.client.post('/api/garimpo/companies/identify',json=req)
+        self.assertEqual(result.status_code,200,result.text)
+        self.assertEqual(result.json()['candidates'][0]['cnpj'],CNPJ)
+        self.assertEqual(result.json()['provider'],'Consulta Data Stone (dados abertos da Receita Federal)')
+        self.assertFalse(result.json()['identity_confirmed'])
+        self.assertTrue(self.public_calls)
+        self.public_status=429
+        result=await self.client.post('/api/garimpo/companies/identify',json=req)
         self.assertEqual(result.status_code,503)
-        self.assertIn('não está instalado',result.json()['detail'])
+        self.assertIn('limite',result.json()['detail'])
         self.assertNotIn('candidates',result.json())
+
+    async def test_qsa_public_fallback_omits_private_details(self):
+        req=await self.client.get('/api/garimpo/companies/qsa',params={'cnpj':CNPJ})
+        self.assertEqual(req.status_code,200,req.text)
+        self.assertEqual(req.json()['source'],'Consulta Data Stone (dados abertos da Receita Federal)')
+        self.assertEqual(req.json()['people'][0]['partner_name'],'MARIA EXEMPLO')
+        self.assertEqual(req.json()['people'][0]['partner_type'],'Não informado')
+        self.assertNotIn('cpf',str(req.json()).lower())
+        self.assertNotIn('123456',str(req.json()))
+        self.assertNotIn('privado@',str(req.json()))
 
 if __name__=='__main__':
     unittest.main()

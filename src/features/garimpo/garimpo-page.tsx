@@ -236,7 +236,7 @@ export function ProspectingPage() {
         city?: string; cnpj?: string; legalName?: string; name?: string }
       const updates: CompanyChange = {}
       const comparable = (value: string, field: string) =>
-        field === 'phone' || field === 'cnpj' ? value.replace(/\\D/g,'') : normalize(value)
+        field === 'phone' || field === 'cnpj' ? value.replace(/\D/g,'') : normalize(value)
       const eligible = pending.proposals.filter(proposal => fields.includes(proposal.field)
         && proposal.field in mapped && currentValue(original, proposal.field) === proposal.before)
       if (!eligible.length) throw new Error('Selecione um campo de empresa que possa ser atualizado no CRM.')

@@ -26,7 +26,8 @@ from .maps_setup import verify_browser
 from .models import Candidate, SearchRequest, normalized, now, valid_cnpj, phone_number, website_url
 from .company_identity import rank_candidates, search_terms
 from .public_company_lookup import (
-    PublicLookupUnavailable, search_public_company, public_qsa_lookup, SOURCE_LABEL
+    PublicLookupUnavailable, search_public_company, public_qsa_lookup,
+    public_registration_lookup, SOURCE_LABEL
 )
 from .providers import eligible_site
 from .network import HTTP, SourceError
@@ -365,7 +366,8 @@ def create_app(settings=None, *, auth_transport=None, public_transport=None, sto
         checked_at = now()
         observations, warnings, sources = [], [], []
         if cnpj and data.state.upper() == 'RS':
-            # This source covers registered corporate details, not published contacts.
+            # Company registration only: no contact enrichment from the CNPJ API.
+            record, source_label, record_date = None, '', ''
             try:
                 async with httpx.AsyncClient(
                     base_url=supabase_url, timeout=12, transport=auth_transport,
@@ -380,25 +382,41 @@ def create_app(settings=None, *, auth_transport=None, public_transport=None, sto
                     matches = [row for row in result.json().get('items', [])
                                if row.get('cnpj') == cnpj]
                     if matches:
-                        source = matches[0]
-                        sources.append('CNPJ / Receita Federal')
-                        for field, value in (('legal_name', source.get('legal_name')),
-                                             ('trade_name', source.get('trade_name')),
-                                             ('main_cnae', source.get('main_cnae')),
-                                             ('status', source.get('status')),
-                                             ('opened_on', source.get('opened_on'))):
-                            if value:
-                                observations.append({'field': field, 'value': str(value),
-                                    'source': 'Cadastro CNPJ / Receita Federal',
-                                    'url': source.get('source_url',''),
-                                    'observed_at': source.get('source_month',''),
-                                    'kind': 'register'})
+                        record, source_label = matches[0], 'CNPJ / Receita Federal'
+                        record_date = record.get('source_month','')
                     else:
                         warnings.append('CNPJ não encontrado no recorte disponível do índice empresarial.')
+                elif result.status_code in {404, 406} or 'PGRST202' in result.text:
+                    try:
+                        record = await public_registration_lookup(cnpj, transport=public_transport)
+                        source_label = SOURCE_LABEL
+                        record_date = checked_at
+                        warnings.append('Índice local ausente: cadastro consultado em fonte pública secundária, sujeito a atualização e disponibilidade.')
+                    except PublicLookupUnavailable as exc:
+                        warnings.append('O índice local não está instalado; fonte externa indisponível. ' + str(exc))
+                elif result.status_code in {401,403} or 'workspace_forbidden' in result.text:
+                    warnings.append('Sem permissão para consultar o índice cadastral.')
                 else:
-                    warnings.append('Índice cadastral ainda não disponível para nova consulta.')
+                    warnings.append('Índice cadastral indisponível para nova consulta.')
             except (httpx.HTTPError, ValueError, TypeError, KeyError):
                 warnings.append('Não foi possível consultar o índice cadastral nesta tentativa.')
+            if record:
+                sources.append(source_label)
+                for field, value in (
+                    ('legal_name', record.get('legal_name')),
+                    ('trade_name', record.get('trade_name')),
+                    ('main_cnae', record.get('main_cnae')),
+                    ('status', record.get('status')),
+                    ('opened_on', record.get('opened_on')),
+                ):
+                    if value:
+                        observations.append({
+                            'field': field, 'value': str(value),
+                            'source': source_label,
+                            'url': record.get('source_url',''),
+                            'observed_at': record_date,
+                            'kind': 'register',
+                        })
         elif cnpj:
             warnings.append('O índice cadastral de revisão cobre RS neste piloto.')
 

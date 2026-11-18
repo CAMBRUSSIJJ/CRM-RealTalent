@@ -9,6 +9,9 @@ const providerId = (value: CaptureDraft | ProspectRecord) => String(engine(value
 export function sameBusiness(left: CaptureDraft | ProspectRecord, right: CaptureDraft | ProspectRecord): boolean {
   const a = providerId(left), b = providerId(right)
   if (a && b && a === b) return true
+  const leftCnpj = String(left.cnpj || '').replace(/\D/g, '')
+  const rightCnpj = String(right.cnpj || '').replace(/\D/g, '')
+  if (leftCnpj.length === 14 && leftCnpj === rightCnpj) return true
   // Branches sharing a phone are not necessarily the same physical company.
   return normalized(String(left.company || left.name || '')) === normalized(String(right.company || right.name || ''))
     && normalized(String(left.city || '')) === normalized(String(right.city || ''))
@@ -20,11 +23,13 @@ export function mergeResults(state: ProspectingState, drafts: CaptureDraft[], wo
   for (const draft of drafts) {
     const index = prospects.findIndex(record => sameBusiness(record, draft))
     if (index < 0) {
-      prospects.unshift({ ...createProspect(workspaceId, { ...draft, source: 'maps', sourceDetail: 'Google Maps · Motor Python hospedado' }, 'maps', leads, userId), status: 'review' })
+      const source = draft.source === 'cnpj' ? 'cnpj' : 'maps'
+      const sourceDetail = draft.sourceDetail || (source === 'cnpj' ? 'Receita Federal · índice CNPJ' : 'Google Maps · Motor Python hospedado')
+      prospects.unshift({ ...createProspect(workspaceId, { ...draft, source, sourceDetail }, source, leads, userId), status: 'review' })
       continue
     }
     const original = prospects[index]
-    const incoming = createProspect(workspaceId, draft, 'maps', leads, userId)
+    const incoming = createProspect(workspaceId, draft, draft.source === 'cnpj' ? 'cnpj' : 'maps', leads, userId)
     const next = { ...original }
     // Enrichment must never undo a manual edit, an approval, a discard, or a CRM receipt.
     for (const field of ['phone','email','website','instagram','address','bookingUrl','description'] as const) {

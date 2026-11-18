@@ -1,7 +1,13 @@
 -- QSA public corporate relationships, source RFB open CNPJ dataset (RS pilot).
 -- Deliberately excludes CPF (even partially masked), DOB, age, phone, emails and representatives' documents.
 -- This migration is additive; do not run on production until staging tests and privacy review.
-create table if not exists public.realtalent_company_qsa (
+create schema if not exists realtalent_internal;
+revoke all on schema realtalent_internal from public, anon;
+-- USAGE + SELECT are for SECURITY INVOKER RPCs only. Do NOT expose this schema
+-- in the Supabase Data API "Exposed schemas" configuration.
+grant usage on schema realtalent_internal to authenticated;
+
+create table if not exists realtalent_internal.realtalent_company_qsa (
   cnpj_basic text not null check (cnpj_basic ~ '^[0-9]{8}$'),
   partner_key text not null check (partner_key ~ '^[0-9a-f]{32}$'),
   partner_name text not null check (length(partner_name) between 1 and 180),
@@ -15,15 +21,15 @@ create table if not exists public.realtalent_company_qsa (
   primary key (cnpj_basic, partner_key)
 );
 create index if not exists realtalent_qsa_root_role_idx
-  on public.realtalent_company_qsa (cnpj_basic, role_code);
-alter table public.realtalent_company_qsa enable row level security;
-revoke all on public.realtalent_company_qsa from anon, authenticated;
-grant select on public.realtalent_company_qsa to authenticated;
+  on realtalent_internal.realtalent_company_qsa (cnpj_basic, role_code);
+alter table realtalent_internal.realtalent_company_qsa enable row level security;
+revoke all on realtalent_internal.realtalent_company_qsa from anon, authenticated;
+grant select on realtalent_internal.realtalent_company_qsa to authenticated;
 
 -- QSA is a shared official dataset, not private CRM contact information.
 -- It can only be read by authenticated members with prospecting write access
 -- and only for companies present in the prepared RS index.
-create policy realtalent_qsa_member_select on public.realtalent_company_qsa
+create policy realtalent_qsa_member_select on realtalent_internal.realtalent_company_qsa
   for select to authenticated using (
     exists (select 1 from public.organization_members m
             where m.user_id = (select auth.uid()) and m.role in ('owner','admin','member'))
@@ -54,14 +60,14 @@ begin
   end if;
   p_root := substring(p_cnpj from 1 for 8);
   select count(*) into qty from (
-    select 1 from public.realtalent_company_qsa q
+    select 1 from realtalent_internal.realtalent_company_qsa q
     where q.cnpj_basic = p_root limit 51
   ) b;
   select coalesce(jsonb_agg(to_jsonb(q)), '[]'::jsonb) into result
   from (
     select partner_name, partner_type, role_code, role_label,
            joined_on, source_month, source_url
-    from public.realtalent_company_qsa
+    from realtalent_internal.realtalent_company_qsa
     where cnpj_basic = p_root
     order by role_code, partner_name, partner_key
     limit 50
@@ -101,6 +107,13 @@ begin
   ) then
     raise exception 'workspace_forbidden' using errcode = '42501';
   end if;
+  if p_has_qsa is not null and not exists (
+    select 1 from public.organization_members m
+    where m.organization_id = p_org and m.user_id = (select auth.uid())
+      and m.role in ('owner','admin','member')
+  ) then
+    raise exception 'workspace_forbidden' using errcode = '42501';
+  end if;
   if p_uf <> 'RS' or page_offset > 10000 or
      p_cnae_scope not in ('any','main','secondary') or
      (p_opened_after is not null and p_opened_before is not null and p_opened_after > p_opened_before) or
@@ -123,7 +136,7 @@ begin
       and (nullif(p_city,'') is null or c.city_search = p_city)
       and (nullif(p_name,'') is null or c.cnpj = p_name or position(p_name in c.name_search) > 0)
       and (p_headquarters is null or c.headquarters = p_headquarters)
-      and (p_has_qsa is null or (exists (select 1 from public.realtalent_company_qsa q where q.cnpj_basic = substring(c.cnpj from 1 for 8))) = p_has_qsa)
+      and (p_has_qsa is null or (exists (select 1 from realtalent_internal.realtalent_company_qsa q where q.cnpj_basic = substring(c.cnpj from 1 for 8))) = p_has_qsa)
       and (p_opened_after is null or c.opened_on >= p_opened_after)
       and (p_opened_before is null or c.opened_on <= p_opened_before)
       and (nullif(p_cnae,'') is null or

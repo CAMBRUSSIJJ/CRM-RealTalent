@@ -8,7 +8,7 @@ import { cacheProspectingStateLocally, detectProspectDuplicate, flushProspecting
 import { hostedGarimpo, type HostedJob } from './hosted-client'
 import { IndexExplorer } from './index-explorer'
 import { RecheckPanel } from './recheck-panel'
-import { readPending, resolveRecheck, stageRecheck, type RecheckField } from './recheck'
+import { currentValue, readPending, resolveRecheck, stageRecheck, type RecheckField } from './recheck'
 import { evidenceFor, mergeResults, publicUrl } from './review'
 import './garimpo.css'
 
@@ -22,7 +22,7 @@ type View = 'review' | 'sent' | 'discarded' | 'all'
 
 export function ProspectingPage() {
   const { snapshot, currentWorkspace, currentUserId, repositoryMode, can, canTeamAccess, canTeamAccessRecord } = useAppWorkspace()
-  const { createCompany, createLead } = useAppActions()
+  const { createCompany, createLead, updateCompany } = useAppActions()
   const { navigate } = useAppNavigation()
   const { notify } = useAppUi()
   const workspaceId = currentWorkspace?.id || ''
@@ -30,6 +30,7 @@ export function ProspectingPage() {
   const canEdit = canTeamAccess('edit','prospecting')
   const canSend = canEdit && canTeamAccess('create','contacts') && can('create','company')
   const canCreateOpportunity = canTeamAccess('create','pipeline') && can('create','lead')
+  const canUpdateCompany = can('edit','company') && canTeamAccess('edit','contacts')
   const [state, setState] = useState<ProspectingState>(empty)
   const stateRef = useRef(state)
   const scopeRef = useRef(workspaceId)
@@ -211,16 +212,56 @@ export function ProspectingPage() {
     notify('success', 'Revisão concluída. Confira as novas informações antes de aceitar atualizações.')
   }, [canEdit, workspaceId, currentUserId, canTeamAccessRecord, commit, notify])
 
-  const resolveRecordRecheck = useCallback((id: string, fields: RecheckField[]) => {
-    if (!canEdit) return
+  const resolveRecordRecheck = useCallback(async (id: string, fields: RecheckField[], syncCrm: boolean) => {
+    if (!canEdit || !workspaceId) throw new Error('Sem acesso à revisão desta empresa.')
+    const original = stateRef.current.prospects.find(item => item.id === id && item.workspaceId === workspaceId)
+    if (!original || !canTeamAccessRecord('prospecting', original.createdBy ?? currentUserId))
+      throw new Error('Empresa não encontrada ou sem permissão de revisão.')
+    const pending = readPending(original)
+    if (!pending) throw new Error('As alterações já foram resolvidas. Atualize a ficha.')
+    if (syncCrm) {
+      if (!canUpdateCompany || original.status !== 'sent')
+        throw new Error('Sem permissão para atualizar esta empresa no CRM.')
+      const linkedId = String(original.rawData.hostedCrmCompanyId || '')
+      const linked = snapshotRef.current?.companies.find(item =>
+        item.workspaceId === workspaceId &&
+        ((linkedId && item.id === linkedId) ||
+         (digits(original.cnpj).length === 14 && digits(item.cnpj) === digits(original.cnpj))))
+      if (!linked) throw new Error('O cadastro principal desta empresa não foi localizado no CRM.')
+      const mapped = {
+        phone: 'phone', website: 'website', city: 'city', cnpj: 'cnpj',
+        legal_name: 'legalName', trade_name: 'name',
+      } as const
+      type CompanyChange = { phone?: string; website?: string; domain?: string;
+        city?: string; cnpj?: string; legalName?: string; name?: string }
+      const updates: CompanyChange = {}
+      const comparable = (value: string, field: string) =>
+        field === 'phone' || field === 'cnpj' ? value.replace(/\\D/g,'') : normalize(value)
+      const eligible = pending.proposals.filter(proposal => fields.includes(proposal.field)
+        && proposal.field in mapped && currentValue(original, proposal.field) === proposal.before)
+      if (!eligible.length) throw new Error('Selecione um campo de empresa que possa ser atualizado no CRM.')
+      for (const proposal of eligible) {
+        const key = mapped[proposal.field as keyof typeof mapped]
+        const existing = String(linked[key] || '')
+        if (comparable(existing,proposal.field) !== comparable(proposal.before,proposal.field))
+          throw new Error(`O campo ${key} foi alterado diretamente no CRM. Confira a divergência antes de substituir.`)
+        Object.assign(updates, { [key]: proposal.after })
+        if (key === 'website' && publicUrl(proposal.after))
+          updates.domain = new URL(publicUrl(proposal.after)!).hostname
+      }
+      await updateCompany(linked.id, updates)
+      if (scopeRef.current !== workspaceId) return
+    }
     commit(current => ({ ...current, prospects: current.prospects.map(item => {
       if (item.id !== id || item.workspaceId !== workspaceId
           || !canTeamAccessRecord('prospecting', item.createdBy ?? currentUserId)) return item
-      if (!readPending(item)) return item
+      const latest = readPending(item)
+      if (!latest || latest.checkedAt !== pending.checkedAt) return item
       return { ...item, ...resolveRecheck(item,fields), updatedAt: new Date().toISOString() }
     }) }))
-    notify('success', fields.length ? 'Atualizações aceitas na revisão.' : 'Sugestões descartadas; histórico preservado.')
-  }, [canEdit,workspaceId,currentUserId,canTeamAccessRecord,commit,notify])
+    notify('success', syncCrm ? 'Atualização aplicada à revisão e ao cadastro da empresa no CRM.'
+      : fields.length ? 'Atualizações aceitas na revisão.' : 'Sugestões descartadas; histórico preservado.')
+  }, [canEdit,canUpdateCompany,workspaceId,currentUserId,canTeamAccessRecord,commit,notify,updateCompany])
 
   async function start(event: FormEvent) {
     event.preventDefault()
@@ -356,7 +397,12 @@ export function ProspectingPage() {
             <label className="gh-check"><input type="checkbox" checked={recheckedOnly} onChange={e => setRecheckedOnly(e.target.checked)} />Somente já investigadas novamente</label>
           </div></details>
           {visible.length ? <div className="gh-table-wrap"><table><thead><tr><th><input type="checkbox" aria-label="Selecionar todas as empresas visíveis" checked={visible.length > 0 && visible.every(record => selected.includes(record.id))} onChange={event => setSelected(event.target.checked ? visible.map(record => record.id) : [])} /></th><th>Empresa</th><th>Contato publicado</th><th>Situação</th><th><span className="gh-sr">Ações</span></th></tr></thead><tbody>{visible.map(record => <RecordRows key={record.id} record={record} selected={selected.includes(record.id)} onSelect={checked => setSelected(current => checked ? [...new Set([...current,record.id])] : current.filter(id => id !== record.id))} expanded={expanded === record.id} onExpand={() => setExpanded(expanded === record.id ? null : record.id)} canEdit={canEdit} onPatch={patch => patchRecord(record.id,patch)}
-            onRecheck={() => recheckRecord(record.id)} onResolve={fields => resolveRecordRecheck(record.id,fields)} />)}</tbody></table></div>
+            onRecheck={() => recheckRecord(record.id)}
+            onResolve={(fields,syncCrm) => resolveRecordRecheck(record.id,fields,syncCrm)}
+            canSyncCrm={canUpdateCompany && record.status === 'sent'
+              && Boolean(snapshot?.companies.some(item => item.workspaceId === workspaceId
+                && (item.id === record.rawData.hostedCrmCompanyId
+                  || (digits(record.cnpj).length === 14 && digits(item.cnpj) === digits(record.cnpj)))))} />)}</tbody></table></div>
             : <div className="gh-empty"><Search size={29} /><h3>{busy ? 'Buscando as primeiras empresas…' : filter ? 'Nenhuma empresa corresponde ao filtro.' : view === 'review' ? 'As empresas encontradas aparecerão aqui.' : 'Nenhuma empresa nesta etapa.'}</h3><p>{busy ? 'Os resultados aparecem durante a coleta.' : 'Revise os dados, aprove as empresas e envie sua seleção ao CRM.'}</p></div>}
         </section>
       </main>
@@ -366,15 +412,16 @@ export function ProspectingPage() {
   </div>
 }
 
-function RecordRows({ record, selected, onSelect, expanded, onExpand, canEdit, onPatch, onRecheck, onResolve }: {
+function RecordRows({ record, selected, onSelect, expanded, onExpand, canEdit, onPatch, onRecheck, onResolve, canSyncCrm }: {
   record: ProspectRecord; selected: boolean; onSelect(value: boolean): void; expanded: boolean;
   onExpand(): void; canEdit: boolean; onPatch(patch: Partial<ProspectRecord>): void;
-  onRecheck: () => Promise<void>; onResolve: (fields: RecheckField[]) => void
+  onRecheck: () => Promise<void>; onResolve: (fields: RecheckField[], syncCrm: boolean) => Promise<void>;
+  canSyncCrm: boolean
 }) {
   const evidence = evidenceFor(record)
   const status = { new:'Revisar', analyzing:'Revisar', review:'Revisar', approved:'Aprovada', discarded:'Descartada', sent:'No CRM' }[record.status]
   return <><tr className={selected ? 'gh-selected' : ''}><td><input type="checkbox" aria-label={`Selecionar ${record.company}`} checked={selected} onChange={event => onSelect(event.target.checked)} /></td><td><strong>{record.company || record.name}</strong><span>{record.city || 'Cidade a confirmar'}</span>{record.duplicateLevel !== 'none' && <small>Possível vínculo já existente no CRM</small>}</td><td>{record.phone ? <a href={`tel:${record.phone.replace(/[^+\d]/g,'')}`}>{record.phone}</a> : <span>Sem telefone publicado</span>}{record.email && <span>{record.email}</span>}{publicUrl(record.website) && <a href={publicUrl(record.website)!} target="_blank" rel="noopener noreferrer">Site da empresa <ExternalLink size={11} /></a>}</td><td><span className={`gh-badge gh-badge--${record.status}`}>{status}</span></td><td><button className="gh-icon" onClick={onExpand} aria-expanded={expanded} aria-label={`Conferir dados e fontes de ${record.company}`}><ChevronDown size={18} /></button></td></tr>
     {expanded && <tr><td colSpan={5}><div className="gh-detail"><div className="gh-edit-fields">{(['company','phone','email','address','website','notes'] as const).map(field => <label key={field}>{{company:'Empresa',phone:'Telefone',email:'E-mail',address:'Endereço',website:'Site',notes:'Suas observações'}[field]}<input key={`${record.id}:${field}:${record[field]}`} defaultValue={record[field]} disabled={!canEdit || record.status === 'sent'} onBlur={event => { if (event.target.value !== record[field]) onPatch({ [field]: event.target.value }) }} /></label>)}</div><h3>Fontes dos dados</h3>{evidence.length ? <ul>{evidence.map((item,index) => <li key={index}><strong>{item.field}</strong>: {item.value} <a href={item.url} target="_blank" rel="noopener noreferrer">Conferir fonte <ExternalLink size={11} /></a>{item.observed_at && <small>Consultado em {new Date(item.observed_at).toLocaleString('pt-BR')}</small>}</li>)}</ul> : <p>Este registro não possui evidências detalhadas. Revise os dados antes de aprovar.</p>}<div className="gh-actions">{canEdit && !['sent','discarded'].includes(record.status) && <><button className="gh-primary" onClick={() => onPatch({status:record.status === 'approved' ? 'review' : 'approved'})}>{record.status === 'approved' ? 'Voltar para revisão' : 'Aprovar empresa'}</button><button className="gh-secondary" onClick={() => onPatch({status:'discarded'})}>Descartar</button></>}{canEdit && record.status === 'discarded' && <button className="gh-secondary" onClick={() => onPatch({status:'review'})}>Restaurar para revisão</button>}</div>
-    <RecheckPanel record={record} canEdit={canEdit} onRecheck={onRecheck} onResolve={onResolve} />
+    <RecheckPanel record={record} canEdit={canEdit} canSyncCrm={canSyncCrm} onRecheck={onRecheck} onResolve={onResolve} />
     </div></td></tr>}</>
 }

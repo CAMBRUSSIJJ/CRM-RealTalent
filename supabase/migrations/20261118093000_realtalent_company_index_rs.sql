@@ -20,6 +20,8 @@ create table if not exists public.realtalent_company_index (
 );
 create index if not exists realtalent_ci_location_idx
   on public.realtalent_company_index (uf, city_search, status, main_cnae);
+create index if not exists realtalent_ci_opened_idx
+  on public.realtalent_company_index (uf, opened_on) where opened_on is not null;
 create index if not exists realtalent_ci_cnae_idx
   on public.realtalent_company_index (uf, main_cnae, status);
 create index if not exists realtalent_ci_secondary_idx
@@ -43,7 +45,11 @@ create or replace function public.realtalent_company_index_search(
   p_name text default null,
   p_only_active boolean default true,
   p_limit integer default 30,
-  p_offset integer default 0
+  p_offset integer default 0,
+  p_headquarters boolean default null,
+  p_opened_after date default null,
+  p_opened_before date default null,
+  p_cnae_scope text default 'any'
 ) returns jsonb language plpgsql security invoker set search_path = '' as $$
 declare
   page_size integer := least(greatest(coalesce(p_limit,30),1),100);
@@ -58,6 +64,8 @@ begin
     raise exception 'workspace_forbidden' using errcode = '42501';
   end if;
   if p_uf <> 'RS' or page_offset > 10000 or
+     p_cnae_scope not in ('any','main','secondary') or
+     (p_opened_after is not null and p_opened_before is not null and p_opened_after > p_opened_before) or
      (p_city is not null and length(p_city) > 100) or
      (p_name is not null and length(p_name) > 120) or
      (p_cnae is not null and p_cnae !~ '^[0-9]{2,7}$')
@@ -76,10 +84,14 @@ begin
       and (not p_only_active or c.status = '02')
       and (nullif(p_city,'') is null or c.city_search = p_city)
       and (nullif(p_name,'') is null or c.cnpj = p_name or position(p_name in c.name_search) > 0)
-      and (nullif(p_cnae,'') is null
-           or c.main_cnae like p_cnae || '%'
-           or exists (select 1 from unnest(c.secondary_cnaes) s
-                      where s like p_cnae || '%'))
+      and (p_headquarters is null or c.headquarters = p_headquarters)
+      and (p_opened_after is null or c.opened_on >= p_opened_after)
+      and (p_opened_before is null or c.opened_on <= p_opened_before)
+      and (nullif(p_cnae,'') is null or
+           (p_cnae_scope in ('any','main') and c.main_cnae like p_cnae || '%') or
+           (p_cnae_scope in ('any','secondary') and exists (
+             select 1 from unnest(c.secondary_cnaes) s where s like p_cnae || '%'
+           )))
     order by coalesce(nullif(c.trade_name,''),c.legal_name), c.cnpj
     limit page_size + 1 offset page_offset
   ) q;
@@ -94,6 +106,6 @@ begin
   );
 end $$;
 revoke all on function public.realtalent_company_index_search(
-  uuid,text,text,text,text,boolean,integer,integer) from public, anon;
+  uuid,text,text,text,text,boolean,integer,integer,boolean,date,date,text) from public, anon;
 grant execute on function public.realtalent_company_index_search(
-  uuid,text,text,text,text,boolean,integer,integer) to authenticated;
+  uuid,text,text,text,text,boolean,integer,integer,boolean,date,date,text) to authenticated;

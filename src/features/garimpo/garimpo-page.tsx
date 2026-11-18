@@ -231,7 +231,7 @@ export function ProspectingPage() {
               && ((digits(prospect.phone).length >= 10 && digits(item.phone) === digits(prospect.phone))
                 || (publicUrl(prospect.website) && publicUrl(item.website) === publicUrl(prospect.website)))))
         if (!company) {
-          company = await createCompany({ name: prospect.company || prospect.name, legalName: '', cnpj: prospect.cnpj,
+          company = await createCompany({ name: prospect.company || prospect.name, legalName: prospect.source === 'cnpj' ? String((prospect.rawData.engine as Record<string, unknown> | undefined)?.legalName || '') : '', cnpj: prospect.cnpj,
             website: publicUrl(prospect.website) || '', domain: publicUrl(prospect.website) ? new URL(prospect.website).hostname : '',
             segment: prospect.source === 'cnpj' ? String((prospect.rawData.engine as Record<string, unknown> | undefined)?.mainCnae || 'CNAE cadastral') : String((prospect.rawData.engine as Record<string,unknown> | undefined)?.requestedSegment || ''),
             phone: prospect.phone, city: prospect.city, state: prospect.source === 'cnpj' ? 'RS' : String(prospect.rawData.state || ''), status: 'prospect', leadIds: [] })

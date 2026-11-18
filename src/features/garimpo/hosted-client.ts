@@ -1,5 +1,6 @@
 import { getSupabaseClient } from '../../lib/supabase'
 import type { CaptureDraft } from '../../services/prospecting-workspace'
+import type { RecheckResult } from './recheck'
 
 export interface IndexedCompany {
   cnpj: string
@@ -22,6 +23,10 @@ export interface CompanyIndexSearch {
   cnae: string
   name: string
   active_only: boolean
+  headquarters: 'all' | 'yes' | 'no'
+  opened_after: string
+  opened_before: string
+  cnae_scope: 'any' | 'main' | 'secondary'
   limit: number
   offset: number
 }
@@ -59,6 +64,9 @@ export interface SearchInput {
   state: string
   limit: number
   require_phone: boolean
+  require_email: boolean
+  require_observed_location: boolean
+  minimum_relevance: number
   enrich_websites: boolean
 }
 
@@ -89,10 +97,18 @@ async function request(workspaceId: string, path: string, method = 'GET', body?:
 }
 
 export const hostedGarimpo = {
+  async recheck(workspaceId: string, input: { company: string; city: string; state: string;
+    cnpj: string; website: string; phone: string; address: string }, signal?: AbortSignal): Promise<RecheckResult> {
+    return (await request(workspaceId, '/companies/recheck', 'POST', input, undefined, signal)).json()
+  },
   async index(workspaceId: string, input: CompanyIndexSearch, signal?: AbortSignal): Promise<CompanyIndexPage> {
     const query = new URLSearchParams({
       state: 'RS', city: input.city, cnae: input.cnae, name: input.name,
-      active_only: String(input.active_only), limit: String(input.limit),
+      active_only: String(input.active_only),
+      ...(input.headquarters === 'all' ? {} : { headquarters: String(input.headquarters === 'yes') }),
+      ...(input.opened_after ? { opened_after: input.opened_after } : {}),
+      ...(input.opened_before ? { opened_before: input.opened_before } : {}),
+      cnae_scope: input.cnae_scope, limit: String(input.limit),
       offset: String(input.offset),
     })
     return (await request(workspaceId, `/index?${query.toString()}`, 'GET', undefined, undefined, signal)).json()

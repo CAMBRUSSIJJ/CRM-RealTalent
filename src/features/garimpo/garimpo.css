@@ -14,3 +14,49 @@
 .gh-index{padding:24px 26px}.gh-index-heading,.gh-index-results-heading{display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap}.gh-index-heading h2{margin:7px 0}.gh-index-heading p{font-size:12px;color:#7b879a;margin:0}.gh-index-tag{font-size:10px;font-weight:650;white-space:nowrap;padding:7px 10px;border-radius:8px;border:1px solid #d9e7ed;background:#f3f9fb;color:#28617d}.gh-index-filters{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px;align-items:end;margin-top:23px}.gh-index-filters .gh-index-check{display:flex;flex-direction:row;align-items:center;font-size:11px;line-height:1.6}.gh-index-filters .gh-primary{min-height:41px}.gh-index-error{color:#ad4439;font-size:12px;border:1px solid #edd3cb;background:#fff7f4;border-radius:8px;padding:12px;margin:20px 0 0}.gh-index-results{margin-top:22px}.gh-index-results-heading{border-top:1px solid #e7eaf2;padding:16px 0 13px}.gh-index-results-heading strong{font-size:12px}.gh-index .gh-table-wrap{overflow:auto}.gh-index table{width:100%;border-collapse:collapse;text-align:left}.gh-index th{background:#fafbfe;color:#8290a3;font-size:10px;text-align:left;font-weight:650;padding:11px 8px}.gh-index td{border-bottom:1px solid #eceef5;color:#48556f;font-size:11px;padding:12px 8px;vertical-align:top}.gh-index td:first-child,.gh-index th:first-child{width:28px}.gh-index td strong{display:block;font-size:12px;color:var(--text-primary,#25344c)}.gh-index td small{display:block;margin-top:4px;font-size:10px;color:#8390a5}.gh-index-pagination{display:flex;justify-content:flex-end;align-items:center;flex-wrap:wrap;gap:10px;padding-top:14px}.gh-index-pagination span{font-size:10px;color:#8993a6;margin-right:auto}
 @media(max-width:1250px){.gh-index-filters{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:800px){.gh-index{padding:20px}.gh-index-filters{grid-template-columns:1fr}.gh-index table{min-width:650px}.gh-index-heading{align-items:flex-start}}
+
+
+/* Intelligence 2.0: progressive disclosure and explicit company recheck. */
+.gh-index-more{grid-column:1/-1;border-top:1px solid #edf0f6;padding-top:12px}
+.gh-index-more summary,.gh-review-more summary,.gh-recheck-baseline summary,.gh-recheck-history summary{font-size:12px;color:#53627e;cursor:pointer;font-weight:600;list-style-position:inside}
+.gh-index-advanced{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px;margin-top:15px}
+.gh-saved-searches{display:flex;align-items:flex-end;gap:10px;flex-wrap:wrap;margin-top:17px;border-top:1px solid #edf0f6;padding-top:15px}
+.gh-saved-searches>label{flex:1;min-width:210px}.gh-saved-searches>.gh-secondary{min-height:41px}
+.gh-saved-list{display:flex;flex-wrap:wrap;gap:6px;flex-basis:100%}
+.gh-saved-list>div{display:flex;align-items:center;gap:2px;background:#f8f8fb;border:1px solid #e3e8ef;border-radius:9px}
+.gh-saved-list .gh-secondary{font-size:11px;padding:7px 9px;border:0;background:none}
+.gh-saved-list .gh-icon{padding:8px;color:#8594a4}
+.gh-review-more{border-bottom:1px solid #edf0f6;padding:10px 25px 14px}
+.gh-review-more>div{display:grid;grid-template-columns:repeat(2,minmax(0,1fr)) 1.3fr;gap:15px;align-items:end;margin-top:13px}
+.gh-review-more .gh-check{margin-bottom:10px}
+.gh-recheck{border-top:1px solid #e7eaf2;padding-top:20px;margin-top:22px}
+.gh-recheck-heading{display:flex;align-items:center;justify-content:space-between;gap:16px}
+.gh-recheck-heading>div{flex:1}.gh-recheck-heading h3{font-size:14px;margin:8px 0}
+.gh-recheck-heading p{font-size:12px;line-height:1.6;color:#7b879a;margin:0}
+.gh-recheck-baseline,.gh-recheck-history{margin-top:17px;padding-top:15px;border-top:1px solid #edf0f6}
+.gh-recheck-baseline dl{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin:14px 0}
+.gh-recheck-baseline dt{font-size:10px;color:#8a96a8}.gh-recheck-baseline dd{font-size:12px;color:#27354b;margin:4px 0 0;overflow-wrap:anywhere}
+.gh-recheck-proposals{border:1px solid #e1dfef;background:#fcfbff;padding:17px;border-radius:11px;margin-top:17px}
+.gh-recheck-proposals h4{margin:0;font-size:13px}
+.gh-recheck-diff{display:flex!important;flex-direction:row!important;align-items:flex-start!important;gap:12px!important;border-bottom:1px solid #ebeaf3;padding:12px 0;font-weight:400!important}
+.gh-recheck-diff>div{flex:1;min-width:0;overflow-wrap:anywhere}
+.gh-recheck-diff strong{display:block;font-size:12px;color:#36455d}
+.gh-recheck-diff p{font-size:12px;color:#4f5c70;margin:5px 0}
+.gh-recheck-diff p>span{font-size:11px;color:#8b97a7}
+.gh-recheck-diff small{display:inline-block;font-size:10px;color:#8591a3;margin-right:10px}
+.gh-recheck-diff a{font-size:11px;display:inline-flex;align-items:center;gap:5px}
+.gh-recheck-proposals .gh-actions{padding-top:14px}
+.gh-recheck-history ol{margin:12px 0;padding-left:20px}
+.gh-recheck-history li{margin:12px 0;font-size:11px;color:#728097}
+.gh-recheck-history li strong,.gh-recheck-history li span,.gh-recheck-history li small{display:block;line-height:1.6}
+.gh-recheck-history li strong{color:#495770}
+@media(max-width:950px){.gh-review-more>div{grid-template-columns:1fr 1fr}.gh-index-advanced{grid-template-columns:1fr}}
+@media(max-width:600px){.gh-review-more>div,.gh-recheck-baseline dl{grid-template-columns:1fr}.gh-recheck-heading{align-items:flex-start;flex-direction:column}}
+
+.gh-search-advanced{margin-top:16px;border-top:1px solid #edf0f6;padding-top:13px}
+.gh-search-advanced summary{color:#596b86;font-weight:600;font-size:12px;cursor:pointer}
+.gh-search-advanced>div{display:flex;flex-direction:column;gap:13px;margin-top:14px}
+.gh-search-advanced .gh-help{margin-top:0}
+
+.gh-recheck-crm-optin{display:flex!important;flex-direction:row!important;align-items:flex-start!important;gap:9px!important;margin-top:14px;padding:12px;background:#eef8f5;border:1px solid #d1e9e1;border-radius:9px;color:#315d51!important;font-size:12px!important;line-height:1.6}
+.gh-recheck-crm-optin input{margin-top:2px}

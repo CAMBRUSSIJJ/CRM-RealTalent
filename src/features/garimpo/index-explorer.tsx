@@ -1,7 +1,9 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react'
-import { Check, ChevronLeft, ChevronRight, Search } from 'lucide-react'
+import { Bookmark, Check, ChevronLeft, ChevronRight, Search, Trash2 } from 'lucide-react'
 import type { CaptureDraft } from '../../services/prospecting-workspace'
-import { hostedGarimpo, type IndexedCompany } from './hosted-client'
+import { safeStorage } from '../../lib/storage'
+import { createUuid } from '../../lib/id'
+import { hostedGarimpo, type IndexedCompany, type CompanyIndexSearch } from './hosted-client'
 
 type Props = {
   workspaceId: string
@@ -10,6 +12,25 @@ type Props = {
 }
 
 const label = (row: IndexedCompany) => row.trade_name || row.legal_name
+type SearchPreset = { id: string; label: string; input: Omit<CompanyIndexSearch, 'limit' | 'offset'> }
+const presetKey = (workspaceId: string) => `garimpo-index-searches-v2:${workspaceId}`
+function readPresets(workspaceId: string): SearchPreset[] {
+  if (!workspaceId) return []
+  try {
+    const payload = JSON.parse(safeStorage.getItem(presetKey(workspaceId)) || '[]') as unknown
+    if (!Array.isArray(payload)) return []
+    return payload.slice(0,10).filter((preset): preset is SearchPreset =>
+      Boolean(preset && typeof preset === 'object' && typeof preset.id === 'string'
+        && typeof preset.label === 'string' && preset.label.length <= 60
+        && preset.input && typeof preset.input.city === 'string'
+        && typeof preset.input.cnae === 'string'
+        && typeof preset.input.name === 'string' && typeof preset.input.active_only === 'boolean'
+        && ['all','yes','no'].includes(preset.input.headquarters)
+        && ['any','main','secondary'].includes(preset.input.cnae_scope)
+        && typeof preset.input.opened_after === 'string'
+        && typeof preset.input.opened_before === 'string')) as SearchPreset[]
+  } catch { return [] }
+}
 const sourceMonth = (value: string) => /^\d{4}-\d{2}/.test(value) ? value.slice(0, 7) : 'não informada'
 
 function toDraft(item: IndexedCompany): CaptureDraft {
@@ -22,7 +43,9 @@ function toDraft(item: IndexedCompany): CaptureDraft {
     engine: {
       version: 'intelligence-index-rs-1', providerId: `cnpj:${item.cnpj}`,
       dataset: { source: 'Receita Federal / CNPJ', month: item.source_month },
-      legalName: item.legal_name, mainCnae: item.main_cnae, uf: item.uf,
+      legalName: item.legal_name, tradeName: item.trade_name,
+      mainCnae: item.main_cnae, registrationStatus: item.status,
+      openedOn: item.opened_on || '', uf: item.uf,
       qualityScore: 30, relevanceScore: 0, relevanceReasons: ['Filtro cadastral CNAE/município'],
       // Dataset provenance is not a per-company URL or contact verification.
       evidence: [{
@@ -40,6 +63,13 @@ export function IndexExplorer({ workspaceId, canImport, onImport }: Props) {
   const [name, setName] = useState('')
   const [cnae, setCnae] = useState('')
   const [activeOnly, setActiveOnly] = useState(true)
+  const [headquarters, setHeadquarters] = useState<CompanyIndexSearch['headquarters']>('all')
+  const [openedAfter, setOpenedAfter] = useState('')
+  const [openedBefore, setOpenedBefore] = useState('')
+  const [cnaeScope, setCnaeScope] = useState<CompanyIndexSearch['cnae_scope']>('any')
+  const [savedName, setSavedName] = useState('')
+  const [presets, setPresets] = useState<SearchPreset[]>([])
+  const activeQuery = useRef<CompanyIndexSearch | null>(null)
   const [items, setItems] = useState<IndexedCompany[]>([])
   const [selected, setSelected] = useState<string[]>([])
   const [page, setPage] = useState(0)
@@ -54,24 +84,58 @@ export function IndexExplorer({ workspaceId, canImport, onImport }: Props) {
     controller.current?.abort()
     setItems([]); setSelected([]); setPage(0); setSearched(false)
     setError(''); setLoading(false)
+    activeQuery.current = null
+    setPresets(readPresets(workspaceId))
     return () => controller.current?.abort()
   }, [workspaceId])
+
+  const filters = (): CompanyIndexSearch => ({
+    city: city.trim(), name: name.trim(), cnae: cnae.trim(), active_only: activeOnly,
+    headquarters, opened_after: openedAfter, opened_before: openedBefore,
+    cnae_scope: cnaeScope, limit: pageSize, offset: 0,
+  })
+  function saveSearch() {
+    const label = savedName.trim()
+    if (!workspaceId || label.length < 2 || label.length > 60) return
+    const next = [...presets.filter(item => item.label.toLowerCase() !== label.toLowerCase()),
+      { id: createUuid(), label, input: filters() }].slice(-10).map(item => ({
+      ...item, input: (({city,cnae,name,active_only,headquarters,opened_after,opened_before,cnae_scope}) =>
+        ({city,cnae,name,active_only,headquarters,opened_after,opened_before,cnae_scope}))(item.input),
+    }))
+    setPresets(next); safeStorage.setItem(presetKey(workspaceId),JSON.stringify(next)); setSavedName('')
+  }
+  function loadSearch(item: SearchPreset) {
+    setCity(item.input.city);setName(item.input.name);setCnae(item.input.cnae)
+    setActiveOnly(item.input.active_only);setHeadquarters(item.input.headquarters)
+    setOpenedAfter(item.input.opened_after);setOpenedBefore(item.input.opened_before)
+    setCnaeScope(item.input.cnae_scope)
+    setItems([]);setSearched(false);setSelected([]);setPage(0);activeQuery.current=null
+  }
+  function removeSearch(id: string) {
+    const next = presets.filter(item => item.id !== id)
+    setPresets(next);safeStorage.setItem(presetKey(workspaceId),JSON.stringify(next))
+  }
 
   async function search(event?: FormEvent<HTMLFormElement>, offset = 0) {
     event?.preventDefault()
     if (!workspaceId || loading) return
+    if (openedAfter && openedBefore && openedAfter > openedBefore) {
+      setError('A data inicial precisa ser anterior à data final.')
+      return
+    }
     controller.current?.abort()
     const next = new AbortController()
     controller.current = next
     setLoading(true); setError('')
     try {
-      const result = await hostedGarimpo.index(workspaceId, {
-        city: city.trim(), name: name.trim(), cnae: cnae.trim(),
-        active_only: activeOnly, limit: pageSize, offset,
-      }, next.signal)
+      const query = offset === 0 || !activeQuery.current
+        ? filters() : activeQuery.current
+      const requested = { ...query, offset }
+      const result = await hostedGarimpo.index(workspaceId, requested, next.signal)
       if (next.signal.aborted) return
       setItems(result.items); setHasMore(result.has_more)
       setPage(result.offset); setSelected([]); setSearched(true)
+      activeQuery.current = { ...query, offset: 0 }
     } catch (cause) {
       if (!next.signal.aborted) {
         setItems([]); setHasMore(false); setSearched(true)
@@ -104,9 +168,44 @@ export function IndexExplorer({ workspaceId, canImport, onImport }: Props) {
       </label>
       <label className="gh-index-check"><input type="checkbox" checked={activeOnly} onChange={e => setActiveOnly(e.target.checked)} />
         Apenas situação cadastral ativa</label>
+      <details className="gh-index-more">
+        <summary>Mais filtros · abertura, matriz/filial e tipo de CNAE</summary>
+        <div className="gh-index-advanced">
+          <label>Tipo de estabelecimento
+            <select value={headquarters} onChange={e => setHeadquarters(e.target.value as CompanyIndexSearch['headquarters'])}>
+              <option value="all">Matrizes e filiais</option><option value="yes">Somente matriz</option><option value="no">Somente filial</option>
+            </select>
+          </label>
+          <label>Correspondência CNAE
+            <select value={cnaeScope} onChange={e => setCnaeScope(e.target.value as CompanyIndexSearch['cnae_scope'])}>
+              <option value="any">Principal ou secundário</option><option value="main">Somente principal</option>
+              <option value="secondary">Somente secundário</option>
+            </select>
+          </label>
+          <label>Aberta a partir de
+            <input type="date" value={openedAfter} onChange={e => setOpenedAfter(e.target.value)} /></label>
+          <label>Aberta até
+            <input type="date" value={openedBefore} onChange={e => setOpenedBefore(e.target.value)} /></label>
+        </div>
+      </details>
       <button type="submit" className="gh-primary" disabled={!workspaceId || loading}><Search size={15} />
         {loading ? 'Consultando…' : 'Consultar índice'}</button>
     </form>
+    <div className="gh-saved-searches">
+      <label>Salvar filtros neste navegador
+        <input maxLength={60} value={savedName} onChange={e => setSavedName(e.target.value)}
+          placeholder="Ex.: Escolas ativas de Porto Alegre" />
+      </label>
+      <button type="button" className="gh-secondary" disabled={savedName.trim().length < 2}
+        onClick={saveSearch}><Bookmark size={14} />Salvar busca</button>
+      {presets.length > 0 && <div className="gh-saved-list" aria-label="Buscas salvas">
+        {presets.map(item => <div key={item.id}>
+          <button type="button" className="gh-secondary" onClick={() => loadSearch(item)}>{item.label}</button>
+          <button type="button" aria-label={`Excluir busca ${item.label}`} onClick={() => removeSearch(item.id)}
+            className="gh-icon"><Trash2 size={13} /></button>
+        </div>)}
+      </div>}
+    </div>
     {error && <p className="gh-index-error" role="alert">{error}</p>}
     {searched && !error && <div className="gh-index-results">
       <div className="gh-index-results-heading"><strong>{items.length} empresa(s) nesta página</strong>

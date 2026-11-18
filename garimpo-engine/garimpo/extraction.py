@@ -305,7 +305,7 @@ class WebsiteCollector:
             await self.http.throttle((parts.hostname or "").removeprefix("www."), float(delay))
         return True
 
-    async def collect(self, candidate: Candidate, *, require_identity=False) -> Candidate:
+    async def collect(self, candidate: Candidate, *, require_identity=False, refresh=False) -> Candidate:
         # Progresso é mantido no objeto mesmo se o orçamento de tempo se esgotar.
         item = candidate
         if not item.website or not eligible_site(item.website):
@@ -326,7 +326,7 @@ class WebsiteCollector:
                     item.warnings.append("O site restringe a coleta em robots.txt; página não consultada.")
                     continue
                 cache_key = "page-v2:" + website_url(url)
-                cached = self.http.store.cache_get(cache_key)
+                cached = None if refresh else self.http.store.cache_get(cache_key)
                 if cached is None:
                     body, final_url, status = await self.http.page(url, before_redirect=self.allowed)
                     if status >= 400:

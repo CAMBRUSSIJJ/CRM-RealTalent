@@ -137,9 +137,10 @@ export function PeoplePanel({record,workspaceId,canEdit,onPatch}: Props) {
       {qsa.people.length ? <ul>{qsa.people.map((person,index)=><li key={person.partner_name+person.role_code+index}>
         <strong>{person.partner_name}</strong>
         <span>{person.role_label} · {person.partner_type}</span>
-        <small>{person.joined_on?'Ingresso: '+person.joined_on+' · ':''}Receita Federal, competência {person.source_month?.slice(0,7)||'não informada'}</small>
+        <small>{person.joined_on?'Ingresso: '+person.joined_on+' · ':''}{qsa.source}, {person.source_month?'competência '+person.source_month.slice(0,7):'competência não informada'}</small>
         {publicUrl(person.source_url) && <a href={publicUrl(person.source_url)!} target="_blank" rel="noopener noreferrer">Ver origem do conjunto <ExternalLink size={12}/></a>}
       </li>)}</ul>:<p className="gh-help">Nenhum integrante encontrado na amostra QSA carregada. Isso não comprova ausência de sócios.</p>}
+      {qsa.note&&<p className="gh-help">{qsa.note}</p>}
       <p className="gh-help">Não são exibidos CPF, idade, dados privados ou contatos pessoais. Um sócio não é automaticamente um decisor comercial.</p>
     </div>}
     <div className="gh-people-manual"><h4>Decisores e responsáveis profissionais</h4>

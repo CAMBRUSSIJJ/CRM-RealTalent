@@ -29,7 +29,7 @@ PYTHONPATH=garimpo-engine python3 -m garimpo.qsa_import \
 5. Importe o CSV pela conexão administrativa de staging com `psql` (não usar chave de serviço no frontend):
 
 ```sql
-\copy public.realtalent_company_qsa (
+\copy realtalent_internal.realtalent_company_qsa (
   cnpj_basic,partner_key,partner_name,partner_type,role_code,role_label,
   joined_on,source_month,source_url
 ) from '/CAMINHO/ABSOLUTO/realtalent-qsa-rs-piloto.csv'
@@ -51,7 +51,7 @@ Quando não aparecer ninguém no recorte carregado, a interface mostra **não en
 ## Segurança, finalidade e validação
 
 - O backend exige sessão, workspace e papel de membro administrativo/autorizado. A consulta de nomes só admite **um CNPJ completo e válido** por requisição. Não há pesquisa por nome de pessoa ou endpoint para extrair todos os sócios.
-- A tabela tem **RLS** e somente linhas relacionadas ao índice de empresas do piloto; o RPC é **security invoker** com verificação de membership e CNPJ exato. O backend também reduz os campos retornados por lista de permissão, mesmo se um servidor SQL retornar campos não previstos.
+- A tabela QSA fica no esquema interno `realtalent_internal`, que **não deve ser exposto na configuração Data API** do Supabase. O RPC público é **security invoker**, com permissão de SELECT, RLS e verificação de vínculo/role/workspace/CNPJ exato. Não é criado endpoint para enumerar toda a tabela; o backend também reduz os campos retornados por uma lista de permissão. Revise a lista de esquemas expostos antes de aplicar a migração.
 - **Dados pessoais**: os nomes de pessoas físicas podem ser dados pessoais. Antes de comercializar, é necessária avaliação da finalidade, base legal, adequação, transparência, retenção, retificação e direitos dos titulares conforme LGPD e critérios aplicáveis da ANPD.
 - A fonte da Receita indica o **conjunto de dados**, não uma validação individual em tempo real da ocupação ou do interesse comercial.
 - **Sistemas de busca e IA não podem adivinhar um decisor de compras a partir do cargo societário.**

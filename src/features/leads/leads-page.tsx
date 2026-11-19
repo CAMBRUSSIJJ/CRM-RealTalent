@@ -1,3 +1,4 @@
+import { plural } from '../../domain/formatters'
 import '../../styles/account-360.css'
 import '../../styles/lead-experience-v10060.css'
 import './contacts-v3.css'
@@ -589,7 +590,7 @@ export function LeadsPage() {
     const blob = new Blob([leadsToCsv(sanitized, snapshot.stages)], { type: 'text/csv;charset=utf-8' })
     const link = document.createElement('a')
     link.href = URL.createObjectURL(blob); link.download = selected.size ? 'contatos-selecionados-v101-6.csv' : 'contatos-filtrados-v101-6.csv'; link.click(); URL.revokeObjectURL(link.href)
-    notify('success', `${chosen.length} contato(s) exportado(s). Campos ocultos pelo perfil não foram incluídos.`)
+    notify('success', `${chosen.length} ${plural(chosen.length, 'contato', 'contatos')} ${plural(chosen.length, 'exportado', 'exportados')}. Campos ocultos pelo perfil não foram incluídos.`)
   }
 
   const importFile = async (file?: File) => {
@@ -597,7 +598,7 @@ export function LeadsPage() {
     setBusy(true)
     try {
       const result = await importLeadFile(file)
-      if (result.warnings.length) notify('info', `${result.warnings.length} aviso(s) durante a importação.`)
+      if (result.warnings.length) notify('info', `${result.warnings.length} ${plural(result.warnings.length, 'aviso', 'avisos')} durante a importação.`)
     } catch (error) { notify('error', error instanceof Error ? error.message : 'Falha na importação.') }
     finally { setBusy(false); if (fileRef.current) fileRef.current.value = '' }
   }
@@ -611,13 +612,13 @@ export function LeadsPage() {
   }
 
   const addTagSelected = async () => {
-    const tag = (await promptAction({ title: 'Adicionar tag', description: `A tag será adicionada a ${selected.size} contato(s) selecionado(s).`, label: 'Nome da tag', confirmLabel: 'Adicionar tag', placeholder: 'Ex.: Prioridade comercial' }))?.trim()
+    const tag = (await promptAction({ title: 'Adicionar tag', description: `A tag será adicionada a ${selected.size} ${plural(selected.size, 'contato', 'contatos')} ${plural(selected.size, 'selecionado', 'selecionados')}.`, label: 'Nome da tag', confirmLabel: 'Adicionar tag', placeholder: 'Ex.: Prioridade comercial' }))?.trim()
     if (!tag || !selected.size) return
     setBusy(true)
     try {
       const chosen = allLeads.filter((lead) => selected.has(lead.id))
       await Promise.all(chosen.map((lead) => updateLead(lead.id, { tags: Array.from(new Set([...lead.tags, tag])) })))
-      setSelected(new Set()); notify('success', `Tag adicionada a ${chosen.length} contato(s).`)
+      setSelected(new Set()); notify('success', `Tag adicionada a ${chosen.length} ${plural(chosen.length, 'contato', 'contatos')}.`)
     } catch (error) { notify('error', error instanceof Error ? error.message : 'Não foi possível adicionar a tag.') }
     finally { setBusy(false) }
   }
@@ -636,7 +637,7 @@ export function LeadsPage() {
 
   const removeSelected = async () => {
     if (!selected.size) return
-    if (!await confirmAction({ title: `Excluir ${selected.size} contato(s)?`, description: 'Os cadastros selecionados serão removidos permanentemente da base.', confirmLabel: 'Excluir contatos', tone: 'danger', details: ['Esta ação não pode ser desfeita.', 'Considere arquivar quando precisar preservar o histórico.'] })) return
+    if (!await confirmAction({ title: `Excluir ${selected.size} ${plural(selected.size, 'contato', 'contatos')}?`, description: 'Os cadastros selecionados serão removidos permanentemente da base.', confirmLabel: 'Excluir contatos', tone: 'danger', details: ['Esta ação não pode ser desfeita.', 'Considere arquivar quando precisar preservar o histórico.'] })) return
     setBusy(true)
     try { await bulkDeleteLeads([...selected]); setSelected(new Set()) }
     catch (error) { notify('error', error instanceof Error ? error.message : 'Falha ao excluir contatos.') }

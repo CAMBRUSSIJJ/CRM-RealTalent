@@ -1,3 +1,4 @@
+import { plural } from '../../domain/formatters'
 import {useState} from 'react'
 import {ArrowRight,CheckCircle2,SlidersHorizontal} from 'lucide-react'
 import {Button} from '../../components/ui/button'
@@ -29,7 +30,7 @@ export function SettingsPresetPicker<Id extends string>({
       </button>)}
     </div>
     {selected?<div className="settings-presets-s33__review">
-      <div className="settings-presets-s33__review-header"><strong>Prévia das alterações</strong><span>{changes.length} campo(s) serão modificados</span></div>
+      <div className="settings-presets-s33__review-header"><strong>Prévia das alterações</strong><span>{changes.length} {plural(changes.length, 'campo', 'campos')} serão modificados</span></div>
       {changes.length?<div className="settings-presets-s33__changes" aria-live="polite">
         {changes.map(change=><div key={change.field}><strong>{change.field}</strong><span>{change.before}</span><ArrowRight size={14}/><b>{change.after}</b></div>)}
       </div>:<p className="settings-presets-s33__same"><CheckCircle2 size={16}/> Este modelo já corresponde às suas opções.</p>}

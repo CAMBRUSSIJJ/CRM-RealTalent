@@ -1,3 +1,4 @@
+import { plural } from '../../domain/formatters'
 import { NativeSelectionSelect } from '../../components/selection'
 import { AlertTriangle, Bell, CalendarDays, ChevronDown, ChevronUp, Clock3, Repeat2, Save, SlidersHorizontal, Trash2, Users } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
@@ -186,7 +187,7 @@ export function EventModal({ open, event, initialDate, initialLeadId = '', onClo
         </div>
 
         {selectedLead ? <div className="agenda-contact-preview-v10166"><span className="agenda-contact-preview-v10166__avatar">{selectedLead.name.split(/\s+/).filter(Boolean).slice(0,2).map((part) => part[0]).join('').toUpperCase()}</span><div><small>Contato relacionado</small><strong>{selectedLead.name}</strong><span>{selectedLead.company || selectedLead.city || 'Sem empresa informada'}</span></div></div> : null}
-        {conflicts.length ? <div className="agenda-conflict-warning"><AlertTriangle size={18} /><div><strong>{conflicts.length} conflito(s) de horário</strong><span>{conflicts.slice(0, 2).map((item) => item.title).join(', ')}</span></div></div> : <div className="agenda-availability-ok agenda-availability-ok-v10166"><Clock3 size={17} /><span>Horário livre para este responsável.</span></div>}
+        {conflicts.length ? <div className="agenda-conflict-warning"><AlertTriangle size={18} /><div><strong>{conflicts.length} {plural(conflicts.length, 'conflito', 'conflitos')} de horário</strong><span>{conflicts.slice(0, 2).map((item) => item.title).join(', ')}</span></div></div> : <div className="agenda-availability-ok agenda-availability-ok-v10166"><Clock3 size={17} /><span>Horário livre para este responsável.</span></div>}
 
         <button className="agenda-more-options-v10166" type="button" onClick={() => setAdvancedOpen((current) => !current)} aria-expanded={advancedOpen}><SlidersHorizontal size={16}/><span><strong>Mais opções</strong><small>Responsável, lembrete, recorrência, local, status e descrição.</small></span>{advancedOpen ? <ChevronUp size={16}/> : <ChevronDown size={16}/>}</button>
 

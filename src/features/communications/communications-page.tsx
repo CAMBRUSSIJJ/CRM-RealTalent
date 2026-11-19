@@ -1,3 +1,4 @@
+import { plural } from '../../domain/formatters'
 // V101.11.3-H19.9 — WhatsApp Reliable Messaging & Groups
 import { NativeSelectionSelect } from '../../components/selection'
 import { useEffect, useMemo, useRef, useState } from 'react'
@@ -285,7 +286,7 @@ function WhatsAppCreateGroupModal({ open, onClose, workspaceId, leads, countryCo
     try {
       const result = await createGatewayWhatsAppGroup({ workspaceId, title: title.trim(), participants })
       const failures = Object.values(result.participants || {}).filter((item) => Number(item.statusCode) !== 200 && Number(item.statusCode) !== 403)
-      notify(failures.length ? 'info' : 'success', failures.length ? `Grupo criado. ${failures.length} participante(s) não puderam ser adicionados.` : `Grupo “${result.title}” criado no WhatsApp.`)
+      notify(failures.length ? 'info' : 'success', failures.length ? `Grupo criado. ${failures.length} ${plural(failures.length, 'participante', 'participantes')} não puderam ser adicionados.` : `Grupo “${result.title}” criado no WhatsApp.`)
       onCreated(result.groupId, result.title); onClose()
     } catch (error) { notify('error', error instanceof Error ? error.message : 'Não foi possível criar o grupo.') }
     finally { setSaving(false) }
@@ -293,7 +294,7 @@ function WhatsAppCreateGroupModal({ open, onClose, workspaceId, leads, countryCo
   return <Modal open={open} title="Criar grupo no WhatsApp" subtitle="O grupo será criado na conta QR local conectada." onClose={onClose} footer={<><Button variant="secondary" onClick={onClose}>Cancelar</Button><span className="modal__footer-spacer"/><Button loading={saving} onClick={() => void create()}><UsersRound size={16}/> Criar grupo</Button></>}>
     <div className="whatsapp-group-create">
       <label className="field"><span>Nome do grupo</span><input autoFocus value={title} onChange={(event) => setTitle(event.target.value)} placeholder="Ex.: Clientes VIP" maxLength={100}/></label>
-      <div className="whatsapp-group-create__participants"><header><div><strong>Participantes do CRM</strong><small>{selectedIds.length} selecionado(s)</small></div></header><div className="whatsapp-group-create__list">
+      <div className="whatsapp-group-create__participants"><header><div><strong>Participantes do CRM</strong><small>{selectedIds.length} {plural(selectedIds.length, 'selecionado', 'selecionados')}</small></div></header><div className="whatsapp-group-create__list">
         {candidates.length ? candidates.map((lead) => <label key={lead.id}><input type="checkbox" checked={selectedIds.includes(lead.id)} onChange={() => toggle(lead.id)} /><span><strong>{lead.name}</strong><small>{lead.company || lead.phone}</small></span></label>) : <p>Nenhum contato com WhatsApp cadastrado.</p>}
       </div></div>
       <label className="field"><span>Números adicionais <small>(opcional)</small></span><textarea rows={3} value={manualNumbers} onChange={(event) => setManualNumbers(event.target.value)} placeholder="Um número por linha, vírgula ou ponto e vírgula" /></label>
@@ -555,8 +556,8 @@ export function CommunicationsPage() {
         const qrFailures = syncResult.failures.filter((item) => item.transport === 'qr')
         const details = syncResult.failures.slice(0, 2).map((item) => item.message).join(' · ')
         const message = qrFailures.length === syncResult.failures.length
-          ? `WhatsApp QR em recuperação: ${syncResult.imported} nova(s) mensagem(ns). ${details}`
-          : `Sincronização parcial: ${syncResult.imported} nova(s) mensagem(ns). ${syncResult.failures.length} conta(s) falharam. ${details}`
+          ? `WhatsApp QR em recuperação: ${syncResult.imported} ${plural(syncResult.imported, 'nova', 'novas')} ${plural(syncResult.imported, 'mensagem', 'mensagens')}. ${details}`
+          : `Sincronização parcial: ${syncResult.imported} ${plural(syncResult.imported, 'nova', 'novas')} ${plural(syncResult.imported, 'mensagem', 'mensagens')}. ${syncResult.failures.length} ${plural(syncResult.failures.length, 'conta', 'contas')} falharam. ${details}`
         setOfficialError(message); notify('info', message)
       }
       // The updated conversation list already confirms sync. No success toast;
@@ -914,7 +915,7 @@ export function CommunicationsPage() {
           <div className="omnichannel-preferred"><span>Canal preferido</span><div>{(['auto','whatsapp','email','instagram','facebook','linkedin','call','meeting'] as PreferredCommunicationChannel[]).map((item) => <button type="button" className={preferred === item ? 'is-active' : ''} key={item} onClick={() => setPreferred(item)}>{channelLabel(item)}</button>)}</div></div>
 
           <section className="omnichannel-timeline">
-            <header><div><span className="eyebrow">Histórico unificado · conversa</span><h3>{selectedConversation ? channelLabel(selectedConversation.channel) : 'Todos os canais do contato'}</h3></div><StatusPill tone="info">{displayedSelectedEvents.length} evento(s)</StatusPill></header>
+            <header><div><span className="eyebrow">Histórico unificado · conversa</span><h3>{selectedConversation ? channelLabel(selectedConversation.channel) : 'Todos os canais do contato'}</h3></div><StatusPill tone="info">{displayedSelectedEvents.length} {plural(displayedSelectedEvents.length, 'evento', 'eventos')}</StatusPill></header>
             <div className="communications-timeline">{displayedSelectedEvents.length ? displayedSelectedEvents.map((item) => {
               const Icon = channelIcons[item.channel] ?? SlidersHorizontal
               return <article key={item.id} className={`communications-event communications-event--${item.channel}`}><div className="communications-event__icon"><Icon size={17}/></div><div className="communications-event__body"><div className="communications-event__top"><div><strong>{item.title || channelLabel(item.channel)}</strong><span>{directionLabel(item.direction)} · {statusLabel(item.status)}</span></div><time>{formatDateTime(item.occurredAt)}</time></div>{item.body ? <p>{item.body}</p> : null}<footer><StatusPill tone={channelTone(item.channel) as any}>{channelLabel(item.channel)}</StatusPill><span className={item.official ? 'is-official' : ''}>{item.source === 'official' && item.metadata?.transport === 'qr' ? 'QR Local / sincronizado' : item.official ? 'Oficial / sincronizado' : item.source === 'assisted' ? 'Assistido / confirmado pelo vendedor' : item.source === 'call' ? 'Workspace de ligações' : item.source === 'calendar' ? 'Agenda CRM' : 'Atividade CRM'}</span></footer></div></article>

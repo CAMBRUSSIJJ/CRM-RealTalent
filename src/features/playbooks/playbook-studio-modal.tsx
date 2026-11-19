@@ -1,3 +1,4 @@
+import { plural } from '../../domain/formatters'
 import {
   Copy,
   FileText,
@@ -324,7 +325,7 @@ export function PlaybookStudioModal({ open, playbook, onClose, onSaved }: {
         {executionNode ? <div className="playbook-studio__execution-stage">
           <article><span>{PLAYBOOK_NODE_TYPE_LABELS[executionNode.type]}</span><h2>{executionNode.title}</h2><p>{executionNode.content}</p>{executionNode.objective ? <aside><strong>Objetivo</strong><span>{executionNode.objective}</span></aside> : null}</article>
           <div className="playbook-studio__execution-paths">{outgoingExecution.length ? outgoingExecution.map((item) => { const target = graph.nodes.find((nodeItem) => nodeItem.id === item.targetId); return <button type="button" key={item.id} onClick={() => goExecution(item)}><span>{item.label || 'Próximo'}</span><strong>{target?.title ?? 'Continuar'}</strong></button> }) : <div className="playbook-studio__execution-end"><Sparkles size={22}/><strong>Fim deste caminho</strong><span>Esse nó não possui uma próxima conexão.</span></div>}</div>
-          <footer><Button variant="secondary" disabled={!executionHistory.length} onClick={backExecution}>Voltar um passo</Button><span>{executionHistory.length + 1} nó(s) percorrido(s)</span></footer>
+          <footer><Button variant="secondary" disabled={!executionHistory.length} onClick={backExecution}>Voltar um passo</Button><span>{executionHistory.length + 1} {plural(executionHistory.length + 1, 'nó', 'nós')} {plural(executionHistory.length + 1, 'percorrido', 'percorridos')}</span></footer>
         </div> : null}
       </section> : null}
     </div>

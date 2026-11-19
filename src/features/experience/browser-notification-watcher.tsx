@@ -1,3 +1,4 @@
+import { plural } from '../../domain/formatters'
 import { useEffect, useMemo, useState } from 'react'
 import { useAppNavigation, useAppWorkspace } from '../../app/app-context'
 import { safeStorage } from '../../lib/storage'
@@ -71,7 +72,7 @@ export function BrowserNotificationWatcher() {
       const summaryKey = `summary:${preferences.notifications.frequency}:${bucket}`
       if (bucket && alerts.length && !seen.has(summaryKey)) {
         const critical = alerts.filter((alert) => alert.tone === 'danger').length
-        notify('RealTalent CRM · Resumo de notificações', `${alerts.length} aviso(s) ativo(s)${critical ? ` · ${critical} crítico(s)` : ''}. Abra o CRM para revisar.`, summaryKey, 'dashboard')
+        notify('RealTalent CRM · Resumo de notificações', `${alerts.length} ${plural(alerts.length, 'aviso', 'avisos')} ${plural(alerts.length, 'ativo', 'ativos')}${critical ? ` · ${critical} ${plural(critical, 'crítico', 'críticos')}` : ''}. Abra o CRM para revisar.`, summaryKey, 'dashboard')
         seen.add(summaryKey)
       }
     }

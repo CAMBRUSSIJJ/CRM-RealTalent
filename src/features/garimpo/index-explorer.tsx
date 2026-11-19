@@ -1,3 +1,4 @@
+import { plural } from '../../domain/formatters'
 import { useEffect, useRef, useState, type FormEvent } from 'react'
 import { Bookmark, Check, ChevronLeft, ChevronRight, Search, Trash2 } from 'lucide-react'
 import type { CaptureDraft } from '../../services/prospecting-workspace'
@@ -217,7 +218,7 @@ export function IndexExplorer({ workspaceId, canImport, onImport }: Props) {
     </div>
     {error && <p className="gh-index-error" role="alert">{error}</p>}
     {searched && !error && <div className="gh-index-results">
-      <div className="gh-index-results-heading"><strong>{items.length} empresa(s) nesta página</strong>
+      <div className="gh-index-results-heading"><strong>{items.length} {plural(items.length, 'empresa', 'empresas')} nesta página</strong>
         <button className="gh-secondary" disabled={!canImport || !chosen.length} onClick={() => {
           onImport(chosen.map(toDraft)); setSelected([])
         }}><Check size={14} />Adicionar {chosen.length} à revisão</button>

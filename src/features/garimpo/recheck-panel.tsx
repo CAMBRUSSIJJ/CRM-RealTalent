@@ -1,3 +1,4 @@
+import { plural } from '../../domain/formatters'
 import { useEffect, useState } from 'react'
 import { ExternalLink, RefreshCw } from 'lucide-react'
 import type { ProspectRecord } from '../../services/prospecting-workspace'
@@ -78,7 +79,7 @@ export function RecheckPanel({record,canEdit,canSyncCrm,onRecheck,onResolve}: Pr
         Atualizar também os campos compatíveis do cadastro principal no CRM (com verificação de conflitos).
       </label>}
       <div className="gh-actions"><button className="gh-primary" type="button" disabled={!canEdit || !selected.length || applying}
-        onClick={() => void resolve(selected)}>{applying ? 'Aplicando…' : `Aplicar ${selected.length} atualização(ões)`}</button>
+        onClick={() => void resolve(selected)}>{applying ? 'Aplicando…' : `Aplicar ${selected.length} ${plural(selected.length, 'atualização', 'atualizações')}`}</button>
         <button className="gh-secondary" type="button" disabled={!canEdit || applying} onClick={() => void resolve([])}>Descartar sugestões</button></div>
       {record.status === 'sent' && <p className="gh-help">Empresas enviadas continuam na revisão. O CRM só será alterado se você marcar explicitamente a opção acima; dados sem campo compatível permanecerão apenas na ficha de revisão.</p>}
     </div>}
@@ -86,8 +87,8 @@ export function RecheckPanel({record,canEdit,canSyncCrm,onRecheck,onResolve}: Pr
       <summary>Histórico das verificações ({history.length})</summary>
       {history.length ? <ol>{history.map((entry,index) => <li key={`${entry.checkedAt}:${index}`}>
         <strong>{new Date(entry.checkedAt).toLocaleString('pt-BR')}</strong>
-        <span>Fontes: {entry.sources.join(', ') || 'Nenhuma disponível'} · {entry.suggested} sugestão(ões)
-          {entry.resolvedAt ? ` · ${entry.appliedFields?.length || 0} aceita(s)` : ''}</span>
+        <span>Fontes: {entry.sources.join(', ') || 'Nenhuma disponível'} · {entry.suggested} {plural(entry.suggested, 'sugestão', 'sugestões')}
+          {entry.resolvedAt ? ` · ${entry.appliedFields?.length || 0} ${plural(entry.appliedFields?.length || 0, 'aceita', 'aceitas')}` : ''}</span>
         {entry.warnings.map((warning,j) => <small key={j}>{warning}</small>)}
       </li>)}</ol> : <p className="gh-help">Esta empresa ainda não foi investigada novamente.</p>}
     </details>

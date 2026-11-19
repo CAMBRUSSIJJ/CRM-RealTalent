@@ -1,3 +1,4 @@
+import { plural } from '../../domain/formatters'
 import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react'
 import { ArrowRight, Check, ChevronDown, ExternalLink, Loader2, MapPin, Search, ShieldCheck } from 'lucide-react'
 import { Modal } from '../../components/ui/modal'
@@ -194,7 +195,7 @@ export function ProspectingPage() {
     if (!canCreate || !hydrated || !workspaceId || drafts.length === 0) return
     commit(current => mergeResults(current, drafts, workspaceId, currentUserId, snapshotRef.current?.leads || []))
     setView('review'); setSelected([])
-    notify('success', `${drafts.length} empresa(s) adicionada(s) à revisão. Confira os dados antes de enviá-las ao CRM.`)
+    notify('success', `${drafts.length} ${plural(drafts.length, 'empresa', 'empresas')} ${plural(drafts.length, 'adicionada', 'adicionadas')} à revisão. Confira os dados antes de enviá-las ao CRM.`)
   }, [canCreate, hydrated, workspaceId, currentUserId, commit, notify])
 
   const confirmIdentity = useCallback(async (id: string, candidate: IdentityCandidate | string) => {
@@ -397,9 +398,9 @@ export function ProspectingPage() {
         await flushProspectingSync(workspaceId)
         sent++
       }
-      if (scopeRef.current === requestedWorkspace) { setSendOpen(false); setSelected([]); setView('sent'); notify('success',`${sent} empresa(s) enviada(s) ao CRM.`) }
+      if (scopeRef.current === requestedWorkspace) { setSendOpen(false); setSelected([]); setView('sent'); notify('success',`${sent} ${plural(sent, 'empresa', 'empresas')} ${plural(sent, 'enviada', 'enviadas')} ao CRM.`) }
     } catch (cause) {
-      if (scopeRef.current === requestedWorkspace) setError(`${sent} empresa(s) enviada(s). ${cause instanceof Error ? cause.message : 'Falha ao enviar a próxima empresa.'} Você pode tentar novamente; os vínculos salvos serão reutilizados.`)
+      if (scopeRef.current === requestedWorkspace) setError(`${sent} ${plural(sent, 'empresa', 'empresas')} ${plural(sent, 'enviada', 'enviadas')}. ${cause instanceof Error ? cause.message : 'Falha ao enviar a próxima empresa.'} Você pode tentar novamente; os vínculos salvos serão reutilizados.`)
     } finally { if (scopeRef.current === requestedWorkspace) setSending(false) }
   }
 
@@ -473,7 +474,7 @@ export function ProspectingPage() {
         </section>
       </main>
     </div>
-    <Modal open={sendOpen} title={`Enviar ${approved.length} empresa(s) ao CRM`} onClose={() => { if (!sending) setSendOpen(false) }} footer={<div className="gh-actions"><button className="gh-secondary" disabled={sending} onClick={() => setSendOpen(false)}>Cancelar</button><button className="gh-primary" disabled={sending || (opportunity && !stageId)} onClick={() => void send()}>{sending ? 'Enviando…' : 'Confirmar envio'}</button></div>}><div className="gh-page gh-send-content"><p>As empresas aprovadas entrarão na sua base de contatos. Empresas já vinculadas serão reutilizadas.</p><label className="gh-check"><input type="checkbox" checked={opportunity} disabled={sending || !canCreateOpportunity} onChange={event => setOpportunity(event.target.checked)} />Criar também uma oportunidade no funil</label>{opportunity && <label>Etapa inicial<select aria-label="Etapa inicial" value={stageId} disabled={sending} onChange={event => setStageId(event.target.value)}>{snapshot?.stages.map(stage => <option key={stage.id} value={stage.id}>{stage.name}</option>)}</select></label>}</div></Modal>
+    <Modal open={sendOpen} title={`Enviar ${approved.length} ${plural(approved.length, 'empresa', 'empresas')} ao CRM`} onClose={() => { if (!sending) setSendOpen(false) }} footer={<div className="gh-actions"><button className="gh-secondary" disabled={sending} onClick={() => setSendOpen(false)}>Cancelar</button><button className="gh-primary" disabled={sending || (opportunity && !stageId)} onClick={() => void send()}>{sending ? 'Enviando…' : 'Confirmar envio'}</button></div>}><div className="gh-page gh-send-content"><p>As empresas aprovadas entrarão na sua base de contatos. Empresas já vinculadas serão reutilizadas.</p><label className="gh-check"><input type="checkbox" checked={opportunity} disabled={sending || !canCreateOpportunity} onChange={event => setOpportunity(event.target.checked)} />Criar também uma oportunidade no funil</label>{opportunity && <label>Etapa inicial<select aria-label="Etapa inicial" value={stageId} disabled={sending} onChange={event => setStageId(event.target.value)}>{snapshot?.stages.map(stage => <option key={stage.id} value={stage.id}>{stage.name}</option>)}</select></label>}</div></Modal>
     <footer className="gh-footer">Motor Python 0.6 + Índice CNPJ/RS · Confirme os dados antes da abordagem.<button onClick={() => navigate('leads')}>Abrir base do CRM <ArrowRight size={13} /></button></footer>
   </div>
 }

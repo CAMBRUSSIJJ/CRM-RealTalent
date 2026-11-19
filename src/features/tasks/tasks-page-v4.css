@@ -59,7 +59,7 @@
 .tasks-page-v4__heading span {
   display: block;
   margin-top: 2px;
-  font-size: 10px;
+  font-size: 11px;
   color: #d1d5f3;
   line-height: 1.3;
 }
@@ -208,7 +208,7 @@
   background: #f0f3f8;
   color: #748195;
   border-radius: 20px;
-  font-size: 10px;
+  font-size: 11px;
   font-weight: 720;
 }
 .tasks-page-v4__quick-filters button.is-overdue b { background: #fff0f0; color: #d95b57; }
@@ -268,7 +268,7 @@
   flex-direction: column;
   gap: 4px;
   color: #738199;
-  font-size: 10px;
+  font-size: 11px;
   font-weight: 720;
 }
 .tasks-page-v4__filter-panel > label select {
@@ -318,7 +318,7 @@
   background: #eaf1fd;
   border-radius: 6px;
   color: #2259b8;
-  font-size: 10px;
+  font-size: 11px;
   cursor: pointer;
 }
 .tasks-page-v4__board {
@@ -379,7 +379,7 @@
   border-radius: 999px;
   background: #edf1f7;
   color: #738195;
-  font-size: 10px;
+  font-size: 11px;
   font-weight: 700;
 }
 .tasks-page-v4__column.is-in_progress .tasks-page-v4__column-heading span { color: #2563eb; background: #eff6ff; }
@@ -453,7 +453,7 @@
   gap: 4px;
   color: #7e8b9e;
   white-space: nowrap;
-  font-size: 10px;
+  font-size: 11px;
 }
 .tasks-page-v4__card-head > span:last-child.is-overdue { color: #dc2626; }
 .tasks-page-v4__card-title {
@@ -491,7 +491,7 @@
   padding-top: 8px;
   border-top: 1px solid #edf1f7;
   color: #708096;
-  font-size: 10px;
+  font-size: 11px;
 }
 .tasks-page-v4__card-meta > span {
   display: inline-flex;
@@ -518,7 +518,7 @@
   border: 1px solid #e4eaf3;
   background: #f9fbfe;
   border-radius: 7px;
-  font-size: 10px;
+  font-size: 11px;
   color: #5d6e87;
 }
 .tasks-page-v4__card-actions button {
@@ -585,7 +585,7 @@
   flex-wrap: wrap;
   gap: 7px 12px;
   color: #77869b;
-  font-size: 10px;
+  font-size: 11px;
 }
 .tasks-page-v4__row-meta span { display: inline-flex; align-items: center; gap: 4px; }
 .tasks-page-v4__row-meta .is-danger { color: #d12626; font-weight: 700; }
@@ -648,11 +648,11 @@
 @media (max-width: 500px) {
   .tasks-page-v4__heading > svg { display: none; }
   .tasks-page-v4__heading h1 { font-size: 13px; }
-  .tasks-page-v4 .tasks-page-v4__new { padding-inline: 9px; font-size: 10px; }
+  .tasks-page-v4 .tasks-page-v4__new { padding-inline: 9px; font-size: 11px; }
   .tasks-page-v4__automation { width: 31px; height: 31px; }
   .tasks-page-v4__divider { display: none; }
   .tasks-page-v4__quick-filters { order: 2; flex-basis: 100%; justify-content: space-around; }
-  .tasks-page-v4__quick-filters button { font-size: 10px; padding: 4px; }
+  .tasks-page-v4__quick-filters button { font-size: 11px; padding: 4px; }
   .tasks-page-v4__filters { margin-left: auto; }
   .tasks-page-v4__search { order: 4; }
   .tasks-page-v4__board { grid-auto-columns: 85vw; }

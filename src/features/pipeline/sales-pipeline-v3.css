@@ -122,7 +122,7 @@
   border-radius: 20px;
   padding: 0 4px;
   background: #e7ecf4;
-  font-size: 10px;
+  font-size: 11px;
   color: inherit;
 }
 .sales-pipeline-v3__tabs button.is-risk span { background: #fee2e2; }
@@ -306,7 +306,7 @@
   gap: 4px;
   color: #64748b;
   text-transform: uppercase;
-  font-size: 10px;
+  font-size: 11px;
   font-weight: 800;
   letter-spacing: .055em;
 }
@@ -320,7 +320,7 @@
 .sales-pipeline-v3__metrics-total {
   margin-left: auto;
   color: #8190a2;
-  font-size: 10px;
+  font-size: 11px;
 }
 .sales-pipeline-v3__analysis {
   min-width: 0;
@@ -430,7 +430,7 @@
   min-width: 19px;
   padding: 2px 5px;
   border-radius: 16px;
-  font-size: 10px;
+  font-size: 11px;
   font-weight: 750;
   background: #e9edf4;
   color: #64748b;
@@ -471,7 +471,7 @@
 }
 .sales-pipeline-v3__column-total small {
   color: #8290a4;
-  font-size: 10px;
+  font-size: 11px;
   white-space: nowrap;
 }
 .sales-pipeline-v3__column-body {
@@ -633,7 +633,7 @@
 .sales-pipeline-v3__card-main > small {
   min-height: 14px;
   color: var(--sp-muted);
-  font-size: 10px;
+  font-size: 11px;
   line-height: 1.35;
   overflow-wrap: anywhere;
 }
@@ -656,7 +656,7 @@
   align-items: center;
   gap: 3px;
   padding: 4px 6px;
-  font-size: 10px;
+  font-size: 11px;
   font-weight: 670;
   border-radius: 6px;
   background: #f1f5f9;
@@ -731,11 +731,11 @@
   .sales-pipeline-v3__header .rt-workspace-page-header__actions { width: 100%; }
   .sales-pipeline-v3__toolbar { padding: 8px; }
   .sales-pipeline-v3__tabs { width: 100%; justify-content: space-around; }
-  .sales-pipeline-v3__tabs button { flex: 1; padding: 0 5px; font-size: 10px; }
+  .sales-pipeline-v3__tabs button { flex: 1; padding: 0 5px; font-size: 11px; }
   .sales-pipeline-v3__search { order: 2; flex-basis: 100%; max-width: none; }
   .sales-pipeline-v3__actions { order: 3; margin-left: auto; }
   .sales-pipeline-v3__metrics { gap: 10px 14px; }
-  .sales-pipeline-v3__metrics > button span { font-size: 9px; }
+  .sales-pipeline-v3__metrics > button span { font-size: 11px; }
   .sales-pipeline-v3__metrics > button strong { font-size: 12px; }
   .sales-pipeline-v3__column { flex-basis: 256px; width: 256px; min-width: 256px; }
   .sales-pipeline-v3__quick-actions { opacity: 1; pointer-events: auto; }
@@ -783,7 +783,7 @@ html[data-theme="dark"] .sales-pipeline-v3__quick-actions .pipeline-quick-action
 }
 .sales-pipeline-v3__forecast-goal > div > span {
   color: var(--sp-muted);
-  font-size: 10px;
+  font-size: 11px;
   font-weight: 740;
 }
 .sales-pipeline-v3__forecast-goal > div > strong {

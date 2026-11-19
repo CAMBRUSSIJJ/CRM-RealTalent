@@ -1,3 +1,4 @@
+import { plural } from '../../domain/formatters'
 import { useEffect, useMemo, useState } from 'react'
 import { Info, Mail, RefreshCw, Send, WifiOff, Cloud, ShieldCheck } from 'lucide-react'
 import { NativeSelectionSelect } from '../../components/selection'
@@ -147,7 +148,7 @@ export function EmailConversationPanel({
         <span><small>Conversa por e-mail</small><strong>{lead.name}</strong><em>{lead.email || 'E-mail não informado'}{lead.company ? ` · ${lead.company}` : ''}</em></span>
         {onOpenLeadContext ? <Info size={16}/> : null}
       </button>
-      <div className="email-workspace-header__actions"><span className={`email-account-health ${accounts.length ? 'is-connected' : ''}`}><i/><span><strong>{accounts.length ? `${accounts.length} conta(s) conectada(s)` : 'E-mail desconectado'}</strong><small>{accounts.length ? 'Gmail / Outlook oficial' : 'Conecte uma conta para responder'}</small></span></span><Button size="sm" variant="secondary" loading={loading} onClick={onSync}><RefreshCw size={15}/> Sincronizar</Button>{onOpenLeadContext ? <Button size="sm" variant="ghost" onClick={onOpenLeadContext}><Info size={15}/> Lead</Button> : null}</div>
+      <div className="email-workspace-header__actions"><span className={`email-account-health ${accounts.length ? 'is-connected' : ''}`}><i/><span><strong>{accounts.length ? `${accounts.length} ${plural(accounts.length, 'conta', 'contas')} ${plural(accounts.length, 'conectada', 'conectadas')}` : 'E-mail desconectado'}</strong><small>{accounts.length ? 'Gmail / Outlook oficial' : 'Conecte uma conta para responder'}</small></span></span><Button size="sm" variant="secondary" loading={loading} onClick={onSync}><RefreshCw size={15}/> Sincronizar</Button>{onOpenLeadContext ? <Button size="sm" variant="ghost" onClick={onOpenLeadContext}><Info size={15}/> Lead</Button> : null}</div>
     </header>
 
     <div className="email-thread">

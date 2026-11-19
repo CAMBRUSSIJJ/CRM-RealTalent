@@ -1,3 +1,4 @@
+import { plural } from '../domain/formatters'
 // V3.7 regression lineage marker: ollama-capabilities-first+operational-firewall
 import type { Lead, WorkspaceSnapshot } from '../domain/types'
 import { canAnswerSalesReadLocally, isWriteOrCompoundRequest, requestsMultipleCrmActions } from './realtalent-agent-v4-intent'
@@ -56,7 +57,7 @@ const capabilityPlanAnswer = (result: CrmCapabilityPlanningResult, context: Assi
     intent: 'crm_capability',
     title: portfolioItems.length ? 'Prioridades comerciais de hoje' : plan.steps.length > 1 ? 'Plano preparado no CRM' : (plan.steps[0]?.title || 'Ação preparada no CRM'),
     text: portfolioItems.length
-      ? `Organizei ${portfolioItems.length} prioridade(s) em ordem operacional. Você pode continuar com “faça a primeira”, “ligue para o segundo” ou “crie follow-up para os três primeiros”.`
+      ? `Organizei ${portfolioItems.length} ${plural(portfolioItems.length, 'prioridade', 'prioridades')} em ordem operacional. Você pode continuar com “faça a primeira”, “ligue para o segundo” ou “crie follow-up para os três primeiros”.`
       : plan.goal || 'Entendi o que você quer fazer e preparei a ação usando as capacidades nativas do CRM.',
     items: portfolioItems,
     facts: [
@@ -198,12 +199,12 @@ const applySalesRecommendationRanking = (answer: AssistantAnswer, snapshot: Work
       ...answer,
       text: items.length
         ? (callOnly
-          ? `Encontrei ${items.length} contato(s) priorizados pela combinação de urgência atual, risco, potencial e aprendizado comercial verificado.`
+          ? `Encontrei ${items.length} ${plural(items.length, 'contato', 'contatos')} priorizados pela combinação de urgência atual, risco, potencial e aprendizado comercial verificado.`
           : `Estas são as ${items.length} oportunidades que eu trabalharia primeiro agora, combinando sinais atuais com aprendizado comercial verificado.`)
         : (callOnly ? 'Não encontrei nenhum contato elegível para ligação agora.' : 'Não há negócios ativos para priorizar.'),
       items,
       facts: learnedCount
-        ? [...answer.facts, `${learnedCount} prioridade(s) receberam ajuste histórico limitado a ±10 pontos.`].slice(0, 8)
+        ? [...answer.facts, `${learnedCount} ${plural(learnedCount, 'prioridade', 'prioridades')} receberam ajuste histórico limitado a ±10 pontos.`].slice(0, 8)
         : answer.facts,
     }
   }

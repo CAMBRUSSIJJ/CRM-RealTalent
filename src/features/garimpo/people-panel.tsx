@@ -1,3 +1,4 @@
+import { plural } from '../../domain/formatters'
 import { useEffect, useRef, useState, type FormEvent } from 'react'
 import { ExternalLink, Plus, Search, Trash2, Users } from 'lucide-react'
 import { createUuid } from '../../lib/id'
@@ -121,8 +122,8 @@ export function PeoplePanel({record,workspaceId,canEdit,onPatch}: Props) {
       <h3><Users size={16}/> Sócios e pessoas-chave</h3>
       <p>{!record.cnpj?'CNPJ não identificado — use Investigar empresa acima.'
         :loading?'Consultando o quadro societário…'
-        :qsa?`${qsa.people.length} vínculo(s) societário(s) no recorte · ${people.length} pessoa(s)-chave manual(is)`
-        :`CNPJ disponível · ${people.length} pessoa(s)-chave manual(is)`}</p>
+        :qsa?`${qsa.people.length} ${plural(qsa.people.length, 'vínculo', 'vínculos')} ${plural(qsa.people.length, 'societário', 'societários')} no recorte · ${people.length} ${plural(people.length, 'pessoa', 'pessoas')}-chave manual(is)`
+        :`CNPJ disponível · ${people.length} ${plural(people.length, 'pessoa', 'pessoas')}-chave manual(is)`}</p>
     </div><span className="gh-people-summary-action">Detalhes ▾</span></summary>
     <div className="gh-people-content">
       <div className="gh-people-actions"><p className="gh-help">O QSA identifica vínculos societários, não necessariamente quem decide uma contratação.</p>
@@ -134,7 +135,7 @@ export function PeoplePanel({record,workspaceId,canEdit,onPatch}: Props) {
     {error && <p className="gh-index-error" role="alert">{error}</p>}
     {qsa && <div className="gh-people-qsa">
       <div className="gh-people-section-title"><h4>Quadro de sócios e administradores (QSA)</h4>
-        <span>{qsa.people.length} vínculo(s) neste recorte{qsa.truncated?' · lista limitada':''}</span></div>
+        <span>{qsa.people.length} {plural(qsa.people.length, 'vínculo', 'vínculos')} neste recorte{qsa.truncated?' · lista limitada':''}</span></div>
       {qsa.people.length ? <ul>{qsa.people.map((person,index)=><li key={person.partner_name+person.role_code+index}>
         <strong>{person.partner_name}</strong>
         <span>{person.role_label} · {person.partner_type}</span>

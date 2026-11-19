@@ -1,3 +1,4 @@
+import { plural } from '../domain/formatters'
 import type { AppRoute } from '../domain/types'
 import type { CrmCapabilityRisk } from './realtalent-crm-capabilities'
 import { universalCrmCapabilityById as crmCapabilityById, universalCrmCapabilityCatalogForModel as crmCapabilityCatalogForModel } from './realtalent-crm-universal-registry'
@@ -252,7 +253,7 @@ export const localCapabilityFallback = (prompt: string, context: CrmCapabilityPl
     const explicit = text.match(/(?:empresas?\s+de|negocios?\s+de|encontre|buscar|busque|procure|achar)\s+(?:ate\s+)?(?:\d{1,3}\s+)?(.+?)(?:\s+em\s+|\s+na\s+cidade\s+de\s+|\s+no\s+municipio\s+de\s+|$)/)?.[1] || ''
     segment = explicit.replace(/^(empresas?|negocios?)\s+(?:de\s+)?/, '').trim()
     const city = text.match(/(?:\s+em|cidade de|municipio de)\s+([a-z0-9 .'-]+?)(?=\s+(?:com|que|sem|usando|num|em um raio|raio|ate)\b|$)/)?.[1]?.trim() || ''
-    if (segment && city) return make('prospecting.search', `Garimpar ${quantity} empresa(s) de ${segment} em ${city}`, [
+    if (segment && city) return make('prospecting.search', `Garimpar ${quantity} ${plural(quantity, 'empresa', 'empresas')} de ${segment} em ${city}`, [
       { name: 'segment', value: segment }, { name: 'city', value: city }, { name: 'quantity', value: quantity }, { name: 'search_mode', value: 'coverage' }, { name: 'category_mode', value: 'exact' },
     ])
   }

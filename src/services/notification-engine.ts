@@ -1,3 +1,4 @@
+import { plural } from '../domain/formatters'
 import type { AppRoute, WorkspaceSnapshot } from '../domain/types'
 import type { RouteContext } from '../app/route-state'
 import type { NotificationPreferences } from './notification-preferences'
@@ -112,7 +113,7 @@ export function buildNotificationAlerts(snapshot: WorkspaceSnapshot, preferences
           id: `proposal-silence:${proposal.id}`,
           category: 'proposal_silence',
           title: proposal.title,
-          detail: `Proposta ${proposal.status === 'viewed' ? 'visualizada' : 'enviada'} sem avanço há ${quietDays} dia(s).`,
+          detail: `Proposta ${proposal.status === 'viewed' ? 'visualizada' : 'enviada'} sem avanço há ${quietDays} ${plural(quietDays, 'dia', 'dias')}.`,
           date: proposal.viewedAt ?? proposal.sentAt ?? proposal.updatedAt,
           tone: 'warning',
           route: 'proposals',
@@ -131,7 +132,7 @@ export function buildNotificationAlerts(snapshot: WorkspaceSnapshot, preferences
         id: `stale-lead:${lead.id}`,
         category: 'stale_lead',
         title: lead.name,
-        detail: `${lead.company || 'Lead'} está há ${Math.floor((nowMs - reference) / DAY)} dia(s) sem contato registrado.`,
+        detail: `${lead.company || 'Lead'} está há ${Math.floor((nowMs - reference) / DAY)} ${plural(Math.floor((nowMs - reference) / DAY), 'dia', 'dias')} sem contato registrado.`,
         date: lead.lastContactAt ?? lead.updatedAt ?? lead.createdAt,
         tone: 'warning',
         route: 'leads',

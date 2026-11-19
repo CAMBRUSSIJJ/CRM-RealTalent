@@ -1,3 +1,4 @@
+import { plural } from '../domain/formatters'
 import type { WorkspaceSnapshot } from '../domain/types'
 import { appendRealTalentAiAudit } from './realtalent-ai-audit'
 import { buildRealTalentAiContext, type RealTalentAiContextEnvelope } from './realtalent-ai-context'
@@ -315,7 +316,7 @@ const dealCoachingAnswer = (prompt: string, snapshot: WorkspaceSnapshot, context
     }],
     facts: [
       `Objetivo mínimo: ${coaching.objective}`,
-      `${coaching.stakeholders.length} stakeholder(s) estruturado(s) considerados no coaching.`,
+      `${coaching.stakeholders.length} ${plural(coaching.stakeholders.length, 'stakeholder', 'stakeholders')} ${plural(coaching.stakeholders.length, 'estruturado', 'estruturados')} considerados no coaching.`,
       coaching.matchedPlaybooks.length ? `Playbooks aplicáveis: ${coaching.matchedPlaybooks.join(' · ')}.` : 'Nenhum Playbook estruturado compatível foi encontrado; foram usados sinais atuais e perguntas seguras de descoberta.',
       coaching.learningSummary,
     ],

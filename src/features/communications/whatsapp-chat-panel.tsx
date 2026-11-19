@@ -1,3 +1,4 @@
+import { plural } from '../../domain/formatters'
 import { NativeSelectionSelect } from '../../components/selection'
 import { AlertCircle, Check, CheckCheck, Clock3, FileText, Image as ImageIcon, Info, Mic, MessageCircle, Paperclip, Pause, Play, RefreshCw, Reply, RotateCcw, Send, ShieldCheck, Sparkles, Square, UsersRound, X } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
@@ -389,7 +390,7 @@ export function WhatsAppChatPanel({ lead, externalIdentity, workspaceId, events,
       {!connected && account ? <div className="whatsapp-chat__queue-hint"><Clock3 size={13}/><span>Offline: novas mensagens ficam na fila e saem automaticamente quando a conexão voltar.</span></div> : null}
     </footer>
     <WhatsAppConnectionCenter open={connectionOpen} workspaceId={workspaceId} onClose={() => setConnectionOpen(false)} onChanged={() => { void loadAccounts(); onSync() }} onError={onError}/>
-    <Modal open={groupInfoOpen} title={groupInfo?.name || identityName} subtitle={groupInfoLoading ? 'Carregando informações do grupo…' : groupInfo ? `${groupInfo.participantCount} participante(s)` : 'Informações do grupo do WhatsApp'} onClose={() => setGroupInfoOpen(false)} footer={<><span className="modal__footer-spacer"/><Button variant="secondary" onClick={() => setGroupInfoOpen(false)}>Fechar</Button></>}>
+    <Modal open={groupInfoOpen} title={groupInfo?.name || identityName} subtitle={groupInfoLoading ? 'Carregando informações do grupo…' : groupInfo ? `${groupInfo.participantCount} ${plural(groupInfo.participantCount, 'participante', 'participantes')}` : 'Informações do grupo do WhatsApp'} onClose={() => setGroupInfoOpen(false)} footer={<><span className="modal__footer-spacer"/><Button variant="secondary" onClick={() => setGroupInfoOpen(false)}>Fechar</Button></>}>
       <div className="whatsapp-group-info">
         {groupInfoLoading ? <div className="whatsapp-group-info__empty"><RefreshCw size={18} className="is-spinning"/> Carregando…</div> : groupInfo ? <>
           {groupInfo.description ? <section><small>Descrição</small><p>{groupInfo.description}</p></section> : null}

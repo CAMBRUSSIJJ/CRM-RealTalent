@@ -1,3 +1,4 @@
+import { plural } from '../domain/formatters'
 import type {
   AutomationAction,
   AutomationActionType,
@@ -259,8 +260,8 @@ export function describeAutomationAction(action: AutomationAction, stages: Pipel
   if (action.type === 'mark_lost') return 'Mover para a etapa de perda e encerrar o fluxo'
   if (action.type === 'set_priority') return `Definir prioridade como ${action.value}`
   if (action.type === 'set_temperature') return `Definir temperatura como ${action.value}`
-  if (action.type === 'create_meeting') return `Criar reunião “${action.value}” em ${delay} dia(s)`
-  if (['create_followup', 'create_call'].includes(action.type)) return `${actionLabels[action.type]} “${action.value}” em ${delay} dia(s)`
+  if (action.type === 'create_meeting') return `Criar reunião “${action.value}” em ${delay} ${plural(delay, 'dia', 'dias')}`
+  if (['create_followup', 'create_call'].includes(action.type)) return `${actionLabels[action.type]} “${action.value}” em ${delay} ${plural(delay, 'dia', 'dias')}`
   if (action.type === 'start_cadence') return `Iniciar cadência “${action.value}” com três contatos estruturados`
   if (action.type === 'end_cadence') return 'Concluir atividades pendentes da cadência atual'
   if (action.type === 'assisted_whatsapp' || action.type === 'assisted_email') return `${actionLabels[action.type]} com a mensagem “${action.value}”`
@@ -269,7 +270,7 @@ export function describeAutomationAction(action: AutomationAction, stages: Pipel
     const parts = [action.delayDays ? `${action.delayDays}d` : '', action.delayHours ? `${action.delayHours}h` : '', action.delayMinutes ? `${action.delayMinutes}min` : ''].filter(Boolean)
     return `Aguardar ${parts.join(' ') || '1 min'} antes de continuar`
   }
-  if (action.type === 'branch_if') return `Se ${conditionFieldLabels[action.branchField ?? 'status']} ${operatorLabels[action.branchOperator ?? 'equals']} ${action.branchValue ?? ''}; se falso, pular ${Math.max(1, Number(action.branchSkip ?? 1))} etapa(s)`
+  if (action.type === 'branch_if') return `Se ${conditionFieldLabels[action.branchField ?? 'status']} ${operatorLabels[action.branchOperator ?? 'equals']} ${action.branchValue ?? ''}; se falso, pular ${Math.max(1, Number(action.branchSkip ?? 1))} ${plural(Math.max(1, Number(action.branchSkip ?? 1)), 'etapa', 'etapas')}`
   return `${actionLabels[action.type]}${action.value ? `: ${action.value}` : ''}`
 }
 
@@ -394,9 +395,9 @@ export function suggestAutomationRecipes(snapshot: WorkspaceSnapshot): Automatio
   const hot = snapshot.leads.filter((lead) => lead.status === 'active' && lead.temperature === 'hot').length
   const upcomingMeetings = snapshot.events.filter((event) => event.status !== 'cancelled' && new Date(event.startsAt).getTime() > Date.now()).length
   if (snapshot.leads.some((lead) => lead.status === 'active') && !activeTriggers.has('lead_created')) suggestions.push({ recipeId: 'new-lead-first-action', title: 'Organizar a entrada de novos leads', reason: 'Há leads ativos, mas nenhuma regra ligada para garantir a primeira ação após a entrada.', priority: 'high' })
-  if (overdue > 0 && !activeTriggers.has('activity_overdue')) suggestions.push({ recipeId: 'overdue-activity', title: 'Tratar atividades vencidas', reason: `${overdue} atividade(s) estão vencidas sem uma automação ativa de recuperação.`, priority: 'high' })
-  if (hot > 0 && !activeTriggers.has('lead_stale')) suggestions.push({ recipeId: 'stale-hot-lead', title: 'Proteger leads quentes', reason: `${hot} lead(s) quente(s) podem receber alerta e retomada automática quando ficarem parados.`, priority: 'medium' })
-  if (upcomingMeetings > 0 && !activeTriggers.has('meeting_scheduled')) suggestions.push({ recipeId: 'meeting-confirmation', title: 'Confirmar reuniões automaticamente', reason: `${upcomingMeetings} reunião(ões) futura(s) podem ganhar uma tarefa de confirmação automática.`, priority: 'medium' })
+  if (overdue > 0 && !activeTriggers.has('activity_overdue')) suggestions.push({ recipeId: 'overdue-activity', title: 'Tratar atividades vencidas', reason: `${overdue} ${plural(overdue, 'atividade', 'atividades')} estão vencidas sem uma automação ativa de recuperação.`, priority: 'high' })
+  if (hot > 0 && !activeTriggers.has('lead_stale')) suggestions.push({ recipeId: 'stale-hot-lead', title: 'Proteger leads quentes', reason: `${hot} ${plural(hot, 'lead', 'leads')} ${plural(hot, 'quente', 'quentes')} podem receber alerta e retomada automática quando ficarem parados.`, priority: 'medium' })
+  if (upcomingMeetings > 0 && !activeTriggers.has('meeting_scheduled')) suggestions.push({ recipeId: 'meeting-confirmation', title: 'Confirmar reuniões automaticamente', reason: `${upcomingMeetings} ${plural(upcomingMeetings, 'reunião', 'reuniões')} ${plural(upcomingMeetings, 'futura', 'futuras')} podem ganhar uma tarefa de confirmação automática.`, priority: 'medium' })
   return suggestions.slice(0, 3)
 }
 

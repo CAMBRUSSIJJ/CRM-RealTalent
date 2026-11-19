@@ -1,3 +1,4 @@
+import { plural } from '../../domain/formatters'
 import { useEffect, useMemo, useState } from 'react'
 import { Bell, Save, UsersRound } from 'lucide-react'
 import type { WorkspaceMember } from '../../domain/types'
@@ -81,7 +82,7 @@ export function TeamNotificationContacts({ workspaceId, members, currentUserId, 
     <header><div><span className="eyebrow"><UsersRound size={14}/> Pessoas</span>
       <h3>Integrantes e comunicação</h3>
       <p className="team-notification-directory__subtitle">Número cadastrado uma vez por integrante, reutilizado pelas tarefas atribuídas. O envio exige autorização e telefone verificado.</p>
-    </div><span>{members.length} membro(s)</span></header>
+    </div><span>{members.length} {plural(members.length, 'membro', 'membros')}</span></header>
     {mode === 'local' ? <p role="status">Modo local: contatos de notificação exigem o workspace conectado ao Supabase.</p> : null}
     <div className="team-people-grid-h14">{members.map(member => {
       const editable = (canManage || member.userId === currentUserId) && mode === 'supabase'

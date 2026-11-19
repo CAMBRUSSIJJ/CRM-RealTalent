@@ -1,3 +1,4 @@
+import { plural } from '../domain/formatters'
 import type { CrmCapabilityPlanStep } from './realtalent-crm-capability-planner'
 import type { CrmCapabilityExecutionRuntime, CrmCapabilityStepResult } from './realtalent-crm-capability-executor'
 import { assertRecordU, resolveContactU, resolveLeadU, resolveLeadsU, targetQuery, uarg, ubest, uiso, unum } from './realtalent-crm-universal-executor-helpers'
@@ -42,7 +43,7 @@ export async function executeUniversalContacts(step: CrmCapabilityPlanStep, runt
       const stage = ubest(snapshot.stages, uarg(step, 'stage_query'), (item) => [item.id, item.name])
       if (!stage) throw new Error('Não encontrei a etapa de destino do pipeline.')
       const moved = await actions.bulkMoveLeads(ids, stage.id, uarg(step, 'loss_reason') || null)
-      return { ok: true, summary: `${moved.length} oportunidade(s) movida(s) para ${stage.name}.` }
+      return { ok: true, summary: `${moved.length} ${plural(moved.length, 'oportunidade', 'oportunidades')} ${plural(moved.length, 'movida', 'movidas')} para ${stage.name}.` }
     }
 
     if (step.capabilityId === 'leads.bulk_update') {
@@ -54,25 +55,25 @@ export async function executeUniversalContacts(step: CrmCapabilityPlanStep, runt
         patch[field] = key === 'next_action_at' ? (uiso(value) || value) : value
       }
       const count = await actions.bulkUpdateLeads(ids, patch as any)
-      return { ok: true, summary: `${count} lead(s) atualizado(s) em lote.` }
+      return { ok: true, summary: `${count} ${plural(count, 'lead', 'leads')} ${plural(count, 'atualizado', 'atualizados')} em lote.` }
     }
 
     if (step.capabilityId === 'leads.reclassify') {
       const priority = (uarg(step, 'priority') || 'medium') as any
       const temperature = (uarg(step, 'temperature') || 'warm') as any
       const count = await actions.reclassifyLeads(leads.map((lead) => ({ leadId: lead.id, priority, temperature })))
-      return { ok: true, summary: `${count} lead(s) reclassificado(s).` }
+      return { ok: true, summary: `${count} ${plural(count, 'lead', 'leads')} ${plural(count, 'reclassificado', 'reclassificados')}.` }
     }
 
     if (step.capabilityId === 'leads.bulk_tag') {
       const tag = uarg(step, 'tag').trim()
       if (!tag) throw new Error('Informe a tag que deseja adicionar.')
       const count = await actions.bulkAddLeadTag(ids, tag)
-      return { ok: true, summary: `Tag “${tag}” adicionada a ${count} lead(s).` }
+      return { ok: true, summary: `Tag “${tag}” adicionada a ${count} ${plural(count, 'lead', 'leads')}.` }
     }
 
     const count = await actions.bulkDeleteLeads(ids)
-    return { ok: true, summary: `${count} lead(s) excluído(s).` }
+    return { ok: true, summary: `${count} ${plural(count, 'lead', 'leads')} ${plural(count, 'excluído', 'excluídos')}.` }
   }
 
   if (step.capabilityId === 'leads.merge') {

@@ -1,3 +1,4 @@
+import { plural } from '../../domain/formatters'
 import {
   AlertTriangle, Archive, ArrowRight, BarChart3, Bookmark, CalendarDays, Check, CheckCircle2, ChevronDown,
   ChevronLeft, ChevronRight, ChevronUp, Clock3, Columns3, FileText, GripVertical, LayoutGrid, List, Mail, MessageCircle,
@@ -360,15 +361,15 @@ export function PipelinePage() {
     try {
       if (action === 'priority' && value) await bulkUpdateLeads(selectedIds, { priority: value as Lead['priority'] })
       if (action === 'tag') {
-        const tag = (await promptAction({ title: 'Adicionar tag', description: `A tag será aplicada a ${selectedIds.length} oportunidade(s).`, label: 'Nome da tag', confirmLabel: 'Adicionar tag', placeholder: 'Ex.: Follow-up prioritário' }))?.trim()
+        const tag = (await promptAction({ title: 'Adicionar tag', description: `A tag será aplicada a ${selectedIds.length} ${plural(selectedIds.length, 'oportunidade', 'oportunidades')}.`, label: 'Nome da tag', confirmLabel: 'Adicionar tag', placeholder: 'Ex.: Follow-up prioritário' }))?.trim()
         if (!tag) return
         await bulkAddLeadTag(selectedIds, tag)
       }
       if (action === 'archive') {
-        if (!await confirmAction({ title: `Arquivar ${selectedIds.length} oportunidade(s)?`, description: 'Elas sairão do Pipeline ativo, mantendo o histórico comercial.', confirmLabel: 'Arquivar oportunidades', tone: 'warning' })) return
+        if (!await confirmAction({ title: `Arquivar ${selectedIds.length} ${plural(selectedIds.length, 'oportunidade', 'oportunidades')}?`, description: 'Elas sairão do Pipeline ativo, mantendo o histórico comercial.', confirmLabel: 'Arquivar oportunidades', tone: 'warning' })) return
         const previous = selectedLeads.map((lead) => ({ id: lead.id, status: lead.status }))
         await bulkUpdateLeads(selectedIds, { status: 'archived' })
-        notify('info', `${selectedIds.length} oportunidade(s) arquivada(s).`, { action: { label: 'Desfazer', run: async () => { for (const item of previous) await bulkUpdateLeads([item.id], { status: item.status }) } } })
+        notify('info', `${selectedIds.length} ${plural(selectedIds.length, 'oportunidade', 'oportunidades')} ${plural(selectedIds.length, 'arquivada', 'arquivadas')}.`, { action: { label: 'Desfazer', run: async () => { for (const item of previous) await bulkUpdateLeads([item.id], { status: item.status }) } } })
       }
       if (action === 'followup') {
         const tomorrow = new Date(); tomorrow.setDate(tomorrow.getDate() + 1); tomorrow.setHours(9, 0, 0, 0)
@@ -602,7 +603,7 @@ export function PipelinePage() {
       </tr>
     })}</tbody></table></div>
     {!filtered.length ? <div className="pipeline-empty-view"><Search size={26} /><strong>Nenhuma oportunidade encontrada</strong><span>Ajuste os filtros ou crie uma nova oportunidade.</span></div> : null}
-    {filtered.length ? <footer className="pipeline-list-pagination"><span>{filtered.length} oportunidade(s)</span><label>Por página <SelectionSelect size="sm" value={String(listPageSize)} onValueChange={(value) => setListPageSize(Number(value))} options={[10, 20, 50].map((value) => ({ value: String(value), label: String(value) }))} /></label><Button size="sm" variant="secondary" disabled={listSafePage <= 1} onClick={() => setListPage((value) => Math.max(1, value - 1))}>Anterior</Button><strong>{listSafePage} / {listTotalPages}</strong><Button size="sm" variant="secondary" disabled={listSafePage >= listTotalPages} onClick={() => setListPage((value) => Math.min(listTotalPages, value + 1))}>Próxima</Button></footer> : null}
+    {filtered.length ? <footer className="pipeline-list-pagination"><span>{filtered.length} {plural(filtered.length, 'oportunidade', 'oportunidades')}</span><label>Por página <SelectionSelect size="sm" value={String(listPageSize)} onValueChange={(value) => setListPageSize(Number(value))} options={[10, 20, 50].map((value) => ({ value: String(value), label: String(value) }))} /></label><Button size="sm" variant="secondary" disabled={listSafePage <= 1} onClick={() => setListPage((value) => Math.max(1, value - 1))}>Anterior</Button><strong>{listSafePage} / {listTotalPages}</strong><Button size="sm" variant="secondary" disabled={listSafePage >= listTotalPages} onClick={() => setListPage((value) => Math.min(listTotalPages, value + 1))}>Próxima</Button></footer> : null}
   </section>
 
   const forecastGroups = useMemo(() => {

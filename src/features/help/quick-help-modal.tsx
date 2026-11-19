@@ -1,3 +1,4 @@
+import { plural } from '../../domain/formatters'
 import { ArrowRight, BookOpenCheck, Bot, Check, CheckCircle2, ChevronRight, Compass, Database, GraduationCap, ListChecks, Play, Search, Sparkles, Target } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 import { useAppNavigation, useAppWorkspace } from '../../app/app-context'
@@ -104,7 +105,7 @@ export function QuickHelpModal({ open, onClose }: QuickHelpModalProps) {
 
       {mode === 'journey' ? <section className="help-academy-v10096__journey">
         <aside className="help-academy-v10096__journey-nav">
-          <div className="help-academy-v10096__progress"><header><strong>Seu roteiro comercial</strong><span>{completed.length}/{SELLER_JOURNEY.length} concluído(s)</span></header><div className="help-academy-v10096__progress-bar"><i style={{ width: `${progress}%` }}/></div></div>
+          <div className="help-academy-v10096__progress"><header><strong>Seu roteiro comercial</strong><span>{completed.length}/{SELLER_JOURNEY.length} {plural(SELLER_JOURNEY.length, 'concluído', 'concluídos')}</span></header><div className="help-academy-v10096__progress-bar"><i style={{ width: `${progress}%` }}/></div></div>
           <div className="help-academy-v10096__steps">{SELLER_JOURNEY.map((step, index) => {
             const done = completed.includes(step.id)
             return <button key={step.id} type="button" className={`help-academy-v10096__step ${journeyId === step.id ? 'is-active' : ''} ${done ? 'is-done' : ''}`} onClick={() => setJourneyId(step.id)}><span className="help-academy-v10096__step-number">{done ? <Check size={14}/> : index + 1}</span><span className="help-academy-v10096__step-copy"><strong>{step.title}</strong><span>{step.subtitle}</span></span><ChevronRight size={15}/></button>

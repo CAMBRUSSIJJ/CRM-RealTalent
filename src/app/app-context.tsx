@@ -1,3 +1,4 @@
+import { plural } from '../domain/formatters'
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type PropsWithChildren } from 'react'
 import type { ActivityItem, AppRoute, AuditLog, AutomationRule, AutomationRun, CalendarEvent, CallRecord, CommercialStructureSyncResult, CompanyRecord, ContactRecord, ContactRelationship, Goal, Lead, PipelineStage, Playbook, ProductRecord, ProposalRecord, ProposalStatus, RevenueEntry, RepositoryHealth, Workspace, WorkspaceInvite, WorkspaceMember, WorkspaceRole, WorkspaceSnapshot } from '../domain/types'
 import { createRepository } from '../repositories/create-repository'
@@ -312,7 +313,7 @@ export function AppProvider({ children }: PropsWithChildren) {
   const value = useMemo<AppContextValue>(() => ({
     route, routeContext, setRoute, navigate, clearRouteContext, repositoryMode: repository.mode, health, workspaces, currentWorkspace, currentUserId: user?.id ?? null, teamAccess, canWrite, can, canTeamAccess, teamAccessScope, canTeamAccessRecord, snapshot, loading, routeDataLoading, loadedSnapshotSlices, error, toasts, dismissToast, actionDialog, confirmAction, promptAction, resolveActionDialog,
     reinitialize: bootstrap,
-    async synchronizeCommercialStructure() { assertAuthorized({ action: 'manage', resource: 'workspace' }); if (!currentWorkspace) throw new Error('Selecione um workspace.'); const result = await repository.synchronizeCommercialStructure(currentWorkspace.id); await publishDomainChange('commercial.structure.changed', { entityType: 'workspace', entityId: currentWorkspace.id }); notify('success', `Estrutura sincronizada: ${result.leadsLinked} lead(s) vinculados.`); return result },
+    async synchronizeCommercialStructure() { assertAuthorized({ action: 'manage', resource: 'workspace' }); if (!currentWorkspace) throw new Error('Selecione um workspace.'); const result = await repository.synchronizeCommercialStructure(currentWorkspace.id); await publishDomainChange('commercial.structure.changed', { entityType: 'workspace', entityId: currentWorkspace.id }); notify('success', `Estrutura sincronizada: ${result.leadsLinked} ${plural(result.leadsLinked, 'lead', 'leads')} vinculados.`); return result },
     async createCompany(input) { assertAuthorized({ action: 'create', resource: 'company' }); if (!currentWorkspace) throw new Error('Selecione um workspace.'); const company = await repository.createCompany({ ...input, workspaceId: currentWorkspace.id }); await publishDomainChange('commercial.record.created', { entityType: 'company', entityId: company.id }); notify('success', 'Empresa adicionada ao CRM.'); return company },
     async updateCompany(companyId, input) { if (!permissionSubject) throw new Error('Selecione um workspace.'); assertFieldWrite(permissionSubject, 'company', Object.keys(input)); const company = await repository.updateCompany(companyId, input); await publishDomainChange('commercial.record.updated', { entityType: 'company', entityId: company.id }); return company },
     async createContact(input) { assertAuthorized({ action: 'create', resource: 'contact' }); if (input.phone) assertSensitiveField(teamAccess,'contact_phone','edit'); if (input.email) assertSensitiveField(teamAccess,'contact_email','edit'); if (!currentWorkspace) throw new Error('Selecione um workspace.'); const contact = await repository.createContact({ ...input, workspaceId: currentWorkspace.id }); await publishDomainChange('commercial.record.created', { entityType: 'contact', entityId: contact.id }); notify('success', 'Pessoa adicionada à conta.'); return contact },
@@ -378,7 +379,7 @@ export function AppProvider({ children }: PropsWithChildren) {
         if (lead.status === 'won') await executeAutomationEvent({ triggerType: 'opportunity_won', entityId: `${lead.id}:${lead.updatedAt}`, lead, stageId }, { refreshAfter: false })
         if (lead.status === 'lost') await executeAutomationEvent({ triggerType: 'opportunity_lost', entityId: `${lead.id}:${lead.updatedAt}`, lead, stageId }, { refreshAfter: false })
       }
-      await publishDomainChange('pipeline.opportunity.moved', { entityType: 'opportunity', payload: { leadIds: leads.map((item) => item.id), stageId } }); notify('success', `${leads.length} oportunidade(s) movida(s) no Pipeline.`); return leads
+      await publishDomainChange('pipeline.opportunity.moved', { entityType: 'opportunity', payload: { leadIds: leads.map((item) => item.id), stageId } }); notify('success', `${leads.length} ${plural(leads.length, 'oportunidade', 'oportunidades')} ${plural(leads.length, 'movida', 'movidas')} no Pipeline.`); return leads
     },
     async deleteLead(leadId) { assertAuthorized({ action: 'delete', resource: 'lead' }); const currentLead = snapshot?.leads.find((item) => item.id === leadId); const resource = accessActionAllowed(teamAccess,'delete','contacts') ? 'contacts' : 'pipeline'; assertTeamAccess(teamAccess,'delete',resource,currentLead?.ownerId); await repository.deleteLead(leadId); await refreshData(); notify('success', 'Lead removido.') },
     async mergeLeads(primaryLeadId, duplicateLeadId) { assertWritable();
@@ -394,7 +395,7 @@ export function AppProvider({ children }: PropsWithChildren) {
       if (!currentWorkspace) throw new Error('Selecione um workspace.')
       const resource = accessActionAllowed(teamAccess,'edit','pipeline') ? 'pipeline' : 'contacts'
       for (const leadId of leadIds) { const currentLead = snapshot?.leads.find((item) => item.id === leadId); assertTeamAccess(teamAccess,'edit',resource,currentLead?.ownerId); if (input.ownerId !== undefined && input.ownerId !== currentLead?.ownerId) { assertTeamAccess(teamAccess,'assign',resource,currentLead?.ownerId); assertTeamAccess(teamAccess,'assign',resource,input.ownerId) } }
-      const count = await repository.bulkUpdateLeads(currentWorkspace.id, leadIds, input); await refreshSlices(['commercial']); notify('success', `${count} lead(s) atualizado(s).`); return count
+      const count = await repository.bulkUpdateLeads(currentWorkspace.id, leadIds, input); await refreshSlices(['commercial']); notify('success', `${count} ${plural(count, 'lead', 'leads')} ${plural(count, 'atualizado', 'atualizados')}.`); return count
     },
     async reclassifyLeads(updates, silent = false) { assertWritable();
       if (!currentWorkspace) throw new Error('Selecione um workspace.')
@@ -409,20 +410,20 @@ export function AppProvider({ children }: PropsWithChildren) {
         count += 1
       }
       if (count) await refreshSlices(['commercial'])
-      if (count && !silent) notify('success', `${count} lead(s) reclassificado(s) pelo Lead Score.`)
+      if (count && !silent) notify('success', `${count} ${plural(count, 'lead', 'leads')} ${plural(count, 'reclassificado', 'reclassificados')} pelo Lead Score.`)
       return count
     },
     async bulkAddLeadTag(leadIds, tag) { assertWritable();
       if (!currentWorkspace) throw new Error('Selecione um workspace.')
       const resource = accessActionAllowed(teamAccess,'edit','pipeline') ? 'pipeline' : 'contacts'
       for (const leadId of leadIds) { const currentLead = snapshot?.leads.find((item) => item.id === leadId); assertTeamAccess(teamAccess,'edit',resource,currentLead?.ownerId) }
-      const count = await repository.bulkAddLeadTag(currentWorkspace.id, leadIds, tag); await refreshSlices(['commercial']); notify('success', `Tag adicionada em ${count} lead(s).`); return count
+      const count = await repository.bulkAddLeadTag(currentWorkspace.id, leadIds, tag); await refreshSlices(['commercial']); notify('success', `Tag adicionada em ${count} ${plural(count, 'lead', 'leads')}.`); return count
     },
     async bulkDeleteLeads(leadIds) { assertWritable();
       if (!currentWorkspace) throw new Error('Selecione um workspace.')
       const resource = accessActionAllowed(teamAccess,'delete','contacts') ? 'contacts' : 'pipeline'
       for (const leadId of leadIds) { const currentLead = snapshot?.leads.find((item) => item.id === leadId); assertTeamAccess(teamAccess,'delete',resource,currentLead?.ownerId) }
-      const count = await repository.bulkDeleteLeads(currentWorkspace.id, leadIds); await refreshData(); notify('success', `${count} lead(s) removido(s).`); return count
+      const count = await repository.bulkDeleteLeads(currentWorkspace.id, leadIds); await refreshData(); notify('success', `${count} ${plural(count, 'lead', 'leads')} ${plural(count, 'removido', 'removidos')}.`); return count
     },
     async createStage(input) { assertWritable();
       if (!currentWorkspace) throw new Error('Selecione um workspace.')
@@ -438,7 +439,7 @@ export function AppProvider({ children }: PropsWithChildren) {
       if (!currentWorkspace) throw new Error('Selecione um workspace.')
       if (!inputs.length) return []
       const created = await repository.createActivities(inputs.map((input) => ({ ...input, workspaceId: currentWorkspace.id, sourceType: 'system', sourceId: 'bulk-activity' })))
-      await refreshSlices(['activities', 'commercial']); notify('success', `${created.length} atividade(s) adicionada(s) à rotina comercial.`); return created
+      await refreshSlices(['activities', 'commercial']); notify('success', `${created.length} ${plural(created.length, 'atividade', 'atividades')} ${plural(created.length, 'adicionada', 'adicionadas')} à rotina comercial.`); return created
     },
     async updateActivity(activityId, input) { assertWritable(); const activity = await repository.updateActivity(activityId, input); await publishDomainChange('activity.updated', { entityType: 'activity', entityId: activity.id }); notify('success', 'Atividade atualizada.'); return activity },
     async completeActivity(activityId, completed) { assertWritable();
@@ -527,9 +528,9 @@ export function AppProvider({ children }: PropsWithChildren) {
       const created = activities.length ? (await repository.createActivities(activities)).length : 0
       await refreshSlices(['activities', 'commercial'])
       const appliedLeads = Math.max(0, leadIds.length - skipped - blocked)
-      if (created) notify('success', `${created} etapa(s) criada(s) em ${appliedLeads} lead(s).${skipped ? ` ${skipped} lead(s) já estavam nessa cadência.` : ''}${blocked ? ` ${blocked} lead(s) foram ignorados por “Não entrar em contato”.` : ''}`)
+      if (created) notify('success', `${created} ${plural(created, 'etapa', 'etapas')} ${plural(created, 'criada', 'criadas')} em ${appliedLeads} ${plural(appliedLeads, 'lead', 'leads')}.${skipped ? ` ${skipped} ${plural(skipped, 'lead', 'leads')} já estavam nessa cadência.` : ''}${blocked ? ` ${blocked} ${plural(blocked, 'lead', 'leads')} foram ignorados por “Não entrar em contato”.` : ''}`)
       else if (blocked === leadIds.length) notify('info', 'Nenhuma cadência foi criada: todos os leads selecionados estão bloqueados para contato.')
-      else notify('info', `Os leads elegíveis já possuem esta cadência ativa.${blocked ? ` ${blocked} lead(s) bloqueado(s) foram ignorados.` : ''}`)
+      else notify('info', `Os leads elegíveis já possuem esta cadência ativa.${blocked ? ` ${blocked} ${plural(blocked, 'lead', 'leads')} ${plural(blocked, 'bloqueado', 'bloqueados')} foram ignorados.` : ''}`)
       return created
     },
     async updateCadenceState(cadenceId, action, leadId = null) { assertWritable();
@@ -545,7 +546,7 @@ export function AppProvider({ children }: PropsWithChildren) {
         })
       }
       await refreshSlices(['activities', 'commercial'])
-      notify(patches.length ? 'success' : 'info', patches.length ? `${patches.length} etapa(s) atualizada(s) na cadência.` : 'Nenhuma etapa pendente encontrada para esta cadência.')
+      notify(patches.length ? 'success' : 'info', patches.length ? `${patches.length} ${plural(patches.length, 'etapa', 'etapas')} ${plural(patches.length, 'atualizada', 'atualizadas')} na cadência.` : 'Nenhuma etapa pendente encontrada para esta cadência.')
       return patches.length
     },
     async createCall(input, recording) { assertWritable();
@@ -607,7 +608,7 @@ export function AppProvider({ children }: PropsWithChildren) {
         throw error
       }
       for (const event of events) void queueCalendarMutation(currentWorkspace.id, event.id, 'create', event).catch(() => undefined)
-      await publishDomainChange('calendar.event.changed', { entityType: 'calendar_event', payload: { operation: 'create_many', eventIds: events.map((item) => item.id) } }); notify('success', `${events.length} compromisso(s) criado(s) na Agenda.`); return events
+      await publishDomainChange('calendar.event.changed', { entityType: 'calendar_event', payload: { operation: 'create_many', eventIds: events.map((item) => item.id) } }); notify('success', `${events.length} ${plural(events.length, 'compromisso', 'compromissos')} ${plural(events.length, 'criado', 'criados')} na Agenda.`); return events
     },
     async updateCalendarEvent(eventId, input) { assertWritable();
       if (!currentWorkspace) throw new Error('Selecione um workspace.')
@@ -630,7 +631,7 @@ export function AppProvider({ children }: PropsWithChildren) {
     async deletePlaybook(playbookId) { assertWritable(); await repository.deletePlaybook(playbookId); await refreshSlices(['playbooks']); notify('success', 'Playbook removido.') },
     async createProduct(input) { assertWritable(); assertTeamAccess(teamAccess,'create','proposals'); if(input.unitCost!==undefined) assertSensitiveField(teamAccess,'proposal_cost','edit'); if(input.defaultDiscountPercent!==undefined||input.maxDiscountPercent!==undefined) assertSensitiveField(teamAccess,'proposal_discount','edit'); if(input.minMarginPercent!==undefined) assertSensitiveField(teamAccess,'proposal_margin','edit'); if (!currentWorkspace) throw new Error('Selecione um workspace.'); const product = await repository.createProduct({ ...input, workspaceId: currentWorkspace.id }); await refreshSlices(['products']); notify('success', 'Produto ou serviço cadastrado.'); return product },
     async updateProduct(productId, input) { assertWritable(); assertTeamAccess(teamAccess,'edit','proposals'); if(input.unitCost!==undefined) assertSensitiveField(teamAccess,'proposal_cost','edit'); if(input.defaultDiscountPercent!==undefined||input.maxDiscountPercent!==undefined) assertSensitiveField(teamAccess,'proposal_discount','edit'); if(input.minMarginPercent!==undefined) assertSensitiveField(teamAccess,'proposal_margin','edit'); const product = await repository.updateProduct(productId, input); await refreshSlices(['products']); notify('success', 'Produto atualizado.'); return product },
-    async reconcileProposalItems(legacyName, productId) { assertWritable(); assertTeamAccess(teamAccess,'edit','proposals'); if (!currentWorkspace) throw new Error('Selecione um workspace.'); const count = await repository.reconcileProposalItems(currentWorkspace.id, legacyName, productId); if (count) { await refreshSlices(['proposals', 'products']); await publishDomainChange('proposal.changed', { entityType: 'proposal', entityId: productId, payload: { operation: 'catalog_reconcile', legacyName, count } }) } notify('success', count ? `${count} item(ns) históricos vinculados ao catálogo.` : 'Nenhum item histórico encontrado para reconciliar.'); return count },
+    async reconcileProposalItems(legacyName, productId) { assertWritable(); assertTeamAccess(teamAccess,'edit','proposals'); if (!currentWorkspace) throw new Error('Selecione um workspace.'); const count = await repository.reconcileProposalItems(currentWorkspace.id, legacyName, productId); if (count) { await refreshSlices(['proposals', 'products']); await publishDomainChange('proposal.changed', { entityType: 'proposal', entityId: productId, payload: { operation: 'catalog_reconcile', legacyName, count } }) } notify('success', count ? `${count} ${plural(count, 'item', 'itens')} históricos vinculados ao catálogo.` : 'Nenhum item histórico encontrado para reconciliar.'); return count },
     async deleteProduct(productId) { assertWritable(); assertTeamAccess(teamAccess,'delete','proposals'); await repository.deleteProduct(productId); await refreshSlices(['products']); notify('success', 'Produto removido.') },
     async createProposal(input) {
       assertWritable()
@@ -780,7 +781,7 @@ export function AppProvider({ children }: PropsWithChildren) {
         }
       }
       if (count) await refreshSlices(['commercial'])
-      notify(count ? 'success' : 'info', count ? `${count} automação(ões) processada(s) nas checagens.` : 'Nenhuma regra elegível nas checagens operacionais.')
+      notify(count ? 'success' : 'info', count ? `${count} ${plural(count, 'automação', 'automações')} ${plural(count, 'processada', 'processadas')} nas checagens.` : 'Nenhuma regra elegível nas checagens operacionais.')
       return count
     },
     async undoAutomationRun(runId) { assertWritable();
@@ -799,7 +800,7 @@ export function AppProvider({ children }: PropsWithChildren) {
     async restoreWorkspaceBackup(file) { assertWritable();
       if (!currentWorkspace) throw new Error('Selecione um workspace.')
       const result = await restoreWorkspaceBackupToRepository({ file, workspaceId: currentWorkspace.id, userId: user?.id ?? null, repository })
-      await refreshData(); notify('success', `${result.imported} registro(s) restaurado(s) com validação.`)
+      await refreshData(); notify('success', `${result.imported} ${plural(result.imported, 'registro', 'registros')} ${plural(result.imported, 'restaurado', 'restaurados')} com validação.`)
       return result
     },
     async importLegacyBackup(file) { assertWritable();
@@ -811,7 +812,7 @@ export function AppProvider({ children }: PropsWithChildren) {
         const lead = base.leads.find((item) => item.id === importedLead.id)
         if (lead) await executeAutomationEvent({ triggerType: 'lead_imported', entityId: lead.id, lead }, { refreshAfter: false, baseSnapshot: base })
       }
-      await refreshData(); notify('success', `${imported} lead(s) importado(s) da V99.`); return { imported, warnings: result.warnings }
+      await refreshData(); notify('success', `${imported} ${plural(imported, 'lead', 'leads')} ${plural(imported, 'importado', 'importados')} da V99.`); return { imported, warnings: result.warnings }
     },
     async importLeadFile(file) { assertWritable();
       if (!currentWorkspace || !snapshot) throw new Error('Selecione um workspace.')
@@ -825,7 +826,7 @@ export function AppProvider({ children }: PropsWithChildren) {
         const lead = base.leads.find((item) => item.id === importedLead.id)
         if (lead) await executeAutomationEvent({ triggerType: 'lead_imported', entityId: lead.id, lead }, { refreshAfter: false, baseSnapshot: base })
       }
-      await refreshData(); notify('success', `${imported} lead(s) importado(s).`); return { imported, warnings: result.warnings }
+      await refreshData(); notify('success', `${imported} ${plural(imported, 'lead', 'leads')} ${plural(imported, 'importado', 'importados')}.`); return { imported, warnings: result.warnings }
     },
     notify,
   }), [actionDialog, assertAuthorized, assertWritable, bootstrap, can, canWrite, confirmAction, currentWorkspace, dismissToast, error, executeAutomationEvent, health, loadWorkspace, loading, routeDataLoading, loadedSnapshotSlices, notify, promptAction, refreshData, refreshSlices, publishDomainChange, repository, resolveActionDialog, route, snapshot, teamAccess, canTeamAccess, teamAccessScope, canTeamAccessRecord, toasts, user?.id, workspaces, permissionSubject])

@@ -1,3 +1,4 @@
+import { plural } from '../../domain/formatters'
 import { useEffect, useMemo, useState } from 'react'
 import { AlertTriangle, BellRing, Clock3, RefreshCw, Send, ShieldCheck } from 'lucide-react'
 import { Button } from '../../components/ui/button'
@@ -112,7 +113,7 @@ export function CommunicationAutomationCenter({ workspaceId,tasks,onOpenTask }:P
     </div>
 
     {pendingLocal>0?<p className="communication-automation-console__alert" role="status">
-      <AlertTriangle size={16}/> {pendingLocal} alteração(ões) de tarefa aguardando sincronização.
+      <AlertTriangle size={16}/> {pendingLocal} {plural(pendingLocal, 'alteração', 'alterações')} de tarefa aguardando sincronização.
       O CRM tentará novamente quando o gateway estiver disponível. Avisos antigos expiram em vez de serem disparados fora de hora.
     </p>:null}
     {error?<p className="communication-automation-console__alert" role="alert"><AlertTriangle size={16}/>{error}</p>:null}
@@ -120,7 +121,7 @@ export function CommunicationAutomationCenter({ workspaceId,tasks,onOpenTask }:P
     {filter==='pending'&&!rows.length&&!error&&!loading&&diagnostics.length>0
       ? <div className="communication-automation-console__why">
           <strong>Nenhum aviso programado não significa que tudo está configurado.</strong>
-          <p>{diagnostics.length} tarefa(s) exigem diagnóstico ou não possuem um novo evento para avisar.</p>
+          <p>{diagnostics.length} {plural(diagnostics.length, 'tarefa', 'tarefas')} exigem diagnóstico ou não possuem um novo evento para avisar.</p>
           <Button variant="secondary" size="sm" onClick={()=>setFilter('diagnostics')}>Ver motivos e ações</Button>
         </div> : null}
 

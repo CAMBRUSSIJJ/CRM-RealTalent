@@ -1,3 +1,4 @@
+import { plural } from '../../domain/formatters'
 import {
   ArrowRight,
   CalendarCheck2,
@@ -247,9 +248,9 @@ export function DashboardPage() {
             <div><h3>Atividades de hoje</h3><p>Reuniões, tarefas e contatos do dia.</p></div>
           </div>
           <div className="myday-v1016__cards">
-            <button type="button" onClick={() => setRoute('agenda')}><CalendarCheck2 size={18}/><strong>Preparação para reunião</strong><span>{dashboard.meetingsToday ? `${dashboard.meetingsToday} reunião(ões) hoje` : 'Nenhuma reunião hoje'}</span></button>
-            <button type="button" onClick={() => setRoute('followups')}><ListTodo size={18}/><strong>Follow-ups e tarefas</strong><span>{dashboard.activitiesToday} atividade(s) previstas</span></button>
-            <button type="button" onClick={() => setRoute('calls')}><PhoneCall size={18}/><strong>Contatos do dia</strong><span>{dashboard.contactsToday} interação(ões) concluída(s)</span></button>
+            <button type="button" onClick={() => setRoute('agenda')}><CalendarCheck2 size={18}/><strong>Preparação para reunião</strong><span>{dashboard.meetingsToday ? `${dashboard.meetingsToday} ${plural(dashboard.meetingsToday, 'reunião', 'reuniões')} hoje` : 'Nenhuma reunião hoje'}</span></button>
+            <button type="button" onClick={() => setRoute('followups')}><ListTodo size={18}/><strong>Follow-ups e tarefas</strong><span>{dashboard.activitiesToday} {plural(dashboard.activitiesToday, 'atividade', 'atividades')} previstas</span></button>
+            <button type="button" onClick={() => setRoute('calls')}><PhoneCall size={18}/><strong>Contatos do dia</strong><span>{dashboard.contactsToday} {plural(dashboard.contactsToday, 'interação', 'interações')} {plural(dashboard.contactsToday, 'concluída', 'concluídas')}</span></button>
           </div>
         </div>
 

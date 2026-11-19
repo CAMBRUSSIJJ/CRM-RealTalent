@@ -1,3 +1,4 @@
+import { plural } from '../domain/formatters'
 import type { Lead, WorkspaceSnapshot } from '../domain/types'
 import { listSalesLearningOutcomes, type SalesLearningOutcome } from './realtalent-sales-learning-engine'
 
@@ -255,14 +256,14 @@ export const formatSalesPortfolioLearningSummary = (
   const eligibleRiskActions = analysis.riskActionPatterns.filter((item) => item.samples >= analysis.minSamples)
   const eligibleProfiles = analysis.profileActionPatterns.filter((item) => item.samples >= analysis.minSamples)
   const lines = [
-    `Aprendizado comercial da carteira: ${analysis.samples} resultado(s) verificado(s), ${analysis.positive} positivo(s), ${analysis.negative} negativo(s), taxa observada ${analysis.successRate}%.`,
+    `Aprendizado comercial da carteira: ${analysis.samples} ${plural(analysis.samples, 'resultado', 'resultados')} ${plural(analysis.samples, 'verificado', 'verificados')}, ${analysis.positive} ${plural(analysis.positive, 'positivo', 'positivos')}, ${analysis.negative} ${plural(analysis.negative, 'negativo', 'negativos')}, taxa observada ${analysis.successRate}%.`,
     analysis.samples < analysis.minSamples ? `Amostra ainda pequena: preciso de pelo menos ${analysis.minSamples} resultados comparáveis antes de tratar um padrão como utilizável.` : 'Os padrões abaixo são auxiliares; o estado atual de cada oportunidade continua tendo prioridade.',
   ]
   if (eligibleActions.length) lines.push(`Ações com melhor evidência: ${eligibleActions.slice(0, 4).map(patternLine).join(' | ')}`)
   if (eligibleStageActions.length) lines.push(`Por etapa: ${eligibleStageActions.slice(0, 4).map((item) => `${item.contextLabel} → ${patternLine(item)}`).join(' | ')}`)
   if (eligibleRiskActions.length) lines.push(`Por risco: ${eligibleRiskActions.slice(0, 4).map((item) => `${item.contextLabel} → ${patternLine(item)}`).join(' | ')}`)
   if (eligibleProfiles.length) lines.push(`Por perfil: ${eligibleProfiles.slice(0, 4).map((item) => `${item.contextLabel} → ${patternLine(item)}`).join(' | ')}`)
-  if (!eligibleActions.length) lines.push(`Há ${analysis.samples} evidência(s), mas nenhuma ação atingiu ainda a amostra mínima de ${analysis.minSamples} caso(s).`)
+  if (!eligibleActions.length) lines.push(`Há ${analysis.samples} ${plural(analysis.samples, 'evidência', 'evidências')}, mas nenhuma ação atingiu ainda a amostra mínima de ${analysis.minSamples} ${plural(analysis.minSamples, 'caso', 'casos')}.`)
   lines.push('Não use estes números como causalidade garantida: eles representam associação histórica verificada dentro do CRM e devem ser combinados com Deal Health, riscos e contexto atual.')
   return lines.join('\n')
 }
@@ -279,7 +280,7 @@ export const formatSalesActionEffectiveness = (
   const chosen = qualified.length ? qualified : ranked
   const context = [filters.stageQuery && `etapa ${filters.stageQuery}`, filters.riskQuery && `risco ${filters.riskQuery}`, filters.sourceQuery && `origem ${filters.sourceQuery}`, filters.segmentQuery && `segmento ${filters.segmentQuery}`].filter(Boolean).join(', ')
   return [
-    `Comparação de eficácia${context ? ` para ${context}` : ''}: ${analysis.samples} resultado(s) verificado(s).`,
+    `Comparação de eficácia${context ? ` para ${context}` : ''}: ${analysis.samples} ${plural(analysis.samples, 'resultado', 'resultados')} ${plural(analysis.samples, 'verificado', 'verificados')}.`,
     ...chosen.slice(0, 6).map((item, index) => `${index + 1}. ${patternLine(item)}`),
     qualified.length ? `Ranking prioriza ações com pelo menos ${analysis.minSamples} casos e usa taxa ajustada para reduzir o efeito de amostras pequenas.` : `Nenhuma ação atingiu ${analysis.minSamples} casos ainda; ranking provisório e não conclusivo.`,
   ].join('\n')

@@ -1,3 +1,4 @@
+import { plural } from '../domain/formatters'
 import type { Lead, WorkspaceSnapshot } from '../domain/types'
 import { safeStorage } from '../lib/storage'
 import { buildDealIntelligence, type DealActionKind, type DealMomentum } from './deal-intelligence'
@@ -264,8 +265,8 @@ const evaluateOutcome = (baseline: SalesLearningState, current: SalesLearningSta
   if (current.status === 'lost' && baseline.status !== 'lost') { score -= 100; evidence.push('oportunidade marcada como perdida') }
   if (stageDelta > 0) { score += 35; evidence.push('oportunidade avançou de etapa') }
   else if (stageDelta < 0) { score -= 25; evidence.push('oportunidade regrediu de etapa') }
-  if (healthDelta >= 8) { score += 22; evidence.push(`Deal Health melhorou ${healthDelta} ponto(s)`) }
-  else if (healthDelta <= -8) { score -= 22; evidence.push(`Deal Health caiu ${Math.abs(healthDelta)} ponto(s)`) }
+  if (healthDelta >= 8) { score += 22; evidence.push(`Deal Health melhorou ${healthDelta} ${plural(healthDelta, 'ponto', 'pontos')}`) }
+  else if (healthDelta <= -8) { score -= 22; evidence.push(`Deal Health caiu ${Math.abs(healthDelta)} ${plural(Math.abs(healthDelta), 'ponto', 'pontos')}`) }
   if (probabilityDelta >= 8) { score += 20; evidence.push(`probabilidade RealTalent subiu ${probabilityDelta} p.p.`) }
   else if (probabilityDelta <= -8) { score -= 20; evidence.push(`probabilidade RealTalent caiu ${Math.abs(probabilityDelta)} p.p.`) }
   if (momentumDelta > 0) { score += 14; evidence.push('momentum comercial melhorou') }
@@ -275,8 +276,8 @@ const evaluateOutcome = (baseline: SalesLearningState, current: SalesLearningSta
   const baselineSevere = new Set(baseline.severeRiskKeys)
   const removedSevere = baseline.severeRiskKeys.filter((key) => !currentSevere.has(key)).length
   const addedSevere = current.severeRiskKeys.filter((key) => !baselineSevere.has(key)).length
-  if (removedSevere) { score += Math.min(24, removedSevere * 8); evidence.push(`${removedSevere} risco(s) alto/crítico removido(s)`) }
-  if (addedSevere) { score -= Math.min(24, addedSevere * 8); evidence.push(`${addedSevere} novo(s) risco(s) alto/crítico`) }
+  if (removedSevere) { score += Math.min(24, removedSevere * 8); evidence.push(`${removedSevere} ${plural(removedSevere, 'risco', 'riscos')} alto/crítico removido(s)`) }
+  if (addedSevere) { score -= Math.min(24, addedSevere * 8); evidence.push(`${addedSevere} ${plural(addedSevere, 'novo', 'novos')} ${plural(addedSevere, 'risco', 'riscos')} alto/crítico`) }
 
   if (!baseline.nextStepHealthy && current.nextStepHealthy) { score += 14; evidence.push('próximo passo comercial passou a estar saudável') }
   if (current.accountCoverage - baseline.accountCoverage >= 10) { score += 12; evidence.push('cobertura de stakeholders melhorou') }
@@ -382,9 +383,9 @@ export const formatSalesLearningContextForLead = (workspaceId: string, lead: Lea
   ]
   if (positives.length) {
     const evidence = [...new Set(positives.flatMap((item) => item.evidence))].slice(0, 4).join('; ')
-    lines.push(`PADRÃO POSITIVO: em ${positives.length} contexto(s) semelhante(s), a recomendação ${insight.nextBestAction.kind} foi seguida por avanço verificado no CRM${evidence ? ` (${evidence})` : ''}.`)
+    lines.push(`PADRÃO POSITIVO: em ${positives.length} ${plural(positives.length, 'contexto', 'contextos')} ${plural(positives.length, 'semelhante', 'semelhantes')}, a recomendação ${insight.nextBestAction.kind} foi seguida por avanço verificado no CRM${evidence ? ` (${evidence})` : ''}.`)
   }
-  if (negatives.length) lines.push(`CAUTELA: ${negatives.length} contexto(s) semelhante(s) terminou(aram) com deterioração verificada; trate a recomendação como hipótese e priorize os riscos atuais.`)
+  if (negatives.length) lines.push(`CAUTELA: ${negatives.length} ${plural(negatives.length, 'contexto', 'contextos')} ${plural(negatives.length, 'semelhante', 'semelhantes')} terminou(aram) com deterioração verificada; trate a recomendação como hipótese e priorize os riscos atuais.`)
   lines.push('Nunca reutilize nomes, valores, datas ou identificadores dos casos históricos; use somente o padrão comercial agregado.')
   return lines.join('\n').slice(0, 1800)
 }

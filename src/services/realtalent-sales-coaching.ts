@@ -1,3 +1,4 @@
+import { plural } from '../domain/formatters'
 import type {
   ContactRecord,
   DecisionRole,
@@ -298,7 +299,7 @@ export const buildSalesCoachingPlan = (
   const coachingFocus = unique(playbooks.map((playbook) => playbook.guidance?.coachingFocus ?? '').filter(Boolean), 3).join(' | ')
     || `Conduzir a conversa para ${sales.nextBestAction.objective.toLowerCase()}, sem ignorar os riscos atuais do negócio.`
   const learningSummary = sales.learning.samples >= 3
-    ? `${sales.learning.samples} caso(s) comparáveis; taxa ajustada ${sales.learning.adjustedSuccessRate}%; ajuste ${sales.learning.adjustment >= 0 ? '+' : ''}${sales.learning.adjustment}. ${sales.learning.actionChanged ? 'O histórico confiável alterou a ação sugerida dentro dos guardrails.' : 'O histórico apenas ajustou a confiança; os sinais atuais continuam prioritários.'}`
+    ? `${sales.learning.samples} ${plural(sales.learning.samples, 'caso', 'casos')} comparáveis; taxa ajustada ${sales.learning.adjustedSuccessRate}%; ajuste ${sales.learning.adjustment >= 0 ? '+' : ''}${sales.learning.adjustment}. ${sales.learning.actionChanged ? 'O histórico confiável alterou a ação sugerida dentro dos guardrails.' : 'O histórico apenas ajustou a confiança; os sinais atuais continuam prioritários.'}`
     : 'Amostra histórica insuficiente; o coaching usa principalmente sinais atuais, Playbooks e conhecimento comercial cadastrado.'
 
   return {

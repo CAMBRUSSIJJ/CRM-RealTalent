@@ -1,3 +1,4 @@
+import { plural } from '../domain/formatters'
 import type {
   ActivityItem,
   CalendarEvent,
@@ -156,9 +157,9 @@ export function buildCallHealth(input: {
     : { id: 'permission', label: 'Permissão', detail: 'Nenhum bloqueio comercial registrado.', tone: 'success' })
   if (attempts72h >= 5) checks.push({ id: 'frequency', label: 'Frequência', detail: `${attempts72h} tentativas nas últimas 72h. Reduza a cadência antes de insistir.`, tone: 'warning' })
   else if (attempts72h >= 3) checks.push({ id: 'frequency', label: 'Frequência', detail: `${attempts72h} tentativas nas últimas 72h. Revise a abordagem.`, tone: 'warning' })
-  else checks.push({ id: 'frequency', label: 'Frequência', detail: `${attempts72h} tentativa(s) nas últimas 72h.`, tone: 'success' })
+  else checks.push({ id: 'frequency', label: 'Frequência', detail: `${attempts72h} ${plural(attempts72h, 'tentativa', 'tentativas')} nas últimas 72h.`, tone: 'success' })
   if (contactedToday) checks.push({ id: 'today', label: 'Contato hoje', detail: 'Já houve tentativa hoje.', tone: 'warning' })
-  if (duplicates) checks.push({ id: 'duplicate', label: 'Duplicidade', detail: `${duplicates} outro(s) lead(s) usam o mesmo telefone.`, tone: 'warning' })
+  if (duplicates) checks.push({ id: 'duplicate', label: 'Duplicidade', detail: `${duplicates} ${plural(duplicates, 'outro', 'outros')} ${plural(duplicates, 'lead', 'leads')} usam o mesmo telefone.`, tone: 'warning' })
   if (futureMeeting) checks.push({ id: 'meeting', label: 'Reunião futura', detail: `Já existe compromisso agendado para ${new Date(futureMeeting.startsAt).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' })}.`, tone: 'info' })
   if (lastCall?.outcome === 'invalid_number') checks.push({ id: 'history', label: 'Histórico do número', detail: 'A última tentativa foi registrada como número inválido.', tone: 'warning' })
   else if (lastCall) checks.push({ id: 'history', label: 'Última tentativa', detail: `${outcomeLabel(lastCall.outcome)} · ${new Date(lastCall.startedAt).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' })}.`, tone: 'info' })

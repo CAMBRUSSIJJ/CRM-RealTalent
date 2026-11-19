@@ -1,3 +1,4 @@
+import { plural } from '../../domain/formatters'
 import type { AutomationAction, AutomationCondition, AutomationRule } from '../../domain/types'
 import { getSupabaseClient } from '../../lib/supabase'
 
@@ -95,7 +96,7 @@ export const describeWorkflowControl = (action: AutomationAction) => {
     return `Aguardar ${parts.join(' ') || '1 min'}`
   }
   if (action.type === 'branch_if') {
-    return `Se ${action.branchField ?? 'campo'} ${action.branchOperator ?? 'equals'} ${action.branchValue ?? ''}; caso falso, pular ${Math.max(1, Number(action.branchSkip ?? 1))} etapa(s)`
+    return `Se ${action.branchField ?? 'campo'} ${action.branchOperator ?? 'equals'} ${action.branchValue ?? ''}; caso falso, pular ${Math.max(1, Number(action.branchSkip ?? 1))} ${plural(Math.max(1, Number(action.branchSkip ?? 1)), 'etapa', 'etapas')}`
   }
   return ''
 }

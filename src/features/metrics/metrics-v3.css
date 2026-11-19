@@ -173,7 +173,7 @@
 }
 .metrics-v3__kpi > span {
   color: #75839b;
-  font-size: 10px;
+  font-size: 11px;
   font-weight: 800;
   line-height: 1.35;
   text-transform: uppercase;
@@ -200,7 +200,7 @@
   align-items: center;
   width: fit-content;
   max-width: 100%;
-  font-size: 9px;
+  font-size: 11px;
   gap: 3px;
   white-space: normal;
   line-height: 1.25;
@@ -222,7 +222,7 @@
   font-weight: 730;
   cursor: pointer;
 }
-.metrics-v3__secondary-kpis > summary > span { margin-left: auto; color: #8997a9; font-size: 10px; font-weight: 500; }
+.metrics-v3__secondary-kpis > summary > span { margin-left: auto; color: #8997a9; font-size: 11px; font-weight: 500; }
 .metrics-v3__secondary-kpi-grid {
   display: grid;
   grid-template-columns: repeat(4,minmax(0,1fr));
@@ -243,13 +243,13 @@
   display: flex;
   align-items: center;
   gap: 6px;
-  font-size: 10px;
+  font-size: 11px;
   color: var(--mv3-muted);
   font-weight: 710;
 }
 .metrics-v3__secondary-kpi-grid article > span svg { color: #5f83c8; }
 .metrics-v3__secondary-kpi-grid article > strong { font-size: 19px; font-weight: 790; color: var(--mv3-text); }
-.metrics-v3__secondary-kpi-grid .status-pill { width: fit-content; font-size: 9px; }
+.metrics-v3__secondary-kpi-grid .status-pill { width: fit-content; font-size: 11px; }
 .metrics-v3__body > .metrics-overview-grid > .panel,
 .metrics-v3__body > .metrics-funnel-professional,
 .metrics-v3__body > .metrics-v3__forecast-hero,
@@ -379,7 +379,7 @@ html[data-theme="dark"] .metrics-v3__secondary-kpis > summary { color: #b3d0ff; 
 .metrics-v3__stat-icon--green { color: #15956c; background: #ecfdf5; }
 .metrics-v3__stat small {
   color: #73839a;
-  font-size: 10px;
+  font-size: 11px;
   font-weight: 790;
   letter-spacing: .04em;
   line-height: 1.4;
@@ -396,14 +396,14 @@ html[data-theme="dark"] .metrics-v3__secondary-kpis > summary { color: #b3d0ff; 
 }
 .metrics-v3__stat > div > span:not(.status-pill) {
   color: var(--mv3-muted);
-  font-size: 10px;
+  font-size: 11px;
   line-height: 1.35;
 }
 .metrics-v3__stat .status-pill {
   max-width: 100%;
   white-space: normal;
   width: fit-content;
-  font-size: 9px;
+  font-size: 11px;
 }
 .metrics-v3__funnel-summary {
   display: grid;
@@ -423,7 +423,7 @@ html[data-theme="dark"] .metrics-v3__secondary-kpis > summary { color: #b3d0ff; 
   min-width: 0;
 }
 .metrics-v3__funnel-summary small {
-  font-size: 10px;
+  font-size: 11px;
   color: var(--mv3-muted);
   font-weight: 740;
 }
@@ -500,7 +500,7 @@ html[data-theme="dark"] .metrics-v3__secondary-kpis > summary { color: #b3d0ff; 
 }
 .metrics-v3__forecast-grid article > span svg { width: 17px; height: 17px; }
 .metrics-v3__forecast-grid small {
-  font-size: 10px;
+  font-size: 11px;
   font-weight: 780;
   text-transform: uppercase;
   letter-spacing: .04em;
@@ -516,7 +516,7 @@ html[data-theme="dark"] .metrics-v3__secondary-kpis > summary { color: #b3d0ff; 
 .metrics-v3__forecast-grid p {
   color: var(--mv3-muted);
   margin: 0;
-  font-size: 10px;
+  font-size: 11px;
   line-height: 1.45;
 }
 .metrics-v3__secondary-kpi-grid { grid-template-columns: repeat(3,minmax(0,1fr)); }

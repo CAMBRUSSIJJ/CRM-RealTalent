@@ -1,3 +1,4 @@
+import { plural } from '../../domain/formatters'
 import { BarChart3, Clock3, Gauge, Headphones, MessageSquareWarning, Sparkles, Target, Trophy } from 'lucide-react'
 import { useMemo, useState } from 'react'
 import type { CallRecord, ContactRecord, Lead, PipelineStage, Playbook } from '../../domain/types'
@@ -29,7 +30,7 @@ export function CallsIntelligencePanel({ calls, leads, contacts, playbooks, stag
       <article><span><Target size={17} /> Conversas</span><strong>{data.totals.conversations}</strong><small>{data.totals.qualificationRate}% qualificadas</small></article>
       <article><span><Trophy size={17} /> Reuniões</span><strong>{data.totals.meetings}</strong><small>{data.totals.meetingRate}% das conversas</small></article>
       <article><span><Clock3 size={17} /> Duração média</span><strong>{formatDuration(data.totals.averageDuration)}</strong><small>{data.totals.bestHour ? `melhor hora ${String(data.totals.bestHour.hour).padStart(2, '0')}:00` : 'sem janela dominante'}</small></article>
-      <article><span><Sparkles size={17} /> Coaching</span><strong>{data.coaching.averageScore || '—'}</strong><small>{data.coaching.reviewedCalls} ligação(ões) avaliadas</small></article>
+      <article><span><Sparkles size={17} /> Coaching</span><strong>{data.coaching.averageScore || '—'}</strong><small>{data.coaching.reviewedCalls} {plural(data.coaching.reviewedCalls, 'ligação', 'ligações')} avaliadas</small></article>
       <article><span><Gauge size={17} /> Próximo passo</span><strong>{data.coaching.nextStepRate}%</strong><small>das ligações com avanço registrado</small></article>
     </div>
 

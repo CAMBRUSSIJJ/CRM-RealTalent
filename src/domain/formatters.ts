@@ -14,3 +14,6 @@ export const initials = (name: string) =>
     .slice(0, 2)
     .map((part) => part[0]?.toUpperCase())
     .join('') || 'GB'
+
+/** Singular ou plural pelo número: plural(1, 'reunião', 'reuniões') → 'reunião'. Evita "reunião(ões)" na tela. */
+export const plural = (count: number | string, one: string, many: string) => Math.abs(Number(count)) === 1 ? one : many

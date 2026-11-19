@@ -1,3 +1,4 @@
+import { plural } from '../domain/formatters'
 import { getSupabaseClient } from '../lib/supabase'
 import { buildGarimpoLinuxCommand, buildGarimpoLinuxInstaller } from './local-connector-installer'
 import { effectiveDataMode, env } from '../lib/env'
@@ -269,7 +270,7 @@ export function applyAiDiscovery(state: ProspectingState, result: AiSearchResult
   }
   return appendHistory({ ...state, prospects: [...added, ...state.prospects] }, workspaceId, {
     action: 'search', title: result.researchMode === 'essential' ? 'Pesquisa pública sem IA concluída' : 'Pesquisa com IA concluída',
-    description: `${result.leads.length} encontrado(s) · ${added.length} novo(s) · ${skipped} repetido(s) ignorado(s). ${result.warnings.join(' ')}`, count: added.length,
+    description: `${result.leads.length} ${plural(result.leads.length, 'encontrado', 'encontrados')} · ${added.length} ${plural(added.length, 'novo', 'novos')} · ${skipped} ${plural(skipped, 'repetido', 'repetidos')} ${plural(skipped, 'ignorado', 'ignorados')}. ${result.warnings.join(' ')}`, count: added.length,
   })
 }
 

@@ -1,3 +1,4 @@
+import { plural } from '../../domain/formatters'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Check, CheckSquare2, GripVertical, Link2, Plus, Save, Trash2, UserRound } from 'lucide-react'
 import { NativeSelectionSelect } from '../../components/selection'
@@ -238,7 +239,7 @@ export function TaskModal({ open, task, relation, checklist, teams, memberships,
           <section className="task-board-v3__section task-board-v3__checklist" aria-labelledby="task-board-v3-checklist">
             <header className="task-board-v3__section-head">
               <strong id="task-board-v3-checklist"><CheckSquare2 size={16}/> Checklist</strong>
-              <span>{checklistCompleted} de {checklistDraft.length} concluído(s)</span>
+              <span>{checklistCompleted} de {checklistDraft.length} {plural(checklistDraft.length, 'concluído', 'concluídos')}</span>
             </header>
             {checklistDraft.length ? <div className="task-board-v3__checklist-progress" aria-label={`Progresso do checklist: ${checklistProgress}%`}><div><i style={{ width: `${checklistProgress}%` }}/></div><strong>{checklistProgress}%</strong></div> : null}
             <div className="task-board-v3__checklist-items">

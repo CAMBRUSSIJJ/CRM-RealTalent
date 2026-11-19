@@ -1,3 +1,4 @@
+import { plural } from '../domain/formatters'
 import type { CaptureDraft } from './prospecting-workspace'
 import {
   runProspectingProviderSearch,
@@ -176,7 +177,7 @@ export async function runProspectingSearchAutomation(
     ...patch,
   })
 
-  emit({ status: 'planning', message: `Interpretando a busca para até ${targetQuantity} oportunidade(s)…` })
+  emit({ status: 'planning', message: `Interpretando a busca para até ${targetQuantity} ${plural(targetQuantity, 'oportunidade', 'oportunidades')}…` })
   const planner = options.planSearch ?? (options.search ? undefined : planProspectingSearchWithAgent)
   if (planner) {
     try {
@@ -264,7 +265,7 @@ export async function runProspectingSearchAutomation(
           readyCount,
           reviewCount,
           duplicatesFiltered,
-          message: `${result.drafts.length} bruto(s) · ${drafts.length} empresa(s) válida(s) · ${rejectedCount} ruído(s) filtrado(s) · ${duplicatesFiltered} duplicidade(s).`,
+          message: `${result.drafts.length} ${plural(result.drafts.length, 'bruto', 'brutos')} · ${drafts.length} ${plural(drafts.length, 'empresa', 'empresas')} ${plural(drafts.length, 'válida', 'válidas')} · ${rejectedCount} ${plural(rejectedCount, 'ruído', 'ruídos')} ${plural(rejectedCount, 'filtrado', 'filtrados')} · ${duplicatesFiltered} ${plural(duplicatesFiltered, 'duplicidade', 'duplicidades')}.`,
         })
         if (drafts.length >= targetQuantity) { stoppedReason = 'target_reached'; break outer }
 
@@ -304,10 +305,10 @@ export async function runProspectingSearchAutomation(
     reviewCount,
     duplicatesFiltered,
     message: stoppedReason === 'target_reached'
-      ? `Meta atingida: ${drafts.length} empresa(s) válida(s).`
+      ? `Meta atingida: ${drafts.length} ${plural(drafts.length, 'empresa', 'empresas')} ${plural(drafts.length, 'válida', 'válidas')}.`
       : stoppedReason === 'request_limit'
-        ? `Limite de ${maxRequests} consulta(s): ${drafts.length} válida(s), ${rejectedCount} ruído(s) filtrado(s).`
-        : `Busca concluída: ${drafts.length} válida(s), ${rejectedCount} ruído(s) filtrado(s).`,
+        ? `Limite de ${maxRequests} ${plural(maxRequests, 'consulta', 'consultas')}: ${drafts.length} ${plural(drafts.length, 'válida', 'válidas')}, ${rejectedCount} ${plural(rejectedCount, 'ruído', 'ruídos')} ${plural(rejectedCount, 'filtrado', 'filtrados')}.`
+        : `Busca concluída: ${drafts.length} ${plural(drafts.length, 'válida', 'válidas')}, ${rejectedCount} ${plural(rejectedCount, 'ruído', 'ruídos')} ${plural(rejectedCount, 'filtrado', 'filtrados')}.`,
   })
 
   return {

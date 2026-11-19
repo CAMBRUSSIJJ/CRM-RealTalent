@@ -1,3 +1,4 @@
+import { plural } from '../../domain/formatters'
 import { NativeSelectionSelect } from '../../components/selection'
 import {
   AlertTriangle, ArrowRight, BarChart3, CalendarDays, CheckCircle2, CircleDollarSign, Gauge, Pencil, PhoneCall,
@@ -239,7 +240,7 @@ function GoalCard({ insight, canEdit, canDelete, onEdit, onRemove }: { insight: 
     <div className="progress-track goal-card__progress"><span style={{ width: `${Math.min(100, insight.percentage)}%` }} /></div>
     <div className="goal-card__progress-label"><strong>{upcoming ? `Começa em ${dateLabel(goal.periodStart)}` : `${insight.percentage}% concluído`}</strong><span>{upcoming ? `Meta agendada para ${goal.periodStart === goal.periodEnd ? 'um único dia' : `o período até ${dateLabel(goal.periodEnd)}`}` : `Ritmo esperado: ${insight.expectedPercentage}% · ${paceDelta < 0.01 ? 'no ponto' : `${formatValue(goal, paceDelta, 1)} ${insight.paceGap >= 0 ? 'acima' : 'abaixo'}`}`}</span></div>
     <div className="goal-card__forecast-grid goal-card__forecast-grid--v10080">
-      <div><small>Falta</small><strong>{formatValue(goal, insight.remaining)}</strong><span>{insight.workdaysRemaining} dia(s) útil(eis)</span></div>
+      <div><small>Falta</small><strong>{formatValue(goal, insight.remaining)}</strong><span>{insight.workdaysRemaining} {plural(insight.workdaysRemaining, 'dia', 'dias')} {plural(insight.workdaysRemaining, 'útil', 'úteis')}</span></div>
       <div><small>Necessário/dia</small><strong>{formatValue(goal, insight.dailyRequired, 1)}</strong><span>para chegar a 100%</span></div>
       <div><small>Projeção final</small><strong>{formatValue(goal, insight.forecast)}</strong><span className={insight.projectedToHit ? 'is-positive' : 'is-negative'}>{upcoming ? 'Começa no período agendado' : `${insight.forecastPercentage}% da meta`}</span></div>
       <div><small>Vs. período anterior</small><strong>{formatValue(goal, insight.previousValue)}</strong><span className={previousDelta === null ? '' : previousDelta >= 0 ? 'is-positive' : 'is-negative'}>{previousDelta === null ? 'Sem base comparável' : `${previousDelta >= 0 ? '+' : ''}${previousDelta}% no mesmo ponto`}</span></div>

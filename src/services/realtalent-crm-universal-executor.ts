@@ -1,3 +1,4 @@
+import { plural } from '../domain/formatters'
 import { createId } from '../lib/id'
 import { DEFAULT_CADENCE_TEMPLATES } from './followup-workspace'
 import { executeCrmCapabilityStep as executeBaseCrmCapabilityStep, undoCrmAgentOperation, type CrmCapabilityExecutionRuntime, type CrmCapabilityStepResult } from './realtalent-crm-capability-executor'
@@ -63,14 +64,14 @@ async function executeFollowupAndCalls(step: CrmCapabilityPlanStep, runtime: Crm
     const template = uarg(step, 'template_name') ? ubest(DEFAULT_CADENCE_TEMPLATES, uarg(step, 'template_name'), (item) => [item.id, item.name, item.category, item.description]) : DEFAULT_CADENCE_TEMPLATES[0]
     if (!template) throw new Error('Não encontrei um modelo de cadência válido.')
     const count = await actions.createCadence(leads.map((item) => item.id), uiso(uarg(step, 'first_due_at')) || new Date().toISOString(), template)
-    return { ok: true, summary: `Cadência “${template.name}” criada para ${count} lead(s).` }
+    return { ok: true, summary: `Cadência “${template.name}” criada para ${count} ${plural(count, 'lead', 'leads')}.` }
   }
   if (step.capabilityId === 'cadences.update_state') {
     const cadenceId = uarg(step, 'cadence_id').trim(); if (!cadenceId) throw new Error('Informe o ID da cadência.')
     const action = unormalize(uarg(step, 'action')) as 'pause' | 'resume' | 'stop'; if (!['pause','resume','stop'].includes(action)) throw new Error('Ação da cadência deve ser pause, resume ou stop.')
     const lead = uarg(step, 'lead_query') ? resolveLeadU(runtime, uarg(step, 'lead_query')) : null
     const count = await actions.updateCadenceState(cadenceId, action, lead?.id ?? null)
-    return { ok: true, summary: `${count} item(ns) da cadência atualizado(s) para ${action}.` }
+    return { ok: true, summary: `${count} ${plural(count, 'item', 'itens')} da cadência atualizado(s) para ${action}.` }
   }
   if (step.capabilityId === 'calls.register_outcome') {
     const lead = resolveLeadU(runtime, uarg(step, 'record_query') || uarg(step, 'lead_query')); const contact = resolveContactU(runtime, uarg(step, 'contact_query'))
@@ -133,7 +134,7 @@ async function executeSales(step: CrmCapabilityPlanStep, runtime: CrmCapabilityE
   if (step.capabilityId === 'catalog.reconcile_proposal_items') {
     const product = resolveProductU(runtime, uarg(step, 'product_query')); if (!product) throw new Error('Não encontrei o produto do catálogo.')
     const legacyName = uarg(step, 'legacy_name').trim(); if (!legacyName) throw new Error('Informe o nome legado do item.')
-    const count = await actions.reconcileProposalItems(legacyName, product.id); return { ok: true, summary: `${count} item(ns) reconciliado(s) com ${product.name}.` }
+    const count = await actions.reconcileProposalItems(legacyName, product.id); return { ok: true, summary: `${count} ${plural(count, 'item', 'itens')} ${plural(count, 'reconciliado', 'reconciliados')} com ${product.name}.` }
   }
   if (step.capabilityId.startsWith('buyer_rooms.')) {
     if (step.capabilityId === 'buyer_rooms.create') {
@@ -165,18 +166,18 @@ async function executeAutomationAndWorkspace(step: CrmCapabilityPlanStep, runtim
     const rule = resolveAutomationU(runtime, targetQuery(step)); const lead = resolveLeadU(runtime, uarg(step, 'lead_query')); if (!rule || !lead) throw new Error('Informe a automação e o lead para simulação.')
     await actions.simulateAutomationRule(rule.id, lead.id); return { ok: true, summary: `Simulação de “${rule.name}” concluída para ${lead.company || lead.name}.` }
   }
-  if (step.capabilityId === 'automations.run_checks') { const count = await actions.runAutomationChecks(); return { ok: true, summary: `Verificações de automação concluídas: ${count} execução(ões) processada(s).` } }
+  if (step.capabilityId === 'automations.run_checks') { const count = await actions.runAutomationChecks(); return { ok: true, summary: `Verificações de automação concluídas: ${count} ${plural(count, 'execução', 'execuções')} ${plural(count, 'processada', 'processadas')}.` } }
   if (step.capabilityId === 'automations.undo_run') {
     const run = ubest(snapshot.automationRuns, uarg(step, 'run_query'), (item) => [item.id, item.eventKey, item.status]); if (!run) throw new Error('Não encontrei a execução de automação.')
     await actions.undoAutomationRun(run.id); return { ok: true, summary: `Execução ${run.id.slice(0, 8)} desfeita.` }
   }
   if (step.capabilityId === 'workspace.create') { const name = uarg(step, 'name').trim(); if (!name) throw new Error('Informe o nome do workspace.'); await actions.createWorkspace(name); return { ok: true, summary: `Workspace “${name}” criado.` } }
   if (step.capabilityId === 'workspace.select') { const id = uarg(step, 'workspace_id').trim(); if (!id) throw new Error('Informe o ID do workspace.'); await actions.setCurrentWorkspace(id); return { ok: true, summary: 'Workspace atual alterado.' } }
-  if (step.capabilityId === 'workspace.members') { const members = await actions.listWorkspaceMembers(); return { ok: true, summary: members.length ? `${members.length} membro(s): ${members.slice(0, 25).map((item) => `${item.displayName || item.email} (${item.role})`).join(' · ')}` : 'Nenhum membro encontrado.' } }
-  if (step.capabilityId === 'workspace.invites') { const invites = await actions.listWorkspaceInvites(); return { ok: true, summary: invites.length ? `${invites.length} convite(s): ${invites.slice(0, 25).map((item) => `${item.email} (${item.role})`).join(' · ')}` : 'Nenhum convite encontrado.' } }
-  if (step.capabilityId === 'workspace.audit_logs') { const logs = await actions.listAuditLogs(Math.max(1, Math.min(100, Math.round(unum(uarg(step, 'limit'), 20))))); return { ok: true, summary: logs.length ? `${logs.length} evento(s) de auditoria. ${logs.slice(0, 20).map((item) => `${item.action} · ${item.entityType}`).join(' | ')}` : 'Nenhum evento de auditoria encontrado.' } }
-  if (step.capabilityId === 'workspace.sync_structure') { const result = await actions.synchronizeCommercialStructure(); return { ok: true, summary: `Estrutura sincronizada: ${result.companiesCreated} empresa(s), ${result.contactsCreated} contato(s), ${result.opportunitiesCreated} oportunidade(s) e ${result.socialProfilesCreated} perfil(is) social(is) criados.` } }
-  if (step.capabilityId === 'workspace.clear_operational_data') { const result = await actions.clearOperationalData(); return { ok: true, summary: `Dados operacionais limpos: ${result.total} registro(s).` } }
+  if (step.capabilityId === 'workspace.members') { const members = await actions.listWorkspaceMembers(); return { ok: true, summary: members.length ? `${members.length} ${plural(members.length, 'membro', 'membros')}: ${members.slice(0, 25).map((item) => `${item.displayName || item.email} (${item.role})`).join(' · ')}` : 'Nenhum membro encontrado.' } }
+  if (step.capabilityId === 'workspace.invites') { const invites = await actions.listWorkspaceInvites(); return { ok: true, summary: invites.length ? `${invites.length} ${plural(invites.length, 'convite', 'convites')}: ${invites.slice(0, 25).map((item) => `${item.email} (${item.role})`).join(' · ')}` : 'Nenhum convite encontrado.' } }
+  if (step.capabilityId === 'workspace.audit_logs') { const logs = await actions.listAuditLogs(Math.max(1, Math.min(100, Math.round(unum(uarg(step, 'limit'), 20))))); return { ok: true, summary: logs.length ? `${logs.length} ${plural(logs.length, 'evento', 'eventos')} de auditoria. ${logs.slice(0, 20).map((item) => `${item.action} · ${item.entityType}`).join(' | ')}` : 'Nenhum evento de auditoria encontrado.' } }
+  if (step.capabilityId === 'workspace.sync_structure') { const result = await actions.synchronizeCommercialStructure(); return { ok: true, summary: `Estrutura sincronizada: ${result.companiesCreated} ${plural(result.companiesCreated, 'empresa', 'empresas')}, ${result.contactsCreated} ${plural(result.contactsCreated, 'contato', 'contatos')}, ${result.opportunitiesCreated} ${plural(result.opportunitiesCreated, 'oportunidade', 'oportunidades')} e ${result.socialProfilesCreated} perfil(is) social(is) criados.` } }
+  if (step.capabilityId === 'workspace.clear_operational_data') { const result = await actions.clearOperationalData(); return { ok: true, summary: `Dados operacionais limpos: ${result.total} ${plural(result.total, 'registro', 'registros')}.` } }
   return null
 }
 

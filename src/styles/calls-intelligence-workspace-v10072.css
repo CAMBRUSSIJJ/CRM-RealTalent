@@ -40,9 +40,9 @@
   gap: 4px;
 }
 .call-intelligence-v72__brief-grid small,
-.call-intelligence-v72__prior-signals > small { color: var(--text-muted); font-size: 9px; font-weight: 800; text-transform: uppercase; letter-spacing: .04em; }
-.call-intelligence-v72__brief-grid strong { color: var(--text); font-size: 10px; line-height: 1.45; }
-.call-intelligence-v72__brief-grid span { color: var(--text-muted); font-size: 9px; }
+.call-intelligence-v72__prior-signals > small { color: var(--text-muted); font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: .04em; }
+.call-intelligence-v72__brief-grid strong { color: var(--text); font-size: 11px; line-height: 1.45; }
+.call-intelligence-v72__brief-grid span { color: var(--text-muted); font-size: 11px; }
 .call-intelligence-v72__context-chips,
 .call-intelligence-v72__prior-signals > div,
 .call-intelligence-v72__assistant-signals > div {
@@ -61,7 +61,7 @@
   align-items: center;
   color: var(--text-muted);
   background: color-mix(in srgb, var(--accent) 3%, var(--surface));
-  font-size: 9px;
+  font-size: 11px;
   font-weight: 750;
 }
 .call-intelligence-v72__prior-signals { margin-top: 10px; display: grid; gap: 6px; }
@@ -77,15 +77,15 @@
 }
 .call-intelligence-v72__opening > svg { margin-top: 2px; color: var(--accent); }
 .call-intelligence-v72__opening > div { display: grid; gap: 4px; }
-.call-intelligence-v72__opening small { color: var(--accent); font-size: 9px; font-weight: 850; text-transform: uppercase; }
+.call-intelligence-v72__opening small { color: var(--accent); font-size: 11px; font-weight: 850; text-transform: uppercase; }
 .call-intelligence-v72__opening strong { color: var(--text); font-size: 12px; line-height: 1.45; }
-.call-intelligence-v72__opening span { color: var(--text-muted); font-size: 9px; line-height: 1.45; }
+.call-intelligence-v72__opening span { color: var(--text-muted); font-size: 11px; line-height: 1.45; }
 
 .call-intelligence-v72__health { border-left-width: 3px; }
 .call-intelligence-v72__health.is-good { border-left-color: var(--success, #15803d); }
 .call-intelligence-v72__health.is-attention { border-left-color: var(--warning, #b7791f); }
 .call-intelligence-v72__health.is-restricted { border-left-color: var(--danger, #b42318); }
-.call-intelligence-v72__health > p { margin: -3px 0 11px; color: var(--text-muted); font-size: 10px; line-height: 1.5; }
+.call-intelligence-v72__health > p { margin: -3px 0 11px; color: var(--text-muted); font-size: 11px; line-height: 1.5; }
 .call-intelligence-v72__health-checks { display: grid; gap: 6px; }
 .call-intelligence-v72__health-checks > div {
   min-height: 44px;
@@ -102,8 +102,8 @@
 .call-intelligence-v72__health-checks > div.is-warning > span { color: var(--warning, #b7791f); }
 .call-intelligence-v72__health-checks > div.is-danger > span { color: var(--danger, #b42318); }
 .call-intelligence-v72__health-checks > div > div { display: grid; gap: 2px; }
-.call-intelligence-v72__health-checks strong { color: var(--text); font-size: 9px; }
-.call-intelligence-v72__health-checks small { color: var(--text-muted); font-size: 8.5px; line-height: 1.4; }
+.call-intelligence-v72__health-checks strong { color: var(--text); font-size: 11px; }
+.call-intelligence-v72__health-checks small { color: var(--text-muted); font-size: 11px; line-height: 1.4; }
 
 .call-intelligence-v72__next-question {
   padding: 11px 12px;
@@ -117,9 +117,9 @@
 }
 .call-intelligence-v72__next-question > svg { color: var(--accent); margin-top: 2px; }
 .call-intelligence-v72__next-question > div { min-width: 0; display: grid; gap: 3px; }
-.call-intelligence-v72__next-question span { color: var(--accent); font-size: 9px; font-weight: 850; text-transform: uppercase; letter-spacing: .035em; }
+.call-intelligence-v72__next-question span { color: var(--accent); font-size: 11px; font-weight: 850; text-transform: uppercase; letter-spacing: .035em; }
 .call-intelligence-v72__next-question strong { color: var(--text); font-size: 12px; line-height: 1.45; }
-.call-intelligence-v72__next-question small { color: var(--text-muted); font-size: 9px; line-height: 1.4; }
+.call-intelligence-v72__next-question small { color: var(--text-muted); font-size: 11px; line-height: 1.4; }
 
 .call-intelligence-v72__live-signals {
   padding: 11px;
@@ -130,7 +130,7 @@
   background: var(--surface-muted, #f7f8fa);
 }
 .call-intelligence-v72__live-signals > div:first-child { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
-.call-intelligence-v72__live-signals > div:first-child small { color: var(--text-muted); font-size: 8.5px; }
+.call-intelligence-v72__live-signals > div:first-child small { color: var(--text-muted); font-size: 11px; }
 .call-intelligence-v72__signal-list { display: flex; gap: 6px; flex-wrap: wrap; }
 .call-intelligence-v72__signal-list button {
   min-height: 29px;
@@ -145,8 +145,8 @@
   font: inherit;
   cursor: pointer;
 }
-.call-intelligence-v72__signal-list button strong { font-size: 9px; }
-.call-intelligence-v72__signal-list button span { color: var(--text-muted); font-size: 8px; font-weight: 800; }
+.call-intelligence-v72__signal-list button strong { font-size: 11px; }
+.call-intelligence-v72__signal-list button span { color: var(--text-muted); font-size: 11px; font-weight: 800; }
 .call-intelligence-v72__signal-list button.is-warning { border-color: color-mix(in srgb, var(--warning, #b7791f) 30%, var(--border)); }
 .call-intelligence-v72__signal-list button.is-success { border-color: color-mix(in srgb, var(--success, #15803d) 28%, var(--border)); }
 .call-intelligence-v72__signal-list button.is-info { border-color: color-mix(in srgb, var(--accent) 28%, var(--border)); }
@@ -162,16 +162,16 @@
   border: 1px solid color-mix(in srgb, var(--accent) 16%, var(--border));
 }
 .call-intelligence-v72__assistant-question > span,
-.call-intelligence-v72__assistant-signals > span { color: var(--accent); font-size: 8.5px; font-weight: 850; text-transform: uppercase; }
-.call-intelligence-v72__assistant-question strong { color: var(--text); font-size: 10px; line-height: 1.45; }
-.call-intelligence-v72__assistant-question small { color: var(--text-muted); font-size: 8.5px; line-height: 1.4; }
+.call-intelligence-v72__assistant-signals > span { color: var(--accent); font-size: 11px; font-weight: 850; text-transform: uppercase; }
+.call-intelligence-v72__assistant-question strong { color: var(--text); font-size: 11px; line-height: 1.45; }
+.call-intelligence-v72__assistant-question small { color: var(--text-muted); font-size: 11px; line-height: 1.4; }
 .call-intelligence-v72__assistant-signals { display: grid; gap: 6px; }
 .call-intelligence-v72__assistant-signals > div > span {
   padding: 4px 7px;
   border-radius: 999px;
   background: var(--surface-muted, #f5f7f8);
   color: var(--text-muted);
-  font-size: 8px;
+  font-size: 11px;
   font-weight: 800;
 }
 .call-intelligence-v72__assistant-signals > div > span.is-success { color: var(--success, #15803d); background: color-mix(in srgb, var(--success, #15803d) 8%, var(--surface)); }
@@ -191,7 +191,7 @@
   background: var(--surface-muted, #f5f7f8);
 }
 .call-preparation-v72__health-summary strong { color: var(--text); font-size: 15px; }
-.call-preparation-v72__health-summary span { color: var(--text-muted); font-size: 8px; }
+.call-preparation-v72__health-summary span { color: var(--text-muted); font-size: 11px; }
 .call-preparation-v72__health-summary .is-good strong { color: var(--success, #15803d); }
 .call-preparation-v72__health-summary .is-attention strong { color: var(--warning, #9a6700); }
 .call-preparation-v72__health-summary .is-restricted strong { color: var(--danger, #b42318); }

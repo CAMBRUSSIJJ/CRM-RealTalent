@@ -34,7 +34,7 @@
 }
 
 .metrics-visual-funnel__header h3 { margin: 5px 0 4px; color: #26344d; font-size: 19px; }
-.metrics-visual-funnel__header p { max-width: 690px; margin: 0; color: #758299; font-size: 10px; line-height: 1.55; }
+.metrics-visual-funnel__header p { max-width: 690px; margin: 0; color: #758299; font-size: 11px; line-height: 1.55; }
 .metrics-visual-funnel__actions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
 
 .metrics-visual-funnel__workspace {
@@ -109,15 +109,15 @@
   place-items: center;
   border-radius: 9px;
   background: rgba(255,255,255,.18);
-  font-size: 9px;
+  font-size: 11px;
   font-weight: 900;
 }
 .metrics-visual-funnel__stage-copy { min-width: 0; display: grid; gap: 2px; text-align: left; }
 .metrics-visual-funnel__stage-copy strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 11px; }
-.metrics-visual-funnel__stage-copy small { color: rgba(255,255,255,.78); font-size: 8px; }
+.metrics-visual-funnel__stage-copy small { color: rgba(255,255,255,.78); font-size: 11px; }
 .metrics-visual-funnel__stage-kpis { display: grid; gap: 1px; text-align: right; }
 .metrics-visual-funnel__stage-kpis b { font-size: 11px; }
-.metrics-visual-funnel__stage-kpis small { color: rgba(255,255,255,.82); font-size: 8px; white-space: nowrap; }
+.metrics-visual-funnel__stage-kpis small { color: rgba(255,255,255,.82); font-size: 11px; white-space: nowrap; }
 
 .metrics-visual-funnel__detail {
   min-width: 0;
@@ -134,33 +134,33 @@
 .metrics-visual-funnel__detail-title { display: grid; grid-template-columns: 8px minmax(0,1fr); align-items: center; gap: 9px; padding-bottom: 10px; border-bottom: 1px solid #edf0f5; }
 .metrics-visual-funnel__detail-title > span { width: 8px; height: 39px; border-radius: 99px; }
 .metrics-visual-funnel__detail-title div { display: grid; gap: 2px; }
-.metrics-visual-funnel__detail-title small { color: #8a96a9; font-size: 8px; font-weight: 800; text-transform: uppercase; }
+.metrics-visual-funnel__detail-title small { color: #8a96a9; font-size: 11px; font-weight: 800; text-transform: uppercase; }
 .metrics-visual-funnel__detail-title h4 { margin: 0; color: #2e3b52; font-size: 16px; }
 .metrics-visual-funnel__detail-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
 .metrics-visual-funnel__detail-grid article { min-height: 67px; padding: 10px; display: grid; grid-template-columns: 31px 1fr; align-items: center; gap: 8px; border: 1px solid #e6eaf1; border-radius: 11px; background: #fafbfc; }
 .metrics-visual-funnel__detail-grid article > svg { width: 16px; color: #315fc1; }
 .metrics-visual-funnel__detail-grid article span { display: grid; gap: 2px; }
-.metrics-visual-funnel__detail-grid small { color: #8a96a9; font-size: 7px; text-transform: uppercase; }
+.metrics-visual-funnel__detail-grid small { color: #8a96a9; font-size: 11px; text-transform: uppercase; }
 .metrics-visual-funnel__detail-grid strong { color: #34435a; font-size: 12px; }
 .metrics-visual-funnel__health { display: grid; gap: 7px; }
 .metrics-visual-funnel__health > div { min-height: 34px; padding: 7px 9px; display: flex; align-items: center; justify-content: space-between; gap: 8px; border-radius: 9px; background: #f6f8fb; }
-.metrics-visual-funnel__health span { color: #7b8799; font-size: 8px; }
-.metrics-visual-funnel__health strong { color: #34435a; font-size: 9px; }
+.metrics-visual-funnel__health span { color: #7b8799; font-size: 11px; }
+.metrics-visual-funnel__health strong { color: #34435a; font-size: 11px; }
 .metrics-visual-funnel__lead-list { display: grid; gap: 3px; }
 .metrics-visual-funnel__lead-list-head { min-height: 34px; display: flex; align-items: center; justify-content: space-between; }
-.metrics-visual-funnel__lead-list-head strong { color: #47556d; font-size: 9px; }
-.metrics-visual-funnel__lead-list-head span { min-width: 24px; height: 22px; padding: 0 6px; display: grid; place-items: center; border-radius: 99px; color: #315fc1; background: #edf3ff; font-size: 8px; font-weight: 800; }
+.metrics-visual-funnel__lead-list-head strong { color: #47556d; font-size: 11px; }
+.metrics-visual-funnel__lead-list-head span { min-width: 24px; height: 22px; padding: 0 6px; display: grid; place-items: center; border-radius: 99px; color: #315fc1; background: #edf3ff; font-size: 11px; font-weight: 800; }
 .metrics-visual-funnel__lead-list > button { min-height: 48px; padding: 8px 9px; display: grid; grid-template-columns: minmax(0,1fr) auto; align-items: center; gap: 10px; border: 0; border-bottom: 1px solid #edf0f4; background: transparent; text-align: left; cursor: pointer; }
 .metrics-visual-funnel__lead-list > button:hover { border-radius: 9px; background: #f6f8fc; }
 .metrics-visual-funnel__lead-list > button > span { min-width: 0; display: grid; gap: 2px; }
-.metrics-visual-funnel__lead-list > button strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: #40506a; font-size: 9px; }
-.metrics-visual-funnel__lead-list > button small { color: #8a96a9; font-size: 7px; }
-.metrics-visual-funnel__lead-list > button b { color: #34435a; font-size: 9px; }
-.metrics-visual-funnel__lead-list > p { margin: 4px 0 0; color: #8793a5; font-size: 8px; line-height: 1.5; }
+.metrics-visual-funnel__lead-list > button strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: #40506a; font-size: 11px; }
+.metrics-visual-funnel__lead-list > button small { color: #8a96a9; font-size: 11px; }
+.metrics-visual-funnel__lead-list > button b { color: #34435a; font-size: 11px; }
+.metrics-visual-funnel__lead-list > p { margin: 4px 0 0; color: #8793a5; font-size: 11px; line-height: 1.5; }
 .metrics-visual-funnel--empty { min-height: 280px; display: grid; place-items: center; align-content: center; gap: 7px; text-align: center; }
 .metrics-visual-funnel--empty > svg { width: 42px; height: 42px; color: #315fc1; }
 .metrics-visual-funnel--empty h3 { margin: 0; color: #34435a; }
-.metrics-visual-funnel--empty p { max-width: 420px; margin: 0 0 7px; color: #7d899c; font-size: 10px; }
+.metrics-visual-funnel--empty p { max-width: 420px; margin: 0 0 7px; color: #7d899c; font-size: 11px; }
 .metrics-funnel-professional--secondary { margin-top: 0; }
 .metrics-funnel-professional--secondary .metrics-funnel-list button { cursor: pointer; transition: background .15s ease, box-shadow .15s ease; }
 .metrics-funnel-professional--secondary .metrics-funnel-list button:hover { background: #f8faff; }

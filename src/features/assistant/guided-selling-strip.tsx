@@ -1,3 +1,4 @@
+import { plural } from '../../domain/formatters'
 import { ArrowRight, Bot, CalendarClock, CircleAlert, Lightbulb, PhoneCall, Sparkles, Target, UsersRound } from 'lucide-react'
 import { useMemo, useState } from 'react'
 import { useAppNavigation, useAppWorkspace } from '../../app/app-context'
@@ -129,7 +130,7 @@ function resolveGuidedSignal(route: AppRoute, snapshot: WorkspaceSnapshot, queue
         id: `proposal:${waiting.id}`,
         eyebrow: waiting.status === 'viewed' ? 'Proposta visualizada' : 'Proposta aguardando resposta',
         title: `${lead?.company || lead?.name || waiting.title} · ${formatCurrency(waiting.total)}`,
-        detail: waiting.status === 'viewed' ? `A proposta foi visualizada e está há ${idle} dia(s) sem avanço registrado.` : `A proposta está enviada há ${idle} dia(s) sem retorno registrado.`,
+        detail: waiting.status === 'viewed' ? `A proposta foi visualizada e está há ${idle} ${plural(idle, 'dia', 'dias')} sem avanço registrado.` : `A proposta está enviada há ${idle} ${plural(idle, 'dia', 'dias')} sem retorno registrado.`,
         reason: 'O melhor momento de follow-up é determinado pelo sinal real da proposta, não apenas pela data de criação.',
         tone: idle >= 3 ? 'attention' : 'opportunity',
         metric: waiting.status === 'viewed' ? 'Visualizada' : 'Enviada',
@@ -226,7 +227,7 @@ function resolveGuidedSignal(route: AppRoute, snapshot: WorkspaceSnapshot, queue
     return {
       id: 'metrics:pipeline-health',
       eyebrow: 'Leitura executiva',
-      title: `${portfolio.critical + portfolio.attention} negócio(s) exigem atenção`,
+      title: `${portfolio.critical + portfolio.attention} ${plural(portfolio.critical + portfolio.attention, 'negócio', 'negócios')} exigem atenção`,
       detail: `${formatCurrency(portfolio.atRiskValue)} estão em negócios classificados como atenção ou críticos.`,
       reason: `${portfolio.missingDecisionMaker} sem decisor · ${portfolio.noNextStep} sem próxima ação · ${portfolio.cooling} esfriando.`,
       tone: portfolio.critical > 0 ? 'critical' : portfolio.attention > 0 ? 'attention' : 'opportunity',
@@ -242,7 +243,7 @@ function resolveGuidedSignal(route: AppRoute, snapshot: WorkspaceSnapshot, queue
     if (pendingLocation.length) return {
       id: 'map:pending-location',
       eyebrow: 'Cobertura geográfica incompleta',
-      title: `${pendingLocation.length} conta(s) ainda precisam de localização`,
+      title: `${pendingLocation.length} ${plural(pendingLocation.length, 'conta', 'contas')} ainda precisam de localização`,
       detail: 'Sem coordenadas confiáveis o território pode exibir aproximações ou ocultar contas.',
       reason: 'Revise endereço, cidade e estado antes de usar o mapa para cobertura comercial.',
       tone: 'attention',
@@ -258,7 +259,7 @@ function resolveGuidedSignal(route: AppRoute, snapshot: WorkspaceSnapshot, queue
     return {
       id: 'prospecting:flow',
       eyebrow: 'Disciplina de prospecção',
-      title: newWithoutAction.length ? `${newWithoutAction.length} lead(s) novos ainda sem próxima ação` : 'Fluxo de prospecção pronto para revisão',
+      title: newWithoutAction.length ? `${newWithoutAction.length} ${plural(newWithoutAction.length, 'lead', 'leads')} novos ainda sem próxima ação` : 'Fluxo de prospecção pronto para revisão',
       detail: 'Capture → valide identidade/contato → elimine duplicidades → aprove → envie ao CRM com responsável e próxima ação.',
       reason: 'Garimpo só gera valor quando o lead sai da captura já preparado para entrar na operação comercial.',
       tone: newWithoutAction.length ? 'attention' : 'neutral',

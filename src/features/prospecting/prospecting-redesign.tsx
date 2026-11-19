@@ -1,3 +1,4 @@
+import { plural } from '../../domain/formatters'
 import { ArrowRight, CheckCircle2, MapPinned, Pause, Play, Plus, Search, ShieldCheck, Sparkles, Upload, X } from 'lucide-react'
 import { useState, type ReactNode } from 'react'
 import type { ProspectingAgentHealth, ProspectingAgentJob, ProspectingAreaMode, ProspectingCategoryMode } from '../../services/prospecting-linux-agent'
@@ -145,7 +146,7 @@ export function ProspectingRedesignSearch(props: ProspectingRedesignSearchProps)
         <h2>{sessionSegment || 'Nova prospecção'} · {sessionCity || 'Defina a região'}</h2>
         <div className="prospecting-redesign-v4__progress-row"><div><span className={props.localRunning ? 'is-indeterminate' : ''} style={{ width: props.localRunning ? '100%' : `${progress}%` }}/></div><strong>{props.localRunning ? 'Em análise' : `${progress}%`}</strong></div>
         <p>{props.job ? `${props.job.stats.queries} consultas · ${sourceLabel}` : 'Pesquisa integrada · Fontes públicas + cobertura territorial'}{semanticPlanner ? ` · plano IA ${semanticPlanner}` : ''}</p>
-        {props.localStatus !== 'idle' ? <p className="prospecting-redesign-v4__local-result" role="status">{props.engineMode === 'essential' ? 'Pesquisa sem IA' : 'Pesquisa com IA'}: {props.localRunning ? 'coletando fontes…' : `${props.localFound} empresa(s) com evidências`}{props.localMessage && !props.localRunning ? ` · ${props.localMessage}` : ''}</p> : null}
+        {props.localStatus !== 'idle' ? <p className="prospecting-redesign-v4__local-result" role="status">{props.engineMode === 'essential' ? 'Pesquisa sem IA' : 'Pesquisa com IA'}: {props.localRunning ? 'coletando fontes…' : `${props.localFound} ${plural(props.localFound, 'empresa', 'empresas')} com evidências`}{props.localMessage && !props.localRunning ? ` · ${props.localMessage}` : ''}</p> : null}
         <div className="prospecting-redesign-v4__now"><i/><span><strong>Agora:</strong> {currentActivity}{currentRegion ? ` · ${currentRegion}` : ''}</span></div>
         <div className="prospecting-redesign-v4__execution-metrics">
           <button type="button" onClick={() => props.onInspect('found')} title="Abrir empresas encontradas"><strong>{found}</strong><span>Encontradas agora</span></button>
@@ -153,9 +154,9 @@ export function ProspectingRedesignSearch(props: ProspectingRedesignSearchProps)
           <button type="button" className="is-attention" onClick={() => props.onInspect('attention')} title="Abrir empresas que precisam revisão"><strong>{attention}</strong><span>Precisam atenção</span></button>
         </div>
         <small className="prospecting-redesign-v4__drilldowns">
-          <button type="button" onClick={() => props.onInspect('raw')}>{raw} bruto(s)</button> ·
-          <button type="button" onClick={() => props.onInspect('filtered')}>{rejected} filtrado(s)</button> ·
-          <button type="button" onClick={() => props.onInspect('duplicates')}>{duplicates} duplicidade(s)</button> ·
+          <button type="button" onClick={() => props.onInspect('raw')}>{raw} {plural(raw, 'bruto', 'brutos')}</button> ·
+          <button type="button" onClick={() => props.onInspect('filtered')}>{rejected} {plural(rejected, 'filtrado', 'filtrados')}</button> ·
+          <button type="button" onClick={() => props.onInspect('duplicates')}>{duplicates} {plural(duplicates, 'duplicidade', 'duplicidades')}</button> ·
           <button type="button" onClick={() => props.onInspect('base')}>Base total {props.baseTotal}</button> ·
           <button type="button" onClick={() => props.onInspect('sent')}>{props.sentCount} no CRM</button>
         </small>
@@ -194,7 +195,7 @@ export function ProspectingRedesignSearch(props: ProspectingRedesignSearchProps)
     <section className={`prospecting-redesign-v4__map prospecting-redesign-v4__map-live ${mapEmpty ? 'is-empty' : ''}`} aria-label={`Território da execução em ${sessionCity || 'sua região'}`}>
       <div className="prospecting-redesign-v4__map-live-content">{mapEmpty ? <div className="prospecting-redesign-v4__map-placeholder"><MapPinned size={24}/><strong>Mapa territorial opcional</strong><span>Os resultados aparecem primeiro na lista de revisão. Carregue o mapa apenas quando precisar explorar o território.</span><button type="button" className="prospecting-redesign-v4__button" disabled={!props.city.trim()} onClick={props.onMapLoad}>Carregar mapa</button></div> : props.mapPanel}</div>
       <div className={`prospecting-redesign-v4__map-status ${coverageFailed ? 'is-warning' : ''}`}>
-        {props.job ? <><CheckCircle2 size={17}/><strong>{found} empresa(s) identificada(s).</strong><span> Execução {executionFinished ? 'encerrada' : 'em andamento'} · cobertura territorial {coverageLabel}{coverageFailed ? ' · fonte territorial com falha parcial' : ''}.</span></> : <><MapPinned size={17}/><strong>Visualização territorial.</strong><span> A pesquisa usa a região informada; carregue o mapa para visualizar ou desenhar uma área.</span></>}
+        {props.job ? <><CheckCircle2 size={17}/><strong>{found} {plural(found, 'empresa', 'empresas')} {plural(found, 'identificada', 'identificadas')}.</strong><span> Execução {executionFinished ? 'encerrada' : 'em andamento'} · cobertura territorial {coverageLabel}{coverageFailed ? ' · fonte territorial com falha parcial' : ''}.</span></> : <><MapPinned size={17}/><strong>Visualização territorial.</strong><span> A pesquisa usa a região informada; carregue o mapa para visualizar ou desenhar uma área.</span></>}
       </div>
     </section>
   </div>

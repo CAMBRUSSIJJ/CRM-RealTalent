@@ -1,3 +1,4 @@
+import { plural } from '../domain/formatters'
 import type { WorkspaceSnapshot } from '../domain/types'
 import type { ProspectRecord } from './prospecting-workspace'
 import { prospectDataQuality, resolveProspectEntity, type ProspectQualityProfile } from './prospecting-data-layer'
@@ -215,5 +216,5 @@ export function prospectingIcpSummary(icp: ProspectingIcpProfile) {
   const segment = icp.segments.slice(0, 3).map((item) => item.value).join(', ')
   const city = icp.cities.slice(0, 3).map((item) => item.value).join(', ')
   const source = icp.source === 'won_customers' ? 'clientes ganhos' : icp.source === 'active_pipeline' ? 'oportunidades prioritárias' : 'carteira atual'
-  return `${icp.sampleSize} registro(s) de ${source}${segment ? ` · segmentos: ${segment}` : ''}${city ? ` · regiões: ${city}` : ''}`
+  return `${icp.sampleSize} ${plural(icp.sampleSize, 'registro', 'registros')} de ${source}${segment ? ` · segmentos: ${segment}` : ''}${city ? ` · regiões: ${city}` : ''}`
 }

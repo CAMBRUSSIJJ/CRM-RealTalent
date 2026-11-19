@@ -1,3 +1,4 @@
+import { plural } from '../../domain/formatters'
 import { NativeSelectionSelect } from '../../components/selection'
 import { ArrowUpRight, CalendarClock, CheckSquare, Eye, History, PhoneCall, Play, RotateCcw, Search, Settings2, Sparkles, Square, Target, Trash2 } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
@@ -138,7 +139,7 @@ export function CallsPage() {
     try {
       const loaded = await loadOlderCalls(200)
       if (loaded < 200) setOlderCallsExhausted(true)
-      notify(loaded ? 'info' : 'success', loaded ? `${loaded} ligação(ões) antigas carregadas.` : 'Todo o histórico disponível já foi carregado.')
+      notify(loaded ? 'info' : 'success', loaded ? `${loaded} ${plural(loaded, 'ligação', 'ligações')} antigas carregadas.` : 'Todo o histórico disponível já foi carregado.')
     } catch (error) { notify('error', error instanceof Error ? error.message : 'Não foi possível carregar o histórico anterior.') }
     finally { setOlderCallsLoading(false) }
   }

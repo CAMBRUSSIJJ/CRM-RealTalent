@@ -7,7 +7,7 @@
 .prospecting-r1-handoff{display:flex;align-items:center;gap:18px;flex-wrap:wrap;padding:15px;margin-bottom:12px}
 .prospecting-r1-handoff__title{display:grid;gap:3px;min-width:180px;flex:1}
 .prospecting-r1-handoff__metrics{display:flex;align-items:center;flex-wrap:wrap;gap:14px}
-.prospecting-r1-handoff__metrics span{display:grid;gap:1px;font-size:10px;color:var(--text-secondary,#67778e);white-space:nowrap}
+.prospecting-r1-handoff__metrics span{display:grid;gap:1px;font-size:11px;color:var(--text-secondary,#67778e);white-space:nowrap}
 .prospecting-r1-handoff__metrics b{font-size:19px;color:var(--text-primary,#203a60)}
 .prospecting-r1-handoff__actions{display:flex;gap:7px;flex-wrap:wrap;margin-left:auto}
 .prospecting-r1-receipt{display:grid;gap:12px;padding:16px;margin-top:12px}

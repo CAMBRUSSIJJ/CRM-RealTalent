@@ -134,7 +134,7 @@
 .dashboard-layout-v2 .myday-v1016__starters small {
   display: -webkit-box; overflow: hidden;
   -webkit-box-orient: vertical; -webkit-line-clamp: 2;
-  color: var(--rt-dv2-muted); font-size: 10px; line-height: 1.4;
+  color: var(--rt-dv2-muted); font-size: 11px; line-height: 1.4;
 }
 .dashboard-layout-v2 .myday-v1016__starters > button > svg {
   flex: 0 0 15px; color: #94a3b8;

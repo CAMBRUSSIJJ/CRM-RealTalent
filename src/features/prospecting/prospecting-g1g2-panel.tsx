@@ -1,3 +1,4 @@
+import { plural } from '../../domain/formatters'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { AlertTriangle, Check, ExternalLink, LoaderCircle, SearchCheck, ShieldCheck, Sparkles, X } from 'lucide-react'
 import { Button } from '../../components/ui/button'
@@ -42,7 +43,7 @@ function EvidenceRow({ field }: { field: CrossSourceField }) {
     <strong>{field.label}</strong>
     {field.currentValue ? <small>Cadastro: {field.currentValue}</small> : <small>Não consta no cadastro</small>}
     {field.candidates.map((candidate) => <div className="garimpo-cross-source__candidate" key={candidate.value}>
-      <span>{candidate.value} <small>· {candidate.independentPublishers} domínio(s) distinto(s)</small></span>
+      <span>{candidate.value} <small>· {candidate.independentPublishers} {plural(candidate.independentPublishers, 'domínio', 'domínios')} {plural(candidate.independentPublishers, 'distinto', 'distintos')}</small></span>
       <span className="garimpo-cross-source__links">
         {candidate.urls.slice(0, 6).map((url) => safeSite(url) ?
           <a key={url} href={safeSite(url)!} target="_blank" rel="noopener noreferrer">
@@ -315,7 +316,7 @@ export function ProspectingG1G2Panel({ prospect, snapshot, workspaceId, readOnly
     <section className="garimpo-review-feed" aria-label="Sugestões do Garimpo para revisar">
       <header className="garimpo-review-feed__header">
         <strong><Sparkles size={16}/> Ações sugeridas</strong>
-        <span>{decisionSuggestions.length} pendente(s)</span>
+        <span>{decisionSuggestions.length} {plural(decisionSuggestions.length, 'pendente', 'pendentes')}</span>
       </header>
       {decisionSuggestions.length ? <>
         <div className="garimpo-review-feed__list">
@@ -343,7 +344,7 @@ export function ProspectingG1G2Panel({ prospect, snapshot, workspaceId, readOnly
     <div className="prospecting-g1g2__detail">
       <strong>ICP de referência do CRM</strong>
       <p>{icp.sampleSize
-        ? `${icp.sampleSize} registro(s) · ${icp.source === 'won_customers' ? 'clientes ganhos' : icp.source === 'active_pipeline' ? 'oportunidades prioritárias' : 'carteira atual'}`
+        ? `${icp.sampleSize} ${plural(icp.sampleSize, 'registro', 'registros')} · ${icp.source === 'won_customers' ? 'clientes ganhos' : icp.source === 'active_pipeline' ? 'oportunidades prioritárias' : 'carteira atual'}`
         : 'Sem histórico de clientes: avaliação provisória com base no cadastro.'}</p>
       {icp.segments.length ? <p>Segmentos mais frequentes: {icp.segments.slice(0, 3).map((item) => item.value).join(' · ')}</p> : null}
       {icp.cities.length ? <p>Regiões de referência: {icp.cities.slice(0, 3).map((item) => item.value).join(' · ')}</p> : null}
@@ -379,7 +380,7 @@ export function ProspectingG1G2Panel({ prospect, snapshot, workspaceId, readOnly
         ? 'Investigação concluída parcialmente'
         : phaseTitles[progress.stage] + ' · ' +
           (progress.phaseStatus === 'running' ? 'em andamento' : progress.phaseStatus === 'failed' ? 'etapa indisponível' : 'concluída')}</strong>
-      <span>{progress.sourceCount} fonte(s) coletada(s) · {progress.leadCount} empresa(s) analisada(s).</span>
+      <span>{progress.sourceCount} {plural(progress.sourceCount, 'fonte', 'fontes')} {plural(progress.sourceCount, 'coletada', 'coletadas')} · {progress.leadCount} {plural(progress.leadCount, 'empresa', 'empresas')} {plural(progress.leadCount, 'analisada', 'analisadas')}.</span>
       {progress.phaseStatus === 'running' ? <small>O conector Linux continua processando enquanto estiver aberto.</small> : null}
     </div> : busy ? <p className="garimpo-cross-source__progress" role="status">Preparando pesquisa em etapas. Mantenha o conector Linux aberto.</p> : null}
     {result?.leadIntelligence ? <section className="garimpo-g7-card" aria-label="Inteligência do negócio">
@@ -448,7 +449,7 @@ export function ProspectingG1G2Panel({ prospect, snapshot, workspaceId, readOnly
             <li key={index}>{question}</li>)}</ul>
           <p><strong>Próxima ação:</strong> {result.leadIntelligence.recommendedAction}</p>
         </div>
-        <small>{result.leadIntelligence.sourceCount} fonte(s) considerada(s). Extração {result.leadIntelligence.extraction === 'ollama_verified'
+        <small>{result.leadIntelligence.sourceCount} {plural(result.leadIntelligence.sourceCount, 'fonte', 'fontes')} {plural(result.leadIntelligence.sourceCount, 'considerada', 'consideradas')}. Extração {result.leadIntelligence.extraction === 'ollama_verified'
           ? 'com Ollama e validação literal de evidências' : 'literal; o Ollama não respondeu ou não havia conteúdo suficiente'}.
           Dados sem trechos correspondentes à fonte são descartados.</small>
       </details>
@@ -529,7 +530,7 @@ export function ProspectingG1G2Panel({ prospect, snapshot, workspaceId, readOnly
       <section className="garimpo-cross-source__instagram garimpo-review__instagram-compact" aria-label="Descoberta do perfil Instagram">
       <div className="garimpo-review__instagram-heading">
         <strong>Instagram · {result.instagramDiscovery.postCount > 0 ? 'Publicações analisáveis' : result.instagramDiscovery.status === 'candidate' ? 'Candidato não confirmado' : 'Perfil localizado'}</strong>
-        <small>{result.instagramDiscovery.postCount} post(s) lido(s) · {result.instagramDiscovery.profileAccess === 'blocked' ? 'Acesso restrito' : result.instagramDiscovery.profileAccess === 'bio_only' ? 'Somente bio acessível' : result.instagramDiscovery.profileAccess === 'readable' ? 'Perfil acessado' : 'Acesso parcial ou não verificado'}</small>
+        <small>{result.instagramDiscovery.postCount} {plural(result.instagramDiscovery.postCount, 'post', 'posts')} {plural(result.instagramDiscovery.postCount, 'lido', 'lidos')} · {result.instagramDiscovery.profileAccess === 'blocked' ? 'Acesso restrito' : result.instagramDiscovery.profileAccess === 'bio_only' ? 'Somente bio acessível' : result.instagramDiscovery.profileAccess === 'readable' ? 'Perfil acessado' : 'Acesso parcial ou não verificado'}</small>
       </div>
       {result.instagramDiscovery.profileUrl && safeSite(result.instagramDiscovery.profileUrl) ? <a href={result.instagramDiscovery.profileUrl} target="_blank" rel="noopener noreferrer">
         <ExternalLink size={13}/> Abrir Instagram da empresa
@@ -557,7 +558,7 @@ export function ProspectingG1G2Panel({ prospect, snapshot, workspaceId, readOnly
           : result.instagramDiscovery.profileAccess === 'blocked' ? 'Instagram exigiu login ou restringiu o acesso'
           : result.instagramDiscovery.profileAccess === 'unavailable' ? 'Tentativa de leitura sem conteúdo utilizável'
           : 'Leitura direta do perfil ainda não verificada'}</strong>
-        <span>{result.instagramDiscovery.postLinksFound ?? 0} link(s) de postagem · {result.instagramDiscovery.postCount} publicação(ões) com texto realmente lido.</span>
+        <span>{result.instagramDiscovery.postLinksFound ?? 0} {plural(result.instagramDiscovery.postLinksFound ?? 0, 'link', 'links')} de postagem · {result.instagramDiscovery.postCount} {plural(result.instagramDiscovery.postCount, 'publicação', 'publicações')} com texto realmente lido.</span>
         {result.instagramDiscovery.profileAccess === 'blocked' ? <small>O Garimpo não tenta contornar o login ou restrições de acesso. As outras fontes continuam disponíveis.</small> : null}
       </div>
       {result.instagramDiscovery.profileExcerpt ? <details><summary>Ver trecho público do perfil</summary>
@@ -629,10 +630,10 @@ export function ProspectingG1G2Panel({ prospect, snapshot, workspaceId, readOnly
         <footer className="garimpo-cross-source__footer">
           {result && !readOnly ? <Button variant="secondary" onClick={() => apply('research')}>Salvar análise e sinais no cadastro (sem alterar os campos)</Button> : null}
           {applicable && !readOnly ? <Button variant="secondary" onClick={() => apply('confirmed')}>
-            Preencher {review.importable.length} campo(s) corroborados
+            Preencher {review.importable.length} {plural(review.importable.length, 'campo', 'campos')} corroborados
           </Button> : null}
           {observedApplicable && !readOnly ? <Button variant="secondary" onClick={() => apply('observed')}>
-            Preencher {foundCount} dado(s) com fonte (ainda sem confirmação independente)
+            Preencher {foundCount} {plural(foundCount, 'dado', 'dados')} com fonte (ainda sem confirmação independente)
           </Button> : <small>Nenhum novo campo seguro para preenchimento. Os dados já cadastrados foram preservados.</small>}
           <small>Alterações no cadastro exigem sua confirmação.</small>
         </footer>

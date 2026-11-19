@@ -28,5 +28,5 @@
 .garimpo-g3__proposal>div{display:grid;gap:3px}
 .garimpo-g3__proposal strong{font-size:12px}
 .garimpo-g3__proposal span{font-size:11px;color:var(--text-secondary,#596e85)}
-.garimpo-g3__disclaimer{display:flex;align-items:center;gap:5px;color:var(--text-secondary,#71839a);font-size:10px;line-height:1.5}
+.garimpo-g3__disclaimer{display:flex;align-items:center;gap:5px;color:var(--text-secondary,#71839a);font-size:11px;line-height:1.5}
 @media(max-width:640px){.garimpo-g3__header{padding:10px}.garimpo-g3__body{padding:10px}.garimpo-g3__proposal{flex-direction:column;align-items:stretch}.garimpo-g3__proposal>button{width:100%}.garimpo-g3__turn>div{max-width:96%}}

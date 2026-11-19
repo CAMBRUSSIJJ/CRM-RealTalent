@@ -1,3 +1,4 @@
+import { plural } from '../../domain/formatters'
 import { ArrowRight, CheckCircle2, GitMerge, ShieldCheck } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { useAppActions, useAppUi, useAppWorkspace } from '../../app/app-context'
@@ -38,7 +39,7 @@ export function DuplicateMergeModal({ pair, open, onClose }: { pair: DuplicatePa
         </label>)}
       </div>
       <div className="duplicate-merge__flow"><strong>{duplicate.name}</strong><ArrowRight /><strong>{primary.name}</strong></div>
-      <div className="duplicate-merge__safety"><ShieldCheck size={22} /><div><strong>Nenhum histórico será perdido</strong><p>{historyCount} registro(s) de atividade, ligação ou agenda serão transferidos. Campos vazios serão preenchidos, tags serão unidas e o maior valor será mantido para não duplicar o pipeline.</p></div></div>
+      <div className="duplicate-merge__safety"><ShieldCheck size={22} /><div><strong>Nenhum histórico será perdido</strong><p>{historyCount} {plural(historyCount, 'registro', 'registros')} de atividade, ligação ou agenda serão transferidos. Campos vazios serão preenchidos, tags serão unidas e o maior valor será mantido para não duplicar o pipeline.</p></div></div>
     </div>
   </Modal>
 }

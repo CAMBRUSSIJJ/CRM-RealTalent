@@ -1,3 +1,4 @@
+import { plural } from '../../domain/formatters'
 import { copyTextToClipboard, openExternalUrl } from '../../lib/browser-actions'
 import {
   AlertTriangle, ArrowRight, BadgeCheck, Ban, Building2, Check, CheckCircle2, ChevronLeft, ChevronRight, CircleDashed,
@@ -326,7 +327,7 @@ export function ProspectingPage() {
     commit((current) => {
       const prospects = current.prospects.map((item) => enriched.get(item.id) ?? item)
       let next = { ...current, prospects: [...newProspects, ...prospects] }
-      if (recordHistory) next = appendHistory(next, workspaceId, { action, title: action === 'import' ? 'Arquivo importado / enriquecido' : 'Empresas capturadas', description: `${detail}${enriched.size ? ` · ${enriched.size} atualizado(s)` : ''}${skipped ? ` · ${skipped} repetido(s) ignorado(s)` : ''}`, count: processed })
+      if (recordHistory) next = appendHistory(next, workspaceId, { action, title: action === 'import' ? 'Arquivo importado / enriquecido' : 'Empresas capturadas', description: `${detail}${enriched.size ? ` · ${enriched.size} ${plural(enriched.size, 'atualizado', 'atualizados')}` : ''}${skipped ? ` · ${skipped} ${plural(skipped, 'repetido', 'repetidos')} ${plural(skipped, 'ignorado', 'ignorados')}` : ''}`, count: processed })
       return next
     })
     return processed
@@ -347,7 +348,7 @@ export function ProspectingPage() {
     }
     if (totalImported > 0 && !progressiveReviewNoticeRef.current.has(job.id)) {
       progressiveReviewNoticeRef.current.add(job.id)
-      notify('success', `Revisão progressiva ativa: ${totalImported} empresa(s) pronta(s) já chegaram enquanto o Garimpo continua.`)
+      notify('success', `Revisão progressiva ativa: ${totalImported} ${plural(totalImported, 'empresa', 'empresas')} ${plural(totalImported, 'pronta', 'prontas')} já chegaram enquanto o Garimpo continua.`)
     }
     return current
   }, [canWrite, importDrafts, notify, workspaceId])
@@ -357,10 +358,10 @@ export function ProspectingPage() {
     // O fechamento também recupera candidatos prontos que não chegaram à fila progressiva.
     // A ação capture ignora identidades já existentes e preserva edições/decisões humanas.
     const missing = job.results.map((entry) => ({ ...entry, agentJobId: job.id }))
-    const added = missing.length ? importDrafts(missing, 'manual', 'capture', `Prospecting Agent Linux · fechamento · ${job.stats.unique} único(s) · ${job.stats.websitesVisited} site(s) visitado(s)`, missing.length, true) : 0
+    const added = missing.length ? importDrafts(missing, 'manual', 'capture', `Prospecting Agent Linux · fechamento · ${job.stats.unique} ${plural(job.stats.unique, 'único', 'únicos')} · ${job.stats.websitesVisited} ${plural(job.stats.websitesVisited, 'site', 'sites')} ${plural(job.stats.websitesVisited, 'visitado', 'visitados')}`, missing.length, true) : 0
     try { await controlProspectingAgentJob(job.id, 'imported') } catch { /* mantém dedupe local como proteção */ }
     setAgentJob((current) => current?.id === job.id ? { ...job, clientImportedAt: new Date().toISOString() } : current)
-    if (added) notify('success', `${added} empresa(s) restantes do Agent Linux foram enviadas para revisão.`)
+    if (added) notify('success', `${added} ${plural(added, 'empresa', 'empresas')} restantes do Agent Linux foram enviadas para revisão.`)
   }, [canWrite, importDrafts, notify, workspaceId])
 
   const refreshAgent = useCallback(async () => {
@@ -581,7 +582,7 @@ export function ProspectingPage() {
             if (controller.signal.aborted) return
             setLocalFound(progress.leadCount)
             setLocalMessage(progress.leadCount
-              ? `${progress.leadCount} empresa(s) com contatos encontradas; conferindo as fontes antes da revisão.`
+              ? `${progress.leadCount} ${plural(progress.leadCount, 'empresa', 'empresas')} com contatos encontradas; conferindo as fontes antes da revisão.`
               : 'O motor está consultando as fontes públicas. Aguardando os primeiros contatos.')
           } })
           if (controller.signal.aborted) { cancelled = true; return }
@@ -591,12 +592,12 @@ export function ProspectingPage() {
           const providerUnavailable = !localResultCount && result.warnings.some((item) => /indispon[ií]vel|n[aã]o foi poss[ií]vel|fonte.*falha|location_not_found/i.test(item))
           setLocalStatus(providerUnavailable ? 'failed' : 'completed')
           const message = localResultCount
-            ? `${localResultCount} empresa(s) com fontes encaminhada(s) à revisão.`
+            ? `${localResultCount} ${plural(localResultCount, 'empresa', 'empresas')} com fontes encaminhada(s) à revisão.`
             : result.warnings.slice(0, 2).join(' ') || 'A pesquisa terminou sem empresas verificáveis. Revise os filtros e a conexão.'
           setLocalMessage(message)
           if (localResultCount) {
             commit((current) => applyAiDiscovery(current, result, workspaceId, 'manual', snapshot?.leads ?? [], currentUserId))
-            notify('success', `${result.researchMode === 'essential' ? 'Pesquisa sem IA' : 'Pesquisa com IA'}: ${localResultCount} empresa(s) identificada(s). Confira as fontes em Revisar.`)
+            notify('success', `${result.researchMode === 'essential' ? 'Pesquisa sem IA' : 'Pesquisa com IA'}: ${localResultCount} ${plural(localResultCount, 'empresa', 'empresas')} ${plural(localResultCount, 'identificada', 'identificadas')}. Confira as fontes em Revisar.`)
           } else {
             notify(providerUnavailable ? 'warning' : 'info', message)
           }
@@ -676,7 +677,7 @@ export function ProspectingPage() {
       if (!canWrite || !preferences.integrations.extensionEnabled || event.source !== window || data?.type !== EXTENSION_MESSAGE_TYPE || data.key !== preferences.integrations.inboxKey || !Array.isArray(data.payload)) return
       const added = importDrafts(data.payload as CaptureDraft[], 'extension', 'import', 'Recebido em tempo real pela extensão', data.payload.length, true)
       if (workspaceId) recordLocalIntegrationEvent(workspaceId, data.payload.length, 'extension_realtime_capture')
-      if (added) notify('success', `${added} empresa(s) recebida(s) da extensão.`)
+      if (added) notify('success', `${added} ${plural(added, 'empresa', 'empresas')} ${plural(added, 'recebida', 'recebidas')} da extensão.`)
     }
     window.addEventListener('message', onMessage)
     return () => window.removeEventListener('message', onMessage)
@@ -795,17 +796,17 @@ export function ProspectingPage() {
     setAutomationProgress({ status: 'planning', targetQuantity: quantity, uniqueFound: 0, requestsCompleted: 0, maxRequests: Math.min(12, Math.ceil(quantity / 20) + 2), currentArea: '', currentQuery: '', message: 'Montando plano de busca…' })
     try {
       const result = await runProspectingSearchAutomation({ workspaceId, segment, city, query, targetQuantity: quantity }, { signal: controller.signal, onProgress: setAutomationProgress })
-      const added = importDrafts(result.drafts, 'maps', 'import', `Busca automática Google Places · ${result.requestsCompleted} consulta(s) · ${result.uniqueCount} único(s)`, result.drafts.length, true)
+      const added = importDrafts(result.drafts, 'maps', 'import', `Busca automática Google Places · ${result.requestsCompleted} ${plural(result.requestsCompleted, 'consulta', 'consultas')} · ${result.uniqueCount} ${plural(result.uniqueCount, 'único', 'únicos')}`, result.drafts.length, true)
       commit((current) => appendHistory(current, workspaceId, {
         action: 'search',
         title: 'Busca automática concluída',
-        description: `${[query || segment, city].filter(Boolean).join(' · ')} · ${result.requestsCompleted} consulta(s) · ${result.uniqueCount} resultado(s) único(s)`,
+        description: `${[query || segment, city].filter(Boolean).join(' · ')} · ${result.requestsCompleted} ${plural(result.requestsCompleted, 'consulta', 'consultas')} · ${result.uniqueCount} ${plural(result.uniqueCount, 'resultado', 'resultados')} ${plural(result.uniqueCount, 'único', 'únicos')}`,
         count: result.uniqueCount,
       }))
       result.warnings.forEach((warning) => notify('info', warning))
-      if (controller.signal.aborted || result.stoppedReason === 'cancelled') notify('info', `Busca cancelada com ${result.uniqueCount} resultado(s) coletado(s).`)
+      if (controller.signal.aborted || result.stoppedReason === 'cancelled') notify('info', `Busca cancelada com ${result.uniqueCount} ${plural(result.uniqueCount, 'resultado', 'resultados')} ${plural(result.uniqueCount, 'coletado', 'coletados')}.`)
       else if (!result.uniqueCount) notify('info', 'A busca automática terminou sem novos resultados.')
-      else if (added) { notify('success', `${added} empresa(s) única(s) recebida(s) e analisada(s). A revisão está pronta.`); setTab('results') }
+      else if (added) { notify('success', `${added} ${plural(added, 'empresa', 'empresas')} ${plural(added, 'única', 'únicas')} ${plural(added, 'recebida', 'recebidas')} e analisada(s). A revisão está pronta.`); setTab('results') }
       else notify('info', 'Os resultados encontrados já estavam no Garimpo; nenhuma duplicidade foi criada.')
       void refreshProviderDiagnostics()
     } catch (error) {
@@ -836,7 +837,7 @@ export function ProspectingPage() {
       if (!result.drafts.length) {
         notify('info', 'A consulta foi concluída, mas nenhum resultado foi encontrado.')
       } else if (added) {
-        notify('success', `${added} empresa(s) recebida(s), deduplicada(s) e analisada(s) pelo Garimpo.`)
+        notify('success', `${added} ${plural(added, 'empresa', 'empresas')} ${plural(added, 'recebida', 'recebidas')}, deduplicada(s) e analisada(s) pelo Garimpo.`)
         setTab('results')
       } else {
         notify('info', 'Os resultados encontrados já estavam no Garimpo e foram preservados sem duplicação.')
@@ -855,7 +856,7 @@ export function ProspectingPage() {
     if (!drafts.length) { notify('error', 'Cole pelo menos um resultado para capturar.'); return }
     const added = importDrafts(drafts, source, 'capture', `${prospectSourceLabels[source]} · ${city || 'sem cidade'}`, Math.max(1, quantity), true)
     setQuickCapture('')
-    notify(added ? 'success' : 'info', added ? `${added} empresa(s) adicionada(s) à revisão.` : 'Nenhuma empresa nova foi encontrada.')
+    notify(added ? 'success' : 'info', added ? `${added} ${plural(added, 'empresa', 'empresas')} ${plural(added, 'adicionada', 'adicionadas')} à revisão.` : 'Nenhuma empresa nova foi encontrada.')
     if (added) setTab('results')
   }
 
@@ -864,7 +865,7 @@ export function ProspectingPage() {
     if (!drafts.length) { notify('error', 'Cole uma URL, um resultado ou um texto reconhecível para capturar.'); return }
     const fallback = (drafts[0]?.source as ProspectSource) || 'manual'
     const added = importDrafts(drafts, fallback, 'capture', 'Captura universal por URL/clipboard', drafts.length, true)
-    if (added) { setUniversalCapture(''); setTab('results'); notify('success', `${added} registro(s) capturado(s) e enviado(s) para revisão.`) }
+    if (added) { setUniversalCapture(''); setTab('results'); notify('success', `${added} ${plural(added, 'registro', 'registros')} ${plural(added, 'capturado', 'capturados')} e enviado(s) para revisão.`) }
     else notify('info', 'Nenhum registro novo foi encontrado; duplicidades foram preservadas.')
   }
 
@@ -887,7 +888,7 @@ export function ProspectingPage() {
     if (workspaceId) recordLocalIntegrationEvent(workspaceId, drafts.length, 'extension_inbox_sync')
     clearExtensionInbox(preferences.integrations.inboxKey)
     commit((current) => ({ ...current, lastExtensionSyncAt: new Date().toISOString() }))
-    notify(added ? 'success' : 'info', added ? `${added} empresa(s) sincronizada(s).` : 'Os registros recebidos já estavam no Garimpo.')
+    notify(added ? 'success' : 'info', added ? `${added} ${plural(added, 'empresa', 'empresas')} ${plural(added, 'sincronizada', 'sincronizadas')}.` : 'Os registros recebidos já estavam no Garimpo.')
     if (added) setTab('results')
   }
 
@@ -896,8 +897,8 @@ export function ProspectingPage() {
       const raw = await file.text()
       const drafts = parseProspectFile(file.name, raw)
       if (!drafts.length) throw new Error('O arquivo não possui empresas reconhecíveis.')
-      const added = importDrafts(drafts, 'manual', 'import', `${file.name} · ${drafts.length} registro(s) lido(s)`, drafts.length, true)
-      notify('success', `${added} empresa(s) importada(s) sem duplicar registros do Garimpo.`)
+      const added = importDrafts(drafts, 'manual', 'import', `${file.name} · ${drafts.length} ${plural(drafts.length, 'registro', 'registros')} ${plural(drafts.length, 'lido', 'lidos')}`, drafts.length, true)
+      notify('success', `${added} ${plural(added, 'empresa', 'empresas')} ${plural(added, 'importada', 'importadas')} sem duplicar registros do Garimpo.`)
       if (added) setTab('results')
     } catch (error) { notify('error', error instanceof Error ? error.message : 'Não foi possível importar o arquivo.') }
     finally { if (fileInputRef.current) fileInputRef.current.value = '' }
@@ -916,7 +917,7 @@ export function ProspectingPage() {
       })
       return appendHistory({ ...current, prospects }, workspaceId, { action: 'analyze', title: 'Análise comercial concluída', description: 'Confiança, completude e duplicidades recalculadas.', count })
     })
-    notify('success', `${count} empresa(s) analisada(s).`)
+    notify('success', `${count} ${plural(count, 'empresa', 'empresas')} ${plural(count, 'analisada', 'analisadas')}.`)
   }
 
   const setStatus = (ids: string[], status: ProspectStatus) => {
@@ -924,14 +925,14 @@ export function ProspectingPage() {
     commit((current) => {
       const prospects = current.prospects.map((item) => idSet.has(item.id) ? { ...item, status, updatedAt: now } : item)
       const action = status === 'approved' ? 'approve' : status === 'discarded' ? 'discard' : 'analyze'
-      return appendHistory({ ...current, prospects }, workspaceId, { action, title: status === 'approved' ? 'Empresas aprovadas' : status === 'discarded' ? 'Empresas descartadas' : 'Status atualizado', description: `${ids.length} registro(s) alterado(s).`, count: ids.length })
+      return appendHistory({ ...current, prospects }, workspaceId, { action, title: status === 'approved' ? 'Empresas aprovadas' : status === 'discarded' ? 'Empresas descartadas' : 'Status atualizado', description: `${ids.length} ${plural(ids.length, 'registro', 'registros')} ${plural(ids.length, 'alterado', 'alterados')}.`, count: ids.length })
     })
     setSelectedIds(new Set())
   }
 
   const removeProspects = async (ids: string[]) => {
     if (!canProspectingDelete) { notify('error','Seu perfil não permite excluir empresas do Garimpo.'); return }
-    if (!await confirmAction({ title: `Remover ${ids.length} registro(s)?`, description: 'Os itens serão retirados da base de processamento do Garimpo.', confirmLabel: 'Remover registros', tone: 'danger' })) return
+    if (!await confirmAction({ title: `Remover ${ids.length} ${plural(ids.length, 'registro', 'registros')}?`, description: 'Os itens serão retirados da base de processamento do Garimpo.', confirmLabel: 'Remover registros', tone: 'danger' })) return
     // Send only explicitly selected, visible IDs. Never propagate filtered snapshot absence as deletion.
     const allowedIds = [...new Set(ids)].filter((id) => state.prospects.some((item) => item.id === id && prospectInScope(item)))
     if (allowedIds.length !== new Set(ids).size) { notify('error', 'A seleção contém registros sem permissão de exclusão.'); return }
@@ -950,7 +951,7 @@ export function ProspectingPage() {
     const prospects = state.prospects.filter((item) => ids.includes(item.id))
     const blocked = prospects.filter((item) => prospectDataQuality(item).readiness === 'blocked')
     const approvable = prospects.filter((item) => prospectDataQuality(item).readiness !== 'blocked').map((item) => item.id)
-    if (blocked.length) notify('warning', `${blocked.length} registro(s) precisam corrigir identidade, contato ou duplicidade antes da aprovação.`)
+    if (blocked.length) notify('warning', `${blocked.length} ${plural(blocked.length, 'registro', 'registros')} precisam corrigir identidade, contato ou duplicidade antes da aprovação.`)
     if (approvable.length) setStatus(approvable, 'approved')
   }
 
@@ -981,9 +982,9 @@ export function ProspectingPage() {
           if (latest && agentJob?.id === latest.id) setAgentJob(latest)
         } catch { failed += 1 }
       }
-      if (companies) commit((current) => appendHistory(current, workspaceId, { action: 'analyze', title: 'Enriquecimento reprocessado em lote', description: `${companies} empresa(s) · ${retried} tarefa(s) reexecutada(s) · ${skipped} sem tarefa pendente · ${failed} falha(s).`, count: companies }))
-      if (failed) notify('warning', `${companies} empresa(s) reprocessada(s); ${failed} falha(s) precisam de atenção.`)
-      else if (companies) notify('success', `${companies} empresa(s) reprocessada(s) em ${retried} tarefa(s) de enriquecimento.`)
+      if (companies) commit((current) => appendHistory(current, workspaceId, { action: 'analyze', title: 'Enriquecimento reprocessado em lote', description: `${companies} ${plural(companies, 'empresa', 'empresas')} · ${retried} ${plural(retried, 'tarefa', 'tarefas')} ${plural(retried, 'reexecutada', 'reexecutadas')} · ${skipped} sem tarefa pendente · ${failed} ${plural(failed, 'falha', 'falhas')}.`, count: companies }))
+      if (failed) notify('warning', `${companies} ${plural(companies, 'empresa', 'empresas')} ${plural(companies, 'reprocessada', 'reprocessadas')}; ${failed} ${plural(failed, 'falha', 'falhas')} precisam de atenção.`)
+      else if (companies) notify('success', `${companies} ${plural(companies, 'empresa', 'empresas')} ${plural(companies, 'reprocessada', 'reprocessadas')} em ${retried} ${plural(retried, 'tarefa', 'tarefas')} de enriquecimento.`)
       else notify('info', skipped ? 'Os registros selecionados não possuem tarefas de enriquecimento pendentes/reprocessáveis.' : 'Nenhuma empresa foi reprocessada.')
     } finally { setBulkRetryBusy(false) }
   }
@@ -998,8 +999,8 @@ export function ProspectingPage() {
     const payload = buildProspectingDataLayerEnvelope(workspaceId, selected)
     const url = URL.createObjectURL(new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' }))
     const link = document.createElement('a'); link.href = url; link.download = `realtalent-data-layer-${new Date().toISOString().slice(0, 10)}.json`; link.click(); URL.revokeObjectURL(url)
-    commit((current) => appendHistory(current, workspaceId, { action: 'analyze', title: 'Lote exportado para o Data Layer', description: `${selected.length} registro(s) preparados no contrato realtalent-data-layer/2.5 para enriquecimento externo.`, count: selected.length }))
-    notify('success', `${selected.length} registro(s) preparados para enriquecimento no Data Layer.`)
+    commit((current) => appendHistory(current, workspaceId, { action: 'analyze', title: 'Lote exportado para o Data Layer', description: `${selected.length} ${plural(selected.length, 'registro', 'registros')} preparados no contrato realtalent-data-layer/2.5 para enriquecimento externo.`, count: selected.length }))
+    notify('success', `${selected.length} ${plural(selected.length, 'registro', 'registros')} preparados para enriquecimento no Data Layer.`)
   }
 
   const exportResults = async () => {
@@ -1019,7 +1020,7 @@ export function ProspectingPage() {
       notify('info', 'É necessário revisar e aprovar empresas elegíveis. Registros bloqueados ou duplicados não são enviados.')
       return
     }
-    if (validIds.length < unique.size) notify('warning', `${unique.size - validIds.length} registro(s) não serão enviados: ainda precisam de revisão.`)
+    if (validIds.length < unique.size) notify('warning', `${unique.size - validIds.length} ${plural(unique.size - validIds.length, 'registro', 'registros')} não serão enviados: ainda precisam de revisão.`)
     setHandoffReceipt(null)
     setSendIds(validIds)
   }
@@ -1173,10 +1174,10 @@ export function ProspectingPage() {
         }
       }
       setHandoffReceipt({id:batchId,createdAt:new Date().toISOString(),rows:receipts,activityWarnings})
-      commit((current) => appendHistory(current, workspaceId, { action: companiesUpdated || contactsUpdated ? 'merge' : 'send', title: `Lote ${batchId} enviado ao CRM`, description: `${companiesCreated} empresa(s) criada(s) · ${companiesUpdated} atualizada(s) · ${contactsCreated} contato(s) criado(s) · ${contactsUpdated} atualizado(s) · ${opportunitiesCreated} oportunidade(s) criada(s) · ${skipped} ignorada(s) · ${failed} falha(s)${activityWarnings ? ` · ${activityWarnings} atividade(s) pendente(s)` : ''}`, count: sentIds.length }))
+      commit((current) => appendHistory(current, workspaceId, { action: companiesUpdated || contactsUpdated ? 'merge' : 'send', title: `Lote ${batchId} enviado ao CRM`, description: `${companiesCreated} ${plural(companiesCreated, 'empresa', 'empresas')} ${plural(companiesCreated, 'criada', 'criadas')} · ${companiesUpdated} ${plural(companiesUpdated, 'atualizada', 'atualizadas')} · ${contactsCreated} ${plural(contactsCreated, 'contato', 'contatos')} ${plural(contactsCreated, 'criado', 'criados')} · ${contactsUpdated} ${plural(contactsUpdated, 'atualizado', 'atualizados')} · ${opportunitiesCreated} ${plural(opportunitiesCreated, 'oportunidade', 'oportunidades')} ${plural(opportunitiesCreated, 'criada', 'criadas')} · ${skipped} ${plural(skipped, 'ignorada', 'ignoradas')} · ${failed} ${plural(failed, 'falha', 'falhas')}${activityWarnings ? ` · ${activityWarnings} ${plural(activityWarnings, 'atividade', 'atividades')} ${plural(activityWarnings, 'pendente', 'pendentes')}` : ''}`, count: sentIds.length }))
       setSendIds((current) => current.filter((id) => !sentIds.includes(id))); setSelectedIds(new Set())
-      if (failed || activityWarnings) notify('info', `${sentIds.length} empresa(s) processada(s); ${failed} falha(s) e ${activityWarnings} atividade(s) precisam de revisão.`)
-      else notify('success', `${sentIds.length} empresa(s) enviada(s) ao CRM canônico.`)
+      if (failed || activityWarnings) notify('info', `${sentIds.length} ${plural(sentIds.length, 'empresa', 'empresas')} ${plural(sentIds.length, 'processada', 'processadas')}; ${failed} ${plural(failed, 'falha', 'falhas')} e ${activityWarnings} ${plural(activityWarnings, 'atividade', 'atividades')} precisam de revisão.`)
+      else notify('success', `${sentIds.length} ${plural(sentIds.length, 'empresa', 'empresas')} ${plural(sentIds.length, 'enviada', 'enviadas')} ao CRM canônico.`)
     } finally { setSending(false) }
   }
 
@@ -1416,7 +1417,7 @@ export function ProspectingPage() {
           const result=summarizeHandoffReceipt(handoffReceipt)
           return <><span><strong>{result.transferred}</strong> Processadas</span><span><strong>{result.skipped}</strong> Ignoradas</span><span><strong>{result.failed}</strong> Falhas</span><span><strong>{result.opportunities}</strong> Oportunidades</span></>
         })()}</div>
-        {handoffReceipt.activityWarnings?<p className="prospecting-r1-receipt__warning">{handoffReceipt.activityWarnings} atividade(s) não confirmada(s); revise antes de contar com o acompanhamento.</p>:null}
+        {handoffReceipt.activityWarnings?<p className="prospecting-r1-receipt__warning">{handoffReceipt.activityWarnings} {plural(handoffReceipt.activityWarnings, 'atividade', 'atividades')} não confirmada(s); revise antes de contar com o acompanhamento.</p>:null}
         <div className="prospecting-r1-receipt__rows">{handoffReceipt.rows.slice(0,30).map(row=><div key={row.id}>
           <div><strong>{row.company}</strong><small>{row.note}</small></div><span>{row.status==='transferred'?'Processada':row.status==='failed'?'Falha':'Ignorada'}</span>
           {row.crmLeadId?<><Button variant="ghost" onClick={()=>navigate('leads',{leadId:row.crmLeadId,action:'contact-record'})}>Contato <ArrowRight size={13}/></Button><Button variant="ghost" onClick={()=>navigate('pipeline',{leadId:row.crmLeadId,action:'deal-inspector'})}>Pipeline <ArrowRight size={13}/></Button></>:row.crmCompanyId?<Button variant="ghost" onClick={()=>setRoute('commercial-map')}>Mapa de Contas <ArrowRight size={13}/></Button>:null}
@@ -1556,8 +1557,8 @@ function SearchWorkspace(props: {
             {props.source === 'maps' ? <label><span>Meta da busca automática</span><NativeSelectionSelect value={props.quantity} onChange={(event) => props.onQuantity(Number(event.target.value))}><option value={20}>20 empresas</option><option value={40}>40 empresas</option><option value={60}>60 empresas</option><option value={80}>80 empresas</option><option value={100}>100 empresas</option></NativeSelectionSelect></label> : null}
           </div>}
           <p className="prospecting-source-helper-v10098">{sourceHelper}</p>
-          <div className="prospecting-search-actions"><Button disabled={props.readOnly || props.providerBusy} loading={props.providerBusy} onClick={primaryAction}>{props.source === 'maps' && directReady ? <Search size={17} /> : props.source === 'cnpj' && directReady ? <Database size={17} /> : props.source === 'extension' ? <RefreshCw size={17} /> : <ExternalLink size={17} />} {primaryLabel}</Button>{channel ? <span>{channel.provider} · {props.source === 'maps' && directReady ? 'paginação automática · até 100 únicos' : channel.mode === 'direct' && channel.available ? `até ${channel.maxResults} resultado(s) por consulta` : 'fluxo assistido disponível'}</span> : <span>O Data Layer mantém identidade, origem e duplicidade no mesmo fluxo.</span>}</div>
-          {props.source === 'maps' && props.automationProgress ? <section className={`prospecting-automation-v101101 is-${props.automationProgress.status}`}><header><div><strong>Busca automática</strong><span>{props.automationProgress.message}</span></div><em>{props.automationProgress.uniqueFound}/{props.automationProgress.targetQuantity}</em></header><div className="prospecting-automation-v101101__track"><span style={{ width: `${Math.min(100, (props.automationProgress.uniqueFound / Math.max(1, props.automationProgress.targetQuantity)) * 100)}%` }} /></div><footer><span>{props.automationProgress.requestsCompleted} de {props.automationProgress.maxRequests} consulta(s)</span><span>{props.automationProgress.currentArea || 'Região principal'}{props.automationProgress.currentQuery ? ` · ${props.automationProgress.currentQuery}` : ''}</span>{['planning','searching'].includes(props.automationProgress.status) ? <Button variant="secondary" size="sm" onClick={props.onCancelAutomation}><X size={14}/> Cancelar</Button> : null}</footer></section> : null}
+          <div className="prospecting-search-actions"><Button disabled={props.readOnly || props.providerBusy} loading={props.providerBusy} onClick={primaryAction}>{props.source === 'maps' && directReady ? <Search size={17} /> : props.source === 'cnpj' && directReady ? <Database size={17} /> : props.source === 'extension' ? <RefreshCw size={17} /> : <ExternalLink size={17} />} {primaryLabel}</Button>{channel ? <span>{channel.provider} · {props.source === 'maps' && directReady ? 'paginação automática · até 100 únicos' : channel.mode === 'direct' && channel.available ? `até ${channel.maxResults} ${plural(channel.maxResults, 'resultado', 'resultados')} por consulta` : 'fluxo assistido disponível'}</span> : <span>O Data Layer mantém identidade, origem e duplicidade no mesmo fluxo.</span>}</div>
+          {props.source === 'maps' && props.automationProgress ? <section className={`prospecting-automation-v101101 is-${props.automationProgress.status}`}><header><div><strong>Busca automática</strong><span>{props.automationProgress.message}</span></div><em>{props.automationProgress.uniqueFound}/{props.automationProgress.targetQuantity}</em></header><div className="prospecting-automation-v101101__track"><span style={{ width: `${Math.min(100, (props.automationProgress.uniqueFound / Math.max(1, props.automationProgress.targetQuantity)) * 100)}%` }} /></div><footer><span>{props.automationProgress.requestsCompleted} de {props.automationProgress.maxRequests} {plural(props.automationProgress.maxRequests, 'consulta', 'consultas')}</span><span>{props.automationProgress.currentArea || 'Região principal'}{props.automationProgress.currentQuery ? ` · ${props.automationProgress.currentQuery}` : ''}</span>{['planning','searching'].includes(props.automationProgress.status) ? <Button variant="secondary" size="sm" onClick={props.onCancelAutomation}><X size={14}/> Cancelar</Button> : null}</footer></section> : null}
         </div>
       </details>
     </section>
@@ -1690,7 +1691,7 @@ function LocalWorkspace({ prospects, job, onOpenReview }: { prospects: ProspectR
       {mapPane}
       <aside className="prospecting-local-workspace-v101104__list">
         {selected ? <article className="prospecting-local-detail-v101104"><header><div><span className="eyebrow"><MapPinned size={13}/> Local selecionado</span><h3>{selected.company}</h3><p>{selected.address || selected.city || 'Endereço em validação'}</p></div><StatusPill tone={prospectIsAutoValidatable(selected) ? 'success' : 'warning'}>{prospectIsAutoValidatable(selected) ? 'Pronta' : 'Precisa atenção'}</StatusPill></header><div className="prospecting-local-detail-v101104__facts"><span><Phone size={14}/>{selected.phone || 'Sem telefone'}</span><span><Globe2 size={14}/>{selected.website || 'Sem website'}</span><span><ShieldCheck size={14}/>Local {prospectPlaceConfidence(selected)}%</span></div><Button onClick={() => onOpenReview(selected.id)}><ClipboardCheck size={15}/> Revisar empresa</Button></article> : null}
-        <header><div><strong>{visibleProspects.length} empresa(s)</strong><small>{located.length} com coordenadas confirmadas · clique em um card para localizar quando disponível.</small></div></header>
+        <header><div><strong>{visibleProspects.length} {plural(visibleProspects.length, 'empresa', 'empresas')}</strong><small>{located.length} com coordenadas confirmadas · clique em um card para localizar quando disponível.</small></div></header>
         <div>{visibleProspects.slice(0, 160).map((prospect) => { const quality = prospectDataQuality(prospect); const hasPoint = Boolean(prospectGeoPoint(prospect)); const ready = prospectIsAutoValidatable(prospect); return <button type="button" key={prospect.id} className={prospect.id === selectedId ? 'is-active' : ''} onClick={() => setSelectedId(prospect.id)}><span className={`prospecting-local-workspace-v101104__status ${ready ? 'is-ready' : quality.readiness === 'blocked' ? 'is-blocked' : 'is-review'}`}/><div><strong>{prospect.company}</strong><small>{prospect.address || prospect.city || (hasPoint ? 'Localização confirmada por coordenadas' : 'Local validado sem coordenadas')}</small><em>{prospect.phone || prospect.website || 'Sem contato confirmado'}</em></div><span>{quality.score}%</span></button> })}</div>
       </aside>
     </section>
@@ -1782,7 +1783,7 @@ function TerritoryAreaSelector({ preview, polygon, busy, disabled, onLoad, onPol
       {!polygon.length ? <div className="prospecting-territory-selector-v101103-h1__hint">Clique no mapa em sequência para contornar a área.</div> : <div className="prospecting-territory-selector-v101103-h1__hint">Arraste os pontos para ajustar o território.</div>}
     </div>
     <footer>
-      <div><strong>{polygon.length} ponto(s)</strong><span>{polygon.length >= 3 ? `Área aproximada: ${areaKm2 < 10 ? areaKm2.toFixed(2) : areaKm2.toFixed(1)} km²` : 'Adicione pelo menos 3 pontos.'}</span></div>
+      <div><strong>{polygon.length} {plural(polygon.length, 'ponto', 'pontos')}</strong><span>{polygon.length >= 3 ? `Área aproximada: ${areaKm2 < 10 ? areaKm2.toFixed(2) : areaKm2.toFixed(1)} km²` : 'Adicione pelo menos 3 pontos.'}</span></div>
       <div>
         <Button size="sm" variant="secondary" disabled={disabled || selectedIndex === null} onClick={deleteSelected}>Excluir ponto</Button>
         <Button size="sm" variant="secondary" disabled={disabled || !polygon.length} onClick={() => { onPolygon(polygon.slice(0, -1)); setSelectedIndex(null) }}>Desfazer</Button>
@@ -1813,7 +1814,7 @@ function TerritoryCoverageMap({ job }: { job: ProspectingAgentJob }) {
 
   return <section className="prospecting-territory-map-v101103">
     <header>
-      <div><MapPinned size={16}/><div><strong>Mapa de cobertura</strong><small>{cells.length} célula(s) · profundidade {job.coverage?.deepestSubdivisionLevel ?? 0} · {job.coverage?.subdivisionCount ?? 0} subdivisão(ões)</small></div></div>
+      <div><MapPinned size={16}/><div><strong>Mapa de cobertura</strong><small>{cells.length} {plural(cells.length, 'célula', 'células')} · profundidade {job.coverage?.deepestSubdivisionLevel ?? 0} · {job.coverage?.subdivisionCount ?? 0} {plural(job.coverage?.subdivisionCount ?? 0, 'subdivisão', 'subdivisões')}</small></div></div>
       <div className="prospecting-territory-map-v101103__legend"><span className="is-completed">Concluída</span><span className="is-running">Em busca</span><span className="is-pending">Pendente</span><span className="is-failed">Falhou</span></div>
     </header>
     <div className="prospecting-territory-map-v101103__canvas">
@@ -1827,12 +1828,12 @@ function TerritoryCoverageMap({ job }: { job: ProspectingAgentJob }) {
           const y = ((north - box.north) / latSpan) * 600
           const height = Math.max(2, ((box.north - box.south) / latSpan) * 600)
           return <rect key={cell.id} className={`is-${cell.status}`} x={x} y={y} width={width} height={height}>
-            <title>{`${cell.region} · ${statusLabel(cell.status)} · nível ${cell.level} · ${(cell.searchAreaKm2 ?? cell.areaKm2 ?? 0).toFixed(2)} km² · ${cell.resultsFound} bruto(s) · ${cell.uniqueResultsFound} nova(s)${cell.providerSaturated ? ' · limite do provider atingido' : ''}`}</title>
+            <title>{`${cell.region} · ${statusLabel(cell.status)} · nível ${cell.level} · ${(cell.searchAreaKm2 ?? cell.areaKm2 ?? 0).toFixed(2)} km² · ${cell.resultsFound} ${plural(cell.resultsFound, 'bruto', 'brutos')} · ${cell.uniqueResultsFound} ${plural(cell.uniqueResultsFound, 'nova', 'novas')}${cell.providerSaturated ? ' · limite do provider atingido' : ''}`}</title>
           </rect>
         })}
       </svg>
     </div>
-    <footer><span>{job.coverage?.completedCells ?? 0}/{job.coverage?.totalCells ?? cells.length} células · {(job.coverage?.successfulAreaKm2 ?? 0).toFixed(1)} km² concluídos · {job.coverage?.saturatedCells ?? 0} saturada(s)</span><span>Área tentada {(job.coverage?.attemptedAreaKm2 ?? 0).toFixed(1)} km² · {(job.coverage?.failedAreaKm2 ?? 0).toFixed(1)} km² com falha</span><span>Saturação estimada {job.coverage?.saturationPercent ?? 0}% · confiança {job.coverage?.saturationConfidence ?? 'low'}</span><strong>Cobertura com sucesso {job.coverage?.successfulTerritoryPercent ?? job.coverage?.territoryPercent ?? 0}%</strong></footer>
+    <footer><span>{job.coverage?.completedCells ?? 0}/{job.coverage?.totalCells ?? cells.length} células · {(job.coverage?.successfulAreaKm2 ?? 0).toFixed(1)} km² concluídos · {job.coverage?.saturatedCells ?? 0} {plural(job.coverage?.saturatedCells ?? 0, 'saturada', 'saturadas')}</span><span>Área tentada {(job.coverage?.attemptedAreaKm2 ?? 0).toFixed(1)} km² · {(job.coverage?.failedAreaKm2 ?? 0).toFixed(1)} km² com falha</span><span>Saturação estimada {job.coverage?.saturationPercent ?? 0}% · confiança {job.coverage?.saturationConfidence ?? 'low'}</span><strong>Cobertura com sucesso {job.coverage?.successfulTerritoryPercent ?? job.coverage?.territoryPercent ?? 0}%</strong></footer>
   </section>
 }
 
@@ -1897,7 +1898,7 @@ function EngineProcessingWorkspace({ job, busy, onRefresh, onRetry, onOpenReview
       })}</div> : <EmptyState icon={active ? LoaderCircle : job.status === 'failed' ? AlertTriangle : Database} title={active ? 'Buscando primeiras empresas' : job.status === 'failed' ? 'A execução falhou' : 'Nenhuma empresa encontrada nesta execução'} description={active ? `${job.runtime?.phaseLabel || 'Pesquisa em andamento'}${job.progress.currentSource ? ` · ${job.progress.currentSource}` : ''}. Os primeiros resultados aparecem aqui assim que forem aceitos.` : job.message} />}
     </section>
 
-    {job.rejections?.length ? <details className="panel prospecting-scope-rejections-v101113-h15"><summary><div><ShieldX size={16}/><span><strong>Resultados rejeitados pelo escopo</strong><small>{job.rejections.length} registro(s) recente(s) · categoria e localização são validadas antes da revisão</small></span></div><ChevronRight size={16}/></summary><div className="prospecting-scope-rejections-v101113-h15__list">{job.rejections.slice(-30).reverse().map((item, index) => <article key={`${item.name}-${item.at}-${index}`}><div><strong>{item.name}</strong><small>{item.source}</small></div><StatusPill tone={item.type === 'location' ? 'warning' : 'info'}>{item.type === 'location' ? 'Fora da região' : item.type === 'category' ? 'Categoria diferente' : 'Fora do escopo'}</StatusPill><p>{item.reason}</p></article>)}</div></details> : null}
+    {job.rejections?.length ? <details className="panel prospecting-scope-rejections-v101113-h15"><summary><div><ShieldX size={16}/><span><strong>Resultados rejeitados pelo escopo</strong><small>{job.rejections.length} {plural(job.rejections.length, 'registro', 'registros')} {plural(job.rejections.length, 'recente', 'recentes')} · categoria e localização são validadas antes da revisão</small></span></div><ChevronRight size={16}/></summary><div className="prospecting-scope-rejections-v101113-h15__list">{job.rejections.slice(-30).reverse().map((item, index) => <article key={`${item.name}-${item.at}-${index}`}><div><strong>{item.name}</strong><small>{item.source}</small></div><StatusPill tone={item.type === 'location' ? 'warning' : 'info'}>{item.type === 'location' ? 'Fora da região' : item.type === 'category' ? 'Categoria diferente' : 'Fora do escopo'}</StatusPill><p>{item.reason}</p></article>)}</div></details> : null}
     {job.warnings.length ? <section className="panel prospecting-engine-processing-v101103__warnings"><header><AlertTriangle size={17}/><strong>Atenções da execução</strong></header>{job.warnings.slice(-6).map((warning, index) => <p key={`${warning}-${index}`}>{warning}</p>)}</section> : null}
   </div>
 }
@@ -1936,7 +1937,7 @@ function ProcessingWorkspace({ readOnly, queue, active, leads, snapshot, onSelec
   const readyWithEvidence = autoValidatable && identityConfirmed && locationConfirmed && contactConfirmed
   return <div className="prospecting-processing-layout prospecting-processing-layout-v101106 crm-prospecting-layout">
     <aside className="panel prospecting-queue">
-      <header><div><span className="eyebrow">Fila de análise</span><strong>{queue.length} empresa(s)</strong></div>{!readOnly ? <button type="button" className="icon-button" onClick={onAnalyzeAll} title="Analisar todos"><Sparkles size={16} /></button> : null}</header>
+      <header><div><span className="eyebrow">Fila de análise</span><strong>{queue.length} {plural(queue.length, 'empresa', 'empresas')}</strong></div>{!readOnly ? <button type="button" className="icon-button" onClick={onAnalyzeAll} title="Analisar todos"><Sparkles size={16} /></button> : null}</header>
       <div>{queue.map((prospect) => <button type="button" key={prospect.id} className={prospect.id === active.id ? 'is-active' : ''} onClick={() => onSelect(prospect.id)}><span className={`prospect-confidence is-${prospectDataQuality(prospect).readiness === 'ready' ? 'high' : prospectDataQuality(prospect).readiness === 'blocked' ? 'low' : 'medium'}`}>{prospectDataQuality(prospect).score}</span><div><strong>{prospect.company}</strong><small>{prospectDataQuality(prospect).label} · {prospectOriginLabel(prospect)}</small></div>{prospectDataQuality(prospect).readiness === 'blocked' ? <AlertTriangle size={14} /> : <ChevronRight size={14} />}</button>)}</div>
     </aside>
 
@@ -1976,7 +1977,7 @@ function ProcessingWorkspace({ readOnly, queue, active, leads, snapshot, onSelec
         <article className={readyWithEvidence ? 'is-ok' : 'is-warning'}><span>5</span><div><strong>Os dados principais estão prontos para decisão?</strong><small>{readyWithEvidence ? 'Identidade, endereço e contato corroborados; valide segmento e aprove manualmente' : [...quality.blockers, ...active.duplicateReasons].slice(0, 1).join(' · ') || 'Ainda exige revisão das evidências antes da decisão'}</small></div>{readyWithEvidence ? <CheckCircle2 size={17}/> : <AlertTriangle size={17}/>}</article>
         </div>
       </details>
-      {attentionReasons.length ? <section className="prospecting-review-attention-v101106 prospecting-review-attention-compact"><AlertTriangle size={16}/><div><strong>Antes de aprovar · {attentionReasons.length} ponto(s) para conferir</strong>
+      {attentionReasons.length ? <section className="prospecting-review-attention-v101106 prospecting-review-attention-compact"><AlertTriangle size={16}/><div><strong>Antes de aprovar · {attentionReasons.length} {plural(attentionReasons.length, 'ponto', 'pontos')} para conferir</strong>
         <p>{attentionReasons.slice(0, 2).join(' · ')}{attentionReasons.length > 2 ? ' · outros pontos nos critérios de revisão' : ''}</p>
         {attentionReasons.length > 2 ? <details><summary>Ver todos os pontos ({attentionReasons.length})</summary>
           <ul>{attentionReasons.map((reason) => <li key={reason}>{reason}</li>)}</ul></details> : null}
@@ -2077,7 +2078,7 @@ function ResultsWorkspace({ readOnly, prospects, selectedIds, search, statusFilt
       <label className="field"><span>Duplicidade</span><SelectionSelect value={duplicateFilter} onValueChange={(value) => onDuplicateFilter(value as 'all' | ProspectRecord['duplicateLevel'])} options={[{ value: 'all', label: 'Todas' }, { value: 'none', label: 'Sem duplicidade' }, { value: 'possible', label: 'Possível duplicidade' }, { value: 'confirmed', label: 'Confirmada' }]} /></label>
     </WorkspaceAdvancedFilterDrawer> : null}
     <div className="prospecting-review-summary-v101103-h7"><span><strong>{prospects.length}</strong> visíveis</span><span className="is-ready"><strong>{readyCount}</strong> prontos</span><span className="is-warning"><strong>{duplicateCount}</strong> duplicidades</span><span className="is-blocked"><strong>{blockedCount}</strong> bloqueados</span></div>
-    {!readOnly && smartEligible.length > 0 ? <div className="prospecting-smart-approval-v101104"><div><ShieldCheck size={17}/><span><strong>{smartEligible.length} empresa(s) atendem às regras de aprovação</strong><small>Qualidade pronta · sem duplicidade · localidade confirmada · confiança local ≥ 65%</small></span></div><Button size="sm" variant="secondary" onClick={() => onApprove(smartEligible.map((item) => item.id))}><Check size={15}/> Aprovar {smartEligible.length}</Button></div> : null}
+    {!readOnly && smartEligible.length > 0 ? <div className="prospecting-smart-approval-v101104"><div><ShieldCheck size={17}/><span><strong>{smartEligible.length} {plural(smartEligible.length, 'empresa', 'empresas')} atendem às regras de aprovação</strong><small>Qualidade pronta · sem duplicidade · localidade confirmada · confiança local ≥ 65%</small></span></div><Button size="sm" variant="secondary" onClick={() => onApprove(smartEligible.map((item) => item.id))}><Check size={15}/> Aprovar {smartEligible.length}</Button></div> : null}
     {!readOnly ? <SelectionToolbar count={ids.length} label="empresas selecionadas" onClear={() => onSelected(new Set())}><Button size="sm" variant="ghost" onClick={() => onAnalyze(ids)}><Sparkles size={15} /> Analisar</Button><Button size="sm" variant="ghost" loading={bulkRetryBusy} onClick={() => onBulkRetry(ids)}><RefreshCw size={15} /> Reprocessar</Button><Button size="sm" variant="ghost" onClick={() => onApprove(ids)}><Check size={15} /> Aprovar</Button><Button size="sm" variant="ghost" onClick={() => onDiscard(ids)}><Ban size={15} /> Descartar</Button><Button size="sm" onClick={() => onSend(ids)}><Send size={15} /> Enviar</Button><Button size="sm" variant="danger" onClick={() => onDelete(ids)}><Trash2 size={15} /></Button></SelectionToolbar> : null}
     {prospects.length ? <div className="prospecting-table prospecting-table-v101106"><div className="prospecting-table__head"><SelectionCheckbox ariaLabel="Selecionar empresas visíveis" disabled={readOnly} checked={allSelected} indeterminate={!allSelected && ids.length > 0} onCheckedChange={() => onSelected(allSelected ? new Set() : new Set(selectableProspects.map((item) => item.id)))} /><span>Empresa</span><span>Local</span><span>Contato</span><span>Qualidade</span><span>Status</span><span>Ações</span></div>{prospects.map((prospect) => { const quality = prospectDataQuality(prospect); const reasons = prospectAttentionReasons(prospect); return <article key={prospect.id}><SelectionCheckbox ariaLabel={`Selecionar ${prospect.company}`} disabled={readOnly || prospect.status === 'sent' || prospect.status === 'discarded'} checked={selectedIds.has(prospect.id)} onCheckedChange={() => toggle(prospect.id)} /><div className="prospecting-table__lead"><span>{prospect.company.slice(0, 1).toUpperCase()}</span><div><strong>{prospect.company}</strong><small>{prospectOriginLabel(prospect)}</small></div></div><div className="prospecting-table-v101106__local"><strong>{prospect.city || 'Local não confirmado'}</strong><small>{prospect.address || (prospectGeoPoint(prospect) ? `Coordenadas confirmadas · ${prospectPlaceConfidence(prospect)}%` : 'Sem endereço confirmado')}</small></div><div className="prospecting-table__contact"><strong>{prospect.phone || prospect.email || 'Sem contato confirmado'}</strong><small>{prospect.website || prospect.instagram || 'Sem canal digital'}</small></div><div className="prospecting-table__confidence"><div><span style={{ width: `${quality.score}%` }} /></div><strong>{quality.score}%</strong><small>{reasons[0] || 'Sem divergência importante'}</small></div><div className="prospecting-table-v101106__status"><StatusPill tone={statusTones[prospect.status]}>{prospectStatusLabels[prospect.status]}</StatusPill>{prospect.duplicateLevel !== 'none' ? <StatusPill tone={duplicateTone(prospect.duplicateLevel)}>{prospect.duplicateLevel === 'possible' ? 'Possível duplicidade' : 'Duplicado'}</StatusPill> : null}</div><div className="prospecting-table__actions">{!readOnly ? <><button type="button" className="icon-button" title="Abrir revisão guiada" onClick={() => onOpenGuided(prospect.id)}><ClipboardCheck size={15} /></button><button type="button" className="icon-button" title="Reanalisar" onClick={() => onAnalyze([prospect.id])}><RefreshCw size={15} /></button>{prospect.status === 'approved' && quality.readiness !== 'blocked' ? <button type="button" className="icon-button" title="Enviar ao CRM" onClick={() => onSend([prospect.id])}><Send size={15} /></button> : null}<button type="button" className="icon-button icon-button--danger" title="Remover" onClick={() => onDelete([prospect.id])}><Trash2 size={15} /></button></> : null}</div></article> })}</div> : <EmptyState icon={Search} title="Nenhuma empresa neste recorte" description="Troque entre Precisa atenção, Prontas ou Todas, ou ajuste os filtros." />}
   </section>
@@ -2092,7 +2093,7 @@ function KanbanWorkspace({ readOnly, prospects, onStatus, onSelect }: { readOnly
 }
 
 function HistoryWorkspace({ state, onExport }: { state: ProspectingState; onExport(): void }) {
-  return <section className="panel prospecting-history-panel"><header className="panel__heading"><div><span className="eyebrow"><History size={14} /> Rastreabilidade</span><h3>Histórico do Garimpo</h3><p>Buscas, importações, análises, aprovações e envios registrados.</p></div><Button variant="secondary" onClick={onExport}><FileJson size={16} /> Exportar base</Button></header>{state.history.length ? <div className="prospecting-history-list">{state.history.map((item) => <article key={item.id}><span className={`is-${item.action}`}>{item.action === 'search' ? <Search /> : item.action === 'send' || item.action === 'merge' ? <Send /> : item.action === 'discard' || item.action === 'delete' ? <Trash2 /> : item.action === 'analyze' ? <Sparkles /> : <Upload />}</span><div><strong>{item.title}</strong><p>{item.description}</p></div><em>{item.count ? `${item.count} empresa(s)` : 'Consulta'}</em><time>{formatDateTime(item.createdAt)}</time></article>)}</div> : <EmptyState icon={History} title="Nenhuma movimentação registrada" description="O histórico será criado conforme você utilizar o Garimpo." />}</section>
+  return <section className="panel prospecting-history-panel"><header className="panel__heading"><div><span className="eyebrow"><History size={14} /> Rastreabilidade</span><h3>Histórico do Garimpo</h3><p>Buscas, importações, análises, aprovações e envios registrados.</p></div><Button variant="secondary" onClick={onExport}><FileJson size={16} /> Exportar base</Button></header>{state.history.length ? <div className="prospecting-history-list">{state.history.map((item) => <article key={item.id}><span className={`is-${item.action}`}>{item.action === 'search' ? <Search /> : item.action === 'send' || item.action === 'merge' ? <Send /> : item.action === 'discard' || item.action === 'delete' ? <Trash2 /> : item.action === 'analyze' ? <Sparkles /> : <Upload />}</span><div><strong>{item.title}</strong><p>{item.description}</p></div><em>{item.count ? `${item.count} ${plural(item.count, 'empresa', 'empresas')}` : 'Consulta'}</em><time>{formatDateTime(item.createdAt)}</time></article>)}</div> : <EmptyState icon={History} title="Nenhuma movimentação registrada" description="O histórico será criado conforme você utilizar o Garimpo." />}</section>
 }
 
 function SendToCrmModal({ open, count, stages, ownerOptions, loading, onClose, onSubmit }: {
@@ -2101,7 +2102,7 @@ function SendToCrmModal({ open, count, stages, ownerOptions, loading, onClose, o
   const defaultDate = useMemo(() => { const date = new Date(); date.setDate(date.getDate() + 1); date.setHours(10, 0, 0, 0); const offset = date.getTimezoneOffset(); return new Date(date.getTime() - offset * 60000).toISOString().slice(0, 16) }, [open])
   const [options, setOptions] = useState<SendOptions>({ createOpportunity: false, stageId: stages[0]?.id ?? '', ownerId: ownerOptions[0]?.id ?? '', ownerName: ownerOptions[0]?.name ?? '', priority: 'medium', temperature: 'warm', tags: 'prospecção', nextActionAt: defaultDate, activityType: 'call', duplicateBehavior: 'update' })
   useEffect(() => { if (open) setOptions((current) => ({ ...current, stageId: current.stageId || stages[0]?.id || '', ownerId: current.ownerId || ownerOptions[0]?.id || '', ownerName: current.ownerName || ownerOptions[0]?.name || '', nextActionAt: defaultDate })) }, [defaultDate, open, ownerOptions, stages])
-  return <Modal open={open} title={`Enviar ${count} empresa(s) ao CRM`} subtitle="A empresa entra primeiro no modelo canônico. Criar uma oportunidade comercial é opcional." onClose={onClose} size="lg" footer={<><Button variant="secondary" onClick={onClose}>Cancelar</Button><Button loading={loading} onClick={() => void onSubmit(options)}><Send size={17} /> Confirmar envio</Button></>}>
+  return <Modal open={open} title={`Enviar ${count} ${plural(count, 'empresa', 'empresas')} ao CRM`} subtitle="A empresa entra primeiro no modelo canônico. Criar uma oportunidade comercial é opcional." onClose={onClose} size="lg" footer={<><Button variant="secondary" onClick={onClose}>Cancelar</Button><Button loading={loading} onClick={() => void onSubmit(options)}><Send size={17} /> Confirmar envio</Button></>}>
     <div className="prospecting-send-form"><section><span className="eyebrow"><Building2 size={14} /> Entrada canônica</span><p>Aprovar cria ou atualiza <strong>CompanyRecord</strong>. Se uma pessoa estiver identificada, ela vira <strong>ContactRecord</strong>.</p><SelectionCheckbox checked={options.createOpportunity} onCheckedChange={(checked) => setOptions({ ...options, createOpportunity: checked })} label="Criar também uma oportunidade comercial no Pipeline" description="A empresa continua canônica; a oportunidade é criada somente quando necessário." /></section>{options.createOpportunity ? <><section><span className="eyebrow"><WorkflowIcon /> Organização comercial</span><div className="prospecting-form-grid"><label><span>Etapa inicial</span><SelectionSelect value={options.stageId} onValueChange={(value) => setOptions({ ...options, stageId: value })} options={stages.map((stage) => ({ value: stage.id, label: stage.name }))} /></label><label><span>Responsável</span><EntityPicker value={options.ownerId} onValueChange={(value) => { const selected = ownerOptions.find((owner) => owner.id === value); setOptions({ ...options, ownerId: value, ownerName: selected?.name ?? '' }) }} placeholder="Sem responsável" options={[{ value: '', label: 'Sem responsável' }, ...ownerOptions.map((owner) => ({ value: owner.id, label: owner.name, initials: owner.name.split(/\s+/).slice(0, 2).map((part) => part[0]).join('').toUpperCase() }))]} /></label><label><span>Prioridade</span><SelectionSelect value={options.priority} onValueChange={(value) => setOptions({ ...options, priority: value as LeadPriority })} options={[{ value: 'low', label: '↓ Baixa' }, { value: 'medium', label: '– Média' }, { value: 'high', label: '↑ Alta' }, { value: 'urgent', label: '!! Urgente' }]} /></label><label><span>Temperatura</span><SelectionSelect value={options.temperature} onValueChange={(value) => setOptions({ ...options, temperature: value as LeadTemperature })} options={[{ value: 'cold', label: 'Frio' }, { value: 'warm', label: 'Morno' }, { value: 'hot', label: 'Quente' }]} /></label><label className="is-wide"><span>Tags</span><input value={options.tags} onChange={(event) => setOptions({ ...options, tags: event.target.value })} placeholder="prospecção, barbearia, canoas" /></label></div></section>
       <section><span className="eyebrow"><Phone size={14} /> Primeira atividade</span><div className="prospecting-form-grid"><label><span>Tipo</span><SelectionSelect value={options.activityType} onValueChange={(value) => setOptions({ ...options, activityType: value as SendOptions['activityType'] })} options={[{ value: 'call', label: 'Ligação' }, { value: 'followup', label: 'Follow-up' }]} /></label><label><span>Data e horário</span><input type="datetime-local" value={options.nextActionAt} onChange={(event) => setOptions({ ...options, nextActionAt: event.target.value })} /></label></div></section></> : null}
       <section className="prospecting-duplicate-policy"><span className="eyebrow"><Merge size={14} /> Quando já existir no CRM</span><div>{([['update', 'Atualizar existente', 'Preenche campos ausentes e preserva o histórico.'], ['skip', 'Ignorar duplicados', 'Envia somente os registros realmente novos.'], ['create', 'Criar mesmo assim', 'Mantém dois registros separados na base.']] as Array<[DuplicateBehavior, string, string]>).map(([value, title, description]) => <label key={value} className={options.duplicateBehavior === value ? 'is-active' : ''}><input type="radio" name="duplicate-behavior" checked={options.duplicateBehavior === value} onChange={() => setOptions({ ...options, duplicateBehavior: value })} /><span><strong>{title}</strong><small>{description}</small></span></label>)}</div></section>

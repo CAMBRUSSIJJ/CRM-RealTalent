@@ -1,3 +1,4 @@
+import { plural } from '../../domain/formatters'
 import { NativeSelectionSelect } from '../../components/selection'
 import {
   AlertTriangle, ArrowDownUp, CalendarCheck2, CalendarClock, CheckCircle2, Cloud, ExternalLink, Link2,
@@ -99,7 +100,7 @@ export function CalendarIntegrationPanel() {
       setCalendarOptions(options)
       const selectedOption = options.find((item) => item.selected) ?? options.find((item) => item.primary) ?? options[0]
       if (selectedOption && (!calendarId || calendarId === 'primary' || calendarId === 'default')) setCalendarId(selectedOption.id)
-      notify('success', `${options.length} calendário(s) carregado(s) diretamente do provedor.`)
+      notify('success', `${options.length} ${plural(options.length, 'calendário', 'calendários')} ${plural(options.length, 'carregado', 'carregados')} diretamente do provedor.`)
     } catch (error) { notify('error', error instanceof Error ? error.message : 'Não foi possível listar os calendários.') }
     finally { setBusy('') }
   }
@@ -139,7 +140,7 @@ export function CalendarIntegrationPanel() {
   const runBackfill = async () => {
     if (!currentWorkspace || !selected) return
     setBusy('backfill')
-    try { const count = await queueCalendarBackfill(currentWorkspace.id, selected.account.id); notify('success', `${count} evento(s) local(is) ainda não vinculados foram adicionados à fila.`); await refresh() }
+    try { const count = await queueCalendarBackfill(currentWorkspace.id, selected.account.id); notify('success', `${count} ${plural(count, 'evento', 'eventos')} local(is) ainda não vinculados foram adicionados à fila.`); await refresh() }
     catch (error) { notify('error', error instanceof Error ? error.message : 'Não foi possível publicar a agenda local.') }
     finally { setBusy('') }
   }
@@ -213,7 +214,7 @@ export function CalendarIntegrationPanel() {
   return <section className="calendar-integration-v84 page-stack">
     <article className="panel calendar-integration-v84__hero">
       <div><span className="eyebrow"><CalendarCheck2 size={15} /> V100.84 · Calendar Integration 2.0</span><h3>Google Agenda e Microsoft Calendar dentro do fluxo do CRM</h3><p>Sincronização incremental e bidirecional para reuniões, ligações, follow-ups, retornos e tarefas criados na Agenda do RealTalent. Criação, alteração, cancelamento e conflitos usam vínculos externos idempotentes.</p></div>
-      <div className="calendar-integration-v84__hero-actions"><StatusPill tone={connected.length ? 'success' : repositoryMode === 'supabase' ? 'warning' : 'info'}>{connected.length ? `${connected.length} conta(s) conectada(s)` : repositoryMode === 'supabase' ? 'Aguardando conexão' : 'Demonstração local'}</StatusPill><Button variant="secondary" loading={loading} onClick={() => void refresh()}><RefreshCw size={16} /> Atualizar</Button></div>
+      <div className="calendar-integration-v84__hero-actions"><StatusPill tone={connected.length ? 'success' : repositoryMode === 'supabase' ? 'warning' : 'info'}>{connected.length ? `${connected.length} ${plural(connected.length, 'conta', 'contas')} ${plural(connected.length, 'conectada', 'conectadas')}` : repositoryMode === 'supabase' ? 'Aguardando conexão' : 'Demonstração local'}</StatusPill><Button variant="secondary" loading={loading} onClick={() => void refresh()}><RefreshCw size={16} /> Atualizar</Button></div>
     </article>
 
     <div className="calendar-integration-v84__metrics">

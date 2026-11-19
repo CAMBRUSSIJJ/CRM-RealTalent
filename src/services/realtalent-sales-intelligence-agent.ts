@@ -1,3 +1,4 @@
+import { plural } from '../domain/formatters'
 import type { Lead, WorkspaceSnapshot } from '../domain/types'
 import { buildDealIntelligence, buildDealPortfolio, type DealHealthLevel, type DealIntelligence, type DealMomentum, type DealNextBestAction, type DealRiskSeverity } from './deal-intelligence'
 import { buildSalesRecommendation } from './realtalent-sales-recommendation-engine'
@@ -221,17 +222,17 @@ const signalText = (context: SalesAgentContext, limit = 3) => context.positiveSi
   : 'Ainda há poucos sinais positivos registrados.'
 
 const learningText = (context: SalesAgentContext) => context.learning.samples >= 3
-  ? `Aprendizado da carteira: ${context.learning.samples} caso(s) comparáveis, taxa ajustada ${context.learning.adjustedSuccessRate}%, ajuste ${context.learning.adjustment >= 0 ? '+' : ''}${context.learning.adjustment}. ${context.learning.actionChanged ? 'O histórico confiável alterou a ação sugerida dentro dos guardrails atuais.' : 'O histórico reforçou ou reduziu a confiança sem substituir os sinais atuais.'}`
+  ? `Aprendizado da carteira: ${context.learning.samples} ${plural(context.learning.samples, 'caso', 'casos')} comparáveis, taxa ajustada ${context.learning.adjustedSuccessRate}%, ajuste ${context.learning.adjustment >= 0 ? '+' : ''}${context.learning.adjustment}. ${context.learning.actionChanged ? 'O histórico confiável alterou a ação sugerida dentro dos guardrails atuais.' : 'O histórico reforçou ou reduziu a confiança sem substituir os sinais atuais.'}`
   : 'Aprendizado da carteira: amostra ainda insuficiente; a recomendação permanece determinística.'
 
 export const formatSalesAgentDealAnalysis = (lead: Lead, snapshot: WorkspaceSnapshot, now = new Date()) => {
   const context = buildSalesAgentContext(lead, snapshot, now)
-  const inactivity = context.commercial.inactivityDays === null ? 'sem interação concluída registrada' : `última interação há ${context.commercial.inactivityDays} dia(s)`
+  const inactivity = context.commercial.inactivityDays === null ? 'sem interação concluída registrada' : `última interação há ${context.commercial.inactivityDays} ${plural(context.commercial.inactivityDays, 'dia', 'dias')}`
   const stage = context.commercial.stage?.name ?? 'sem etapa definida'
   return [
     `Análise comercial de ${entityLabel(context)}.`,
     `Saúde: ${context.health.score}/100 (${context.health.label}); momentum ${momentumLabel[context.health.momentum]} (${context.health.momentumScore}/100).`,
-    `Contexto: etapa ${stage}; valor ${money(context.commercial.value)}; ${inactivity}; fechamento ${date(context.commercial.expectedCloseAt)}; ${context.commercial.stakeholderCount} stakeholder(s).`,
+    `Contexto: etapa ${stage}; valor ${money(context.commercial.value)}; ${inactivity}; fechamento ${date(context.commercial.expectedCloseAt)}; ${context.commercial.stakeholderCount} ${plural(context.commercial.stakeholderCount, 'stakeholder', 'stakeholders')}.`,
     `Probabilidade: vendedor ${context.health.sellerProbability}% × RealTalent ${context.health.realTalentProbability}% (gap ${context.health.probabilityGap >= 0 ? '+' : ''}${context.health.probabilityGap} p.p.).`,
     `Cobertura da conta: ${context.health.accountCoverage}/100; relacionamento ${context.health.relationshipScore}/100.`,
     `Riscos principais: ${riskText(context)}.`,
@@ -306,8 +307,8 @@ export const formatSalesPortfolio = (snapshot: WorkspaceSnapshot, focus: SalesPo
           ? 'Fechamentos do mês sob risco'
           : 'Prioridades comerciais da carteira'
   const visible = deals.slice(0, Math.max(1, Math.min(limit, 10)))
-  const header = `${title}. Carteira ativa: ${portfolio.deals.length} negócio(s), saúde média ${portfolio.averageHealth}/100, valor ativo ${money(portfolio.activeValue)}, valor previsto ${money(portfolio.predictedValue)}.`
-  const riskSummary = `Risco da carteira: ${portfolio.critical} crítico(s), ${portfolio.attention} em atenção, ${portfolio.cooling} esfriando, ${portfolio.missingDecisionMaker} sem decisor e ${money(portfolio.atRiskValue)} em valor sob risco.`
+  const header = `${title}. Carteira ativa: ${portfolio.deals.length} ${plural(portfolio.deals.length, 'negócio', 'negócios')}, saúde média ${portfolio.averageHealth}/100, valor ativo ${money(portfolio.activeValue)}, valor previsto ${money(portfolio.predictedValue)}.`
+  const riskSummary = `Risco da carteira: ${portfolio.critical} ${plural(portfolio.critical, 'crítico', 'críticos')}, ${portfolio.attention} em atenção, ${portfolio.cooling} esfriando, ${portfolio.missingDecisionMaker} sem decisor e ${money(portfolio.atRiskValue)} em valor sob risco.`
   if (!visible.length) return `${header}\n${riskSummary}\nNenhum negócio corresponde a esse recorte com os dados atuais do CRM.`
   return [header, riskSummary, ...visible.map(dealPortfolioLine)].join('\n')
 }

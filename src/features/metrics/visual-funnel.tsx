@@ -1,3 +1,4 @@
+import { plural } from '../../domain/formatters'
 import { NativeSelectionSelect } from '../../components/selection'
 import { Crosshair, Funnel, Layers3, Settings2, Target, TrendingUp } from 'lucide-react'
 import { useMemo, useState, type CSSProperties } from 'react'
@@ -74,7 +75,7 @@ export function VisualFunnel({ items, leads, selectedStageId, onSelectStage, onE
           >
             <span className="metrics-funnel-bars-v10171__identity"><i>{index + 1}</i><b>{item.stage.name}</b></span>
             <span className="metrics-funnel-bars-v10171__track"><i /></span>
-            <span className="metrics-funnel-bars-v10171__value"><strong>{widthMode === 'volume' ? item.count : formatCurrency(item.value)}</strong><small>{widthMode === 'volume' ? `${item.reachedCount} alcançaram` : `${item.count} negócio(s)`}</small></span>
+            <span className="metrics-funnel-bars-v10171__value"><strong>{widthMode === 'volume' ? item.count : formatCurrency(item.value)}</strong><small>{widthMode === 'volume' ? `${item.reachedCount} alcançaram` : `${item.count} ${plural(item.count, 'negócio', 'negócios')}`}</small></span>
             <span className="metrics-funnel-bars-v10171__conversion"><strong>{percent(item.conversionFromPrevious)}</strong><small>{item.avgDays.toFixed(1)} dias</small></span>
           </button>
         })}

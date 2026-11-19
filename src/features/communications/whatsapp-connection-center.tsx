@@ -1,3 +1,4 @@
+import { plural } from '../../domain/formatters'
 import { CheckCircle2, Cloud, LoaderCircle, QrCode, RefreshCw, ShieldCheck, Wifi } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 import { Button } from '../../components/ui/button'
@@ -74,7 +75,7 @@ export function WhatsAppConnectionCenter({ open, workspaceId, onClose, onChanged
       <section className="wa-connection-center__summary">
         <div className="wa-connection-center__icon"><Wifi size={22}/></div>
         <div><span className="eyebrow">Connection Center</span><h3>{connected.length || qrLive ? 'WhatsApp conectado ao RealTalent' : 'Conecte seu WhatsApp ao workspace'}</h3><p>O canal fica disponível no chat, histórico e sincronização em tempo real sem transformar a tela em um painel técnico.</p></div>
-        <StatusPill tone={connected.length || qrLive ? 'success' : 'warning'}>{connected.length ? `${connected.length} conexão(ões)` : qrLive ? 'QR conectado' : 'Desconectado'}</StatusPill>
+        <StatusPill tone={connected.length || qrLive ? 'success' : 'warning'}>{connected.length ? `${connected.length} ${plural(connected.length, 'conexão', 'conexões')}` : qrLive ? 'QR conectado' : 'Desconectado'}</StatusPill>
       </section>
 
       <div className="wa-connection-center__grid">

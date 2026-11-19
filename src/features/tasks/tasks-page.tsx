@@ -1,3 +1,4 @@
+import { plural } from '../../domain/formatters'
 import { useEffect, useMemo, useState, type DragEvent } from 'react'
 import { AlertTriangle, Bell, CalendarDays, CheckCircle2, Clock3, Filter, Kanban, ListChecks, Pencil, Plus, Search, Trash2, UserRound, UsersRound, X } from 'lucide-react'
 import { useAppActions, useAppUi, useAppWorkspace } from '../../app/app-context'
@@ -271,7 +272,7 @@ export function TasksPage() {
       </details>
     </section>
 
-    {filterActive ? <div className="tasks-page-v4__filter-status"><span>{totalFiltered} tarefa(s) {taskViewLabel}</span><button type="button" onClick={()=>setView(layout)}><X size={13}/> Mostrar todas</button></div> : null}
+    {filterActive ? <div className="tasks-page-v4__filter-status"><span>{totalFiltered} {plural(totalFiltered, 'tarefa', 'tarefas')} {taskViewLabel}</span><button type="button" onClick={()=>setView(layout)}><X size={13}/> Mostrar todas</button></div> : null}
 
     {layout === 'board' ? <TaskBoard tasks={filtered} teamById={teamById} relationByTask={relationByTask} checklistItems={data.checklistItems}
       diagnostics={notificationDiagnostics} notificationsReachable={notificationsReachable} repositoryMode={repositoryMode}

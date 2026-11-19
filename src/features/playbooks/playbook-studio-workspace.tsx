@@ -1,3 +1,4 @@
+import { plural } from '../../domain/formatters'
 import {
   ArrowLeft,
   CheckCircle2,
@@ -691,7 +692,7 @@ export function PlaybookStudioWorkspace({ playbook, onClose, onSaved }: {
             <span><strong>{graph.nodes.length}</strong> nós</span><span><strong>{graph.edges.length}</strong> caminhos</span><span><strong>{groups.length}</strong> fases</span><span title="Virtualização do canvas"><strong>{visibleNodes.length}</strong> visíveis</span>
           </div>
           <div className="playbook-workspace__canvas-right">
-            <span className={`playbook-workspace__fps is-${performance.tier}`} title={`${performance.longFrames} frame(s) longo(s) no último segundo`}>{performance.fps} FPS</span>
+            <span className={`playbook-workspace__fps is-${performance.tier}`} title={`${performance.longFrames} ${plural(performance.longFrames, 'frame', 'frames')} ${plural(performance.longFrames, 'longo', 'longos')} no último segundo`}>{performance.fps} FPS</span>
             <button type="button" className={showGrid ? 'is-active' : ''} onClick={() => setShowGrid((value) => !value)} title="Mostrar grade">Grade</button>
             <button type="button" className={snapToGrid ? 'is-active' : ''} onClick={() => setSnapToGrid((value) => !value)} title="Alinhar à grade">Snap</button>
             <button type="button" onClick={fitContent} title="Ajustar conteúdo"><Maximize2 size={15}/></button>
@@ -907,7 +908,7 @@ export function PlaybookStudioWorkspace({ playbook, onClose, onSaved }: {
       {executionNode ? <div className="playbook-workspace__simulation-stage">
         <article><span>{PLAYBOOK_NODE_TYPE_LABELS[executionNode.type]}</span><h2>{executionNode.title}</h2><p>{executionNode.content || 'Sem conteúdo configurado.'}</p>{executionNode.objective ? <aside><strong>Objetivo</strong><span>{executionNode.objective}</span></aside> : null}</article>
         <div className="playbook-workspace__simulation-paths">{outgoingExecution.length ? outgoingExecution.map((edge) => { const target = graph.nodes.find((node) => node.id === edge.targetId); return <button type="button" key={edge.id} onClick={() => goExecution(edge)}><span>{edge.label || 'Próximo'}</span><strong>{target?.title ?? 'Continuar'}</strong></button> }) : <div className="playbook-workspace__simulation-end"><Sparkles size={22}/><strong>Fim deste caminho</strong><span>Esse nó não possui uma próxima conexão.</span></div>}</div>
-        <footer><Button variant="secondary" disabled={!executionHistory.length} onClick={backExecution}><ChevronLeft size={14}/> Voltar um passo</Button><span>{executionHistory.length + 1} nó(s) percorrido(s)</span></footer>
+        <footer><Button variant="secondary" disabled={!executionHistory.length} onClick={backExecution}><ChevronLeft size={14}/> Voltar um passo</Button><span>{executionHistory.length + 1} {plural(executionHistory.length + 1, 'nó', 'nós')} {plural(executionHistory.length + 1, 'percorrido', 'percorridos')}</span></footer>
       </div> : null}
     </main> : null}
   </div>

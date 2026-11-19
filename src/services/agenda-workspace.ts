@@ -1,3 +1,4 @@
+import { plural } from '../domain/formatters'
 import type { CalendarEvent } from '../domain/types'
 
 export type AgendaEventType = 'meeting' | 'call' | 'followup' | 'task' | 'return'
@@ -36,7 +37,7 @@ export const agendaReminderLabel = (minutes: number) => {
   if (minutes < 60) return `${minutes} min antes`
   if (minutes === 60) return '1 hora antes'
   if (minutes < 1440) return `${Math.round(minutes / 60)} horas antes`
-  return `${Math.round(minutes / 1440)} dia(s) antes`
+  return `${Math.round(minutes / 1440)} ${plural(Math.round(minutes / 1440), 'dia', 'dias')} antes`
 }
 
 export const stripAgendaMetadata = (description: string | null | undefined) => (description ?? '').replace(META_PATTERN, '').trim()

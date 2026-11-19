@@ -1,3 +1,4 @@
+import { plural } from '../domain/formatters'
 import type { ProposalLineItem, ProductRecord, TeamAccessResource, TeamApprovalKind, TeamApprovalRequest, TeamApprovalStatus } from '../domain/types'
 import { createId } from '../lib/id'
 import { safeStorage } from '../lib/storage'
@@ -109,6 +110,6 @@ export async function requireExportApproval(mode:'local'|'supabase',workspaceId:
     else { const consumed=await (getSupabaseClient() as any).rpc('rt_consume_access_approval',{p_approval_id:approved.id}); if(consumed.error) throw new Error(consumed.error.message||'Falha ao consumir a aprovação de exportação.') }
     await recordTeamSecurityAudit(mode,workspaceId,{userId:access?.userId,userName:input.userName,action:'data_exported',entityType:input.entityType,metadata:{resource:input.resource,count:input.count,approvalId:approved.id}});return true
   }
-  if(!approvals.some((entry)=>entry.status==='pending')) await requestTeamApproval(mode,workspaceId,{requesterId:access?.userId??null,requesterName:input.userName,resource:input.resource,kind:'data_export',entityType:input.entityType,entityId:null,reason:`Exportação de ${input.count} registro(s) requer aprovação do gestor.`,payload:{count:input.count}})
+  if(!approvals.some((entry)=>entry.status==='pending')) await requestTeamApproval(mode,workspaceId,{requesterId:access?.userId??null,requesterName:input.userName,resource:input.resource,kind:'data_export',entityType:input.entityType,entityId:null,reason:`Exportação de ${input.count} ${plural(input.count, 'registro', 'registros')} requer aprovação do gestor.`,payload:{count:input.count}})
   return false
 }

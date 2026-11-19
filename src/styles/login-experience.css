@@ -396,9 +396,9 @@
 .rt-splash__content .rt-brand-mark { --rt-mark-size: 180px; }
 .rt-splash__wordmark { margin-top: 18px; display: flex; align-items: baseline; gap: 9px; letter-spacing: -.045em; }
 .rt-splash__wordmark strong { font-size: 31px; font-weight: 780; }
-.rt-splash__wordmark span { color: rgba(255,255,255,.5); font-size: 10px; font-weight: 850; letter-spacing: .17em; }
+.rt-splash__wordmark span { color: rgba(255,255,255,.5); font-size: 11px; font-weight: 850; letter-spacing: .17em; }
 .rt-splash p { margin: 10px 0 14px; color: var(--rt-login-muted); font-size: 12px; }
-.rt-splash small { margin-top: 12px; color: rgba(225,240,250,.34); font-size: 9px; letter-spacing: .1em; }
+.rt-splash small { margin-top: 12px; color: rgba(225,240,250,.34); font-size: 11px; letter-spacing: .1em; }
 .rt-splash__brand-progress { height: 22px; display: flex; align-items: end; gap: 4px; }
 .rt-splash__brand-progress i { width: 5px; border-radius: 2px 2px 1px 1px; background: linear-gradient(180deg, #31c79a, #098982); box-shadow: 0 0 12px rgba(9,137,130,.34); transform-origin: bottom; animation: rt-mini-bar 1.2s ease-in-out infinite; }
 .rt-splash__brand-progress i:nth-child(1) { height: 10px; }
@@ -509,7 +509,7 @@
 }
 .auth-local-profile > span:last-child { min-width: 0; display: grid; gap: 2px; }
 .auth-local-profile strong { overflow: hidden; color: #fff; font-size: 13px; text-overflow: ellipsis; white-space: nowrap; }
-.auth-local-profile small { overflow: hidden; color: rgba(225,240,250,.52); font-size: 10px; text-overflow: ellipsis; white-space: nowrap; }
+.auth-local-profile small { overflow: hidden; color: rgba(225,240,250,.52); font-size: 11px; text-overflow: ellipsis; white-space: nowrap; }
 .auth-local-note {
   margin: -6px 0 0;
   padding: 11px 12px;
@@ -520,7 +520,7 @@
   border-radius: 12px;
   color: rgba(225,240,250,.54);
   background: rgba(2,13,24,.24);
-  font-size: 10px;
+  font-size: 11px;
   line-height: 1.5;
 }
 .auth-local-note svg { flex: 0 0 auto; margin-top: 1px; color: #55d6b2; }

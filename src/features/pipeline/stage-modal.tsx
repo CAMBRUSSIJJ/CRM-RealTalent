@@ -1,3 +1,4 @@
+import { plural } from '../../domain/formatters'
 import { NativeSelectionSelect } from '../../components/selection'
 import { ShieldCheck, Trash2 } from 'lucide-react'
 import { useEffect, useState } from 'react'
@@ -98,7 +99,7 @@ export function StageModal({ open, stage, leadCount, workspaceId, stageIndex, st
       <label className="stage-rule-check"><input type="checkbox" checked={value.config.preventSkipping} onChange={(event) => updateConfig('preventSkipping', event.target.checked)} /><span><strong>Impedir salto de etapas</strong><small>Permite entrar somente a partir da etapa imediatamente anterior.</small></span></label>
       <label className="stage-rule-check field--span-2"><input type="checkbox" checked={value.config.confirmBackward} onChange={(event) => updateConfig('confirmBackward', event.target.checked)} /><span><strong>Confirmar movimentação para trás</strong><small>Solicita confirmação antes de retroceder uma oportunidade.</small></span></label>
       <label className="field field--span-2"><span>Orientação comercial da etapa</span><textarea rows={3} value={value.config.instructions} onChange={(event) => updateConfig('instructions', event.target.value)} placeholder="Ex.: validar decisor, confirmar necessidade e registrar próximo passo antes de avançar." /></label>
-      {stage && leadCount > 0 ? <div className="warning-box field--span-2"><strong>Esta etapa possui {leadCount} oportunidade(s).</strong><span>Mova os cards para outra etapa antes de excluí-la.</span></div> : null}
+      {stage && leadCount > 0 ? <div className="warning-box field--span-2"><strong>Esta etapa possui {leadCount} {plural(leadCount, 'oportunidade', 'oportunidades')}.</strong><span>Mova os cards para outra etapa antes de excluí-la.</span></div> : null}
     </div>
   </Modal>
 }

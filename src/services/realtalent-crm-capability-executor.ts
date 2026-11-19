@@ -1,3 +1,4 @@
+import { plural } from '../domain/formatters'
 import type { AppActionsContextValue } from '../app/app-context'
 import type { RouteContext } from '../app/route-state'
 import type { AppRoute, TeamAccessAction, TeamAccessResource, TeamSensitiveField, WorkspaceSnapshot } from '../domain/types'
@@ -263,7 +264,7 @@ export async function executeCrmCapabilityStep(step: CrmCapabilityPlanStep, runt
           existingKeys: existingProspectingIdentityKeys(snapshot.leads), enrichWeb: true, enrichCnpj: true, browserFallback: true,
         })
         runtime.navigate('prospecting')
-        return { ok: true, summary: `Garimpo iniciado para ${segment} em ${city}. Meta: ${quantity} empresa(s). Execução ${(job.runtime?.runId || job.id).slice(0, 8)} em andamento; os resultados entrarão progressivamente em Revisar.`, evidence: { source: 'prospecting_state', entityType: 'prospecting_job', entityId: job.runtime?.runId || job.id, state: 'running', detail: 'O motor do Garimpo confirmou o job; a busca continua assíncrona e ainda não é tratada como concluída.' } }
+        return { ok: true, summary: `Garimpo iniciado para ${segment} em ${city}. Meta: ${quantity} ${plural(quantity, 'empresa', 'empresas')}. Execução ${(job.runtime?.runId || job.id).slice(0, 8)} em andamento; os resultados entrarão progressivamente em Revisar.`, evidence: { source: 'prospecting_state', entityType: 'prospecting_job', entityId: job.runtime?.runId || job.id, state: 'running', detail: 'O motor do Garimpo confirmou o job; a busca continua assíncrona e ainda não é tratada como concluída.' } }
       }
       const result = await runProspectingSearchAutomation({ workspaceId, segment, city, query: arg(step, 'query') || segment, targetQuantity: quantity })
       const existingKeys = prospectIdentitySet(state.prospects)
@@ -275,9 +276,9 @@ export async function executeCrmCapabilityStep(step: CrmCapabilityPlanStep, runt
         prospectingDraftIdentityKeys(prospect).forEach((key) => existingKeys.add(key)); created.push(prospect)
       }
       let next = { ...state, prospects: [...created, ...state.prospects] }
-      next = appendProspectingHistory(next, workspaceId, { action: 'search', title: 'Busca iniciada pela RealTalent Agent', description: `${segment} · ${city} · ${created.length} empresa(s) nova(s)`, count: created.length })
+      next = appendProspectingHistory(next, workspaceId, { action: 'search', title: 'Busca iniciada pela RealTalent Agent', description: `${segment} · ${city} · ${created.length} ${plural(created.length, 'empresa', 'empresas')} ${plural(created.length, 'nova', 'novas')}`, count: created.length })
       writeProspectingState(workspaceId, next); runtime.navigate('prospecting')
-      return { ok: true, summary: `Busca concluída pelo fallback do Garimpo: ${created.length} empresa(s) nova(s) encontradas de ${segment} em ${city}.`, evidence: { source: 'prospecting_state', entityType: 'prospect', state: 'persisted', detail: `Estado do Garimpo foi gravado e relido com ${next.prospects.length} prospect(s).` } }
+      return { ok: true, summary: `Busca concluída pelo fallback do Garimpo: ${created.length} ${plural(created.length, 'empresa', 'empresas')} ${plural(created.length, 'nova', 'novas')} encontradas de ${segment} em ${city}.`, evidence: { source: 'prospecting_state', entityType: 'prospect', state: 'persisted', detail: `Estado do Garimpo foi gravado e relido com ${next.prospects.length} ${plural(next.prospects.length, 'prospect', 'prospects')}.` } }
     }
 
     if (step.capabilityId === 'prospecting.analyze') {
@@ -293,27 +294,27 @@ export async function executeCrmCapabilityStep(step: CrmCapabilityPlanStep, runt
         return { ...analyzed, rawData: { ...analyzed.rawData, prospectScore: intelligence.score, prospectScoreBreakdown: intelligence.breakdown, prospectScoreReasons: intelligence.reasons, prospectOpportunitySignals: intelligence.opportunitySignals } }
       })
       let next = { ...state, prospects }
-      next = appendProspectingHistory(next, workspaceId, { action: 'analyze', title: 'Prospecting Intelligence aplicado', description: `Fit, potencial, contato, momento e qualidade recalculados em ${count} empresa(s).`, count })
+      next = appendProspectingHistory(next, workspaceId, { action: 'analyze', title: 'Prospecting Intelligence aplicado', description: `Fit, potencial, contato, momento e qualidade recalculados em ${count} ${plural(count, 'empresa', 'empresas')}.`, count })
       writeProspectingState(workspaceId, next); runtime.navigate('prospecting')
-      return { ok: true, summary: `${count} empresa(s) analisada(s) pelo Prospecting Intelligence.`, evidence: { source: 'prospecting_state', entityType: 'prospect', state: 'persisted', detail: 'Scores e análise foram gravados no estado do Garimpo.' } }
+      return { ok: true, summary: `${count} ${plural(count, 'empresa', 'empresas')} ${plural(count, 'analisada', 'analisadas')} pelo Prospecting Intelligence.`, evidence: { source: 'prospecting_state', entityType: 'prospect', state: 'persisted', detail: 'Scores e análise foram gravados no estado do Garimpo.' } }
     }
 
     if (step.capabilityId === 'prospecting.approve_top') {
       const eligible = ranked.filter((item) => item.intelligence.score >= minScore && item.prospect.status !== 'sent' && item.prospect.status !== 'discarded' && item.prospect.duplicateLevel !== 'confirmed' && prospectDataQuality(item.prospect).readiness !== 'blocked').slice(0, limit)
       const ids = new Set(eligible.map((item) => item.prospect.id)); const now = new Date().toISOString()
       const prospects = state.prospects.map((item) => ids.has(item.id) ? { ...item, status: 'approved' as const, updatedAt: now, rawData: { ...item.rawData, prospectScore: scoreProspectWithIcp(item, snapshot).score } } : item)
-      let next = { ...state, prospects }; next = appendProspectingHistory(next, workspaceId, { action: 'approve', title: 'Melhores empresas aprovadas pela Agent', description: `${eligible.length} empresa(s) aprovadas após score e regras de qualidade.`, count: eligible.length })
+      let next = { ...state, prospects }; next = appendProspectingHistory(next, workspaceId, { action: 'approve', title: 'Melhores empresas aprovadas pela Agent', description: `${eligible.length} ${plural(eligible.length, 'empresa', 'empresas')} aprovadas após score e regras de qualidade.`, count: eligible.length })
       writeProspectingState(workspaceId, next); runtime.navigate('prospecting')
-      return { ok: true, summary: `${eligible.length} empresa(s) de maior prioridade foram aprovadas no Garimpo.`, evidence: { source: 'prospecting_state', entityType: 'prospect', state: 'persisted', detail: 'Aprovações foram gravadas no estado do Garimpo.' } }
+      return { ok: true, summary: `${eligible.length} ${plural(eligible.length, 'empresa', 'empresas')} de maior prioridade foram aprovadas no Garimpo.`, evidence: { source: 'prospecting_state', entityType: 'prospect', state: 'persisted', detail: 'Aprovações foram gravadas no estado do Garimpo.' } }
     }
 
     if (step.capabilityId === 'prospecting.discard_low') {
       const maxScore = Math.max(0, Math.min(100, num(arg(step, 'max_score'), 40)))
       const ids = new Set(ranked.filter((item) => item.intelligence.score <= maxScore && item.prospect.status !== 'approved' && item.prospect.status !== 'sent').map((item) => item.prospect.id)); const now = new Date().toISOString()
       const prospects = state.prospects.map((item) => ids.has(item.id) ? { ...item, status: 'discarded' as const, updatedAt: now } : item)
-      let next = { ...state, prospects }; next = appendProspectingHistory(next, workspaceId, { action: 'discard', title: 'Baixa prioridade descartada pela Agent', description: `${ids.size} empresa(s) com score até ${maxScore}.`, count: ids.size })
+      let next = { ...state, prospects }; next = appendProspectingHistory(next, workspaceId, { action: 'discard', title: 'Baixa prioridade descartada pela Agent', description: `${ids.size} ${plural(ids.size, 'empresa', 'empresas')} com score até ${maxScore}.`, count: ids.size })
       writeProspectingState(workspaceId, next); runtime.navigate('prospecting')
-      return { ok: true, summary: `${ids.size} empresa(s) com score até ${maxScore} foram descartadas.`, evidence: { source: 'prospecting_state', entityType: 'prospect', state: 'persisted', detail: 'Descartes foram gravados no estado do Garimpo.' } }
+      return { ok: true, summary: `${ids.size} ${plural(ids.size, 'empresa', 'empresas')} com score até ${maxScore} foram descartadas.`, evidence: { source: 'prospecting_state', entityType: 'prospect', state: 'persisted', detail: 'Descartes foram gravados no estado do Garimpo.' } }
     }
 
     if (step.capabilityId === 'prospecting.send_to_crm') {
@@ -350,9 +351,9 @@ export async function executeCrmCapabilityStep(step: CrmCapabilityPlanStep, runt
         sentIds.add(prospect.id)
       }
       const now = new Date().toISOString(); const prospects = state.prospects.map((item) => sentIds.has(item.id) ? { ...item, status: 'sent' as const, sentAt: now, updatedAt: now } : item)
-      let next = { ...state, prospects }; next = appendProspectingHistory(next, workspaceId, { action: 'send', title: 'Prospecting Intelligence enviado ao CRM', description: `${createdLeads} oportunidade(s) criada(s)${owner ? ` para ${owner.displayName || owner.email}` : ''}.`, count: createdLeads })
+      let next = { ...state, prospects }; next = appendProspectingHistory(next, workspaceId, { action: 'send', title: 'Prospecting Intelligence enviado ao CRM', description: `${createdLeads} ${plural(createdLeads, 'oportunidade', 'oportunidades')} ${plural(createdLeads, 'criada', 'criadas')}${owner ? ` para ${owner.displayName || owner.email}` : ''}.`, count: createdLeads })
       writeProspectingState(workspaceId, next); runtime.navigate('leads')
-      return { ok: true, summary: `${createdLeads} empresa(s) do Garimpo foram convertidas em oportunidades no CRM${owner ? ` para ${owner.displayName || owner.email}` : ''}.`, evidence: { source: 'prospecting_state', entityType: 'lead', state: 'persisted', detail: `${createdLeads} prospect(s) foram marcados como enviados; o readback do CRM valida os novos registros.` } }
+      return { ok: true, summary: `${createdLeads} ${plural(createdLeads, 'empresa', 'empresas')} do Garimpo foram convertidas em oportunidades no CRM${owner ? ` para ${owner.displayName || owner.email}` : ''}.`, evidence: { source: 'prospecting_state', entityType: 'lead', state: 'persisted', detail: `${createdLeads} ${plural(createdLeads, 'prospect', 'prospects')} foram marcados como enviados; o readback do CRM valida os novos registros.` } }
     }
   }
   if (step.capabilityId === 'settings.open') { runtime.navigate('settings', arg(step, 'filter') ? { filter: arg(step, 'filter') } : {}); return { ok: true, summary: 'Configurações abertas.' } }
@@ -364,13 +365,13 @@ export async function executeCrmCapabilityStep(step: CrmCapabilityPlanStep, runt
     const alerts = buildNotificationAlerts(snapshot, preferences, { staleLeadDays: runtime.staleLeadDays ?? 7 })
     dismissNotifications(workspaceId, alerts.map((item) => item.id))
     const current = loadNotificationUiState(workspaceId).dismissedIds
-    return { ok: true, summary: alerts.length ? `${alerts.length} notificação(ões) foram limpas da central.` : 'Não havia notificações visíveis para limpar.', undo: { kind: 'notifications.replace_dismissed', metadata: { dismissedIds: previous } }, evidence: { source: 'local_state', entityType: 'notification_ui_state', state: 'persisted', detail: `Estado de notificações relido com ${current.length} item(ns) ocultado(s).` } }
+    return { ok: true, summary: alerts.length ? `${alerts.length} ${plural(alerts.length, 'notificação', 'notificações')} foram limpas da central.` : 'Não havia notificações visíveis para limpar.', undo: { kind: 'notifications.replace_dismissed', metadata: { dismissedIds: previous } }, evidence: { source: 'local_state', entityType: 'notification_ui_state', state: 'persisted', detail: `Estado de notificações relido com ${current.length} ${plural(current.length, 'item', 'itens')} ${plural(current.length, 'ocultado', 'ocultados')}.` } }
   }
   if (step.capabilityId === 'notifications.restore_all') {
     const previous = loadNotificationUiState(workspaceId).dismissedIds
     const restored = restoreDismissedNotifications(workspaceId)
     const current = loadNotificationUiState(workspaceId).dismissedIds
-    return { ok: true, summary: `${restored} notificação(ões) ocultada(s) foram restauradas.`, undo: { kind: 'notifications.replace_dismissed', metadata: { dismissedIds: previous } }, evidence: { source: 'local_state', entityType: 'notification_ui_state', state: 'persisted', detail: `Estado de notificações relido; restaram ${current.length} item(ns) ocultado(s).` } }
+    return { ok: true, summary: `${restored} ${plural(restored, 'notificação', 'notificações')} ${plural(restored, 'ocultada', 'ocultadas')} foram restauradas.`, undo: { kind: 'notifications.replace_dismissed', metadata: { dismissedIds: previous } }, evidence: { source: 'local_state', entityType: 'notification_ui_state', state: 'persisted', detail: `Estado de notificações relido; restaram ${current.length} ${plural(current.length, 'item', 'itens')} ${plural(current.length, 'ocultado', 'ocultados')}.` } }
   }
 
   if (step.capabilityId === 'contacts.create') {
@@ -791,7 +792,7 @@ export async function executeCrmCapabilityStep(step: CrmCapabilityPlanStep, runt
       return [row.status, row.category, row.metric, row.dueAt, row.startsAt].filter(Boolean).join(' · ')
     }
     const lines = selected.map((row, index) => `${index + 1}. ${label(row)}${detail(row) ? ` — ${detail(row)}` : ''}`)
-    return { ok: true, summary: selected.length ? `${rows.length} registro(s) encontrado(s).\n${lines.join('\n')}` : 'Nenhum registro corresponde à consulta.' }
+    return { ok: true, summary: selected.length ? `${rows.length} ${plural(rows.length, 'registro', 'registros')} ${plural(rows.length, 'encontrado', 'encontrados')}.\n${lines.join('\n')}` : 'Nenhum registro corresponde à consulta.' }
   }
   throw new Error(`A capacidade ${step.capabilityId} está registrada, mas ainda não possui executor nativo.`)
 }

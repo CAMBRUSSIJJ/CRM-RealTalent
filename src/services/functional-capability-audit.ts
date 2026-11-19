@@ -1,3 +1,4 @@
+import { plural } from '../domain/formatters'
 import type { WorkspaceSnapshot } from '../domain/types'
 
 export type FunctionalCapabilityStatus = 'functional' | 'partial' | 'visual_only' | 'not_implemented'
@@ -38,7 +39,7 @@ export const buildFunctionalCapabilityAudit = (context: FunctionalCapabilityAudi
   return [
     {
       id: 'dashboard-workday', area: 'Operação', name: 'Meu Dia e fila comercial', status: 'functional',
-      summary: `Fila diária, prioridades, risco, próximos contatos, metas e inteligência usam dados reais do workspace${leadCount ? ` (${leadCount} lead(s) carregado(s))` : ''}.`,
+      summary: `Fila diária, prioridades, risco, próximos contatos, metas e inteligência usam dados reais do workspace${leadCount ? ` (${leadCount} ${plural(leadCount, 'lead', 'leads')} ${plural(leadCount, 'carregado', 'carregados')})` : ''}.`,
       limitation: 'A qualidade das recomendações depende do preenchimento de atividades, datas, valores e responsáveis.',
       nextStep: 'Executar QA específico da personalização e simplificar quais blocos aparecem por perfil.',
       technicalEvidence: ['features/dashboard/dashboard-page.tsx', 'services/workday.ts', 'services/lead-scoring.ts', 'services/deal-intelligence.ts'],
@@ -73,7 +74,7 @@ export const buildFunctionalCapabilityAudit = (context: FunctionalCapabilityAudi
     },
     {
       id: 'pipeline-core', area: 'Operação', name: 'Pipeline e movimentação de oportunidades', status: 'functional',
-      summary: `Kanban, movimentação, filtros, políticas por etapa, inteligência e ações rápidas padronizadas estão implementados${stageCount ? ` em ${stageCount} etapa(s)` : ''}.`,
+      summary: `Kanban, movimentação, filtros, políticas por etapa, inteligência e ações rápidas padronizadas estão implementados${stageCount ? ` em ${stageCount} ${plural(stageCount, 'etapa', 'etapas')}` : ''}.`,
       limitation: 'A qualidade operacional ainda depende de valores, responsáveis e próximas ações bem preenchidos.',
       nextStep: 'Manter o Pipeline como base estável e avançar para o refinamento dos Follow-ups.',
       technicalEvidence: ['features/pipeline/pipeline-page.tsx', 'services/pipeline-intelligence.ts', 'features/pipeline/pipeline-settings-modal.tsx'],

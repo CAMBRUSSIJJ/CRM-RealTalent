@@ -68,7 +68,7 @@
 .calling-v1012__summary-grid { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:8px; }
 .calling-v1012__summary-grid article { min-width:0; display:grid; gap:3px; padding:11px; border:1px solid var(--border-subtle,#dfe6ef); border-radius:11px; background:var(--surface-raised,#fff); }
 .calling-v1012__summary-grid article.is-pinned { grid-column:span 2; background:#fff9e8; border-color:#f3d89a; }
-.calling-v1012__summary-grid small { color:var(--text-muted,#64748b); font-size:10px; text-transform:uppercase; font-weight:750; letter-spacing:.03em; }
+.calling-v1012__summary-grid small { color:var(--text-muted,#64748b); font-size:11px; text-transform:uppercase; font-weight:750; letter-spacing:.03em; }
 .calling-v1012__summary-grid strong { overflow:hidden; text-overflow:ellipsis; font-size:12px; }
 .calling-v1012__summary-grid span { color:var(--text-muted,#64748b); font-size:11px; line-height:1.35; }
 .calling-v1012__history { display:grid; gap:0; max-height:310px; overflow:auto; padding-right:4px; }
@@ -79,7 +79,7 @@
 .calling-v1012__history article > span.is-event { background:#16a34a; }
 .calling-v1012__history strong { font-size:12px; }
 .calling-v1012__history p { margin:2px 0; color:var(--text-muted,#64748b); font-size:11px; line-height:1.4; }
-.calling-v1012__history small { color:var(--text-subtle,#94a3b8); font-size:10px; }
+.calling-v1012__history small { color:var(--text-subtle,#94a3b8); font-size:11px; }
 .calling-v1012__notes { display:grid; gap:10px; }
 .calling-v1012__notes label { display:grid; gap:6px; }
 .calling-v1012__notes textarea { width:100%; resize:vertical; min-height:110px; border:1px solid var(--border-subtle,#dfe6ef); border-radius:11px; background:var(--surface-raised,#fff); color:inherit; padding:10px 11px; font:inherit; line-height:1.45; }
@@ -94,7 +94,7 @@
 .voice-settings-v1012__pairing > div { display:grid; gap:2px; padding:9px 10px; border-radius:10px; background:var(--surface-muted,#f5f7fb); }
 .voice-settings-v1012__pairing > div strong { font-size:20px; letter-spacing:.08em; }
 .voice-settings-v1012__pairing > div small,
-.voice-settings-v1012__pairing > div span { color:var(--text-muted,#64748b); font-size:10px; }
+.voice-settings-v1012__pairing > div span { color:var(--text-muted,#64748b); font-size:11px; }
 .voice-settings-v1012__pairing label { display:grid; gap:5px; font-size:11px; font-weight:700; color:var(--text-muted,#64748b); }
 .voice-settings-v1012__pairing input { width:100%; border:1px solid var(--border-subtle,#dfe6ef); border-radius:9px; padding:9px 10px; background:var(--surface-raised,#fff); color:inherit; }
 

@@ -126,7 +126,7 @@ button.rt-workspace-summary-metric:hover{background:var(--rt-color-surface-soft)
 .rt-workspace-view-strip>button{min-height:32px;padding:0 11px;display:inline-flex;align-items:center;justify-content:center;gap:6px;white-space:nowrap;border:1px solid transparent;border-radius:var(--rt-radius-sm);background:transparent;color:var(--rt-color-text-2);font-size:var(--rt-font-xs);font-weight:700;cursor:pointer}
 .rt-workspace-view-strip>button:hover{background:rgba(255,255,255,.8);color:var(--rt-color-text)}
 .rt-workspace-view-strip>button.is-active{background:var(--rt-color-surface);border-color:rgba(49,91,216,.20);color:var(--rt-color-brand-strong);box-shadow:var(--rt-shadow-sm)}
-.rt-workspace-view-strip>button b{min-width:18px;height:18px;padding:0 5px;display:inline-grid;place-items:center;border-radius:999px;background:var(--rt-color-brand-soft);color:var(--rt-color-brand);font-size:10px}
+.rt-workspace-view-strip>button b{min-width:18px;height:18px;padding:0 5px;display:inline-grid;place-items:center;border-radius:999px;background:var(--rt-color-brand-soft);color:var(--rt-color-brand);font-size:11px}
 
 .rt-workspace-command-bar{min-height:48px;padding:6px;display:flex;align-items:center;justify-content:space-between;gap:8px;border:1px solid var(--rt-color-border);border-radius:var(--rt-radius-lg);background:var(--rt-color-surface)}
 .rt-workspace-command-group{min-width:0;display:flex;align-items:center;gap:6px;flex-wrap:wrap}
@@ -698,7 +698,7 @@ button.rt-workspace-summary-metric:hover{background:var(--rt-color-surface-soft)
 .communication-focus-inbox--conversations-only .omnichannel-conversation__meta{margin-top:3px}
 @media(max-width:760px){
   .communication-focus-inbox--conversations-only .whatsapp-inbox-create-actions.is-h207h2{grid-template-columns:repeat(3,minmax(0,1fr))}
-  .communication-focus-inbox--conversations-only .whatsapp-inbox-create-actions.is-h207h2 .rt-button{font-size:10px!important}
+  .communication-focus-inbox--conversations-only .whatsapp-inbox-create-actions.is-h207h2 .rt-button{font-size:11px!important}
 }
 
 /* V101.11.3-H21.1 — Garimpo Coverage & Runtime Truth */
@@ -779,7 +779,7 @@ button.rt-workspace-summary-metric:hover{background:var(--rt-color-surface-soft)
   display: block;
   margin-bottom: 3px;
   color: var(--rt-color-text, #1b2430);
-  font-size: 10px;
+  font-size: 11px;
   text-transform: uppercase;
   letter-spacing: .05em;
 }
@@ -1196,11 +1196,11 @@ body .rt-global-find {
 .rt-global-find__group-heading {
   display: flex; align-items: center; justify-content: space-between;
   gap: 10px; min-height: 26px; padding: 4px 11px;
-  color: #65758c; font-size: 10px; font-weight: 750; letter-spacing: .025em;
+  color: #65758c; font-size: 11px; font-weight: 750; letter-spacing: .025em;
 }
 .rt-global-find__group-heading b {
   min-width: 20px; display: grid; place-items: center; border-radius: 999px;
-  padding: 2px 6px; font-size: 10px; background: #eff4fb; color: #456382;
+  padding: 2px 6px; font-size: 11px; background: #eff4fb; color: #456382;
 }
 body .rt-global-find__option {
   width: 100%;
@@ -1243,7 +1243,7 @@ body .rt-global-find__option:focus-visible {
   background: #e8f0ff;
   border-radius: 6px;
   color: #2053a4;
-  font-size: 10px;
+  font-size: 11px;
   font-weight: 700;
   text-transform: none;
 }
@@ -1276,7 +1276,7 @@ body .rt-global-find__option:focus-visible {
   justify-content: space-between; gap: 10px;
   padding: 9px 9px 6px; border-top: 1px solid #e7edf4;
 }
-.rt-global-find__footer > span { color: #6f8197; font-size: 10px; }
+.rt-global-find__footer > span { color: #6f8197; font-size: 11px; }
 .rt-global-find__footer kbd {
   display: inline-block; min-width: 20px; text-align: center;
   padding: 1px 3px; border-radius: 4px; color: #546985;

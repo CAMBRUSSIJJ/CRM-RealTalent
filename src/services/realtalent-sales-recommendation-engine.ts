@@ -1,3 +1,4 @@
+import { plural } from '../domain/formatters'
 import type { WorkspaceSnapshot } from '../domain/types'
 import {
   buildDealIntelligence,
@@ -269,7 +270,7 @@ const learnedAction = (
   return {
     action: {
       ...template,
-      explanation: `${template.explanation} Foram ${best.samples} caso(s) comparáveis${context}, com taxa ajustada de ${best.adjustedSuccessRate}%.`,
+      explanation: `${template.explanation} Foram ${best.samples} ${plural(best.samples, 'caso', 'casos')} comparáveis${context}, com taxa ajustada de ${best.adjustedSuccessRate}%.`,
       urgency: deal.nextBestAction.urgency === 'today' ? 'today' : 'planned',
     },
     score: best,
@@ -293,7 +294,7 @@ export const buildSalesRecommendationFromAnalysis = (
   const basePriorityScore = deterministicPriorityScore(deal)
   const finalPriorityScore = basePriorityScore + learningAdjustment
   const explanation = actionLearning.samples >= 3
-    ? `Aprendizado verificado: ${actionLearning.samples} caso(s) comparáveis, taxa ajustada ${actionLearning.adjustedSuccessRate}%, impacto de ${learningAdjustment >= 0 ? '+' : ''}${learningAdjustment} no ranking.`
+    ? `Aprendizado verificado: ${actionLearning.samples} ${plural(actionLearning.samples, 'caso', 'casos')} comparáveis, taxa ajustada ${actionLearning.adjustedSuccessRate}%, impacto de ${learningAdjustment >= 0 ? '+' : ''}${learningAdjustment} no ranking.`
     : 'Sem amostra histórica suficiente: ranking permanece essencialmente determinístico.'
 
   return {

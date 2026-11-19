@@ -1,3 +1,4 @@
+import { plural } from '../../domain/formatters'
 import { NativeSelectionSelect } from '../../components/selection'
 import { AlertTriangle, Plus, Save, ShieldCheck, Trash2 } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
@@ -130,9 +131,9 @@ export function AutomationModal({ open, rule, stages, webhooks, loading = false,
         <section className="automation-builder-flow" aria-label="Fluxo da automação">
           <article className="is-primary"><span>1</span><small>QUANDO</small><strong>{triggerLabels[triggerType]}</strong><p>{triggerHelp[triggerType]}</p></article>
           <i>→</i>
-          <article><span>2</span><small>SE</small><strong>{conditions.length ? `${conditions.length} condição(ões)` : 'Sem filtro adicional'}</strong><p>{conditions.length ? 'A regra só continua quando todas as condições abaixo forem verdadeiras.' : 'Opcional: sem condições, qualquer lead que gerar o gatilho seguirá para as ações.'}</p></article>
+          <article><span>2</span><small>SE</small><strong>{conditions.length ? `${conditions.length} ${plural(conditions.length, 'condição', 'condições')}` : 'Sem filtro adicional'}</strong><p>{conditions.length ? 'A regra só continua quando todas as condições abaixo forem verdadeiras.' : 'Opcional: sem condições, qualquer lead que gerar o gatilho seguirá para as ações.'}</p></article>
           <i>→</i>
-          <article><span>3</span><small>ENTÃO</small><strong>{actions.length} ação(ões)</strong><p>As ações serão processadas na ordem em que aparecem.</p></article>
+          <article><span>3</span><small>ENTÃO</small><strong>{actions.length} {plural(actions.length, 'ação', 'ações')}</strong><p>As ações serão processadas na ordem em que aparecem.</p></article>
         </section>
 
         <section className="builder-section builder-section--guided"><header><div><span className="eyebrow">1 · Quando</span><h3>O que inicia esta automação?</h3><p>Escolha o evento que dispara a regra.</p></div></header>

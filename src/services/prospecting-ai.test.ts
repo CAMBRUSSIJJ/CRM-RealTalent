@@ -91,7 +91,7 @@ describe('Garimpo com IA e fontes', () => {
     const second = applyAiDiscovery(first, result(), organizationId, 'maps', [])
     expect(second.prospects).toHaveLength(1)
     expect(second.prospects[0].status).toBe('review')
-    expect(second.history[0].description).toContain('1 repetido(s)')
+    expect(second.history[0].description).toContain('1 repetido ignorado')
     writeProspectingState(organizationId, second)
     const restored = readProspectingState(organizationId)
     expect(restored.prospects[0].rawData.aiResearch).toEqual(result().leads[0].aiResearch)

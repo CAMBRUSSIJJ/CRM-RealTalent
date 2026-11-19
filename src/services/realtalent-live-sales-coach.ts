@@ -1,3 +1,4 @@
+import { plural } from '../domain/formatters'
 import type { CallOutcome, CallRecord, Lead, WorkspaceSnapshot } from '../domain/types'
 import type { AssistantAnswer, AssistantContext } from './realtalent-assistant'
 import { analyzeLiveConversation, type LiveConversationSignal, type LiveSignalId } from './calling-intelligence-workspace'
@@ -276,7 +277,7 @@ export const buildLiveSalesCoachAssistantAnswer = (prompt: string, snapshot: Wor
     facts: [
       `Próximo movimento: ${live.recommendation.title}.`,
       `${live.signals.length} sinal(is) explícito(s) considerado(s); nenhum fato ausente foi inferido.`,
-      phase === 'after' ? `${live.postCall.persistedByCallOutcome.length} efeito(s) do fluxo da ligação foram separados para evitar duplicação.` : 'A leitura durante a ligação usa somente transcrição finalizada e notas que já estejam disponíveis na sessão ativa.',
+      phase === 'after' ? `${live.postCall.persistedByCallOutcome.length} ${plural(live.postCall.persistedByCallOutcome.length, 'efeito', 'efeitos')} do fluxo da ligação foram separados para evitar duplicação.` : 'A leitura durante a ligação usa somente transcrição finalizada e notas que já estejam disponíveis na sessão ativa.',
       live.grounding,
     ],
     suggestedPrompts: phase === 'during' ? ['Qual pergunta faço agora?', 'Como respondo essa objeção?', 'Qual é o objetivo mínimo desta ligação?'] : ['Qual é o próximo movimento?', 'O que já foi salvo automaticamente?', 'Faça a próxima ação necessária'],

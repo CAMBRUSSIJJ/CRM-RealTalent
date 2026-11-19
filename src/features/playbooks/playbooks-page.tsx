@@ -1,3 +1,4 @@
+import { plural } from '../../domain/formatters'
 import '../../styles/calling-workspace-operational.css'
 import { NativeSelectionSelect } from '../../components/selection'
 import '../../styles/coaching-playbooks-v10065.css'
@@ -462,7 +463,7 @@ export function PlaybooksPage() {
         {executionMode === 'meeting' ? <section className="playbook-meeting-grid">
           <article className="panel playbook-meeting-agenda"><div className="panel__heading"><div><span className="eyebrow">Reunião</span><h3>Agenda sugerida</h3></div><Presentation size={19}/></div>{guidance.meetingAgenda?.length ? <div className="playbook-agenda-list">{guidance.meetingAgenda.map((item, index) => <div key={item}><span>{index + 1}</span><strong>{item}</strong></div>)}</div> : <div className="playbook-prose">{selected.content}</div>}</article>
           <article className="panel playbook-meeting-notes"><span className="eyebrow">Perguntas de discovery</span><h3>Conduza a conversa</h3>{guidance.discoveryQuestions?.length ? <ol>{guidance.discoveryQuestions.map((item) => <li key={item}>{item}</li>)}</ol> : <p className="activity-empty">Adicione perguntas de discovery ao roteiro.</p>}</article>
-          <article className="panel playbook-meeting-notes"><span className="eyebrow">Contexto ideal</span><h3>Para quem usar</h3><div className="playbook-context-grid"><div><small>Segmentos</small><strong>{guidance.segments?.join(', ') || 'Uso geral'}</strong></div><div><small>Personas</small><strong>{guidance.personas?.join(', ') || 'Todas'}</strong></div><div><small>Etapas</small><strong>{guidance.stageIds?.length ? `${guidance.stageIds.length} etapa(s) configurada(s)` : 'Qualquer etapa'}</strong></div></div></article>
+          <article className="panel playbook-meeting-notes"><span className="eyebrow">Contexto ideal</span><h3>Para quem usar</h3><div className="playbook-context-grid"><div><small>Segmentos</small><strong>{guidance.segments?.join(', ') || 'Uso geral'}</strong></div><div><small>Personas</small><strong>{guidance.personas?.join(', ') || 'Todas'}</strong></div><div><small>Etapas</small><strong>{guidance.stageIds?.length ? `${guidance.stageIds.length} ${plural(guidance.stageIds.length, 'etapa', 'etapas')} ${plural(guidance.stageIds.length, 'configurada', 'configuradas')}` : 'Qualquer etapa'}</strong></div></div></article>
           <article className="panel playbook-meeting-notes"><span className="eyebrow">Saída esperada</span><h3>Critérios de sucesso</h3>{guidance.successCriteria?.length ? <ul>{guidance.successCriteria.map((item) => <li key={item}>{item}</li>)}</ul> : <p className="activity-empty">Defina o que caracteriza uma boa reunião.</p>}</article>
         </section> : null}
       </div>

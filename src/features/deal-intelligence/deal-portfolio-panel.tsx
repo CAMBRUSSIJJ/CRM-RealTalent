@@ -1,3 +1,4 @@
+import { plural } from '../../domain/formatters'
 import { AlertTriangle, ArrowDownRight, ArrowRight, ArrowUpRight, CheckCircle2, CircleDollarSign, Minus, ShieldAlert, Sparkles, UserRoundX, WalletCards } from 'lucide-react'
 import { Button } from '../../components/ui/button'
 import { formatCurrency } from '../../domain/formatters'
@@ -17,7 +18,7 @@ const MomentumIcon = ({ value }: { value: DealIntelligence['momentum'] }) => val
 export function DealPortfolioPanel({ portfolio, title = 'Pipeline Intelligence', maxItems = 5, onOpen, onExecute }: Props) {
   return <section className="deal-portfolio-panel">
     <div className="deal-portfolio-kpis">
-      <article><span><Sparkles size={16} /> Saúde média</span><strong>{portfolio.averageHealth}</strong><small>{portfolio.critical} crítico(s) · {portfolio.attention} em atenção</small></article>
+      <article><span><Sparkles size={16} /> Saúde média</span><strong>{portfolio.averageHealth}</strong><small>{portfolio.critical} {plural(portfolio.critical, 'crítico', 'críticos')} · {portfolio.attention} em atenção</small></article>
       <article className={portfolio.atRiskValue ? 'is-warning' : ''}><span><ShieldAlert size={16} /> Valor em risco</span><strong>{formatCurrency(portfolio.atRiskValue)}</strong><small>{portfolio.criticalValue ? `${formatCurrency(portfolio.criticalValue)} críticos` : 'sem valor crítico'}</small></article>
       <article><span><CircleDollarSign size={16} /> Forecast RealTalent</span><strong>{formatCurrency(portfolio.predictedValue)}</strong><small>de {formatCurrency(portfolio.activeValue)} ativos</small></article>
       <article className={portfolio.missingDecisionMaker ? 'is-warning' : ''}><span><UserRoundX size={16} /> Sem decisor</span><strong>{portfolio.missingDecisionMaker}</strong><small>{portfolio.noNextStep} sem próximo passo</small></article>
@@ -38,7 +39,7 @@ export function DealPortfolioPanel({ portfolio, title = 'Pipeline Intelligence',
         </div>)}
         {!portfolio.priorities.length ? <div className="deal-portfolio-empty"><CheckCircle2 size={22} /><strong>Nenhum negócio ativo</strong><span>O Deal Intelligence aparece assim que houver oportunidades em andamento.</span></div> : null}
       </div>
-      <footer><span><WalletCards size={15} /> {portfolio.cooling} negócio(s) esfriando</span><span><AlertTriangle size={15} /> {portfolio.proposalRisks} risco(s) de proposta</span></footer>
+      <footer><span><WalletCards size={15} /> {portfolio.cooling} {plural(portfolio.cooling, 'negócio', 'negócios')} esfriando</span><span><AlertTriangle size={15} /> {portfolio.proposalRisks} {plural(portfolio.proposalRisks, 'risco', 'riscos')} de proposta</span></footer>
     </article>
   </section>
 }

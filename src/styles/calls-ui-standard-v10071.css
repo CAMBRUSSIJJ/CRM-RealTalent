@@ -96,7 +96,7 @@
   place-items: center;
   color: var(--text-muted);
   background: color-mix(in srgb, var(--text-muted) 10%, var(--surface));
-  font-size: 9px;
+  font-size: 11px;
   font-weight: 850;
 }
 .call-tabs .call-tab.is-active .call-tab__badge,
@@ -128,7 +128,7 @@
   overflow-x: auto;
   scrollbar-width: thin;
 }
-.call-tabs--work .call-tab { min-height: 34px; padding: 0 10px; font-size: 10px; }
+.call-tabs--work .call-tab { min-height: 34px; padding: 0 10px; font-size: 11px; }
 .call-tabs--guidance {
   display: flex;
   width: 100%;
@@ -139,7 +139,7 @@
   flex: 1 0 auto;
   min-height: 34px;
   padding: 0 9px;
-  font-size: 10px;
+  font-size: 11px;
 }
 
 /* Segmented controls para período/filtros curtos. */
@@ -161,7 +161,7 @@
   color: var(--text-muted);
   background: transparent;
   font: inherit;
-  font-size: 10px;
+  font-size: 11px;
   font-weight: 800;
   cursor: pointer;
   white-space: nowrap;

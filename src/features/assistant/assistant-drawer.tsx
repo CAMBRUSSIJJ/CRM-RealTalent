@@ -1,3 +1,4 @@
+import { plural } from '../../domain/formatters'
 // legacy compatibility markers: http://127.0.0.1:8791/control · http://127.0.0.1:4173/
 import { env } from '../../lib/env'
 /* V1.10 Identity & Team Governance regression marker */
@@ -538,7 +539,7 @@ export function AssistantDrawer({ open, onClose, initialPrompt = '' }: Assistant
           title: plan.title,
           description: `${plan.description}
 
-A Agent executará ${plan.steps.length} etapa(s) usando apenas capacidades nativas liberadas para o seu perfil.`,
+A Agent executará ${plan.steps.length} ${plural(plan.steps.length, 'etapa', 'etapas')} usando apenas capacidades nativas liberadas para o seu perfil.`,
           confirmLabel: 'Confirmar ação crítica',
           tone: 'danger',
           details: plan.preview,
@@ -875,7 +876,7 @@ O programa coordenará várias missões. Cada marco só libera dependências ap�
     if (!eligibleLeadIds.length) { notify('info', 'Nenhum lead elegível: os contatos estão bloqueados/inativos ou já possuem follow-up próximo desse horário.'); return false }
     const dueLabel = new Intl.DateTimeFormat('pt-BR', { dateStyle: 'short', timeStyle: 'short' }).format(new Date(plan.dueAt))
     const preview = eligibleLeadIds.map((leadId) => { const lead = snapshot.leads.find((item) => item.id === leadId); return `${lead?.company || lead?.name || 'Lead'} — ${lead?.name || ''}` })
-    const confirmed = await confirmAction({ title: `Criar ${eligibleLeadIds.length} follow-up(s)`, description: `Criar follow-ups para ${eligibleLeadIds.length} lead(s) em ${dueLabel}?`, confirmLabel: 'Confirmar follow-up', tone: 'warning', details: [...preview.slice(0, 6), ...(preview.length > 6 ? [`+ ${preview.length - 6} lead(s)`] : [])] })
+    const confirmed = await confirmAction({ title: `Criar ${eligibleLeadIds.length} follow-up(s)`, description: `Criar follow-ups para ${eligibleLeadIds.length} ${plural(eligibleLeadIds.length, 'lead', 'leads')} em ${dueLabel}?`, confirmLabel: 'Confirmar follow-up', tone: 'warning', details: [...preview.slice(0, 6), ...(preview.length > 6 ? [`+ ${preview.length - 6} ${plural(preview.length - 6, 'lead', 'leads')}`] : [])] })
     if (!confirmed) return false
     setExecuting(true)
     try {

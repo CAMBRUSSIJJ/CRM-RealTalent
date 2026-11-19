@@ -1,3 +1,4 @@
+import { plural } from '../../domain/formatters'
 import {useEffect,useMemo,useRef,useState} from 'react'
 import {ArrowDown,ArrowUp,ChevronDown,ChevronUp,GripVertical,Plus,Save,Trash2,Workflow,X} from 'lucide-react'
 import {useApp} from '../../app/app-context'
@@ -210,7 +211,7 @@ export function PipelineEditorS331({stages,leads,opportunities,rules,workspaceId
               onDragEnd={()=>{dragSource.current=null}}><GripVertical size={17}/></span>
             <span className="settings-pipeline-s331__color" style={{background:stageColor(d.color)}}/>
             <button type="button" className="settings-pipeline-s331__name" onClick={()=>setEditing(x=>x===id?null:id)}>
-              <strong>{d.name||'Etapa sem nome'}</strong><small>{usage.leads} lead(s) · {usage.opportunities} oportunidade(s)</small>
+              <strong>{d.name||'Etapa sem nome'}</strong><small>{usage.leads} {plural(usage.leads, 'lead', 'leads')} · {usage.opportunities} {plural(usage.opportunities, 'oportunidade', 'oportunidades')}</small>
             </button>
             <span className="settings-pipeline-s331__prob">{d.probability}%</span>
             <span className={'settings-pipeline-s331__kind is-'+d.kind}>{kindLabel(d.kind)}</span>
@@ -242,7 +243,7 @@ export function PipelineEditorS331({stages,leads,opportunities,rules,workspaceId
     {selectedMigrationStage?(()=>{
       const usage=stageUsage(selectedMigrationStage.id,leads,opportunities,rules)
       return <div className="settings-pipeline-s331__impact" role="alert">
-        <div><strong>Esta etapa possui vínculos</strong><p>{usage.leads} lead(s), {usage.opportunities} oportunidade(s) e {usage.automations} automação(ões). Não é possível excluí-la com esses vínculos.</p>
+        <div><strong>Esta etapa possui vínculos</strong><p>{usage.leads} {plural(usage.leads, 'lead', 'leads')}, {usage.opportunities} {plural(usage.opportunities, 'oportunidade', 'oportunidades')} e {usage.automations} {plural(usage.automations, 'automação', 'automações')}. Não é possível excluí-la com esses vínculos.</p>
           <p>Para mover negócios, selecione o destino e confirme. A etapa de origem continuará no Pipeline até você excluí-la separadamente.</p></div>
         <label><span>Destino dos negócios</span><NativeSelectionSelect value={migrationTarget} onChange={e=>setMigrationTarget(e.target.value)}>
           <option value="">Escolha uma etapa…</option>
@@ -256,7 +257,7 @@ export function PipelineEditorS331({stages,leads,opportunities,rules,workspaceId
       </div>
     })():null}
     <div className="settings-pipeline-s331__footer">
-      <div><strong>{stages.length} etapas</strong><small>{changes.length} edição(ões) · {orderChanged?'Ordem modificada':'Ordem preservada'}</small></div>
+      <div><strong>{stages.length} etapas</strong><small>{changes.length} {plural(changes.length, 'edição', 'edições')} · {orderChanged?'Ordem modificada':'Ordem preservada'}</small></div>
       <Button variant="secondary" disabled={!isDirty||saving} onClick={reset}>Descartar</Button>
       <Button disabled={!canWrite||!isDirty||saving} loading={saving} onClick={()=>void persist()}><Save size={15}/> Salvar alterações nas etapas</Button>
     </div>
@@ -279,7 +280,7 @@ export function PipelineEditorS331({stages,leads,opportunities,rules,workspaceId
         </button>)}
       </div>
       {selectedTemplate?<div className="settings-pipeline-s331__template-preview">
-        <strong>{missingPresetStages(stages,selectedTemplate).length} etapa(s) que ainda não existem:</strong>
+        <strong>{missingPresetStages(stages,selectedTemplate).length} {plural(missingPresetStages(stages,selectedTemplate).length, 'etapa', 'etapas')} que ainda não existem:</strong>
         <div>{missingPresetStages(stages,selectedTemplate).map(s=><span key={s.name}><i style={{background:s.color}}/>{s.name}</span>)}</div>
         <Button disabled={!canWrite||saving||isDirty||!missingPresetStages(stages,selectedTemplate).length} onClick={()=>void applyPreset()}>Adicionar somente as etapas ausentes</Button>
         {isDirty?<small>Salve ou descarte as mudanças pendentes antes de aplicar um modelo.</small>:null}
@@ -308,7 +309,7 @@ export function AuxiliarySettingsListEditor({title,items,onChange,disabled=false
     onChange(items.map((x,i)=>i===index?value:x));setEditing(null)
   }
   return <section className="settings-aux-s331" aria-label={title}>
-    <header><strong>{title}</strong><small>{items.length} item(ns)</small></header>
+    <header><strong>{title}</strong><small>{items.length} {plural(items.length, 'item', 'itens')}</small></header>
     <div className="settings-aux-s331__list">
       {items.map((item,index)=><div key={index}>
         {editing===index?<input aria-label={'Renomear '+item} autoFocus value={draft} onChange={e=>setDraft(e.target.value)} onKeyDown={e=>{if(e.key==='Enter')rename(index);if(e.key==='Escape')setEditing(null)}}/>:

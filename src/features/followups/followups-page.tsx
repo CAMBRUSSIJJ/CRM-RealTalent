@@ -1,3 +1,4 @@
+import { plural } from '../../domain/formatters'
 import { NativeSelectionSelect } from '../../components/selection'
 import {
   AlertTriangle, BarChart3, CalendarClock, CalendarDays, Check, CheckCircle2, ChevronLeft, ChevronRight, Clock3, Edit3,
@@ -289,7 +290,7 @@ export function FollowupsPage() {
     if (!targets.length) return
     const commercial = targets.filter((item) => ['call', 'followup', 'meeting'].includes(item.activity.type))
     if (commercial.length) {
-      notify('info', `${commercial.length} atividade(s) comercial(is) precisam de resultado individual. Selecione uma delas e use “Registrar resultado”.`)
+      notify('info', `${commercial.length} ${plural(commercial.length, 'atividade', 'atividades')} comercial(is) precisam de resultado individual. Selecione uma delas e use “Registrar resultado”.`)
       if (commercial.length === 1) setOutcomeActivity(commercial[0].activity)
       return
     }
@@ -430,10 +431,10 @@ export function FollowupsPage() {
     </> : null}
 
     {view === 'queue' ? <>
-      {canWrite && selectedIds.length ? <section className="followups-v3__bulk"><strong>{selectedIds.length} selecionada(s)</strong><div><Button size="sm" variant="secondary" onClick={() => void bulkPostpone()}><Clock3 size={15} /> Próximo dia útil</Button><Button size="sm" variant="secondary" onClick={() => openCadence([...new Set(filteredActivities.filter((item) => selectedIds.includes(item.activity.id) && item.lead).map((item) => item.lead!.id))])}><Layers3 size={15} /> Inserir em cadência</Button><Button size="sm" onClick={() => void bulkComplete()}><CheckCircle2 size={15} /> Concluir</Button><Button size="sm" variant="ghost" onClick={() => setSelectedIds([])}>Limpar</Button></div></section> : null}
+      {canWrite && selectedIds.length ? <section className="followups-v3__bulk"><strong>{selectedIds.length} {plural(selectedIds.length, 'selecionada', 'selecionadas')}</strong><div><Button size="sm" variant="secondary" onClick={() => void bulkPostpone()}><Clock3 size={15} /> Próximo dia útil</Button><Button size="sm" variant="secondary" onClick={() => openCadence([...new Set(filteredActivities.filter((item) => selectedIds.includes(item.activity.id) && item.lead).map((item) => item.lead!.id))])}><Layers3 size={15} /> Inserir em cadência</Button><Button size="sm" onClick={() => void bulkComplete()}><CheckCircle2 size={15} /> Concluir</Button><Button size="sm" variant="ghost" onClick={() => setSelectedIds([])}>Limpar</Button></div></section> : null}
       <section className="followups-v3__workspace">
         <div className="followups-v3__queue-panel">
-          <header className="followups-v3__queue-header">{canWrite ? <label className="followups-v3__select-all"><input type="checkbox" checked={allVisibleSelected} onChange={() => setSelectedIds(allVisibleSelected ? [] : filteredActivities.map((item) => item.activity.id))} /><span /></label> : null}<div><h3>Fila comercial</h3><p>{filteredActivities.length} atividade(s) no filtro atual</p></div><span className="followups-v3__priority-legend">Ordenada por prioridade</span></header>
+          <header className="followups-v3__queue-header">{canWrite ? <label className="followups-v3__select-all"><input type="checkbox" checked={allVisibleSelected} onChange={() => setSelectedIds(allVisibleSelected ? [] : filteredActivities.map((item) => item.activity.id))} /><span /></label> : null}<div><h3>Fila comercial</h3><p>{filteredActivities.length} {plural(filteredActivities.length, 'atividade', 'atividades')} no filtro atual</p></div><span className="followups-v3__priority-legend">Ordenada por prioridade</span></header>
           {filteredActivities.length ? <div className="followups-v3__queue-list">{filteredActivities.map((item) => <FollowupRow readOnly={!canWrite} key={item.activity.id} item={item} selected={selectedIds.includes(item.activity.id)} active={selectedActivity?.activity.id === item.activity.id} busy={busyId === item.activity.id} onSelect={() => setSelectedActivityId(item.activity.id)} onToggleSelect={() => toggleSelection(item.activity.id)} onToggle={() => void toggle(item.activity)} onEdit={() => item.activity.sourceType === 'manual' ? setEditing(item.activity) : item.activity.sourceType === 'calendar' ? setRoute('agenda') : setRoute('calls')} onOutcome={() => setOutcomeActivity(item.activity)} onReschedule={(mode) => void quickReschedule(item.activity, mode)} />)}</div> : <EmptyState icon={filter === 'completed' ? CheckCircle2 : XCircle} title="Nenhuma atividade encontrada" description="Crie um próximo contato, inicie uma cadência ou ajuste os filtros." action={canWrite ? <Button onClick={() => setCreateOpen(true)}><Plus size={17} /> Nova atividade</Button> : undefined} />}
         </div>
         <FollowupContext readOnly={!canWrite} item={selectedActivity} contacts={snapshot?.contacts ?? []} busy={Boolean(selectedActivity && busyId === selectedActivity.activity.id)} onCall={(lead) => setCallLead(lead)} onWhatsApp={(lead) => setMessageLead(lead)} onOutcome={(activity) => setOutcomeActivity(activity)} onCadence={(leadId) => openCadence([leadId])} onEdit={(activity) => setEditing(activity)} onReschedule={(activity, mode) => void quickReschedule(activity, mode)} onRoute={setRoute} />

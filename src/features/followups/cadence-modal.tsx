@@ -1,3 +1,4 @@
+import { plural } from '../../domain/formatters'
 import { NativeSelectionSelect } from '../../components/selection'
 import { CalendarDays, Check, ChevronLeft, ChevronRight, Layers3, Minus, Plus, Search, UsersRound } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
@@ -72,7 +73,7 @@ export function CadenceModal({ open, onClose, initialLeadIds = [] }: Props) {
     <span className="modal__footer-spacer" />
     <Button variant="secondary" onClick={onClose}>Cancelar</Button>
     {screen === 'configure' ? <Button onClick={() => setScreen('leads')}>Selecionar leads <ChevronRight size={16} /></Button> : null}
-    {screen === 'leads' ? <Button loading={busy} onClick={() => void submit()}><Layers3 size={16} /> Iniciar em {selectedLeadIds.length} lead(s)</Button> : null}
+    {screen === 'leads' ? <Button loading={busy} onClick={() => void submit()}><Layers3 size={16} /> Iniciar em {selectedLeadIds.length} {plural(selectedLeadIds.length, 'lead', 'leads')}</Button> : null}
   </>}>
     {screen === 'template' ? <div className="cadence-template-grid">
       {DEFAULT_CADENCE_TEMPLATES.map((item) => <button type="button" key={item.id} className="cadence-template-card" onClick={() => selectTemplate(item)}>
@@ -128,7 +129,7 @@ export function CadenceModal({ open, onClose, initialLeadIds = [] }: Props) {
         <Button size="sm" variant="secondary" onClick={() => setSelectedLeadIds(activeLeads.map((lead) => lead.id))}><UsersRound size={15} /> Selecionar visíveis</Button>
         {selectedLeadIds.length ? <Button size="sm" variant="ghost" onClick={() => setSelectedLeadIds([])}>Limpar</Button> : null}
       </div>
-      <div className="cadence-selected-summary"><strong>{selectedLeadIds.length} lead(s) selecionado(s)</strong><span>{template.name} · {template.steps.length} etapas · até D+{template.steps.at(-1)?.offsetDays ?? 0}</span></div>
+      <div className="cadence-selected-summary"><strong>{selectedLeadIds.length} {plural(selectedLeadIds.length, 'lead', 'leads')} {plural(selectedLeadIds.length, 'selecionado', 'selecionados')}</strong><span>{template.name} · {template.steps.length} etapas · até D+{template.steps.at(-1)?.offsetDays ?? 0}</span></div>
       <div className="cadence-lead-list">
         {activeLeads.map((lead) => <button type="button" key={lead.id} className={selectedLeadIds.includes(lead.id) ? 'is-selected' : ''} onClick={() => toggleLead(lead.id)}>
           <span className="cadence-lead-list__check">{selectedLeadIds.includes(lead.id) ? <Check size={15} /> : null}</span>

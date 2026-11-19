@@ -1,3 +1,4 @@
+import { plural } from '../../domain/formatters'
 import {
   Building2, CalendarClock, CalendarDays, CalendarPlus, CircleDollarSign, Edit3, ExternalLink,
   ListTodo, Mail, MessageCircle, Network, NotebookPen, PhoneCall, RefreshCw, Search, Sparkles, StickyNote, Target, UsersRound,
@@ -246,7 +247,7 @@ export function ContactRecordPage({ lead, onBack }: Props) {
 
         <QuickActionsWidget widgetId="next-actions" title="Próximos passos" actions={[
           { id: 'followup', title: 'Follow-up', description: lead.nextActionAt ? formatDateTime(lead.nextActionAt) : 'Definir próxima ação', icon: <CalendarClock size={18}/>, onClick: openFollowup },
-          { id: 'meeting', title: 'Reunião', description: `${snapshot.events.filter((item) => item.leadId === lead.id && item.status !== 'cancelled' && new Date(item.startsAt) >= new Date()).length} futura(s)`, icon: <CalendarPlus size={18}/>, onClick: () => setEventOpen(true) },
+          { id: 'meeting', title: 'Reunião', description: `${snapshot.events.filter((item) => item.leadId === lead.id && item.status !== 'cancelled' && new Date(item.startsAt) >= new Date()).length} ${plural(snapshot.events.filter((item) => item.leadId === lead.id && item.status !== 'cancelled' && new Date(item.startsAt) >= new Date()).length, 'futura', 'futuras')}`, icon: <CalendarPlus size={18}/>, onClick: () => setEventOpen(true) },
           { id: 'opportunity', title: 'Oportunidade', description: opportunities[0]?.title ?? 'Abrir pipeline comercial', icon: <CircleDollarSign size={18}/>, onClick: () => navigate('pipeline', { leadId: lead.id }) },
         ]}/>
       </div> : null}

@@ -1,3 +1,4 @@
+import { plural } from '../domain/formatters'
 import type { AppRoute, Lead, Playbook, ProposalRecord, WorkspaceMember, WorkspaceSnapshot } from '../domain/types'
 import { formatCurrency } from '../domain/formatters'
 import { buildDealIntelligence, buildDealPortfolio, type DealIntelligence } from './deal-intelligence'
@@ -643,7 +644,7 @@ export const runRealTalentAssistant = (raw: string, snapshot: WorkspaceSnapshot,
       ...base,
       title: 'Melhores contatos agora',
       text: ranked.length
-        ? `Separei ${ranked.length} contato(s) priorizados por ${criterionLabel}.`
+        ? `Separei ${ranked.length} ${plural(ranked.length, 'contato', 'contatos')} priorizados por ${criterionLabel}.`
         : 'Não encontrei contatos ativos elegíveis no seu escopo.',
       items: ranked.map((insight) => ({
         id: `lead:${insight.lead.id}`,
@@ -674,7 +675,7 @@ export const runRealTalentAssistant = (raw: string, snapshot: WorkspaceSnapshot,
     const facts = [
       `Objetivo: ${deal.nextBestAction.objective}`,
       `Health ${deal.healthScore}/100 · probabilidade ${deal.realTalentProbability}%`,
-      decisionMakers.length ? `${decisionMakers.length} decisor(es) mapeado(s)` : 'Decisor ainda não mapeado',
+      decisionMakers.length ? `${decisionMakers.length} ${plural(decisionMakers.length, 'decisor', 'decisores')} ${plural(decisionMakers.length, 'mapeado', 'mapeados')}` : 'Decisor ainda não mapeado',
       recent ? `Último contato: ${formatShortDate(recent.at)} · ${recent.title}` : 'Sem interação registrada',
       playbook ? `Roteiro sugerido: ${playbook.title}` : 'Sem roteiro específico sugerido',
     ]
@@ -697,7 +698,7 @@ export const runRealTalentAssistant = (raw: string, snapshot: WorkspaceSnapshot,
     const completedMeetings = snapshot.events.filter((item) => item.leadId === lead.id && item.status === 'completed')
     const openFollowups = snapshot.activities.filter((item) => item.leadId === lead.id && item.type === 'followup' && !item.completedAt && item.resolutionStatus !== 'cancelled')
     const recentText = history.slice(0, 3).map((entry) => `${formatShortDate(entry.at)} — ${entry.title}`).join(' · ')
-    return { ...base, focus: focusForDeal(deal, context), title: `Histórico · ${lead.company || lead.name}`, text: history.length ? `Últimas interações: ${recentText}.` : 'Ainda não há interações registradas para este negócio.', items: [toDealItem(deal, deal.nextBestAction.explanation)], facts: [`${calls.length} ligação(ões)`, `${completedMeetings.length} reunião(ões) concluída(s)`, `${openFollowups.length} follow-up(s) aberto(s)`, deal.lastInteractionAt ? `Última interação: ${formatShortDate(deal.lastInteractionAt)}` : 'Sem última interação'] }
+    return { ...base, focus: focusForDeal(deal, context), title: `Histórico · ${lead.company || lead.name}`, text: history.length ? `Últimas interações: ${recentText}.` : 'Ainda não há interações registradas para este negócio.', items: [toDealItem(deal, deal.nextBestAction.explanation)], facts: [`${calls.length} ${plural(calls.length, 'ligação', 'ligações')}`, `${completedMeetings.length} ${plural(completedMeetings.length, 'reunião', 'reuniões')} ${plural(completedMeetings.length, 'concluída', 'concluídas')}`, `${openFollowups.length} follow-up(s) aberto(s)`, deal.lastInteractionAt ? `Última interação: ${formatShortDate(deal.lastInteractionAt)}` : 'Sem última interação'] }
   }
 
   if (intent === 'meeting_summary') {
@@ -728,12 +729,12 @@ export const runRealTalentAssistant = (raw: string, snapshot: WorkspaceSnapshot,
 
   if (intent === 'call_now') {
     const deals = portfolio.priorities.filter((deal) => deal.lead.phone && !deal.lead.doNotContact).slice(0, 7)
-    return { ...base, title: 'Quem ligar agora', text: deals.length ? `Encontrei ${deals.length} contato(s) com melhor combinação de urgência, risco e potencial.` : 'Não encontrei nenhum contato elegível para ligação agora.', items: deals.map((deal) => toDealItem(deal)), facts: [`${portfolio.deals.length} negócios ativos analisados`, `${portfolio.critical + portfolio.attention} negócios exigem atenção`] }
+    return { ...base, title: 'Quem ligar agora', text: deals.length ? `Encontrei ${deals.length} ${plural(deals.length, 'contato', 'contatos')} com melhor combinação de urgência, risco e potencial.` : 'Não encontrei nenhum contato elegível para ligação agora.', items: deals.map((deal) => toDealItem(deal)), facts: [`${portfolio.deals.length} negócios ativos analisados`, `${portfolio.critical + portfolio.attention} negócios exigem atenção`] }
   }
 
   if (intent === 'risk_deals') {
     const deals = portfolio.priorities.filter((deal) => ['attention', 'critical'].includes(deal.healthLevel) || deal.risks.some((risk) => ['critical', 'high'].includes(risk.severity))).slice(0, 10)
-    return { ...base, title: 'Negócios em risco', text: deals.length ? `${deals.length} negócio(s) concentram os principais riscos do pipeline.` : 'Nenhum negócio está classificado como atenção/crítico agora.', items: deals.map((deal) => toDealItem(deal, deal.risks[0]?.detail)), facts: [`${formatCurrency(portfolio.atRiskValue)} em valor sob atenção`, `${portfolio.critical} crítico(s)`, `${portfolio.cooling} esfriando`] }
+    return { ...base, title: 'Negócios em risco', text: deals.length ? `${deals.length} ${plural(deals.length, 'negócio', 'negócios')} concentram os principais riscos do pipeline.` : 'Nenhum negócio está classificado como atenção/crítico agora.', items: deals.map((deal) => toDealItem(deal, deal.risks[0]?.detail)), facts: [`${formatCurrency(portfolio.atRiskValue)} em valor sob atenção`, `${portfolio.critical} ${plural(portfolio.critical, 'crítico', 'críticos')}`, `${portfolio.cooling} esfriando`] }
   }
 
   if (intent === 'proposal_followup') {
@@ -743,17 +744,17 @@ export const runRealTalentAssistant = (raw: string, snapshot: WorkspaceSnapshot,
       return lead ? { id: `proposal:${proposal.id}`, kind: 'proposal' as const, leadId: lead.id, proposalId: proposal.id, title: proposal.title, subtitle: `${lead.company || lead.name} · ${proposal.status === 'viewed' ? 'Visualizada' : 'Enviada'}`, reason: 'Proposta ativa aguardando avanço comercial.', route: 'proposals' as const, action: 'follow-proposal' } : null
     }).filter((item): item is NonNullable<typeof item> => Boolean(item))
     const items = deals.length ? deals.map((deal) => toDealItem(deal, deal.risks.find((risk) => risk.source === 'proposal' || risk.key === 'buyer-room-not-opened')?.detail)) : fallback
-    return { ...base, title: 'Propostas aguardando resposta', text: items.length ? `Há ${items.length} proposta(s) que merecem acompanhamento.` : 'Não encontrei propostas enviadas/visualizadas aguardando acompanhamento.', items, facts: [`${portfolio.proposalRisks} risco(s) de proposta detectados`] }
+    return { ...base, title: 'Propostas aguardando resposta', text: items.length ? `Há ${items.length} ${plural(items.length, 'proposta', 'propostas')} que merecem acompanhamento.` : 'Não encontrei propostas enviadas/visualizadas aguardando acompanhamento.', items, facts: [`${portfolio.proposalRisks} ${plural(portfolio.proposalRisks, 'risco', 'riscos')} de proposta detectados`] }
   }
 
   if (intent === 'missing_decision_maker') {
     const deals = portfolio.priorities.filter((deal) => deal.risks.some((risk) => risk.key === 'missing-decision-maker')).slice(0, 10)
-    return { ...base, title: 'Contas sem decisor', text: deals.length ? `${deals.length} oportunidade(s) avançaram sem decisor econômico/final claramente mapeado.` : 'Nenhum gap crítico de decisor foi detectado nos negócios ativos.', items: deals.map((deal) => toDealItem(deal, 'Decisor econômico/final ainda não está mapeado no Account 360.')), facts: [`${portfolio.missingDecisionMaker} negócio(s) sem decisor`] }
+    return { ...base, title: 'Contas sem decisor', text: deals.length ? `${deals.length} ${plural(deals.length, 'oportunidade', 'oportunidades')} avançaram sem decisor econômico/final claramente mapeado.` : 'Nenhum gap crítico de decisor foi detectado nos negócios ativos.', items: deals.map((deal) => toDealItem(deal, 'Decisor econômico/final ainda não está mapeado no Account 360.')), facts: [`${portfolio.missingDecisionMaker} ${plural(portfolio.missingDecisionMaker, 'negócio', 'negócios')} sem decisor`] }
   }
 
   if (intent === 'stale_deals') {
     const deals = portfolio.priorities.filter((deal) => deal.momentum === 'cooling' || deal.risks.some((risk) => ['stale', 'stale-critical'].includes(risk.key))).slice(0, 10)
-    return { ...base, title: 'Negócios parados ou esfriando', text: deals.length ? `Identifiquei ${deals.length} negócio(s) perdendo momentum.` : 'Nenhum negócio está parado acima dos limites atuais.', items: deals.map((deal) => toDealItem(deal, deal.risks.find((risk) => ['stale', 'stale-critical'].includes(risk.key))?.detail ?? 'Momentum em queda.')), facts: [`${portfolio.cooling} negócio(s) esfriando`] }
+    return { ...base, title: 'Negócios parados ou esfriando', text: deals.length ? `Identifiquei ${deals.length} ${plural(deals.length, 'negócio', 'negócios')} perdendo momentum.` : 'Nenhum negócio está parado acima dos limites atuais.', items: deals.map((deal) => toDealItem(deal, deal.risks.find((risk) => ['stale', 'stale-critical'].includes(risk.key))?.detail ?? 'Momentum em queda.')), facts: [`${portfolio.cooling} ${plural(portfolio.cooling, 'negócio', 'negócios')} esfriando`] }
   }
 
   if (intent === 'forecast') {
@@ -777,12 +778,12 @@ export const runRealTalentAssistant = (raw: string, snapshot: WorkspaceSnapshot,
     const deal = buildDealIntelligence(lead, snapshot, undefined, now)
     const contacts = contactsForLead(snapshot, lead)
     const proposal = activeProposal(snapshot, lead.id)
-    return { ...base, focus: focusForDeal(deal, context), title: lead.company || lead.name, text: `${lead.name} está em ${deal.stage?.name ?? 'etapa não definida'}, com Deal Health ${deal.healthScore}/100 e probabilidade RealTalent de ${deal.realTalentProbability}%. A próxima melhor ação é “${deal.nextBestAction.title}”.`, items: [toDealItem(deal)], facts: [`Valor: ${formatCurrency(deal.commercialValue)}`, `${contacts.length} stakeholder(s) mapeado(s)`, proposal ? `Proposta: ${proposal.status}` : 'Sem proposta ativa', deal.risks[0] ? `Maior risco: ${deal.risks[0].title}` : 'Sem risco crítico detectado'] }
+    return { ...base, focus: focusForDeal(deal, context), title: lead.company || lead.name, text: `${lead.name} está em ${deal.stage?.name ?? 'etapa não definida'}, com Deal Health ${deal.healthScore}/100 e probabilidade RealTalent de ${deal.realTalentProbability}%. A próxima melhor ação é “${deal.nextBestAction.title}”.`, items: [toDealItem(deal)], facts: [`Valor: ${formatCurrency(deal.commercialValue)}`, `${contacts.length} ${plural(contacts.length, 'stakeholder', 'stakeholders')} ${plural(contacts.length, 'mapeado', 'mapeados')}`, proposal ? `Proposta: ${proposal.status}` : 'Sem proposta ativa', deal.risks[0] ? `Maior risco: ${deal.risks[0].title}` : 'Sem risco crítico detectado'] }
   }
 
   if (intent === 'priorities') {
     const deals = portfolio.priorities.slice(0, 7)
-    return { ...base, title: 'Prioridades de hoje', text: deals.length ? `Estas são as ${deals.length} oportunidades que eu trabalharia primeiro agora.` : 'Não há negócios ativos para priorizar.', items: deals.map((deal) => toDealItem(deal)), facts: [`${portfolio.critical + portfolio.attention} negócio(s) exigem atenção`, `${portfolio.noNextStep} sem próximo passo`, `${portfolio.proposalRisks} risco(s) de proposta`] }
+    return { ...base, title: 'Prioridades de hoje', text: deals.length ? `Estas são as ${deals.length} oportunidades que eu trabalharia primeiro agora.` : 'Não há negócios ativos para priorizar.', items: deals.map((deal) => toDealItem(deal)), facts: [`${portfolio.critical + portfolio.attention} ${plural(portfolio.critical + portfolio.attention, 'negócio', 'negócios')} exigem atenção`, `${portfolio.noNextStep} sem próximo passo`, `${portfolio.proposalRisks} ${plural(portfolio.proposalRisks, 'risco', 'riscos')} de proposta`] }
   }
 
   if (intent === 'help') {

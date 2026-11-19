@@ -1,3 +1,4 @@
+import { plural } from '../domain/formatters'
 import type { CallOutcome, GoalMetric, Lead, WorkspaceSnapshot } from '../domain/types'
 import { isWorkTaskActivityProjection } from './work-task-activity-projection'
 
@@ -345,17 +346,17 @@ export function generateMetricsAlerts(snapshot: WorkspaceSnapshot, range: Metric
   if (previous.contactRate > 0 && current.contactRate < previous.contactRate * 0.8) alerts.push({ id: 'contact-drop', tone: 'critical', title: 'Taxa de contato caiu', description: `A taxa está ${Math.abs(compareMetric(current.contactRate, previous.contactRate).delta).toFixed(0)}% abaixo do período anterior. Revise lista, horário e abordagem.`, area: 'activity' })
   if (previous.conversion > 0 && current.conversion < previous.conversion * 0.8) alerts.push({ id: 'conversion-drop', tone: 'critical', title: 'Conversão perdeu força', description: 'O avanço para vendas ficou abaixo do período anterior. Verifique propostas, negociação e objeções.', area: 'conversion' })
   const stalled = funnel.reduce((sum, stage) => sum + stage.stalled, 0)
-  if (stalled > 0) alerts.push({ id: 'stalled', tone: stalled >= 5 ? 'critical' : 'warning', title: `${stalled} lead(s) parado(s)`, description: 'Existem oportunidades ativas sem movimentação há sete dias ou mais.', area: 'pipeline' })
-  if (activity.overdue.length > 0) alerts.push({ id: 'overdue', tone: activity.overdue.length >= 5 ? 'critical' : 'warning', title: `${activity.overdue.length} atividade(s) vencida(s)`, description: 'Atrasos aumentam o risco de perda e precisam voltar para a rotina comercial.', area: 'activity' })
+  if (stalled > 0) alerts.push({ id: 'stalled', tone: stalled >= 5 ? 'critical' : 'warning', title: `${stalled} ${plural(stalled, 'lead', 'leads')} ${plural(stalled, 'parado', 'parados')}`, description: 'Existem oportunidades ativas sem movimentação há sete dias ou mais.', area: 'pipeline' })
+  if (activity.overdue.length > 0) alerts.push({ id: 'overdue', tone: activity.overdue.length >= 5 ? 'critical' : 'warning', title: `${activity.overdue.length} ${plural(activity.overdue.length, 'atividade', 'atividades')} ${plural(activity.overdue.length, 'vencida', 'vencidas')}`, description: 'Atrasos aumentam o risco de perda e precisam voltar para a rotina comercial.', area: 'activity' })
   const proposalStageIds = new Set(snapshot.stages.filter((stage) => /proposta|negocia/i.test(stage.name)).map((stage) => stage.id))
   const scopedLeads = filterSnapshot(snapshot, filters).leads
   const proposalsWithoutAction = scopedLeads.filter((lead) => lead.status === 'active' && proposalStageIds.has(lead.stageId) && (!lead.nextActionAt || new Date(lead.nextActionAt) < new Date())).length
-  if (proposalsWithoutAction > 0) alerts.push({ id: 'proposal-no-action', tone: 'warning', title: 'Propostas sem retorno planejado', description: `${proposalsWithoutAction} oportunidade(s) em proposta ou negociação estão sem próxima ação válida.`, area: 'pipeline' })
+  if (proposalsWithoutAction > 0) alerts.push({ id: 'proposal-no-action', tone: 'warning', title: 'Propostas sem retorno planejado', description: `${proposalsWithoutAction} ${plural(proposalsWithoutAction, 'oportunidade', 'oportunidades')} em proposta ou negociação estão sem próxima ação válida.`, area: 'pipeline' })
   const lowQualitySource = sources.filter((source) => source.totalLeads >= 3).sort((a, b) => a.conversion - b.conversion)[0]
   if (lowQualitySource && lowQualitySource.conversion < 10) alerts.push({ id: 'low-source', tone: 'info', title: `Origem ${lowQualitySource.source} com baixa conversão`, description: 'Avalie qualidade dos leads, segmentação e esforço investido nesse canal.', area: 'acquisition' })
   const activeGoals = snapshot.goals.filter((goal) => asEnd(goal.periodEnd) >= new Date() && (!filters.ownerId || goal.userId === filters.ownerId))
   const atRisk = activeGoals.filter((goal) => goalProgress(snapshot, goal.metric, goal.targetValue, goal.periodStart, goal.periodEnd, goal.userId).pace === 'at_risk')
-  if (atRisk.length > 0) alerts.push({ id: 'goals-risk', tone: 'critical', title: `${atRisk.length} meta(s) em risco`, description: 'O ritmo atual está abaixo de 75% do esperado para o período.', area: 'goals' })
+  if (atRisk.length > 0) alerts.push({ id: 'goals-risk', tone: 'critical', title: `${atRisk.length} ${plural(atRisk.length, 'meta', 'metas')} em risco`, description: 'O ritmo atual está abaixo de 75% do esperado para o período.', area: 'goals' })
   if (!alerts.length) alerts.push({ id: 'healthy', tone: 'positive', title: 'Operação comercial saudável', description: 'Nenhum risco relevante foi identificado no período selecionado.', area: 'conversion' })
   return alerts.slice(0, 6)
 }

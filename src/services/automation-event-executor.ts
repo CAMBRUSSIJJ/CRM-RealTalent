@@ -1,3 +1,4 @@
+import { plural } from '../domain/formatters'
 import type { ActivityItem, AutomationRule, AutomationRun, Lead, WorkspaceSnapshot } from '../domain/types'
 import type { CrmRepository } from '../repositories/crm-repository'
 import { automationCorrelationId, automationEventKey, automationLoopDetected, conditionMatches, ruleMatches, type AutomationEvent } from './automation-engine'
@@ -70,7 +71,7 @@ export const createAutomationEventExecutor = ({ workspaceId, repository, notify,
       }
       if (guard.mode === 'simulation' && !options.forceRule) {
         await repository.finishAutomationRun(run.id, 'success', {
-          message: `Simulação concluída: ${preview.length} ação(ões) seriam executadas.`, simulated: true,
+          message: `Simulação concluída: ${preview.length} ${plural(preview.length, 'ação', 'ações')} seriam executadas.`, simulated: true,
           actionPreview: preview, matchedLeadIds: event.lead ? [event.lead.id] : [], warnings: validation.warnings, correlationId, chainDepth, durationMs: Date.now() - runStartedAt,
         })
         executed += 1
@@ -256,7 +257,7 @@ export const createAutomationEventExecutor = ({ workspaceId, repository, notify,
             activity.resolutionStatus = 'superseded'
             activity.resolutionReason = 'cadence_ended'
           }
-          actionMessages.push(`${pending.length} atividade(s) pendente(s) encerrada(s)`)
+          actionMessages.push(`${pending.length} ${plural(pending.length, 'atividade', 'atividades')} ${plural(pending.length, 'pendente', 'pendentes')} ${plural(pending.length, 'encerrada', 'encerradas')}`)
         }
       }
       let completedOutput: AutomationRun['output'] | null = null
@@ -285,7 +286,7 @@ export const createAutomationEventExecutor = ({ workspaceId, repository, notify,
           }
         }
         completedOutput = {
-          message: `${actionMessages.length} ação(ões) processada(s).`, mutations, matchedLeadIds: currentLead ? [currentLead.id] : [],
+          message: `${actionMessages.length} ${plural(actionMessages.length, 'ação', 'ações')} ${plural(actionMessages.length, 'processada', 'processadas')}.`, mutations, matchedLeadIds: currentLead ? [currentLead.id] : [],
           actionPreview: actionMessages, warnings: [...warnings], correlationId, chainDepth, durationMs: Date.now() - runStartedAt, webhookDeliveryIds,
         }
         await repository.finishAutomationRun(run.id, 'success', completedOutput)
@@ -321,7 +322,7 @@ export const createAutomationEventExecutor = ({ workspaceId, repository, notify,
         try {
           await repository.finishAutomationRun(run.id, 'success', {
             ...completedOutput,
-            message: `${actionMessages.length} ação(ões) processada(s); ${webhookDeliveryIds.length} webhook(s) enfileirado(s).`,
+            message: `${actionMessages.length} ${plural(actionMessages.length, 'ação', 'ações')} ${plural(actionMessages.length, 'processada', 'processadas')}; ${webhookDeliveryIds.length} ${plural(webhookDeliveryIds.length, 'webhook', 'webhooks')} ${plural(webhookDeliveryIds.length, 'enfileirado', 'enfileirados')}.`,
             warnings: [...warnings], webhookDeliveryIds, durationMs: Date.now() - runStartedAt,
           })
         } catch {

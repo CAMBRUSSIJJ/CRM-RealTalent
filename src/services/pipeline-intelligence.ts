@@ -1,3 +1,4 @@
+import { plural } from '../domain/formatters'
 import type { Lead, PipelineStage, WorkspaceSnapshot } from '../domain/types'
 
 const DAY = 86_400_000
@@ -98,7 +99,7 @@ export const buildPipelineSignal = (lead: Lead, stage: PipelineStage | undefined
   const closeState = expectedCloseState(lead.expectedCloseAt, now)
   const attempts = snapshot.calls.filter((item) => item.leadId === lead.id).length
   let health: PipelineHealth = 'healthy'
-  let healthReason = `Dentro do prazo saudável de ${policy.maxDays} dia(s) desta etapa.`
+  let healthReason = `Dentro do prazo saudável de ${policy.maxDays} ${plural(policy.maxDays, 'dia', 'dias')} desta etapa.`
 
   if (lead.status === 'active' && !lead.nextActionAt) {
     health = 'no_action'
@@ -111,7 +112,7 @@ export const buildPipelineSignal = (lead: Lead, stage: PipelineStage | undefined
     healthReason = 'A previsão de fechamento venceu e precisa ser revisada.'
   } else if (lead.status === 'active' && /proposta|orçamento/i.test(stage?.name ?? '') && stageAge > policy.maxDays) {
     health = 'proposal_stale'
-    healthReason = `Proposta há ${stageAge} dia(s) sem avanço; o prazo saudável é ${policy.maxDays}.`
+    healthReason = `Proposta há ${stageAge} ${plural(stageAge, 'dia', 'dias')} sem avanço; o prazo saudável é ${policy.maxDays}.`
   } else if (lead.status === 'active' && stageAge > Math.max(policy.maxDays + 2, Math.round(policy.maxDays * 1.5))) {
     health = 'critical'
     healthReason = `${stageAge} dias nesta etapa; requer intervenção comercial.`

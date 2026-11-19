@@ -18,31 +18,31 @@
 .sales-workspace-v1015__disclosure{min-height:36px;padding-inline:10px;font-size:11px}
 .sales-workspace-v1015__strategy-summary strong{font-size:13px}
 .sales-workspace-v1015__strategy-summary p{font-size:11px;line-height:1.45}
-.sales-workspace-v1013__signal-row>span{font-size:10px}
-.sales-workspace-v1015--focus .sales-workspace-v1013__facts span,.sales-workspace-v1013__facts span{font-size:10px;letter-spacing:.015em}
+.sales-workspace-v1013__signal-row>span{font-size:11px}
+.sales-workspace-v1015--focus .sales-workspace-v1013__facts span,.sales-workspace-v1013__facts span{font-size:11px;letter-spacing:.015em}
 .sales-workspace-v1015--focus .sales-workspace-v1013__facts strong,.sales-workspace-v1013__facts strong{font-size:12px}
-.sales-workspace-v1013__contact-line>span{font-size:10px}
+.sales-workspace-v1013__contact-line>span{font-size:11px}
 .sales-workspace-v1013__deal p{font-size:11px;line-height:1.45}
-.sales-workspace-v1013__deal>div:last-child span,.sales-workspace-v1013__deal>div:last-child small{font-size:10px}
+.sales-workspace-v1013__deal>div:last-child span,.sales-workspace-v1013__deal>div:last-child small{font-size:11px}
 .sales-workspace-v1013__tabs button{min-height:40px;font-size:11px;cursor:pointer}
-.sales-workspace-v1013__context-list small{font-size:10px}
+.sales-workspace-v1013__context-list small{font-size:11px}
 .sales-workspace-v1013__context-list strong{font-size:11px}
-.sales-workspace-v1013__side-heading small,.sales-workspace-v1013__side-heading button{font-size:10px}
-.sales-workspace-v1013__mini-list article>span,.sales-workspace-v1013__mini-list article small{font-size:10px}
+.sales-workspace-v1013__side-heading small,.sales-workspace-v1013__side-heading button{font-size:11px}
+.sales-workspace-v1013__mini-list article>span,.sales-workspace-v1013__mini-list article small{font-size:11px}
 .sales-workspace-v1013__mini-list article strong{font-size:11px}
-.sales-workspace-v1013__empty-copy{font-size:10px}
-.sales-workspace-v1013__account-card small{font-size:10px}
+.sales-workspace-v1013__empty-copy{font-size:11px}
+.sales-workspace-v1013__account-card small{font-size:11px}
 .sales-workspace-v1013__account-card strong{font-size:11px}
-.sales-workspace-v1013__account-card p{font-size:10px}
+.sales-workspace-v1013__account-card p{font-size:11px}
 .sales-workspace-v1015__attention strong{font-size:11px}
-.sales-workspace-v1015__attention span{font-size:10px}
+.sales-workspace-v1015__attention span{font-size:11px}
 .sales-workspace-v1015__attention button{min-height:36px;font-size:11px}
-.lead-history-filters button{min-height:36px;font-size:10px}
-.lead-timeline article span:not(.lead-timeline__dot){font-size:10px}
+.lead-history-filters button{min-height:36px;font-size:11px}
+.lead-timeline article span:not(.lead-timeline__dot){font-size:11px}
 .lead-timeline article strong{font-size:12px}
 .lead-timeline article p{font-size:11px}
-.lead-timeline article small{font-size:10px}
-.lead-history-empty span{font-size:10px}
+.lead-timeline article small{font-size:11px}
+.lead-history-empty span{font-size:11px}
 
 /* Real buttons own the lead-opening interaction; rows/cards no longer impersonate controls. */
 .leads-table tbody tr,.lead-base-card{cursor:default}

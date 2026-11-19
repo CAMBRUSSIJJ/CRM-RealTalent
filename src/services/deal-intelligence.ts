@@ -1,3 +1,4 @@
+import { plural } from '../domain/formatters'
 import type {
   ActivityItem,
   CalendarEvent,
@@ -242,7 +243,7 @@ const proposalComponent = (lead: Lead, stage: PipelineStage | null, proposal: Pr
   else if (proposal.status === 'accepted') reasons.push('Proposta aceita.')
   else if (proposal.status === 'expired') reasons.push('Proposta expirada.')
   const validDays = daysUntil(proposal.validUntil, now)
-  if (validDays !== null && validDays >= 0 && validDays <= 3 && !['accepted', 'rejected', 'cancelled'].includes(proposal.status)) { score -= 12; reasons.push(`Validade termina em ${validDays} dia(s).`) }
+  if (validDays !== null && validDays >= 0 && validDays <= 3 && !['accepted', 'rejected', 'cancelled'].includes(proposal.status)) { score -= 12; reasons.push(`Validade termina em ${validDays} ${plural(validDays, 'dia', 'dias')}.`) }
   if (proposal.isOfficial) { score += 4; reasons.push('Versão oficial definida.') }
   return { key: 'proposal', label: 'Proposta', score: clamp(score), reasons }
 }
@@ -261,8 +262,8 @@ const nextStepComponent = (snapshot: WorkspaceSnapshot, lead: Lead, now: Date): 
   const deltaDays = daysUntil(next, now)
   const nextTime = validTime(next)
   if (deltaDays === null || nextTime === null) return { key: 'nextStep', label: 'Próximo passo', score: 30, reasons: ['Próxima ação com data inválida.'] }
-  if (nextTime < now.getTime()) { const overdueDays = Math.max(1, Math.ceil((now.getTime() - nextTime) / DAY)); return { key: 'nextStep', label: 'Próximo passo', score: 0, reasons: [`Próxima ação vencida há ${overdueDays} dia(s).`] } }
-  if (deltaDays <= 2) return { key: 'nextStep', label: 'Próximo passo', score: 100, reasons: [`Próxima ação confirmada em até ${Math.max(0, deltaDays)} dia(s).`] }
+  if (nextTime < now.getTime()) { const overdueDays = Math.max(1, Math.ceil((now.getTime() - nextTime) / DAY)); return { key: 'nextStep', label: 'Próximo passo', score: 0, reasons: [`Próxima ação vencida há ${overdueDays} ${plural(overdueDays, 'dia', 'dias')}.`] } }
+  if (deltaDays <= 2) return { key: 'nextStep', label: 'Próximo passo', score: 100, reasons: [`Próxima ação confirmada em até ${Math.max(0, deltaDays)} ${plural(Math.max(0, deltaDays), 'dia', 'dias')}.`] }
   if (deltaDays <= 7) return { key: 'nextStep', label: 'Próximo passo', score: 88, reasons: [`Próxima ação prevista em ${deltaDays} dias.`] }
   if (deltaDays <= 14) return { key: 'nextStep', label: 'Próximo passo', score: 70, reasons: [`Próxima ação prevista em ${deltaDays} dias.`] }
   return { key: 'nextStep', label: 'Próximo passo', score: 52, reasons: [`Próxima ação distante: ${deltaDays} dias.`] }
@@ -274,8 +275,8 @@ const timingComponent = (lead: Lead, stage: PipelineStage | null, expectedCloseA
   const reasons: string[] = []
   let score = 72
   if (closeDays === null) { score = stageLooksLate(stage) ? 36 : 62; reasons.push('Previsão de fechamento ainda não definida.') }
-  else if (closeDays < 0) { score = 0; reasons.push(`Previsão de fechamento vencida há ${Math.abs(closeDays)} dia(s).`) }
-  else if (closeDays <= config.closingSoonDays) { score = 78; reasons.push(`Fechamento previsto em ${closeDays} dia(s).`) }
+  else if (closeDays < 0) { score = 0; reasons.push(`Previsão de fechamento vencida há ${Math.abs(closeDays)} ${plural(Math.abs(closeDays), 'dia', 'dias')}.`) }
+  else if (closeDays <= config.closingSoonDays) { score = 78; reasons.push(`Fechamento previsto em ${closeDays} ${plural(closeDays, 'dia', 'dias')}.`) }
   else if (closeDays <= 30) { score = 94; reasons.push(`Fechamento previsto para os próximos ${closeDays} dias.`) }
   else if (closeDays <= 90) { score = 82; reasons.push(`Fechamento previsto em ${closeDays} dias.`) }
   else { score = 65; reasons.push('Fechamento projetado para horizonte longo.') }
@@ -295,11 +296,11 @@ const engagementComponent = (snapshot: WorkspaceSnapshot, lead: Lead, proposal: 
   let score = 45 + Math.min(24, positive * 6) + Math.min(18, strong * 6) + Math.min(12, completedMeetings * 4) + Math.min(10, futureMeetings * 5) - Math.min(35, negative * 12)
   const reasons: string[] = []
   if (strong) reasons.push(`${strong} sinal(is) forte(s) de interesse em ligações recentes.`)
-  else if (positive) reasons.push(`${positive} contato(s) positivo(s) nos últimos 30 dias.`)
-  if (futureMeetings) reasons.push(`${futureMeetings} reunião(ões) futura(s) confirmada(s).`)
+  else if (positive) reasons.push(`${positive} ${plural(positive, 'contato', 'contatos')} ${plural(positive, 'positivo', 'positivos')} nos últimos 30 dias.`)
+  if (futureMeetings) reasons.push(`${futureMeetings} ${plural(futureMeetings, 'reunião', 'reuniões')} ${plural(futureMeetings, 'futura', 'futuras')} ${plural(futureMeetings, 'confirmada', 'confirmadas')}.`)
   if (proposal?.viewedAt) { score += 8; reasons.push('Proposta foi visualizada.') }
   const buyerRoom = (snapshot.buyerRooms ?? []).find((room) => room.leadId === lead.id && room.status !== 'archived')
-  if (buyerRoom?.viewCount) { score += 8; reasons.push(`Buyer Room aberta ${buyerRoom.viewCount} vez(es) pelo comprador.`) }
+  if (buyerRoom?.viewCount) { score += 8; reasons.push(`Buyer Room aberta ${buyerRoom.viewCount} ${plural(buyerRoom.viewCount, 'vez', 'vezes')} pelo comprador.`) }
   if (buyerRoom?.steps.length) {
     const progress = Math.round(buyerRoom.steps.filter((step) => step.status === 'completed').length / buyerRoom.steps.length * 100)
     if (progress >= 75) { score += 10; reasons.push(`Plano compartilhado está ${progress}% concluído.`) }
@@ -345,7 +346,7 @@ const buildMomentum = (snapshot: WorkspaceSnapshot, lead: Lead, proposal: Propos
 const buildPositiveSignals = (snapshot: WorkspaceSnapshot, lead: Lead, contacts: ContactRecord[], proposal: ProposalRecord | null, lastInteractionAt: string | null, now: Date): DealPositiveSignal[] => {
   const signals: DealPositiveSignal[] = []
   const idle = daysSince(lastInteractionAt, now)
-  if (idle !== null && idle <= 3) signals.push({ key: 'recent-activity', label: 'Atividade recente', detail: `Última interação há ${idle} dia(s).`, impact: 10 })
+  if (idle !== null && idle <= 3) signals.push({ key: 'recent-activity', label: 'Atividade recente', detail: `Última interação há ${idle} ${plural(idle, 'dia', 'dias')}.`, impact: 10 })
   if (hasRole(contacts, ['champion'])) signals.push({ key: 'champion', label: 'Champion identificado', detail: 'Há uma pessoa favorável capaz de impulsionar o negócio internamente.', impact: 12 })
   if (hasRole(contacts, ['decision_maker', 'economic_buyer'])) signals.push({ key: 'decision', label: 'Decisor identificado', detail: 'O processo decisório possui cobertura explícita.', impact: 12 })
   if (proposal?.status === 'viewed') signals.push({ key: 'proposal-viewed', label: 'Proposta visualizada', detail: 'O comprador abriu a proposta oficial.', impact: 10 })
@@ -353,7 +354,7 @@ const buildPositiveSignals = (snapshot: WorkspaceSnapshot, lead: Lead, contacts:
   if (eventsForLead(snapshot, lead.id).some((item) => item.status === 'confirmed' && new Date(item.startsAt).getTime() >= now.getTime())) signals.push({ key: 'meeting', label: 'Reunião futura', detail: 'Existe compromisso futuro confirmado na agenda.', impact: 10 })
   if (callsForLead(snapshot, lead.id).some((item) => strongOutcomes.has(item.outcome) && (daysSince(item.startedAt, now) ?? 999) <= 14)) signals.push({ key: 'buying-signal', label: 'Sinal de compra', detail: 'Ligação recente registrou interesse, reunião ou solicitação de proposta.', impact: 12 })
   const buyerRoom = (snapshot.buyerRooms ?? []).find((room) => room.leadId === lead.id && room.status !== 'archived')
-  if (buyerRoom?.viewCount) signals.push({ key: 'buyer-room-opened', label: 'Buyer Room acessada', detail: `Comprador abriu o espaço compartilhado ${buyerRoom.viewCount} vez(es).`, impact: 10 })
+  if (buyerRoom?.viewCount) signals.push({ key: 'buyer-room-opened', label: 'Buyer Room acessada', detail: `Comprador abriu o espaço compartilhado ${buyerRoom.viewCount} ${plural(buyerRoom.viewCount, 'vez', 'vezes')}.`, impact: 10 })
   if (buyerRoom?.steps.length) {
     const progress = Math.round(buyerRoom.steps.filter((step) => step.status === 'completed').length / buyerRoom.steps.length * 100)
     if (progress >= 50) signals.push({ key: 'mutual-plan-progress', label: 'Plano conjunto avançando', detail: `Mutual Action Plan está ${progress}% concluído.`, impact: Math.min(16, 8 + Math.round(progress / 20)) })
@@ -388,7 +389,7 @@ const buildRisks = ({
   const add = (risk: DealRisk) => risks.push(risk)
 
   if (!lead.nextActionAt) add({ key: 'no-next-step', severity: 'high', title: 'Sem próximo passo', detail: 'Oportunidade ativa sem próxima ação com data.', impact: 16, suggestedAction: 'Definir follow-up ou reunião', source: 'pipeline' })
-  else if (nextTime !== null && nextTime < now.getTime()) { const overdueDays = Math.max(1, Math.ceil((now.getTime() - nextTime) / DAY)); add({ key: 'overdue-next-step', severity: 'critical', title: 'Próxima ação vencida', detail: `A próxima ação venceu há ${overdueDays} dia(s).`, impact: 24, suggestedAction: 'Executar contato agora', source: 'activity' }) }
+  else if (nextTime !== null && nextTime < now.getTime()) { const overdueDays = Math.max(1, Math.ceil((now.getTime() - nextTime) / DAY)); add({ key: 'overdue-next-step', severity: 'critical', title: 'Próxima ação vencida', detail: `A próxima ação venceu há ${overdueDays} ${plural(overdueDays, 'dia', 'dias')}.`, impact: 24, suggestedAction: 'Executar contato agora', source: 'activity' }) }
 
   if (idle === null) add({ key: 'never-contacted', severity: 'high', title: 'Sem interação concluída', detail: 'Ainda não há contato concluído registrado para este negócio.', impact: 16, suggestedAction: 'Realizar primeiro contato', source: 'activity' })
   else if (idle >= config.staleDays * 2) add({ key: 'stale-critical', severity: 'critical', title: 'Negócio parado', detail: `Sem interação há ${idle} dias.`, impact: 24, suggestedAction: 'Retomar contato ou revisar qualificação', source: 'activity' })
@@ -403,22 +404,22 @@ const buildRisks = ({
   if (proposal?.status === 'viewed' && proposal.viewedAt) {
     const viewedDays = daysSince(proposal.viewedAt, now) ?? 0
     const interactionAfterView = lastInteractionAt && new Date(lastInteractionAt).getTime() > new Date(proposal.viewedAt).getTime()
-    if (viewedDays >= config.proposalFollowupDays && !interactionAfterView) add({ key: 'proposal-viewed-no-response', severity: 'high', title: 'Proposta visualizada sem retorno', detail: `Visualizada há ${viewedDays} dia(s) e sem interação posterior registrada.`, impact: 18, suggestedAction: 'Fazer follow-up com objetivo de decisão', source: 'proposal' })
+    if (viewedDays >= config.proposalFollowupDays && !interactionAfterView) add({ key: 'proposal-viewed-no-response', severity: 'high', title: 'Proposta visualizada sem retorno', detail: `Visualizada há ${viewedDays} ${plural(viewedDays, 'dia', 'dias')} e sem interação posterior registrada.`, impact: 18, suggestedAction: 'Fazer follow-up com objetivo de decisão', source: 'proposal' })
   }
   const validityDays = daysUntil(proposal?.validUntil, now)
-  if (proposal && validityDays !== null && validityDays >= 0 && validityDays <= 3 && !['accepted', 'rejected', 'cancelled'].includes(proposal.status)) add({ key: 'proposal-expiring', severity: 'high', title: 'Proposta perto do vencimento', detail: `Validade termina em ${validityDays} dia(s).`, impact: 14, suggestedAction: 'Confirmar decisão antes do vencimento', source: 'proposal' })
+  if (proposal && validityDays !== null && validityDays >= 0 && validityDays <= 3 && !['accepted', 'rejected', 'cancelled'].includes(proposal.status)) add({ key: 'proposal-expiring', severity: 'high', title: 'Proposta perto do vencimento', detail: `Validade termina em ${validityDays} ${plural(validityDays, 'dia', 'dias')}.`, impact: 14, suggestedAction: 'Confirmar decisão antes do vencimento', source: 'proposal' })
 
   const buyerRoom = (snapshot.buyerRooms ?? []).find((room) => room.leadId === lead.id && room.status !== 'archived')
   if (buyerRoom?.shareEnabled && buyerRoom.viewCount === 0) {
     const sharedAt = [...buyerRoom.activity].reverse().find((event) => event.type === 'shared')?.occurredAt ?? buyerRoom.updatedAt
     const sharedDays = daysSince(sharedAt, now) ?? 0
-    if (sharedDays >= 2) add({ key: 'buyer-room-not-opened', severity: 'medium', title: 'Buyer Room ainda não aberta', detail: `Espaço compartilhado há ${sharedDays} dia(s) sem abertura do comprador.`, impact: 10, suggestedAction: 'Confirmar recebimento do link', source: 'engagement' })
+    if (sharedDays >= 2) add({ key: 'buyer-room-not-opened', severity: 'medium', title: 'Buyer Room ainda não aberta', detail: `Espaço compartilhado há ${sharedDays} ${plural(sharedDays, 'dia', 'dias')} sem abertura do comprador.`, impact: 10, suggestedAction: 'Confirmar recebimento do link', source: 'engagement' })
   }
   const blockedBuyerStep = buyerRoom?.steps.find((step) => step.status === 'blocked' && ['buyer','shared'].includes(step.owner))
   if (blockedBuyerStep) add({ key: 'buyer-room-blocked', severity: 'high', title: 'Plano de fechamento bloqueado', detail: `A etapa “${blockedBuyerStep.title}” está bloqueada no Mutual Action Plan.`, impact: 16, suggestedAction: 'Destravar dependência com o comprador', source: 'engagement' })
 
-  if (closeDays !== null && closeDays < 0) add({ key: 'close-overdue', severity: 'critical', title: 'Fechamento previsto vencido', detail: `A previsão de fechamento passou há ${Math.abs(closeDays)} dia(s).`, impact: 24, suggestedAction: 'Revisar data e realidade do negócio', source: 'timing' })
-  else if (closeDays !== null && closeDays <= config.closingSoonDays && healthScore < 68) add({ key: 'close-soon-risk', severity: 'high', title: 'Fechamento próximo com saúde baixa', detail: `Fechamento previsto em ${closeDays} dia(s), mas Deal Health está em ${healthScore}.`, impact: 18, suggestedAction: 'Revisar riscos antes de comprometer forecast', source: 'timing' })
+  if (closeDays !== null && closeDays < 0) add({ key: 'close-overdue', severity: 'critical', title: 'Fechamento previsto vencido', detail: `A previsão de fechamento passou há ${Math.abs(closeDays)} ${plural(Math.abs(closeDays), 'dia', 'dias')}.`, impact: 24, suggestedAction: 'Revisar data e realidade do negócio', source: 'timing' })
+  else if (closeDays !== null && closeDays <= config.closingSoonDays && healthScore < 68) add({ key: 'close-soon-risk', severity: 'high', title: 'Fechamento próximo com saúde baixa', detail: `Fechamento previsto em ${closeDays} ${plural(closeDays, 'dia', 'dias')}, mas Deal Health está em ${healthScore}.`, impact: 18, suggestedAction: 'Revisar riscos antes de comprometer forecast', source: 'timing' })
 
   if (sellerProbability - realTalentProbability >= 20) add({ key: 'probability-gap', severity: 'medium', title: 'Probabilidade otimista', detail: `Vendedor registra ${sellerProbability}%, enquanto sinais atuais sustentam ${realTalentProbability}%.`, impact: 12, suggestedAction: 'Revisar forecast e remover riscos abertos', source: 'pipeline' })
 

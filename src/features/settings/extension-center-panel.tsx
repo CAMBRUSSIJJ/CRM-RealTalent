@@ -1,3 +1,4 @@
+import { plural } from '../../domain/formatters'
 import { NativeSelectionSelect } from '../../components/selection'
 import { Activity, AlertTriangle, CheckCircle2, Clock3, Monitor, Pause, Play, Puzzle, RefreshCw, RotateCw, Save, Settings2, ShieldCheck, Unplug } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
@@ -128,7 +129,7 @@ export function ExtensionCenterPanel({ state, loading, canManage, onRefresh }: E
         <div><strong>{installation.displayName}</strong><small>{extensionProductLabel(installation.productKey)} · {installation.browser} {installation.browserVersion} · versão {installation.appVersion || 'não informada'}</small></div>
         <StatusPill tone={installationTone[installation.status]}>{installationLabel[installation.status]}</StatusPill>
         <div><small>Último sinal</small><strong>{formatDateTime(installation.lastSeenAt)}</strong></div>
-        <div><small>Fila local</small><strong>{installation.pendingItems} pendente(s)</strong></div>
+        <div><small>Fila local</small><strong>{installation.pendingItems} {plural(installation.pendingItems, 'pendente', 'pendentes')}</strong></div>
         <div><small>Capturas</small><strong>{installation.capturedToday} hoje · {installation.totalCaptured} total</strong></div>
         <div className="integration-row-actions">
           {installation.status === 'paused' ? <Button size="sm" variant="ghost" disabled={!canManage} loading={busy === `installation-resume-${installation.id}`} onClick={() => void installationAction(installation.id, 'resume')}><Play size={14} /> Retomar</Button> : <Button size="sm" variant="ghost" disabled={!canManage || ['revoked','outdated'].includes(installation.status)} loading={busy === `installation-pause-${installation.id}`} onClick={() => void installationAction(installation.id, 'pause')}><Pause size={14} /> Pausar</Button>}
@@ -161,8 +162,8 @@ export function ExtensionCenterPanel({ state, loading, canManage, onRefresh }: E
     {tab === 'queue' ? <article className="panel integration-framework__table-card">
       <div className="panel__heading"><div><span className="eyebrow">Processamento</span><h3>Fila central de capturas</h3></div><Clock3 size={21} /></div>
       {state.extensionJobs.length ? <div className="extension-job-list">{state.extensionJobs.map((job) => <div className="extension-job-row" key={job.id}>
-        <div><strong>{sourceLabels[job.source] ?? job.source} · {job.itemCount} item(ns)</strong><small>{extensionProductLabel(job.productKey)} · {job.idempotencyKey}</small></div>
-        <StatusPill tone={jobTone[job.status]}>{jobLabel[job.status]}</StatusPill><span>{job.attempts}/{job.maxAttempts} tentativa(s)</span><time>{formatDateTime(job.createdAt)}</time>
+        <div><strong>{sourceLabels[job.source] ?? job.source} · {job.itemCount} {plural(job.itemCount, 'item', 'itens')}</strong><small>{extensionProductLabel(job.productKey)} · {job.idempotencyKey}</small></div>
+        <StatusPill tone={jobTone[job.status]}>{jobLabel[job.status]}</StatusPill><span>{job.attempts}/{job.maxAttempts} {plural(job.maxAttempts, 'tentativa', 'tentativas')}</span><time>{formatDateTime(job.createdAt)}</time>
         {['failed','dead_letter'].includes(job.status) ? <Button size="sm" variant="secondary" disabled={!canManage} loading={busy === `retry-${job.id}`} onClick={() => void retryJob(job.id)}><RotateCw size={14} /> Tentar novamente</Button> : <span />}
         {job.lastError ? <p><AlertTriangle size={14} /> {job.lastError}</p> : null}
       </div>)}</div> : <div className="integration-framework__empty"><CheckCircle2 size={22} /><div><strong>Fila vazia</strong><p>Nenhum lote da extensão está aguardando processamento.</p></div></div>}

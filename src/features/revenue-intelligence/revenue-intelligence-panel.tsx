@@ -1,3 +1,4 @@
+import { plural } from '../../domain/formatters'
 import '../../styles/revenue-intelligence-v10081.css'
 import { useMemo, useState } from 'react'
 import {
@@ -88,7 +89,7 @@ export function RevenueIntelligencePanel({ snapshot, onOpenProposal }: RevenueIn
     <section className="ri-kpi-grid ri-kpi-grid--six">
       <article><span className="ri-kpi-icon ri-kpi-icon--green"><CircleDollarSign/></span><div><small>Receita realizada</small><strong>{formatCurrency(intelligence.recognizedRevenue)}</strong><em>{signedPercent(intelligence.recognizedRevenueDeltaPercent)}</em></div></article>
       <article><span className="ri-kpi-icon"><CalendarRange/></span><div><small>Receita prevista cadastrada</small><strong>{formatCurrency(intelligence.scheduledRevenue)}</strong><em>lançamentos de competência ainda não reconhecidos</em></div></article>
-      <article><span className="ri-kpi-icon ri-kpi-icon--green"><BadgeDollarSign/></span><div><small>Bookings fechados</small><strong>{formatCurrency(intelligence.closedBookings)}</strong><em>{intelligence.closedWonDeals} negócio(s) ganho(s) no período</em></div></article>
+      <article><span className="ri-kpi-icon ri-kpi-icon--green"><BadgeDollarSign/></span><div><small>Bookings fechados</small><strong>{formatCurrency(intelligence.closedBookings)}</strong><em>{intelligence.closedWonDeals} {plural(intelligence.closedWonDeals, 'negócio', 'negócios')} {plural(intelligence.closedWonDeals, 'ganho', 'ganhos')} no período</em></div></article>
       <article><span className="ri-kpi-icon ri-kpi-icon--purple"><Gauge/></span><div><small>Pipeline ponderado</small><strong>{formatCurrency(intelligence.weightedOpenPipeline)}</strong><em>probabilidade comercial sobre o pipeline aberto</em></div></article>
       <article><span className="ri-kpi-icon ri-kpi-icon--blue"><TrendingUp/></span><div><small>Forecast RealTalent</small><strong>{formatCurrency(intelligence.realTalentForecast)}</strong><em>{formatCurrency(intelligence.realTalentExpectedOpenPipeline)} esperado no pipeline aberto</em></div></article>
       <article className={intelligence.gapToGoal > 0 ? 'is-warning' : ''}><span className="ri-kpi-icon ri-kpi-icon--orange"><Target/></span><div><small>Meta comercial · gap esperado</small><strong>{intelligence.goalTarget ? formatCurrency(intelligence.gapToGoal) : 'Sem meta'}</strong><em>{intelligence.goalTarget ? `${percent(intelligence.expectedAttainment)} de atingimento projetado` : 'Configure uma meta de receita'}</em></div></article>
@@ -129,7 +130,7 @@ export function RevenueIntelligencePanel({ snapshot, onOpenProposal }: RevenueIn
     </section>
 
     <section className="panel ri-risk-panel">
-      <header><div><span className="eyebrow"><AlertTriangle size={14}/> Forecast risks</span><h3>O que pode derrubar a previsão</h3></div><span>{intelligence.risks.length} alerta(s)</span></header>
+      <header><div><span className="eyebrow"><AlertTriangle size={14}/> Forecast risks</span><h3>O que pode derrubar a previsão</h3></div><span>{intelligence.risks.length} {plural(intelligence.risks.length, 'alerta', 'alertas')}</span></header>
       {intelligence.risks.length ? <div className="ri-risk-list">{intelligence.risks.map((risk) => <article key={risk.key}><StatusPill tone={riskTone(risk.severity)}>{risk.severity === 'critical' ? 'Crítico' : risk.severity === 'high' ? 'Alto' : risk.severity === 'medium' ? 'Médio' : 'Baixo'}</StatusPill><div><strong>{risk.title}</strong><p>{risk.detail}</p><small>Próxima ação: {risk.suggestedAction}</small></div>{risk.value !== undefined ? <strong>{formatCurrency(risk.value)}</strong> : null}</article>)}</div> : <div className="ri-empty-success"><ShieldCheck size={20}/><div><strong>Forecast sem alerta estrutural</strong><span>Os sinais atuais não indicam risco relevante de cobertura ou qualidade.</span></div></div>}
     </section>
 
@@ -143,11 +144,11 @@ export function RevenueIntelligencePanel({ snapshot, onOpenProposal }: RevenueIn
 
     <section className="ri-breakdown-grid">
       <article className="panel ri-breakdown-panel">
-        <header><div><span className="eyebrow"><Waypoints size={14}/> Receita por origem</span><h3>Origem comercial e contribuição</h3></div><span>{intelligence.sources.length} origem(ns)</span></header>
-        {intelligence.sources.length ? <div className="ri-breakdown-list">{intelligence.sources.slice(0, 8).map((source) => <article key={source.key}><div><strong>{source.label}</strong><small>{Math.round(source.deals)} negócio(s) no forecast</small></div><span><small>Receita</small><strong>{formatCurrency(source.recognizedRevenue)}</strong></span><span><small>Bookings</small><strong>{formatCurrency(source.bookings)}</strong></span><span><small>Expected</small><strong>{formatCurrency(source.expectedForecast)}</strong></span></article>)}</div> : <div className="ri-empty-success"><Waypoints size={20}/><div><strong>Sem origem suficiente para análise</strong><span>Vincule origem aos contatos para medir aquisição até receita.</span></div></div>}
+        <header><div><span className="eyebrow"><Waypoints size={14}/> Receita por origem</span><h3>Origem comercial e contribuição</h3></div><span>{intelligence.sources.length} {plural(intelligence.sources.length, 'origem', 'origens')}</span></header>
+        {intelligence.sources.length ? <div className="ri-breakdown-list">{intelligence.sources.slice(0, 8).map((source) => <article key={source.key}><div><strong>{source.label}</strong><small>{Math.round(source.deals)} {plural(Math.round(source.deals), 'negócio', 'negócios')} no forecast</small></div><span><small>Receita</small><strong>{formatCurrency(source.recognizedRevenue)}</strong></span><span><small>Bookings</small><strong>{formatCurrency(source.bookings)}</strong></span><span><small>Expected</small><strong>{formatCurrency(source.expectedForecast)}</strong></span></article>)}</div> : <div className="ri-empty-success"><Waypoints size={20}/><div><strong>Sem origem suficiente para análise</strong><span>Vincule origem aos contatos para medir aquisição até receita.</span></div></div>}
       </article>
       <article className="panel ri-breakdown-panel">
-        <header><div><span className="eyebrow"><PackageSearch size={14}/> Receita por produto</span><h3>Mix comercial do período</h3></div><span>{intelligence.products.length} item(ns)</span></header>
+        <header><div><span className="eyebrow"><PackageSearch size={14}/> Receita por produto</span><h3>Mix comercial do período</h3></div><span>{intelligence.products.length} {plural(intelligence.products.length, 'item', 'itens')}</span></header>
         {intelligence.products.length ? <div className="ri-breakdown-list">{intelligence.products.map((product) => <article key={product.key}><div><strong>{product.label}</strong><small>{product.productId ? 'Item do catálogo' : 'Item manual / sem vínculo'}</small></div><span><small>Receita</small><strong>{formatCurrency(product.recognizedRevenue)}</strong></span><span><small>Bookings</small><strong>{formatCurrency(product.bookings)}</strong></span><span><small>Expected</small><strong>{formatCurrency(product.expectedForecast)}</strong></span></article>)}</div> : <div className="ri-empty-success"><PackageSearch size={20}/><div><strong>Sem produto suficiente para análise</strong><span>Use itens do catálogo nas propostas para formar o mix de receita.</span></div></div>}
       </article>
     </section>

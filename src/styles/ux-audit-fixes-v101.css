@@ -46,3 +46,19 @@ html[data-sidebar-mode] .app-shell__main {
 
 /* 5. Garimpo: motivo do botão de busca travado, junto do botão. */
 .gh-blocked { margin: 8px 0 0; padding: 8px 10px; border-radius: 8px; background: var(--rt-warning-soft, #fff4e5); color: var(--rt-warning-text, #8a5300); font-size: 13px; line-height: 1.45; }
+
+/* 3. Tour: fora da tela do passo atual, vira um botão discreto em vez de cobrir o conteúdo. */
+.guided-tour-resume {
+  position: fixed; right: 22px; bottom: 22px; z-index: 150;
+  display: inline-flex; align-items: center; gap: 8px;
+  padding: 10px 14px; border: 0; border-radius: 999px;
+  background: #17264a; color: #fff; font: 600 13px/1.2 inherit;
+  box-shadow: 0 10px 28px rgba(12, 24, 58, .28); cursor: pointer;
+}
+.guided-tour-resume:focus-visible { outline: 3px solid #6d8df5; outline-offset: 2px; }
+@media (max-width: 720px) { .guided-tour-resume { right: 12px; bottom: 84px; } }
+/* Texto do tour legível (antes 9–11px). */
+.guided-tour-v10091 header small { font-size: 11px !important; }
+.guided-tour-v10091 header strong { font-size: 13px !important; }
+.guided-tour-v10091 > p { font-size: 13px !important; }
+.guided-tour-v10091__action { font-size: 12px !important; }

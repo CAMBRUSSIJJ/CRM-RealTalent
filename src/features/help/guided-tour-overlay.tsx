@@ -17,7 +17,7 @@ function persist(state: TourState | null) {
 }
 
 export function GuidedTourOverlay() {
-  const { setRoute } = useAppNavigation()
+  const { route, setRoute } = useAppNavigation()
   const [state, setState] = useState<TourState | null>(() => readState())
   const tour = useMemo(() => GUIDED_TOURS.find((item) => item.id === state?.tourId) ?? null, [state?.tourId])
   const step = tour && state ? tour.steps[state.stepIndex] : null
@@ -43,7 +43,17 @@ export function GuidedTourOverlay() {
 
   useEffect(() => { if (step) setRoute(step.route) }, [setRoute, step])
 
+  // Esc encerra o tour, como qualquer janela flutuante.
+  useEffect(() => {
+    if (!state) return
+    const onKey = (event: KeyboardEvent) => { if (event.key === 'Escape') { setState(null); persist(null) } }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [state])
+
   if (!tour || !state || !step) return null
+  // Se a pessoa saiu da tela do passo atual, o tour vira um botão pequeno em vez de cobrir o conteúdo.
+  const away = route !== step.route
   const last = state.stepIndex === tour.steps.length - 1
   const go = (index: number) => {
     if (index < 0 || index >= tour.steps.length) return
@@ -56,13 +66,19 @@ export function GuidedTourOverlay() {
     setState(null); persist(null)
   }
 
+  if (away) return <button type="button" className="guided-tour-resume" onClick={() => setRoute(step.route)} aria-label={`Continuar tour guiado: passo ${state.stepIndex + 1} de ${tour.steps.length}`}>
+    <GraduationCap size={16}/> Continuar tour · {state.stepIndex + 1} de {tour.steps.length}
+  </button>
+
   return <aside className="guided-tour-v10091" role="dialog" aria-label={`Tour guiado: ${tour.title}`}>
     <header><span><GraduationCap size={18}/></span><div><small>{tour.title}</small><strong>{state.stepIndex + 1} de {tour.steps.length} · {step.title}</strong></div><button type="button" aria-label="Encerrar tour" onClick={() => close(false)}><X size={17}/></button></header>
     <div className="guided-tour-v10091__progress"><span style={{ width: `${((state.stepIndex + 1) / tour.steps.length) * 100}%` }}/></div>
     <p>{step.description}</p>
     <div className="guided-tour-v10091__action"><CheckCircle2 size={16}/><span>{step.action}</span></div>
     <footer>
-      <Button variant="secondary" size="sm" disabled={state.stepIndex === 0} onClick={() => go(state.stepIndex - 1)}><ChevronLeft size={15}/> Anterior</Button>
+      {state.stepIndex === 0
+        ? <Button variant="secondary" size="sm" onClick={() => close(false)}>Pular tour</Button>
+        : <Button variant="secondary" size="sm" onClick={() => go(state.stepIndex - 1)}><ChevronLeft size={15}/> Anterior</Button>}
       {last ? <Button size="sm" onClick={() => close(true)}>Concluir <CheckCircle2 size={15}/></Button> : <Button size="sm" onClick={() => go(state.stepIndex + 1)}>Próximo <ChevronRight size={15}/></Button>}
     </footer>
   </aside>

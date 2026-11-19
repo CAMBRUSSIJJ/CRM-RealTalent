@@ -15,26 +15,26 @@ test('Nova oportunidade V3: JSX sintaticamente íntegro', () => {
     assert.equal(parsed.parseDiagnostics.length, 0, name+' contém erro sintático')
   }
 })
-test('Nova oportunidade V3: três abas sem componente estático duplicado', () => {
-  for (const label of ["['essencial', 'Essencial']", "['empresa', 'Empresa & Endereço']", "['contexto', 'Contexto & Origem']"]) {
-    assert.ok(form.includes(label), 'Aba ausente: '+label)
-  }
-  assert.ok(form.includes("if (mode === 'opportunity' && !lead) return"), 'Novo formulário não isolado')
-  assert.ok(form.includes('className="opportunity-create-v3"'))
+test('Nova oportunidade (formato B): coluna única sem abas e sem componente estático duplicado', () => {
+  assert.ok(!form.includes("['essencial', 'Essencial']"), 'As abas foram substituídas pelo formato B')
+  assert.ok(form.includes("if (mode === 'opportunity' && !lead) {"), 'Novo formulário não isolado')
+  assert.ok(form.includes('className="opportunity-create-b"'))
+  assert.ok(form.includes('opportunity-create-b__toggle'), 'Mais detalhes recolhível ausente')
   assert.ok(form.includes('className={`form-grid lead-form'), 'Formulário de contato original não preservado')
   assert.ok(!modal.includes('NewOpportunityModal'), 'Não usar protótipo estático')
 })
-test('Nova oportunidade V3: entradas essenciais ligadas ao estado real', () => {
+test('Nova oportunidade (formato B): entradas essenciais ligadas ao estado real', () => {
   for (const field of ['name', 'company', 'phone', 'email', 'stageId', 'value', 'expectedCloseAt', 'nextActionAt', 'ownerId', 'priority']) {
     assert.ok(form.includes("update('"+field+"'"), 'Campo sem vínculo de dados: '+field)
   }
   assert.ok(form.includes('snapshot?.stages ?? []'), 'Etapas devem vir da base real')
   assert.ok(form.includes('snapshot?.companies.map'), 'Empresas precisam vir do CRM')
-  assert.ok(form.includes("setOpportunityTab('essencial'); return"), 'Validação transversal às abas')
+  assert.ok(form.includes('if (emailInvalid) setExpanded(true); return'), 'E-mail inválido precisa abrir Mais detalhes')
+  assert.ok(form.includes('toLocalInput(value.nextActionAt)'), 'Próxima ação deve aparecer no horário local')
   assert.ok(form.includes('possibleDuplicate'), 'Detecção de duplicidade deve permanecer')
   assert.ok(form.includes('companyMatch'), 'Reuso de empresas deve permanecer')
 })
-test('Nova oportunidade V3: abas secundárias preservam informação comercial', () => {
+test('Nova oportunidade: Mais detalhes preserva informação comercial', () => {
   for(const field of ['cnpj','website','postalCode','street','addressNumber','complement','district','city','state','country','jobTitle','decisionRole','temperature','source','influenceLevel','consentStatus','doNotContact','doNotContactReason','sourceDetail','sourceUrl','capturedAt','notes','tags']) {
     assert.ok(form.includes("update('"+field+"'"), 'Campo não conectado: '+field)
   }

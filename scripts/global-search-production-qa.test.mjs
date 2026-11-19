@@ -41,6 +41,9 @@ test('layout has bounded height, legible text, resilient width and loads after l
   assert.match(css,/@media \(max-width: 600px\)/)
   assert.match(css,/html\[data-theme="dark"\]/)
   const imports=[...main.matchAll(/import ['"]\.\/styles\/([^'"]+\.css)['"]/g)].map(x=>x[1])
-  assert.equal(imports.at(-1),'h20-product-cohesion.css')
+  // h20 continua depois de todo CSS legado; depois dele só entram as correções da repaginada (*-v101.css).
+  const h20 = imports.indexOf('h20-product-cohesion.css')
+  assert.ok(h20 >= 0, 'h20-product-cohesion.css precisa ser carregado')
+  assert.ok(imports.slice(h20 + 1).every((file) => /-v101\.css$/.test(file)), 'Depois do h20 só podem vir as correções v101: ' + imports.slice(h20 + 1).join(', '))
   assert.match(css,/consolidated runtime source: global-search-popover\.css/)
 })

@@ -171,3 +171,16 @@ verify_jwt = true
 # Workspace-scoped connector token for worker actions; configuration validates user JWT.
 [functions.prospecting-local-connector]
 verify_jwt = false
+
+# Autenticação própria (token do conector Linux ou segredo de worker/cron), sem JWT de usuário.
+[functions.prospecting-local-connector-staged]
+verify_jwt = false
+
+[functions.integration-sync-worker]
+verify_jwt = false
+
+[functions.task-reminder-dispatch]
+verify_jwt = false
+
+[functions.task-reminder-readiness]
+verify_jwt = true

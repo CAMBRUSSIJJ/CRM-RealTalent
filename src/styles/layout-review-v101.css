@@ -1,0 +1,27 @@
+/*
+ * Revisão de layout de Tarefas e Pipeline (19/11/2026).
+ * Colunas medem o próprio conteúdo em vez de ocupar a tela inteira; colunas vazias ficam compactas;
+ * a lista de cada coluna rola por dentro. Só CSS: nenhum dado ou comportamento muda.
+ */
+
+/* ── Tarefas ───────────────────────────────────────────────────────────── */
+/* Cada coluna mede o próprio conteúdo: não estica até a coluna mais alta. */
+.tasks-page-v4__board { align-items: start !important; }
+.tasks-page-v4__column { height: auto !important; min-height: 0 !important; max-height: min(72vh, 680px); align-self: start !important; }
+/* A lista rola por dentro, para o cabeçalho e o "criar" ficarem sempre visíveis. */
+.tasks-page-v4__column-body { max-height: min(60vh, 560px) !important; overflow-y: auto; flex: 0 1 auto !important; }
+/* Coluna vazia: cabeçalho e uma faixa curta, sem bloco vazio gigante. */
+.tasks-page-v4__column:has(.tasks-page-v4__empty-column) { max-height: none; }
+.tasks-page-v4__column:has(.tasks-page-v4__empty-column) .tasks-page-v4__column-body { max-height: none !important; flex: 0 0 auto !important; }
+.tasks-page-v4__empty-column { min-height: 0 !important; padding: 18px 12px !important; gap: 6px !important; }
+
+/* ── Pipeline ──────────────────────────────────────────────────────────── */
+/* Colunas medem o conteúdo, com teto de altura; sem a altura fixa da tela inteira. */
+.sales-pipeline-v3__board { align-items: flex-start; }
+.sales-pipeline-v3__column { height: auto !important; max-height: min(74vh, 720px); }
+.sales-pipeline-v3__column-body { max-height: min(56vh, 600px); overflow-y: auto; }
+/* Coluna sem negócios: compacta, para não parecer um quadro vazio enorme. */
+.sales-pipeline-v3__column:not(:has(.sales-pipeline-v3__card)) { max-height: none; }
+.sales-pipeline-v3__column:not(:has(.sales-pipeline-v3__card)) .sales-pipeline-v3__column-body { max-height: none; min-height: 0; flex: 0 0 auto; }
+.sales-pipeline-v3__column:not(:has(.sales-pipeline-v3__card)) .sales-pipeline-v3__column-body:empty { display: none; }
+.tasks-page-v4__column:has(.tasks-page-v4__empty-column) .tasks-page-v4__column-body { min-height: 0 !important; }

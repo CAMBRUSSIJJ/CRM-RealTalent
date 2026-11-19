@@ -672,7 +672,7 @@ export function PipelinePage() {
 
 
   return <div className={`page-stack sales-pipeline-v3 ${compact ? 'sales-pipeline-v3--compact' : ''}`}>
-    <WorkspacePageHeader className="sales-pipeline-v3__header" eyebrow="Execução comercial" title="Pipeline" description="Acompanhe negócios, prazos e próximas ações em cada etapa." icon={TrendingUp} actions={canPipelineCreate ? <Button className="sales-pipeline-v3__new" onClick={() => setCreateStageId(snapshot?.stages[0]?.id ?? '')}><Plus size={16} /> Nova oportunidade</Button> : null} />
+    <WorkspacePageHeader className="sales-pipeline-v3__header" eyebrow="Execução comercial" title="Pipeline" description="Acompanhe negócios, prazos e próximas ações em cada etapa." icon={TrendingUp} actions={canPipelineCreate ? <Button effect="blob" className="sales-pipeline-v3__new" onClick={() => setCreateStageId(snapshot?.stages[0]?.id ?? '')}><Plus size={16} /> Nova oportunidade</Button> : null} />
 
     <section className="sales-pipeline-v3__toolbar" aria-label="Controles do Pipeline">
       <div className="sales-pipeline-v3__toolbar-main">

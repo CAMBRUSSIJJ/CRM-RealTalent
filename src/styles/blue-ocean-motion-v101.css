@@ -1,0 +1,63 @@
+/*
+ * Movimento do Blue Ocean portado para o CRM (botões com bolhas, brilho e entradas).
+ * Só CSS: não adiciona dependências. Usa as cores do RealTalent (--rt-*).
+ * Carregado por último em main.tsx.
+ */
+
+/* ── Botão com bolhas (variante primária) ───────────────────────────────── */
+.button--blob {
+  --bb-blob: var(--rt-primary, #2f5bd3);
+  --bb-text: #fff;
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  border: 1.5px solid var(--rt-primary, #2f5bd3) !important;
+  background: transparent !important;
+  color: var(--rt-primary, #2f5bd3) !important;
+  transition: color .45s, box-shadow .25s ease, transform .18s ease;
+}
+/* Bolhas: ficam abaixo do texto, saem de baixo no hover em cascata. */
+.button--blob__fill {
+  position: absolute; inset: 0; z-index: -1; overflow: hidden; border-radius: inherit; pointer-events: none;
+}
+.button--blob__fill > .button--blob__blob {
+  position: absolute; top: 2px; width: 25%; height: 100%;
+  background: var(--bb-blob); border-radius: 100%;
+  transform: translate3d(0, 150%, 0) scale(1.7);
+  transition: transform .45s;
+}
+.button--blob__fill { filter: url('#rt-goo'); }
+.button--blob__blob:nth-child(1) { left: 0%; }
+.button--blob__blob:nth-child(2) { left: 25%; transition-delay: .08s; }
+.button--blob__blob:nth-child(3) { left: 50%; transition-delay: .16s; }
+.button--blob__blob:nth-child(4) { left: 75%; transition-delay: .24s; }
+/* Padrão do Blue Ocean: contorno azul, fundo vazio; as bolhas azuis preenchem no hover e o texto vira branco. */
+.button--blob:not(:disabled):hover .button--blob__blob { transform: translateZ(0) scale(1.7); }
+.button--blob:not(:disabled):hover { color: #fff !important; }
+.button--blob:not(:disabled):hover { box-shadow: 0 6px 18px -8px color-mix(in srgb, var(--rt-primary, #2f5bd3) 65%, transparent); }
+.button--blob:not(:disabled):active { transform: scale(.98); }
+
+/* Brilho que atravessa o botão no hover (linha fina, como o "current" do Blue Ocean). */
+.button--blob__sweep {
+  position: absolute; left: -34%; bottom: 0; width: 34%; height: 2px; border-radius: 99px;
+  background: linear-gradient(90deg, transparent, #8cf4eb, rgba(255, 255, 255, .9), transparent);
+  opacity: 0; pointer-events: none;
+}
+.button--blob:not(:disabled):hover .button--blob__sweep { animation: rt-blob-sweep .7s ease-out; }
+@keyframes rt-blob-sweep { 0% { left: -34%; opacity: 0; } 18% { opacity: .9; } 100% { left: 105%; opacity: 0; } }
+
+.button--blob__label { position: relative; z-index: 1; display: inline-flex; align-items: center; gap: 6px; pointer-events: none; }
+.button--blob:focus-visible { outline: 2px solid var(--rt-primary, #2f5bd3); outline-offset: 2px; }
+
+/* ── Entradas de card (o "card-arrive" e o "reveal" do Blue Ocean) ───────── */
+@keyframes rt-bo-card-arrive { from { opacity: 0; transform: translate3d(12px, 0, 0) scale(.992); } to { opacity: 1; transform: none; } }
+@keyframes rt-bo-reveal { from { opacity: 0; transform: translate3d(0, 10px, 0); } to { opacity: 1; transform: none; } }
+.rt-bo-card-arrive { animation: rt-bo-card-arrive .68s cubic-bezier(.2, .75, .2, 1) both; }
+.rt-bo-reveal { animation: rt-bo-reveal .62s cubic-bezier(.2, .75, .2, 1) both; }
+
+/* ── Reduzir movimento: sem bolhas, sem brilho, sem entradas ────────────── */
+@media (prefers-reduced-motion: reduce) {
+  .button--blob__blob, .button--blob__sweep, .button--blob, .rt-bo-card-arrive, .rt-bo-reveal { animation: none !important; transition-duration: .01ms !important; }
+  .button--blob__blob { transform: translateZ(0) scale(1.7) !important; }
+}
+html[data-reduce-motion="true"] .button--blob__blob, html[data-reduce-motion="true"] .button--blob__sweep { animation: none !important; }

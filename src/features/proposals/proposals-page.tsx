@@ -878,7 +878,7 @@ export function ProposalsPage() {
   }
 
   return <div className={`page-stack proposals-page proposals-page-v10166 proposals-page-h20 ${filtersOpen ? 'proposals-page-v10166--filters-open' : ''}`}>
-    <WorkspacePageHeader className="proposal-page-header-h20" data-can-export={canProposalExport ? 'true' : 'false'} eyebrow="Fechamento comercial" icon={FileText} title="Propostas" description="Crie, acompanhe e avance propostas vinculadas ao Pipeline sem sair do fluxo comercial." actions={<Button onClick={() => { setEditingProposal(null); setProposalModal(true) }} disabled={!canProposalCreate || !proposalStages.length}><Plus size={17}/> Nova proposta</Button>} />
+    <WorkspacePageHeader className="proposal-page-header-h20" data-can-export={canProposalExport ? 'true' : 'false'} eyebrow="Fechamento comercial" icon={FileText} title="Propostas" description="Crie, acompanhe e avance propostas vinculadas ao Pipeline sem sair do fluxo comercial." actions={<Button effect="blob" onClick={() => { setEditingProposal(null); setProposalModal(true) }} disabled={!canProposalCreate || !proposalStages.length}><Plus size={17}/> Nova proposta</Button>} />
     {!proposalStages.length ? <section className="proposal-sync-alert"><strong>Etapa de Proposta não encontrada no Pipeline.</strong><span>Crie ou renomeie uma etapa para “Proposta” antes de cadastrar novas propostas.</span></section> : null}
     <WorkspaceSummaryStrip className="proposal-summary-strip-h20">
       <WorkspaceSummaryMetric icon={FileText} label="Em negociação" value={canViewProposalTotal?formatCurrency(proposalWorkspaceStats.negotiating):'Restrito'} meta="valor total em negociação" />

@@ -236,7 +236,7 @@ export function TasksPage() {
       </div>
       <div className="tasks-page-v4__top-actions">
         {repositoryMode === 'local' && workspaceId ? <button type="button" className="tasks-page-v4__automation" onClick={() => setShowNotifications(true)} title="Comunicação e automações" aria-label="Comunicação e automações"><Bell size={16} /></button> : null}
-        {canTaskCreate ? <Button className="tasks-page-v4__new" onClick={showTaskCreate}><Plus size={16}/> Nova tarefa</Button> : null}
+        {canTaskCreate ? <Button effect="blob" className="tasks-page-v4__new" onClick={showTaskCreate}><Plus size={16}/> Nova tarefa</Button> : null}
       </div>
     </div>
 

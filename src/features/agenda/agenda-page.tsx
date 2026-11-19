@@ -368,7 +368,7 @@ export function AgendaPage() {
   }
 
   return <div className={`page-stack agenda-page agenda-page--professional agenda-page-v10166 agenda-page-h20 ${filtersOpen ? 'agenda-page-v10166--filters-open' : ''}`}>
-    <WorkspacePageHeader className="agenda-page-header-h20" eyebrow="Agenda comercial" title="Agenda" description="Compromissos, reuniões, ligações, tarefas e retornos em um único calendário operacional." icon={CalendarDays} actions={canWrite ? <Button onClick={() => openCreate()}><Plus size={17} /> Novo evento</Button> : null} />
+    <WorkspacePageHeader className="agenda-page-header-h20" eyebrow="Agenda comercial" title="Agenda" description="Compromissos, reuniões, ligações, tarefas e retornos em um único calendário operacional." icon={CalendarDays} actions={canWrite ? <Button effect="blob" onClick={() => openCreate()}><Plus size={17} /> Novo evento</Button> : null} />
 
     <WorkspaceSummaryStrip className="agenda-summary-strip-h20">
       <WorkspaceSummaryMetric label="Hoje" value={stats.today} meta="Compromissos do dia" icon={CalendarCheck2} tone="brand" active={view === 'day' && sameDay(cursor, new Date()) && !quickFilter} onClick={() => { setQuickFilter(''); setCursor(new Date()); setView('day') }} />

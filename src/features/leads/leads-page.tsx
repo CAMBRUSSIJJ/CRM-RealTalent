@@ -707,7 +707,7 @@ export function LeadsPage() {
 
   return (
     <div className={`page-stack contacts-v3 ${density === 'compact' ? 'contacts-v3--compact' : ''} ${viewSettingsOpen ? 'contact-view-settings-open-v10164' : ''}`}>
-      <WorkspacePageHeader className="contacts-v3__header" eyebrow="Base comercial" title="Contatos" description="Pessoas, empresas, prioridade comercial e próximas ações em uma única base." icon={UsersRound} actions={canContactCreate ? <Button className="contacts-v3__new" onClick={() => setCreateOpen(true)}><Plus size={17}/> Novo contato</Button> : null} />
+      <WorkspacePageHeader className="contacts-v3__header" eyebrow="Base comercial" title="Contatos" description="Pessoas, empresas, prioridade comercial e próximas ações em uma única base." icon={UsersRound} actions={canContactCreate ? <Button effect="blob" className="contacts-v3__new" onClick={() => setCreateOpen(true)}><Plus size={17}/> Novo contato</Button> : null} />
       <section className="contacts-v3__kpis" aria-label="Indicadores de contatos">
         <button type="button" className={`contacts-v3__kpi is-blue ${activeView === savedViews.find((v) => v.starterKey === 'all')?.id ? 'is-active' : ''}`} onClick={() => applyStarterView('all')}><span className="contacts-v3__kpi-icon"><UsersRound size={18}/></span><span className="contacts-v3__kpi-label">Contatos ativos</span><strong>{stats.total}</strong><small>Base comercial</small></button>
 <button type="button" className={`contacts-v3__kpi is-amber ${activeView === savedViews.find((v) => v.starterKey === 'due')?.id ? 'is-active' : ''}`} onClick={() => applyStarterView('due')}><span className="contacts-v3__kpi-icon"><CalendarClock size={18}/></span><span className="contacts-v3__kpi-label">Precisam de ação</span><strong>{stats.due}</strong><small>Vencidos ou hoje</small></button>
@@ -851,7 +851,7 @@ export function LeadsPage() {
             </article>
           })}</div>}
           <div className="pagination"><Button variant="ghost" disabled={page === 1} onClick={() => setPage((value) => value - 1)}>Anterior</Button><span>{(page - 1) * PAGE_SIZE + 1}–{Math.min(page * PAGE_SIZE, leads.length)} de {leads.length}</span><Button variant="ghost" disabled={page === totalPages} onClick={() => setPage((value) => value + 1)}>Próxima</Button></div>
-        </> : <EmptyState icon={UsersRound} title="Nenhum contato encontrado" description={hasFilters ? 'Nenhum registro corresponde à busca e aos filtros selecionados.' : 'Adicione manualmente ou importe sua base de contatos.'} action={canContactCreate ? <Button onClick={() => setCreateOpen(true)}><Plus size={17} /> Novo contato</Button> : undefined} />}
+        </> : <EmptyState icon={UsersRound} title="Nenhum contato encontrado" description={hasFilters ? 'Nenhum registro corresponde à busca e aos filtros selecionados.' : 'Adicione manualmente ou importe sua base de contatos.'} action={canContactCreate ? <Button effect="blob" onClick={() => setCreateOpen(true)}><Plus size={17} /> Novo contato</Button> : undefined} />}
       </section>
 
       {viewSettingsOpen ? <aside className="contact-view-settings-v10164" role="complementary" aria-label="Configurações da exibição">

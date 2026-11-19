@@ -194,7 +194,7 @@ export function GoalsPage() {
 
       <WorkspaceCommandBar query={query} onQueryChange={setQuery} placeholder="Buscar meta, responsável ou período..." actions={<>
         <WorkspaceFilterMenu workspaceKey={`goals:${currentWorkspace?.id ?? 'local'}`} fields={universalGoalFilters} activeCount={activeFilterCount} onOpenAdvanced={() => setFiltersOpen(true)} onClearAll={resetFilters} onChange={(key, value) => { if (key === 'owner') setOwnerFilter(value); else if (key === 'metric') setMetricFilter(value as 'all' | GoalMetric); else setHealthFilter(value as HealthFilter) }} />
-        {canGoalCreate ? <><Button variant="secondary" disabled={!activeGoals.length} onClick={() => setRoutineOpen(true)}><Sparkles size={17} /> Gerar rotina do dia</Button><Button onClick={() => { setEditing(null); setModalOpen(true) }}><Plus size={17} /> Nova meta</Button></> : null}
+        {canGoalCreate ? <><Button variant="secondary" disabled={!activeGoals.length} onClick={() => setRoutineOpen(true)}><Sparkles size={17} /> Gerar rotina do dia</Button><Button effect="blob" onClick={() => { setEditing(null); setModalOpen(true) }}><Plus size={17} /> Nova meta</Button></> : null}
       </>} />
 
       {filtersOpen ? <WorkspaceAdvancedFilterDrawer eyebrow="Metas" title="Filtros de metas" description="Use a mesma lógica de propriedades rápidas e filtros avançados do restante do CRM." onClose={() => setFiltersOpen(false)} onClear={resetFilters}>

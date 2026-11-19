@@ -1,0 +1,29 @@
+/*
+ * Correções da auditoria de UX (19/11/2026).
+ * Carregado por último em main.tsx para vencer a cascata dos estilos anteriores.
+ * Cada bloco indica o problema que corrige.
+ */
+
+/* 1. Menu x conteúdo: o deslocamento do conteúdo acompanha a largura real do menu.
+ * Antes, o modo "expanded" forçava 252px em qualquer tela (celular e tablet cortados)
+ * e a largura fixa calc(100vw - 252px) ignorava a barra de rolagem do sistema. */
+html[data-sidebar-mode] { --rt-shell-offset: var(--rt-sidebar-width-expanded, 252px); }
+html[data-sidebar-mode="compact"] { --rt-shell-offset: var(--rt-sidebar-width-compact, 82px); }
+@media (max-width: 1180px) {
+  html[data-sidebar-mode] { --rt-shell-offset: var(--rt-sidebar-width-compact, 82px); }
+}
+@media (max-width: 720px) {
+  html[data-sidebar-mode] { --rt-shell-offset: 0px; }
+}
+html[data-sidebar-mode] .app-shell__main {
+  margin-left: var(--rt-shell-offset) !important;
+  width: auto !important;
+  flex: 1 1 auto !important;
+  min-width: 0 !important;
+}
+@media (min-width: 721px) {
+  html[data-sidebar-mode] .sidebar--collapsed + .app-shell__main { margin-left: var(--rt-sidebar-width-compact, 82px) !important; }
+}
+@media (min-width: 1181px) {
+  html[data-sidebar-mode="expanded"] .sidebar:not(.sidebar--collapsed) { width: var(--rt-sidebar-width-expanded, 252px) !important; }
+}

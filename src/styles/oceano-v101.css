@@ -257,3 +257,37 @@ html[data-appearance-preset="ocean"][data-theme] .sidebar .sidebar__nav .sidebar
 
 /* Texto do item ativo sem caixa de fundo herdada. */
 html[data-appearance-preset="ocean"][data-theme] .sidebar .sidebar__nav .sidebar__item > span { background: transparent !important; }
+
+/* ── Correções do vídeo de 19/11 ───────────────────────────────────────── */
+/* Botões de ícone: ao passar o mouse ficavam brancos (regra antiga com azul-claro). */
+html[data-appearance-preset="ocean"][data-theme] main .icon-button:hover,
+html[data-appearance-preset="ocean"][data-theme] .app-shell__main .icon-button:hover {
+  background: rgba(255, 255, 255, .08) !important; color: var(--oc-text) !important; border-color: var(--oc-line-strong) !important;
+}
+/* "Filtros aplicados" em Contatos: barra de vidro em vez de branca. */
+html[data-appearance-preset="ocean"] :is(.lead-filter-chips, .workspace-filter-chips-v10170, .workspace-filter-chips-v10167) {
+  background: var(--oc-glass) !important; border: 1px solid var(--oc-line) !important; color: var(--oc-muted) !important;
+}
+html[data-appearance-preset="ocean"] :is(.lead-filter-chips, .workspace-filter-chips-v10170, .workspace-filter-chips-v10167) button {
+  background: rgba(85, 214, 178, .12) !important; color: var(--oc-mint-text) !important; border: 1px solid rgba(85, 214, 178, .3) !important;
+}
+/* Contornos claros (colunas do Pipeline, buscas, filtros do Garimpo, ícones de Metas). */
+html[data-appearance-preset="ocean"] :is(.sales-pipeline-v3__column-body, .sales-pipeline-v3__select, .contacts-v3__search, .tasks-page-v4__search,
+  .communications-central-v3__search, .followups-v3__search, .followups-v3__row__check, .gh-options, .gh-search-advanced, .gh-index-more,
+  .gh-saved-searches, .settings-nav-group, .metric-card__icon, .goals-page footer, .playbooks-page footer, .automations-page footer) {
+  border-color: var(--oc-line-strong) !important;
+}
+html[data-appearance-preset="ocean"] .sales-pipeline-v3__column-body:empty,
+html[data-appearance-preset="ocean"] .sales-pipeline-v3__column-body:not(:has(*)) { border-style: dashed !important; border-color: rgba(121, 198, 221, .2) !important; background: transparent !important; }
+html[data-appearance-preset="ocean"] .metric-card__icon { background: rgba(121, 198, 221, .12) !important; }
+/* Degradê da borda do Pipeline: termina na cor da noite, não em cinza-claro. */
+html[data-appearance-preset="ocean"] .sales-pipeline-v3__board::after { background: linear-gradient(to right, rgba(6, 20, 35, 0), #061423) !important; }
+html[data-appearance-preset="ocean"] .metrics-column-chart { background: transparent !important; }
+/* Barras de rolagem discretas (a linha branca embaixo do Pipeline era a barra de rolagem). */
+html[data-appearance-preset="ocean"] * { scrollbar-color: rgba(121, 198, 221, .3) transparent; }
+html[data-appearance-preset="ocean"] ::-webkit-scrollbar { height: 8px; width: 8px; background: transparent; }
+html[data-appearance-preset="ocean"] ::-webkit-scrollbar-thumb { background: rgba(121, 198, 221, .3); border-radius: 99px; }
+html[data-appearance-preset="ocean"] ::-webkit-scrollbar-track { background: transparent; }
+/* Modais opacos: antes dava para ver a tela de trás através do formulário. */
+html[data-appearance-preset="ocean"] .rt-dialog.modal { background: #0b2238 !important; backdrop-filter: none !important; }
+html[data-appearance-preset="ocean"] .modal-backdrop { background: rgba(2, 8, 16, .72) !important; }

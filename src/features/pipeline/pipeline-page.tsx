@@ -261,9 +261,11 @@ export function PipelinePage() {
       count: kpiBaseLeads.length,
       value: kpiBaseLeads.reduce((sum, lead) => sum + commercialValue(lead), 0),
       weighted: kpiBaseLeads.reduce((sum, lead) => sum + commercialValue(lead) * commercialProbability(lead) / 100, 0),
-      risk: riskIds.size, noAction, overdue,
+      risk: riskIds.size, riskValue: kpiBaseLeads.filter((lead) => riskIds.has(lead.id)).reduce((sum, lead) => sum + commercialValue(lead), 0), noAction, overdue,
     }
   }, [dealByLead, kpiBaseLeads, signals, officialProposalByLead, opportunityByLead, snapshot?.stages])
+  const forecastValue = revenueIntelligence?.realTalentForecast ?? dealPortfolio?.predictedValue ?? kpiTotals.weighted
+  const forecastMonthName = new Intl.DateTimeFormat('pt-BR', { month: 'long' }).format(new Date())
   const activateQuickSlice = (slice: 'all' | 'risk' | 'no_action' | 'overdue', nextScope: PipelineScope = scope) => {
     setActiveSavedViewId(null); setScope(nextScope); setQuickSlice(slice); setFilters(DEFAULT_FILTERS); setSort(slice === 'risk' ? 'deal_health_asc' : slice === 'overdue' ? 'next_action' : 'updated_desc'); selectViewMode('board')
   }
@@ -723,10 +725,26 @@ export function PipelinePage() {
         </div>
       </div>
       <div className="sales-pipeline-v3__metrics">
-        <button type="button" onClick={() => setIntelligenceOpen((value) => !value)} disabled={!dealPortfolio}><span>Saúde geral</span><strong>{dealPortfolio ? `${dealPortfolio.averageHealth}/100` : '—'}</strong></button>
-        <button type="button" className="is-risk" onClick={() => activateQuickSlice('risk')}><span><AlertTriangle size={13}/> Em risco</span><strong>{formatCurrency(dealPortfolio?.atRiskValue ?? 0)}</strong></button>
-        <button type="button" onClick={() => { setQuickSlice('all'); setActiveSavedViewId(null); selectViewMode('forecast') }}><span>Previsão</span><strong>{formatCurrency(revenueIntelligence?.realTalentForecast ?? dealPortfolio?.predictedValue ?? kpiTotals.weighted)}</strong></button>
-        <span className="sales-pipeline-v3__metrics-total">{formatCurrency(kpiTotals.value)} em oportunidades · {kpiTotals.noAction} sem próxima ação</span>
+        <button type="button" onClick={() => setIntelligenceOpen((value) => !value)} disabled={!dealPortfolio} title="Média da saúde dos negócios abertos (0 a 100). Clique para ver a análise da carteira.">
+          <span>Saúde da carteira</span>
+          <strong>{dealPortfolio ? `${dealPortfolio.averageHealth}/100` : '—'}</strong>
+          <small>{!dealPortfolio ? 'Sem negócios para analisar' : dealPortfolio.averageHealth >= 70 ? 'Boa' : dealPortfolio.averageHealth >= 45 ? 'Pede atenção' : 'Crítica'}</small>
+        </button>
+        <button type="button" className="is-risk" onClick={() => activateQuickSlice('risk')} title="Valor dos negócios em risco crítico ou com proposta sem retorno. Clique para filtrar.">
+          <span><AlertTriangle size={13}/> Em risco</span>
+          <strong>{formatCurrency(kpiTotals.riskValue)}</strong>
+          <small>{kpiTotals.risk} {plural(kpiTotals.risk, 'negócio', 'negócios')}</small>
+        </button>
+        <button type="button" onClick={() => { setQuickSlice('all'); setActiveSavedViewId(null); selectViewMode('forecast') }} title="Receita esperada dos negócios com fechamento previsto para este mês. Clique para abrir a visão de previsão.">
+          <span>Previsão de {forecastMonthName}</span>
+          <strong>{formatCurrency(forecastValue)}</strong>
+          <small>{forecastValue > 0 ? 'Ponderada pela probabilidade' : 'Nenhum fechamento previsto no mês'}</small>
+        </button>
+        <div className="sales-pipeline-v3__metrics-open" title="Soma dos negócios abertos no recorte atual.">
+          <span>Em aberto</span>
+          <strong>{formatCurrency(kpiTotals.value)}</strong>
+          <small>{kpiTotals.noAction ? `${kpiTotals.noAction} sem próxima ação` : 'Todos com próxima ação'}</small>
+        </div>
       </div>
     </section>
 

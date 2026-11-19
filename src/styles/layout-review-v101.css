@@ -25,3 +25,61 @@
 .sales-pipeline-v3__column:not(:has(.sales-pipeline-v3__card)) .sales-pipeline-v3__column-body { max-height: none; min-height: 0; flex: 0 0 auto; }
 .sales-pipeline-v3__column:not(:has(.sales-pipeline-v3__card)) .sales-pipeline-v3__column-body:empty { display: none; }
 .tasks-page-v4__column:has(.tasks-page-v4__empty-column) .tasks-page-v4__column-body { min-height: 0 !important; }
+
+/* Pipeline: indicadores em quatro blocos (rótulo, valor, contexto), em vez de uma linha de siglas.
+ * "Previsão" agora diz o mês e explica quando está zerada. */
+.sales-pipeline-v3__metrics {
+  display: grid !important;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px !important;
+  padding: 12px 0 2px !important;
+}
+.sales-pipeline-v3__metrics > :is(button, .sales-pipeline-v3__metrics-open) {
+  display: grid !important;
+  grid-template-rows: auto auto auto;
+  align-content: start;
+  justify-items: start;
+  gap: 2px !important;
+  min-width: 0;
+  min-height: 0 !important;
+  padding: 10px 12px !important;
+  border: 1px solid var(--rt-border, #dfe3ea) !important;
+  border-radius: 10px !important;
+  background: var(--rt-surface, #fff) !important;
+  text-align: left;
+  white-space: normal !important;
+  transition: border-color .18s ease, box-shadow .18s ease, transform .18s ease;
+}
+.sales-pipeline-v3__metrics > button:hover:not(:disabled) {
+  border-color: color-mix(in srgb, var(--rt-primary, #2f5bd3) 45%, var(--rt-border, #dfe3ea)) !important;
+  box-shadow: 0 6px 16px -10px rgba(15, 23, 42, .35);
+  transform: translateY(-1px);
+}
+.sales-pipeline-v3__metrics > button:focus-visible { outline: 2px solid var(--rt-primary, #2f5bd3); outline-offset: 2px; }
+.sales-pipeline-v3__metrics > :is(button, .sales-pipeline-v3__metrics-open) > span {
+  display: inline-flex; align-items: center; gap: 5px;
+  color: var(--rt-muted, #5d687c) !important;
+  font-size: 12px !important; font-weight: 600 !important;
+  letter-spacing: 0 !important; text-transform: none !important;
+}
+.sales-pipeline-v3__metrics > :is(button, .sales-pipeline-v3__metrics-open) > strong {
+  color: var(--rt-text, #1a2233) !important;
+  font-size: 18px !important; font-weight: 700 !important; line-height: 1.25;
+  font-variant-numeric: tabular-nums;
+}
+.sales-pipeline-v3__metrics > :is(button, .sales-pipeline-v3__metrics-open) > small {
+  color: var(--rt-muted, #5d687c); font-size: 12px; line-height: 1.3;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 100%;
+}
+.sales-pipeline-v3__metrics > button.is-risk > span,
+.sales-pipeline-v3__metrics > button.is-risk > strong { color: #b91c1c !important; }
+.sales-pipeline-v3__metrics > button.is-risk { box-shadow: inset 3px 0 0 #dc2626; }
+html[data-theme="dark"] .sales-pipeline-v3__metrics > button.is-risk > :is(span, strong) { color: #f87171 !important; }
+@media (max-width: 900px) {
+  .sales-pipeline-v3__metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .sales-pipeline-v3__metrics > :is(button, .sales-pipeline-v3__metrics-open) > small { white-space: normal; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .sales-pipeline-v3__metrics > button:hover:not(:disabled) { transform: none; }
+}
+html[data-reduce-motion="true"] .sales-pipeline-v3__metrics > button:hover:not(:disabled) { transform: none; }

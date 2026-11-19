@@ -291,7 +291,7 @@ export function WorkspaceViewStrip({ items, onAdd, addLabel = 'Nova exibição' 
   return <section className="workspace-view-strip-v10169 workspace-view-strip-v10170" aria-label="Exibições">
     <div className="workspace-view-strip-v10169__scroll" role="tablist" aria-label="Exibições do workspace">
       {items.map((item, index) => <div key={item.id} className={`workspace-view-chip-v10169 workspace-view-chip-v10169--${item.accent ?? 'neutral'} ${item.active ? 'is-active' : ''}`}>
-        <button type="button" role="tab" className="workspace-view-chip-v10169__main" onClick={item.onClick} onKeyDown={(event) => handleViewKey(event, index)} aria-selected={Boolean(item.active)} tabIndex={item.active ? 0 : -1}>
+        <button type="button" role="tab" className="workspace-view-chip-v10169__main" aria-label={typeof item.count === 'number' ? `${item.label}, ${item.count}` : item.label} onClick={item.onClick} onKeyDown={(event) => handleViewKey(event, index)} aria-selected={Boolean(item.active)} tabIndex={item.active ? 0 : -1}>
           {item.icon ? <span className="workspace-view-chip-v10169__icon">{item.icon}</span> : null}<strong>{item.label}</strong>{typeof item.count === 'number' ? <em>{item.count}</em> : null}{item.favorite ? <Star size={12}/> : null}
         </button>
         {item.menu?.length ? <button type="button" className="workspace-view-chip-menu-trigger-v10170" aria-label={`Opções de ${item.label}`} onClick={(event) => { setMenuAnchor(event.currentTarget); setMenuId((current) => current === item.id ? null : item.id) }}><MoreHorizontal size={14}/></button> : null}

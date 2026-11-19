@@ -49,14 +49,22 @@ export function Modal({ open, title, subtitle, footer, headerActions, onClose, s
     if (!open) return
     const previouslyFocused = document.activeElement instanceof HTMLElement ? document.activeElement : null
     const focusableSelector = 'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
-    const frame = window.requestAnimationFrame(() => {
-      if (!isTopOverlay(`modal:${modalId}`)) return
-      const preferred = dialogRef.current?.querySelector<HTMLElement>('[autofocus], [data-autofocus]')
-      const bodyFocusable = dialogRef.current?.querySelector<HTMLElement>(`.modal__body ${focusableSelector}`)
-      const footerFocusable = dialogRef.current?.querySelector<HTMLElement>(`.modal__footer ${focusableSelector}`)
-      const fallbackFocusable = [...(dialogRef.current?.querySelectorAll<HTMLElement>(focusableSelector) ?? [])].find((element) => !element.hasAttribute('data-modal-close'))
-      ;(preferred ?? bodyFocusable ?? footerFocusable ?? fallbackFocusable ?? dialogRef.current)?.focus()
-    })
+    // Tenta por alguns quadros: em vários modais o conteúdo ou o registro do overlay só fica pronto
+    // depois do primeiro quadro, e o foco ficava no botão que abriu o modal.
+    let attempts = 0
+    let frame = 0
+    const placeFocus = () => {
+      const dialog = dialogRef.current
+      if (dialog && isTopOverlay(`modal:${modalId}`) && !dialog.contains(document.activeElement)) {
+        const preferred = dialog.querySelector<HTMLElement>('[autofocus], [data-autofocus]')
+        const bodyFocusable = dialog.querySelector<HTMLElement>(`.modal__body ${focusableSelector}`)
+        const footerFocusable = dialog.querySelector<HTMLElement>(`.modal__footer ${focusableSelector}`)
+        const fallbackFocusable = [...dialog.querySelectorAll<HTMLElement>(focusableSelector)].find((element) => !element.hasAttribute('data-modal-close'))
+        ;(preferred ?? bodyFocusable ?? footerFocusable ?? fallbackFocusable ?? dialog).focus()
+      }
+      if (!dialog?.contains(document.activeElement) && attempts++ < 20) frame = window.requestAnimationFrame(placeFocus)
+    }
+    frame = window.requestAnimationFrame(placeFocus)
     const onKeyDown = (event: KeyboardEvent) => {
       if (!isTopOverlay(`modal:${modalId}`)) return
       if (event.key === 'Escape') {

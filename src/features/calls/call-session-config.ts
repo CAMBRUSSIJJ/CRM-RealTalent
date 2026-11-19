@@ -4,6 +4,7 @@ import { recommendPlaybooks } from '../../services/coaching-engine'
 import { readCallingStrategyPreferences } from '../../services/calling-strategy'
 import { readVoiceSettings } from '../../services/voice-dialer'
 import type { WorkspaceSnapshot } from '../../domain/types'
+import { localDateKey } from '../../services/goals-workspace'
 
 export interface CallSessionConfig {
   leadIds: string[]
@@ -54,7 +55,8 @@ export function buildQuickCallSessionConfig(input: QuickCallSessionInput): CallS
     ? recommendPlaybooks(activeScripts, { objective: sessionObjective, stageId: lead.stageId, decisionRole: lead.decisionRole ?? null, temperature: lead.temperature, kind: 'script' })[0]?.playbook ?? null
     : null
   const playbookId = requestedPlaybook?.id ?? contextualPlaybook?.id ?? configuredPlaybook?.id ?? activeScripts[0]?.id ?? ''
-  const today = new Date().toISOString().slice(0, 10)
+  // Dia local (em UTC, depois das 21h no Brasil já seria o dia seguinte e perderia a meta do dia).
+  const today = localDateKey()
   const linkedGoal = input.snapshot?.goals.find((goal) => goal.periodStart <= today && goal.periodEnd >= today && ['calls', 'contacts', 'meetings', 'proposals'].includes(goal.metric)) ?? null
   return {
     leadIds,

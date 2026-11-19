@@ -9,6 +9,7 @@ import type {
 import { importV99Backup } from '../services/v99-importer'
 import { parseLeadCsv } from '../services/lead-csv'
 import { mergeLeadRecords } from '../services/lead-intelligence'
+import { localDateKey } from '../services/goals-workspace'
 import { safeStorage } from '../lib/storage'
 import { useAuth } from '../features/auth/auth-context'
 import { automationCorrelationId, automationEventKey, automationLoopDetected, conditionMatches, ruleMatches, type AutomationEvent } from '../services/automation-engine'
@@ -757,7 +758,7 @@ export function AppProvider({ children }: PropsWithChildren) {
     async runAutomationChecks() { assertWritable();
       if (!currentWorkspace) throw new Error('Selecione um workspace.')
       const base = await loadWorkspaceSnapshotSlices(repository, currentWorkspace, ['commercial', 'stages', 'activities', 'calls', 'goals', 'automationRules'])
-      const now = new Date(); const dayKey = now.toISOString().slice(0, 10); let count = 0
+      const now = new Date(); const dayKey = localDateKey(now); let count = 0 // dia local: em UTC a automação podia disparar 2x no mesmo dia
       for (const activity of base.activities.filter((item) => item.dueAt && !item.completedAt && new Date(item.dueAt).getTime() < now.getTime())) {
         const lead = base.leads.find((item) => item.id === activity.leadId) ?? null
         const attempts = lead ? base.calls.filter((call) => call.leadId === lead.id).length : 0

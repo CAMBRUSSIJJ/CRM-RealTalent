@@ -88,7 +88,8 @@ function MeetingQuickModal({ lead, open, onClose }: { lead: Lead | null; open: b
   const initial = new Date(Date.now() + 24 * 60 * 60 * 1000)
   initial.setMinutes(0, 0, 0)
   const [title, setTitle] = useState('Reunião comercial')
-  const [startsAt, setStartsAt] = useState(initial.toISOString().slice(0, 16))
+  // Horário local no campo (antes era UTC e a reunião era criada deslocada pelo fuso).
+  const [startsAt, setStartsAt] = useState(new Date(initial.getTime() - initial.getTimezoneOffset() * 60_000).toISOString().slice(0, 16))
   const [duration, setDuration] = useState(45)
   const [location, setLocation] = useState('Google Meet / online')
   const [description, setDescription] = useState('')

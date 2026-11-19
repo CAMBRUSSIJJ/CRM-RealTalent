@@ -101,7 +101,8 @@ export function LeadDetailsDrawer({ readOnly = false, openAccountOnMount = false
     if (!lead || !snapshot) return
     setInlineDraft({
       name: lead.name, company: lead.company, phone: lead.phone, email: lead.email, city: lead.city, ownerId: lead.ownerId ?? '',
-      nextActionAt: lead.nextActionAt ? lead.nextActionAt.slice(0, 16) : '',
+      // Horário local no campo (antes mostrava UTC e, ao salvar, deslocava a próxima ação pelo fuso).
+      nextActionAt: lead.nextActionAt ? (() => { const d = new Date(lead.nextActionAt); return new Date(d.getTime() - d.getTimezoneOffset() * 60_000).toISOString().slice(0, 16) })() : '',
     })
     setNoteDraft(lead.notes ?? '')
     const stored = readLeadSalesStrategyPreference(snapshot.workspace.id, lead, snapshot)

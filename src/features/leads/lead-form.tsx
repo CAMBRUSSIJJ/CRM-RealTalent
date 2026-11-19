@@ -48,6 +48,26 @@ const formatPhone = (value: string) => {
   return value.trim()
 }
 
+/** Valor para <input type="datetime-local"> no horário local (antes usava UTC e mostrava a hora errada). */
+const toLocalInput = (iso: string) => {
+  const date = new Date(iso)
+  if (Number.isNaN(date.getTime())) return ''
+  const pad = (n: number) => String(n).padStart(2, '0')
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`
+}
+const toDateInput = (date: Date) => `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`
+/** Atalhos de próxima ação: hoje no fim do expediente (se ainda der), amanhã e em 2 dias no início do expediente. */
+const nextActionPresets = (preferences: CrmPreferences) => {
+  const [startH, startM] = preferences.commercial.businessStart.split(':').map(Number)
+  const at = (days: number, hour: number, minute: number) => { const d = new Date(); d.setDate(d.getDate() + days); d.setHours(hour, minute, 0, 0); return d.toISOString() }
+  const h = Number.isFinite(startH) ? startH : 9, m = Number.isFinite(startM) ? startM : 0
+  const time = `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`
+  const chips: Array<{ label: string; iso: string }> = []
+  if (new Date().getHours() < 16) chips.push({ label: 'Hoje, 17:00', iso: at(0, 17, 0) })
+  chips.push({ label: `Amanhã, ${time}`, iso: at(1, h, m) }, { label: `Em 2 dias, ${time}`, iso: at(2, h, m) })
+  return chips
+}
+
 export function LeadForm({ lead, initialStageId, formId, onSubmit, defaultExpanded = Boolean(lead), mode = 'contact' }: { lead?: Lead; initialStageId?: string; formId: string; onSubmit(value: LeadFormValue): Promise<void>; defaultExpanded?: boolean; mode?: 'contact' | 'opportunity' }) {
   const { snapshot } = useAppWorkspace()
   const { listWorkspaceMembers } = useAppActions()
@@ -56,13 +76,11 @@ export function LeadForm({ lead, initialStageId, formId, onSubmit, defaultExpand
   const fallbackStageId = initialStageId ?? snapshot?.stages[0]?.id ?? ''
   const [value, setValue] = useState<LeadFormValue>(() => lead ? fromLead(lead) : defaultValue(fallbackStageId, preferences, user))
   const [expanded, setExpanded] = useState(defaultExpanded)
-  const [opportunityTab, setOpportunityTab] = useState<'essencial' | 'empresa' | 'contexto'>('essencial')
   const [ownerOptions, setOwnerOptions] = useState<WorkspaceMember[]>([])
 
   useEffect(() => {
     setValue(lead ? fromLead(lead) : defaultValue(initialStageId ?? snapshot?.stages[0]?.id ?? '', preferences, user))
     setExpanded(defaultExpanded)
-    setOpportunityTab('essencial')
   }, [defaultExpanded, initialStageId, lead, preferences, snapshot?.stages, user])
 
   useEffect(() => {
@@ -119,104 +137,113 @@ export function LeadForm({ lead, initialStageId, formId, onSubmit, defaultExpand
   }))
 
 
-  // Opportunity V3 is its own complete form. The contact/editor workflow below
-  // intentionally retains its existing behavior and is NOT wrapped in V3 CSS.
-  if (mode === 'opportunity' && !lead) return (
-    <form id={formId} className="opportunity-create-v3" onSubmit={(event) => { event.preventDefault(); if (!value.name.trim() || !value.stageId || !value.nextActionAt || (value.email.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value.email.trim()))) { setOpportunityTab('essencial'); return }; void onSubmit(submitValue()) }}>
-      <nav className="opportunity-create-v3__tabs" role="tablist" aria-label="Dados da nova oportunidade">
-        {([
-          ['essencial', 'Essencial'],
-          ['empresa', 'Empresa & Endereço'],
-          ['contexto', 'Contexto & Origem'],
-        ] as const).map(([id, label]) => (
-          <button
-            key={id}
-            type="button"
-            role="tab"
-            id={`${formId}-tab-${id}`}
-            aria-selected={opportunityTab === id}
-            aria-controls={`${formId}-panel`}
-            className={opportunityTab === id ? 'is-active' : ''}
-            onClick={() => setOpportunityTab(id)}
-          >{label}</button>
-        ))}
-      </nav>
+  // Nova oportunidade (formato B da repaginada): uma coluna, só o essencial à vista e
+  // atalhos de um toque. Todos os campos antigos continuam em "Mais detalhes".
+  if (mode === 'opportunity' && !lead) {
+    const stages = snapshot?.stages ?? []
+    const stageIndex = Math.max(0, stages.findIndex((stage) => stage.id === value.stageId))
+    const closeOption = (offset: number) => { const d = new Date(); return toDateInput(new Date(d.getFullYear(), d.getMonth() + offset + 1, 0)) }
+    const closeChips = [{ label: 'Este mês', date: closeOption(0) }, { label: 'Próximo mês', date: closeOption(1) }]
+    const actionChips = nextActionPresets(preferences)
+    const currentAction = value.nextActionAt ? toLocalInput(value.nextActionAt) : ''
+    const emailInvalid = Boolean(value.email.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value.email.trim()))
+    return (
+    <form id={formId} className="opportunity-create-b" onSubmit={(event) => { event.preventDefault(); if (!value.name.trim() || !value.stageId || !value.nextActionAt || emailInvalid) { if (emailInvalid) setExpanded(true); return }; void onSubmit(submitValue()) }}>
+      {possibleDuplicate ? <div className="opportunity-create-b__notice is-warning" role="status"><AlertTriangle size={18} /><div><strong>Este contato já parece estar no CRM</strong><span>{possibleDuplicate.name}{possibleDuplicate.company && possibleDuplicate.company !== possibleDuplicate.name ? `, de ${possibleDuplicate.company}` : ''}, usa o mesmo telefone ou e-mail. Confira antes de criar outro registro.</span></div></div> : null}
 
-      {possibleDuplicate ? <div className="opportunity-create-v3__notice is-warning"><AlertTriangle size={18} /><div><strong>Possível contato duplicado</strong><span>{possibleDuplicate.name} já utiliza esse telefone ou e-mail. Confira antes de criar outro registro.</span></div></div> : null}
-
-      <div
-        id={`${formId}-panel`}
-        role="tabpanel"
-        aria-labelledby={`${formId}-tab-${opportunityTab}`}
-        className="opportunity-create-v3__panel"
-      >
-        {opportunityTab === 'essencial' ? <>
-          <div className="opportunity-create-v3__grid">
-            <label className="opportunity-create-v3__field"><span>Nome do contato *</span><input data-autofocus required autoFocus value={value.name} onChange={(event) => update('name', event.target.value)} placeholder="Ex.: Maria Joana" autoComplete="name"/></label>
-            <label className="opportunity-create-v3__field"><span>Empresa ou negócio</span><input list={`${formId}-company-options`} value={value.company} onChange={(event) => update('company', event.target.value)} placeholder="Ex.: RealTalent" autoComplete="organization"/><datalist id={`${formId}-company-options`}>{snapshot?.companies.map((company) => <option key={company.id} value={company.name}/>)}</datalist></label>
-            <label className="opportunity-create-v3__field"><span>Telefone</span><input type="tel" value={value.phone} onChange={(event) => update('phone', event.target.value)} onBlur={() => update('phone', formatPhone(value.phone))} placeholder="(00) 00000-0000" autoComplete="tel" inputMode="tel"/></label>
-            <label className="opportunity-create-v3__field"><span>E-mail</span><input type="email" value={value.email} onChange={(event) => update('email', event.target.value)} placeholder="contato@empresa.com" autoComplete="email"/></label>
-          </div>
-
-          {companyMatch ? <div className="opportunity-create-v3__notice is-match"><Building2 size={17}/><div><strong>Empresa já cadastrada</strong><span>{companyMatch.name}{companyMatch.city ? ` · ${companyMatch.city}` : ''}. Reutilize o registro para não duplicar contas.</span></div><button type="button" onClick={applyCompany}>Vincular empresa</button></div> : null}
-
-          <div className="opportunity-create-v3__divider" />
-          <div className="opportunity-create-v3__grid">
-            <label className="opportunity-create-v3__field"><span>Etapa do Pipeline *</span><SelectionSelect value={value.stageId} onValueChange={(next) => update('stageId', next)} options={(snapshot?.stages ?? []).map((stage) => ({ value: stage.id, label: stage.name, description: `${stage.probability}% de probabilidade` }))} /></label>
-            <label className="opportunity-create-v3__field"><span>Valor estimado</span><input type="number" min="0" step="0.01" value={value.value} onChange={(event) => update('value', Math.max(0, Number(event.target.value) || 0))} /></label>
-            <label className="opportunity-create-v3__field"><span>Previsão de fechamento</span><input type="date" value={value.expectedCloseAt?.slice(0, 10) ?? ''} onChange={(event) => update('expectedCloseAt', event.target.value || null)} /></label>
-            <label className="opportunity-create-v3__field"><span>Próxima ação *</span><input type="datetime-local" required value={value.nextActionAt ? value.nextActionAt.slice(0, 16) : ''} onChange={(event) => update('nextActionAt', event.target.value ? new Date(event.target.value).toISOString() : null)} /></label>
-            <label className="opportunity-create-v3__field"><span>Responsável</span><OwnerPicker value={value.ownerId ?? ''} members={ownerOptions} onValueChange={(ownerId) => { update('ownerId', ownerId || null); update('ownerName', ownerOptions.find((member) => member.userId === ownerId)?.displayName ?? 'Equipe') }} /></label>
-            <label className="opportunity-create-v3__field"><span>Prioridade</span><SelectionSelect value={value.priority} onValueChange={(next) => update('priority', next as LeadFormValue['priority'])} options={[{ value: 'low', label: 'Baixa' }, { value: 'medium', label: 'Média' }, { value: 'high', label: 'Alta' }, { value: 'urgent', label: 'Urgente' }]} /></label>
-          </div>
-          <p className="opportunity-create-v3__hint">Você pode completar empresa, endereço, origem e contexto nas próximas abas, sem perder o que já preencheu.</p>
-        </> : null}
-
-        {opportunityTab === 'empresa' ? <>
-          <div className="opportunity-create-v3__grid">
-            <label className="opportunity-create-v3__field"><span>CNPJ</span><input value={value.cnpj ?? ''} onChange={(event) => update('cnpj', event.target.value)} placeholder="00.000.000/0001-00" /></label>
-            <label className="opportunity-create-v3__field"><span>Site</span><input type="url" value={value.website ?? ''} onChange={(event) => update('website', event.target.value)} placeholder="https://empresa.com.br" /></label>
-          </div>
-          <div className="opportunity-create-v3__divider"/>
-          <div className="opportunity-create-v3__section-title"><div><strong>Endereço comercial</strong><span>Informações para mapa, rota e identificação da conta.</span></div><span className={`lead-geocode-state lead-geocode-state--${currentGeocodeStatus}`}>{geocodeStatusLabel[currentGeocodeStatus]}</span></div>
-          <div className="opportunity-create-v3__grid">
-            <label className="opportunity-create-v3__field"><span>CEP</span><input value={value.postalCode ?? ''} onChange={(event) => update('postalCode', event.target.value)} inputMode="numeric" autoComplete="postal-code" placeholder="00000-000" /></label>
-            <label className="opportunity-create-v3__field"><span>Rua</span><input value={value.street ?? ''} onChange={(event) => update('street', event.target.value)} autoComplete="address-line1" placeholder="Avenida ou rua" /></label>
-            <label className="opportunity-create-v3__field"><span>Número</span><input value={value.addressNumber ?? ''} onChange={(event) => update('addressNumber', event.target.value)} inputMode="numeric" placeholder="123" /></label>
-            <label className="opportunity-create-v3__field"><span>Complemento</span><input value={value.complement ?? ''} onChange={(event) => update('complement', event.target.value)} autoComplete="address-line2" placeholder="Sala, bloco..." /></label>
-            <label className="opportunity-create-v3__field"><span>Bairro</span><input value={value.district ?? ''} onChange={(event) => update('district', event.target.value)} placeholder="Centro" /></label>
-            <label className="opportunity-create-v3__field"><span>Cidade</span><input value={value.city} onChange={(event) => update('city', event.target.value)} autoComplete="address-level2" placeholder="Cidade" /></label>
-            <label className="opportunity-create-v3__field"><span>Estado (UF)</span><input value={value.state ?? ''} onChange={(event) => update('state', event.target.value.slice(0,2))} maxLength={2} autoComplete="address-level1" placeholder="RS" /></label>
-            <label className="opportunity-create-v3__field"><span>País</span><input value={value.country ?? ''} onChange={(event) => update('country', event.target.value)} autoComplete="country-name" /></label>
-          </div>
-        </> : null}
-
-        {opportunityTab === 'contexto' ? <>
-          <div className="opportunity-create-v3__grid">
-            <label className="opportunity-create-v3__field"><span>Cargo do contato</span><input value={value.jobTitle ?? ''} onChange={(event) => update('jobTitle', event.target.value)} placeholder="Proprietário, gerente..." /></label>
-            <label className="opportunity-create-v3__field"><span>Papel na decisão</span><SelectionSelect value={value.decisionRole ?? 'unknown'} onValueChange={(next) => update('decisionRole', next as LeadFormValue['decisionRole'])} options={Object.entries(decisionRoleLabels).map(([role, label]) => ({ value: role, label }))} /></label>
-            <label className="opportunity-create-v3__field"><span>Temperatura</span><SelectionSelect value={value.temperature} onValueChange={(next) => update('temperature', next as LeadFormValue['temperature'])} options={[{ value: 'cold', label: 'Frio' }, { value: 'warm', label: 'Morno' }, { value: 'hot', label: 'Quente' }]} /></label>
-            <label className="opportunity-create-v3__field"><span>Origem</span><SelectionSelect value={value.source} onValueChange={(next) => update('source', next)} options={['Manual', 'Instagram', 'Garimpo', 'Indicação', 'Evento', 'Importação CSV', 'Importação V99'].map((label) => ({ value: label, label }))} /></label>
-            <label className="opportunity-create-v3__field"><span>Influência na decisão (%)</span><input type="number" min="0" max="100" value={value.influenceLevel ?? 0} onChange={(event) => update('influenceLevel', Number(event.target.value))} /></label>
-            <label className="opportunity-create-v3__field"><span>Base de contato</span><SelectionSelect value={value.consentStatus ?? 'unknown'} onValueChange={(next) => update('consentStatus', next as LeadFormValue['consentStatus'])} options={[{ value: 'unknown', label: 'Não revisada' }, { value: 'legitimate_interest', label: 'Interesse legítimo revisado' }, { value: 'consented', label: 'Consentimento registrado' }, { value: 'opted_out', label: 'Solicitou bloqueio' }]} /></label>
-          </div>
-          <label className="opportunity-create-v3__checkbox"><SelectionCheckbox checked={Boolean(value.doNotContact)} onCheckedChange={(checked) => update('doNotContact', checked)} label="Bloquear qualquer contato comercial e automação" /></label>
-          {value.doNotContact ? <label className="opportunity-create-v3__field"><span>Motivo do bloqueio</span><input value={value.doNotContactReason ?? ''} onChange={(event) => update('doNotContactReason', event.target.value)} placeholder="Solicitação do contato, política interna..." /></label> : null}
-          <div className="opportunity-create-v3__divider"/>
-          <div className="opportunity-create-v3__grid">
-            <label className="opportunity-create-v3__field"><span>Detalhes da origem</span><input value={value.sourceDetail ?? ''} onChange={(event) => update('sourceDetail', event.target.value)} placeholder="Evento, campanha, indicação..." /></label>
-            <label className="opportunity-create-v3__field"><span>URL da origem</span><input type="url" value={value.sourceUrl ?? ''} onChange={(event) => update('sourceUrl', event.target.value)} placeholder="https://..." /></label>
-            <label className="opportunity-create-v3__field"><span>Data de captura</span><input type="datetime-local" value={value.capturedAt ? value.capturedAt.slice(0,16) : ''} onChange={(event) => update('capturedAt', event.target.value ? new Date(event.target.value).toISOString() : null)} /></label>
-            <label className="opportunity-create-v3__field"><span>Tags</span><input list={`${formId}-tag-options`} value={value.tags.join(', ')} onChange={(event) => update('tags', event.target.value.split(',').map((tag) => tag.trim()).filter(Boolean))} placeholder="quente, indicação..." /><datalist id={`${formId}-tag-options`}>{preferences.commercial.tags.map((tag) => <option value={tag} key={tag}/>)}</datalist></label>
-            <label className="opportunity-create-v3__field"><span>Instagram</span><input type="url" value={value.instagramUrl ?? ''} onChange={(event) => update('instagramUrl', event.target.value)} placeholder="https://instagram.com/..." /></label>
-            <label className="opportunity-create-v3__field"><span>LinkedIn</span><input type="url" value={value.linkedinUrl ?? ''} onChange={(event) => update('linkedinUrl', event.target.value)} placeholder="https://linkedin.com/..." /></label>
-            <label className="opportunity-create-v3__field"><span>Facebook</span><input type="url" value={value.facebookUrl ?? ''} onChange={(event) => update('facebookUrl', event.target.value)} placeholder="https://facebook.com/..." /></label>
-            <label className="opportunity-create-v3__field opportunity-create-v3__field--wide"><span>Observações</span><textarea value={value.notes} onChange={(event) => update('notes', event.target.value)} rows={4} placeholder="Contexto da oportunidade, necessidade e próximos passos..." /></label>
-          </div>
-        </> : null}
+      <div className="opportunity-create-b__two">
+        <label className="opportunity-create-b__field"><span>Nome do contato <em>obrigatório</em></span><input data-autofocus required autoFocus value={value.name} onChange={(event) => update('name', event.target.value)} placeholder="Ex.: Maria Joana" autoComplete="name"/></label>
+        <label className="opportunity-create-b__field"><span>Empresa</span><input list={`${formId}-company-options`} value={value.company} onChange={(event) => update('company', event.target.value)} placeholder="Ex.: Barbearia Alpha" autoComplete="organization"/><datalist id={`${formId}-company-options`}>{snapshot?.companies.map((company) => <option key={company.id} value={company.name}/>)}</datalist></label>
       </div>
+      {companyMatch ? <div className="opportunity-create-b__notice is-match"><Building2 size={17}/><div><strong>Empresa já cadastrada</strong><span>{companyMatch.name}{companyMatch.city ? ` · ${companyMatch.city}` : ''}. Vincule para não duplicar a conta.</span></div><button type="button" onClick={applyCompany}>Vincular</button></div> : null}
+
+      <div className="opportunity-create-b__block">
+        <span className="opportunity-create-b__label">Etapa</span>
+        <div className="opportunity-create-b__steps" role="radiogroup" aria-label="Etapa do Pipeline">
+          {stages.map((stage, index) => (
+            <button key={stage.id} type="button" role="radio" aria-checked={stage.id === value.stageId} title={`${stage.probability}% de chance`}
+              className={`opportunity-create-b__step${index <= stageIndex ? ' is-done' : ''}${stage.id === value.stageId ? ' is-current' : ''}`}
+              onClick={() => update('stageId', stage.id)}><i/><span>{stage.name}</span></button>
+          ))}
+        </div>
+      </div>
+
+      <div className="opportunity-create-b__two">
+        <label className="opportunity-create-b__field"><span>Valor estimado</span><div className="opportunity-create-b__money"><b>R$</b><input type="number" min="0" step="0.01" inputMode="decimal" value={value.value || ''} placeholder="0,00" onChange={(event) => update('value', Math.max(0, Number(event.target.value) || 0))} /></div></label>
+        <div className="opportunity-create-b__field"><span>Fechamento previsto</span>
+          <div className="opportunity-create-b__chips">
+            {closeChips.map((chip) => <button key={chip.label} type="button" className={value.expectedCloseAt?.slice(0, 10) === chip.date ? 'is-on' : ''} aria-pressed={value.expectedCloseAt?.slice(0, 10) === chip.date} onClick={() => update('expectedCloseAt', chip.date)}>{chip.label}</button>)}
+            <input type="date" aria-label="Escolher data de fechamento" value={value.expectedCloseAt?.slice(0, 10) ?? ''} onChange={(event) => update('expectedCloseAt', event.target.value || null)} />
+          </div>
+        </div>
+      </div>
+
+      <div className="opportunity-create-b__block">
+        <span className="opportunity-create-b__label">Próxima ação <em>entra na fila do Meu Dia</em></span>
+        <div className="opportunity-create-b__chips">
+          {actionChips.map((chip) => <button key={chip.label} type="button" className={currentAction === toLocalInput(chip.iso) ? 'is-on' : ''} aria-pressed={currentAction === toLocalInput(chip.iso)} onClick={() => update('nextActionAt', chip.iso)}>{chip.label}</button>)}
+          <input type="datetime-local" required aria-label="Escolher data e horário da próxima ação" value={currentAction} onChange={(event) => update('nextActionAt', event.target.value ? new Date(event.target.value).toISOString() : null)} />
+        </div>
+      </div>
+
+      <button type="button" className="opportunity-create-b__toggle" aria-expanded={expanded} onClick={() => setExpanded((current) => !current)}>
+        {expanded ? <ChevronUp size={16}/> : <ChevronDown size={16}/>}{expanded ? 'Menos detalhes' : 'Mais detalhes'}<small>telefone, e-mail, responsável, empresa, origem</small>
+      </button>
+
+      {expanded ? <div className="opportunity-create-b__details">
+        <section className="opportunity-create-b__group"><h3>Contato</h3>
+          <div className="opportunity-create-b__two">
+            <label className="opportunity-create-b__field"><span>WhatsApp ou telefone</span><input type="tel" value={value.phone} onChange={(event) => update('phone', event.target.value)} onBlur={() => update('phone', formatPhone(value.phone))} placeholder="(51) 99999-0000" autoComplete="tel" inputMode="tel"/></label>
+            <label className={`opportunity-create-b__field${emailInvalid ? ' is-invalid' : ''}`}><span>E-mail{emailInvalid ? <em> confira o formato</em> : null}</span><input type="email" value={value.email} onChange={(event) => update('email', event.target.value)} placeholder="nome@empresa.com" autoComplete="email"/></label>
+            <label className="opportunity-create-b__field"><span>Cargo</span><input value={value.jobTitle ?? ''} onChange={(event) => update('jobTitle', event.target.value)} placeholder="Proprietário, gerente..." /></label>
+            <label className="opportunity-create-b__field"><span>Papel na decisão</span><SelectionSelect value={value.decisionRole ?? 'unknown'} onValueChange={(next) => update('decisionRole', next as LeadFormValue['decisionRole'])} options={Object.entries(decisionRoleLabels).map(([role, label]) => ({ value: role, label }))} /></label>
+          </div>
+        </section>
+
+        <section className="opportunity-create-b__group"><h3>Responsável e prioridade</h3>
+          <div className="opportunity-create-b__two">
+            <label className="opportunity-create-b__field"><span>Responsável</span><OwnerPicker value={value.ownerId ?? ''} members={ownerOptions} onValueChange={(ownerId) => { update('ownerId', ownerId || null); update('ownerName', ownerOptions.find((member) => member.userId === ownerId)?.displayName ?? 'Equipe') }} /></label>
+            <div className="opportunity-create-b__field"><span>Prioridade</span><div className="opportunity-create-b__chips">{([['low', 'Baixa'], ['medium', 'Média'], ['high', 'Alta'], ['urgent', 'Urgente']] as const).map(([id, label]) => <button key={id} type="button" className={value.priority === id ? 'is-on' : ''} aria-pressed={value.priority === id} onClick={() => update('priority', id)}>{label}</button>)}</div></div>
+            <div className="opportunity-create-b__field"><span>Temperatura</span><div className="opportunity-create-b__chips">{([['cold', 'Frio'], ['warm', 'Morno'], ['hot', 'Quente']] as const).map(([id, label]) => <button key={id} type="button" className={value.temperature === id ? 'is-on' : ''} aria-pressed={value.temperature === id} onClick={() => update('temperature', id)}>{label}</button>)}</div></div>
+          </div>
+        </section>
+
+        <section className="opportunity-create-b__group"><h3>Empresa e endereço <span className={`lead-geocode-state lead-geocode-state--${currentGeocodeStatus}`}>{geocodeStatusLabel[currentGeocodeStatus]}</span></h3>
+          <div className="opportunity-create-b__two">
+            <label className="opportunity-create-b__field"><span>CNPJ</span><input value={value.cnpj ?? ''} onChange={(event) => update('cnpj', event.target.value)} placeholder="00.000.000/0001-00" /></label>
+            <label className="opportunity-create-b__field"><span>Site</span><input type="url" value={value.website ?? ''} onChange={(event) => update('website', event.target.value)} placeholder="https://empresa.com.br" /></label>
+            <label className="opportunity-create-b__field"><span>CEP</span><input value={value.postalCode ?? ''} onChange={(event) => update('postalCode', event.target.value)} inputMode="numeric" autoComplete="postal-code" placeholder="00000-000" /></label>
+            <label className="opportunity-create-b__field"><span>Rua</span><input value={value.street ?? ''} onChange={(event) => update('street', event.target.value)} autoComplete="address-line1" placeholder="Avenida ou rua" /></label>
+            <label className="opportunity-create-b__field"><span>Número</span><input value={value.addressNumber ?? ''} onChange={(event) => update('addressNumber', event.target.value)} inputMode="numeric" placeholder="123" /></label>
+            <label className="opportunity-create-b__field"><span>Complemento</span><input value={value.complement ?? ''} onChange={(event) => update('complement', event.target.value)} autoComplete="address-line2" placeholder="Sala, bloco..." /></label>
+            <label className="opportunity-create-b__field"><span>Bairro</span><input value={value.district ?? ''} onChange={(event) => update('district', event.target.value)} placeholder="Centro" /></label>
+            <label className="opportunity-create-b__field"><span>Cidade</span><input value={value.city} onChange={(event) => update('city', event.target.value)} autoComplete="address-level2" placeholder="Cidade" /></label>
+            <label className="opportunity-create-b__field"><span>Estado (UF)</span><input value={value.state ?? ''} onChange={(event) => update('state', event.target.value.slice(0,2))} maxLength={2} autoComplete="address-level1" placeholder="RS" /></label>
+            <label className="opportunity-create-b__field"><span>País</span><input value={value.country ?? ''} onChange={(event) => update('country', event.target.value)} autoComplete="country-name" /></label>
+          </div>
+        </section>
+
+        <section className="opportunity-create-b__group"><h3>Origem e contexto</h3>
+          <div className="opportunity-create-b__field"><span>Origem</span><div className="opportunity-create-b__chips">{['Manual', 'Garimpo', 'Indicação', 'Instagram', 'Evento', 'Importação CSV'].map((label) => <button key={label} type="button" className={value.source === label ? 'is-on' : ''} aria-pressed={value.source === label} onClick={() => update('source', label)}>{label}</button>)}</div></div>
+          <div className="opportunity-create-b__two">
+            <label className="opportunity-create-b__field"><span>Detalhes da origem</span><input value={value.sourceDetail ?? ''} onChange={(event) => update('sourceDetail', event.target.value)} placeholder="Evento, campanha, indicação..." /></label>
+            <label className="opportunity-create-b__field"><span>URL da origem</span><input type="url" value={value.sourceUrl ?? ''} onChange={(event) => update('sourceUrl', event.target.value)} placeholder="https://..." /></label>
+            <label className="opportunity-create-b__field"><span>Data de captura</span><input type="datetime-local" value={value.capturedAt ? toLocalInput(value.capturedAt) : ''} onChange={(event) => update('capturedAt', event.target.value ? new Date(event.target.value).toISOString() : null)} /></label>
+            <label className="opportunity-create-b__field"><span>Tags</span><input list={`${formId}-tag-options`} value={value.tags.join(', ')} onChange={(event) => update('tags', event.target.value.split(',').map((tag) => tag.trim()).filter(Boolean))} placeholder="quente, indicação..." /><datalist id={`${formId}-tag-options`}>{preferences.commercial.tags.map((tag) => <option value={tag} key={tag}/>)}</datalist></label>
+            <label className="opportunity-create-b__field"><span>Instagram</span><input type="url" value={value.instagramUrl ?? ''} onChange={(event) => update('instagramUrl', event.target.value)} placeholder="https://instagram.com/..." /></label>
+            <label className="opportunity-create-b__field"><span>LinkedIn</span><input type="url" value={value.linkedinUrl ?? ''} onChange={(event) => update('linkedinUrl', event.target.value)} placeholder="https://linkedin.com/..." /></label>
+            <label className="opportunity-create-b__field"><span>Facebook</span><input type="url" value={value.facebookUrl ?? ''} onChange={(event) => update('facebookUrl', event.target.value)} placeholder="https://facebook.com/..." /></label>
+            <label className="opportunity-create-b__field"><span>Influência na decisão (%)</span><input type="number" min="0" max="100" value={value.influenceLevel ?? 0} onChange={(event) => update('influenceLevel', Number(event.target.value))} /></label>
+            <label className="opportunity-create-b__field"><span>Base de contato</span><SelectionSelect value={value.consentStatus ?? 'unknown'} onValueChange={(next) => update('consentStatus', next as LeadFormValue['consentStatus'])} options={[{ value: 'unknown', label: 'Não revisada' }, { value: 'legitimate_interest', label: 'Interesse legítimo revisado' }, { value: 'consented', label: 'Consentimento registrado' }, { value: 'opted_out', label: 'Solicitou bloqueio' }]} /></label>
+          </div>
+          <label className="opportunity-create-b__check"><SelectionCheckbox checked={Boolean(value.doNotContact)} onCheckedChange={(checked) => update('doNotContact', checked)} label="Bloquear qualquer contato comercial e automação" /></label>
+          {value.doNotContact ? <label className="opportunity-create-b__field"><span>Motivo do bloqueio</span><input value={value.doNotContactReason ?? ''} onChange={(event) => update('doNotContactReason', event.target.value)} placeholder="Solicitação do contato, política interna..." /></label> : null}
+          <label className="opportunity-create-b__field"><span>Observações</span><textarea value={value.notes} onChange={(event) => update('notes', event.target.value)} rows={3} placeholder="O que você já sabe desse negócio?" /></label>
+        </section>
+      </div> : null}
     </form>
-  )
+    )
+  }
 
   return (
     <form id={formId} className={`form-grid lead-form lead-form--${expanded ? 'complete' : 'quick'}`} onSubmit={(event) => { event.preventDefault(); void onSubmit(submitValue()) }}>
@@ -240,11 +267,11 @@ export function LeadForm({ lead, initialStageId, formId, onSubmit, defaultExpand
         <label className="field"><span>Responsável</span><OwnerPicker value={value.ownerId ?? ''} members={ownerOptions} onValueChange={(ownerId) => { update('ownerId', ownerId || null); update('ownerName', ownerOptions.find((member) => member.userId === ownerId)?.displayName ?? 'Equipe') }} /></label>
         <label className="field"><span>Previsão de fechamento</span><input type="date" value={value.expectedCloseAt?.slice(0, 10) ?? ''} onChange={(event) => update('expectedCloseAt', event.target.value || null)} /></label>
         <div className="lead-form__section field--span-2 lead-form__section--primary"><span>3 · Próxima ação</span><small>Nenhuma oportunidade deve nascer sem um próximo movimento comercial claro.</small></div>
-        <label className="field"><span>Próxima ação *</span><input type="datetime-local" required value={value.nextActionAt ? value.nextActionAt.slice(0, 16) : ''} onChange={(event) => update('nextActionAt', event.target.value ? new Date(event.target.value).toISOString() : null)} /></label>
+        <label className="field"><span>Próxima ação *</span><input type="datetime-local" required value={value.nextActionAt ? toLocalInput(value.nextActionAt) : ''} onChange={(event) => update('nextActionAt', event.target.value ? new Date(event.target.value).toISOString() : null)} /></label>
         <label className="field"><span>Prioridade</span><SelectionSelect value={value.priority} onValueChange={(next) => update('priority', next as LeadFormValue['priority'])} options={[{ value: 'low', label: 'Baixa' }, { value: 'medium', label: 'Média' }, { value: 'high', label: 'Alta' }, { value: 'urgent', label: 'Urgente' }]} /></label>
       </> : <>
         <label className="field"><span>Responsável</span><OwnerPicker value={value.ownerId ?? ''} members={ownerOptions} onValueChange={(ownerId) => { update('ownerId', ownerId || null); update('ownerName', ownerOptions.find((member) => member.userId === ownerId)?.displayName ?? 'Equipe') }} /></label>
-        <label className="field"><span>Próxima ação</span><input type="datetime-local" value={value.nextActionAt ? value.nextActionAt.slice(0, 16) : ''} onChange={(event) => update('nextActionAt', event.target.value ? new Date(event.target.value).toISOString() : null)} /></label>
+        <label className="field"><span>Próxima ação</span><input type="datetime-local" value={value.nextActionAt ? toLocalInput(value.nextActionAt) : ''} onChange={(event) => update('nextActionAt', event.target.value ? new Date(event.target.value).toISOString() : null)} /></label>
       </>}
 
       <button className="lead-form__expand field--span-2" type="button" aria-expanded={expanded} onClick={() => setExpanded((current) => !current)}>{expanded ? <ChevronUp size={17} /> : <ChevronDown size={17} />}<span><strong>{expanded ? 'Ocultar informações adicionais' : 'Mais informações'}</strong><small>{mode === 'opportunity' ? 'Qualificação, localização, origem, presença digital e forecast detalhado.' : 'Qualificação, empresa, localização, origem, redes sociais e forecast.'}</small></span></button>
@@ -281,7 +308,7 @@ export function LeadForm({ lead, initialStageId, formId, onSubmit, defaultExpand
         <div className="lead-form__section field--span-2"><span>Origem e presença digital</span><small>Ajuda o garimpo, a atribuição e o enriquecimento do contato.</small></div>
         <label className="field"><span>Detalhe da origem</span><input value={value.sourceDetail ?? ''} onChange={(event) => update('sourceDetail', event.target.value)} placeholder="Perfil empresarial, Lead Ads, evento..." /></label>
         <label className="field"><span>URL da origem</span><input value={value.sourceUrl ?? ''} onChange={(event) => update('sourceUrl', event.target.value)} placeholder="Link do perfil, formulário ou página" type="url" /></label>
-        <label className="field"><span>Data de captura</span><input type="datetime-local" value={value.capturedAt ? value.capturedAt.slice(0, 16) : ''} onChange={(event) => update('capturedAt', event.target.value ? new Date(event.target.value).toISOString() : null)} /></label>
+        <label className="field"><span>Data de captura</span><input type="datetime-local" value={value.capturedAt ? toLocalInput(value.capturedAt) : ''} onChange={(event) => update('capturedAt', event.target.value ? new Date(event.target.value).toISOString() : null)} /></label>
         <label className="field"><span>Instagram</span><input value={value.instagramUrl ?? ''} onChange={(event) => update('instagramUrl', event.target.value)} placeholder="https://instagram.com/empresa" type="url" /></label>
         <label className="field"><span>LinkedIn</span><input value={value.linkedinUrl ?? ''} onChange={(event) => update('linkedinUrl', event.target.value)} placeholder="https://linkedin.com/in/..." type="url" /></label>
         <label className="field"><span>Facebook</span><input value={value.facebookUrl ?? ''} onChange={(event) => update('facebookUrl', event.target.value)} placeholder="https://facebook.com/empresa" type="url" /></label>

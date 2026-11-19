@@ -291,3 +291,6 @@ html[data-appearance-preset="ocean"] ::-webkit-scrollbar-track { background: tra
 /* Modais opacos: antes dava para ver a tela de trás através do formulário. */
 html[data-appearance-preset="ocean"] .rt-dialog.modal { background: #0b2238 !important; backdrop-filter: none !important; }
 html[data-appearance-preset="ocean"] .modal-backdrop { background: rgba(2, 8, 16, .72) !important; }
+
+/* Selo de status do endereço (modal de oportunidade e ficha do contato). */
+html[data-appearance-preset="ocean"] .lead-geocode-state { background: color-mix(in srgb, currentColor 16%, transparent) !important; color: color-mix(in srgb, currentColor 45%, #ffffff) !important; border-color: color-mix(in srgb, currentColor 30%, transparent) !important; }

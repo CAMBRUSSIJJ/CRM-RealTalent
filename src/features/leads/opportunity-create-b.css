@@ -1,0 +1,76 @@
+/* Nova oportunidade, formato B da repaginada: uma coluna, atalhos de um toque, detalhes recolhidos.
+ * Usa as variáveis do tema: destaque azul no Claro, menta no Oceano. */
+.opportunity-create-b {
+  --ocb-accent: var(--rt-color-brand, #315bd8);
+  --ocb-accent-text: var(--rt-color-brand, #315bd8);
+  --ocb-accent-soft: color-mix(in srgb, var(--ocb-accent) 14%, transparent);
+  --ocb-line: var(--rt-color-border, #dfe3ea);
+  --ocb-muted: var(--rt-color-muted, #5d687c);
+  --ocb-field: var(--rt-color-surface, #fff);
+  display: flex; flex-direction: column; gap: 18px;
+}
+html[data-appearance-preset="ocean"] .opportunity-create-b {
+  --ocb-accent: #55d6b2; --ocb-accent-text: #8de7cf; --ocb-accent-soft: rgba(85, 214, 178, .14);
+  --ocb-line: rgba(121, 198, 221, .22); --ocb-muted: #93a9bd; --ocb-field: rgba(2, 13, 24, .55);
+}
+.opportunity-create-b__two { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px 14px; }
+.opportunity-create-b__field { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.opportunity-create-b__field > span, .opportunity-create-b__label { font-size: 12.5px; font-weight: 500; color: var(--ocb-muted); letter-spacing: 0; text-transform: none; }
+.opportunity-create-b__field em, .opportunity-create-b__label em { font-style: normal; font-weight: 400; opacity: .85; margin-left: 4px; }
+.opportunity-create-b__field.is-invalid em { color: #f87171; opacity: 1; }
+.opportunity-create-b__field.is-invalid input { border-color: #f87171 !important; }
+.opportunity-create-b__field :is(input, textarea):not([type="checkbox"]) {
+  width: 100%; box-sizing: border-box; min-height: 42px; padding: 0 12px; border-radius: 10px;
+  border: 1px solid var(--ocb-line); background: var(--ocb-field); font: 14px/1.4 inherit; color: inherit;
+}
+.opportunity-create-b__field textarea { padding: 10px 12px; min-height: 76px; resize: vertical; }
+.opportunity-create-b__field :is(input, textarea):focus { outline: none; border-color: var(--ocb-accent); box-shadow: 0 0 0 3px var(--ocb-accent-soft); }
+.opportunity-create-b__block { display: flex; flex-direction: column; gap: 8px; }
+
+/* Etapas como barra de progresso do funil. */
+.opportunity-create-b__steps { display: flex; gap: 6px; overflow-x: auto; padding-bottom: 2px; }
+.opportunity-create-b__step { flex: 1 0 78px; display: flex; flex-direction: column; gap: 6px; padding: 4px 0; border: 0; background: transparent; color: var(--ocb-muted); font: 500 12px/1.3 inherit; text-align: left; cursor: pointer; }
+.opportunity-create-b__step i { display: block; height: 6px; border-radius: 99px; background: color-mix(in srgb, currentColor 22%, transparent); transition: background .2s ease; }
+.opportunity-create-b__step.is-done i { background: var(--ocb-accent); opacity: .55; }
+.opportunity-create-b__step.is-current i { opacity: 1; }
+.opportunity-create-b__step.is-current { color: var(--ocb-accent-text); font-weight: 600; }
+.opportunity-create-b__step:focus-visible { outline: 2px solid var(--ocb-accent); outline-offset: 2px; border-radius: 6px; }
+
+/* Atalhos de um toque. */
+.opportunity-create-b__chips { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.opportunity-create-b__chips > button {
+  height: 34px; padding: 0 12px; border-radius: 99px; border: 1px solid var(--ocb-line); background: transparent;
+  color: inherit; font: 500 13px inherit; cursor: pointer; white-space: nowrap; transition: border-color .15s ease, background .15s ease;
+}
+.opportunity-create-b__chips > button:hover { border-color: var(--ocb-accent); }
+.opportunity-create-b__chips > button.is-on { background: var(--ocb-accent-soft); border-color: var(--ocb-accent); color: var(--ocb-accent-text); font-weight: 600; }
+.opportunity-create-b__chips > input { height: 34px; min-height: 34px !important; width: auto !important; flex: 1 1 150px; border-radius: 99px !important; font-size: 13px !important; }
+
+.opportunity-create-b__money { display: flex; align-items: center; border: 1px solid var(--ocb-line); border-radius: 10px; background: var(--ocb-field); padding-left: 12px; }
+.opportunity-create-b__money b { font-weight: 600; color: var(--ocb-muted); font-size: 13.5px; }
+.opportunity-create-b__money input { border: 0 !important; background: transparent !important; box-shadow: none !important; }
+.opportunity-create-b__money:focus-within { border-color: var(--ocb-accent); box-shadow: 0 0 0 3px var(--ocb-accent-soft); }
+
+.opportunity-create-b__toggle {
+  align-self: flex-start; display: inline-flex; align-items: center; gap: 6px; padding: 4px 0; border: 0; background: transparent;
+  color: var(--ocb-accent-text); font: 600 13px inherit; cursor: pointer;
+}
+.opportunity-create-b__toggle small { font-weight: 400; color: var(--ocb-muted); margin-left: 4px; }
+.opportunity-create-b__details { display: flex; flex-direction: column; gap: 4px; animation: ocb-open .22s ease both; }
+@keyframes ocb-open { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: none; } }
+.opportunity-create-b__group { display: flex; flex-direction: column; gap: 12px; padding: 16px 0; border-top: 1px solid var(--ocb-line); }
+.opportunity-create-b__group h3 { margin: 0; display: flex; align-items: center; gap: 10px; font-size: 13.5px; font-weight: 600; }
+.opportunity-create-b__check { font-size: 13px; }
+
+.opportunity-create-b__notice { display: flex; gap: 12px; align-items: flex-start; padding: 12px 14px; border-radius: 12px; font-size: 13px; line-height: 1.45; }
+.opportunity-create-b__notice div { display: flex; flex-direction: column; gap: 2px; flex: 1; }
+.opportunity-create-b__notice.is-warning { background: rgba(251, 191, 36, .1); border: 1px solid rgba(251, 191, 36, .4); color: #92400e; }
+html[data-theme="dark"] .opportunity-create-b__notice.is-warning { color: #fde68a; }
+.opportunity-create-b__notice.is-match { background: var(--ocb-accent-soft); border: 1px solid color-mix(in srgb, var(--ocb-accent) 40%, transparent); }
+.opportunity-create-b__notice button { align-self: center; height: 32px; padding: 0 12px; border-radius: 8px; border: 1px solid var(--ocb-accent); background: transparent; color: var(--ocb-accent-text); font: 600 12.5px inherit; cursor: pointer; }
+
+@media (prefers-reduced-motion: reduce) { .opportunity-create-b__details { animation: none; } }
+html[data-reduce-motion="true"] .opportunity-create-b__details { animation: none; }
+@media (max-width: 640px) {
+  .opportunity-create-b__two { grid-template-columns: 1fr; }
+}

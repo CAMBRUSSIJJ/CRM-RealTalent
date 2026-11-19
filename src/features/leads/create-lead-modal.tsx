@@ -6,6 +6,7 @@ import { Modal } from '../../components/ui/modal'
 import type { Lead } from '../../domain/types'
 import { LeadForm, type LeadFormValue } from './lead-form'
 import './opportunity-create-v3.css'
+import './opportunity-create-b.css'
 
 export type LeadCreateNextAction = 'close' | 'open' | 'call' | 'followup' | 'another'
 
@@ -33,9 +34,9 @@ export function CreateLeadModal({ open, onClose, initialStageId, onCreated, mode
     <Modal
       open={open}
       title={mode === 'opportunity' ? 'Nova oportunidade' : 'Novo contato'}
-      subtitle={mode === 'opportunity' ? 'Crie a oportunidade junto do contato principal; o RealTalent mantém os dois registros vinculados.' : 'Cadastre em segundos e complete o restante quando fizer sentido para a venda.'}
+      subtitle={mode === 'opportunity' ? 'Só o nome é obrigatório. O resto dá para completar depois.' : 'Cadastre em segundos e complete o restante quando fizer sentido para a venda.'}
       onClose={onClose}
-      size="lg"
+      size={mode === 'opportunity' ? 'md' : 'lg'}
       footer={<div className="lead-create-footer"><Button variant="ghost" type="button" onClick={onClose}>Cancelar</Button><div className="lead-create-split"><Button type="submit" form={formId} loading={saving} onClick={() => { intentRef.current = 'open' }}>{mode === 'opportunity' ? 'Criar oportunidade' : 'Salvar e trabalhar'}</Button><details><summary aria-label="Outras opções"><ChevronDown size={16} /></summary><div className="lead-create-menu"><button type="submit" form={formId} onClick={() => { intentRef.current = 'close' }}>Salvar e fechar</button><button type="submit" form={formId} onClick={() => { intentRef.current = 'call' }}><PhoneCall size={15}/> Salvar e ligar</button><button type="submit" form={formId} onClick={() => { intentRef.current = 'followup' }}><RefreshCw size={15}/> Salvar e criar follow-up</button><button type="submit" form={formId} onClick={() => { intentRef.current = 'another' }}><Plus size={15}/> Salvar e adicionar outro</button></div></details></div></div>}
     >
       <LeadForm key={formKey} formId={formId} initialStageId={initialStageId} onSubmit={submit} defaultExpanded={false} mode={mode} />

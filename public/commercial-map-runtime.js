@@ -457,8 +457,8 @@
       q('[data-summary]').innerHTML=`
         <article class="commercial-map-kpi"><span class="commercial-map-kpi__icon">◎</span><div><span>Contas na visão</span><strong>${state.filtered.length}</strong><small>${state.locations.length} posicionadas · ${state.selectedIds.size} selecionadas</small></div></article>
         <article class="commercial-map-kpi"><span class="commercial-map-kpi__icon">R$</span><div><span>Pipeline territorial</span><strong>${currency(pipeline)}</strong><small>${late} ${late===1?'ação atrasada':'ações atrasadas'}</small></div></article>
-        <article class="commercial-map-kpi ${highRisk?'is-warning':'is-success'}"><span class="commercial-map-kpi__icon">${highRisk?'!':'✓'}</span><div><span>Risco comercial</span><strong>${highRisk?`${highRisk} conta${highRisk===1?'':'s'} em risco`:'Sem risco alto'}</strong><small>${noDecision} sem decisor · ${late} com ação vencida</small></div></article>
-        <article class="commercial-map-kpi ${pending||unassigned?'is-warning':'is-success'}"><span class="commercial-map-kpi__icon">${pending||unassigned?'◇':'✓'}</span><div><span>Cobertura comercial — gaps</span><strong>${pending+unassigned}</strong><small>${pending} sem localização confiável · ${unassigned} sem responsável · ${exact} coordenadas confiáveis</small></div></article>`;
+        <article class="commercial-map-kpi ${highRisk?'is-warning':'is-success'}"><span class="commercial-map-kpi__icon">${highRisk?'!':'✓'}</span><div><span>Contas em risco</span><strong>${highRisk}</strong><small>${highRisk?'':'Nenhuma em risco alto · '}${noDecision} sem decisor · ${late} com ação vencida</small></div></article>
+        <article class="commercial-map-kpi ${pending||unassigned?'is-warning':'is-success'}"><span class="commercial-map-kpi__icon">${pending||unassigned?'◇':'✓'}</span><div><span>Lacunas de cobertura</span><strong>${pending+unassigned}</strong><small>${pending} sem localização confiável · ${unassigned} sem responsável · ${exact} coordenadas confiáveis</small></div></article>`;
     };
     const renderLegend = () => {
       const box=q('[data-legend]');

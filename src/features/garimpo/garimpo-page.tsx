@@ -403,13 +403,20 @@ export function ProspectingPage() {
     } finally { if (scopeRef.current === requestedWorkspace) setSending(false) }
   }
 
+  // Diz por que o botão de busca está travado, em vez de só desabilitá-lo.
+  const searchBlockedReason = !canCreate ? 'Seu perfil não tem permissão para criar pesquisas neste workspace.'
+    : availability === 'checking' ? 'Verificando o motor do Garimpo…'
+    : availability !== 'ready' ? 'O motor do Garimpo está indisponível agora. Toque em ↻, no topo da página, para verificar de novo.'
+    : !hydrated ? 'Carregando suas pesquisas anteriores…'
+    : active(job) ? 'Aguarde a pesquisa atual terminar ou cancele-a para começar outra.'
+    : ''
   return <div className="gh-page">
     <header className="gh-header"><div><span className="gh-eyebrow">PROSPECÇÃO COMERCIAL</span><h1>Garimpo</h1><p>Encontre empresas, confira os contatos e escolha quem entra no seu CRM.</p></div>
       <div className={`gh-status gh-status--${availability}`} role="status"><span />{availability === 'checking' ? 'Verificando motor…' : availability === 'ready' ? 'Motor hospedado disponível' : 'Motor indisponível'}<button onClick={() => void check()} aria-label="Verificar conexão novamente">↻</button></div></header>
-    {(connectionError || error || syncError) && <div className="gh-alert" role="alert">{[connectionError,error,syncError].filter(Boolean).map((message,index) => <p key={index}>{message}</p>)}</div>}
+    {(connectionError || error || syncError) && <div className="gh-alert" role="alert">{[...new Set([connectionError,error,syncError].filter(Boolean))].map((message) => <p key={message}>{message}</p>)}</div>}
     <div className="gh-layout">
       <aside><form className="gh-card gh-search" onSubmit={start}>
-        <div className="gh-section-heading"><span>01</span><div><h2>Nova pesquisa</h2><p>Comece pelo segmento e pela cidade.</p></div></div>
+        <div className="gh-section-heading"><span>01</span><div><h2>Buscar por região</h2><p>Empresas no Google Maps e nos sites delas, por segmento e cidade.</p></div></div>
         <label>O que você procura?<input required maxLength={120} value={segment} onChange={event => { setSegment(event.target.value); searchKey.current=null }} placeholder="Ex.: barbearias, clínicas odontológicas" disabled={active(job) || busy} /></label>
         <div className="gh-location"><label>Cidade<input required maxLength={100} value={city} onChange={event => { setCity(event.target.value); searchKey.current=null }} disabled={active(job) || busy} /></label><label>UF<select aria-label="UF" value={uf} onChange={event => { setUf(event.target.value); searchKey.current=null }} disabled={active(job) || busy}>{states.map(item => <option key={item}>{item}</option>)}</select></label></div>
         <label>Até quantas empresas?<input type="number" min={1} max={100} required value={quantity} onChange={event => { setQuantity(Number(event.target.value)); searchKey.current=null }} disabled={active(job) || busy} /></label>
@@ -426,6 +433,7 @@ export function ProspectingPage() {
         </div></details>
         <p className="gh-source"><ShieldCheck size={16} />Google Maps e sites públicos. A busca amplia termos e áreas dentro do município.</p>
         <button className="gh-primary" disabled={!canCreate || availability !== 'ready' || !hydrated || busy || active(job)} type="submit">{busy ? <Loader2 size={17} className="gh-spin" /> : <Search size={17} />}{busy ? 'Pesquisa em andamento' : 'Pesquisar empresas'}</button>
+        {searchBlockedReason && !busy ? <p className="gh-blocked" role="status">{searchBlockedReason}</p> : null}
         <p className="gh-help">Os contatos precisam de revisão. A fonte pode retornar menos empresas que o limite solicitado.</p>
       </form>
       {jobs.length > 0 && <section className="gh-card gh-history"><h2>Pesquisas recentes</h2>{jobs.slice(0,6).map(item => <button key={item.id} aria-current={item.id === job?.id} disabled={busy || sending} onClick={() => { void hostedGarimpo.get(workspaceId,item.id).then(full => { acceptJob(full); if (active(full) && canCreate) void drive(full) }).catch(cause => setError(cause instanceof Error ? cause.message : 'Não foi possível carregar a pesquisa.')) }}><strong>{item.request.segment}</strong><span>{item.request.city}, {item.request.state} · {item.result_count ?? item.results.length} resultados</span><small>{new Date(item.created_at).toLocaleString('pt-BR')} · {labels[item.status]}</small></button>)}</section>}</aside>

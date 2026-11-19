@@ -151,9 +151,9 @@ export function IndexExplorer({ workspaceId, canImport, onImport }: Props) {
   const chosen = items.filter(item => selected.includes(item.cnpj))
   return <section className="gh-card gh-index" aria-label="Índice empresarial CNPJ">
     <div className="gh-index-heading">
-      <div><span className="gh-eyebrow">REALTALENT INTELLIGENCE · PILOTO RS</span>
-        <h2>Explorar empresas por CNPJ e CNAE</h2>
-        <p>Busque em uma base cadastral própria, sem executar uma coleta no Maps.</p>
+      <div><span className="gh-eyebrow">Base cadastral · Rio Grande do Sul</span>
+        <h2>Buscar por atividade (CNAE) ou CNPJ</h2>
+        <p>Use quando você já sabe o ramo ou a empresa. Consulta os dados da Receita, sem buscar no Maps.</p>
       </div>
       <span className="gh-index-tag">Receita Federal</span>
     </div>

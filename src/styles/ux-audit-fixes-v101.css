@@ -27,3 +27,22 @@ html[data-sidebar-mode] .app-shell__main {
 @media (min-width: 1181px) {
   html[data-sidebar-mode="expanded"] .sidebar:not(.sidebar--collapsed) { width: var(--rt-sidebar-width-expanded, 252px) !important; }
 }
+
+/* 2. Configurações: o cabeçalho de cada grupo herdava a grade "ícone 20px + texto" dos itens,
+ * espremendo o nome na coluna do ícone e desenhando a seta por cima dele. */
+.settings-v1100__nav .settings-nav-group__header {
+  display: flex !important;
+  grid-template-columns: none !important;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+}
+.settings-v1100__nav .settings-nav-group__header > span { min-width: 0; width: auto; overflow-wrap: anywhere; }
+.settings-v1100__nav .settings-nav-group__header > svg { flex: 0 0 auto; }
+
+/* 2. Território: os cartões de indicadores quebram linha em vez de sobrepor rótulo e valor. */
+.commercial-map-kpi > div { min-width: 0; }
+.commercial-map-kpi > div > span, .commercial-map-kpi > div > small { overflow-wrap: anywhere; }
+
+/* 5. Garimpo: motivo do botão de busca travado, junto do botão. */
+.gh-blocked { margin: 8px 0 0; padding: 8px 10px; border-radius: 8px; background: var(--rt-warning-soft, #fff4e5); color: var(--rt-warning-text, #8a5300); font-size: 13px; line-height: 1.45; }

@@ -184,7 +184,15 @@ export async function runProspectingProviderSearch(input: ProspectingProviderSea
   const client = getSupabaseClient()
   if (client && input.workspaceId) {
     const { data, error } = await client.functions.invoke('prospecting-search', { body: payload })
-    if (error) throw new ProspectingProviderError(error.message || 'Falha no gateway Supabase de prospecção.', 'supabase_function_error', 502)
+    if (error) {
+      // Respostas não-2xx da Edge Function (cota esgotada, chave ausente…) trazem o motivo no corpo.
+      const context = (error as { context?: unknown }).context
+      if (context instanceof Response) {
+        const body = await context.clone().json().catch(() => null)
+        if (body && typeof body === 'object' && !Array.isArray(body)) throwFromPayload(body, context.status)
+      }
+      throw new ProspectingProviderError(error.message || 'Falha no gateway Supabase de prospecção.', 'supabase_function_error', 502)
+    }
     if (data && typeof data === 'object' && !Array.isArray(data) && 'error' in data) throwFromPayload(data, Number((data as Record<string, unknown>).status ?? 400))
     return normalizeSearchResult(data, input.source)
   }

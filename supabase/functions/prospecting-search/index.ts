@@ -76,6 +76,41 @@ const brasilApiDraft = (company: Record<string, unknown>) => {
 const googleMapsKey = () => text(Deno.env.get('GOOGLE_MAPS_SERVER_KEY') || Deno.env.get('GOOGLE_MAPS_API_KEY'), 500)
 const cnpjBaseUrl = () => text(Deno.env.get('CNPJ_PROVIDER_BASE_URL'), 500) || 'https://brasilapi.com.br/api/cnpj/v1'
 
+// Trava da cota gratuita do Google Places. Text Search com telefone/site é SKU Enterprise:
+// 1.000 chamadas grátis por mês. Cada chamada é reservada antes de ir ao Google; sem contador, não busca.
+const GOOGLE_QUOTA_PROVIDER = 'google_places_text_search_enterprise'
+const googleMonthlyLimit = () => {
+  const value = Math.floor(Number(Deno.env.get('GOOGLE_PLACES_MONTHLY_LIMIT') ?? '950'))
+  return Number.isFinite(value) && value >= 0 ? value : 950
+}
+// O Google fecha o mês de cobrança no horário do Pacífico.
+const billingPeriod = () => {
+  const parts = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Los_Angeles', year: 'numeric', month: '2-digit' }).formatToParts(new Date())
+  return `${parts.find((part) => part.type === 'year')?.value}-${parts.find((part) => part.type === 'month')?.value}`
+}
+const serviceClient = () => {
+  const key = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? Deno.env.get('SUPABASE_SECRET_KEY') ?? ''
+  return key ? createClient(Deno.env.get('SUPABASE_URL') ?? '', key, { auth: { persistSession: false } }) : null
+}
+type GoogleQuota = { period: string; used: number; limit: number; remaining: number }
+const readGoogleQuota = async (): Promise<GoogleQuota | null> => {
+  const admin = serviceClient()
+  if (!admin) return null
+  const period = billingPeriod()
+  const { data, error } = await admin.from('provider_usage_counters').select('calls').eq('provider', GOOGLE_QUOTA_PROVIDER).eq('period', period).maybeSingle()
+  if (error) return null
+  const used = Number(data?.calls ?? 0)
+  const limit = googleMonthlyLimit()
+  return { period, used, limit, remaining: Math.max(0, limit - used) }
+}
+const reserveGoogleCall = async (): Promise<'reserved' | 'exhausted' | 'unavailable'> => {
+  const admin = serviceClient()
+  if (!admin) return 'unavailable'
+  const { data, error } = await admin.rpc('consume_provider_quota', { p_provider: GOOGLE_QUOTA_PROVIDER, p_period: billingPeriod(), p_limit: googleMonthlyLimit() })
+  if (error) return 'unavailable'
+  return Number(data) > 0 ? 'reserved' : 'exhausted'
+}
+
 Deno.serve(async (request) => {
   if (request.method === 'OPTIONS') return new Response(null, { status: 204, headers: cors })
   if (request.method !== 'POST') return json({ error: 'method_not_allowed', code: 'method_not_allowed', message: 'Use POST.' }, 405)
@@ -97,15 +132,21 @@ Deno.serve(async (request) => {
   const action = text(body.action, 40) || 'search'
   const mapsConfigured = Boolean(googleMapsKey())
   if (action === 'diagnostics') {
+    const quota = mapsConfigured ? await readGoogleQuota() : null
+    const quotaExhausted = Boolean(quota && quota.remaining <= 0)
     return json({
       runtime: 'supabase',
       maps: {
-        available: mapsConfigured,
+        available: mapsConfigured && !quotaExhausted,
         configured: mapsConfigured,
         mode: mapsConfigured ? 'direct' : 'assisted',
         provider: 'Google Places API (New)',
-        message: mapsConfigured ? 'Busca direta pronta no gateway Supabase.' : 'Configure GOOGLE_MAPS_SERVER_KEY nos secrets das Edge Functions.',
+        message: !mapsConfigured ? 'Configure GOOGLE_MAPS_SERVER_KEY nos secrets das Edge Functions.'
+          : quotaExhausted ? `Cota gratuita do Google deste mês esgotada (${quota?.used}/${quota?.limit}). Renova no próximo mês.`
+          : quota ? `Busca direta pronta · ${quota.remaining} de ${quota.limit} consultas grátis restantes no mês.`
+          : 'Busca direta pronta no gateway Supabase.',
         maxResults: 20,
+        quota,
       },
       cnpj: {
         available: true,
@@ -164,6 +205,16 @@ Deno.serve(async (request) => {
         await finishBatch('failed', 0, { code: 'search_query_required' })
         return json({ error: 'search_query_required', code: 'search_query_required', message: 'Informe segmento, nome da empresa ou região para pesquisar.' }, 400)
       }
+      const reservation = await reserveGoogleCall()
+      if (reservation !== 'reserved') {
+        const quota = await readGoogleQuota()
+        if (reservation === 'exhausted') {
+          await finishBatch('failed', 0, { code: 'free_quota_reached', quota })
+          return json({ error: 'free_quota_reached', code: 'free_quota_reached', message: `Cota gratuita do Google deste mês esgotada (${quota?.used ?? googleMonthlyLimit()}/${googleMonthlyLimit()}). A busca direta volta no próximo mês; o motor Garimpo continua disponível.`, quota }, 429)
+        }
+        await finishBatch('failed', 0, { code: 'quota_guard_unavailable' })
+        return json({ error: 'quota_guard_unavailable', code: 'quota_guard_unavailable', message: 'Contador da cota gratuita indisponível. A busca no Google foi bloqueada para não gerar cobrança. Aplique a migration 20261118210000_garimpo_google_free_quota.sql.' }, 503)
+      }
       const pageSize = Math.min(20, quantity)
       const requestBody: Record<string, unknown> = { textQuery, pageSize, languageCode: 'pt-BR', regionCode: 'BR' }
       if (pageToken) requestBody.pageToken = pageToken
@@ -187,7 +238,7 @@ Deno.serve(async (request) => {
       const warnings: string[] = []
       await finishBatch('completed', drafts.length, { provider: 'google_places', textQuery, nextPageToken: text(data.nextPageToken, 500) || null, warnings })
       await client.from('prospecting_events').insert({ organization_id: organizationId, batch_id: batch.id, action: 'search', title: 'Busca direta no Google Places', description: `${drafts.length} resultado(s) recebidos para ${textQuery}.`, item_count: drafts.length, metadata: { provider: 'google_places' } })
-      return json({ source: 'maps', provider: 'google_places', drafts, count: drafts.length, batchId: batch.id, warnings, nextPageToken: text(data.nextPageToken, 500) || null, fetchedAt: new Date().toISOString() })
+      return json({ source: 'maps', provider: 'google_places', drafts, count: drafts.length, batchId: batch.id, warnings, nextPageToken: text(data.nextPageToken, 500) || null, fetchedAt: new Date().toISOString(), quota: await readGoogleQuota() })
     }
 
     if (source === 'cnpj') {

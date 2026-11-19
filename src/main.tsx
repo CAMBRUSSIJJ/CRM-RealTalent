@@ -1,6 +1,7 @@
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import { App } from './app/app'
+import { MotionRoot } from './components/ui/motion-kit'
 import { AppProvider } from './app/app-context'
 import { AuthProvider } from './features/auth/auth-context'
 import { ErrorBoundary } from './components/ui/error-boundary'
@@ -84,6 +85,7 @@ installCommercialObservability()
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
+    <MotionRoot>
     <ErrorBoundary>
     <AuthProvider>
       <AppProvider>
@@ -95,6 +97,7 @@ createRoot(document.getElementById('root')!).render(
       </AppProvider>
     </AuthProvider>
     </ErrorBoundary>
+    </MotionRoot>
   </StrictMode>,
 )
 

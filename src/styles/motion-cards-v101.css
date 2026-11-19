@@ -193,3 +193,6 @@ html[data-reduce-motion="true"] *, html[data-reduce-motion="true"] *::before, ht
   .modal .seller-ready-fill { display: grid !important; grid-template-columns: auto minmax(0, 1fr) !important; align-items: start; gap: 10px 12px !important; }
   .modal .seller-ready-fill > :last-child { grid-column: 1 / -1; justify-self: start; }
 }
+
+/* Cards de Contatos animados pela biblioteca motion: a entrada e o hover vêm de lá, não do CSS. */
+.contacts-v3__kpi.is-motion { animation: none !important; }

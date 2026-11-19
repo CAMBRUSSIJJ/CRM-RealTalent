@@ -84,6 +84,7 @@ const externals = {
   'react-dom/client': '__extReactDomClient',
   'lucide-react': '__extLucide',
   '@supabase/supabase-js': '__extSupabase',
+  'motion/react': '__extMotion',
 }
 
 const moduleEntries = modules.map(({ id, code }) => `${JSON.stringify(id)}: function(module, exports, require) {\n${code}\n}`).join(',\n')
@@ -93,11 +94,13 @@ import * as JsxRuntimeNS from 'react/jsx-runtime';
 import * as ReactDomClientNS from 'react-dom/client';
 import * as LucideNS from 'lucide-react';
 import * as SupabaseNS from '@supabase/supabase-js';
+import * as MotionNS from 'motion/react';
 const __extReact = Object.assign({ __esModule: true, default: ReactDefault }, ReactNS);
 const __extJsxRuntime = Object.assign({ __esModule: true }, JsxRuntimeNS);
 const __extReactDomClient = Object.assign({ __esModule: true }, ReactDomClientNS);
 const __extLucide = Object.assign({ __esModule: true }, LucideNS);
 const __extSupabase = Object.assign({ __esModule: true }, SupabaseNS);
+const __extMotion = Object.assign({ __esModule: true }, MotionNS);
 const __externals = { ${Object.entries(externals).map(([key, value]) => `${JSON.stringify(key)}: ${value}`).join(', ')} };
 const __modules = {\n${moduleEntries}\n};
 const __cache = Object.create(null);
@@ -197,7 +200,7 @@ const index = `<!doctype html>
   <meta name="description" content="RealTalent CRM — operação comercial integrada." />
   <link rel="manifest" href="./manifest.webmanifest" />
   <link rel="stylesheet" href="./assets/${cssName}" />
-  <script type="importmap">{"imports":{"react":"https://esm.sh/react@19.2.7","react/jsx-runtime":"https://esm.sh/react@19.2.7/jsx-runtime","react-dom/client":"https://esm.sh/react-dom@19.2.7/client?external=react","lucide-react":"https://esm.sh/lucide-react@1.24.0?external=react","@supabase/supabase-js":"https://esm.sh/@supabase/supabase-js@2.110.7"}}</script>
+  <script type="importmap">{"imports":{"react":"https://esm.sh/react@19.2.7","react/jsx-runtime":"https://esm.sh/react@19.2.7/jsx-runtime","react-dom/client":"https://esm.sh/react-dom@19.2.7/client?external=react","lucide-react":"https://esm.sh/lucide-react@1.24.0?external=react","@supabase/supabase-js":"https://esm.sh/@supabase/supabase-js@2.110.7","motion/react":"https://esm.sh/motion@14.9.1/react?external=react"}}</script>
   <title>RealTalent CRM V${shortVersion} — Operação Comercial</title>
 </head>
 <body>

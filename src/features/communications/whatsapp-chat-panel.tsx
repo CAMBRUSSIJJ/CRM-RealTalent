@@ -345,7 +345,7 @@ export function WhatsAppChatPanel({ lead, externalIdentity, workspaceId, events,
     {accounts.length > 1 ? <div className="whatsapp-chat__accountbar whatsapp-chat__accountbar--compact"><div><MessageCircle size={15}/><span>WhatsApp</span></div><label><span>Enviar por</span><NativeSelectionSelect value={accountId} onChange={event => setAccountId(event.target.value)}>{accounts.map(item => <option key={item.id} value={item.id}>{connectedAccountLabel(item)}</option>)}</NativeSelectionSelect></label></div> : null}
 
     <div className="whatsapp-chat__messages" role="log" aria-live="polite">
-      {!displayMessages.length ? <div className="whatsapp-chat__empty"><MessageCircle size={38}/><strong>Nenhuma mensagem ainda</strong><p>Quando a conversa começar, as mensagens enviadas e recebidas aparecerão aqui.</p></div> : displayMessages.map((item, index) => {
+      {!displayMessages.length ? <div className="whatsapp-chat__empty"><MessageCircle size={38}/><strong>{`Nova conversa com ${identityName}`}</strong><p>{connected ? 'Escreva abaixo para começar. As mensagens enviadas e recebidas aparecem aqui.' : account ? 'O WhatsApp está desconectado. Você pode escrever agora: a mensagem fica na fila e sai quando a conexão voltar.' : 'Conecte uma conta do WhatsApp, no botão Conectar acima, para começar a conversar.'}</p></div> : displayMessages.map((item, index) => {
         const previous = displayMessages[index - 1]
         const showDay = !previous || !sameDay(previous.occurredAt, item.occurredAt)
         const outbound = item.direction === 'outbound'

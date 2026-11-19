@@ -30,8 +30,11 @@ describe('Communications gateway error transparency', () => {
     expect(message).not.toContain('proxy local não conseguiu')
   })
   it('keeps the unavailable proxy warning when there is no upstream JSON error', () => {
-    expect(describeGatewayResponseError(502, {})).toContain('proxy local')
-    expect(describeGatewayResponseError(502, { error: 'Bad Gateway' })).toContain('proxy local')
+    for (const body of [{}, { error: 'Bad Gateway' }]) {
+      const message = describeGatewayResponseError(502, body)
+      expect(message).toContain('RealTalent Connect')
+      expect(message).toContain('código 502')
+    }
   })
   it('retains the dedicated authentication error for hosted runtimes', () => {
     expect(describeGatewayResponseError(502, { error: 'runtime_upstream_auth_rejected' })).toContain('Autenticação Vercel')

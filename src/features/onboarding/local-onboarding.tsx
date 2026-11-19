@@ -31,6 +31,9 @@ export function LocalOnboarding({ onComplete }: LocalOnboardingProps) {
     }
   }
 
+  // Diz o que falta em vez de só desabilitar o botão.
+  const missing = [displayName.trim().length < 2 ? 'seu nome' : '', companyName.trim().length < 2 ? 'o nome da empresa' : ''].filter(Boolean)
+  const missingFields = missing.join(' e ')
   return <main className="local-onboarding">
     <section className="local-onboarding__showcase">
       <div className="local-onboarding__brand"><span><Rocket size={23} /></span><div><strong>RealTalent CRM</strong><small>{APP_VERSION_LABEL}</small></div></div>
@@ -41,8 +44,8 @@ export function LocalOnboarding({ onComplete }: LocalOnboardingProps) {
       <div className="local-onboarding__card">
         <div><span className="eyebrow">Configuração inicial</span><h2>Como você quer começar?</h2><p>Essas informações personalizam o perfil, a empresa e os responsáveis dos exemplos.</p></div>
         <div className="local-onboarding__fields">
-          <label className="field"><span>Seu nome</span><div className="input-with-icon"><UserRound size={17} /><input autoFocus value={displayName} onChange={(event) => setDisplayName(event.target.value)} placeholder="Ex.: Camila Coelho" /></div></label>
-          <label className="field"><span>Nome da empresa</span><div className="input-with-icon"><Building2 size={17} /><input value={companyName} onChange={(event) => setCompanyName(event.target.value)} placeholder="Ex.: RealTalent" /></div></label>
+          <label className="field"><span>Seu nome <small>(obrigatório)</small></span><div className="input-with-icon"><UserRound size={17} /><input autoFocus value={displayName} onChange={(event) => setDisplayName(event.target.value)} placeholder="Ex.: Camila Coelho" /></div></label>
+          <label className="field"><span>Nome da empresa <small>(obrigatório)</small></span><div className="input-with-icon"><Building2 size={17} /><input value={companyName} onChange={(event) => setCompanyName(event.target.value)} placeholder="Ex.: RealTalent" /></div></label>
           <label className="field"><span>E-mail de identificação <small>(opcional)</small></span><input type="email" value={email} onChange={(event) => setEmail(event.target.value)} placeholder="voce@empresa.com" /></label>
         </div>
         <div className="local-onboarding__modes" role="radiogroup" aria-label="Tipo de base inicial">
@@ -55,7 +58,8 @@ export function LocalOnboarding({ onComplete }: LocalOnboardingProps) {
         </div>
         {error ? <div className="form-error">{error}</div> : null}
         <div className="local-onboarding__notice"><HardDrive size={18} /><span><strong>Versão local:</strong> os dados ficam salvos apenas neste navegador. Use o backup antes de trocar de computador ou limpar os dados do navegador.</span></div>
-        <Button size="lg" loading={saving} disabled={displayName.trim().length < 2 || companyName.trim().length < 2} onClick={submit}><Rocket size={18} /> Entrar no CRM</Button>
+        {missingFields ? <p className="local-onboarding__missing" role="status">Para entrar, preencha {missingFields}.</p> : null}
+        <Button size="lg" loading={saving} disabled={Boolean(missingFields)} onClick={submit}><Rocket size={18} /> Entrar no CRM</Button>
       </div>
     </section>
   </main>

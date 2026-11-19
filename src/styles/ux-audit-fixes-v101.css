@@ -85,5 +85,16 @@ html[data-sidebar-mode] .app-shell__main {
 }
 .sales-pipeline-v3__board { scrollbar-width: auto; }
 /* Ícones de ação das linhas: antes pareciam desabilitados (opacidade baixa) fora do hover. */
-.contacts-v3__table .lead-row-actions button { opacity: .8 !important; }
+.contacts-v3__table .lead-row-actions { opacity: .85 !important; }
 .contacts-v3__table .lead-row-actions button:hover, .contacts-v3__table .lead-row-actions button:focus-visible { opacity: 1 !important; }
+
+/* 5. Comunicação: nome do contato acima da empresa/telefone (antes ficavam colados na mesma linha). */
+.whatsapp-chat__identity > div { display: grid !important; gap: 2px; min-width: 0; text-align: left; }
+.whatsapp-chat__identity > div > span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* 5. Primeiro acesso: o que falta para entrar; borda dupla no campo com ícone ao receber foco. */
+.local-onboarding__missing { margin: 0; color: var(--rt-muted, #5d687c); font-size: 13px; text-align: center; }
+.local-onboarding .input-with-icon input,
+.local-onboarding .input-with-icon input:focus,
+.local-onboarding .input-with-icon input:focus-visible { border: 0 !important; box-shadow: none !important; outline: none !important; background: transparent; }
+.local-onboarding .input-with-icon:focus-within { border-color: var(--rt-primary, #2f5bd3) !important; box-shadow: 0 0 0 3px rgba(47, 91, 211, .14) !important; }

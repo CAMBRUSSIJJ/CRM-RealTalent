@@ -8,11 +8,12 @@ export function whatsappGatewayIsHealthy(health:{ok?:boolean}|null|undefined,
   return health?.ok===true
 }
 export function describeLocalServiceError(status:number,source:'supervisor'|'gateway'):string{
+  // Mensagem para quem usa o CRM: o que aconteceu e o que fazer. O código técnico vai no fim, para o suporte.
   if(status===502)return source==='supervisor'?
-    'HTTP 502: o proxy local não conseguiu acessar o supervisor. Verifique o inicializador e o log no terminal.':
-    'HTTP 502: o proxy local não conseguiu acessar o gateway. Verifique a porta e a inicialização do serviço.'
-  if(status===503)return 'HTTP 503: serviço temporariamente indisponível. Confira o supervisor local.'
-  return 'Falha HTTP '+status+'. Consulte o diagnóstico do serviço.'
+    'O serviço de comunicação deste computador não respondeu. Abra o RealTalent Connect e tente sincronizar de novo. (código 502 · supervisor)':
+    'Não conseguimos falar com o serviço de mensagens agora. Confira se o RealTalent Connect está aberto e tente sincronizar de novo. (código 502 · gateway)'
+  if(status===503)return 'O serviço de mensagens está temporariamente indisponível. Tente de novo em alguns instantes. (código 503)'
+  return 'Não foi possível concluir a comunicação com o serviço. Tente de novo; se continuar, fale com o administrador. (código '+status+')'
 }
 
 /** Do not delete previously discovered accounts when an HTTP gateway check

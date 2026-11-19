@@ -1,0 +1,195 @@
+/*
+ * Movimento, cards e modais (19/11/2026).
+ * Referência: Linear/Attio/Folk — movimento curto e discreto, sombras leves, um único padrão de card.
+ * Carregado depois de ux-audit-fixes-v101.css. Usa as variáveis do tema (claro e escuro).
+ */
+
+:root {
+  --rt2-radius-card: 12px;
+  --rt2-radius-modal: 16px;
+  --rt2-border: var(--rt-border, #e5e7eb);
+  --rt2-border-hover: var(--rt-border-strong, #cfd6e2);
+  --rt2-surface: var(--rt-surface, #ffffff);
+  --rt2-shadow-xs: 0 1px 2px rgba(16, 24, 40, .05);
+  --rt2-shadow-sm: 0 1px 2px rgba(16, 24, 40, .04), 0 4px 12px -4px rgba(16, 24, 40, .08);
+  --rt2-shadow-md: 0 2px 4px rgba(16, 24, 40, .04), 0 14px 30px -12px rgba(16, 24, 40, .20);
+  --rt2-shadow-modal: 0 28px 70px -16px rgba(16, 24, 40, .32), 0 0 0 1px rgba(16, 24, 40, .06);
+  --rt2-scrim: rgba(15, 23, 42, .42);
+  --rt2-ease-out: cubic-bezier(.16, 1, .3, 1);
+  --rt2-ease-in: cubic-bezier(.4, 0, 1, 1);
+  --rt2-dur-fast: 120ms;
+  --rt2-dur: 180ms;
+  --rt2-dur-slow: 260ms;
+}
+html[data-theme="dark"] {
+  --rt2-shadow-xs: 0 1px 2px rgba(0, 0, 0, .35);
+  --rt2-shadow-sm: 0 1px 2px rgba(0, 0, 0, .3), 0 6px 16px -6px rgba(0, 0, 0, .45);
+  --rt2-shadow-md: 0 2px 4px rgba(0, 0, 0, .3), 0 18px 36px -14px rgba(0, 0, 0, .6);
+  --rt2-shadow-modal: 0 30px 80px -16px rgba(0, 0, 0, .7), 0 0 0 1px rgba(255, 255, 255, .06);
+  --rt2-scrim: rgba(3, 6, 14, .6);
+}
+
+@keyframes rt2-rise { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+@keyframes rt2-fade-in { from { opacity: 0; } to { opacity: 1; } }
+@keyframes rt2-fade-out { from { opacity: 1; } to { opacity: 0; } }
+@keyframes rt2-modal-in { from { opacity: 0; transform: translateY(10px) scale(.98); } to { opacity: 1; transform: none; } }
+@keyframes rt2-modal-out { from { opacity: 1; transform: none; } to { opacity: 0; transform: translateY(6px) scale(.985); } }
+@keyframes rt2-sheet-in { from { transform: translateY(100%); } to { transform: none; } }
+@keyframes rt2-sheet-out { from { transform: none; } to { transform: translateY(100%); } }
+@keyframes rt2-drawer-in { from { opacity: .4; transform: translateX(24px); } to { opacity: 1; transform: none; } }
+
+/* ── 1. Cards: um padrão só ─────────────────────────────────────────────── */
+
+/* Superfícies de conteúdo (painéis, colunas, barras de ferramentas). */
+:is(.panel, .gh-card, .goal-card, .automation-rule-card, .proposal-work-card, .contacts-v3__data,
+    .tasks-page-v4__column, .rt-workspace-command-bar, .workspace-data-toolbar-v10167, .rt-workspace-summary-strip,
+    .commercial-map-hero, .commercial-map-toolbar, .commercial-map-side, .commercial-map-canvas) {
+  border-radius: var(--rt2-radius-card) !important;
+  border-color: var(--rt2-border) !important;
+}
+
+/* Cartões de indicador: mesmo formato em todas as telas. */
+:is(.health-item, .contacts-v3__kpi, .followups-v3__kpi, .metrics-v3__kpi, .rt-workspace-summary-metric, .metric-card, .commercial-map-kpi) {
+  border-radius: var(--rt2-radius-card) !important;
+  border: 1px solid var(--rt2-border) !important;
+  background: var(--rt2-surface);
+  box-shadow: var(--rt2-shadow-xs) !important;
+}
+/* Faixa de indicadores (Ligações, Agenda…): os indicadores ficam dentro de um contêiner com borda própria. */
+.rt-workspace-summary-strip > .rt-workspace-summary-metric { border: 0 !important; box-shadow: none !important; border-radius: 0 !important; background: transparent; }
+/* Número: tamanho e peso iguais, dígitos alinhados. */
+:is(.health-item, .contacts-v3__kpi, .followups-v3__kpi, .metrics-v3__kpi, .rt-workspace-summary-metric, .metric-card) strong {
+  font-size: clamp(22px, 1.9vw, 28px) !important;
+  font-weight: 700 !important;
+  line-height: 1.1 !important;
+  letter-spacing: -.02em;
+  font-variant-numeric: tabular-nums;
+}
+.commercial-map-kpi strong { font-variant-numeric: tabular-nums; letter-spacing: -.02em; }
+/* Título do indicador: discreto e legível, sem caixa alta em algumas telas e não em outras. */
+:is(.health-item small, .contacts-v3__kpi-label, .followups-v3__kpi-label, .metrics-v3__kpi > span:first-child,
+    .rt-workspace-summary-metric small, .metric-card small, .commercial-map-kpi > div > span) {
+  font-size: 12.5px !important;
+  font-weight: 600 !important;
+  letter-spacing: 0 !important;
+  text-transform: none !important;
+  color: var(--rt-muted, #5d687c) !important;
+}
+
+/* Cards clicáveis: elevação leve no hover, "afunda" no clique. */
+:is(button.health-item, button.contacts-v3__kpi, button.followups-v3__kpi, button.rt-workspace-summary-metric,
+    .sales-pipeline-v3__card, .proposal-work-card, .goal-card, .automation-rule-card, .gh-result, .lead-base-card) {
+  transition: transform var(--rt2-dur) var(--rt2-ease-out), box-shadow var(--rt2-dur) var(--rt2-ease-out), border-color var(--rt2-dur) ease !important;
+  will-change: transform;
+}
+@media (hover: hover) {
+  :is(button.health-item, button.contacts-v3__kpi, button.followups-v3__kpi, .rt-workspace-summary-strip:not(:has(> :nth-child(2))) button.rt-workspace-summary-metric,
+      .sales-pipeline-v3__card, .proposal-work-card, .goal-card, .automation-rule-card, .gh-result, .lead-base-card):hover {
+    transform: translateY(-1px);
+    box-shadow: var(--rt2-shadow-md) !important;
+    border-color: var(--rt2-border-hover) !important;
+  }
+  .rt-workspace-summary-strip > button.rt-workspace-summary-metric:hover { background: var(--rt-surface-soft, #f6f8fb); }
+}
+:is(button.health-item, button.contacts-v3__kpi, button.followups-v3__kpi, .proposal-work-card, .goal-card):active {
+  transform: translateY(0) scale(.995);
+  box-shadow: var(--rt2-shadow-sm) !important;
+  transition-duration: var(--rt2-dur-fast) !important;
+}
+/* Pipeline: card "levanta" ao ser arrastado. */
+.sales-pipeline-v3__card { border-radius: 10px !important; box-shadow: var(--rt2-shadow-xs); }
+.sales-pipeline-v3__card[draggable="true"]:active { cursor: grabbing; transform: scale(1.015); box-shadow: var(--rt2-shadow-md) !important; }
+
+/* ── 2. Entrada dos cards ao abrir uma tela: aparecem em sequência, 30ms de intervalo ── */
+:is(.health-item, .contacts-v3__kpi, .followups-v3__kpi, .metrics-v3__kpi, .metric-card, .commercial-map-kpi,
+    .rt-workspace-summary-metric, .proposal-work-card, .goal-card, .automation-rule-card, .sales-pipeline-v3__column) {
+  animation: rt2-rise var(--rt2-dur-slow) var(--rt2-ease-out) backwards;
+}
+:is(.health-item, .contacts-v3__kpi, .followups-v3__kpi, .metrics-v3__kpi, .metric-card, .commercial-map-kpi,
+    .rt-workspace-summary-metric, .proposal-work-card, .goal-card, .automation-rule-card, .sales-pipeline-v3__column):nth-child(2) { animation-delay: 30ms; }
+:is(.health-item, .contacts-v3__kpi, .followups-v3__kpi, .metrics-v3__kpi, .metric-card, .commercial-map-kpi,
+    .rt-workspace-summary-metric, .proposal-work-card, .goal-card, .automation-rule-card, .sales-pipeline-v3__column):nth-child(3) { animation-delay: 60ms; }
+:is(.health-item, .contacts-v3__kpi, .followups-v3__kpi, .metrics-v3__kpi, .metric-card, .commercial-map-kpi,
+    .rt-workspace-summary-metric, .proposal-work-card, .goal-card, .automation-rule-card, .sales-pipeline-v3__column):nth-child(4) { animation-delay: 90ms; }
+:is(.health-item, .contacts-v3__kpi, .followups-v3__kpi, .metrics-v3__kpi, .metric-card, .commercial-map-kpi,
+    .rt-workspace-summary-metric, .proposal-work-card, .goal-card, .automation-rule-card, .sales-pipeline-v3__column):nth-child(5) { animation-delay: 120ms; }
+:is(.health-item, .contacts-v3__kpi, .followups-v3__kpi, .metrics-v3__kpi, .metric-card, .commercial-map-kpi,
+    .rt-workspace-summary-metric, .proposal-work-card, .goal-card, .automation-rule-card, .sales-pipeline-v3__column):nth-child(n+6) { animation-delay: 150ms; }
+
+/* ── 3. Botões: resposta imediata ao clique ─────────────────────────────── */
+:is(.rt-button, .button, .icon-button):not(:disabled) { transition: transform var(--rt2-dur-fast) var(--rt2-ease-out), background-color var(--rt2-dur) ease, border-color var(--rt2-dur) ease, box-shadow var(--rt2-dur) ease, color var(--rt2-dur) ease; }
+:is(.rt-button, .button, .icon-button):not(:disabled):active { transform: scale(.97); }
+:is(.rt-button, .button, .icon-button, .health-item, .contacts-v3__kpi, .followups-v3__kpi, .rt-workspace-summary-metric):focus-visible {
+  outline: 2px solid var(--rt-primary, #2f5bd3) !important;
+  outline-offset: 2px;
+}
+
+/* ── 4. Modais ──────────────────────────────────────────────────────────── */
+/* Fundo escurecido com desfoque leve (antes o desfoque forte transformava a tela em borrão). */
+.modal-backdrop {
+  background: var(--rt2-scrim) !important;
+  backdrop-filter: blur(2px) saturate(.9) !important;
+  -webkit-backdrop-filter: blur(2px) saturate(.9) !important;
+  animation: rt2-fade-in var(--rt2-dur) ease-out both !important;
+}
+.modal-backdrop.is-closing { animation: rt2-fade-out 160ms var(--rt2-ease-in) both !important; }
+.modal {
+  border: 0 !important;
+  border-radius: var(--rt2-radius-modal) !important;
+  box-shadow: var(--rt2-shadow-modal) !important;
+  animation: rt2-modal-in var(--rt2-dur-slow) var(--rt2-ease-out) both !important;
+  transform-origin: 50% 40%;
+}
+.modal.is-closing { animation: rt2-modal-out 160ms var(--rt2-ease-in) both !important; }
+.modal__header { padding-block: 18px 14px !important; }
+.modal__header h2 { font-size: 18px !important; font-weight: 700 !important; letter-spacing: -.01em; }
+.modal__header p { font-size: 13px !important; }
+.modal__footer { background: var(--rt-surface-soft, #f8fafc) !important; border-radius: 0 0 var(--rt2-radius-modal) var(--rt2-radius-modal); }
+/* Sombra no topo/rodapé do conteúdo indica que há mais para rolar. */
+.modal__body {
+  background:
+    linear-gradient(var(--rt2-surface) 30%, transparent) top / 100% 28px no-repeat local,
+    linear-gradient(transparent, var(--rt2-surface) 70%) bottom / 100% 28px no-repeat local,
+    radial-gradient(farthest-side at 50% 0, rgba(16, 24, 40, .12), transparent) top / 100% 10px no-repeat scroll,
+    radial-gradient(farthest-side at 50% 100%, rgba(16, 24, 40, .12), transparent) bottom / 100% 10px no-repeat scroll,
+    var(--rt2-surface) !important;
+}
+
+/* Celular: o modal abre de baixo para cima, como folha inferior, com alça de arrastar. */
+@media (max-width: 720px) {
+  .modal-backdrop { align-items: flex-end !important; justify-content: stretch !important; padding: 0 !important; }
+  .modal {
+    position: relative;
+    width: 100% !important; max-width: 100% !important;
+    max-height: 92dvh !important;
+    border-radius: 18px 18px 0 0 !important;
+    padding-top: 10px;
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+    animation: rt2-sheet-in 300ms var(--rt2-ease-out) both !important;
+  }
+  .modal.is-closing { animation: rt2-sheet-out 170ms var(--rt2-ease-in) both !important; }
+  .modal::before {
+    content: ""; position: absolute; top: 7px; left: 50%; width: 36px; height: 4px; margin-left: -18px;
+    border-radius: 999px; background: var(--rt-border-strong, rgba(16, 24, 40, .2));
+  }
+  .modal__footer { border-radius: 0; }
+}
+
+/* Painel lateral: entra deslizando da direita. */
+.rt-drawer { animation: rt2-drawer-in var(--rt2-dur-slow) var(--rt2-ease-out) both; box-shadow: var(--rt2-shadow-modal); }
+.rt-drawer-backdrop-v10172 { background: var(--rt2-scrim) !important; animation: rt2-fade-in var(--rt2-dur) ease-out both; }
+
+/* ── 5. Quem prefere menos movimento ────────────────────────────────────── */
+/* Vale para a opção do sistema operacional e para Configurações › Aparência › Reduzir movimento. */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: .01ms !important; animation-delay: 0ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; scroll-behavior: auto !important; }
+}
+html[data-reduce-motion="true"] *, html[data-reduce-motion="true"] *::before, html[data-reduce-motion="true"] *::after {
+  animation-duration: .01ms !important; animation-delay: 0ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; scroll-behavior: auto !important;
+}
+
+/* Celular: o bloco "Cadastro rápido" empilha texto e botão (antes o texto ficava espremido ao lado do botão). */
+@media (max-width: 720px) {
+  .modal .seller-ready-fill { display: grid !important; grid-template-columns: auto minmax(0, 1fr) !important; align-items: start; gap: 10px 12px !important; }
+  .modal .seller-ready-fill > :last-child { grid-column: 1 / -1; justify-self: start; }
+}

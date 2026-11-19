@@ -41,8 +41,8 @@ const firstRecord = (content: string) => {
 
 const headerAliases: Record<string, string[]> = {
   name: ['nome', 'lead', 'contato', 'nome do lead', 'empresa'],
-  company: ['empresa', 'companhia', 'barbearia', 'negocio', 'negócio'],
-  phone: ['telefone', 'fone', 'whatsapp', 'celular'],
+  company: ['empresa', 'companhia', 'barbearia', 'negocio', 'negócio', 'razao social', 'nome fantasia'],
+  phone: ['telefone', 'fone', 'whatsapp', 'celular', 'zap', 'whats'],
   email: ['email', 'e-mail'],
   city: ['cidade', 'local', 'municipio', 'município'],
   source: ['origem', 'fonte', 'source'],
@@ -55,9 +55,23 @@ const headerAliases: Record<string, string[]> = {
   nextActionAt: ['proxima acao', 'próxima ação', 'retorno', 'data retorno'],
   tags: ['tags', 'etiquetas'],
   notes: ['observacoes', 'observações', 'notas', 'descricao', 'descrição'],
+  cnpj: ['cnpj', 'documento', 'cpf/cnpj', 'cnpj/cpf'],
+  website: ['site', 'website', 'url', 'pagina', 'página'],
 }
 
-const findIndex = (headers: string[], key: keyof typeof headerAliases) => headers.findIndex((header) => headerAliases[key].includes(normalize(header)))
+export type LeadCsvField = keyof typeof headerAliases
+export const LEAD_CSV_FIELDS: Array<{ field: LeadCsvField; label: string }> = [
+  { field: 'name', label: 'Nome' }, { field: 'company', label: 'Empresa' }, { field: 'cnpj', label: 'CNPJ' },
+  { field: 'phone', label: 'Telefone' }, { field: 'email', label: 'E-mail' }, { field: 'city', label: 'Cidade' },
+  { field: 'website', label: 'Site' }, { field: 'source', label: 'Origem' }, { field: 'stage', label: 'Etapa' },
+  { field: 'status', label: 'Status' }, { field: 'temperature', label: 'Temperatura' }, { field: 'priority', label: 'Prioridade' },
+  { field: 'ownerName', label: 'Responsável' }, { field: 'value', label: 'Valor' }, { field: 'nextActionAt', label: 'Próxima ação' },
+  { field: 'tags', label: 'Tags' }, { field: 'notes', label: 'Observações' },
+]
+/** Uma entrada por coluna do arquivo: o campo do CRM que ela preenche, ou null para ignorar. */
+export type LeadCsvMapping = Array<LeadCsvField | null>
+export interface LeadCsvTable { headers: string[]; rows: string[][] }
+
 const cell = (row: string[], index: number) => index >= 0 ? (row[index] ?? '').trim() : ''
 const parseMoney = (value: string) => {
   const normalized = value.replace(/[^0-9,.-]/g, '').replace(/\.(?=\d{3}(?:\D|$))/g, '').replace(',', '.')
@@ -86,23 +100,38 @@ const status = (value: string): LeadStatus => {
   return 'active'
 }
 
-export interface CsvImportResult { leads: Lead[]; warnings: string[] }
+export interface CsvImportResult { leads: Lead[]; warnings: string[]; rowNumbers?: number[] }
 
-export function parseLeadCsv(content: string, workspaceId: string, stages: PipelineStage[]): CsvImportResult {
+/** Lê o arquivo (vírgula ou ponto e vírgula, com aspas) sem decidir ainda o que cada coluna significa. */
+export function readLeadCsv(content: string): LeadCsvTable {
   const clean = content.replace(/^\uFEFF/, '').trim()
   if (!clean) throw new Error('O arquivo CSV está vazio.')
   const headerRecord = firstRecord(clean)
   const separator = (headerRecord.match(/;/g)?.length ?? 0) > (headerRecord.match(/,/g)?.length ?? 0) ? ';' : ','
   const rows = parseTable(clean, separator)
   if (rows.length < 2) throw new Error('O CSV precisa conter cabeçalho e ao menos uma linha.')
-  const headers = rows[0]
-  const indexes = Object.fromEntries(Object.keys(headerAliases).map((key) => [key, findIndex(headers, key as keyof typeof headerAliases)])) as Record<keyof typeof headerAliases, number>
+  return { headers: rows[0], rows: rows.slice(1) }
+}
+
+/** Sugere o campo de cada coluna pelo nome do cabeçalho. Cada campo fica com a primeira coluna livre que combina; Nome é resolvido antes de Empresa. */
+export function suggestLeadCsvMapping(headers: string[]): LeadCsvMapping {
+  const mapping: LeadCsvMapping = headers.map(() => null)
+  for (const field of Object.keys(headerAliases) as LeadCsvField[]) {
+    const index = headers.findIndex((header, position) => mapping[position] === null && headerAliases[field].includes(normalize(header)))
+    if (index >= 0) mapping[index] = field
+  }
+  return mapping
+}
+
+export function buildLeadsFromCsv(table: LeadCsvTable, mapping: LeadCsvMapping, workspaceId: string, stages: PipelineStage[]): CsvImportResult {
+  const indexes = Object.fromEntries((Object.keys(headerAliases) as LeadCsvField[]).map((field) => [field, mapping.indexOf(field)])) as Record<LeadCsvField, number>
   if (indexes.name < 0) throw new Error('Não encontrei uma coluna de nome/lead no CSV.')
   const warnings: string[] = []
+  const rowNumbers: number[] = []
   const fallback = stages.find((stage) => !stage.isWon && !stage.isLost) ?? stages[0]
   if (!fallback) throw new Error('O workspace precisa ter ao menos uma etapa.')
   const now = new Date().toISOString()
-  const leads = rows.slice(1).reduce<Lead[]>((result, row, rowIndex) => {
+  const leads = table.rows.reduce<Lead[]>((result, row, rowIndex) => {
     const name = cell(row, indexes.name)
     if (!name) { warnings.push(`Linha ${rowIndex + 2}: ignorada por não possuir nome.`); return result }
     const stageText = normalize(cell(row, indexes.stage))
@@ -110,6 +139,8 @@ export function parseLeadCsv(content: string, workspaceId: string, stages: Pipel
     if (stageText && resolvedStage === fallback && normalize(fallback.name) !== stageText) warnings.push(`Linha ${rowIndex + 2}: etapa “${cell(row, indexes.stage)}” não encontrada; usada “${fallback.name}”.`)
     const importedStatus = status(cell(row, indexes.status))
     const finalStatus: LeadStatus = resolvedStage.isWon ? 'won' : resolvedStage.isLost ? 'lost' : importedStatus
+    const cnpj = cell(row, indexes.cnpj)
+    const website = cell(row, indexes.website)
     result.push({
       id: createId('lead'), workspaceId, name,
       company: cell(row, indexes.company) || name,
@@ -119,10 +150,18 @@ export function parseLeadCsv(content: string, workspaceId: string, stages: Pipel
       ownerId: null, ownerName: cell(row, indexes.ownerName) || 'Equipe', value: parseMoney(cell(row, indexes.value)),
       nextActionAt: parseDate(cell(row, indexes.nextActionAt)), notes: cell(row, indexes.notes),
       tags: cell(row, indexes.tags).split(/[|,]/).map((tag) => tag.trim()).filter(Boolean), createdAt: now, updatedAt: now,
+      ...(cnpj ? { cnpj } : {}), ...(website ? { website } : {}),
     })
+    rowNumbers.push(rowIndex + 2)
     return result
   }, [])
-  return { leads, warnings }
+  return { leads, warnings, rowNumbers }
+}
+
+/** Importação direta, com o mapeamento sugerido pelos cabeçalhos. */
+export function parseLeadCsv(content: string, workspaceId: string, stages: PipelineStage[]): CsvImportResult {
+  const table = readLeadCsv(content)
+  return buildLeadsFromCsv(table, suggestLeadCsvMapping(table.headers), workspaceId, stages)
 }
 
 export function leadsToCsv(leads: Lead[], stages: PipelineStage[]) {

@@ -20,7 +20,8 @@ import type { ActivityType, Lead, LeadPriority, LeadStatus, LeadTemperature } fr
 import { safeStorage } from '../../lib/storage'
 import { findDuplicateMatches, latestLeadInteractionAt } from '../../services/lead-intelligence'
 import { leadScoreInsight } from '../../services/lead-scoring'
-import { leadsToCsv } from '../../services/lead-csv'
+import { leadsToCsv, readLeadCsv, type LeadCsvTable } from '../../services/lead-csv'
+import { LeadImportModal } from './lead-import-modal'
 import { contactBlockedMessage } from '../../services/contact-policy'
 import { canViewSensitiveField } from '../../services/team-access-control'
 import { requireExportApproval } from '../../services/team-governance'
@@ -201,6 +202,7 @@ export function LeadsPage() {
   const [callLaunchOptions, setCallLaunchOptions] = useState<LeadCallLaunchOptions | undefined>(undefined)
   const [messageLead, setMessageLead] = useState<Lead | null>(null)
   const fileRef = useRef<HTMLInputElement>(null)
+  const [csvImport, setCsvImport] = useState<{ fileName: string; table: LeadCsvTable; key: number } | null>(null)
 
   const openCall = (lead: Lead, options?: LeadCallLaunchOptions) => {
     setCallLaunchOptions(options)
@@ -598,6 +600,9 @@ export function LeadsPage() {
     if (!file) return
     setBusy(true)
     try {
+      const text = await file.text()
+      const isBackup = file.name.toLowerCase().endsWith('.json') || /^\s*[[{]/.test(text)
+      if (!isBackup) { setCsvImport({ fileName: file.name, table: readLeadCsv(text), key: Date.now() }); return }
       const result = await importLeadFile(file)
       if (result.warnings.length) notify('info', `${result.warnings.length} ${plural(result.warnings.length, 'aviso', 'avisos')} durante a importação.`)
     } catch (error) { notify('error', error instanceof Error ? error.message : 'Falha na importação.') }
@@ -929,6 +934,7 @@ export function LeadsPage() {
 
       <CreateLeadModal open={canContactCreate && createOpen} onCreated={handleLeadCreated} onClose={() => { setCreateOpen(false); if (routeContext.action === 'create-lead') clearRouteContext(['action']) }} />
       <EditLeadModal lead={editing} open={canContactEdit && Boolean(editing)} onClose={() => setEditing(null)} />
+      {csvImport ? <LeadImportModal key={csvImport.key} open fileName={csvImport.fileName} table={csvImport.table} onClose={() => setCsvImport(null)} /> : null}
       <LeadDetailsDrawer readOnly={!canContactEdit} openAccountOnMount={routeContext.action === 'account360'} lead={drawerLead} duplicateMatches={duplicateMatches} onClose={() => { setDrawerLeadId(null); if (routeContext.leadId || routeContext.action === 'account360') clearRouteContext(['leadId', 'action']) }} onEdit={(lead) => setEditing(lead)} onActivity={openActivity} onEvent={setEventLead} onCall={openCall} onOpenDuplicate={(lead) => setDrawerLeadId(lead.id)} />
       <ActivityModal open={canContactEdit && Boolean(activityLead)} initialLeadId={activityLead?.id} initialType={activityType} initialTitle={activityLead ? `${activityType === 'note' ? 'Nota' : activityType === 'meeting' ? 'Reunião' : activityType === 'call' ? 'Ligação' : 'Retomar contato'} — ${activityLead.name}` : ''} onClose={() => setActivityLead(null)} />
       <EventModal open={canContactEdit && Boolean(eventLead)} initialLeadId={eventLead?.id} onClose={() => setEventLead(null)} />

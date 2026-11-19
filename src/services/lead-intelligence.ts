@@ -173,3 +173,5 @@ export const latestLeadInteractionAt = (
   events.filter((item) => item.leadId === lead.id).forEach((item) => values.push(item.updatedAt ?? item.startsAt ?? item.createdAt))
   return values.filter(Boolean).sort().at(-1) ?? lead.updatedAt
 }
+
+export { normalizePhone as normalizeLeadPhone, normalizeEmail as normalizeLeadEmail, normalizeDocument as normalizeLeadDocument }

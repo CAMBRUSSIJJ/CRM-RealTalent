@@ -30,7 +30,7 @@ const METHOD_CAPABILITY: Record<string, string> = {
   createBuyerRoom: 'buyer_rooms.create', updateBuyerRoom: 'buyer_rooms.update', rotateBuyerRoomToken: 'buyer_rooms.rotate_token', deleteBuyerRoom: 'buyer_rooms.delete',
   createRevenueEntry: 'revenue.create', updateRevenueEntryStatus: 'revenue.update_status', createGoal: 'goals.create', updateGoal: 'goals.update', deleteGoal: 'goals.delete',
   createAutomationRule: 'automations.create', updateAutomationRule: 'automations.update', deleteAutomationRule: 'automations.delete', simulateAutomationRule: 'automations.simulate', runAutomationRule: 'automations.run', runAutomationChecks: 'automations.run_checks', undoAutomationRun: 'automations.undo_run',
-  restoreWorkspaceBackup: 'backup.restore_workspace', importLegacyBackup: 'backup.import_legacy', importLeadFile: 'backup.import_leads',
+  restoreWorkspaceBackup: 'backup.restore_workspace', importLegacyBackup: 'backup.import_legacy', importLeadFile: 'backup.import_leads', importReviewedLeads: 'backup.import_leads',
 }
 
 const EQUIVALENT = new Set(['createActivity','createActivities','createCalendarEvents'])

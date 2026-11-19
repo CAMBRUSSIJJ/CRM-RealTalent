@@ -8,6 +8,7 @@ import type {
 } from '../repositories/crm-repository'
 import { importV99Backup } from '../services/v99-importer'
 import { parseLeadCsv } from '../services/lead-csv'
+import { mergeLeadRecords } from '../services/lead-intelligence'
 import { safeStorage } from '../lib/storage'
 import { useAuth } from '../features/auth/auth-context'
 import { automationCorrelationId, automationEventKey, automationLoopDetected, conditionMatches, ruleMatches, type AutomationEvent } from '../services/automation-engine'
@@ -827,6 +828,34 @@ export function AppProvider({ children }: PropsWithChildren) {
         if (lead) await executeAutomationEvent({ triggerType: 'lead_imported', entityId: lead.id, lead }, { refreshAfter: false, baseSnapshot: base })
       }
       await refreshData(); notify('success', `${imported} ${plural(imported, 'lead', 'leads')} ${plural(imported, 'importado', 'importados')}.`); return { imported, warnings: result.warnings }
+    },
+    async importReviewedLeads({ leads, merges }) { assertWritable();
+      if (!currentWorkspace || !snapshot) throw new Error('Selecione um workspace.')
+      assertTeamAccess(teamAccess,'create','contacts',user?.id ?? null)
+      for (const lead of leads) assertTeamAccess(teamAccess,'create','contacts',lead.ownerId ?? user?.id ?? null)
+      let updated = 0
+      for (const { existingId, incoming } of merges) {
+        const current = snapshot.leads.find((item) => item.id === existingId)
+        if (!current) continue
+        assertTeamAccess(teamAccess,'edit','contacts',current.ownerId)
+        // Completa sem mudar o negócio: valor, etapa, dono, prioridade e próxima ação ficam como estão no CRM.
+        const merged = { ...mergeLeadRecords(current, { ...incoming, workspaceId: current.workspaceId }), value: current.value, stageId: current.stageId, status: current.status, ownerId: current.ownerId, ownerName: current.ownerName, priority: current.priority, temperature: current.temperature, nextActionAt: current.nextActionAt, expectedCloseAt: current.expectedCloseAt }
+        const changes = Object.fromEntries(Object.entries(merged).filter(([key, value]) => !['id','workspaceId','createdAt','updatedAt'].includes(key) && JSON.stringify(value) !== JSON.stringify((current as unknown as Record<string, unknown>)[key])))
+        if (!Object.keys(changes).length) continue
+        await repository.updateLead(existingId, changes); updated += 1
+      }
+      const imported = leads.length ? await repository.importLeads(currentWorkspace.id, leads) : 0
+      if (leads.length) {
+        const base = await loadWorkspaceSnapshotSlices(repository, currentWorkspace, ['commercial', 'stages', 'automationRules'])
+        for (const importedLead of leads) {
+          const lead = base.leads.find((item) => item.id === importedLead.id)
+          if (lead) await executeAutomationEvent({ triggerType: 'lead_imported', entityId: lead.id, lead }, { refreshAfter: false, baseSnapshot: base })
+        }
+      }
+      await refreshData()
+      const parts = [imported ? `${imported} ${plural(imported, 'contato importado', 'contatos importados')}` : '', updated ? `${updated} ${plural(updated, 'contato completado', 'contatos completados')}` : ''].filter(Boolean)
+      notify('success', parts.length ? `${parts.join(' e ')}.` : 'Nada para importar.')
+      return { imported, updated }
     },
     notify,
   }), [actionDialog, assertAuthorized, assertWritable, bootstrap, can, canWrite, confirmAction, currentWorkspace, dismissToast, error, executeAutomationEvent, health, loadWorkspace, loading, routeDataLoading, loadedSnapshotSlices, notify, promptAction, refreshData, refreshSlices, publishDomainChange, repository, resolveActionDialog, route, snapshot, teamAccess, canTeamAccess, teamAccessScope, canTeamAccessRecord, toasts, user?.id, workspaces, permissionSubject])

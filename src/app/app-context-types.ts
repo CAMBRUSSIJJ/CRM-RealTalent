@@ -174,6 +174,8 @@ export interface AppContextValue {
   restoreWorkspaceBackup(file: File): Promise<{ imported: number; warnings: string[] }>
   importLegacyBackup(file: File): Promise<{ imported: number; warnings: string[] }>
   importLeadFile(file: File): Promise<{ imported: number; warnings: string[] }>
+  /** Grava uma importação já revisada: cria os novos e completa os campos vazios dos existentes. */
+  importReviewedLeads(input: { leads: Lead[]; merges: Array<{ existingId: string; incoming: Lead }> }): Promise<{ imported: number; updated: number }>
   notify(type: ToastMessage['type'], message: string, options?: ToastOptions): void
 }
 

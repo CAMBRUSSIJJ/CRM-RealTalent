@@ -6,7 +6,7 @@ import { usePreferences } from '../../features/settings/preferences-context'
 import { initials } from '../../domain/formatters'
 import { navigationItems, routeAccessResource, type NavigationGroup } from './navigation'
 
-const GROUPS: NavigationGroup[] = ['Operação', 'Estratégia', 'Sistema']
+const GROUPS: NavigationGroup[] = ['Principal', 'Vendas', 'Gestão', 'Sistema']
 
 export function Sidebar() {
   const { preferences, savePreferences } = usePreferences()
@@ -51,7 +51,7 @@ export function Sidebar() {
       <nav className="sidebar__nav" aria-label="Navegação principal">
         {groupedItems.map(({ group, items }) => (
           <div className="sidebar__group" key={group}>
-            {preferences.appearance.sidebarShowGroups ? <span className="sidebar__group-label">{group}</span> : null}
+            {preferences.appearance.sidebarShowGroups && group !== 'Principal' ? <span className="sidebar__group-label">{group}</span> : null}
             {items.map(({ route: itemRoute, label, icon: Icon }) => {
               const customLabel = preferences.navigation.labels[itemRoute]?.trim() || label
               return <button key={itemRoute} type="button" className={`sidebar__item ${route === itemRoute ? 'is-active' : ''}`} onClick={() => setRoute(itemRoute)} aria-current={route === itemRoute ? 'page' : undefined} title={customLabel}>
@@ -62,7 +62,7 @@ export function Sidebar() {
         ))}
         {secondaryItems.length ? <div className="sidebar__group sidebar__group--secondary">
           <button className={`sidebar__more-toggle ${secondaryOpen ? 'is-open' : ''}`} type="button" onClick={toggleSecondary} aria-expanded={secondaryOpen} aria-controls="sidebar-secondary-tools" title="Mais ferramentas">
-            <MoreHorizontal size={19}/><span>Mais ferramentas</span><ChevronDown className="sidebar__more-chevron" size={15}/>
+            <MoreHorizontal size={19}/><span>Mais</span><ChevronDown className="sidebar__more-chevron" size={15}/>
           </button>
           {secondaryOpen ? <div id="sidebar-secondary-tools" className="sidebar__secondary-tools">{secondaryItems.map(({ route: itemRoute, label, icon: Icon }) => {
             const customLabel = preferences.navigation.labels[itemRoute]?.trim() || label

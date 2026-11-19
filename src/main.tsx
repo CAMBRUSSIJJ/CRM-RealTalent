@@ -73,6 +73,7 @@ import './styles/ux-audit-fixes-v101.css'
 import './styles/motion-cards-v101.css'
 import './styles/blue-ocean-motion-v101.css'
 import './styles/layout-review-v101.css'
+import './styles/oceano-v101.css'
 
 installMetadataInspector()
 installUniversalViewInspector()

@@ -1,4 +1,4 @@
-export type AppearanceColorPreset = 'realtalent' | 'minimal' | 'graphite' | 'blue' | 'green' | 'sand' | 'custom'
+export type AppearanceColorPreset = 'ocean' | 'realtalent' | 'minimal' | 'graphite' | 'blue' | 'green' | 'sand' | 'custom'
 
 export interface AppearanceColorSet {
   accentColor: string
@@ -15,6 +15,7 @@ export interface AppearancePresetDefinition extends AppearanceColorSet {
 }
 
 export const APPEARANCE_PRESETS: readonly AppearancePresetDefinition[] = [
+  { id: 'ocean', label: 'Oceano', description: 'As cores da tela de login: azul-marinho, menta e verde-água.', accentColor: '#315BD8', topbarColor: '#061423', sidebarColor: '#04111F', canvasColor: '#061423', surfaceColor: '#0A2136' },
   { id: 'minimal', label: 'Minimal', description: 'Claro, neutro e com destaque azul discreto.', accentColor: '#2F59DB', topbarColor: '#FFFFFF', sidebarColor: '#FFFFFF', canvasColor: '#F5F6F4', surfaceColor: '#FFFFFF' },
   { id: 'realtalent', label: 'RealTalent', description: 'Identidade oficial azul com navegação profunda e superfícies claras.', accentColor: '#315BD8', topbarColor: '#17264A', sidebarColor: '#FFFFFF', canvasColor: '#F4F6FA', surfaceColor: '#FFFFFF' },
   { id: 'graphite', label: 'Grafite', description: 'Navegação escura e conteúdo claro.', accentColor: '#52606D', topbarColor: '#20252B', sidebarColor: '#252B31', canvasColor: '#EFF1F2', surfaceColor: '#FFFFFF' },
@@ -23,7 +24,7 @@ export const APPEARANCE_PRESETS: readonly AppearancePresetDefinition[] = [
   { id: 'sand', label: 'Areia', description: 'Tons quentes e baixo contraste visual.', accentColor: '#A86E2D', topbarColor: '#FAF7F0', sidebarColor: '#FFFDF9', canvasColor: '#F3EEE3', surfaceColor: '#FFFFFF' },
 ] as const
 
-export const DEFAULT_APPEARANCE_PRESET: AppearanceColorPreset = 'minimal'
+export const DEFAULT_APPEARANCE_PRESET: AppearanceColorPreset = 'ocean'
 
 export const getAppearancePreset = (preset: AppearanceColorPreset) => APPEARANCE_PRESETS.find((item) => item.id === preset) ?? APPEARANCE_PRESETS[0]
 
@@ -101,8 +102,9 @@ export const resolveAppearanceTheme = (colors: AppearanceColorSet, effectiveThem
   const accentColor = colors.accentColor
   const topbarColor = effectiveTheme === 'dark' ? darkSurface(colors.topbarColor, '#101815') : colors.topbarColor
   const sidebarColor = effectiveTheme === 'dark' ? darkSurface(colors.sidebarColor, '#141E1A') : colors.sidebarColor
-  const canvasColor = effectiveTheme === 'dark' ? '#101815' : colors.canvasColor
-  const surfaceColor = effectiveTheme === 'dark' ? '#17211D' : colors.surfaceColor
+  // Paletas já escuras (como Oceano) mantêm o próprio fundo no tema escuro.
+  const canvasColor = effectiveTheme === 'dark' ? (relativeLuminance(colors.canvasColor) < 0.03 ? colors.canvasColor : '#101815') : colors.canvasColor
+  const surfaceColor = effectiveTheme === 'dark' ? (relativeLuminance(colors.surfaceColor) < 0.05 ? colors.surfaceColor : '#17211D') : colors.surfaceColor
   const topbarTextColor = contrastTextColor(topbarColor)
   const sidebarTextColor = contrastTextColor(sidebarColor)
   return {

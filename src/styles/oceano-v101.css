@@ -1,0 +1,256 @@
+/*
+ * Tema Oceano: as cores da tela de login aplicadas ao CRM inteiro.
+ * Vale só com a paleta Oceano (que é escura). Carregado por último em main.tsx.
+ * Noite #061423 · vidro #0A2136 · oceano #0B5782 · verde-água #1D9E75 · menta #55D6B2 · azul ação #315BD8
+ */
+html[data-appearance-preset="ocean"] {
+  --oc-night: #061423;
+  --oc-glass: rgba(10, 33, 54, .78);
+  --oc-glass-strong: rgba(10, 33, 54, .92);
+  --oc-line: rgba(121, 198, 221, .14);
+  --oc-line-strong: rgba(121, 198, 221, .26);
+  --oc-mint: #55d6b2;
+  --oc-mint-text: #8de7cf;
+  --oc-teal: #1d9e75;
+  --oc-blue: #315bd8;
+  --oc-text: #eaf2f8;
+  --oc-muted: #93a9bd;
+  --rt-color-text: var(--oc-text);
+  --rt-color-muted: var(--oc-muted);
+  --rt-color-text-muted: var(--oc-muted);
+  --rt-color-border: var(--oc-line);
+  --rt-color-border-strong: var(--oc-line-strong);
+  color-scheme: dark;
+}
+
+/* Fundo: noite com o brilho de oceano no alto e verde-água embaixo, como no login. */
+html[data-appearance-preset="ocean"] body,
+html[data-appearance-preset="ocean"] .app-shell {
+  background:
+    radial-gradient(circle at 88% -12%, rgba(11, 87, 130, .5), rgba(11, 87, 130, 0) 46%),
+    radial-gradient(circle at 18% 112%, rgba(29, 158, 117, .22), rgba(29, 158, 117, 0) 42%),
+    var(--oc-night) !important;
+  background-attachment: fixed !important;
+  color: var(--oc-text);
+}
+html[data-appearance-preset="ocean"] .app-shell__main,
+html[data-appearance-preset="ocean"] .app-shell__content { background: transparent !important; }
+
+/* Menu lateral: vidro escuro, item ativo em menta com a barra à esquerda. */
+html[data-appearance-preset="ocean"] .sidebar {
+  background: rgba(3, 14, 26, .88) !important;
+  border-right: 1px solid rgba(121, 198, 221, .12) !important;
+  backdrop-filter: blur(14px);
+}
+html[data-appearance-preset="ocean"] .sidebar__item { color: #b9c9d6 !important; }
+html[data-appearance-preset="ocean"] .sidebar__item:hover { background: rgba(255, 255, 255, .04) !important; color: var(--oc-text) !important; }
+html[data-appearance-preset="ocean"] .sidebar__item.is-active {
+  background: rgba(85, 214, 178, .12) !important;
+  color: var(--oc-mint-text) !important;
+  border-color: transparent !important;
+  box-shadow: none !important;
+}
+html[data-appearance-preset="ocean"] .sidebar__item.is-active svg { color: var(--oc-mint) !important; }
+html[data-appearance-preset="ocean"] .sidebar__item.is-active::before { background: var(--oc-mint) !important; }
+html[data-appearance-preset="ocean"] .sidebar__group-label { color: var(--oc-muted) !important; }
+
+/* Barra do topo: vidro, sem a faixa sólida. */
+html[data-appearance-preset="ocean"] .global-appbar-v10162,
+html[data-appearance-preset="ocean"] .topbar {
+  background: rgba(3, 14, 26, .55) !important;
+  border-bottom: 1px solid rgba(121, 198, 221, .12) !important;
+  backdrop-filter: blur(14px);
+}
+html[data-appearance-preset="ocean"] .global-appbar-v10162__assistant {
+  border: 1px solid rgba(85, 214, 178, .35) !important;
+  background: rgba(85, 214, 178, .08) !important;
+  color: var(--oc-mint-text) !important;
+}
+
+/* Painéis e cards: vidro escuro com borda fina azulada. */
+html[data-appearance-preset="ocean"] :is(.panel, .card, .rt-card, .metric-card, .health-item, .contacts-v3__kpi, .followups-v3__kpi,
+  .metrics-v3__kpi, .commercial-map-kpi, .rt-workspace-summary-metric, .proposal-work-card, .goal-card, .automation-rule-card,
+  .sales-pipeline-v3__toolbar, .sales-pipeline-v3__metrics > :is(button, div), .contacts-v3__toolbar, .contacts-v3__table-card,
+  .tasks-page-v4__column, .sales-pipeline-v3__column) {
+  background: var(--oc-glass) !important;
+  border-color: var(--oc-line) !important;
+}
+
+/* Ícones em quadradinho dos indicadores: translúcidos em vez de brancos. */
+html[data-appearance-preset="ocean"] :is(.contacts-v3__kpi-icon, .metric-card__icon, .health-item__icon, .rt-workspace-summary-metric__icon, .myday-v1016 .kpi-icon) {
+  background: rgba(121, 198, 221, .12) !important;
+  color: #a5dcec !important;
+  box-shadow: none !important;
+}
+
+/* Botão principal da tela (bolhas do Blue Ocean): contorno menta, preenche em verde-água → azul. */
+html[data-appearance-preset="ocean"] .button--blob {
+  --bb-blob: var(--oc-teal);
+  border-color: var(--oc-mint) !important;
+  color: var(--oc-mint-text) !important;
+  background: rgba(85, 214, 178, .06) !important;
+}
+html[data-appearance-preset="ocean"] .button--blob:not(:disabled):hover { color: #fff !important; box-shadow: 0 8px 22px -10px rgba(29, 158, 117, .8); }
+html[data-appearance-preset="ocean"] .button--blob__fill > .button--blob__blob:nth-child(even) { background: var(--oc-blue); }
+
+/* Campos de texto e selects. */
+html[data-appearance-preset="ocean"] :is(input:not([type="checkbox"]):not([type="radio"]):not([type="range"]), textarea, select) {
+  background-color: rgba(2, 13, 24, .5);
+  color: var(--oc-text);
+  border-color: rgba(121, 198, 221, .22);
+}
+html[data-appearance-preset="ocean"] input[type="checkbox"], html[data-appearance-preset="ocean"] input[type="radio"] { accent-color: var(--oc-mint); }
+
+/* Tabelas: cabeçalho discreto, linhas com divisória fina, texto sempre claro. */
+html[data-appearance-preset="ocean"] table th { color: var(--oc-muted) !important; background: transparent !important; border-color: var(--oc-line) !important; }
+html[data-appearance-preset="ocean"] table td { border-color: rgba(121, 198, 221, .08) !important; }
+html[data-appearance-preset="ocean"] table tr:hover td { background: rgba(85, 214, 178, .04); }
+html[data-appearance-preset="ocean"] .table-primary { color: var(--oc-text) !important; }
+html[data-appearance-preset="ocean"] .lead-cell__avatar { background: linear-gradient(135deg, #0b5782, #1d9e75) !important; color: #fff !important; }
+
+/* Selos de status sobre fundo translúcido (antes vinham com fundo claro). */
+html[data-appearance-preset="ocean"] .status-pill--warning, html[data-appearance-preset="ocean"] .lead-priority-inline--medium { background: rgba(251, 191, 36, .14) !important; color: #fcd34d !important; }
+html[data-appearance-preset="ocean"] .status-pill--danger, html[data-appearance-preset="ocean"] .lead-priority-inline--high, html[data-appearance-preset="ocean"] .lead-priority-inline--urgent { background: rgba(248, 113, 113, .14) !important; color: #fca5a5 !important; }
+html[data-appearance-preset="ocean"] .status-pill--success { background: rgba(52, 211, 153, .14) !important; color: #6ee7b7 !important; }
+html[data-appearance-preset="ocean"] :is(.status-pill--neutral, .status-pill--info, .lead-priority-inline--low) { background: rgba(255, 255, 255, .06) !important; color: #b9c9d6 !important; }
+
+/* Card de alerta (fora do prazo, em risco): borda coral discreta, sem fundo vinho. */
+html[data-appearance-preset="ocean"] :is(.metric-card, .health-item, .contacts-v3__kpi, .rt-workspace-summary-metric):is(.is-danger, .is-risk, .is-red, .metric-card--danger) {
+  background: linear-gradient(180deg, rgba(248, 113, 113, .1), rgba(10, 33, 54, .78)) !important;
+  border-color: rgba(248, 113, 113, .35) !important;
+}
+
+/* Modais: vidro mais opaco sobre fundo escurecido. */
+html[data-appearance-preset="ocean"] :is(.modal, .modal__dialog, .rt-modal, [role="dialog"]) {
+  background: var(--oc-glass-strong);
+  border-color: var(--oc-line-strong);
+}
+
+/* Títulos de página: fortes como no login. */
+html[data-appearance-preset="ocean"] .rt-workspace-page-header h1 { letter-spacing: -0.025em; }
+html[data-appearance-preset="ocean"] .rt-workspace-page-header :is(.eyebrow, .rt-workspace-page-header__eyebrow) { color: var(--oc-mint-text) !important; }
+
+/* ── Menu: variáveis do tema (item ativo em menta) ─────────────────────── */
+html[data-appearance-preset="ocean"] {
+  --rt-shell-sidebar: rgba(3, 14, 26, .88);
+  --rt-shell-sidebar-text: #b9c9d6;
+  --rt-shell-sidebar-muted: #93a9bd;
+  --rt-shell-sidebar-border: rgba(121, 198, 221, .12);
+  --rt-shell-sidebar-active: rgba(85, 214, 178, .12);
+  --rt-shell-sidebar-active-text: #8de7cf;
+}
+html[data-appearance-preset="ocean"] .sidebar__item.is-active,
+html[data-appearance-preset="ocean"] .sidebar__more-toggle.is-open { border-color: rgba(85, 214, 178, .28) !important; }
+
+/* ── Selos (score, prioridade, temperatura, prazo, etiquetas) ─────────────
+ * Fundo = tom translúcido da própria cor do selo; texto clareado. Mantém o significado da cor. */
+html[data-appearance-preset="ocean"] :is(span, small, b, em, time, strong)[class*="badge"]:not(.icon-button),
+html[data-appearance-preset="ocean"] :is(span, small, b, em, time)[class*="chip"],
+html[data-appearance-preset="ocean"] :is(span, small, b, em)[class*="-tag"],
+html[data-appearance-preset="ocean"] :is(span, small, b)[class*="pill"]:not(.status-pill),
+html[data-appearance-preset="ocean"] :is(.playbook-card__tags > span, .automation-rule-card__safety > span, .metrics-alert > span, .sales-pipeline-v3__card-footer time) {
+  background: color-mix(in srgb, currentColor 16%, transparent) !important;
+  color: color-mix(in srgb, currentColor 45%, #ffffff) !important;
+  border-color: color-mix(in srgb, currentColor 30%, transparent) !important;
+}
+
+/* Contadores dentro de abas e cabeçalhos de coluna. */
+html[data-appearance-preset="ocean"] :is(.sales-pipeline-v3__column-name, .tasks-page-v4__column-heading, .communications-central-v3__inbox-heading, .gh-section-heading, .agenda-page-h20 header, .agenda-inspector header) > :is(span, small),
+html[data-appearance-preset="ocean"] :is(button.is-active, button.is-risk, button.is-overdue, button.is-blocked, .tasks-page-v4 button) > :is(span:not([class]), b) {
+  background: rgba(255, 255, 255, .08) !important;
+  color: inherit !important;
+}
+
+/* ── Blocos que vinham com fundo branco ───────────────────────────────── */
+html[data-appearance-preset="ocean"] :is(
+  .contact-saved-view-v10161, .tasks-page-v4__layout-switch, .tasks-page-v4__completed,
+  .whatsapp-chat, .whatsapp-chat__header, .whatsapp-chat__messages, .whatsapp-chat__composer,
+  .communications-central-v3__warning, .calendar-month__weekdays, .calendar-day, .agenda-inspector-summary > div,
+  .call-queue-card, .call-queue-card__rank, .gh-alert, .gh-source, .gh-secondary,
+  .metrics-alert, .metrics-source-table__bar, .goals-strategy-panel__numbers, .goal-card__forecast-grid,
+  .automation-rule-card, .automations-page article, .rt-selection-trigger-v101105, .followups-v3__save-view
+) {
+  background-color: var(--oc-glass) !important;
+  border-color: var(--oc-line) !important;
+  color: var(--oc-text);
+}
+html[data-appearance-preset="ocean"] .calendar-day.is-outside { background-color: rgba(3, 14, 26, .5) !important; color: var(--oc-muted); }
+html[data-appearance-preset="ocean"] .calendar-day.is-today { background-color: rgba(85, 214, 178, .08) !important; box-shadow: inset 0 0 0 1px rgba(85, 214, 178, .35); }
+html[data-appearance-preset="ocean"] .whatsapp-chat__messages { background-color: rgba(3, 14, 26, .45) !important; }
+html[data-appearance-preset="ocean"] :is(.communications-central-v3__warning, .gh-alert, .metrics-alert--warning) { background-color: rgba(251, 191, 36, .08) !important; border-color: rgba(251, 191, 36, .3) !important; color: #fde68a !important; }
+html[data-appearance-preset="ocean"] :is(.metrics-alert--critical, .gh-status--error) { background-color: rgba(248, 113, 113, .08) !important; border-color: rgba(248, 113, 113, .3) !important; color: #fecaca !important; }
+html[data-appearance-preset="ocean"] .gh-blocked { background: rgba(251, 191, 36, .08) !important; color: #fde68a !important; }
+html[data-appearance-preset="ocean"] .communications-central-v3__connection.is-disconnected { background: rgba(248, 113, 113, .12) !important; color: #fca5a5 !important; }
+html[data-appearance-preset="ocean"] .calendar-event { background-color: rgba(49, 91, 216, .28) !important; color: var(--oc-text) !important; border-color: rgba(111, 143, 240, .4) !important; }
+html[data-appearance-preset="ocean"] .calendar-event--tentative { background-color: rgba(85, 214, 178, .14) !important; border-color: rgba(85, 214, 178, .35) !important; }
+html[data-appearance-preset="ocean"] .progress-track { background: rgba(255, 255, 255, .08) !important; }
+html[data-appearance-preset="ocean"] :is(.health-item__icon, .goals-strategy-panel__icon, .goal-card__metric-icon, .followups-v3__kpi-icon) {
+  background: rgba(121, 198, 221, .12) !important; color: #a5dcec !important;
+}
+html[data-appearance-preset="ocean"] .health-item__icon svg { background: transparent !important; }
+html[data-appearance-preset="ocean"] .leads-page tbody tr, html[data-appearance-preset="ocean"] .contacts-v3__table tbody tr { background: transparent !important; }
+html[data-appearance-preset="ocean"] .contacts-v3__table td:last-child, html[data-appearance-preset="ocean"] .contacts-v3__table th:last-child { background: #0a2136 !important; }
+html[data-appearance-preset="ocean"] .rt-checkbox-v101105 button { background: rgba(2, 13, 24, .6) !important; border-color: rgba(121, 198, 221, .35) !important; }
+
+/* Mapa offline do Território: tom de oceano em vez de papel. */
+html[data-appearance-preset="ocean"] :is(.commercial-map-frame, .commercial-map-element, .commercial-map-offline) { background-color: #071a2c !important; }
+html[data-appearance-preset="ocean"] .offline-road { background: rgba(121, 198, 221, .22) !important; }
+html[data-appearance-preset="ocean"] .offline-map-badge { background: rgba(3, 14, 26, .85) !important; color: var(--oc-text) !important; border-color: var(--oc-line) !important; }
+
+/* ── Textos que vinham com cor escura fixa ────────────────────────────── */
+html[data-appearance-preset="ocean"] :is(main, .app-shell__main) :is(h1, h2, h3, h4) { color: var(--oc-text) !important; }
+html[data-appearance-preset="ocean"] :is(.calendar-event strong, .whatsapp-gemini-copilot__header strong, .rtmeet-empty h3, .agenda-inspector h3) { color: var(--oc-text) !important; }
+html[data-appearance-preset="ocean"] :is(.prospecting-page, .metrics-v3, .metrics-page, .goals-page, .automations-page, .gh-page) :is(strong, b):not([class*="badge"]):not([class*="chip"]) { color: inherit; }
+
+/* ── Segunda rodada da varredura ──────────────────────────────────────── */
+/* Ícones desenhados em quadradinho branco. */
+html[data-appearance-preset="ocean"] :is(.myday-v1016__cards button > svg, .playbook-summary > svg, .communications-central-v3__empty > svg, .gh-empty > svg, .playbook-card__icon) {
+  background: rgba(121, 198, 221, .12) !important; color: #a5dcec !important; border-color: transparent !important;
+}
+/* Contadores em abas. */
+html[data-appearance-preset="ocean"] :is(.myday-v1016__starters, .communications-central-v3__inbox-tabs, .rtmeet-tabs, .playbooks-view-tabs) button > span:not([class]) {
+  background: rgba(255, 255, 255, .08) !important; color: inherit !important;
+}
+html[data-appearance-preset="ocean"] :is(.followups-v3__views button.is-active, .gh-tools nav button) { background: rgba(85, 214, 178, .14) !important; color: var(--oc-mint-text) !important; border-color: rgba(85, 214, 178, .4) !important; }
+html[data-appearance-preset="ocean"] .gh-tools nav button:not(.is-active):not([aria-pressed="true"]) { background: rgba(255, 255, 255, .03) !important; color: #b9c9d6 !important; border-color: var(--oc-line) !important; }
+/* Blocos restantes. */
+html[data-appearance-preset="ocean"] :is(.rtmeet-search, .rtmeet-empty, .playbook-summary-grid, .playbook-targeting, .playbook-card__criteria, .automation-rule-card__flow, .automation-text-action, .followups-v3__context-timing, .metrics-owner-list article > span) {
+  background-color: var(--oc-glass) !important; border-color: var(--oc-line) !important; color: var(--oc-text) !important;
+}
+html[data-appearance-preset="ocean"] .playbook-summary-grid { background-color: transparent !important; }
+html[data-appearance-preset="ocean"] .followups-v3__context-timing--overdue { background-color: rgba(248, 113, 113, .1) !important; border-color: rgba(248, 113, 113, .35) !important; color: #fecaca !important; }
+html[data-appearance-preset="ocean"] .automations-page article > span, html[data-appearance-preset="ocean"] :is(span.is-success, span.is-high) {
+  background: color-mix(in srgb, currentColor 16%, transparent) !important; color: color-mix(in srgb, currentColor 45%, #ffffff) !important;
+}
+html[data-appearance-preset="ocean"] .switch > span { background: #fff !important; }
+html[data-appearance-preset="ocean"] :is(.gh-section-heading span, .gh-metrics strong) { color: var(--oc-text) !important; }
+html[data-appearance-preset="ocean"][data-theme] .health-item .health-item__icon { background: rgba(121, 198, 221, .12) !important; color: #a5dcec !important; }
+html[data-appearance-preset="ocean"][data-theme] .gh-section-heading > span { color: var(--oc-mint-text) !important; background: rgba(85, 214, 178, .12) !important; }
+
+/* ── Terceira rodada: fundos em gradiente claro e mapa offline ─────────── */
+html[data-appearance-preset="ocean"] :is(.goals-strategy-panel, .automation-suggestions) {
+  background: linear-gradient(120deg, rgba(29, 158, 117, .2), rgba(10, 33, 54, .85) 60%) !important;
+  border-color: rgba(85, 214, 178, .3) !important;
+  color: var(--oc-text) !important;
+}
+html[data-appearance-preset="ocean"] .health-item--danger {
+  background: linear-gradient(180deg, rgba(248, 113, 113, .1), rgba(10, 33, 54, .78)) !important;
+  border-color: rgba(248, 113, 113, .35) !important;
+}
+html[data-appearance-preset="ocean"] .health-item--danger strong { color: #fca5a5 !important; }
+html[data-appearance-preset="ocean"] .commercial-map-offline { background: radial-gradient(circle at 40% 45%, rgba(11, 87, 130, .35), rgba(6, 20, 35, 0) 60%), #071a2c !important; }
+html[data-appearance-preset="ocean"] .commercial-map-offline::before,
+html[data-appearance-preset="ocean"] .commercial-map-offline::after { background: rgba(29, 158, 117, .14) !important; opacity: 1 !important; }
+html[data-appearance-preset="ocean"] .offline-road { border-color: rgba(121, 198, 221, .35) !important; background: rgba(121, 198, 221, .12) !important; box-shadow: none !important; }
+
+/* Menu mais compacto (como no conceito): cabe tudo, inclusive o "Mais", sem rolar. */
+html[data-sidebar-mode] .sidebar .sidebar__item, html[data-sidebar-mode] .sidebar .sidebar__more-toggle { min-height: 34px !important; height: 34px !important; }
+html[data-sidebar-mode] .sidebar .sidebar__group-label { padding-top: 10px !important; padding-bottom: 2px !important; }
+
+/* Prioridade alta: estilos de telas carregados depois deste arquivo também pintam o item ativo. */
+html[data-appearance-preset="ocean"][data-theme] .sidebar .sidebar__nav .sidebar__item.is-active,
+html[data-appearance-preset="ocean"][data-theme] .sidebar .sidebar__nav .sidebar__more-toggle.is-open {
+  background: rgba(85, 214, 178, .12) !important; color: #8de7cf !important; border-color: rgba(85, 214, 178, .28) !important;
+}
+html[data-appearance-preset="ocean"][data-theme] .sidebar .sidebar__nav .sidebar__item.is-active svg { color: #55d6b2 !important; }
+html[data-appearance-preset="ocean"][data-theme] .sidebar .sidebar__nav .sidebar__item.is-active::before { background: #55d6b2 !important; }

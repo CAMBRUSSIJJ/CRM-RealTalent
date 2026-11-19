@@ -4,6 +4,7 @@ import { normalizePreferences } from './preferences-context'
 describe('normalização segura das preferências', () => {
   it('impede cores e valores inválidos de quebrarem a interface', () => {
     const preferences = normalizePreferences({
+      version: 3,
       company: { accentColor: 'javascript:alert(1)', navigationColor: '#123', name: '   ' } as never,
       appearance: { theme: 'invalid' } as never,
       commercial: { businessDays: [1, 1, 9], maxCallAttempts: 999, businessStart: '99:99' } as never,
@@ -19,7 +20,7 @@ describe('normalização segura das preferências', () => {
   })
 
   it('remove rotas repetidas e preserva todas na ordem', () => {
-    const preferences = normalizePreferences({ navigation: { order: ['leads', 'leads', 'pipeline'] } as never }, 'RealTalent')
+    const preferences = normalizePreferences({ version: 3, navigation: { order: ['leads', 'leads', 'pipeline'] } as never }, 'RealTalent')
     expect(preferences.navigation.order[0]).toBe('leads')
     expect(new Set(preferences.navigation.order).size).toBe(preferences.navigation.order.length)
   })
@@ -38,10 +39,20 @@ describe('normalização segura das preferências', () => {
   })
 
   it('preserva escolha entre menu principal e Mais ferramentas somente para rotas visíveis', () => {
-    const preferences = normalizePreferences({ navigation: { visibleRoutes: ['dashboard', 'pipeline', 'followups', 'settings'], primaryRoutes: ['dashboard', 'followups', 'commercial-map', 'settings'] } as never }, 'RealTalent')
+    const preferences = normalizePreferences({ version: 3, navigation: { visibleRoutes: ['dashboard', 'pipeline', 'followups', 'settings'], primaryRoutes: ['dashboard', 'followups', 'commercial-map', 'settings'] } as never }, 'RealTalent')
     expect(preferences.navigation.primaryRoutes).toEqual(expect.arrayContaining(['dashboard', 'followups', 'settings']))
     expect(preferences.navigation.primaryRoutes).not.toContain('commercial-map')
     expect(preferences.navigation.primaryRoutes).not.toContain('pipeline')
   })
 
+  it('migra preferências antigas para o tema Oceano e o menu novo uma única vez', () => {
+    const legacy = normalizePreferences({ version: 2, appearance: { theme: 'light', colorPreset: 'minimal' } as never, navigation: { order: ['followups', 'leads'], primaryRoutes: ['followups', 'leads', 'settings'] } as never }, 'RealTalent')
+    expect(legacy.version).toBe(3)
+    expect(legacy.appearance.theme).toBe('dark')
+    expect(legacy.appearance.colorPreset).toBe('ocean')
+    expect(legacy.navigation.order.slice(0, 5)).toEqual(['dashboard', 'leads', 'pipeline', 'tasks', 'communications'])
+    expect(legacy.navigation.primaryRoutes).not.toContain('followups')
+    const chosen = normalizePreferences({ ...legacy, appearance: { ...legacy.appearance, theme: 'light' } }, 'RealTalent')
+    expect(chosen.appearance.theme).toBe('light')
+  })
 })

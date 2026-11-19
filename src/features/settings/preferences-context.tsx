@@ -16,7 +16,7 @@ export type SidebarPreference = 'expanded' | 'compact' | 'auto'
 export type SidebarWidthPreference = 'comfortable' | 'wide'
 
 export interface CrmPreferences {
-  version: 2
+  version: 3
   company: {
     name: string
     logoDataUrl: string
@@ -93,7 +93,7 @@ export interface CrmPreferences {
 const DEFAULT_ROUTES = navigationItems.map((item) => item.route)
 
 export const createDefaultPreferences = (companyName = 'RealTalent'): CrmPreferences => ({
-  version: 2,
+  version: 3,
   company: {
     name: companyName,
     logoDataUrl: '',
@@ -102,7 +102,7 @@ export const createDefaultPreferences = (companyName = 'RealTalent'): CrmPrefere
     timezone: 'America/Sao_Paulo',
     locale: 'pt-BR',
   },
-  appearance: { theme: 'light', density: 'comfortable', sidebar: 'expanded', sidebarWidth: 'wide', sidebarShowBrand: true, sidebarShowGroups: true, sidebarShowProfile: true, sidebarOpenSecondary: false, reduceMotion: false, colorPreset: DEFAULT_APPEARANCE_PRESET, ...appearanceColorsForPreset(DEFAULT_APPEARANCE_PRESET) },
+  appearance: { theme: 'dark', density: 'comfortable', sidebar: 'expanded', sidebarWidth: 'wide', sidebarShowBrand: true, sidebarShowGroups: true, sidebarShowProfile: true, sidebarOpenSecondary: false, reduceMotion: false, colorPreset: DEFAULT_APPEARANCE_PRESET, ...appearanceColorsForPreset(DEFAULT_APPEARANCE_PRESET) },
   navigation: { visibleRoutes: [...DEFAULT_ROUTES], order: [...DEFAULT_ROUTES], labels: {}, primaryRoutes: navigationItems.filter((item) => item.priority === 'primary').map((item) => item.route) },
   commercial: {
     businessDays: [1, 2, 3, 4, 5], businessStart: '08:30', businessEnd: '18:00', defaultFollowupDays: 2,
@@ -208,7 +208,9 @@ export const normalizePreferences = (value: Partial<CrmPreferences> | null | und
   const requestedOrder = Array.isArray(value.navigation?.order)
     ? value.navigation.order.filter((route): route is AppRoute => DEFAULT_ROUTES.includes(route as AppRoute))
     : []
-  const order = [...new Set([...requestedOrder, ...DEFAULT_ROUTES])]
+  // Versão 3 (repaginada): menu reorganizado e tema Oceano. Preferências antigas migram uma vez.
+  const migrateToV3 = (value.version ?? 1) < 3
+  const order = migrateToV3 ? [...DEFAULT_ROUTES] : [...new Set([...requestedOrder, ...DEFAULT_ROUTES])]
   const visible = Array.isArray(value.navigation?.visibleRoutes)
     ? [...new Set(value.navigation.visibleRoutes.filter((route): route is AppRoute => DEFAULT_ROUTES.includes(route as AppRoute)))]
     : [...defaults.navigation.visibleRoutes]
@@ -219,14 +221,16 @@ export const normalizePreferences = (value: Partial<CrmPreferences> | null | und
   if (!hadMeet && !visible.includes('meet')) visible.push('meet')
   if (!visible.includes('dashboard')) visible.unshift('dashboard')
   if (!visible.includes('settings')) visible.push('settings')
-  const requestedPrimary = Array.isArray(value.navigation?.primaryRoutes)
+  const requestedPrimary = !migrateToV3 && Array.isArray(value.navigation?.primaryRoutes)
     ? value.navigation.primaryRoutes.filter((route): route is AppRoute => visible.includes(route as AppRoute))
     : defaults.navigation.primaryRoutes.filter((route) => visible.includes(route))
   const primaryRoutes = [...new Set(requestedPrimary)]
   if (!hadMeet && visible.includes('meet') && !primaryRoutes.includes('meet')) primaryRoutes.push('meet')
   if (!primaryRoutes.includes('settings')) primaryRoutes.push('settings')
   const company: Partial<CrmPreferences['company']> = value.company ?? {}
-  const appearance: Partial<CrmPreferences['appearance']> = value.appearance ?? {}
+  const appearance: Partial<CrmPreferences['appearance']> = migrateToV3
+    ? { ...(value.appearance ?? {}), theme: 'dark', colorPreset: 'ocean', ...appearanceColorsForPreset('ocean') }
+    : value.appearance ?? {}
   const commercial: Partial<CrmPreferences['commercial']> = value.commercial ?? {}
   const integrations: Partial<CrmPreferences['integrations']> = value.integrations ?? {}
   const security: Partial<CrmPreferences['security']> = value.security ?? {}
@@ -235,7 +239,7 @@ export const normalizePreferences = (value: Partial<CrmPreferences> | null | und
     : defaults.commercial.businessDays
   return {
     ...defaults,
-    version: 2,
+    version: 3,
     company: {
       ...defaults.company, ...company,
       name: typeof company.name === 'string' && company.name.trim() ? company.name.trim().slice(0, 80) : defaults.company.name,
@@ -255,7 +259,7 @@ export const normalizePreferences = (value: Partial<CrmPreferences> | null | und
       sidebarShowProfile: appearance.sidebarShowProfile !== false,
       sidebarOpenSecondary: Boolean(appearance.sidebarOpenSecondary),
       reduceMotion: Boolean(appearance.reduceMotion),
-      colorPreset: ['realtalent', 'minimal', 'graphite', 'blue', 'green', 'sand', 'custom'].includes(String(appearance.colorPreset)) ? appearance.colorPreset as AppearanceColorPreset : defaults.appearance.colorPreset,
+      colorPreset: ['ocean', 'realtalent', 'minimal', 'graphite', 'blue', 'green', 'sand', 'custom'].includes(String(appearance.colorPreset)) ? appearance.colorPreset as AppearanceColorPreset : defaults.appearance.colorPreset,
       accentColor: isHexColor(appearance.accentColor) ? appearance.accentColor.toUpperCase() : defaults.appearance.accentColor,
       topbarColor: isHexColor(appearance.topbarColor) ? appearance.topbarColor.toUpperCase() : defaults.appearance.topbarColor,
       sidebarColor: isHexColor(appearance.sidebarColor) ? appearance.sidebarColor.toUpperCase() : defaults.appearance.sidebarColor,
@@ -323,7 +327,10 @@ export const applyPreferences = (preferences: CrmPreferences) => {
   const root = document.documentElement
   const systemDark = window.matchMedia?.('(prefers-color-scheme: dark)').matches
   const effectiveTheme = preferences.appearance.theme === 'system' ? (systemDark ? 'dark' : 'light') : preferences.appearance.theme
-  const resolved = resolveAppearanceTheme(preferences.appearance, effectiveTheme)
+  // Oceano é uma paleta escura: no tema claro, usa a paleta clara padrão.
+  const oceanInLight = preferences.appearance.colorPreset === 'ocean' && effectiveTheme === 'light'
+  const colors = oceanInLight ? { ...preferences.appearance, ...appearanceColorsForPreset('minimal') } : preferences.appearance
+  const resolved = resolveAppearanceTheme(colors, effectiveTheme)
   root.dataset.theme = effectiveTheme
   root.dataset.density = preferences.appearance.density
   root.dataset.reduceMotion = String(preferences.appearance.reduceMotion)
@@ -332,7 +339,7 @@ export const applyPreferences = (preferences: CrmPreferences) => {
   root.dataset.sidebarBrand = String(preferences.appearance.sidebarShowBrand)
   root.dataset.sidebarGroups = String(preferences.appearance.sidebarShowGroups)
   root.dataset.sidebarProfile = String(preferences.appearance.sidebarShowProfile)
-  root.dataset.appearancePreset = preferences.appearance.colorPreset
+  root.dataset.appearancePreset = oceanInLight ? 'minimal' : preferences.appearance.colorPreset
   root.style.setProperty('--rt-sidebar-width-expanded', preferences.appearance.sidebarWidth === 'comfortable' ? '224px' : '252px')
   root.style.setProperty('--rt-sidebar-width-compact', '82px')
   const brandHover = mixHex(resolved.accentColor, '#000000', 0.12)

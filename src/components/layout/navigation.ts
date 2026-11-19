@@ -4,7 +4,7 @@ import {
 } from 'lucide-react'
 import type { AppRoute, TeamAccessResource } from '../../domain/types'
 
-export type NavigationGroup = 'Operação' | 'Estratégia' | 'Sistema'
+export type NavigationGroup = 'Principal' | 'Vendas' | 'Gestão' | 'Mais' | 'Sistema'
 
 export const navigationItems: Array<{
   route: AppRoute
@@ -14,23 +14,23 @@ export const navigationItems: Array<{
   group: NavigationGroup
   priority: 'primary' | 'secondary'
 }> = [
-  { route: 'dashboard', label: 'Meu Dia', icon: LayoutDashboard, phase: 'ready', group: 'Operação', priority: 'primary' },
-  { route: 'leads', label: 'Contatos', icon: ContactRound, phase: 'ready', group: 'Operação', priority: 'primary' },
-  { route: 'commercial-map', label: 'Território', icon: MapPinned, phase: 'ready', group: 'Operação', priority: 'secondary' },
-  { route: 'pipeline', label: 'Pipeline', icon: Workflow, phase: 'ready', group: 'Operação', priority: 'primary' },
-  { route: 'tasks', label: 'Tarefas', icon: ClipboardCheck, phase: 'ready', group: 'Operação', priority: 'primary' },
-  { route: 'teams', label: 'Equipes', icon: UsersRound, phase: 'ready', group: 'Operação', priority: 'primary' },
-  { route: 'followups', label: 'Follow-ups', icon: ListChecks, phase: 'ready', group: 'Operação', priority: 'secondary' },
-  { route: 'calls', label: 'Ligações', icon: Phone, phase: 'ready', group: 'Operação', priority: 'secondary' },
-  { route: 'communications', label: 'Comunicação', icon: MessagesSquare, phase: 'ready', group: 'Operação', priority: 'primary' },
-  { route: 'proposals', label: 'Propostas', icon: ReceiptText, phase: 'ready', group: 'Operação', priority: 'primary' },
-  { route: 'agenda', label: 'Agenda', icon: CalendarDays, phase: 'ready', group: 'Operação', priority: 'primary' },
-  { route: 'meet', label: 'Reuniões', icon: Video, phase: 'ready', group: 'Operação', priority: 'primary' },
-  { route: 'playbooks', label: 'Playbooks', icon: BookOpenText, phase: 'foundation', group: 'Estratégia', priority: 'secondary' },
-  { route: 'goals', label: 'Metas', icon: Goal, phase: 'ready', group: 'Estratégia', priority: 'secondary' },
-  { route: 'automations', label: 'Automações', icon: Sparkles, phase: 'ready', group: 'Estratégia', priority: 'secondary' },
-  { route: 'prospecting', label: 'Garimpo', icon: Pickaxe, phase: 'ready', group: 'Estratégia', priority: 'primary' },
-  { route: 'metrics', label: 'Métricas', icon: BarChart3, phase: 'ready', group: 'Estratégia', priority: 'primary' },
+  { route: 'dashboard', label: 'Meu Dia', icon: LayoutDashboard, phase: 'ready', group: 'Principal', priority: 'primary' },
+  { route: 'leads', label: 'Contatos', icon: ContactRound, phase: 'ready', group: 'Principal', priority: 'primary' },
+  { route: 'pipeline', label: 'Pipeline', icon: Workflow, phase: 'ready', group: 'Principal', priority: 'primary' },
+  { route: 'tasks', label: 'Tarefas', icon: ClipboardCheck, phase: 'ready', group: 'Principal', priority: 'primary' },
+  { route: 'communications', label: 'Comunicação', icon: MessagesSquare, phase: 'ready', group: 'Principal', priority: 'primary' },
+  { route: 'proposals', label: 'Propostas', icon: ReceiptText, phase: 'ready', group: 'Vendas', priority: 'primary' },
+  { route: 'agenda', label: 'Agenda', icon: CalendarDays, phase: 'ready', group: 'Vendas', priority: 'primary' },
+  { route: 'calls', label: 'Ligações', icon: Phone, phase: 'ready', group: 'Vendas', priority: 'primary' },
+  { route: 'prospecting', label: 'Garimpo', icon: Pickaxe, phase: 'ready', group: 'Vendas', priority: 'primary' },
+  { route: 'metrics', label: 'Métricas', icon: BarChart3, phase: 'ready', group: 'Gestão', priority: 'primary' },
+  { route: 'goals', label: 'Metas', icon: Goal, phase: 'ready', group: 'Gestão', priority: 'primary' },
+  { route: 'teams', label: 'Equipes', icon: UsersRound, phase: 'ready', group: 'Gestão', priority: 'primary' },
+  { route: 'commercial-map', label: 'Território', icon: MapPinned, phase: 'ready', group: 'Mais', priority: 'secondary' },
+  { route: 'followups', label: 'Follow-ups', icon: ListChecks, phase: 'ready', group: 'Mais', priority: 'secondary' },
+  { route: 'meet', label: 'Reuniões', icon: Video, phase: 'ready', group: 'Mais', priority: 'secondary' },
+  { route: 'playbooks', label: 'Playbooks', icon: BookOpenText, phase: 'foundation', group: 'Mais', priority: 'secondary' },
+  { route: 'automations', label: 'Automações', icon: Sparkles, phase: 'ready', group: 'Mais', priority: 'secondary' },
   { route: 'settings', label: 'Configurações', icon: Settings, phase: 'ready', group: 'Sistema', priority: 'primary' },
 ]
 

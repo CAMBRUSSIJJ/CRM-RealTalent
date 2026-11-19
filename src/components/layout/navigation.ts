@@ -1,7 +1,7 @@
 import {
-  BarChart3, CalendarDays, ContactRound, Goal, LayoutDashboard, ListChecks, MapPinned, MessagesSquare, Phone, ReceiptText,
-  Settings, Sparkles, Workflow, BookOpenText, Pickaxe, UsersRound, ClipboardCheck, Video,
-} from 'lucide-react'
+  RtAgenda, RtAutomations, RtCalls, RtCommunication, RtContacts, RtFollowups, RtGoals, RtMeetings, RtMetrics, RtMyDay,
+  RtPipeline, RtPlaybooks, RtProposals, RtProspecting, RtSettings, RtTasks, RtTeams, RtTerritory, type RtIcon,
+} from '../ui/rt-icons'
 import type { AppRoute, TeamAccessResource } from '../../domain/types'
 
 export type NavigationGroup = 'Principal' | 'Vendas' | 'Gestão' | 'Mais' | 'Sistema'
@@ -9,29 +9,29 @@ export type NavigationGroup = 'Principal' | 'Vendas' | 'Gestão' | 'Mais' | 'Sis
 export const navigationItems: Array<{
   route: AppRoute
   label: string
-  icon: typeof LayoutDashboard
+  icon: RtIcon
   phase: 'ready' | 'foundation'
   group: NavigationGroup
   priority: 'primary' | 'secondary'
 }> = [
-  { route: 'dashboard', label: 'Meu Dia', icon: LayoutDashboard, phase: 'ready', group: 'Principal', priority: 'primary' },
-  { route: 'leads', label: 'Contatos', icon: ContactRound, phase: 'ready', group: 'Principal', priority: 'primary' },
-  { route: 'pipeline', label: 'Pipeline', icon: Workflow, phase: 'ready', group: 'Principal', priority: 'primary' },
-  { route: 'tasks', label: 'Tarefas', icon: ClipboardCheck, phase: 'ready', group: 'Principal', priority: 'primary' },
-  { route: 'communications', label: 'Comunicação', icon: MessagesSquare, phase: 'ready', group: 'Principal', priority: 'primary' },
-  { route: 'proposals', label: 'Propostas', icon: ReceiptText, phase: 'ready', group: 'Vendas', priority: 'primary' },
-  { route: 'agenda', label: 'Agenda', icon: CalendarDays, phase: 'ready', group: 'Vendas', priority: 'primary' },
-  { route: 'calls', label: 'Ligações', icon: Phone, phase: 'ready', group: 'Vendas', priority: 'primary' },
-  { route: 'prospecting', label: 'Garimpo', icon: Pickaxe, phase: 'ready', group: 'Vendas', priority: 'primary' },
-  { route: 'metrics', label: 'Métricas', icon: BarChart3, phase: 'ready', group: 'Gestão', priority: 'primary' },
-  { route: 'goals', label: 'Metas', icon: Goal, phase: 'ready', group: 'Gestão', priority: 'primary' },
-  { route: 'teams', label: 'Equipes', icon: UsersRound, phase: 'ready', group: 'Gestão', priority: 'primary' },
-  { route: 'commercial-map', label: 'Território', icon: MapPinned, phase: 'ready', group: 'Mais', priority: 'secondary' },
-  { route: 'followups', label: 'Follow-ups', icon: ListChecks, phase: 'ready', group: 'Mais', priority: 'secondary' },
-  { route: 'meet', label: 'Reuniões', icon: Video, phase: 'ready', group: 'Mais', priority: 'secondary' },
-  { route: 'playbooks', label: 'Playbooks', icon: BookOpenText, phase: 'foundation', group: 'Mais', priority: 'secondary' },
-  { route: 'automations', label: 'Automações', icon: Sparkles, phase: 'ready', group: 'Mais', priority: 'secondary' },
-  { route: 'settings', label: 'Configurações', icon: Settings, phase: 'ready', group: 'Sistema', priority: 'primary' },
+  { route: 'dashboard', label: 'Meu Dia', icon: RtMyDay, phase: 'ready', group: 'Principal', priority: 'primary' },
+  { route: 'leads', label: 'Contatos', icon: RtContacts, phase: 'ready', group: 'Principal', priority: 'primary' },
+  { route: 'pipeline', label: 'Pipeline', icon: RtPipeline, phase: 'ready', group: 'Principal', priority: 'primary' },
+  { route: 'tasks', label: 'Tarefas', icon: RtTasks, phase: 'ready', group: 'Principal', priority: 'primary' },
+  { route: 'communications', label: 'Comunicação', icon: RtCommunication, phase: 'ready', group: 'Principal', priority: 'primary' },
+  { route: 'proposals', label: 'Propostas', icon: RtProposals, phase: 'ready', group: 'Vendas', priority: 'primary' },
+  { route: 'agenda', label: 'Agenda', icon: RtAgenda, phase: 'ready', group: 'Vendas', priority: 'primary' },
+  { route: 'calls', label: 'Ligações', icon: RtCalls, phase: 'ready', group: 'Vendas', priority: 'primary' },
+  { route: 'prospecting', label: 'Garimpo', icon: RtProspecting, phase: 'ready', group: 'Vendas', priority: 'primary' },
+  { route: 'metrics', label: 'Métricas', icon: RtMetrics, phase: 'ready', group: 'Gestão', priority: 'primary' },
+  { route: 'goals', label: 'Metas', icon: RtGoals, phase: 'ready', group: 'Gestão', priority: 'primary' },
+  { route: 'teams', label: 'Equipes', icon: RtTeams, phase: 'ready', group: 'Gestão', priority: 'primary' },
+  { route: 'commercial-map', label: 'Território', icon: RtTerritory, phase: 'ready', group: 'Mais', priority: 'secondary' },
+  { route: 'followups', label: 'Follow-ups', icon: RtFollowups, phase: 'ready', group: 'Mais', priority: 'secondary' },
+  { route: 'meet', label: 'Reuniões', icon: RtMeetings, phase: 'ready', group: 'Mais', priority: 'secondary' },
+  { route: 'playbooks', label: 'Playbooks', icon: RtPlaybooks, phase: 'foundation', group: 'Mais', priority: 'secondary' },
+  { route: 'automations', label: 'Automações', icon: RtAutomations, phase: 'ready', group: 'Mais', priority: 'secondary' },
+  { route: 'settings', label: 'Configurações', icon: RtSettings, phase: 'ready', group: 'Sistema', priority: 'primary' },
 ]
 
 export const routeTitles: Record<AppRoute, { title: string; subtitle: string }> = {

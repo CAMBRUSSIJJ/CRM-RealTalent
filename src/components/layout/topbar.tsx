@@ -1,4 +1,5 @@
-import { Bell, CircleHelp, HardDrive, Plus, RefreshCw, Search, SlidersHorizontal, Sparkles } from 'lucide-react'
+import { Bell, CircleHelp, HardDrive, Plus, RefreshCw, Search, SlidersHorizontal } from 'lucide-react'
+import { RtAssistant } from '../ui/rt-icons'
 import { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react'
 import { activeOverlayCount } from '../../app/overlay-manager'
 import { useAppActions, useAppNavigation, useAppWorkspace } from '../../app/app-context'
@@ -150,7 +151,7 @@ export function Topbar() {
                 onAllContacts={() => { setRoute('leads'); setSearchFocused(false); setSearch('') }}
               /> : null}
             </div>
-            <button className="global-appbar-v10162__assistant" type="button" onClick={openAssistant} title="RealTalent Assistant · Ctrl/⌘ + J"><Sparkles size={16} /><span>RealTalent Assistant</span></button>
+            <button className="global-appbar-v10162__assistant" type="button" onClick={openAssistant} title="RealTalent Assistant · Ctrl/⌘ + J"><RtAssistant size={17} /><span>RealTalent Assistant</span></button>
           </div>
 
           <div className="global-appbar-v10162__right">

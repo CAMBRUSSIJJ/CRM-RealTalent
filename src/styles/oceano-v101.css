@@ -254,3 +254,6 @@ html[data-appearance-preset="ocean"][data-theme] .sidebar .sidebar__nav .sidebar
 }
 html[data-appearance-preset="ocean"][data-theme] .sidebar .sidebar__nav .sidebar__item.is-active svg { color: #55d6b2 !important; }
 html[data-appearance-preset="ocean"][data-theme] .sidebar .sidebar__nav .sidebar__item.is-active::before { background: #55d6b2 !important; }
+
+/* Texto do item ativo sem caixa de fundo herdada. */
+html[data-appearance-preset="ocean"][data-theme] .sidebar .sidebar__nav .sidebar__item > span { background: transparent !important; }

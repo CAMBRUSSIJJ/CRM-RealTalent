@@ -1,4 +1,5 @@
-import { ChevronDown, LogOut, MoreHorizontal, PanelLeft, Settings } from 'lucide-react'
+import { ChevronDown, LogOut, PanelLeft } from 'lucide-react'
+import { RtMore, RtSettings } from '../ui/rt-icons'
 import { useEffect, useMemo, useState } from 'react'
 import { useAppNavigation, useAppWorkspace } from '../../app/app-context'
 import { useAuth } from '../../features/auth/auth-context'
@@ -62,7 +63,7 @@ export function Sidebar() {
         ))}
         {secondaryItems.length ? <div className="sidebar__group sidebar__group--secondary">
           <button className={`sidebar__more-toggle ${secondaryOpen ? 'is-open' : ''}`} type="button" onClick={toggleSecondary} aria-expanded={secondaryOpen} aria-controls="sidebar-secondary-tools" title="Mais ferramentas">
-            <MoreHorizontal size={19}/><span>Mais</span><ChevronDown className="sidebar__more-chevron" size={15}/>
+            <RtMore size={19}/><span>Mais</span><ChevronDown className="sidebar__more-chevron" size={15}/>
           </button>
           {secondaryOpen ? <div id="sidebar-secondary-tools" className="sidebar__secondary-tools">{secondaryItems.map(({ route: itemRoute, label, icon: Icon }) => {
             const customLabel = preferences.navigation.labels[itemRoute]?.trim() || label
@@ -73,7 +74,7 @@ export function Sidebar() {
         </div> : null}
       </nav>
       <div className="sidebar__footer">
-        {canTeamAccess('view','settings') ? <button className={`sidebar__item sidebar__settings ${route === 'settings' ? 'is-active' : ''}`} type="button" onClick={() => setRoute('settings')} aria-current={route === 'settings' ? 'page' : undefined} title="Configurações"><Settings size={19} /><span>Configurações</span></button> : null}
+        {canTeamAccess('view','settings') ? <button className={`sidebar__item sidebar__settings ${route === 'settings' ? 'is-active' : ''}`} type="button" onClick={() => setRoute('settings')} aria-current={route === 'settings' ? 'page' : undefined} title="Configurações"><RtSettings size={19} /><span>Configurações</span></button> : null}
         {preferences.appearance.sidebarShowProfile ? <button className="sidebar__profile" type="button" onClick={() => setRoute('settings')} title={user?.displayName ?? 'Usuário'}>
           <span className="avatar avatar--small">{initials(user?.displayName ?? 'Usuário')}</span>
           <span className="sidebar__profile-copy"><strong>{user?.displayName ?? 'Usuário'}</strong><small>{user?.email ?? ''}</small></span>

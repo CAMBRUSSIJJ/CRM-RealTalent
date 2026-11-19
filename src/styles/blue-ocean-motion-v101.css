@@ -61,3 +61,13 @@
   .button--blob__blob { transform: translateZ(0) scale(1.7) !important; }
 }
 html[data-reduce-motion="true"] .button--blob__blob, html[data-reduce-motion="true"] .button--blob__sweep { animation: none !important; }
+
+/* Cards de indicador: entrada do Blue Ocean (desliza 12px da direita, escala quase imperceptível).
+ * Só troca nome, duração e curva da animação; os atrasos por posição continuam os de motion-cards. */
+:is(.health-item, .contacts-v3__kpi, .followups-v3__kpi, .metrics-v3__kpi, .metric-card, .commercial-map-kpi,
+    .rt-workspace-summary-metric, .proposal-work-card, .goal-card, .automation-rule-card, .sales-pipeline-v3__column):not(.is-motion) {
+  animation-name: rt-bo-card-arrive;
+  animation-duration: .68s;
+  animation-timing-function: cubic-bezier(.2, .75, .2, 1);
+  animation-fill-mode: both;
+}

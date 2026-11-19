@@ -115,3 +115,28 @@ html[data-sidebar-mode] .app-shell__main {
   text-transform: uppercase;
 }
 .dashboard-layout-v2 .myday-v1016__hero .eyebrow { text-transform: none !important; }
+
+/* 7. Métricas: valor de cada barra aparece acima dela (o gráfico não tinha escala). */
+.metrics-column-chart__group i { position: relative; }
+.metrics-column-chart__group > div { overflow: visible !important; padding-top: 18px; box-sizing: border-box; }
+.metrics-column-chart, .metrics-column-chart__group { overflow: visible !important; }
+.metrics-column-chart__group i[data-value]::before {
+  content: attr(data-value); position: absolute; bottom: calc(100% + 3px); left: 50%; transform: translateX(-50%);
+  font: 600 11px/1 var(--rt-font-sans, inherit); color: var(--rt-text, #1a2233); font-style: normal; white-space: nowrap;
+}
+
+/* 7. Equipes: um só estado vazio, com o botão de criar. */
+.teams-directory__empty { margin: 16px; color: var(--rt-muted, #5d687c); font-size: 13px; }
+
+/* 7. Barra do topo: o nome da tela já está no título da página. */
+.global-appbar-v10162__context { display: none !important; }
+
+/* 7. Iniciais nos avatares de listas legíveis (antes texto branco sobre fundo claro). */
+.lead-cell__avatar { color: #2f4fae !important; }
+
+/* 7. Tarefas: cabeçalho no mesmo padrão das outras telas, sem a faixa roxa. */
+.tasks-page-v4__header { background: transparent !important; color: var(--rt-text, #1a2233) !important; box-shadow: none !important; padding-inline: 0 !important; }
+.tasks-page-v4__header > :not(:has(button)) :is(h1, span, p) { color: inherit !important; }
+.tasks-page-v4__header svg { color: var(--rt-primary, #2f5bd3) !important; opacity: 1 !important; }
+.tasks-page-v4__header :is(.button--primary, .rt-button--primary) svg { color: #fff !important; }
+.tasks-page-v4__header button:not(:is(.button--primary, .rt-button--primary)) { border-color: var(--rt-border, #dfe3ea) !important; background: var(--rt-surface, #fff) !important; }

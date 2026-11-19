@@ -153,7 +153,7 @@ export function MeetPage(){
     <div className="rtmeet-heading">
       <div><span className="eyebrow">COMUNICAÇÃO · VIDEOCONFERÊNCIA</span><h1>Reuniões</h1><p>Prepare encontros, converse e acompanhe os próximos passos.</p></div>
       <div className="rtmeet-heading-actions">
-        <Button variant="secondary" onClick={()=>setRoute('agenda')}><CalendarDays size={16}/> Agenda</Button>
+        <Button variant="secondary" onClick={()=>setRoute('agenda')}><CalendarDays size={16}/> Ver agenda</Button>
         <Button variant="secondary" onClick={()=>{setCreating(true);setTab('upcoming')}} disabled={!canWrite}><CalendarDays size={16}/> Agendar</Button>
         <Button onClick={()=>void add('instant')} disabled={!canWrite||busy}><Video size={17}/> Iniciar agora</Button>
       </div>

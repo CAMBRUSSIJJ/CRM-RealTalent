@@ -58,7 +58,7 @@ export function Proposal360Modal(props: Props) {
     <div className="proposal360">
       <section className="proposal360-hero">
         <div><span className="eyebrow">Situação comercial</span><div className="proposal360-status"><StatusPill tone={statusMeta[proposal.status].tone}>{statusMeta[proposal.status].label}</StatusPill>{proposal.closedWonAt ? <StatusPill tone="success">Negócio ganho</StatusPill> : null}</div><h3>{proposal.title}</h3><p>{lead?.name || 'Lead removido'}{lead?.ownerName ? ` · responsável ${lead.ownerName}` : ''}</p></div>
-        <div className="proposal360-money"><div><span>TCV</span><strong>{formatCurrency(proposal.totalContractValue)}</strong></div><div><span>MRR</span><strong>{formatCurrency(proposal.recurringMonthlyTotal)}</strong></div><div><span>ARR</span><strong>{formatCurrency(proposal.annualRecurringTotal)}</strong></div></div>
+        <div className="proposal360-money"><div><span>Valor total</span><strong>{formatCurrency(proposal.totalContractValue)}</strong></div><div><span>Mensal</span><strong>{formatCurrency(proposal.recurringMonthlyTotal)}</strong></div><div><span>ARR</span><strong>{formatCurrency(proposal.annualRecurringTotal)}</strong></div></div>
       </section>
 
       <div className="proposal360-grid">

@@ -620,7 +620,7 @@ export function PipelinePage() {
   const renderForecast = () => <section className="pipeline-forecast-view">
     {revenueIntelligence && revenueIntelligence.goalTarget > 0 ? <div className="sales-pipeline-v3__forecast-goal" aria-label="Cobertura da meta comercial">
       <div><span>Meta comercial</span><strong>{formatCurrency(revenueIntelligence.goalTarget)}</strong></div>
-      <div><span>Forecast RealTalent</span><strong>{formatCurrency(revenueIntelligence.realTalentForecast)}</strong></div>
+      <div><span>Previsão de receita</span><strong>{formatCurrency(revenueIntelligence.realTalentForecast)}</strong></div>
       <div><span>Cobertura da meta</span><strong>{Math.round(revenueIntelligence.expectedAttainment ?? 0)}%</strong></div>
       <progress max={100} value={Math.max(0, Math.min(100, revenueIntelligence.expectedAttainment ?? 0))} aria-label="Percentual de cobertura da meta" />
     </div> : null}
@@ -725,7 +725,7 @@ export function PipelinePage() {
       <div className="sales-pipeline-v3__metrics">
         <button type="button" onClick={() => setIntelligenceOpen((value) => !value)} disabled={!dealPortfolio}><span>Saúde geral</span><strong>{dealPortfolio ? `${dealPortfolio.averageHealth}/100` : '—'}</strong></button>
         <button type="button" className="is-risk" onClick={() => activateQuickSlice('risk')}><span><AlertTriangle size={13}/> Em risco</span><strong>{formatCurrency(dealPortfolio?.atRiskValue ?? 0)}</strong></button>
-        <button type="button" onClick={() => { setQuickSlice('all'); setActiveSavedViewId(null); selectViewMode('forecast') }}><span>Forecast</span><strong>{formatCurrency(revenueIntelligence?.realTalentForecast ?? dealPortfolio?.predictedValue ?? kpiTotals.weighted)}</strong></button>
+        <button type="button" onClick={() => { setQuickSlice('all'); setActiveSavedViewId(null); selectViewMode('forecast') }}><span>Previsão</span><strong>{formatCurrency(revenueIntelligence?.realTalentForecast ?? dealPortfolio?.predictedValue ?? kpiTotals.weighted)}</strong></button>
         <span className="sales-pipeline-v3__metrics-total">{formatCurrency(kpiTotals.value)} em oportunidades · {kpiTotals.noAction} sem próxima ação</span>
       </div>
     </section>

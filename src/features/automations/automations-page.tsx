@@ -316,9 +316,9 @@ export function AutomationsPage() {
       <WorkspaceViewStrip items={[
         { id: 'rules', label: 'Regras', active: tab === 'rules', count: rules.length, icon: <Layers3 size={15}/>, accent: 'blue', onClick: () => setTab('rules') },
         { id: 'recipes', label: 'Templates', active: tab === 'recipes', count: AUTOMATION_RECIPES.length, icon: <Sparkles size={15}/>, accent: 'purple', onClick: () => setTab('recipes') },
-        { id: 'webhooks', label: 'Webhooks', active: tab === 'webhooks', count: failedDeliveries || webhookState.endpoints.length, icon: <Webhook size={15}/>, accent: failedDeliveries ? 'red' : 'neutral', onClick: () => setTab('webhooks') },
+        { id: 'webhooks', label: 'Integrações (webhooks)', active: tab === 'webhooks', count: failedDeliveries || webhookState.endpoints.length, icon: <Webhook size={15}/>, accent: failedDeliveries ? 'red' : 'neutral', onClick: () => setTab('webhooks') },
         { id: 'operations', label: 'Operação', active: tab === 'operations', count: queueAttention + unreadNotifications + readyDrafts, icon: <Inbox size={15}/>, accent: queueAttention ? 'orange' : 'neutral', onClick: () => setTab('operations') },
-        { id: 'runtime', label: 'Runtime', active: tab === 'runtime', count: runtimeAttention + runtimeWaiting + runtimeRunning, icon: <Gauge size={15}/>, accent: runtimeAttention ? 'red' : runtimeWaiting ? 'orange' : 'neutral', onClick: () => setTab('runtime') },
+        { id: 'runtime', label: 'Execuções', active: tab === 'runtime', count: runtimeAttention + runtimeWaiting + runtimeRunning, icon: <Gauge size={15}/>, accent: runtimeAttention ? 'red' : runtimeWaiting ? 'orange' : 'neutral', onClick: () => setTab('runtime') },
         { id: 'history', label: 'Histórico', active: tab === 'history', count: runs.length, icon: <History size={15}/>, onClick: () => setTab('history') },
       ]} />
 

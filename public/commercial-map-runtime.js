@@ -161,7 +161,7 @@
       <div class="page-stack commercial-map-page commercial-map-runtime-page commercial-map-v100462 commercial-map-v100463 commercial-map-v10079 commercial-map-v101">
         <section class="commercial-map-hero panel">
           <div class="commercial-map-hero__copy">
-            <span class="eyebrow">Território 3.0 · V101.0</span>
+            <span class="eyebrow">Território</span>
             <h2>Território e contas</h2>
             <p>Mapa comercial estável com OpenStreetMap, coordenadas do CRM e Google Geocoding opcional para precisão real.</p>
           </div>

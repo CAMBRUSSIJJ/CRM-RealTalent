@@ -171,7 +171,8 @@ export function DashboardPage() {
 
   const greeting = new Date().getHours() >= 18 ? 'Boa noite' : new Date().getHours() >= 12 ? 'Boa tarde' : 'Bom dia'
   const firstName = user?.displayName?.trim().split(/\s+/)[0] || ''
-  const todayLabel = new Intl.DateTimeFormat('pt-BR', { weekday: 'long', day: '2-digit', month: 'long' }).format(new Date())
+  const todayRaw = new Intl.DateTimeFormat('pt-BR', { weekday: 'long', day: '2-digit', month: 'long' }).format(new Date())
+  const todayLabel = todayRaw.charAt(0).toLocaleUpperCase('pt-BR') + todayRaw.slice(1)
   const recommendedLead = dashboard.recommended?.lead ?? null
 
   const openWhatsApp = (lead = recommendedLead) => {

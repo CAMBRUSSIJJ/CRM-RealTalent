@@ -98,3 +98,20 @@ html[data-sidebar-mode] .app-shell__main {
 .local-onboarding .input-with-icon input:focus,
 .local-onboarding .input-with-icon input:focus-visible { border: 0 !important; box-shadow: none !important; outline: none !important; background: transparent; }
 .local-onboarding .input-with-icon:focus-within { border-color: var(--rt-primary, #2f5bd3) !important; box-shadow: 0 0 0 3px rgba(47, 91, 211, .14) !important; }
+
+/* 7. Datas em português: só a primeira letra maiúscula ("Quinta-feira, 19 de novembro"),
+ * em vez de capitalizar cada palavra ("19 De Novembro"). */
+:is(.agenda-page-h20 .agenda-toolbar__date strong, .agenda-toolbar-v10166 .agenda-toolbar__date strong, .agenda-toolbar__date strong,
+    .ri-month-control strong, .pipeline-forecast-group > header h3, .pipeline-calendar-header h3, .activity-row small, .activity-row > span:last-child,
+    .agenda-inspector__time strong, .agenda-upcoming-list > button small, .agenda-year-month header strong, .dashboard-v2-date, .dashboard-layout-v2__date) {
+  text-transform: none !important;
+}
+:is(.agenda-toolbar__date strong, .ri-month-control strong, .pipeline-forecast-group > header h3, .pipeline-calendar-header h3,
+    .agenda-inspector__time strong, .agenda-upcoming-list > button small, .agenda-year-month header strong, .dashboard-v2-date, .dashboard-layout-v2__date) {
+  display: inline-block;
+}
+:is(.agenda-toolbar__date strong, .ri-month-control strong, .pipeline-forecast-group > header h3, .pipeline-calendar-header h3,
+    .agenda-inspector__time strong, .agenda-upcoming-list > button small, .agenda-year-month header strong, .dashboard-v2-date, .dashboard-layout-v2__date)::first-letter {
+  text-transform: uppercase;
+}
+.dashboard-layout-v2 .myday-v1016__hero .eyebrow { text-transform: none !important; }

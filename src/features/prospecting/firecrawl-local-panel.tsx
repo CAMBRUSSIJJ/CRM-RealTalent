@@ -123,7 +123,7 @@ export function FirecrawlLocalPanel({ workspaceId, readOnly, canConfigure, segme
 
   if (connectionOnly) return <div className="firecrawl-connection-integrated" aria-label="Conexão do Garimpo com Firecrawl e IA opcional">
     <div className="firecrawl-connection-integrated__status">
-      <span><Sparkles size={15} /> Motor Python 0.6 · pesquisa pública</span>
+      <span><Sparkles size={15} /> Pesquisa em fontes públicas</span>
       <StatusPill tone={online ? 'success' : 'warning'}>{online ? 'Linux conectado' : 'Linux desconectado'}</StatusPill>
       <Button variant="ghost" disabled={configuring} onClick={() => void refresh()}><RefreshCw size={14}/> Verificar</Button>
     </div>

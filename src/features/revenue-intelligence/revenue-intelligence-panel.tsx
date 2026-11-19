@@ -64,8 +64,8 @@ export function RevenueIntelligencePanel({ snapshot, onOpenProposal }: RevenueIn
   return <div className="revenue-intelligence-v10081 product-revenue-forecast-v10097">
     <section className="ri-command">
       <div>
-        <span className="eyebrow"><TrendingUp size={14}/> Revenue Intelligence</span>
-        <h3>Forecast executivo e cobertura de meta</h3>
+        <span className="eyebrow"><TrendingUp size={14}/> Previsão de receita</span>
+        <h3>Previsão de receita e cobertura da meta</h3>
         <p>Separe bookings, receita reconhecida e cenários futuros usando Deal Health, momentum e probabilidade RealTalent.</p>
       </div>
       <div className="ri-command__controls-v10097">
@@ -83,7 +83,7 @@ export function RevenueIntelligencePanel({ snapshot, onOpenProposal }: RevenueIn
       <div><strong>Receita realizada</strong><span>Valor reconhecido na competência. É histórico contábil/comercial, não previsão.</span></div>
       <div><strong>Bookings</strong><span>TCV dos negócios ganhos no período. Fechar uma venda não reconhece receita automaticamente.</span></div>
       <div><strong>Pipeline ponderado</strong><span>Pipeline aberto × probabilidade informada pelo vendedor.</span></div>
-      <div><strong>Forecast RealTalent</strong><span>Bookings + contribuição esperada dos negócios usando sinais de Deal Intelligence.</span></div>
+      <div><strong>Previsão de receita</strong><span>Bookings + contribuição esperada dos negócios usando sinais de Deal Intelligence.</span></div>
     </section>
 
     <section className="ri-kpi-grid ri-kpi-grid--six">

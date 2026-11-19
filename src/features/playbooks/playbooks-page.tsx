@@ -238,7 +238,7 @@ export function PlaybooksPage() {
 
   return <div className="page-stack playbooks-page playbooks-page--coaching playbooks-page--v10082">
     <section className="playbooks-command-bar playbooks-command-bar--v10082">
-      <div><span className="eyebrow">Strategy Hub · V101.2</span><h2>Estratégia e roteiros comerciais</h2><p>Defina o padrão da prospecção uma vez e deixe o Calling escolher o melhor roteiro sem perder o controle manual.</p></div>
+      <div><span className="eyebrow">Playbooks</span><h2>Estratégia e roteiros comerciais</h2><p>Defina o padrão da prospecção uma vez e deixe o Calling escolher o melhor roteiro sem perder o controle manual.</p></div>
       {canWrite ? <div className="playbooks-command-bar__actions"><Button variant="secondary" onClick={() => { setEditing(null); setModalOpen(true) }}><Pencil size={16}/> Editor clássico</Button><Button onClick={() => { setStudioEditing(null); setStudioOpen(true) }}><Workflow size={17} /> Novo playbook visual</Button></div> : null}
     </section>
 

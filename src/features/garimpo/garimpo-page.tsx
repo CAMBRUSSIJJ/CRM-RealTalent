@@ -475,7 +475,7 @@ export function ProspectingPage() {
       </main>
     </div>
     <Modal open={sendOpen} title={`Enviar ${approved.length} ${plural(approved.length, 'empresa', 'empresas')} ao CRM`} onClose={() => { if (!sending) setSendOpen(false) }} footer={<div className="gh-actions"><button className="gh-secondary" disabled={sending} onClick={() => setSendOpen(false)}>Cancelar</button><button className="gh-primary" disabled={sending || (opportunity && !stageId)} onClick={() => void send()}>{sending ? 'Enviando…' : 'Confirmar envio'}</button></div>}><div className="gh-page gh-send-content"><p>As empresas aprovadas entrarão na sua base de contatos. Empresas já vinculadas serão reutilizadas.</p><label className="gh-check"><input type="checkbox" checked={opportunity} disabled={sending || !canCreateOpportunity} onChange={event => setOpportunity(event.target.checked)} />Criar também uma oportunidade no funil</label>{opportunity && <label>Etapa inicial<select aria-label="Etapa inicial" value={stageId} disabled={sending} onChange={event => setStageId(event.target.value)}>{snapshot?.stages.map(stage => <option key={stage.id} value={stage.id}>{stage.name}</option>)}</select></label>}</div></Modal>
-    <footer className="gh-footer">Motor Python 0.6 + Índice CNPJ/RS · Confirme os dados antes da abordagem.<button onClick={() => navigate('leads')}>Abrir base do CRM <ArrowRight size={13} /></button></footer>
+    <footer className="gh-footer">Confira os dados antes de entrar em contato com a empresa.<button onClick={() => navigate('leads')}>Abrir base do CRM <ArrowRight size={13} /></button></footer>
   </div>
 }
 

@@ -38,6 +38,8 @@ export function Sidebar() {
     const nextOpen = !secondaryOpen
     setSecondaryOpen(nextOpen)
     savePreferences({ ...preferences, appearance: { ...preferences.appearance, sidebarOpenSecondary: nextOpen } })
+    // Os itens abrem abaixo da área visível do menu: rola até eles para ficarem à vista.
+    if (nextOpen) window.requestAnimationFrame(() => document.getElementById('sidebar-secondary-tools')?.scrollIntoView({ block: 'nearest', behavior: 'smooth' }))
   }
 
   return (

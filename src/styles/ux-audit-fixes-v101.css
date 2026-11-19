@@ -62,3 +62,28 @@ html[data-sidebar-mode] .app-shell__main {
 .guided-tour-v10091 header strong { font-size: 13px !important; }
 .guided-tour-v10091 > p { font-size: 13px !important; }
 .guided-tour-v10091__action { font-size: 12px !important; }
+
+/* 4. Menu lateral: barra de rolagem visível quando há mais itens do que cabem. */
+.sidebar .sidebar__nav { scrollbar-width: thin; scrollbar-color: rgba(120, 132, 156, .45) transparent; overscroll-behavior: contain; }
+.sidebar .sidebar__nav::-webkit-scrollbar { width: 6px; }
+.sidebar .sidebar__nav::-webkit-scrollbar-thumb { background: rgba(120, 132, 156, .45); border-radius: 999px; }
+
+/* 4. Contatos: a coluna de ações fica fixa na borda direita da tabela, sempre visível. */
+.contacts-v3__table th:last-child,
+.contacts-v3__table td:last-child {
+  position: sticky; right: 0; z-index: 1;
+  background: var(--rt-surface, var(--surface, #fff));
+  box-shadow: -10px 0 12px -12px rgba(15, 23, 42, .35);
+}
+.contacts-v3__table thead th:last-child { z-index: 2; }
+
+/* 4. Pipeline: degradê na borda direita indica que há mais etapas ao rolar para o lado. */
+.sales-pipeline-v3__board::after {
+  content: ""; flex: 0 0 28px; align-self: stretch; margin-left: -41px;
+  position: sticky; right: 0; pointer-events: none;
+  background: linear-gradient(to right, transparent, var(--rt-page-bg, var(--bg, #f4f5f7)));
+}
+.sales-pipeline-v3__board { scrollbar-width: auto; }
+/* Ícones de ação das linhas: antes pareciam desabilitados (opacidade baixa) fora do hover. */
+.contacts-v3__table .lead-row-actions button { opacity: .8 !important; }
+.contacts-v3__table .lead-row-actions button:hover, .contacts-v3__table .lead-row-actions button:focus-visible { opacity: 1 !important; }

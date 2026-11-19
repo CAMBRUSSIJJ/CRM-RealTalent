@@ -1,3 +1,4 @@
+import { dueStatus } from '../domain/due-status'
 import type { ActivityItem, CallOutcome, CallRecord, ContactRecord, Lead, PipelineStage } from '../domain/types'
 import { addBusinessMinutes } from './workday'
 
@@ -81,9 +82,9 @@ const dayEnd = (date: Date) => dayStart(date) + 86_400_000 - 1
 
 const bucketForLead = (lead: Lead, stage: PipelineStage | null, now: Date): Exclude<CallQueueBucket, 'all'> => {
   if (!lead.nextActionAt) return 'without_action'
-  const due = new Date(lead.nextActionAt).getTime()
-  if (due < dayStart(now)) return 'overdue'
-  if (due <= dayEnd(now)) return 'today'
+  const state = dueStatus(lead.nextActionAt, false, now)
+  if (state === 'overdue') return 'overdue'
+  if (state === 'today') return 'today'
   if (lead.temperature === 'hot') return 'hot'
   if ((stage?.name ?? '').toLowerCase().includes('proposta')) return 'proposal'
   return 'upcoming'

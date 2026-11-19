@@ -32,6 +32,7 @@ import { resolveLeadCallTarget } from '../../services/call-workspace'
 import { buildLeadScoreBoard, type LeadScoreInsight } from '../../services/lead-scoring'
 import { buildWorkdayQueue, type WorkdayItem, type WorkdayReason } from '../../services/workday'
 import { buildDealPortfolio, type DealIntelligence } from '../../services/deal-intelligence'
+import { buildCommercialValueResolver } from '../../domain/commercial-value'
 import { calculateRevenueIntelligence } from '../../services/revenue-intelligence'
 import { readFollowupMetadata } from '../../services/followup-workspace'
 import { DealPortfolioPanel } from '../deal-intelligence/deal-portfolio-panel'
@@ -125,7 +126,9 @@ export function DashboardPage() {
 
 
     const latestLeads = [...activeLeads].sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()).slice(0, 3)
-    const pipelineValue = activeLeads.reduce((sum, lead) => sum + lead.value, 0)
+    // Mesmas fontes do Pipeline: valor comercial (proposta → oportunidade → contato) e risco da análise de saúde dos negócios.
+    const commercialValue = buildCommercialValueResolver(snapshot?.opportunities, snapshot?.proposals)
+    const pipelineValue = activeLeads.reduce((sum, lead) => sum + commercialValue(lead), 0)
     const weightedPipeline = activeLeads.reduce((sum, lead) => {
       const probability = stages.find((stage) => stage.id === lead.stageId)?.probability ?? 0
       return sum + lead.value * probability / 100
@@ -133,7 +136,7 @@ export function DashboardPage() {
     const contactsToday = calls.filter((call) => sameDay(new Date(call.startedAt), now) && ['answered', 'callback_requested', 'interested', 'meeting_scheduled', 'proposal_requested', 'proposal_sent', 'sale_completed'].includes(call.outcome)).length
     const activitiesToday = pendingActivities.filter((activity) => activity.dueAt && sameDay(new Date(activity.dueAt), now)).length
     const meetingsToday = pendingActivities.filter((activity) => activity.type === 'meeting' && activity.dueAt && sameDay(new Date(activity.dueAt), now)).length
-    const riskValue = riskLeads.reduce((sum, lead) => sum + lead.value, 0)
+    const riskValue = dealPortfolio ? dealPortfolio.atRiskValue : riskLeads.reduce((sum, lead) => sum + commercialValue(lead), 0)
 
     return {
       activeLeads,
@@ -235,9 +238,9 @@ export function DashboardPage() {
           </div>
           <section className="health-strip" aria-label="Resumo do dia">
             <button type="button" className="health-item" onClick={() => setRoute('followups')}><span className="health-item__icon"><ListTodo size={19}/></span><span><small>Prioridades</small><strong>{dashboard.workday.items.length}</strong><em>{dashboard.workday.dueToday} vencem hoje</em></span><ChevronRight size={16}/></button>
-            <button type="button" className={`health-item ${dashboard.workday.breached ? 'health-item--danger' : ''}`} onClick={() => setRoute('followups')}><span className="health-item__icon"><Clock3 size={19}/></span><span><small>Em atraso</small><strong>{dashboard.workday.breached}</strong><em>{dashboard.workday.breached ? 'Resolver primeiro' : 'Nenhum SLA vencido'}</em></span><ChevronRight size={16}/></button>
+            <button type="button" className={`health-item ${dashboard.workday.breached ? 'health-item--danger' : ''}`} onClick={() => setRoute('followups')}><span className="health-item__icon"><Clock3 size={19}/></span><span><small>Fora do prazo</small><strong>{dashboard.workday.breached}</strong><em>{dashboard.workday.breached ? 'Contatos com ação ou 1º contato vencido' : 'Nenhum contato fora do prazo'}</em></span><ChevronRight size={16}/></button>
             <button type="button" className="health-item" onClick={() => setRoute('pipeline')}><span className="health-item__icon"><CircleDollarSign size={19}/></span><span><small>Pipeline</small><strong>{formatCurrency(dashboard.pipelineValue)}</strong><em>{formatCurrency(dashboard.riskValue)} em risco</em></span><ChevronRight size={16}/></button>
-            <button type="button" className="health-item" onClick={() => setRoute('goals')}><span className="health-item__icon"><Target size={19}/></span><span><small>Meta atual</small><strong>{dashboard.currentGoalProgress?.percentage ?? 0}%</strong><em>{dashboard.currentGoal ? `${dashboard.daysRemaining} dias restantes` : 'Configure uma meta'}</em></span><ChevronRight size={16}/></button>
+            <button type="button" className="health-item" onClick={() => setRoute('goals')}><span className="health-item__icon"><Target size={19}/></span><span><small>Meta atual</small><strong>{dashboard.currentGoalProgress?.percentage ?? 0}%</strong><em>{dashboard.currentGoal ? `${dashboard.daysRemaining} dias corridos até o fim` : 'Configure uma meta'}</em></span><ChevronRight size={16}/></button>
           </section>
 
           <div className="myday-layout-v2__heading myday-layout-v2__heading--activities">

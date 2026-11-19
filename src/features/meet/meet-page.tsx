@@ -174,7 +174,7 @@ export function MeetPage(){
       <button className="rtmeet-refresh" onClick={()=>void refresh()} disabled={loading} title="Atualizar reuniões"><RefreshCw size={17}/></button>
     </div>
     <section className="rtmeet-section" role="tabpanel">
-      {tab==='upcoming'?(groups.upcoming.length? <div className="rtmeet-list">{groups.upcoming.map(row)}</div>:<div className="rtmeet-empty"><Video size={28}/><h3>Nenhuma reunião próxima</h3><p>Comece uma reunião agora ou agende um encontro com seu cliente.</p>{canWrite&&<Button onClick={()=>setCreating(true)}><Plus size={16}/> Agendar reunião</Button>}</div>)
+      {tab==='upcoming'?(groups.upcoming.length? <div className="rtmeet-list">{groups.upcoming.map(row)}</div>:<div className="rtmeet-empty"><Video size={28}/><h3>Nenhuma videochamada agendada</h3><p>Aqui ficam as reuniões por vídeo do RealTalent Meet. Reuniões presenciais ou por telefone aparecem na Agenda.</p>{canWrite&&<Button onClick={()=>setCreating(true)}><Plus size={16}/> Agendar reunião</Button>}</div>)
         :(groups.history.length?<div className="rtmeet-list">{groups.history.map(row)}</div>:<div className="rtmeet-empty"><CheckCircle2 size={28}/><h3>Sem reuniões no histórico</h3><p>Os encontros concluídos aparecerão aqui.</p></div>)}
     </section>
     <div className="rtmeet-footnote"><ExternalLink size={15}/> Convites podem ser abertos sem uma conta no CRM. O vídeo usa conexão WebRTC ponto a ponto; redes restritas podem exigir um servidor TURN.</div>

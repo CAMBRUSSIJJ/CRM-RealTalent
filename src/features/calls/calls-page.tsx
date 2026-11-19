@@ -196,7 +196,7 @@ export function CallsPage() {
       <WorkspaceSummaryMetric label="Hoje" value={queueStats.due} meta="programadas ou vencidas" icon={CalendarClock} tone={queueStats.due ? 'brand' : 'neutral'} onClick={() => { setView('operation'); applyQueueView('today') }} />
       <WorkspaceSummaryMetric label="Atrasadas" value={queueStats.overdue} meta="precisam de atenção" icon={RotateCcw} tone={queueStats.overdue ? 'danger' : 'neutral'} onClick={() => { setView('operation'); applyQueueView('overdue') }} />
       <WorkspaceSummaryMetric label="Retornos" value={queueStats.callbacks} meta="pedidos pelo prospect" icon={RotateCcw} tone={queueStats.callbacks ? 'warning' : 'neutral'} onClick={() => { setView('operation'); applyQueueView('all', 'callback_requested') }} />
-      <WorkspaceSummaryMetric label="Conexão" value={`${stats.answerRate}%`} meta={`${stats.today} realizadas hoje`} icon={Target} tone="success" />
+      <WorkspaceSummaryMetric label="Atendidas hoje" value={`${stats.answerRate}%`} meta={`das ${stats.today} ligações de hoje`} icon={Target} tone="success" />
     </WorkspaceSummaryStrip>
 
     {view === 'operation' ? <section className="panel calls-command-center-v10171">

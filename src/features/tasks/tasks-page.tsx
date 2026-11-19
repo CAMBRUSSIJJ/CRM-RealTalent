@@ -231,7 +231,7 @@ export function TasksPage() {
     <div className="tasks-page-v4__header">
       <div className="tasks-page-v4__heading">
         <ListChecks size={18} aria-hidden="true" />
-        <div><h1>Tarefas da Equipe</h1><span>Organize, acompanhe e distribua o trabalho.</span></div>
+        <div><h1>Tarefas da Equipe</h1><span>Trabalho interno da equipe. Ligações, reuniões e follow-ups com contatos ficam em Follow-ups e no Meu Dia.</span></div>
       </div>
       <div className="tasks-page-v4__top-actions">
         {repositoryMode === 'local' && workspaceId ? <button type="button" className="tasks-page-v4__automation" onClick={() => setShowNotifications(true)} title="Comunicação e automações" aria-label="Comunicação e automações"><Bell size={16} /></button> : null}

@@ -37,6 +37,7 @@ import { calculateRevenueIntelligence } from '../../services/revenue-intelligenc
 import { DealPortfolioPanel } from '../deal-intelligence/deal-portfolio-panel'
 import { DealInspectorModal } from '../deal-intelligence/deal-inspector-modal'
 import './sales-pipeline-v3.css'
+import { buildCommercialValueResolver } from '../../domain/commercial-value'
 
 const INITIAL_CARDS = 30
 const DEFAULT_FILTERS: PipelineFiltersState = { query: '', stage: 'all', temperature: 'all', priority: 'all', source: 'all', due: 'all', owner: 'all', health: 'all' }
@@ -165,7 +166,8 @@ export function PipelinePage() {
     }
     return result
   }, [snapshot?.proposals])
-  const commercialValue = (lead: Lead) => officialProposalByLead.get(lead.id)?.totalContractValue ?? opportunityByLead.get(lead.id)?.value ?? lead.value
+  const resolveCommercialValue = useMemo(() => buildCommercialValueResolver(snapshot?.opportunities, snapshot?.proposals), [snapshot?.opportunities, snapshot?.proposals])
+  const commercialValue = (lead: Lead) => resolveCommercialValue(lead)
   const commercialMrr = (lead: Lead) => officialProposalByLead.get(lead.id)?.recurringMonthlyTotal ?? 0
   const commercialProbability = (lead: Lead) => Math.min(100, Math.max(0, opportunityByLead.get(lead.id)?.probability ?? snapshot?.stages.find((stage) => stage.id === lead.stageId)?.probability ?? 0))
   const commercialCloseAt = (lead: Lead) => opportunityByLead.get(lead.id)?.expectedCloseAt ?? officialProposalByLead.get(lead.id)?.expectedCloseAt ?? lead.expectedCloseAt

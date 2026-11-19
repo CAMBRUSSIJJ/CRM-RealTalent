@@ -5,6 +5,7 @@ import {
   UserRound, UsersRound, XCircle,
 } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
+import { dueStatus } from '../../domain/due-status'
 import { useAppActions, useAppNavigation, useAppUi, useAppWorkspace } from '../../app/app-context'
 import { Button } from '../../components/ui/button'
 import { EmptyState } from '../../components/ui/empty-state'
@@ -164,8 +165,9 @@ export function FollowupsPage() {
         const lead = snapshot?.leads.find((item) => item.id === activity.leadId) ?? null
         const due = activity.dueAt ? new Date(activity.dueAt) : null
         const meta = readFollowupMetadata(activity)
-        const overdue = Boolean(!activity.completedAt && due && due.getTime() < nowMs && !sameDay(due, now))
-        const today = Boolean(!activity.completedAt && due && sameDay(due, now))
+        const dueState = dueStatus(due, Boolean(activity.completedAt), now)
+        const overdue = dueState === 'overdue'
+        const today = dueState === 'today'
         const urgency = overdue ? 100 : today ? 70 : due ? Math.max(0, 30 - Math.floor((due.getTime() - nowMs) / 86400000)) : 5
         const leadScore = lead?.priority === 'urgent' ? 35 : lead?.priority === 'high' ? 25 : lead?.priority === 'medium' ? 12 : 0
         const heatScore = lead?.temperature === 'hot' ? 25 : lead?.temperature === 'warm' ? 10 : 0

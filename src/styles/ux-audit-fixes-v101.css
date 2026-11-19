@@ -135,8 +135,24 @@ html[data-sidebar-mode] .app-shell__main {
 .lead-cell__avatar { color: #2f4fae !important; }
 
 /* 7. Tarefas: cabeçalho no mesmo padrão das outras telas, sem a faixa roxa. */
-.tasks-page-v4__header { background: transparent !important; color: var(--rt-text, #1a2233) !important; box-shadow: none !important; padding-inline: 0 !important; }
+.tasks-page-v4__header { background: transparent !important; color: var(--rt-text, #1a2233) !important; box-shadow: none !important; }
 .tasks-page-v4__header > :not(:has(button)) :is(h1, span, p) { color: inherit !important; }
 .tasks-page-v4__header svg { color: var(--rt-primary, #2f5bd3) !important; opacity: 1 !important; }
 .tasks-page-v4__header :is(.button--primary, .rt-button--primary) svg { color: #fff !important; }
 .tasks-page-v4__header button:not(:is(.button--primary, .rt-button--primary)) { border-color: var(--rt-border, #dfe3ea) !important; background: var(--rt-surface, #fff) !important; }
+/* Tarefas: as quatro colunas cabem em telas a partir de 721px (antes mínimo de 255px cortava a última em 1024px). */
+@media (min-width: 721px) {
+  .tasks-page-v4__board { grid-auto-columns: minmax(180px, 1fr) !important; }
+  .tasks-page-v4__board > * { min-width: 0 !important; width: auto !important; }
+}
+/* Barra do topo: "RealTalent Assistant" em uma linha. */
+.global-appbar-v10162 :is(button, a) { white-space: nowrap; }
+
+/* 5. Comunicação no celular: lista e conversa com altura do conteúdo (antes 210px e 400px fixos,
+ * a lista cobria o começo da conversa e o texto do estado vazio ficava cortado). */
+@media (max-width: 720px) {
+  .communications-central-v3__shell { grid-template-rows: auto auto !important; height: auto !important; }
+  .communications-central-v3__inbox { height: auto !important; max-height: 60vh; overflow: auto !important; }
+  .communications-central-v3__thread { height: auto !important; min-height: 560px !important; }
+  .communications-central-v3__thread .whatsapp-chat { height: auto !important; min-height: 560px; }
+}

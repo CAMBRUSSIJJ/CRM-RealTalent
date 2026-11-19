@@ -26,7 +26,7 @@
   --rt-color-info:#315BD8;
   --rt-color-info-soft:#EEF3FF;
 
-  --rt-font-micro:10px;
+  --rt-font-micro:11px;
   --rt-font-xs:11px;
   --rt-font-sm:12px;
   --rt-font-md:13px;
@@ -171,7 +171,7 @@ button.rt-workspace-summary-metric:hover{background:var(--rt-color-surface-soft)
 .status-pill--success,.is-success{--rt-status-color:var(--rt-color-success)}
 
 /* Minimum readable operational metadata on H20 surfaces. */
-.rt-workspace-page-header,.rt-workspace-summary-strip,.rt-workspace-command-bar,.rt-workspace-view-strip,.tasks-page-v101112,.teams-page-v101112,.followups-page{--rt-operational-min-font:10px}
+.rt-workspace-page-header,.rt-workspace-summary-strip,.rt-workspace-command-bar,.rt-workspace-view-strip,.tasks-page-v101112,.teams-page-v101112,.followups-page{--rt-operational-min-font:11px}
 .rt-workspace-page-header small,.rt-workspace-summary-strip small,.rt-workspace-command-bar small,.rt-workspace-view-strip small,.tasks-page-v101112 small,.teams-page-v101112 small,.followups-page small{font-size:max(var(--rt-operational-min-font),1em)}
 
 @media(max-width:900px){

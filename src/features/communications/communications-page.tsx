@@ -886,7 +886,8 @@ export function CommunicationsPage() {
           workspaceId={workspaceId}
           accounts={channelState?.emailAccounts ?? []}
           repositoryMode={repositoryMode}
-          canConnect={can('manage','integration')}
+          // Cada pessoa conecta a própria caixa de e-mail; não exige gerenciar integrações da empresa.
+          canConnect={canCommunicationEdit || can('manage','integration')}
           loading={officialLoading}
           readOnly={!canCommunicationEdit || (selectedLead ? !canTeamAccessRecord('communications', selectedLead.ownerId) : true)}
           onSync={() => void syncNow()}

@@ -36,10 +36,12 @@ Deno.serve(async (request) => {
   const body = await request.json().catch(() => ({})) as { organizationId?: string; accountId?: string }
   if (!body.organizationId || !body.accountId) return json({ error: 'Conta não informada' }, 400)
   const { data: isAdmin } = await client.rpc('is_organization_admin', { p_organization_id: body.organizationId })
-  if (!isAdmin) return json({ error: 'Somente administradores podem revogar contas' }, 403)
   const admin = adminClient()
   const { data: account } = await admin.from('integration_connected_accounts').select('*').eq('id', body.accountId).eq('organization_id', body.organizationId).maybeSingle()
   if (!account) return json({ error: 'Conta não encontrada' }, 404)
+  // Quem conectou a própria caixa de e-mail pode desconectá-la sem depender do administrador.
+  const ownPersonalAccount = account.access_mode === 'personal' && account.connected_by_user_id === user.id
+  if (!isAdmin && !ownPersonalAccount) return json({ error: 'Somente administradores ou o dono da conta podem desconectá-la' }, 403)
   let providerRevocation: Record<string, unknown> = { attempted: false, supported: false }
   let providerError = ''
   try {

@@ -42,7 +42,7 @@ export async function handleGmailWebhook(request: Request, requestId: string): P
     payload: { history_id: decoded.historyId, email_address: email, pubsub_message_id: message.messageId || null, correlation_id: requestId, gateway: 'communications-gateway-v101.11.0' },
   }, { onConflict: 'organization_id,idempotency_key' })
   if (queueError) throw queueError
-  const { error: subscriptionError } = await admin.from('communication_subscriptions').update({ last_notification_at: new Date().toISOString(), status: 'active', last_error: null, metadata: { history_id: decoded.historyId, email, correlation_id: requestId } }).eq('account_id', account.id).eq('resource_type', 'gmail_mailbox')
+  const { error: subscriptionError } = await admin.from('communication_subscriptions').update({ last_notification_at: new Date().toISOString(), status: 'active', last_error: null, metadata: { history_id: decoded.historyId, email, correlation_id: requestId } }).eq('account_id', account.id).eq('resource_type', 'gmail')
   if (subscriptionError) throw subscriptionError
   return jsonResponse(provider, requestId, { accepted: true, idempotencyKey }, 202)
 }

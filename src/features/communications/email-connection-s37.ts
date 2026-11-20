@@ -9,7 +9,7 @@ export function emailConnectGate(mode:'local'|'supabase',
   health:CommunicationsGatewayHealth|null,
   provider:EmailProviderS37,
   canManage:boolean):EmailConnectGate{
-  if(!canManage)return {ready:false,reason:'A conexão exige permissão para gerenciar integrações.'}
+  if(!canManage)return {ready:false,reason:'Seu perfil não tem permissão para usar a Comunicação.'}
   if(mode==='supabase')return {ready:true,reason:'Conectar com autorização no workspace hospedado.'}
   if(!health?.ok)return {ready:false,reason:'Gateway local indisponível.'}
   if(!health.providers[provider])return {ready:false,reason:'OAuth não configurado para este provedor.'}

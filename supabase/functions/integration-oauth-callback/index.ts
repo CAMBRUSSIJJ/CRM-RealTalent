@@ -17,6 +17,16 @@ const redirect=(status:'success'|'error',provider='',detail='')=>{
   }
   return Response.redirect(url.toString(),302)
 }
+// Mensagens que a pessoa entende ao voltar para o CRM, no lugar dos códigos do provedor.
+const friendlyProviderError=(value:string)=>{
+  if(/access_denied|cancel/i.test(value))return 'Você cancelou a autorização. Nada foi conectado.'
+  if(/org_internal|unauthorized_client|not.*test user|has not completed the google verification/i.test(value))return 'Esta conta do Google ainda não tem acesso ao app do CRM. Avise o administrador do CRM.'
+  if(/invalid_grant/i.test(value))return 'A autorização expirou antes de terminar. Tente conectar de novo.'
+  return value
+}
+const GOOGLE_SCOPES={send:'https://www.googleapis.com/auth/gmail.send',read:'https://www.googleapis.com/auth/gmail.readonly',calendar:'https://www.googleapis.com/auth/calendar.events'}
+// O Google deixa a pessoa desmarcar permissões na tela de consentimento; as capacidades seguem o que foi concedido de fato.
+const googleCapabilities=(scopes:string[])=>{const has=(scope:string)=>scopes.includes(scope);return{email_send:has(GOOGLE_SCOPES.send),email_read:has(GOOGLE_SCOPES.read),mail_sync:has(GOOGLE_SCOPES.read),calendar_read:has(GOOGLE_SCOPES.calendar),calendar_sync:has(GOOGLE_SCOPES.calendar),calendar_write:has(GOOGLE_SCOPES.calendar),incremental_sync:has(GOOGLE_SCOPES.read),webhooks:has(GOOGLE_SCOPES.read)||has(GOOGLE_SCOPES.calendar)}}
 const sha256hex=async(value:string)=>Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256',new TextEncoder().encode(value)))).map((item)=>item.toString(16).padStart(2,'0')).join('')
 type Provider='google'|'microsoft'|'meta'|'whatsapp_cloud'
 const configs={
@@ -64,7 +74,7 @@ Deno.serve(async(request)=>{
     const stored=Array.isArray(rows)?rows[0]:rows
     if(stateError||!stored)throw new Error(stateError?.message||'Estado OAuth inválido, expirado ou já consumido')
     const provider=stored.provider as Provider
-    if(providerError)throw new Error(providerError)
+    if(providerError)throw new Error(friendlyProviderError(providerError))
     if(!code)throw new Error('Código OAuth ausente')
     const config=configs[provider]
     if(!config)throw new Error('Provedor OAuth inválido')
@@ -73,7 +83,8 @@ Deno.serve(async(request)=>{
     const tokenBody=new URLSearchParams({code,client_id:clientId,client_secret:clientSecret,redirect_uri:String(stored.redirect_uri),grant_type:'authorization_code',code_verifier:String(stored.code_verifier)})
     const tokenResponse=await fetch(config.tokenUrl,{method:'POST',headers:{'content-type':'application/x-www-form-urlencoded'},body:tokenBody})
     const token=await tokenResponse.json().catch(()=>({})) as Record<string,unknown>
-    if(!tokenResponse.ok||typeof token.access_token!=='string')throw new Error(typeof token.error_description==='string'?token.error_description:String((token.error as any)?.message||'Falha na troca do código OAuth'))
+    if(!tokenResponse.ok||typeof token.access_token!=='string')throw new Error(friendlyProviderError(typeof token.error_description==='string'?token.error_description:String((token.error as any)?.message||token.error||'Falha na troca do código OAuth')))
+    if(provider==='google'&&typeof token.refresh_token!=='string')throw new Error('O Google não enviou a permissão de acesso contínuo. Remova o RealTalent em myaccount.google.com/permissions e conecte de novo.')
     const profileResponse=await fetch(config.profileUrl,{headers:{authorization:`Bearer ${token.access_token}`}})
     const profile=await profileResponse.json().catch(()=>({})) as Record<string,unknown>
     if(!profileResponse.ok)throw new Error(String((profile.error as any)?.message||'Não foi possível identificar a conta conectada'))
@@ -84,12 +95,19 @@ Deno.serve(async(request)=>{
     const expiresIn=Number(token.expires_in||0);const expiresAt=expiresIn>0?new Date(Date.now()+expiresIn*1000).toISOString():null
     const whatsappDiscovery=provider==='whatsapp_cloud'?await discoverWhatsApp(String(token.access_token)):{candidates:[],error:''}
     const whatsappPrimary=whatsappDiscovery.candidates[0]||null
+    const personalProvider=provider==='google'||provider==='microsoft'
+    if(provider==='google'&&!scopes.includes(GOOGLE_SCOPES.send)&&!scopes.includes(GOOGLE_SCOPES.read))throw new Error('Nenhuma permissão do Gmail foi concedida. Conecte de novo e marque as opções de ler e enviar e-mails.')
     const {data:membership}=await admin.from('organization_members').select('role').eq('organization_id',stored.organization_id).eq('user_id',stored.user_id).maybeSingle()
-    if(!membership||!['owner','admin'].includes(membership.role))throw new Error('Usuário sem permissão para esta organização')
+    if(!membership||(!personalProvider&&!['owner','admin'].includes(membership.role)))throw new Error('Usuário sem permissão para esta organização')
+    if(personalProvider){
+      // Uma caixa de e-mail pertence a uma pessoa: não deixa outro membro tomar uma conta já conectada.
+      const {data:existing}=await admin.from('integration_connected_accounts').select('connected_by_user_id,status').eq('organization_id',stored.organization_id).eq('provider',provider).eq('external_account_id',externalId).maybeSingle()
+      if(existing&&existing.status!=='revoked'&&existing.connected_by_user_id&&existing.connected_by_user_id!==stored.user_id)throw new Error(`${email||'Esta conta'} já está conectada por outro usuário desta organização.`)
+    }
     const {data:account,error:accountError}=await admin.from('integration_connected_accounts').upsert({
       organization_id:stored.organization_id,provider,external_account_id:externalId,display_name:displayName,status:'connected',scopes,
       has_credential:true,token_expires_at:expiresAt,last_error:null,connected_by_user_id:stored.user_id,access_mode:'personal',
-      allowed_user_ids:[],allowed_roles:[],capabilities:capabilities[provider],connection_mode:'live',revoked_at:null,
+      allowed_user_ids:[],allowed_roles:[],capabilities:provider==='google'?googleCapabilities(scopes):capabilities[provider],connection_mode:'live',revoked_at:null,
       metadata:{email,provider_profile:{id:externalId,name:displayName},...(provider==='whatsapp_cloud'?{phone_number_id:whatsappPrimary?.phone_number_id||'',display_phone_number:whatsappPrimary?.display_phone_number||'',waba_id:whatsappPrimary?.waba_id||'',waba_name:whatsappPrimary?.waba_name||'',business_id:whatsappPrimary?.business_id||'',business_name:whatsappPrimary?.business_name||'',verified_name:whatsappPrimary?.verified_name||'',whatsapp_candidates:whatsappDiscovery.candidates,whatsapp_discovery_error:whatsappDiscovery.error}: {})},
     },{onConflict:'organization_id,provider,external_account_id'}).select('id').single()
     if(accountError||!account)throw new Error(accountError?.message||'Falha ao salvar a conta')
@@ -101,12 +119,15 @@ Deno.serve(async(request)=>{
       await admin.rpc('enqueue_integration_sync_job_system',{p_organization_id:stored.organization_id,p_account_id:account.id,p_job_type:'whatsapp_template_sync',p_idempotency_key:`oauth:${account.id}:whatsapp_template_sync:${Date.now()}`,p_payload:{source:'oauth_connected',initial_sync:true}})
     }
     if(provider==='google'||provider==='microsoft'){
+      const granted:Record<string,boolean>=provider==='google'?googleCapabilities(scopes):capabilities[provider]
       const capabilityList=['email_send','mail_sync','calendar_sync','calendar_write']
-      for(const capability of capabilityList){
+      for(const capability of capabilityList.filter((item)=>granted[item])){
         const {data:existing}=await admin.from('integration_account_defaults').select('id').eq('organization_id',stored.organization_id).eq('user_id',stored.user_id).eq('capability',capability).maybeSingle()
-        if(!existing)await admin.from('integration_account_defaults').insert({organization_id:stored.organization_id,user_id:stored.user_id,capability,account_id:account.id})
+        // Ao reconectar com outra conta, a conta nova passa a ser a padrão desta pessoa.
+        if(existing)await admin.from('integration_account_defaults').update({account_id:account.id}).eq('id',existing.id)
+        else await admin.from('integration_account_defaults').insert({organization_id:stored.organization_id,user_id:stored.user_id,capability,account_id:account.id})
       }
-      const jobs=provider==='google'?['google_mail_pull','google_calendar_pull','google_subscription_renew']:['microsoft_mail_pull','microsoft_calendar_pull','microsoft_subscription_renew']
+      const jobs=provider==='google'?[granted.mail_sync&&'google_mail_pull',granted.calendar_sync&&'google_calendar_pull','google_subscription_renew'].filter((item):item is string=>Boolean(item)):['microsoft_mail_pull','microsoft_calendar_pull','microsoft_subscription_renew']
       for(const jobType of jobs)await admin.rpc('enqueue_integration_sync_job_system',{p_organization_id:stored.organization_id,p_account_id:account.id,p_job_type:jobType,p_idempotency_key:`oauth:${account.id}:${jobType}:${Date.now()}`,p_payload:{source:'oauth_connected',initial_sync:true}})
     }
     return redirect('success',provider)

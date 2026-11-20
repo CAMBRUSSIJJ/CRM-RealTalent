@@ -116,7 +116,7 @@ export function EmailConversationPanel({
         </details></div>
       </div>:<div className="email-onboarding-s37__setup"><Cloud size={16}/><p>No workspace hospedado, o OAuth e os workers de e-mail devem estar implantados no Supabase antes de conectar.</p></div>}
       {connectionError?<p className="email-onboarding-s37__error" role="alert">{connectionError}</p>:null}
-      {!canConnect?<p className="email-onboarding-s37__error">Somente quem possui permissão para administrar integrações pode conectar uma conta.</p>:null}
+      {!canConnect?<p className="email-onboarding-s37__error">Seu perfil não tem permissão para usar a Comunicação. Peça acesso ao administrador.</p>:null}
       <Button variant="secondary" loading={gatewayLoading||loading} onClick={()=>{void checkGateway();onSync()}}><RefreshCw size={15}/> Verificar conexão</Button>
     </div>
   </section>

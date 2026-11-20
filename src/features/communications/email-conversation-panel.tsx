@@ -1,11 +1,14 @@
 import { plural } from '../../domain/formatters'
 import { useEffect, useMemo, useState } from 'react'
-import { Info, Mail, RefreshCw, Send, WifiOff, Cloud, ShieldCheck } from 'lucide-react'
+import { Info, Mail, RefreshCw, Send, WifiOff, Cloud, ShieldCheck, UserPlus, EyeOff } from 'lucide-react'
+import { useAppActions, useAppWorkspace } from '../../app/app-context'
+import { useAuth } from '../auth/auth-context'
+import { usePreferences } from '../settings/preferences-context'
 import { NativeSelectionSelect } from '../../components/selection'
 import { Button } from '../../components/ui/button'
 import type { Lead } from '../../domain/types'
 import { formatDateTime } from '../../domain/formatters'
-import { connectedAccountLabel, sendOfficialEmail, type UnifiedCommunicationItem } from '../../services/communication-workspace'
+import { connectedAccountLabel, emailCounterpartOf, ignoreEmailSender, sendOfficialEmail, type UnifiedCommunicationItem } from '../../services/communication-workspace'
 import {beginOAuthConnection, type ConnectedAccount} from '../../services/integration-framework'
 import {loadCommunicationsGatewayHealth,type CommunicationsGatewayHealth} from '../../services/local-communications-gateway'
 import {emailConnectGate,localOAuthCallbacks} from './email-connection-s37'
@@ -21,7 +24,7 @@ const cleanReplySubject = (value: string) => {
 }
 
 export function EmailConversationPanel({
-  lead, events, workspaceId, accounts, loading, readOnly = false, onSync, onOpenLeadContext, onSent, onError, repositoryMode, canConnect,
+  lead, events, workspaceId, accounts, loading, readOnly = false, onSync, onOpenLeadContext, onSent, onError, onContactCreated, repositoryMode, canConnect,
 }: {
   lead: Lead | null
   events: UnifiedCommunicationItem[]
@@ -35,6 +38,7 @@ export function EmailConversationPanel({
   onOpenLeadContext?(): void
   onSent(message: string): void
   onError(message: string): void
+  onContactCreated?(lead: Lead): void
 }) {
   const orderedEvents = useMemo(() => [...events].filter((item) => item.channel === 'email').sort((a, b) => Date.parse(a.occurredAt) - Date.parse(b.occurredAt)), [events])
   const lastSubject = [...orderedEvents].reverse().find((item) => item.subject.trim())?.subject ?? ''
@@ -46,6 +50,11 @@ export function EmailConversationPanel({
   const [connectionError,setConnectionError]=useState('')
   const [gatewayHealth,setGatewayHealth]=useState<CommunicationsGatewayHealth|null>(null)
   const [gatewayLoading,setGatewayLoading]=useState(false)
+  const { snapshot } = useAppWorkspace()
+  const { createLead } = useAppActions()
+  const { user } = useAuth()
+  const { preferences: crmPreferences } = usePreferences()
+  const [unlinkedBusy, setUnlinkedBusy] = useState<'create' | 'ignore' | null>(null)
   const checkGateway=async()=>{
     if(repositoryMode!=='local')return
     setGatewayLoading(true)
@@ -124,20 +133,63 @@ export function EmailConversationPanel({
   // Imported e-mails can exist before they are matched to a CRM lead.
   // Never hide these genuine provider messages just because the CRM has
   // not associated their sender/recipient with a contact yet.
+  // Conversa importada sem contato: transformar em contato (o histórico é ligado no banco) ou ignorar o remetente.
+  const unlinkedLatest = orderedEvents[orderedEvents.length - 1]
+  const unlinkedAddress = !lead && unlinkedLatest ? emailCounterpartOf(unlinkedLatest) : ''
+  const unlinkedName = !lead ? orderedEvents.map((item) => String(item.metadata?.sender_name || '').trim()).find(Boolean) || '' : ''
+  const unlinkedAccountId = !lead && unlinkedLatest ? String(unlinkedLatest.metadata?.accountId || '') : ''
+  const createContactFromEmail = async () => {
+    if (!unlinkedAddress) return
+    const stage = [...(snapshot?.stages ?? [])].sort((a, b) => a.order - b.order).find((item) => !item.isWon && !item.isLost) ?? snapshot?.stages[0]
+    if (!stage) { onError('O Pipeline não possui uma etapa válida para criar o contato.'); return }
+    const existing = snapshot?.leads.find((item) => item.email.trim().toLowerCase() === unlinkedAddress)
+    if (existing) { onContactCreated?.(existing); return }
+    const domain = unlinkedAddress.split('@')[1] || ''
+    const personalDomain = /^(gmail|googlemail|hotmail|outlook|live|yahoo|icloud|uol|bol|terra)\./.test(domain)
+    setUnlinkedBusy('create')
+    try {
+      const created = await createLead({
+        name: unlinkedName || unlinkedAddress, company: personalDomain ? (unlinkedName || unlinkedAddress) : domain.split('.')[0].replace(/^./, (char) => char.toUpperCase()),
+        phone: '', email: unlinkedAddress, city: '', source: 'E-mail', sourceDetail: 'Criado a partir de uma conversa do Gmail', sourceUrl: '', capturedAt: new Date().toISOString(),
+        consentStatus: 'unknown', doNotContact: false, doNotContactReason: '', companyId: null, primaryContactId: null, opportunityId: null, cnpj: '', website: personalDomain ? '' : domain,
+        instagramUrl: '', linkedinUrl: '', facebookUrl: '', jobTitle: '', decisionRole: 'unknown', influenceLevel: 0,
+        stageId: stage.id, status: 'active', temperature: crmPreferences.commercial.defaultLeadTemperature, priority: crmPreferences.commercial.defaultLeadPriority,
+        ownerId: user?.id ?? null, ownerName: user?.displayName ?? 'Equipe', value: 0, nextActionAt: null, lastContactAt: unlinkedLatest?.occurredAt ?? null, expectedCloseAt: null,
+        notes: '', tags: ['E-mail'],
+      })
+      onSent(`${created.name} virou contato. As mensagens anteriores foram ligadas a ele.`)
+      onContactCreated?.(created)
+    } catch (error) { onError(error instanceof Error ? error.message : 'Não foi possível criar o contato.') }
+    finally { setUnlinkedBusy(null) }
+  }
+  const ignoreSender = async () => {
+    if (!unlinkedAddress || !unlinkedAccountId) return
+    setUnlinkedBusy('ignore')
+    try {
+      const removed = await ignoreEmailSender(unlinkedAccountId, unlinkedAddress)
+      onSent(`${unlinkedAddress} não será mais importado. ${removed} ${plural(removed, 'mensagem removida', 'mensagens removidas')} do CRM.`)
+    } catch (error) { onError(error instanceof Error ? error.message : 'Não foi possível ignorar o remetente.') }
+    finally { setUnlinkedBusy(null) }
+  }
+
   if (!lead && orderedEvents.length) return <section className="email-workspace-panel email-workspace-panel--unlinked">
     <header className="email-workspace-header"><div className="email-workspace-panel__unlinked-heading">
-      <Mail size={19}/><div><strong>Conversa importada</strong><small>Conta conectada · ainda não vinculada a um contato do CRM</small></div>
-    </div><Button size="sm" variant="secondary" loading={loading} onClick={onSync}><RefreshCw size={15}/> Sincronizar</Button></header>
+      <Mail size={19}/><div><strong>{unlinkedName || unlinkedAddress || 'Conversa importada'}</strong><small>{unlinkedName && unlinkedAddress ? `${unlinkedAddress} · ` : ''}ainda não é contato do CRM · só você vê esta conversa</small></div>
+    </div><div className="email-workspace-panel__unlinked-actions">
+      {!readOnly && unlinkedAddress ? <Button size="sm" loading={unlinkedBusy === 'create'} disabled={Boolean(unlinkedBusy)} onClick={() => void createContactFromEmail()}><UserPlus size={15}/> Criar contato</Button> : null}
+      {unlinkedAddress && unlinkedAccountId ? <Button size="sm" variant="ghost" loading={unlinkedBusy === 'ignore'} disabled={Boolean(unlinkedBusy)} onClick={() => void ignoreSender()} title="Remove esta conversa do CRM e não importa mais mensagens deste endereço"><EyeOff size={15}/> Não é de trabalho</Button> : null}
+      <Button size="sm" variant="secondary" loading={loading} onClick={onSync}><RefreshCw size={15}/> Sincronizar</Button>
+    </div></header>
     <div className="email-thread">{orderedEvents.map(item=><article key={item.id} className={`email-message-card is-${item.direction}`}>
       <div className="email-message-card__avatar">{item.direction==='inbound'?'IN':'RT'}</div>
       <div className="email-message-card__content">
-        <header><div><strong>{String(item.metadata?.senderAddress||'Remetente')}</strong>
-          <span>{item.direction==='inbound'?'recebido':'enviado'}</span></div><time>{formatDateTime(item.occurredAt)}</time></header>
+        <header><div><strong>{item.direction==='inbound'?String(item.metadata?.sender_name||item.metadata?.senderAddress||'Remetente'):'Você'}</strong>
+          <span>{item.direction==='inbound'?'recebido':`enviado para ${unlinkedAddress}`}</span></div><time>{formatDateTime(item.occurredAt)}</time></header>
         {item.subject?<h4>{item.subject}</h4>:null}<p>{item.body||'Mensagem sem conteúdo textual.'}</p>
         <footer><span>{item.status==='sent'?'Enviado':item.status==='received'?'Recebido':item.status}</span><b>Oficial</b></footer>
       </div>
     </article>)}</div>
-    <div className="email-composer email-composer--unlinked"><Info size={17}/><span>Este e-mail foi recebido, mas ainda não possui um contato associado no CRM. Vincule o remetente a um contato para responder e registrar o relacionamento comercial.</span></div>
+    <div className="email-composer email-composer--unlinked"><Info size={17}/><span>Crie o contato para responder por aqui e guardar o histórico no CRM. Se não for de trabalho, use “Não é de trabalho”: a conversa sai do CRM e este endereço deixa de ser importado.</span></div>
   </section>
   if (!lead) return <section className="email-workspace-panel email-workspace-panel--empty"><Mail size={34}/><strong>Selecione uma conversa de e-mail</strong><p>O histórico e a resposta por e-mail aparecem aqui ao escolher um contato. Você já pode sincronizar a caixa conectada.</p></section>
 

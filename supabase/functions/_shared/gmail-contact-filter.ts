@@ -49,3 +49,35 @@ export function buildContactSearchQueries(emails: string[], days = 90, chunkSize
   }
   return queries
 }
+
+// Caixa recente: o que entra na Comunicação mesmo antes de virar contato.
+// Promoções, social, atualizações automáticas, fóruns, spam, lixeira, rascunhos e chat ficam de fora.
+export const RECENT_INBOX_DAYS = 30
+export const RECENT_INBOX_QUERY = `newer_than:${RECENT_INBOX_DAYS}d -in:spam -in:trash -in:drafts -in:chats -category:promotions -category:social -category:updates -category:forums`
+const EXCLUDED_LABELS = new Set(['SPAM', 'TRASH', 'DRAFT', 'CHAT', 'CATEGORY_PROMOTIONS', 'CATEGORY_SOCIAL', 'CATEGORY_UPDATES', 'CATEGORY_FORUMS'])
+
+export function isWorkMailLabelSet(labelIds: unknown): boolean {
+  const labels = Array.isArray(labelIds) ? labelIds.map(String) : []
+  return !labels.some((label) => EXCLUDED_LABELS.has(label))
+}
+
+// Remetentes automáticos não viram conversa de venda.
+export function isAutomatedAddress(address: string): boolean {
+  const local = normalizeEmail(address).split('@')[0] || ''
+  return /^(no-?reply|do-?not-?reply|mailer-daemon|postmaster|notifications?|bounce[s]?)([+._-].*)?$/.test(local)
+}
+
+export function senderDisplayName(fromHeader: string): string {
+  const match = fromHeader.match(/^\s*"?([^"<]+?)"?\s*</)
+  return (match?.[1] || '').trim()
+}
+
+// Quem está do outro lado: remetente se recebido; primeiro destinatário se enviado pela conta conectada.
+export function counterpartOf(headers: GmailHeaders, ownAddress: string): { direction: 'inbound' | 'outbound'; address: string } {
+  const own = normalizeEmail(ownAddress)
+  const from = normalizeEmail(headers.from)
+  const outbound = Boolean(own) && from === own
+  if (!outbound) return { direction: 'inbound', address: from }
+  const other = [...headers.to, ...headers.cc].map(normalizeEmail).find((item) => item && item !== own) || ''
+  return { direction: 'outbound', address: other }
+}

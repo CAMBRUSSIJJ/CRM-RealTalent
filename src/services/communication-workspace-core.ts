@@ -264,6 +264,16 @@ const conversationStatus = (event: UnifiedCommunicationItem): ConversationStatus
   return 'idle'
 }
 
+// Endereço de quem está do outro lado de um e-mail: remetente se recebido, primeiro destinatário se enviado.
+export const emailCounterpartOf = (item: Pick<UnifiedCommunicationItem, 'direction' | 'metadata'>) => {
+  const stored = String(item.metadata?.counterpart || '').trim().toLowerCase()
+  if (stored) return stored
+  const clean = (value: unknown) => { const text = String(value || ''); return (text.match(/<([^>]+)>/)?.[1] || text).trim().toLowerCase() }
+  if (item.direction === 'inbound') return clean(item.metadata?.senderAddress)
+  const recipients = Array.isArray(item.metadata?.recipientAddresses) ? item.metadata.recipientAddresses as unknown[] : []
+  return clean(recipients[0])
+}
+
 export const buildCommunicationConversations = (timeline: UnifiedCommunicationItem[]): CommunicationConversation[] => {
   const grouped = new Map<string, UnifiedCommunicationItem[]>()
   for (const item of timeline) {
@@ -277,9 +287,11 @@ export const buildCommunicationConversations = (timeline: UnifiedCommunicationIt
     const whatsappIdentity = isGroup
       ? (threadId || peerAddress || item.leadId || item.contactId || senderPhone || 'unlinked')
       : (peerAddress || threadId || item.leadId || item.contactId || senderPhone || 'unlinked')
+    // E-mail ainda sem contato: uma conversa por pessoa do outro lado, não um único balaio "sem contato".
+    const emailCounterpart = item.channel === 'email' && !item.leadId && !item.contactId ? emailCounterpartOf(item) : ''
     const identity = item.channel === 'whatsapp'
       ? whatsappIdentity
-      : (item.leadId ?? item.contactId ?? 'unlinked')
+      : (item.leadId ?? item.contactId ?? (emailCounterpart ? `mail:${emailCounterpart}` : 'unlinked'))
     const key = `${identity}:${item.channel}`
     const values = grouped.get(key) ?? []
     values.push(item)
@@ -289,9 +301,13 @@ export const buildCommunicationConversations = (timeline: UnifiedCommunicationIt
     const ordered = [...events].sort((a, b) => Date.parse(b.occurredAt) - Date.parse(a.occurredAt))
     const latest = ordered[0]
     const externalThreadId = String(latest.metadata?.threadId || '') || null
-    const externalAddress = normalizeWhatsAppPhone(latest.metadata?.peerAddress || latest.metadata?.senderAddress) || null
-    const resolvedDisplayName = ordered.map((item) => safeWhatsAppDisplayName(item.metadata?.chatName)).find(Boolean) || ''
-    const externalDisplayName = resolvedDisplayName || (Boolean(latest.metadata?.isGroup) ? 'Grupo do WhatsApp' : externalAddress ? `+${externalAddress}` : latest.channel === 'whatsapp' ? 'WhatsApp · identidade pendente' : null)
+    const unlinkedEmail = latest.channel === 'email' && !latest.leadId && !latest.contactId
+    const emailAddress = unlinkedEmail ? emailCounterpartOf(latest) : ''
+    const externalAddress = unlinkedEmail ? (emailAddress || null) : normalizeWhatsAppPhone(latest.metadata?.peerAddress || latest.metadata?.senderAddress) || null
+    const resolvedDisplayName = unlinkedEmail
+      ? ordered.map((item) => String(item.metadata?.sender_name || '').trim()).find(Boolean) || ''
+      : ordered.map((item) => safeWhatsAppDisplayName(item.metadata?.chatName)).find(Boolean) || ''
+    const externalDisplayName = resolvedDisplayName || (unlinkedEmail ? emailAddress || null : Boolean(latest.metadata?.isGroup) ? 'Grupo do WhatsApp' : externalAddress ? `+${externalAddress}` : latest.channel === 'whatsapp' ? 'WhatsApp · identidade pendente' : null)
     return {
       key,
       leadId: latest.leadId,
@@ -404,6 +420,15 @@ export async function syncOfficialCommunications(workspaceId: string): Promise<{
     throw new Error(result.failures.map((item) => item.message).join(' · '))
   }
   return result
+}
+
+// "Não é de trabalho": o dono da conta tira do CRM as conversas com esse endereço e ele não volta a ser importado.
+export async function ignoreEmailSender(accountId: string, address: string): Promise<number> {
+  const client = communicationCloudClient() as any
+  if (!client) throw new Error('Disponível apenas no CRM hospedado.')
+  const { data, error } = await client.rpc('ignore_email_sender', { p_account_id: accountId, p_address: address })
+  if (error) throw new Error(error.message)
+  return Number(data || 0)
 }
 
 export async function markCommunicationConversationRead(workspaceId: string, conversation: Pick<CommunicationConversation, 'externalThreadId' | 'externalAddress'>): Promise<number> {

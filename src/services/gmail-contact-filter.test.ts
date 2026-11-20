@@ -22,3 +22,23 @@ describe('filtro de contatos do Gmail', () => {
     expect(buildContactSearchQueries([])).toEqual([])
   })
 })
+
+import { counterpartOf, isAutomatedAddress, isWorkMailLabelSet, senderDisplayName } from '../../supabase/functions/_shared/gmail-contact-filter'
+describe('caixa recente do Gmail', () => {
+  it('descarta promoções, social, spam e rascunhos', () => {
+    expect(isWorkMailLabelSet(['INBOX', 'UNREAD', 'CATEGORY_PERSONAL'])).toBe(true)
+    expect(isWorkMailLabelSet(['INBOX', 'CATEGORY_PROMOTIONS'])).toBe(false)
+    expect(isWorkMailLabelSet(['SPAM'])).toBe(false)
+    expect(isWorkMailLabelSet(['DRAFT'])).toBe(false)
+  })
+  it('reconhece remetentes automáticos', () => {
+    expect(isAutomatedAddress('no-reply@banco.com')).toBe(true)
+    expect(isAutomatedAddress('noreply+abc@x.com')).toBe(true)
+    expect(isAutomatedAddress('ana@cliente.com')).toBe(false)
+  })
+  it('lê nome e quem está do outro lado', () => {
+    expect(senderDisplayName('"Ana Souza" <ana@x.com>')).toBe('Ana Souza')
+    expect(counterpartOf({ from: 'Eu <eu@empresa.com>', to: ['eu@empresa.com', 'ana@x.com'], cc: [] }, 'eu@empresa.com')).toEqual({ direction: 'outbound', address: 'ana@x.com' })
+    expect(counterpartOf({ from: 'Ana <ana@x.com>', to: ['eu@empresa.com'], cc: [] }, 'eu@empresa.com')).toEqual({ direction: 'inbound', address: 'ana@x.com' })
+  })
+})

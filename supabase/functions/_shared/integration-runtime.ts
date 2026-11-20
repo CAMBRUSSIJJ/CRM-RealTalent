@@ -1,5 +1,5 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.57.4'
-import { buildContactSearchQueries, buildLeadEmailIndex, matchLeadForMessage, normalizeEmail, parseAddressList } from './gmail-contact-filter.ts'
+import { RECENT_INBOX_QUERY, buildContactSearchQueries, buildLeadEmailIndex, counterpartOf, isAutomatedAddress, isWorkMailLabelSet, matchLeadForMessage, normalizeEmail, parseAddressList, senderDisplayName } from './gmail-contact-filter.ts'
 
 export type Provider = 'google' | 'microsoft' | 'meta' | 'whatsapp_cloud'
 export type WorkerKey = 'google-sync' | 'microsoft-sync' | 'meta-sync' | 'whatsapp-sync' | 'token-refresh' | 'integration-health'
@@ -465,30 +465,45 @@ async function gmailJson(token: string, url: string | URL) {
 }
 
 // Busca o histórico só para descobrir mensagens novas; o conteúdo só é lido se a conversa for com um contato do CRM.
+async function loadIgnoredSenders(admin: any, accountId: string) {
+  const { data, error } = await admin.from('communication_ignored_senders').select('address').eq('account_id', accountId)
+  if (error) return new Set<string>()
+  return new Set<string>((data || []).map((row: any) => normalizeEmail(String(row.address || ''))))
+}
+
+async function mapLimited<T>(items: T[], limit: number, worker: (item: T) => Promise<void>) {
+  const queue = [...items]
+  await Promise.all(Array.from({ length: Math.min(limit, queue.length) }, async () => {
+    while (queue.length) { const item = queue.shift() as T; await worker(item) }
+  }))
+}
+
+// Lê a caixa recente (30 dias, sem promoções/social/automáticos) e o histórico com contatos do CRM (90 dias).
+// E-mail sem contato entra sem lead e só o dono da conta o vê (regra no banco); ao virar contato, é ligado sozinho.
 async function googleMailPull(admin: any, account: any, token: string, jobPayload: any = {}) {
   const subscription = await subscriptionRow(admin, account.id, 'gmail')
   let cursor = String(subscription?.sync_cursor || '')
   const messageIds = new Set<string>()
   let latestHistoryId = String(jobPayload?.history_id || cursor || '')
-  let fullSync = !cursor
-  const leads = await loadLeadEmailIndex(admin, account.organization_id)
-  if (cursor) {
+  let fullSync = !cursor || subscription?.metadata?.inbox_mode !== 'recent_inbox_v1'
+  const [leads, ignored] = await Promise.all([loadLeadEmailIndex(admin, account.organization_id), loadIgnoredSenders(admin, account.id)])
+  if (!fullSync) {
     const historyUrl = (pageToken = '') => `https://gmail.googleapis.com/gmail/v1/users/me/history?startHistoryId=${encodeURIComponent(cursor)}&historyTypes=messageAdded&maxResults=500${pageToken ? `&pageToken=${encodeURIComponent(pageToken)}` : ''}`
     let endpoint = historyUrl()
     while (endpoint) {
       const { response, data } = await gmailJson(token, endpoint)
-      // 404: o cursor ficou velho demais no Gmail; refaz a busca completa pelos contatos.
       if (response.status === 404) { fullSync = true; messageIds.clear(); break }
       if (!response.ok) throw new Error(data?.error?.message || 'Falha no histórico incremental do Gmail')
       for (const history of data.history || []) {
-        for (const added of history.messagesAdded || []) if (added.message?.id) messageIds.add(String(added.message.id))
+        for (const added of history.messagesAdded || []) if (added.message?.id && isWorkMailLabelSet(added.message.labelIds)) messageIds.add(String(added.message.id))
       }
       latestHistoryId = String(data.historyId || latestHistoryId)
       endpoint = data.nextPageToken ? historyUrl(String(data.nextPageToken)) : ''
     }
   }
   if (fullSync) {
-    for (const query of buildContactSearchQueries([...leads.keys()])) {
+    const queries = [RECENT_INBOX_QUERY, ...buildContactSearchQueries([...leads.keys()])]
+    for (const query of queries) {
       let pageToken = ''
       let pages = 0
       do {
@@ -501,38 +516,37 @@ async function googleMailPull(admin: any, account: any, token: string, jobPayloa
         for (const item of data.messages || []) if (item.id) messageIds.add(String(item.id))
         pageToken = String(data.nextPageToken || '')
         pages += 1
-      } while (pageToken && pages < 5)
-      if (messageIds.size >= 1500) break
+      } while (pageToken && pages < 3 && messageIds.size < 400)
+      if (messageIds.size >= 400) break
     }
   }
   const own = String(account.metadata?.email || '').toLowerCase()
   let count = 0
   let skipped = 0
-  for (const id of messageIds) {
-    const metadataUrl = `https://gmail.googleapis.com/gmail/v1/users/me/messages/${encodeURIComponent(id)}?format=metadata&metadataHeaders=From&metadataHeaders=To&metadataHeaders=Cc`
-    const { response: metaResponse, data: meta } = await gmailJson(token, metadataUrl)
-    if (!metaResponse.ok) continue
-    const metaHeaders = meta.payload?.headers || []
-    const match = matchLeadForMessage({ from: header(metaHeaders, 'From'), to: parseAddressList(header(metaHeaders, 'To')), cc: parseAddressList(header(metaHeaders, 'Cc')) }, own, leads)
-    if (!match) { skipped += 1; continue }
+  await mapLimited([...messageIds], 6, async (id) => {
     const { response: detailResponse, data: message } = await gmailJson(token, `https://gmail.googleapis.com/gmail/v1/users/me/messages/${encodeURIComponent(id)}?format=full`)
-    if (!detailResponse.ok) continue
+    if (!detailResponse.ok || !isWorkMailLabelSet(message.labelIds)) { skipped += 1; return }
     const headers = message.payload?.headers || []
-    const from = normalizeEmail(header(headers, 'From'))
-    const to = parseAddressList(header(headers, 'To'))
-    const cc = parseAddressList(header(headers, 'Cc'))
+    const fromHeader = header(headers, 'From')
+    const parsed = { from: fromHeader, to: parseAddressList(header(headers, 'To')), cc: parseAddressList(header(headers, 'Cc')) }
+    const side = counterpartOf(parsed, own)
+    if (!side.address || ignored.has(side.address) || isAutomatedAddress(side.address)) { skipped += 1; return }
+    const match = matchLeadForMessage(parsed, own, leads)
     const parts = gmailParts(message.payload)
     await upsertEmailFromProvider(admin, account, {
-      externalId: String(message.id), direction: match.direction, sender: from, recipients: [...to, ...cc], subject: header(headers, 'Subject'),
+      externalId: String(message.id), direction: side.direction, sender: normalizeEmail(fromHeader), recipients: [...parsed.to, ...parsed.cc], subject: header(headers, 'Subject'),
       text: parts.text || String(message.snippet || ''), html: parts.html, occurredAt: new Date(Number(message.internalDate || Date.now())).toISOString(), threadId: String(message.threadId || ''), internetMessageId: header(headers, 'Message-ID'),
-      metadata: { provider: 'gmail', thread_id: message.threadId, label_ids: message.labelIds || [], history_id: message.historyId || null, cc }, attachments: parts.attachments,
-      leadId: match.leadId,
+      metadata: { provider: 'gmail', thread_id: message.threadId, label_ids: message.labelIds || [], history_id: message.historyId || null, cc: parsed.cc, counterpart: side.address, sender_name: side.direction === 'inbound' ? senderDisplayName(fromHeader) : null, unread: Array.isArray(message.labelIds) && message.labelIds.includes('UNREAD'),
+        // Já lido no Gmail = já lido no CRM; só o que está não lido aparece como novo.
+        ...(Array.isArray(message.labelIds) && message.labelIds.includes('UNREAD') ? {} : { crmReadAt: new Date(Number(message.internalDate || Date.now())).toISOString() }) },
+      attachments: parts.attachments,
+      leadId: match?.leadId || null,
     })
     count += 1
-  }
+  })
   const { response: profileResponse, data: profile } = await gmailJson(token, 'https://gmail.googleapis.com/gmail/v1/users/me/profile')
   if (profileResponse.ok) latestHistoryId = String(profile.historyId || latestHistoryId)
-  if (latestHistoryId) await saveSubscriptionCursor(admin, account, 'gmail', 'gmail_history_id', latestHistoryId, { email: profile.emailAddress || account.metadata?.email || null, last_full_sync: fullSync ? new Date().toISOString() : subscription?.metadata?.last_full_sync || null, last_pull: { imported: count, ignored_outside_crm: skipped, at: new Date().toISOString() } })
+  if (latestHistoryId) await saveSubscriptionCursor(admin, account, 'gmail', 'gmail_history_id', latestHistoryId, { email: profile.emailAddress || account.metadata?.email || null, inbox_mode: 'recent_inbox_v1', last_full_sync: fullSync ? new Date().toISOString() : subscription?.metadata?.last_full_sync || null, last_pull: { imported: count, skipped, at: new Date().toISOString() } })
   return count
 }
 

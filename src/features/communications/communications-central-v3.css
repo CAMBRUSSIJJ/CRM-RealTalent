@@ -589,3 +589,9 @@ html[data-theme="dark"] .communications-central-v3__preview { color: #acbad0; }
 @media(prefers-reduced-motion:reduce) {
   .communications-central-v3__conversation { transition: none; }
 }
+
+/* Conversa de e-mail sem contato: criar contato / não é de trabalho */
+.email-workspace-panel__unlinked-actions { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: 8px; }
+.email-workspace-panel--unlinked .email-workspace-header { flex-wrap: wrap; gap: 10px; }
+.email-workspace-panel__unlinked-heading strong, .email-workspace-panel__unlinked-heading small { overflow-wrap: anywhere; }
+@media (max-width: 640px) { .email-workspace-panel__unlinked-actions { justify-content: flex-start; width: 100%; } }

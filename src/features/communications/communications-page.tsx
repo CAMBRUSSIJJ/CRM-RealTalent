@@ -894,6 +894,7 @@ export function CommunicationsPage() {
           onOpenLeadContext={selectedLead ? () => { setLeadContextTab('summary'); setLeadContextOpen(true) } : undefined}
           onSent={(message) => { notify('success', message); void reloadOfficial(true) }}
           onError={(message) => notify('error', message)}
+          onContactCreated={(lead) => { setSelectedLeadId(lead.id); setSelectedConversationKey(`${lead.id}:email`); void reloadOfficial(true) }}
         /> : selectedLead ? <>
           <header className="omnichannel-thread__header">
             <button type="button" className="omnichannel-thread__identity communication-focus-contact-trigger" onClick={() => { setLeadContextTab('summary'); setLeadContextOpen(true) }} aria-label={`Abrir contexto de ${selectedLead.name}`}><div className="communications-contact-card__avatar">{selectedLead.name.slice(0,2).toUpperCase()}</div><div><span className="eyebrow">Contato em foco</span><h3>{selectedLead.name}</h3><p>{selectedLead.company || 'Sem empresa'} · {selectedStage}</p></div><Info size={16}/></button>

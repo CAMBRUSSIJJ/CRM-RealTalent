@@ -1,6 +1,6 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.57.4'
 import { adminClient, ensureFreshToken, json, recordDiagnostic, safeMessage } from '../_shared/integration-runtime.ts'
-const cors = { 'access-control-allow-origin': '*', 'access-control-allow-headers': 'authorization, apikey, content-type' }
+const cors = { 'access-control-allow-origin': '*', 'access-control-allow-headers': 'authorization, apikey, content-type, x-client-info, x-supabase-api-version' }
 
 const endpointFor = (account: any) => {
   if (account.provider === 'google') return 'https://openidconnect.googleapis.com/v1/userinfo'

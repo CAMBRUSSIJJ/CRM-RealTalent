@@ -6,7 +6,7 @@ export type WorkerKey = 'google-sync' | 'microsoft-sync' | 'meta-sync' | 'whatsa
 
 export const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), {
   status,
-  headers: { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store', 'access-control-allow-origin': '*', 'access-control-allow-headers': 'authorization, apikey, content-type, x-worker-secret' },
+  headers: { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store', 'access-control-allow-origin': '*', 'access-control-allow-headers': 'authorization, apikey, content-type, x-worker-secret, x-client-info, x-supabase-api-version' },
 })
 
 export const adminClient = () => createClient(

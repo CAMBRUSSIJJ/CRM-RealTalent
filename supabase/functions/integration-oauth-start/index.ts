@@ -1,5 +1,5 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.57.4'
-const cors={ 'access-control-allow-origin':'*','access-control-allow-headers':'authorization, apikey, content-type' }
+const cors={ 'access-control-allow-origin':'*','access-control-allow-headers':'authorization, apikey, content-type, x-client-info, x-supabase-api-version' }
 const json=(body:unknown,status=200)=>new Response(JSON.stringify(body),{status,headers:{...cors,'content-type':'application/json; charset=utf-8','cache-control':'no-store'}})
 const base64url=(bytes:Uint8Array)=>btoa(String.fromCharCode(...bytes)).replaceAll('+','-').replaceAll('/','_').replaceAll('=','')
 const randomUrl=(size:number)=>{const bytes=new Uint8Array(size);crypto.getRandomValues(bytes);return base64url(bytes)}

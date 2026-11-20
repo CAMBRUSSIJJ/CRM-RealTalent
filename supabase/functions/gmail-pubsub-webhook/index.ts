@@ -13,6 +13,6 @@ Deno.serve(async(request)=>{
   const account=(accounts||[]).find((item:any)=>String(item.metadata?.email||'').toLowerCase()===email)
   if(!account)return json({accepted:false,reason:'account_not_found'},202)
   await admin.from('integration_sync_jobs').upsert({organization_id:account.organization_id,account_id:account.id,provider:'google',job_type:'google_mail_pull',worker_key:'google-sync',status:'queued',idempotency_key:`gmail:${message.messageId||decoded.historyId}`,payload:{history_id:decoded.historyId,email_address:email,pubsub_message_id:message.messageId||null}}, {onConflict:'organization_id,idempotency_key'})
-  await admin.from('communication_subscriptions').update({last_notification_at:new Date().toISOString(),status:'active',last_error:null,metadata:{history_id:decoded.historyId,email}}).eq('account_id',account.id).eq('resource_type','gmail_mailbox')
+  await admin.from('communication_subscriptions').update({last_notification_at:new Date().toISOString(),status:'active',last_error:null,metadata:{history_id:decoded.historyId,email}}).eq('account_id',account.id).eq('resource_type','gmail')
   return json({accepted:true},202)
 })

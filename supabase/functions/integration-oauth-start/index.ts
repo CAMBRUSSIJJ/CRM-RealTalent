@@ -21,12 +21,17 @@ Deno.serve(async(req)=>{
   const body=await req.json().catch(()=>({})) as {organizationId?:string;provider?:keyof typeof providers}
   const config=body.provider?providers[body.provider]:null
   if(!body.organizationId||!body.provider||!config)return json({error:'Organização ou provedor inválido'},400)
-  const {data:isAdmin}=await client.rpc('is_organization_admin',{p_organization_id:body.organizationId})
-  if(!isAdmin)return json({error:'Somente administradores podem conectar contas'},403)
+  // Caixas de e-mail e agendas são pessoais: qualquer membro conecta a própria conta.
+  // Canais da empresa (Meta e WhatsApp oficial) continuam restritos a administradores.
+  const personalProvider=body.provider==='google'||body.provider==='microsoft'
+  const {data:allowed}=await client.rpc(personalProvider?'is_organization_member':'is_organization_admin',{p_organization_id:body.organizationId})
+  if(!allowed)return json({error:personalProvider?'Você não faz parte desta organização':'Somente administradores podem conectar contas da empresa',code:'forbidden'},403)
   const clientId=Deno.env.get(config.client)||''
   const appUrl=Deno.env.get('APP_PUBLIC_URL')||''
   const encryptionKey=Deno.env.get('INTEGRATION_TOKEN_ENCRYPTION_KEY')||''
-  if(!clientId||!appUrl||encryptionKey.length<32)return json({error:`OAuth ${body.provider} ainda não foi configurado no servidor`},503)
+  const secretName=config.client.replace('_CLIENT_ID','_CLIENT_SECRET')
+  const missing=[!clientId&&config.client,!Deno.env.get(secretName)&&secretName,!appUrl&&'APP_PUBLIC_URL',encryptionKey.length<32&&'INTEGRATION_TOKEN_ENCRYPTION_KEY'].filter(Boolean)
+  if(missing.length)return json({error:`A conexão com ${body.provider==='google'?'o Google':body.provider} ainda não foi configurada pelo administrador.`,code:'not_configured',missing},503)
   const state=randomUrl(32); const verifier=randomUrl(64); const challenge=base64url(await sha256(verifier))
   const redirectUri=`${Deno.env.get('SUPABASE_URL')}/functions/v1/integration-oauth-callback`
   const admin=createClient(Deno.env.get('SUPABASE_URL')||'',Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')||'')

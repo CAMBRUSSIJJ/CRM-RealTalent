@@ -1,5 +1,8 @@
 import { Check, Copy, Mail, MessageCircle, PhoneCall, Send } from 'lucide-react'
 import { useEffect, useState } from 'react'
+import { useApp } from '../../app/app-context'
+import { createUuid } from '../../lib/id'
+import { loadMyEmailAccount, sendLeadEmail, type MyEmailAccount } from '../../services/email-account'
 import { Button } from '../../components/ui/button'
 import { Modal } from '../../components/ui/modal'
 import type { Lead } from '../../domain/types'
@@ -15,6 +18,29 @@ export function SalesMessageModal({ lead, stageName, open, onClose }: { lead: Le
   const [body, setBody] = useState('')
   const [objective, setObjective] = useState('')
   const [copied, setCopied] = useState(false)
+  const { currentWorkspace, repositoryMode, notify } = useApp()
+  const [emailAccount, setEmailAccount] = useState<MyEmailAccount | null>(null)
+  const [sending, setSending] = useState(false)
+  const [sendKey, setSendKey] = useState(createUuid)
+
+  // Com o Gmail conectado, o e-mail sai pelo CRM e fica no histórico do contato; sem ele, abre o app de e-mail.
+  useEffect(() => {
+    if (!open || !currentWorkspace || repositoryMode !== 'supabase') { setEmailAccount(null); return }
+    let active = true
+    loadMyEmailAccount(currentWorkspace.id).then((account) => { if (active) setEmailAccount(account) }).catch(() => { if (active) setEmailAccount(null) })
+    return () => { active = false }
+  }, [open, currentWorkspace?.id, repositoryMode])
+  const gmailReady = Boolean(emailAccount && emailAccount.status === 'connected' && emailAccount.canSend)
+  const sendByGmail = async () => {
+    if (!lead || !currentWorkspace || !emailAccount) return
+    setSending(true)
+    try {
+      await sendLeadEmail({ workspaceId: currentWorkspace.id, leadId: lead.id, accountId: emailAccount.id, recipient: lead.email, subject, body, idempotencyKey: sendKey })
+      notify('success', 'E-mail na fila de envio. Ele sai pelo seu Gmail em até um minuto.')
+      setSendKey(createUuid()); onClose()
+    } catch (error) { notify('error', error instanceof Error ? error.message : 'Não foi possível enviar.') }
+    finally { setSending(false) }
+  }
 
   useEffect(() => {
     if (!open) return
@@ -50,7 +76,7 @@ export function SalesMessageModal({ lead, stageName, open, onClose }: { lead: Le
   }
   const unavailable = !lead || (channel === 'email' ? !lead.email : !lead.phone)
 
-  return <Modal open={open} title="Contato assistido" subtitle={lead ? `${lead.name} · ${stageName}` : undefined} size="lg" onClose={onClose} footer={<><Button variant="secondary" onClick={onClose}>Fechar</Button><span className="modal__footer-spacer" /><Button variant="secondary" onClick={() => void copy()}>{copied ? <Check size={16} /> : <Copy size={16} />}{copied ? 'Copiado' : 'Copiar'}</Button><Button disabled={unavailable} onClick={openChannel}><Send size={16} /> Abrir canal</Button></>}>
+  return <Modal open={open} title="Contato assistido" subtitle={lead ? `${lead.name} · ${stageName}` : undefined} size="lg" onClose={onClose} footer={<><Button variant="secondary" onClick={onClose}>Fechar</Button><span className="modal__footer-spacer" /><Button variant="secondary" onClick={() => void copy()}>{copied ? <Check size={16} /> : <Copy size={16} />}{copied ? 'Copiado' : 'Copiar'}</Button>{channel === 'email' && gmailReady ? <Button disabled={unavailable || lead?.doNotContact} loading={sending} onClick={() => void sendByGmail()}><Send size={16} /> Enviar pelo Gmail</Button> : <Button disabled={unavailable} onClick={openChannel}><Send size={16} /> Abrir canal</Button>}</>}>
     <div className="sales-message-assistant">
       <div className="sales-message-assistant__tabs">
         <button type="button" disabled={!preferences.integrations.assistedWhatsapp} className={channel === 'whatsapp' ? 'is-active' : ''} onClick={() => setChannel('whatsapp')}><MessageCircle size={16} /> WhatsApp</button>
@@ -60,7 +86,7 @@ export function SalesMessageModal({ lead, stageName, open, onClose }: { lead: Le
       <div className="seller-guidance"><strong>Objetivo desta abordagem</strong><span>{objective}</span></div>
       {channel === 'email' ? <label className="field"><span>Assunto</span><input value={subject} onChange={(event) => setSubject(event.target.value)} /></label> : null}
       <label className="field"><span>{channel === 'call' ? 'Roteiro sugerido' : 'Mensagem sugerida'}</span><textarea rows={10} value={body} onChange={(event) => setBody(event.target.value)} /></label>
-      {unavailable ? <small className="text-danger">Preencha {channel === 'email' ? 'o e-mail' : 'o telefone'} do lead para abrir este canal.</small> : <small>Revise a sugestão antes de enviar. O CRM não dispara mensagens automaticamente.</small>}
+      {unavailable ? <small className="text-danger">Preencha {channel === 'email' ? 'o e-mail' : 'o telefone'} do lead para abrir este canal.</small> : <small>{channel === 'email' && gmailReady ? `Revise antes de enviar. O e-mail sai de ${emailAccount?.email} e fica no histórico do contato.` : 'Revise a sugestão antes de enviar. O CRM não dispara mensagens automaticamente.'}</small>}
     </div>
   </Modal>
 }

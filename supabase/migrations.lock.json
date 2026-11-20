@@ -124,6 +124,10 @@
     {
       "name": "202607290001_v100_50_user_experience_preferences.sql",
       "sha256": "9cbd2245b24790b0fead392f2759c455774a52d89f0423f3b8f1d50fd50da28b"
+    },
+    {
+      "name": "202611200001_v101_gmail_personal_accounts.sql",
+      "sha256": "27cb8ff4190c38b8c4ca670972f6109cf26a199959bef8cbe39c112ad961d65e"
     }
   ]
 }

@@ -6,6 +6,7 @@ import { StatusPill } from '../../components/ui/status-pill'
 import { formatDateTime } from '../../domain/formatters'
 import type { WorkspaceMember } from '../../domain/types'
 import { ExtensionCenterPanel } from './extension-center-panel'
+import { MyEmailAccountCard } from './my-email-account-card'
 import type { CrmPreferences } from './preferences-context'
 import {
   beginOAuthConnection, defaultJobTypeForProvider, enqueueIntegrationSync, loadIntegrationFramework, providerCapabilities,
@@ -48,6 +49,7 @@ export function IntegrationFrameworkPanel({preferences,members,onPreferencesChan
   const tabs:Array<[Tab,string]>=[['overview','Visão geral'],['accounts','Contas'],['capabilities','Capacidades'],['diagnostics','Diagnóstico'],['devices','Connect'],['extensions','Extensões'],['queue','Fila'],['logs','Auditoria'],['security','Segurança']]
   return <section className="integration-framework page-stack">
     <article className="panel integration-framework__hero"><div><span className="eyebrow"><CloudCog size={15}/> V100.46 · Google e Microsoft</span><h3>Fundação consolidada e provedores operacionais</h3><p>Google e Microsoft agora operam com sincronização incremental, subscriptions renováveis e diagnóstico por capacidade.</p></div><div className="integration-framework__hero-actions"><StatusPill tone={repositoryMode==='supabase'?'success':'info'}>{repositoryMode==='supabase'?'Infraestrutura hospedada':'Demonstração local'}</StatusPill><Button variant="secondary" loading={loading} onClick={()=>void refresh()}><RefreshCw size={15}/> Atualizar</Button><Button loading={busy==='diagnostics'} disabled={!canManage} onClick={()=>void diagnostics()}><TestTube2 size={15}/> Executar diagnóstico</Button></div></article>
+    <MyEmailAccountCard/>
     {repositoryMode==='local'?<div className="warning-box"><strong>Modo demonstração identificado</strong><span>As conexões criadas neste modo não armazenam credenciais, não chamam provedores externos e nunca aparecem como conexão real.</span></div>:null}
     <nav className="integration-framework__tabs" aria-label="Áreas de integrações">{tabs.map(([id,label])=><button type="button" key={id} className={tab===id?'is-active':''} onClick={()=>setTab(id)}>{label}</button>)}</nav>
 

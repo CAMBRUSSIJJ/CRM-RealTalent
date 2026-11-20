@@ -1,0 +1,43 @@
+/* Fase 2 · Comunicação — Seu e-mail (Configurações) e E-mails do contato (drawer). */
+
+.my-email-card { display: grid; gap: 14px; }
+.my-email-card .panel__heading h3 { overflow-wrap: anywhere; }
+.my-email-card__lead { margin: 0; color: var(--muted); font-size: 13px; line-height: 1.5; }
+.my-email-card__facts { margin: 0; padding: 0; display: grid; gap: 8px; list-style: none; }
+.my-email-card__facts li { display: grid; grid-template-columns: 16px 1fr; gap: 8px; align-items: start; font-size: 13px; line-height: 1.45; color: var(--text); }
+.my-email-card__facts svg { margin-top: 2px; color: var(--blue); }
+.my-email-card__details { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 10px; }
+.my-email-card__details div { padding: 10px 12px; display: grid; gap: 3px; border: 1px solid var(--border); border-radius: 10px; background: var(--surface-soft); }
+.my-email-card__details span { color: var(--muted); font-size: 11px; }
+.my-email-card__details strong { font-size: 13px; }
+.my-email-card .warning-box { margin-top: 0; }
+
+.lead-email-panel { display: grid; gap: 12px; }
+.lead-email-panel .lead-drawer__section-title { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.lead-email-panel .settings-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.lead-email-panel .settings-actions small { color: var(--muted); font-size: 12px; overflow-wrap: anywhere; }
+.lead-email-panel__connect { padding: 12px; display: grid; grid-template-columns: 18px 1fr auto; align-items: center; gap: 10px; border: 1px dashed var(--border); border-radius: 12px; background: var(--surface-soft); }
+.lead-email-panel__connect svg { color: var(--blue); }
+.lead-email-panel__connect span { display: grid; gap: 2px; min-width: 0; }
+.lead-email-panel__connect strong { font-size: 13px; }
+.lead-email-panel__connect small { color: var(--muted); font-size: 12px; line-height: 1.4; }
+.lead-email-panel__compose { padding: 12px; display: grid; gap: 10px; border: 1px solid var(--border); border-radius: 12px; background: var(--surface); }
+.lead-email-panel__compose textarea { resize: vertical; min-height: 120px; }
+.lead-email-panel__to { display: flex; flex-wrap: wrap; gap: 6px; font-size: 13px; }
+.lead-email-panel__to span { color: var(--muted); }
+.lead-email-panel__to strong { overflow-wrap: anywhere; }
+.lead-email-panel__list { margin: 0; padding: 0; display: grid; gap: 6px; list-style: none; }
+.lead-email-panel__item { width: 100%; padding: 9px 10px; display: grid; grid-template-columns: 16px minmax(0, 1fr) auto; align-items: center; gap: 9px; border: 1px solid var(--border); border-radius: 10px; color: inherit; background: var(--surface); text-align: left; font: inherit; cursor: pointer; }
+.lead-email-panel__item:hover { border-color: var(--blue); }
+.lead-email-panel__item:focus-visible { outline: 2px solid var(--blue); outline-offset: 2px; }
+.lead-email-panel__item svg { color: var(--blue); }
+.lead-email-panel__item span { display: grid; gap: 2px; min-width: 0; }
+.lead-email-panel__item strong { overflow: hidden; font-size: 13px; text-overflow: ellipsis; white-space: nowrap; }
+.lead-email-panel__item small { overflow: hidden; color: var(--muted); font-size: 11px; text-overflow: ellipsis; white-space: nowrap; }
+.lead-email-panel__body { margin: 6px 2px 4px; padding: 10px 12px; border-left: 3px solid var(--blue-soft); color: var(--text); font-size: 13px; line-height: 1.5; white-space: pre-wrap; overflow-wrap: anywhere; max-height: 280px; overflow-y: auto; }
+.lead-email-panel__empty { margin: 0; color: var(--muted); font-size: 12px; }
+
+@media (max-width: 520px) {
+  .lead-email-panel__connect { grid-template-columns: 18px 1fr; }
+  .lead-email-panel__connect .button { grid-column: 1 / -1; }
+}

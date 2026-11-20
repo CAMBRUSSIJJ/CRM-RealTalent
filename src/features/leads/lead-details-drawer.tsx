@@ -11,6 +11,7 @@ import type { ActivityType, Lead } from '../../domain/types'
 import { leadDataIssues, type DuplicateMatch } from '../../services/lead-intelligence'
 import { leadScoreInsight } from '../../services/lead-scoring'
 import { usePreferences } from '../settings/preferences-context'
+import { LeadEmailPanel } from '../communications/lead-email-panel'
 
 const callOutcomeLabel: Record<string, string> = {
   answered: 'Atendeu', no_answer: 'Não atendeu', busy: 'Ocupado', voicemail: 'Caixa postal', callback_requested: 'Pediu retorno', interested: 'Demonstrou interesse',
@@ -172,6 +173,8 @@ export function LeadDetailsDrawer({ readOnly = false, lead, duplicateMatches, on
           {lead.tags.length ? <div className="lead-tag-list">{lead.tags.map((tag) => <span key={tag}>{tag}</span>)}</div> : null}
           {lead.notes ? <div className="lead-notes"><strong>Observações</strong><p>{lead.notes}</p></div> : null}
         </section>
+
+        <LeadEmailPanel lead={lead} readOnly={readOnly} />
 
         {issues.length || duplicates.length ? <section className="lead-drawer__section">
           <div className="lead-drawer__section-title"><div><span className="eyebrow">Qualidade</span><h3>Dados que precisam de atenção</h3></div><AlertTriangle size={20} /></div>

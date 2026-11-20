@@ -10,6 +10,7 @@ import './styles/index.css'
 import './styles/motion-system.css'
 import './styles/actions-system.css'
 import './styles/experience-system.css'
+import './styles/communications.css'
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>

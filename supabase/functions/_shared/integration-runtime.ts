@@ -1,4 +1,5 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.57.4'
+import { buildContactSearchQueries, buildLeadEmailIndex, matchLeadForMessage, normalizeEmail, parseAddressList } from './gmail-contact-filter.ts'
 
 export type Provider = 'google' | 'microsoft' | 'meta' | 'whatsapp_cloud'
 export type WorkerKey = 'google-sync' | 'microsoft-sync' | 'meta-sync' | 'whatsapp-sync' | 'token-refresh' | 'integration-health'
@@ -22,7 +23,6 @@ export const assertWorkerSecret = (request: Request) => {
 
 export const safeMessage = (error: unknown) => error instanceof Error ? error.message.slice(0, 1000) : String(error).slice(0, 1000)
 const header = (headers: any[], name: string) => String(headers?.find((item) => String(item.name).toLowerCase() === name.toLowerCase())?.value || '')
-const emailAddress = (value: string) => { const match = value.match(/<([^>]+)>/); return (match?.[1] || value).trim().toLowerCase() }
 const textFromBase64Url = (value: string) => {
   try {
     const normalized = value.replaceAll('-', '+').replaceAll('_', '/') + '='.repeat((4 - value.length % 4) % 4)
@@ -92,7 +92,7 @@ async function saveSubscriptionCursor(admin: any, account: any, resourceType: st
 async function upsertEmailFromProvider(admin: any, account: any, input: {
   externalId: string; direction: 'inbound' | 'outbound'; sender: string; recipients: string[]; subject: string;
   text: string; html?: string; occurredAt: string; threadId?: string; internetMessageId?: string; metadata?: Record<string, unknown>;
-  attachments?: Array<Record<string, unknown>>
+  attachments?: Array<Record<string, unknown>>; leadId?: string | null
 }) {
   let eventId: string | null = null
   if (input.direction === 'inbound') {
@@ -104,7 +104,19 @@ async function upsertEmailFromProvider(admin: any, account: any, input: {
     if (error) throw new Error(error.message)
     eventId = String(data || '') || null
   } else {
+    // E-mail enviado direto pelo Gmail (fora do CRM) também entra na conversa do contato.
+    let threadId: string | null = null
+    if (input.leadId) {
+      const { data: thread } = await admin.from('communication_threads').select('id').eq('organization_id', account.organization_id).eq('lead_id', input.leadId).eq('account_id', account.id).eq('channel', 'email').eq('status', 'open').order('updated_at', { ascending: false }).limit(1).maybeSingle()
+      threadId = thread?.id || null
+      if (!threadId) {
+        const { data: created, error: threadError } = await admin.from('communication_threads').insert({ organization_id: account.organization_id, lead_id: input.leadId, account_id: account.id, channel: 'email', subject: input.subject.slice(0, 300), last_message_at: input.occurredAt }).select('id').single()
+        if (threadError) throw new Error(threadError.message)
+        threadId = created.id
+      } else await admin.from('communication_threads').update({ last_message_at: input.occurredAt }).eq('id', threadId)
+    }
     const { data, error } = await admin.from('communication_events').upsert({
+      ...(input.leadId ? { lead_id: input.leadId, thread_id: threadId } : {}),
       organization_id: account.organization_id, account_id: account.id, channel: 'email', direction: 'outbound', event_type: 'email', status: 'sent',
       external_message_id: input.externalId, sender_address: input.sender, recipient_addresses: input.recipients, subject: input.subject,
       body_text: input.text, occurred_at: input.occurredAt, metadata: { ...(input.metadata || {}), provider_thread_id: input.threadId || null },
@@ -383,74 +395,92 @@ export async function failJob(admin: any, job: any, startedAt: number, error: un
   return { status: terminal ? 'dead_letter' : 'retry', error: message }
 }
 
+async function loadLeadEmailIndex(admin: any, organizationId: string) {
+  const rows: Array<{ id: string; email: string | null }> = []
+  for (let from = 0; from < 50_000; from += 1000) {
+    const { data, error } = await admin.from('leads').select('id,email').eq('organization_id', organizationId).not('email', 'is', null).neq('email', '').order('updated_at', { ascending: false }).range(from, from + 999)
+    if (error) throw new Error(error.message)
+    rows.push(...(data || []))
+    if (!data || data.length < 1000) break
+  }
+  return buildLeadEmailIndex(rows)
+}
+
+async function gmailJson(token: string, url: string | URL) {
+  const response = await fetch(url, { headers: { authorization: `Bearer ${token}` } })
+  const data = await response.json().catch(() => ({})) as any
+  return { response, data }
+}
+
+// Busca o histórico só para descobrir mensagens novas; o conteúdo só é lido se a conversa for com um contato do CRM.
 async function googleMailPull(admin: any, account: any, token: string, jobPayload: any = {}) {
   const subscription = await subscriptionRow(admin, account.id, 'gmail')
   let cursor = String(subscription?.sync_cursor || '')
   const messageIds = new Set<string>()
   let latestHistoryId = String(jobPayload?.history_id || cursor || '')
   let fullSync = !cursor
+  const leads = await loadLeadEmailIndex(admin, account.organization_id)
   if (cursor) {
-    let endpoint = `https://gmail.googleapis.com/gmail/v1/users/me/history?startHistoryId=${encodeURIComponent(cursor)}&historyTypes=messageAdded&maxResults=500`
-    try {
-      while (endpoint) {
-        const response = await fetch(endpoint, { headers: { authorization: `Bearer ${token}` } })
-        const data = await response.json().catch(() => ({})) as any
-        if (response.status === 404) { fullSync = true; cursor = ''; break }
-        if (!response.ok) throw new Error(data?.error?.message || 'Falha no histórico incremental do Gmail')
-        for (const history of data.history || []) {
-          latestHistoryId = String(history.id || latestHistoryId)
-          for (const added of history.messagesAdded || []) if (added.message?.id) messageIds.add(String(added.message.id))
-        }
-        latestHistoryId = String(data.historyId || latestHistoryId)
-        endpoint = data.nextPageToken ? `https://gmail.googleapis.com/gmail/v1/users/me/history?startHistoryId=${encodeURIComponent(cursor)}&historyTypes=messageAdded&maxResults=500&pageToken=${encodeURIComponent(data.nextPageToken)}` : ''
+    const historyUrl = (pageToken = '') => `https://gmail.googleapis.com/gmail/v1/users/me/history?startHistoryId=${encodeURIComponent(cursor)}&historyTypes=messageAdded&maxResults=500${pageToken ? `&pageToken=${encodeURIComponent(pageToken)}` : ''}`
+    let endpoint = historyUrl()
+    while (endpoint) {
+      const { response, data } = await gmailJson(token, endpoint)
+      // 404: o cursor ficou velho demais no Gmail; refaz a busca completa pelos contatos.
+      if (response.status === 404) { fullSync = true; messageIds.clear(); break }
+      if (!response.ok) throw new Error(data?.error?.message || 'Falha no histórico incremental do Gmail')
+      for (const history of data.history || []) {
+        for (const added of history.messagesAdded || []) if (added.message?.id) messageIds.add(String(added.message.id))
       }
-    } catch (error) {
-      if (!fullSync) throw error
+      latestHistoryId = String(data.historyId || latestHistoryId)
+      endpoint = data.nextPageToken ? historyUrl(String(data.nextPageToken)) : ''
     }
   }
   if (fullSync) {
-    let pageToken = ''
-    let pages = 0
-    do {
-      const url = new URL('https://gmail.googleapis.com/gmail/v1/users/me/messages')
-      url.searchParams.set('maxResults', '100')
-      url.searchParams.set('q', 'newer_than:90d')
-      if (pageToken) url.searchParams.set('pageToken', pageToken)
-      const response = await fetch(url, { headers: { authorization: `Bearer ${token}` } })
-      const data = await response.json().catch(() => ({})) as any
-      if (!response.ok) throw new Error(data?.error?.message || 'Falha ao consultar Gmail')
-      for (const item of data.messages || []) if (item.id) messageIds.add(String(item.id))
-      pageToken = String(data.nextPageToken || '')
-      pages += 1
-    } while (pageToken && pages < 10)
+    for (const query of buildContactSearchQueries([...leads.keys()])) {
+      let pageToken = ''
+      let pages = 0
+      do {
+        const url = new URL('https://gmail.googleapis.com/gmail/v1/users/me/messages')
+        url.searchParams.set('maxResults', '100')
+        url.searchParams.set('q', query)
+        if (pageToken) url.searchParams.set('pageToken', pageToken)
+        const { response, data } = await gmailJson(token, url)
+        if (!response.ok) throw new Error(data?.error?.message || 'Falha ao consultar Gmail')
+        for (const item of data.messages || []) if (item.id) messageIds.add(String(item.id))
+        pageToken = String(data.nextPageToken || '')
+        pages += 1
+      } while (pageToken && pages < 5)
+      if (messageIds.size >= 1500) break
+    }
   }
+  const own = String(account.metadata?.email || '').toLowerCase()
   let count = 0
+  let skipped = 0
   for (const id of messageIds) {
-    const detailResponse = await fetch(`https://gmail.googleapis.com/gmail/v1/users/me/messages/${encodeURIComponent(id)}?format=full`, { headers: { authorization: `Bearer ${token}` } })
-    const message = await detailResponse.json().catch(() => ({})) as any
+    const metadataUrl = `https://gmail.googleapis.com/gmail/v1/users/me/messages/${encodeURIComponent(id)}?format=metadata&metadataHeaders=From&metadataHeaders=To&metadataHeaders=Cc`
+    const { response: metaResponse, data: meta } = await gmailJson(token, metadataUrl)
+    if (!metaResponse.ok) continue
+    const metaHeaders = meta.payload?.headers || []
+    const match = matchLeadForMessage({ from: header(metaHeaders, 'From'), to: parseAddressList(header(metaHeaders, 'To')), cc: parseAddressList(header(metaHeaders, 'Cc')) }, own, leads)
+    if (!match) { skipped += 1; continue }
+    const { response: detailResponse, data: message } = await gmailJson(token, `https://gmail.googleapis.com/gmail/v1/users/me/messages/${encodeURIComponent(id)}?format=full`)
     if (!detailResponse.ok) continue
     const headers = message.payload?.headers || []
-    const from = emailAddress(header(headers, 'From'))
-    const to = header(headers, 'To').split(',').map(emailAddress).filter(Boolean)
-    const cc = header(headers, 'Cc').split(',').map(emailAddress).filter(Boolean)
-    const subject = header(headers, 'Subject')
-    const internetMessageId = header(headers, 'Message-ID')
-    const own = String(account.metadata?.email || account.display_name || '').toLowerCase()
-    const inbound = !own || !from.includes(own)
+    const from = normalizeEmail(header(headers, 'From'))
+    const to = parseAddressList(header(headers, 'To'))
+    const cc = parseAddressList(header(headers, 'Cc'))
     const parts = gmailParts(message.payload)
-    const text = parts.text || String(message.snippet || '')
     await upsertEmailFromProvider(admin, account, {
-      externalId: String(message.id), direction: inbound ? 'inbound' : 'outbound', sender: from, recipients: [...to, ...cc], subject,
-      text, html: parts.html, occurredAt: new Date(Number(message.internalDate || Date.now())).toISOString(), threadId: String(message.threadId || ''), internetMessageId,
+      externalId: String(message.id), direction: match.direction, sender: from, recipients: [...to, ...cc], subject: header(headers, 'Subject'),
+      text: parts.text || String(message.snippet || ''), html: parts.html, occurredAt: new Date(Number(message.internalDate || Date.now())).toISOString(), threadId: String(message.threadId || ''), internetMessageId: header(headers, 'Message-ID'),
       metadata: { provider: 'gmail', thread_id: message.threadId, label_ids: message.labelIds || [], history_id: message.historyId || null, cc }, attachments: parts.attachments,
+      leadId: match.leadId,
     })
-    latestHistoryId = String(message.historyId || latestHistoryId)
     count += 1
   }
-  const profileResponse = await fetch('https://gmail.googleapis.com/gmail/v1/users/me/profile', { headers: { authorization: `Bearer ${token}` } })
-  const profile = await profileResponse.json().catch(() => ({})) as any
+  const { response: profileResponse, data: profile } = await gmailJson(token, 'https://gmail.googleapis.com/gmail/v1/users/me/profile')
   if (profileResponse.ok) latestHistoryId = String(profile.historyId || latestHistoryId)
-  if (latestHistoryId) await saveSubscriptionCursor(admin, account, 'gmail', 'gmail_history_id', latestHistoryId, { email: profile.emailAddress || account.metadata?.email || null, last_full_sync: fullSync ? new Date().toISOString() : subscription?.metadata?.last_full_sync || null })
+  if (latestHistoryId) await saveSubscriptionCursor(admin, account, 'gmail', 'gmail_history_id', latestHistoryId, { email: profile.emailAddress || account.metadata?.email || null, last_full_sync: fullSync ? new Date().toISOString() : subscription?.metadata?.last_full_sync || null, last_pull: { imported: count, ignored_outside_crm: skipped, at: new Date().toISOString() } })
   return count
 }
 
@@ -564,7 +594,8 @@ async function calendarPull(admin: any, account: any, token: string, provider: '
 async function renewGoogleSubscriptions(admin: any, account: any, token: string) {
   const results: Array<Record<string, unknown>> = []
   const topicName = Deno.env.get('GOOGLE_GMAIL_PUBSUB_TOPIC') || ''
-  if (topicName) {
+  // Sem Pub/Sub o Gmail é lido pela verificação periódica do pg_cron; o aviso em tempo real é opcional.
+  if (topicName && account.capabilities?.mail_sync !== false) {
     const response = await fetch('https://gmail.googleapis.com/gmail/v1/users/me/watch', { method: 'POST', headers: { authorization: `Bearer ${token}`, 'content-type': 'application/json' }, body: JSON.stringify({ topicName }) })
     const data = await response.json().catch(() => ({})) as any
     if (!response.ok) throw new Error(data?.error?.message || 'Falha ao renovar watch do Gmail')
@@ -573,6 +604,7 @@ async function renewGoogleSubscriptions(admin: any, account: any, token: string)
     await admin.from('communication_subscriptions').upsert({ organization_id: account.organization_id, account_id: account.id, provider: 'google', resource_type: 'gmail', cursor_kind: currentGmail?.cursor_kind || 'gmail_history_id', expiration_at: expiration, renew_after: new Date(new Date(expiration).getTime() - 24 * 60 * 60 * 1000).toISOString(), last_renewed_at: new Date().toISOString(), status: 'active', metadata: { ...(currentGmail?.metadata || {}), topic_name: topicName, watch_history_id: String(data.historyId || '') } }, { onConflict: 'account_id,resource_type' })
     results.push({ resource: 'gmail', expiration })
   }
+  if (account.capabilities?.calendar_sync === false) return results.length
   const calendarId = String(account.metadata?.calendar_id || 'primary')
   const webhookUrl = `${providerFunctionBase()}/google-communications-webhook`
   const rawToken = crypto.randomUUID().replaceAll('-', '') + crypto.randomUUID().replaceAll('-', '')

@@ -17,6 +17,7 @@ import { inspectWorkspaceIntegrity } from '../../services/data-integrity'
 import { useAuth } from '../auth/auth-context'
 import { type CrmPreferences, usePreferences } from './preferences-context'
 import { IntegrationCenter } from './integration-center'
+import { consumeSettingsTab } from '../../services/email-account'
 import { useExperience, type ExperiencePreset } from '../experience/experience-context'
 
 const roleLabels: Record<WorkspaceRole, string> = { owner: 'Proprietário', admin: 'Administrador', member: 'Membro', viewer: 'Somente leitura' }
@@ -65,7 +66,10 @@ export function SettingsPage() {
   const { preferences, savePreferences, resetPreferences } = usePreferences()
   const experience = useExperience()
   const { repositoryMode, health, currentWorkspace, snapshot, importLegacyBackup, restoreWorkspaceBackup, notify, refresh } = app
-  const [activeTab, setActiveTab] = useState<SettingsTab>('account')
+  const [activeTab, setActiveTab] = useState<SettingsTab>(() => {
+    const requested = consumeSettingsTab()
+    return requested && ['account', 'experience', 'company', 'navigation', 'team', 'commercial', 'integrations', 'data'].includes(requested) ? requested as SettingsTab : 'account'
+  })
   const [draft, setDraft] = useState<CrmPreferences>(preferences)
   const [members, setMembers] = useState<WorkspaceMember[]>([])
   const [invites, setInvites] = useState<WorkspaceInvite[]>([])

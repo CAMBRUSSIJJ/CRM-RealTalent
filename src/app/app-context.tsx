@@ -20,6 +20,7 @@ import { recordContactDraft, recordSellerNotification } from '../services/automa
 import { dispatchAutomationWebhook } from '../services/automation-webhooks'
 import { queueCalendarMutation } from '../services/calendar-integration'
 import { normalizeSnapshotForRender } from '../services/snapshot-safety'
+import { cleanOAuthParams, oauthReturnMessage, readOAuthReturn, requestSettingsTab } from '../services/email-account'
 
 export interface ToastAction { label: string; run: () => void | Promise<void> }
 export interface ToastOptions { action?: ToastAction; duration?: number; persistent?: boolean }
@@ -240,6 +241,13 @@ export function AppProvider({ children }: PropsWithChildren) {
         await repository.acceptWorkspaceInvite(inviteToken)
         const nextUrl = new URL(window.location.href); nextUrl.searchParams.delete('invite'); window.history.replaceState({}, document.title, `${nextUrl.pathname}${nextUrl.search}${nextUrl.hash}`)
         notify('success', 'Convite aceito. O workspace foi adicionado à sua conta.')
+      }
+      // Volta do Google/Microsoft: mostra o resultado e abre Configurações › Integrações.
+      const oauthReturn = readOAuthReturn(window.location.search)
+      if (oauthReturn) {
+        window.history.replaceState({}, document.title, cleanOAuthParams(window.location.href))
+        requestSettingsTab('integrations'); setRoute('settings')
+        notify(oauthReturn.status === 'success' ? 'success' : 'error', oauthReturnMessage(oauthReturn))
       }
       const [repositoryHealth, workspaceList] = await Promise.all([repository.health(), repository.listWorkspaces()])
       setHealth(repositoryHealth); setWorkspaces(workspaceList)

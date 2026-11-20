@@ -125,6 +125,10 @@ export function subscribeGatewayCommunicationsRealtime(
   }
 }
 
+// Quando o gateway do WhatsApp QR não está no ar, o endereço pode responder 200 sem a lista
+// (ex.: a página do app). A tela trata isso como lista vazia em vez de quebrar.
+const listOrEmpty = <T>(value: T[] | undefined | null): T[] => Array.isArray(value) ? value : []
+
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const method = String(init?.method || 'GET').toUpperCase()
   const attempts = method === 'GET' ? 3 : 1
@@ -197,7 +201,7 @@ export async function requestGeminiCopilot(input: GeminiCopilotInput): Promise<G
 }
 
 export const loadCommunicationsGatewayHealth = () => request<CommunicationsGatewayHealth>('/api/communications/health')
-export const loadGatewayAccounts = (workspaceId: string) => request<{ accounts: ConnectedAccount[] }>(`/api/integrations/accounts?workspaceId=${encodeURIComponent(workspaceId)}`).then((result) => result.accounts)
+export const loadGatewayAccounts = (workspaceId: string) => request<{ accounts: ConnectedAccount[] }>(`/api/integrations/accounts?workspaceId=${encodeURIComponent(workspaceId)}`).then((result) => listOrEmpty(result?.accounts))
 const currentReturnUrl = () => {
   const href = typeof globalThis.location?.href === 'string' ? globalThis.location.href : ''
   return href || 'http://127.0.0.1:4188/'
@@ -210,7 +214,7 @@ export const configureGatewayWhatsApp = (input: { workspaceId: string; accessTok
 export interface GatewaySyncFailure { accountId: string; provider: string; message: string; transport?: string | null; displayName?: string; liveState?: string | null }
 export const syncGatewayCommunications = (workspaceId: string, accountId?: string | null) => request<{ queued: string[]; triggered: string[]; accounts: number; imported: number; failures: GatewaySyncFailure[] }>('/api/communications/sync', { method: 'POST', body: JSON.stringify({ workspaceId, accountId: accountId || null }) })
 export const markGatewayConversationRead = (workspaceId: string, threadId?: string | null, peerAddress?: string | null) => request<{ updated: number }>('/api/communications/read', { method: 'POST', body: JSON.stringify({ workspaceId, threadId: threadId || '', peerAddress: peerAddress || '' }) })
-export const loadGatewayCommunicationEvents = (workspaceId: string, limit = 500) => request<{ events: CommunicationEvent[] }>(`/api/communications/events?workspaceId=${encodeURIComponent(workspaceId)}&limit=${limit}`).then((result) => result.events)
+export const loadGatewayCommunicationEvents = (workspaceId: string, limit = 500) => request<{ events: CommunicationEvent[] }>(`/api/communications/events?workspaceId=${encodeURIComponent(workspaceId)}&limit=${limit}`).then((result) => listOrEmpty(result?.events))
 export interface GatewayWhatsAppAttachmentInput {
   dataBase64: string
   mimeType: string
@@ -249,7 +253,7 @@ export interface GatewayWhatsAppContact {
   isBusiness: boolean
   isBlocked: boolean
 }
-export const loadGatewayWhatsAppContacts = (workspaceId: string) => request<{ contacts: GatewayWhatsAppContact[] }>(`/api/integrations/whatsapp/qr/contacts?workspaceId=${encodeURIComponent(workspaceId)}`).then((result) => result.contacts)
+export const loadGatewayWhatsAppContacts = (workspaceId: string) => request<{ contacts: GatewayWhatsAppContact[] }>(`/api/integrations/whatsapp/qr/contacts?workspaceId=${encodeURIComponent(workspaceId)}`).then((result) => listOrEmpty(result?.contacts))
 
 export interface GatewayWhatsAppGroupInfo {
   id: string

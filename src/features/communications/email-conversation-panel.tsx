@@ -8,7 +8,8 @@ import { NativeSelectionSelect } from '../../components/selection'
 import { Button } from '../../components/ui/button'
 import type { Lead } from '../../domain/types'
 import { formatDateTime } from '../../domain/formatters'
-import { connectedAccountLabel, emailCounterpartOf, ignoreEmailSender, sendOfficialEmail, type UnifiedCommunicationItem } from '../../services/communication-workspace'
+import { cancelScheduledEmail, connectedAccountLabel, emailCounterpartOf, ignoreEmailSender, sendOfficialEmail, type UnifiedCommunicationItem } from '../../services/communication-workspace'
+import { EmailTemplatePicker, LeadSequenceStrip, missingVariablesMessage } from './email-composer-tools'
 import {beginOAuthConnection, type ConnectedAccount} from '../../services/integration-framework'
 import {loadCommunicationsGatewayHealth,type CommunicationsGatewayHealth} from '../../services/local-communications-gateway'
 import {emailConnectGate,localOAuthCallbacks} from './email-connection-s37'
@@ -55,6 +56,12 @@ export function EmailConversationPanel({
   const { user } = useAuth()
   const { preferences: crmPreferences } = usePreferences()
   const [unlinkedBusy, setUnlinkedBusy] = useState<'create' | 'ignore' | null>(null)
+  const [templateId, setTemplateId] = useState('')
+  const [missingVars, setMissingVars] = useState<string[]>([])
+  const [track, setTrack] = useState(true)
+  const [scheduling, setScheduling] = useState(false)
+  const [scheduleAt, setScheduleAt] = useState('')
+  const [cancellingId, setCancellingId] = useState('')
   const checkGateway=async()=>{
     if(repositoryMode!=='local')return
     setGatewayLoading(true)
@@ -87,15 +94,34 @@ export function EmailConversationPanel({
   const callbacks=localOAuthCallbacks()
   const account = accounts.find((item) => item.id === accountId) ?? null
   const recipient = lead?.email.trim() ?? ''
-  const canSend = Boolean(!readOnly && lead && account && recipient && subject.trim() && body.trim() && !lead.doNotContact)
+  const scheduleValid = !scheduling || (Boolean(scheduleAt) && Date.parse(scheduleAt) > Date.now() + 2 * 60_000)
+  const canSend = Boolean(!readOnly && lead && account && recipient && subject.trim() && body.trim() && !lead.doNotContact && scheduleValid)
+  const cancelScheduled = async (item: UnifiedCommunicationItem) => {
+    setCancellingId(item.id)
+    try { await cancelScheduledEmail(item.id); onSent('Agendamento cancelado. O e-mail não será enviado.') }
+    catch (error) { onError(error instanceof Error ? error.message : 'Não foi possível cancelar.') }
+    finally { setCancellingId('') }
+  }
+  // Situação de cada e-mail enviado: agendado, aberto, clicado.
+  const deliveryNote = (item: UnifiedCommunicationItem) => {
+    const meta = item.metadata || {}
+    if (item.status === 'queued' && meta.scheduled_for) return `Agendado para ${formatDateTime(String(meta.scheduled_for))}`
+    if (item.direction !== 'outbound' || item.status !== 'sent') return ''
+    const opens = Number(meta.open_count || 0); const clicks = Number(meta.click_count || 0)
+    if (clicks) return `Clicado ${clicks}× · último ${formatDateTime(String(meta.last_clicked_at || meta.first_clicked_at))}`
+    if (opens || meta.first_opened_at) return `Aberto${opens > 1 ? ` ${opens}×` : ''} · ${formatDateTime(String(meta.last_opened_at || meta.first_opened_at))}`
+    if (meta.tracking) return 'Ainda não aberto'
+    return ''
+  }
 
   const send = async () => {
     if (!lead || !account || !canSend) return
     setSending(true)
     try {
-      const event = await sendOfficialEmail({ workspaceId, leadId: lead.id, contactId: lead.primaryContactId ?? null, accountId: account.id, recipient, subject: subject.trim(), body: body.trim() })
-      setBody('')
-      onSent(event.status === 'sent' ? 'E-mail enviado pelo CRM.' : 'E-mail registrado e colocado na fila de envio.')
+      const scheduledAt = scheduling && scheduleAt ? new Date(scheduleAt).toISOString() : null
+      const event = await sendOfficialEmail({ workspaceId, leadId: lead.id, contactId: lead.primaryContactId ?? null, accountId: account.id, recipient, subject: subject.trim(), body: body.trim(), scheduledAt, track, templateId: templateId || null })
+      setBody(''); setTemplateId(''); setMissingVars([]); setScheduling(false); setScheduleAt('')
+      onSent(scheduledAt ? `E-mail agendado para ${formatDateTime(scheduledAt)}. Você pode cancelar até ele sair.` : event.status === 'sent' ? 'E-mail enviado pelo CRM.' : 'E-mail na fila de envio. Sai em até um minuto.')
     } catch (error) { onError(error instanceof Error ? error.message : 'Não foi possível enviar o e-mail.') }
     finally { setSending(false) }
   }
@@ -203,6 +229,7 @@ export function EmailConversationPanel({
       <div className="email-workspace-header__actions"><span className={`email-account-health ${accounts.length ? 'is-connected' : ''}`}><i/><span><strong>{accounts.length ? `${accounts.length} ${plural(accounts.length, 'conta', 'contas')} ${plural(accounts.length, 'conectada', 'conectadas')}` : 'E-mail desconectado'}</strong><small>{accounts.length ? 'Gmail / Outlook oficial' : 'Conecte uma conta para responder'}</small></span></span><Button size="sm" variant="secondary" loading={loading} onClick={onSync}><RefreshCw size={15}/> Sincronizar</Button>{onOpenLeadContext ? <Button size="sm" variant="ghost" onClick={onOpenLeadContext}><Info size={15}/> Lead</Button> : null}</div>
     </header>
 
+    {repositoryMode === 'supabase' && accounts.length ? <LeadSequenceStrip workspaceId={workspaceId} lead={lead} accountId={accountId} readOnly={readOnly}/> : null}
     <div className="email-thread">
       {orderedEvents.length ? orderedEvents.map((item) => <article key={item.id} className={`email-message-card is-${item.direction}`}>
         <div className="email-message-card__avatar">{item.direction === 'inbound' ? lead.name.slice(0,2).toUpperCase() : 'RT'}</div>
@@ -210,7 +237,11 @@ export function EmailConversationPanel({
           <header><div><strong>{eventSender(item, lead)}</strong><span>{item.direction === 'inbound' ? 'para você' : `para ${lead.email}`}</span></div><time>{formatDateTime(item.occurredAt)}</time></header>
           {item.subject ? <h4>{item.subject}</h4> : null}
           <p>{item.body || 'Mensagem sem conteúdo textual.'}</p>
-          <footer><span>{item.direction === 'inbound' ? 'Recebido' : item.status === 'sent' ? 'Enviado' : item.status === 'delivered' ? 'Entregue' : item.status}</span>{item.official ? <b>Oficial</b> : <b>CRM</b>}</footer>
+          <footer><span>{item.direction === 'inbound' ? 'Recebido' : item.status === 'sent' ? 'Enviado' : item.status === 'delivered' ? 'Entregue' : item.status === 'queued' ? (item.metadata?.scheduled_for ? 'Agendado' : 'Na fila') : item.status === 'cancelled' ? 'Cancelado' : item.status === 'failed' ? 'Falhou' : item.status}</span>
+            {deliveryNote(item) ? <em className="email-message-card__tracking">{deliveryNote(item)}</em> : null}
+            {item.metadata?.sequence_step ? <em className="email-message-card__tracking">Sequência · e-mail {String(item.metadata.sequence_step)}</em> : null}
+            {item.status === 'queued' && item.metadata?.scheduled_for && !readOnly ? <Button size="sm" variant="ghost" loading={cancellingId === item.id} onClick={() => void cancelScheduled(item)}>Cancelar envio</Button> : null}
+            {item.official ? <b>Oficial</b> : <b>CRM</b>}</footer>
         </div>
       </article>) : <div className="email-thread__empty"><Mail size={28}/><strong>Nenhum e-mail nesta conversa</strong><p>Escreva a primeira mensagem abaixo para iniciar a thread.</p></div>}
     </div>
@@ -218,8 +249,16 @@ export function EmailConversationPanel({
     <div className="email-composer">
       {!accounts.length ? <div className="email-composer__connection"><WifiOff size={17}/><span><strong>Conecte Gmail ou Outlook para enviar pelo CRM.</strong><small>O histórico continua disponível; o envio oficial exige uma conta conectada em Integrações.</small></span><Button size="sm" variant="secondary" loading={loading} onClick={onSync}>Verificar</Button></div> : <>
         <div className="email-composer__meta"><label><span>De</span><NativeSelectionSelect value={accountId} onChange={(event) => setAccountId(event.target.value)}>{accounts.map((item) => <option key={item.id} value={item.id}>{connectedAccountLabel(item)}</option>)}</NativeSelectionSelect></label><label><span>Para</span><input value={recipient} readOnly /></label></div>
+        {repositoryMode === 'supabase' ? <EmailTemplatePicker workspaceId={workspaceId} lead={lead} subject={subject} body={body} disabled={readOnly}
+          onApply={(next) => { if (next.subject) setSubject(next.subject); setBody(next.body); setTemplateId(next.templateId); setMissingVars(next.missing) }}/> : null}
+        {missingVars.length ? <p className="email-tools__warning" role="status">{missingVariablesMessage(missingVars)}</p> : null}
         <label className="email-composer__subject"><span>Assunto</span><input value={subject} onChange={(event) => setSubject(event.target.value)} /></label>
-        <div className="email-composer__body"><textarea rows={4} value={body} disabled={readOnly} onChange={(event) => setBody(event.target.value)} placeholder="Escreva uma resposta..."/><div className="email-composer__footer"><small>{lead.doNotContact ? 'Contato bloqueado pela política do CRM.' : account ? `Enviando por ${account.displayName}` : ''}</small><Button loading={sending} disabled={!canSend || sending} onClick={() => void send()}><Send size={15}/> Enviar e-mail</Button></div></div>
+        <div className="email-composer__body"><textarea rows={4} value={body} disabled={readOnly} onChange={(event) => setBody(event.target.value)} placeholder="Escreva uma resposta..."/><div className="email-composer__footer"><small>{lead.doNotContact ? 'Contato bloqueado pela política do CRM.' : account ? `Enviando por ${account.displayName}` : ''}</small><div className="email-tools__send">
+          {repositoryMode === 'supabase' ? <label className="email-tools__check" title="Mostra quando o contato abriu o e-mail ou clicou em um link (aproximado: alguns aplicativos bloqueiam ou antecipam imagens)"><input type="checkbox" checked={track} onChange={(event) => setTrack(event.target.checked)}/> Rastrear abertura</label> : null}
+          {repositoryMode === 'supabase' ? <label className="email-tools__check"><input type="checkbox" checked={scheduling} onChange={(event) => { setScheduling(event.target.checked); if (event.target.checked && !scheduleAt) { const next = new Date(Date.now() + 86_400_000); next.setHours(9, 0, 0, 0); setScheduleAt(new Date(next.getTime() - next.getTimezoneOffset() * 60_000).toISOString().slice(0, 16)) } }}/> Agendar</label> : null}
+          {scheduling ? <input type="datetime-local" className="email-tools__datetime" aria-label="Data e hora do envio" value={scheduleAt} min={new Date(Date.now() - new Date().getTimezoneOffset() * 60_000 + 5 * 60_000).toISOString().slice(0, 16)} onChange={(event) => setScheduleAt(event.target.value)}/> : null}
+          <Button loading={sending} disabled={!canSend || sending} onClick={() => void send()}><Send size={15}/> {scheduling ? 'Agendar envio' : 'Enviar e-mail'}</Button>
+        </div></div></div>
       </>}
     </div>
   </section>

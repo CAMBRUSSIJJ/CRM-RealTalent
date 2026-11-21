@@ -355,13 +355,13 @@ export async function loadCommunicationChannelState(workspaceId: string) {
   return { accounts: live, emailAccounts, mailSyncAccounts, whatsappAccounts, calendarAccounts, metaAccounts, instagramAccounts, facebookAccounts, leadAdsAccounts }
 }
 
-export async function sendOfficialEmail(input: { workspaceId: string; leadId: string; contactId?: string | null; accountId?: string | null; recipient: string; subject: string; body: string; idempotencyKey?: string }): Promise<CommunicationEvent> {
+export async function sendOfficialEmail(input: { workspaceId: string; leadId: string; contactId?: string | null; accountId?: string | null; recipient: string; subject: string; body: string; idempotencyKey?: string; scheduledAt?: string | null; track?: boolean; templateId?: string | null }): Promise<CommunicationEvent> {
   const client = communicationCloudClient()
   if (!client) {
     if (!input.accountId) throw new Error('Selecione uma conta de e-mail conectada.')
     return sendGatewayCommunication({ workspaceId: input.workspaceId, leadId: input.leadId, contactId: input.contactId ?? null, accountId: input.accountId, channel: 'email', recipient: input.recipient, subject: input.subject, body: input.body, idempotencyKey: input.idempotencyKey ?? `crm-email:${input.leadId}:${Date.now()}` })
   }
-  const { data, error } = await client.functions.invoke('official-communication-send', { body: { organizationId: input.workspaceId, leadId: input.leadId, contactId: input.contactId ?? null, accountId: input.accountId || null, channel: 'email', recipient: input.recipient, subject: input.subject, body: input.body, idempotencyKey: input.idempotencyKey ?? `crm-email:${input.leadId}:${Date.now()}` } })
+  const { data, error } = await client.functions.invoke('official-communication-send', { body: { organizationId: input.workspaceId, scheduledAt: input.scheduledAt || undefined, track: input.track === true, templateId: input.templateId || undefined, leadId: input.leadId, contactId: input.contactId ?? null, accountId: input.accountId || null, channel: 'email', recipient: input.recipient, subject: input.subject, body: input.body, idempotencyKey: input.idempotencyKey ?? `crm-email:${input.leadId}:${Date.now()}` } })
   if (error) throw new Error(error.message)
   const payload = data as { event?: CommunicationEvent; error?: string } | null
   if (!payload?.event) throw new Error(payload?.error ?? 'O backend não retornou o evento de e-mail.')
@@ -420,6 +420,13 @@ export async function syncOfficialCommunications(workspaceId: string): Promise<{
     throw new Error(result.failures.map((item) => item.message).join(' · '))
   }
   return result
+}
+
+export async function cancelScheduledEmail(eventId: string) {
+  const client = communicationCloudClient() as any
+  if (!client) throw new Error('Disponível apenas no CRM hospedado.')
+  const { error } = await client.rpc('cancel_scheduled_email', { p_event_id: eventId.replace(/^official:/, '') })
+  if (error) throw new Error(error.message)
 }
 
 // "Não é de trabalho": o dono da conta tira do CRM as conversas com esse endereço e ele não volta a ser importado.

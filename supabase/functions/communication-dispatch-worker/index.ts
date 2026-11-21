@@ -1,5 +1,6 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.57.4'
 import { ensureFreshToken } from '../_shared/integration-runtime.ts'
+import { buildTrackedHtml } from '../_shared/email-tracking.ts'
 const json=(body:unknown,status=200)=>new Response(JSON.stringify(body),{status,headers:{'content-type':'application/json'}})
 const cleanHeader=(value:string)=>value.replace(/[\r\n]+/g,' ').trim()
 const bytesToBase64=(bytes:Uint8Array)=>{let value='';for(let i=0;i<bytes.length;i+=0x8000)value+=String.fromCharCode(...bytes.subarray(i,i+0x8000));return btoa(value)}
@@ -34,7 +35,12 @@ Deno.serve(async(req)=>{
     const attempt=Number(item.attempts||0)+1;const started=Date.now();const {data:claimed}=await admin.from('communication_outbox').update({status:'processing',locked_at:new Date().toISOString(),attempts:attempt}).eq('id',item.id).in('status',['queued','retry']).select('id').maybeSingle();if(!claimed)continue
     try{
       const account=item.integration_connected_accounts;if(!account||account.status!=='connected'||!account.has_credential)throw new Error('Conta não conectada')
-      const token=await ensureFreshToken(admin,account);const payload=(item.payload||{}) as Record<string,unknown>;let externalId='';let responseCode=0
+      const token=await ensureFreshToken(admin,account);let payload=(item.payload||{}) as Record<string,unknown>;let externalId='';let responseCode=0
+      // Rastreio de abertura/cliques: só quando o vendedor marcou ao enviar.
+      const trackingSecret=Deno.env.get('INTEGRATION_TOKEN_ENCRYPTION_KEY')||''
+      if(item.channel==='email'&&payload.track===true&&trackingSecret.length>=32){
+        payload={...payload,bodyHtml:await buildTrackedHtml({text:String(payload.body||''),html:String(payload.bodyHtml||''),eventId:String(item.event_id),base:`${Deno.env.get('SUPABASE_URL')}/functions/v1/email-track`,secret:trackingSecret})}
+      }
       if(item.channel==='email'&&account.provider==='google'){
         const raw=base64UrlBytes(new TextEncoder().encode(buildGmailMime(payload)))
         const requestBody:Record<string,unknown>={raw};if(payload.threadId)requestBody.threadId=String(payload.threadId)
@@ -57,9 +63,10 @@ Deno.serve(async(req)=>{
         const phoneNumberId=String(account.metadata?.phone_number_id||'');if(!phoneNumberId)throw new Error('Configure phone_number_id na conta do WhatsApp');const version=Deno.env.get('META_GRAPH_VERSION')||'v23.0';const response=await fetch(`https://graph.facebook.com/${version}/${phoneNumberId}/messages`,{method:'POST',headers:{authorization:`Bearer ${token}`,'content-type':'application/json'},body:JSON.stringify({messaging_product:'whatsapp',to:String(payload.recipient||'').replace(/\D/g,''),type:'text',text:{preview_url:false,body:String(payload.body||'')}})});const result=await response.json().catch(()=>({})) as any;responseCode=response.status;if(!response.ok)throw new Error(result?.error?.message||'Falha no WhatsApp');externalId=String(result.messages?.[0]?.id||'')
       }else throw new Error('Conta incompatível com o canal')
       const eventMetadata={provider:account.provider,response_code:responseCode,duration_ms:Date.now()-started,template_id:payload.templateId||null,cc:arrayOf(payload.cc),bcc:arrayOf(payload.bcc),attachment_count:attachmentsOf(payload.attachments).length}
-      await admin.from('communication_events').update({status:'sent',external_message_id:externalId||null,occurred_at:new Date().toISOString(),metadata:eventMetadata}).eq('id',item.event_id)
+      const {data:currentEvent}=await admin.from('communication_events').select('metadata').eq('id',item.event_id).maybeSingle()
+      await admin.from('communication_events').update({status:'sent',external_message_id:externalId||null,occurred_at:new Date().toISOString(),metadata:{...(currentEvent?.metadata||{}),...eventMetadata,sent_at:new Date().toISOString()}}).eq('id',item.event_id)
       await admin.from('communication_outbox').update({status:'sent',completed_at:new Date().toISOString(),locked_at:null,last_error:null}).eq('id',item.id);results.push({id:item.id,status:'sent',externalId})
-    }catch(error){const message=error instanceof Error?error.message:'Falha desconhecida';const terminal=attempt>=Number(item.max_attempts||5);const delay=Math.min(3600,Math.pow(2,attempt)*30);await admin.from('communication_events').update({status:'failed',metadata:{dispatch_error:message,attempt}}).eq('id',item.event_id);await admin.from('communication_outbox').update({status:terminal?'dead_letter':'retry',available_at:new Date(Date.now()+delay*1000).toISOString(),locked_at:null,last_error:message}).eq('id',item.id);results.push({id:item.id,status:terminal?'dead_letter':'retry',error:message})}
+    }catch(error){const message=error instanceof Error?error.message:'Falha desconhecida';const terminal=attempt>=Number(item.max_attempts||5);const delay=Math.min(3600,Math.pow(2,attempt)*30);const {data:failedEvent}=await admin.from('communication_events').select('metadata').eq('id',item.event_id).maybeSingle();await admin.from('communication_events').update({status:terminal?'failed':'queued',metadata:{...(failedEvent?.metadata||{}),dispatch_error:message,attempt}}).eq('id',item.event_id);await admin.from('communication_outbox').update({status:terminal?'dead_letter':'retry',available_at:new Date(Date.now()+delay*1000).toISOString(),locked_at:null,last_error:message}).eq('id',item.id);results.push({id:item.id,status:terminal?'dead_letter':'retry',error:message})}
   }
   return json({processed:results.length,results})
 })

@@ -184,3 +184,6 @@ verify_jwt = false
 
 [functions.task-reminder-readiness]
 verify_jwt = true
+
+[functions.email-track]
+verify_jwt = false
